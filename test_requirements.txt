@@ -1,0 +1,6 @@
+pytest
+pytest-cov
+coveralls
+sphinx
+sphinx_bootstrap_theme
+travis-sphinx

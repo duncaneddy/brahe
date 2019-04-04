@@ -1,0 +1,31 @@
+language: python
+
+notifications:
+  email: false
+
+python:
+  - '3.6'
+  - '3.7'
+
+dist: xenial
+
+before_script:
+  - pip install -U -r requirements.txt
+  - pip install -U -r test_requirements.txt
+
+script:
+  - pytest --cov=brahe
+  - travis-sphinx build --source=doc/source
+
+after_success:
+  - coveralls
+  - travis-sphinx deploy
+
+# deploy:
+#   provider: pypi
+#   user:
+#     secure: aur8VekhhGzEPGAPr+MFYJacpXCE63FtQ8qM4bJgSdiEDa9O1HnC9lZ6MqEc+lwax8+Euo+jR5pt0TJcHO4uxcpQZQS/SQ1yav+nC4oicUXQ0dWp3U39bFmbxxqqZDPLeCr0e8q5oJBbTm4OFmn0YDbrETnBlmS5EjjEX6pjVatZPyhMWZVS7mxIKyKtsGRvDolc5DxP0tEWf4Bku8Jb2W9xIQo36hhnWRgerN5+LK0NV4hBtaAWTVjy4/V84JZ6+9JbTke8C9n2HVCCmGsgtAAvgwKtwB5a2P4+ACgYjCZ4Yg1II/2tGCYhskVkypmYS7m14562CEl2Ewlwz7MTZtZI3/wnZB7F3dktvRHv87Yrqfj7G5Pc8XRSDWO15139BHl8lV93cfqvcr0hS/C4L+B01M+6o2jnGDjebriPTfvGKn6OMAKl4rgATf7oE+nJSZBgMxvfOiVhcOEPk510pXNtaZ8U9PuHAG+ZezdFOwhngNpsMkPREWj96ZyMVOeTDG4+Wyh6+XOQTxAzx09dF384bgOvL/syPLKIIPGriLu9deDtIV6JOJ2AWVk7N2GS9PjyL7ueJJ+baPhdFQyjfwD+pmjWGkaAXGeslBumerLC1ptzxrf1+pI996slXRS3ifBqaAfhUIQM3wxl48yHI1f8cp79NveGEJiX8sEkAKE=
+#   password:
+#     secure: jg+hjgMwm9/KWsy408vNVZuCOSgOHDhLORHiRfD7iMdxa9+IbaiqYYDeIZkLat5KOExy2qD/sM4L2+aKECvVddEkTTCuVBTxaiUbe9xDT0tk7qrn9H2kbkaGMJeQipWUEIrXOy5N069YW/gAHEziIdogmkqO8Yss/oDOYC7yWOQzr2RYHtSQ9Lyq3Pqux+BfeQg2z2nWYVlcpSuK8KpNACXxyaY7w2f+gGOkOnyzop7utvDAJhngkJIGfxu5lVl9+J4o70yE8mTt4atruIZdWPmwH5P3ZucVsCZNOLS2JJWOXB2RdfdGjrW4Ii+Z920gQTBbrkPMMco18gwZthDa9FkL4DdCZ6/rYYsSvV9zcK3xfKct9GpWcEOrTMz6BL+Hr4beL1ibf2iiSaBzbEZ9eBgJExcykmIhyVMJ/03IJnXpfTbF3UJv3SFfp+pXsGE9xbJsESJ+Lj+7oaqnKub406K6akx500xsX29IfMqNMnvN+C1cND+FKUuyWivE5/RjsMp0XtY2xpyILJX+Yp6gri0qLnHnL5JRJjl1dRgw4jy1cquYeDqV5ZF146tYZ7IClKSoxZ/EGTrkBF6nrgb4aL6iOzhv7Hb/B0ReBCpOfZHLue8w2ezLbSeR3AeLnvIm+b0y2znsPh+PqRF6V4NE3GB6Z0SsLlzdV5bOlBXdvUY=
+#   on:
+#     tags: true

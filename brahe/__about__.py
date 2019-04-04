@@ -1,0 +1,5 @@
+__version__      = "0.0.0"
+__author__       = "Duncan Eddy"
+__author_email__ = "duncan.eddy@gmail.com"
+__description__  = "A Python satellite guidance, navigation, and control library."
+__url__          = "https://github.com/duncaneddy/brahe"

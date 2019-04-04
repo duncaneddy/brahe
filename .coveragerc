@@ -1,0 +1,2 @@
+[run]
+omit = brahe/__about__.py

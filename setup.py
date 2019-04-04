@@ -19,7 +19,6 @@ setup(
     ],
     install_requires = [
         'numpy',
-        'requests',
         'pysofa2'
     ],
     include_package_data = True,

@@ -1,3 +1,4 @@
+yapf
 pytest
 pytest-cov
 coveralls

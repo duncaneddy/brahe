@@ -34,6 +34,11 @@ version = ''
 # The full version, including alpha/beta/rc tags
 release = __version__
 
+# -- Project configuration ---------------------------------------------------
+
+# Disable displaying documentation source page
+html_show_sourcelink = False
+
 
 # -- General configuration ---------------------------------------------------
 
@@ -50,8 +55,9 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
-    'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'sphinx.ext.autosectionlabel',
+    'sphinxcontrib.fulltoc'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -96,7 +102,13 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    # 'navbar_pagenav': False,
+    'navbar_links': [
+        # ("Modules", "modules/modules"),
+        # ("Examples", "examples"),
+    ],
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

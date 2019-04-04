@@ -15,11 +15,11 @@ before_script:
 
 script:
   - pytest --cov=brahe
-  - travis-sphinx build --source=doc/source
+  - travis-sphinx --outdir docs/build build --source docs/source
 
 after_success:
   - coveralls
-  - travis-sphinx deploy
+  - travis-sphinx --outdir docs/build deploy
 
 deploy:
   provider: pypi

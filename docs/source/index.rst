@@ -11,7 +11,7 @@ Brahe Documentation
     :hidden:
         
     modules.rst
-    modules/constants.rst
+    examples.rst
 
 Welcome to the documentation of brahe, a Python satellite astrodynamics, 
 guidance, navigation, and control library.

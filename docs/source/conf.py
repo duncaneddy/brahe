@@ -57,7 +57,8 @@ extensions = [
     'sphinx.ext.imgmath',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosectionlabel',
-    'sphinxcontrib.fulltoc'
+    'sphinxcontrib.fulltoc',
+    'sphinxcontrib.napoleon'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -104,10 +105,12 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 #
 html_theme_options = {
     # 'navbar_pagenav': False,
+    'globaltoc_depth': 1,
     'navbar_links': [
         # ("Modules", "modules/modules"),
         # ("Examples", "examples"),
     ],
+    'bootswatch_theme': "united",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

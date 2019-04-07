@@ -11,3 +11,5 @@ the code. The submodules are listed here:
     modules/data.rst
     modules/earthmodels.rst
     modules/time.rst
+    modules/epoch.rst
+    modules/astrodynamics.rst

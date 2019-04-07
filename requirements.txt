@@ -1,2 +1,3 @@
-numpy
-pysofa2
+numpy>=1.16.2
+pysofa2>=18.1.30.4
+numba>=0.43.1

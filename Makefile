@@ -4,4 +4,4 @@ docs:
 
 .PHONY: test
 test:
-	pytest --cov=brahe
+	pytest --cov=brahe --durations=0

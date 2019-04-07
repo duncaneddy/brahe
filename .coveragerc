@@ -1,2 +1,4 @@
 [run]
-omit = brahe/__about__.py
+omit = brahe/__init__.py
+       brahe/__about__.py
+       brahe/data.py

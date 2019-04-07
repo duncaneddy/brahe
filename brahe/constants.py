@@ -5,6 +5,14 @@ constants module provides common astrodynamics constants
 
 # Module imports
 from math import pi as _pi
+import pathlib as _pathlib
+
+# Module Constatns
+DATA_PATH = _pathlib.Path(__file__).parent / 'data'
+"""
+Path to internal module data. Path is defined relative to the package installation
+directory.
+"""
 
 # Mathematical Constants
 AS2RAD = 2.0*_pi/360.0/3600.0

@@ -12,4 +12,7 @@ the code. The submodules are listed here:
     modules/earthmodels.rst
     modules/time.rst
     modules/epoch.rst
-    modules/astrodynamics.rst
+    modules/orbits.rst
+    modules/relorbits.rst
+    modules/attitude.rst
+    modules/frames.rst

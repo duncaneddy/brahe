@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""This data provides function to download or update the data files required to
-use the brahe package.
+"""This module provides function to download or update the data files used by
+the brahe package.
 """
 
 # Imports

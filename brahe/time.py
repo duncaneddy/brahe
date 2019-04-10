@@ -11,7 +11,7 @@ Note:
 # Imports
 import pysofa2 as _sofa
 import brahe.constants as _constants
-from   brahe.earthmodels import EOP as _EOP
+from   brahe.eop import EOP as _EOP
 
 ################
 # Time Methods #

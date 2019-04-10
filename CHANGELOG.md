@@ -8,22 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-    - Added main `brahe` modules:
-      - `constants`
-      - `data`
-      - `earthmodels`
-      - `time`
-      - `epoch`
-      - `astrodynamics`
-      - `states`
-    - Added unit testing and converage
-    - Added project documentation
+  - Added main `brahe` modules:
+    - `constants`
+    - `data`
+    - `eop`
+    - `time`
+    - `epoch`
+    - `astrodynamics`
+    - `states`
+  - Added unit testing and converage
+  - Added project documentation
 
 ### Changed 
-    - N/A
+  - N/A
 
 ### Removed 
-    - N/A
+  - N/A
 
 ### Fixed
-    - N/A
+  - N/A

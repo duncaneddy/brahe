@@ -19,6 +19,7 @@ logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG)
 from brahe.constants import *
 from brahe.epoch     import *
 from brahe.orbits    import *
+from brahe.attitude  import Rx, Ry, Rz
 from brahe.frames    import sECEFtoECI, sECItoECEF
 
 # Test main code
@@ -455,39 +456,39 @@ def test_sez():
     
     assert len(sez) == 3
 
-# def test_azel():
-#     # Test taken from Montenbruck and Gill Exercise 2.4
-#     # It mixes geodetic and geocentric coordinations in a strange way, but the
-#     # mixing is retained here for consistenty with the source material test
-#     epc = Epoch(1997, 1, 1, 0, 0, 0, tsys="UTC")
-#     oe  = [6378.137e3 + 960e3, 0, 97, 130.7, 0, 0]
-#     dt  = 15*60
+def test_so_example24():
+    # Test taken from Montenbruck and Gill Exercise 2.4
+    # It mixes geodetic and geocentric coordinations in a strange way, but the
+    # mixing is retained here for consistenty with the source material test
+    epc = Epoch(1997, 1, 1, 0, 0, 0, tsys="UTC")
+    oe  = [6378.137e3 + 960e3, 0, 97, 130.7, 0, 0]
+    dt  = 15*60
 
-#     # Get Satellite position at 15 minutes
-#     n = mean_motion(oe[0], use_degrees=True)
-#     oe[5] += n*dt
+    # Get Satellite position at 15 minutes
+    n = mean_motion(oe[0], use_degrees=True)
+    oe[5] += n*dt
 
-#     sat_eci = sOSCtoCART(oe, use_degrees=True)
+    sat_eci = sOSCtoCART(oe, use_degrees=True)
 
-#     # Low precision ECEF transform
-#     d = (dt/86400.0 + epc.mjd() - 51544.5)
-#     O = 1.82289510683
-#     sat_ecef = Rz(0, use_degrees=False) * sat_eci[0:3]
+    # Low precision ECEF transform
+    d = (dt/86400.0 + epc.mjd() - 51544.5)
+    O = 1.82289510683
+    sat_ecef = Rz(0, use_degrees=False) @ sat_eci[0:3]
 
-#     # Station coordinates
-#     station_ecef = sGEODtoECEF([48.0, 11.0, 0.0], use_degrees=True)
+    # Station coordinates
+    station_ecef = sGEODtoECEF([48.0, 11.0, 0.0], use_degrees=True)
 
-#     # Compute enz and sez state
-#     enz   = sECEFtoENZ(station_ecef, sat_ecef, conversion="geocentric")
-#     sez   = sECEFtoSEZ(station_ecef, sat_ecef, conversion="geocentric")
+    # Compute enz and sez state
+    enz   = sECEFtoENZ(station_ecef, sat_ecef, conversion="geocentric")
+    sez   = sECEFtoSEZ(station_ecef, sat_ecef, conversion="geocentric")
 
-#     # Compute azimuth and elevation from topocentric coordinates
-#     azel_enz = sENZtoAZEL(enz, use_degrees=True)
-#     azel_sez = sSEZtoAZEL(sez, use_degrees=True)
+    # Compute azimuth and elevation from topocentric coordinates
+    azel_enz = sENZtoAZEL(enz, use_degrees=True)
+    azel_sez = sSEZtoAZEL(sez, use_degrees=True)
 
-#     assert azel_enz[0] == azel_sez[0]
-#     assert azel_enz[1] == azel_sez[1]
-#     assert azel_enz[2] == azel_sez[2]
+    assert azel_enz[0] == azel_sez[0]
+    assert azel_enz[1] == azel_sez[1]
+    assert azel_enz[2] == azel_sez[2]
 
 def test_azel():
     # State conversion

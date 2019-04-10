@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The earthmodels module provides data structures used to interact and access 
+"""The eop module provides data structures used to interact and access 
 Earth-releated data files throughout the module.
 """
 import logging

@@ -9,7 +9,7 @@ the code. The submodules are listed here:
         
     modules/constants.rst
     modules/data.rst
-    modules/earthmodels.rst
+    modules/eop.rst
     modules/time.rst
     modules/epoch.rst
     modules/orbits.rst

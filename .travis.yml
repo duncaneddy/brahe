@@ -11,7 +11,7 @@ dist: xenial
 
 before_script:
   - pip install -U -r requirements.txt
-  - pip install -U -r test_requirements.txt
+  - pip install -U -r dev_requirements.txt
 
 script:
   - pytest --cov=brahe

@@ -5,14 +5,14 @@ Note:
     Most transformations rely on the `pysofa2 <https://github.com/duncaneddy/pysofa2/>`_
     module to provide fast and accurate conversions. pysofa2 is a wrapper for the
     SOFA C implementation of the IAU reference frame conventions. The full
-    source code can be found here: <http://www.iausofa.org/>
+    source code can be found here: http://www.iausofa.org/
 """
 
 # Module Imports
 import numpy   as _np
 import pysofa2 as _sofa
 import brahe.constants as _constants
-from   brahe.earthmodels import EOP as _EOP
+from   brahe.eop import EOP as _EOP
 
 #######################################
 # IAU 2010 | Inertial <-> Earth-Fixed #

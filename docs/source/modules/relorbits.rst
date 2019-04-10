@@ -1,5 +1,5 @@
-Relattive Orbits
-================
+Relative Orbits
+===============
 
 .. automodule:: brahe.relorbits
     :members:

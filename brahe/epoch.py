@@ -17,7 +17,7 @@ import math     as _math
 import typing   as _typing
 
 import brahe.constants   as _constants
-from   brahe.earthmodels import EOP
+from   brahe.eop import EOP
 import brahe.time        as _bhtime
 
 # Get Logger
@@ -128,10 +128,16 @@ class Epoch():
     nanoseconds even after centuries.
 
     Attributes:
+        tsys (str): Time system this Epoch was initialized in.
         days (int): Elapsed days since 0 JD TAI
         seconds (int): Total seconds into day
         nanseconds (float): Nanoseconds 
 
+    Note:
+        days, seconds, and nanoseconds is stored internally in the TAI reference
+        systems. These values should not be accessed directly, but instead accessed
+        through ``Epoch`` class methods which transform the state member date into
+        the appropricate time system and format.
     """
 
     def __init__(self, *args, tsys='UTC', **kwargs):

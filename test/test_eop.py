@@ -8,7 +8,7 @@ from   os import path
 
 # Import module under test
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from brahe.earthmodels import *
+from brahe.eop import *
 
 # Other imports
 import math

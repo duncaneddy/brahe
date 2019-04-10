@@ -18,7 +18,7 @@ logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG)
 
 # Import modules for testing
 from brahe.constants   import *
-from brahe.earthmodels import EOP
+from brahe.eop import EOP
 from brahe.epoch       import *
 from brahe.orbits      import sOSCtoCART
 from brahe.frames      import *

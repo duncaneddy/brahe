@@ -490,9 +490,9 @@ def rECEFtoENZ(ecef, conversion:str="geodetic"):
 
     # Compute Station Lat-Lon-Altitude
     if conversion == "geodetic":
-        lat, lon, _ = sECEFtoGEOD(ecef, use_degrees=True)
+        lat, lon, _ = sECEFtoGEOD(ecef, use_degrees=False)
     elif conversion == "geocentric":
-        lat, lon, _ = sECEFtoGEOC(ecef, use_degrees=True)
+        lat, lon, _ = sECEFtoGEOC(ecef, use_degrees=False)
     else:
         raise RuntimeError(f"Unknown conversion method: {conversion}")
 
@@ -630,9 +630,9 @@ def rECEFtoSEZ(ecef, conversion:str="geodetic"):
 
     # Compute Station Lat-Lon-Altitude
     if conversion == "geodetic":
-        lat, lon, _ = sECEFtoGEOD(ecef, use_degrees=True)
+        lat, lon, _ = sECEFtoGEOD(ecef, use_degrees=False)
     elif conversion == "geocentric":
-        lat, lon, _ = sECEFtoGEOC(ecef, use_degrees=True)
+        lat, lon, _ = sECEFtoGEOC(ecef, use_degrees=False)
     else:
         raise RuntimeError(f"Unknown conversion method: {conversion}")
 

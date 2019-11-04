@@ -8,18 +8,23 @@ Note:
     source code can be found here: http://www.iausofa.org/
 """
 
-# Module Imports
+# Imports
 import numpy   as _np
 import pysofa2 as _sofa
+
+# Brahe Imports
+from   brahe.utils import logger
+from   brahe.utils import AbstractArray
 import brahe.constants as _constants
 from   brahe.eop import EOP as _EOP
+from   brahe.epoch import Epoch
 
 #######################################
 # IAU 2010 | Inertial <-> Earth-Fixed #
 #######################################
 
 
-def bias_precession_nutation(epc):
+def bias_precession_nutation(epc:Epoch) -> _np.ndarray:
     """Computes the Bias-Precession-Nutation matrix transforming the GCRS to the 
     CIRS intermediate reference frame. This transformation corrects for the 
     bias, precession, and nutation of Celestial Intermediate Origin (CIO) with
@@ -49,7 +54,7 @@ def bias_precession_nutation(epc):
 
     return rc2i
 
-def earth_rotation(epc):
+def earth_rotation(epc:Epoch) -> _np.ndarray:
     """Computes the Earth rotation matrix transforming the CIRS to the TIRS
     intermediate reference frame. This transformation corrects for the Earth
     rotation.
@@ -69,7 +74,7 @@ def earth_rotation(epc):
 
     return r
 
-def polar_motion(epc):
+def polar_motion(epc:Epoch) -> _np.ndarray:
     """Computes the Earth rotation matrix transforming the TIRS to the ITRF reference 
     frame.
 
@@ -87,7 +92,7 @@ def polar_motion(epc):
 
     return rpm
 
-def rECItoECEF(epc):
+def rECItoECEF(epc:Epoch) -> _np.ndarray:
     """Computes the combined rotation matrix from the inertial to the Earth-fixed
     reference frame. Applies corrections for bias, precession, nutation,
     Earth-rotation, and polar motion.
@@ -110,7 +115,7 @@ def rECItoECEF(epc):
 
     return rpm @ r @ rc2i
 
-def rECEFtoECI(epc):
+def rECEFtoECI(epc:Epoch) -> _np.ndarray:
     """Computes the combined rotation matrix from the Earth-fixed to the inertial
     reference frame. Applies corrections for bias, precession, nutation,
     Earth-rotation, and polar motion.
@@ -133,7 +138,7 @@ def rECEFtoECI(epc):
 
     return rc2i.T @ r.T @ rpm.T
 
-def sECItoECEF(epc, x):
+def sECItoECEF(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     """Transforms an Earth inertial state into an Earth fixed state.
 
     The transformation is accomplished using the IAU 2006/2000A, CIO-based 
@@ -185,7 +190,7 @@ def sECItoECEF(epc, x):
 
     return x_ecef
 
-def sECEFtoECI(epc, x):
+def sECEFtoECI(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     """Transforms an Earth fixed state into an Inertial state
 
     The transformation is accomplished using the IAU 2006/2000A, CIO-based 

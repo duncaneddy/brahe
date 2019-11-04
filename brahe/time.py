@@ -9,7 +9,11 @@ Note:
 """
 
 # Imports
+import typing as _typing
 import pysofa2 as _sofa
+
+# Brahe Imports
+from   brahe.utils import logger
 import brahe.constants as _constants
 from   brahe.eop import EOP as _EOP
 
@@ -17,7 +21,7 @@ from   brahe.eop import EOP as _EOP
 # Time Methods #
 ################
 
-def caldate_to_mjd(year:int, month:int, day:int, hour:int=0, minute:int=0, second:float=0.0, nanoseconds:float=0.0):
+def caldate_to_mjd(year:int, month:int, day:int, hour:int=0, minute:int=0, second:float=0.0, nanoseconds:float=0.0) -> float:
     """Convert a Gregorian calendar date to the equivalent Modified Julian Date 
     representation of that time instant.
 
@@ -40,7 +44,7 @@ def caldate_to_mjd(year:int, month:int, day:int, hour:int=0, minute:int=0, secon
 
     return mjd
 
-def mjd_to_caldate(mjd:float):
+def mjd_to_caldate(mjd:float) -> _typing.Tuple[float, float, float, float, float, float, float]:
     """Convert a Modified Julian Date to the equivalent Gregorian calendar date 
     representation of the same instant in time.
 
@@ -62,7 +66,7 @@ def mjd_to_caldate(mjd:float):
     return iy, im, id, ihmsf[0], ihmsf[1], ihmsf[2], ihmsf[3]/1.0e9
 
 
-def caldate_to_jd(year:int, month:int, day:int, hour:int=0, minute:int=0, second:float=0.0, nanoseconds:float=0.0):
+def caldate_to_jd(year:int, month:int, day:int, hour:int=0, minute:int=0, second:float=0.0, nanoseconds:float=0.0) -> float:
     """Convert a Gregorian calendar date to the equivalent Julian Date 
     representation of that time instant.
 
@@ -85,7 +89,7 @@ def caldate_to_jd(year:int, month:int, day:int, hour:int=0, minute:int=0, second
 
     return jd
 
-def jd_to_caldate(jd:float):
+def jd_to_caldate(jd:float) -> _typing.Tuple[float, float, float, float, float, float, float]:
     """Convert a Julian Date to the equivalent Gregorian calendar date 
     representation of the same instant in time.
 
@@ -106,7 +110,7 @@ def jd_to_caldate(jd:float):
 
     return iy, im, id, ihmsf[0], ihmsf[1], ihmsf[2], ihmsf[3]/1.0e9
 
-def time_system_offset(jd:float, fd:float, tsys_src:str, tsys_dest:str):
+def time_system_offset(jd:float, fd:float, tsys_src:str, tsys_dest:str) -> float:
     """Compute the offset between two time systems at a given Epoch.
 
     The offset (in seconds) is computed as:

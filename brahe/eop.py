@@ -4,13 +4,12 @@ Earth-releated data files throughout the module.
 """
 import logging
 import math
+import typing
 import numpy as np
 
 # Package imports
+from brahe.utils import logger
 from brahe.constants import DATA_PATH, AS2RAD
-
-# Get Logger
-logger = logging.getLogger(__name__)
 
 # Constants
 IERS_AB_EOP_DATA = DATA_PATH / 'iau2000A_finals_ab.txt'
@@ -31,7 +30,7 @@ by the Epoch class compute offsets between various time systems.
 #########
 
 # Helper to read C04 data file into a dictionary
-def _read_c04_file(filepath):
+def _read_c04_file(filepath:str) -> None:
     """Read IERS C04-formatted Earth Orientation Parameter (EOP) data file.
 
     Args:
@@ -57,7 +56,7 @@ def _read_c04_file(filepath):
     return data
 
 # Helper to read IERS Bulletin A/B data file into a dictionary
-def _read_2000ab_file(filepath):
+def _read_2000ab_file(filepath:str) -> None:
     """Read IERS Buelletin A/B-formatted Earth Orientation Parameter (EOP) data file.
 
     Args:
@@ -92,7 +91,7 @@ class EOP():
     _data = {}
 
     @classmethod
-    def load(cls, filepath:str=DEFAULT_EOP_DATA):
+    def load(cls, filepath:str=DEFAULT_EOP_DATA) -> None:
         """Load Earth orientation data into class memory.
 
         Args:
@@ -124,14 +123,14 @@ class EOP():
         cls._initialized = True
 
     @classmethod
-    def clear(cls):
+    def clear(cls) -> None:
         """Clear loaded EOP data
         """
         cls._initialized = False
         cls._data.clear()
 
     @classmethod
-    def set(cls, mjd_utc:int, ut1_utc:float, xp:float, yp:float):
+    def set(cls, mjd_utc:int, ut1_utc:float, xp:float, yp:float) -> None:
         """Insert or set Earth orientation values for specified date.
 
         Args:
@@ -145,13 +144,13 @@ class EOP():
 
 
     @classmethod
-    def initialized(cls):
+    def initialized(cls) -> None:
         """Return whether data has been initialized
         """
         return cls._initialized
 
     @classmethod
-    def _initialize(cls):
+    def _initialize(cls) -> None:
         """Initialize class (load Earth Orientation Data) if it has not already
         been done.
         """
@@ -161,7 +160,7 @@ class EOP():
             cls.load(filepath=DEFAULT_EOP_DATA)
 
     @classmethod
-    def eop(cls, mjd_utc:float, interp:bool=False):
+    def eop(cls, mjd_utc:float, interp:bool=False) -> typing.Tuple[float, float, float]:
         """Return the specified Earth orientation parameters based on.
 
         Args:
@@ -192,7 +191,7 @@ class EOP():
             return cls._data[int(math.floor(mjd_utc))]
 
     @classmethod
-    def pole_locator(cls, mjd_utc:float, interp:bool=False):
+    def pole_locator(cls, mjd_utc:float, interp:bool=False) -> typing.Tuple[float, float]:
         """Returns the angular location of Earth rotational axis.
 
         Args:
@@ -222,7 +221,7 @@ class EOP():
             return cls._data[int(math.floor(mjd_utc))][1], cls._data[int(math.floor(mjd_utc))][2]
 
     @classmethod
-    def xp(cls, mjd_utc:float, interp:bool=False):
+    def xp(cls, mjd_utc:float, interp:bool=False) -> float:
         """Return the specified x-component of Earth Orientation .
 
         Args:
@@ -251,7 +250,7 @@ class EOP():
             return cls._data[int(math.floor(mjd_utc))][1]
 
     @classmethod
-    def yp(cls, mjd_utc:float, interp:bool=False):
+    def yp(cls, mjd_utc:float, interp:bool=False) -> float:
         """Return the specified y-component of Earth Orientation.
 
         Args:
@@ -280,7 +279,7 @@ class EOP():
             return cls._data[int(math.floor(mjd_utc))][2]
 
     @classmethod
-    def ut1_utc(cls, mjd_utc:float, interp:bool=False):
+    def ut1_utc(cls, mjd_utc:float, interp:bool=False) -> float:
         """Return the specified UT1 - UTC offset in seconds.
 
         Args:
@@ -309,7 +308,7 @@ class EOP():
             return cls._data[int(math.floor(mjd_utc))][0]
 
     @classmethod
-    def utc_ut1(cls, mjd_utc:float, interp:bool=False):
+    def utc_ut1(cls, mjd_utc:float, interp:bool=False) -> float:
         """Return the specified UT1 - UTC offset in seconds.
 
         Args:

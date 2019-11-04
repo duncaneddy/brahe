@@ -2,25 +2,26 @@
 '''
 brahe setup config
 '''
-import os
-from setuptools import setup
 
-here = os.path.dirname(__file__)
+import pathlib
+from setuptools import setup, find_packages
 
+# Read package description
 about = {}
-with open(os.path.join(here, 'brahe', '__about__.py')) as fobj:
+with open(pathlib.Path.cwd() / 'brahe' / '__about__.py') as fobj:
     exec(fobj.read(), about)
+
+# Read common requirements
+requirements = []
+with open(pathlib.Path.cwd() / 'requirements.txt') as fp:
+    for line in fp:
+        requirements.append(line.strip())
 
 setup(
     name='brahe',
     version=about['__version__'],
-    packages = [
-        'brahe',
-    ],
-    install_requires = [
-        'numpy',
-        'pysofa2'
-    ],
+    packages = find_packages(),
+    install_requires = requirements,
     include_package_data = True,
     author               = about['__author__'],
     author_email         = about['__author_email__'],

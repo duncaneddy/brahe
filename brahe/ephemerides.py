@@ -9,12 +9,11 @@ import copy  as _copy
 import math  as _math
 import numpy as _np
 
+# Brahe Imports
+from   brahe.utils import logger
 import brahe.constants as _constants
 from   brahe.attitude  import Rx
 from   brahe.epoch     import Epoch
-
-# Get Logger
-logger = logging.getLogger(__name__)
 
 # Helper function
 def _frac(x: float):
@@ -24,7 +23,7 @@ def _frac(x: float):
 # Analytic Ephemerides #
 ########################
 
-def sun_position(epc:Epoch):
+def sun_position(epc:Epoch) -> _np.ndarray:
     """Compute the Sun's position in the EME2000 inertial frame through the use
     of low-precision analytical functions.
 
@@ -64,7 +63,7 @@ def sun_position(epc:Epoch):
 
     return p_sun
 
-def moon_position(epc:Epoch):
+def moon_position(epc:Epoch) -> _np.ndarray:
     """Compute the Moon's position in the EME2000 inertial frame through the use
     of low-precision analytical functions.
 

@@ -4,22 +4,21 @@ representations, as well as computing
 """
 
 # Imports
-import logging
+import logging as _logging
 import copy    as _copy
 import math    as _math
 import numpy   as _np
 
+# Brahe Imports
+from   brahe.utils import logger
 import brahe.constants as _constants
 from   brahe.epoch     import Epoch
-
-# Get Logger
-logger = logging.getLogger(__name__)
 
 #####################
 # Rotation Matrices #
 #####################
 
-def Rx(angle:float, use_degrees:bool=False):
+def Rx(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """Rotation matrix, for a rotation about the x-axis.
 
     Args:
@@ -46,7 +45,7 @@ def Rx(angle:float, use_degrees:bool=False):
                       [0.0,   +c,   +s],
                       [0.0,   -s,   +c]])
 
-def Ry(angle:float, use_degrees:bool=False):
+def Ry(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """Rotation matrix, for a rotation about the y-axis.
 
     Args:
@@ -73,7 +72,7 @@ def Ry(angle:float, use_degrees:bool=False):
                       [0.0, +1.0,  0.0],
                       [ +s,  0.0,   +c]])
 
-def Rz(angle:float, use_degrees:bool=False):
+def Rz(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """Rotation matrix, for a rotation about the z-axis.
 
     Args:

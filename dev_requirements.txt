@@ -1,9 +1,0 @@
-yapf
-pytest
-pytest-cov
-coveralls
-sphinx
-sphinx_bootstrap_theme
-sphinxcontrib-fulltoc
-sphinxcontrib-napoleon
-travis-sphinx

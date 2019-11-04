@@ -16,12 +16,11 @@ import pysofa2  as _sofa
 import math     as _math
 import typing   as _typing
 
+# Brahe Imports
+from   brahe.utils       import logger
 import brahe.constants   as _constants
-from   brahe.eop import EOP
+from   brahe.eop         import EOP
 import brahe.time        as _bhtime
-
-# Get Logger
-logger = logging.getLogger(__name__)
 
 #############
 # Constants #
@@ -270,7 +269,6 @@ class Epoch():
             raise RuntimeError(f"Invalid Epoch string. \"{string}\" is not iso8061 compliant.")
 
         # Initialize from date.
-        logger.debug(f"String time system: {tsys}")
         self._init_date(year, month, day, hour, minute, second, nanosecond, tsys=tsys)
 
     def _init_datetime(self, datetime:_datetime.datetime, tsys:str="UTC"):

@@ -5,22 +5,25 @@ themselves.
 """
 
 # Imports
-import logging
+import logging as _logging
 import typing as _typing
 import math   as _math
 import copy   as _copy
 import numpy  as _np
 
-import brahe.constants     as _constants
+# Brahe Imports
+from brahe.utils import logger
+from brahe.utils import AbstractArray
+import brahe.constants as _constants
 
 # Get Logger
-logger = logging.getLogger(__name__)
+logger = _logging.getLogger(__name__)
 
 ###########################
 # Astrodynamic Properties #
 ###########################
 
-def mean_motion(a:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
+def mean_motion(a:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH) -> float:
     """Compute the mean motion given a semi-major axis.
 
     Args:
@@ -40,7 +43,7 @@ def mean_motion(a:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
 
     return n
 
-def semimajor_axis(n:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
+def semimajor_axis(n:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH) -> float:
     """Compute the semi-major axis given the mean-motion
 
     Args:
@@ -60,7 +63,7 @@ def semimajor_axis(n:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH
 
     return a
 
-def orbital_period(a:float, gm:float=_constants.GM_EARTH):
+def orbital_period(a:float, gm:float=_constants.GM_EARTH) -> float:
     """Compute the orbital period given the semi-major axis.
 
     Arguments:
@@ -75,7 +78,7 @@ def orbital_period(a:float, gm:float=_constants.GM_EARTH):
     return 2.0*_math.pi*_math.sqrt(a**3/gm)
 
 
-def sun_sync_inclination(a:float, e:float, use_degrees:bool=False):
+def sun_sync_inclination(a:float, e:float, use_degrees:bool=False) -> float:
     """Compute the required inclination for a Sun-synchronous Earth orbit.
 
     Algorithm assumes the nodal precession is entirely due to the J2 perturbation, 
@@ -104,7 +107,7 @@ def sun_sync_inclination(a:float, e:float, use_degrees:bool=False):
 
     return i
 
-def anm_eccentric_to_mean(E:float, e:float, use_degrees:bool=False):
+def anm_eccentric_to_mean(E:float, e:float, use_degrees:bool=False) -> float:
     """Convert eccentric anomaly into mean anomaly.
 
     Args:
@@ -129,7 +132,7 @@ def anm_eccentric_to_mean(E:float, e:float, use_degrees:bool=False):
 
     return M
 
-def anm_mean_to_eccentric(M:float, e:float, use_degrees:bool=False):
+def anm_mean_to_eccentric(M:float, e:float, use_degrees:bool=False) -> float:
     """Convert mean anomaly into eccentric anomaly.
 
     Args:
@@ -180,7 +183,7 @@ def anm_mean_to_eccentric(M:float, e:float, use_degrees:bool=False):
 # Orbital Element States #
 ##########################
 
-def sOSCtoCART(x_oe, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
+def sOSCtoCART(x_oe:AbstractArray, use_degrees:bool=False, gm:float=_constants.GM_EARTH) -> _np.ndarray:
     """Given an orbital state expressed in osculating orbital elements compute 
     the equivalent Cartesean position and velocity of the inertial state.
 
@@ -239,7 +242,7 @@ def sOSCtoCART(x_oe, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
 
     return x
 
-def sCARTtoOSC(x, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
+def sCARTtoOSC(x:AbstractArray, use_degrees:bool=False, gm:float=_constants.GM_EARTH) -> _np.ndarray:
     """Given a Cartesean position and velocity in the inertial frame, return the 
     state expressed in terms of  osculating orbital elements.
 
@@ -317,7 +320,7 @@ def sCARTtoOSC(x, use_degrees:bool=False, gm:float=_constants.GM_EARTH):
 # Square of eccentricity
 _ECC2 = _constants.WGS84_f * (2.0 - _constants.WGS84_f)
 
-def sGEOCtoECEF(geoc, use_degrees:bool=False):
+def sGEOCtoECEF(geoc:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert geocentric position to equivalent Earth-fixed position.
 
     Args:
@@ -355,7 +358,7 @@ def sGEOCtoECEF(geoc, use_degrees:bool=False):
     
     return _np.array([x, y, z])
 
-def sECEFtoGEOC(ecef, use_degrees:bool=False):
+def sECEFtoGEOC(ecef:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert Earth-fixed position to geocentric location.
 
     Args:
@@ -381,7 +384,7 @@ def sECEFtoGEOC(ecef, use_degrees:bool=False):
 
     return _np.array([lon, lat, alt])
 
-def sGEODtoECEF(geod, use_degrees:bool=False):
+def sGEODtoECEF(geod:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert geodettic position to equivalent Earth-fixed position.
 
     Args:
@@ -419,7 +422,7 @@ def sGEODtoECEF(geod, use_degrees:bool=False):
     
     return _np.array([x, y, z])
 
-def sECEFtoGEOD(ecef, use_degrees:bool=False):
+def sECEFtoGEOD(ecef:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert Earth-fixed position to geodetic location.
 
     Args:
@@ -470,7 +473,7 @@ def sECEFtoGEOD(ecef, use_degrees:bool=False):
 # Topocentric States #
 ######################
 
-def rECEFtoENZ(ecef, conversion:str="geodetic"):
+def rECEFtoENZ(ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the rotation matrix from the Earth-fixed to the East-North-Zenith
     coorindate basis.
 
@@ -508,7 +511,7 @@ def rECEFtoENZ(ecef, conversion:str="geodetic"):
     # Return Result
     return E
 
-def rENZtoECEF(ecef, conversion:str="geodetic"):
+def rENZtoECEF(ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the rotation matrix from the the East-North-Zenith to the
     Earth-Centered-Earth-Fixed coorindate basis.
 
@@ -525,7 +528,7 @@ def rENZtoECEF(ecef, conversion:str="geodetic"):
 
     return rECEFtoENZ(ecef, conversion=conversion).T
 
-def sECEFtoENZ(station_ecef, ecef, conversion:str="geodetic"):
+def sECEFtoENZ(station_ecef:AbstractArray, ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the coordinates of an object in East-Noth-Zenith topocentric
     coordinate basis of a given fixed-location station.
 
@@ -569,7 +572,7 @@ def sECEFtoENZ(station_ecef, ecef, conversion:str="geodetic"):
     
     return sat_enz
 
-def sENZtoECEF(station_ecef, enz, conversion:str="geodetic"):
+def sENZtoECEF(station_ecef:AbstractArray, enz:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the Earth-fixed coordinates of an object given East-Noth-Zenith
     topocentric coordinates, and the Earth-fixed coordinates of the station.
 
@@ -613,7 +616,7 @@ def sENZtoECEF(station_ecef, enz, conversion:str="geodetic"):
     
     return sat_ecef
 
-def rECEFtoSEZ(ecef, conversion:str="geodetic"):
+def rECEFtoSEZ(ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the rotation matrix from the Earth-fixed to the South-East-Zenith 
     coorindate basis.
 
@@ -651,7 +654,7 @@ def rECEFtoSEZ(ecef, conversion:str="geodetic"):
     return E
 
 
-def rSEZtoECEF(ecef, conversion:str="geodetic"):
+def rSEZtoECEF(ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the rotation matrix from the Earth-fixed to the South-East-Zenith 
     coorindate basis.
 
@@ -674,7 +677,7 @@ def rSEZtoECEF(ecef, conversion:str="geodetic"):
 
 
 
-def sECEFtoSEZ(station_ecef, ecef, conversion:str="geodetic"):
+def sECEFtoSEZ(station_ecef:AbstractArray, ecef:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the coordinates of an object in South-East-Zenith topocentric
     coordinate basis of a given fixed-location station.
 
@@ -718,7 +721,7 @@ def sECEFtoSEZ(station_ecef, ecef, conversion:str="geodetic"):
     
     return sez
 
-def sSEZtoECEF(station_ecef, sez, conversion:str="geodetic"):
+def sSEZtoECEF(station_ecef:AbstractArray, sez:AbstractArray, conversion:str="geodetic") -> _np.ndarray:
     """Compute the coordinates of an object in the topocentric frame of an
     Earth-fixed frame
 
@@ -762,7 +765,7 @@ def sSEZtoECEF(station_ecef, sez, conversion:str="geodetic"):
     
     return sat_ecef
 
-def sENZtoAZEL(x, use_degrees:bool=False):
+def sENZtoAZEL(x:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert East-North-Zenith topocentric coordinates into
     azimuth, elevation, and range. Azimuth-rate, elevation-rate, and range-rate
     will also be computed is the object velocity if the ENZ-coordinates are also
@@ -838,7 +841,7 @@ def sENZtoAZEL(x, use_degrees:bool=False):
     else:
         return azel
 
-def sSEZtoAZEL(x, use_degrees:bool=False):
+def sSEZtoAZEL(x:AbstractArray, use_degrees:bool=False) -> _np.ndarray:
     """Convert South-East-Zenith topocentric coordinates into
     azimuth, elevation, and range. Azimuth-rate, elevation-rate, and range-rate
     will also be computed is the object velocity if the SEZ-coordinates are also

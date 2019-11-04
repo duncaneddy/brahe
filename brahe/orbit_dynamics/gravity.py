@@ -185,58 +185,49 @@ class GravityModel():
 # Spherical Harmonic Gravity #
 ##############################
 
+"""
+Kronecker Delta Function.
+
+Returns 1 if inputs are equal returns 0 otherwise.
+
+Arguments:
+- `a::Real`: First input argument
+- `b::Real`: Second input argument 
+
+Returns:
+- `delta:Integer`: Kronecker delta result.
+"""
+function kron(a::Real, b::Real)
+    return a == b ? 1 : 0
+end
+
+"""
+Internal helper function to aid in denormalization of gravity field coefficients.
+
+Provides method co compute the factorial ratio: (n-m)!/(n+m)!
+
+Arguments:
+- `n::Real`: Gravity model degree, n.
+- `m::Real`: Gravity model order, m.
+
+Returns:
+- `p::Real`: Factorial product
+"""
+def _facprod(n:int, m:int) -> float:
+    '''Helper function to ain in denormalization of gravity field coefficients.
+    This method computes the factorial ratio (n-m)!/(n+m)! in an efficient
+    manner, without computing the full factorial products.
+
+    A
+    '''
+    p = 1.0
+
+    for i in range(n-m+1, n+m+1): # TODO: Confirm range termination of n+m+1 vs n+m
+        p = p/i
+
+    return p
+
 
 ######################
 # Third-Body Gravity #
 ######################
-
-def accel_thirdbody_sun(epc::Epoch, x::Array{<:Real, 1}):
-    """Computes the acceleration of a satellite in the inertial frame due to the
-    gravitational attraction of the Sun.
-
-    Arguments:
-    - `x::Array{<:Real, 1}`: Satellite Cartesean state in the inertial reference frame [m; m/s]
-    - `r_sun::Array{<:Real, 1}`: Position of sun in inertial frame.
-
-    Return:
-    - `a::Array{<:Real, 1}`: Acceleration due to the Sun's gravity in the inertial frame [m/s^2]
-
-    References:
-    1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
-    """
-    # Compute solar position
-    r_sun = sun_position(epc)
-
-    # Acceleration due to sun point mass
-    a_sun = accel_point_mass(x[1:3], r_sun, GM_SUN)
-
-    return a_sun
-
-"""
-Computes the acceleration of a satellite in the inertial frame due to the
-gravitational attraction of the Moon.
-
-Arguments:
-- `x::Array{<:Real, 1}`: Satellite Cartesean state in the inertial reference frame [m; m/s]
-- `r_moon::Array{<:Real, 1}`: Position of moon in inertial frame.
-
-Returns:
-- `a::Array{<:Real, 1}`: Acceleration due to the Moon's gravity in the inertial frame [m/s^2]
-
-References:
-1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
-"""
-def accel_thirdbody_moon(x::Array{<:Real, 1}, r_moon::Array{<:Real, 1})
-    # Acceleration due to moon point mass
-    a_moon = accel_point_mass(x[1:3], r_moon, GM_MOON)
-
-    return a_moon
-
-def accel_thirdbody_moon(epc::Epoch, x::Array{<:Real, 1})
-    # Compute solar position
-    r_moon = moon_position(epc)
-
-    # Acceleration due to moon point mass
-    a_moon = accel_point_mass(x[1:3], r_moon, GM_MOON)
-
-    return a_moon

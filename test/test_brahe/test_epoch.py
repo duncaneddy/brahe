@@ -264,15 +264,3 @@ def test_logic():
     assert not (Epoch(2000, 1, 1, 12, 23, 59, 123456788) >= Epoch(2000, 1, 1, 12, 23, 59, 123456789))
     assert Epoch(2000, 1, 1, 12, 23, 59, 123456789) > Epoch(2000, 1, 1, 12, 23, 59, 123456788)
     assert Epoch(2000, 1, 1, 12, 23, 59, 123456789) >= Epoch(2000, 1, 1, 12, 23, 59, 123456788)
-
-if __name__ == '__main__':
-    test_constructor_date()
-    test_constructor_string()
-    test_operators()
-    test_conversion()
-    test_jd()
-    test_mjd()
-    test_day_of_year()
-    test_gmst()
-    test_gast()
-    test_logic()

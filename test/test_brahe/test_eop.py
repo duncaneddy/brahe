@@ -69,9 +69,3 @@ def test_interp():
 
     yp = (EOP.yp(58748) + EOP.yp(58747))/2.0
     assert EOP.yp(58747.5, interp=True) == yp
-
-if __name__ == '__main__':
-    test_load()
-    test_data()
-    test_set()
-    test_interp()

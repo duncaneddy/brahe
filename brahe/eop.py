@@ -156,7 +156,7 @@ class EOP():
         """
 
         if not cls._initialized:
-            logger.warning('No Earth orientation data loaded. Loading default file: %s' % (DEFAULT_EOP_FILE))
+            logger.debug('No Earth orientation data loaded. Loading default file: %s' % (DEFAULT_EOP_DATA))
             cls.load(filepath=DEFAULT_EOP_DATA)
 
     @classmethod

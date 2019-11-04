@@ -1,18 +1,20 @@
-| Testing | Coverage | Documentation |
-| :-----: | :------: | :-----------: |
-| [![Build Status](https://travis-ci.org/duncaneddy/brahe.svg?branch=master)](https://travis-ci.org/duncaneddy/brahe) | [![Coverage Status](https://coveralls.io/repos/github/duncaneddy/brahe/badge.svg?branch=master)](https://coveralls.io/github/duncaneddy/brahe?branch=master) | [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://duncaneddy.github.io/brahe/) |
+| Testing | Coverage | PyPi | Documentation |
+| :-----: | :------: | :--: | :-----------: |
+| [![Build Status](https://travis-ci.org/duncaneddy/brahe.svg?branch=master)](https://travis-ci.org/duncaneddy/brahe) | [![Coverage Status](https://coveralls.io/repos/github/duncaneddy/brahe/badge.svg?branch=master)](https://coveralls.io/github/duncaneddy/brahe?branch=master) | [![PyPI version](https://badge.fury.io/py/brahe.svg)](https://badge.fury.io/py/brahe) | [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://duncaneddy.github.io/brahe/) |
 
 # brahe
-A Python satellite guidance, navigation, and control library.
+A Python satellite astrodynamics library meant for use in spacecraft guidance,
+navigation, and control work.
 
 Current high-fidelity satellite GNC modeling software generally runs into the following pitfalls:
 1. It is commercially licensed and closed-source code, making it difficult, if not impossible, to be used by hobbyists and academic researchers.
 2. Large open-source projects with a steep learning curve making correct use for small projects difficult
 3. Out-dated API leading making it hard to incorporate into modern projects.
+4. Hard to get up and running with.
 
-These challenges make it an unfortunately common occurance that guidance, 
-navigation, and control engineers will frequently reimplement common 
-astrodynamics libraries for each new project or analysis.
+These challenges make it an unfortunately common occurance that spacecraft
+engineers and researchers will frequently reimplement common astrodynamics libraries 
+for each new project or analysis.
 
 With these deficienties in mind, brahe aims to provide a open-source, MIT-licensed,
 high fidelity astrodynamics toolbox to help make it easy to perform high-quality 
@@ -29,20 +31,12 @@ take advantage of the larger package ecosystem.
 
 The documentation for the package can be found here: <https://duncaneddy.github.io/brahe/>
 
-## Developing
+## Installation
 
-When developing this package the following commands can be useful:
+This package is distributed from PyPi, and can be installed simply with:
 
-Testing:
-
-```shell
-pytest
-```
-
-Documentation:
-
-```shell
-travis-sphinx build --source=doc/source
+```bash
+pip3 install brahe
 ```
 
 ## License

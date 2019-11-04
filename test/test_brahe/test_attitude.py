@@ -60,9 +60,3 @@ def test_Rz():
     assert approx(r[2, 0], 0.0,       abs=tol)
     assert approx(r[2, 1], 0.0,       abs=tol)
     assert approx(r[2, 2], 1.0,       abs=tol)
-
-
-if __name__ == '__main__':
-    test_Rx()
-    test_Ry()
-    test_Rz()

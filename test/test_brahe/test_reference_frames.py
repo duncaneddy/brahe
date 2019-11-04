@@ -5,8 +5,8 @@ from pytest import approx
 from brahe.constants   import *
 from brahe.eop         import EOP
 from brahe.epoch       import *
-from brahe.orbits      import sOSCtoCART
-from brahe.frames      import *
+from brahe.coordinates import sOSCtoCART
+from brahe.reference_frames      import *
 
 def test_bpn():
     epc = Epoch(2007, 4, 5, 12, 0, 0, tsys="UTC")
@@ -114,6 +114,3 @@ def test_circular():
     assert approx(ecef2[3], ecef[3], abs=tol)
     assert approx(ecef2[4], ecef[4], abs=tol)
     assert approx(ecef2[5], ecef[5], abs=tol)
-
-if __name__ == '__main__':
-    pass

@@ -72,6 +72,3 @@ def test_time_system_offset():
     assert time_system_offset(jd, 0, "TAI", "UTC") == dutc
     assert approx(time_system_offset(jd, 0, "TAI", "UT1"), -36.92267, abs=1e-4)
     assert time_system_offset(jd, 0, "TAI", "TAI") == 0
-
-if __name__ == '__main__':
-    pass

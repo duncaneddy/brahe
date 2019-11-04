@@ -4,7 +4,6 @@ from pytest import approx
 # Modules Under Test
 from brahe.constants   import *
 from brahe.epoch       import *
-from brahe.orbits      import *
 from brahe.ephemerides import *
 
 def test_sun_position():
@@ -26,7 +25,3 @@ def test_moon_position():
     assert approx(p[0], 264296000.527, abs=tol)
     assert approx(p[1], 257654441.699, abs=tol)
     assert approx(p[2], 74992649.095, abs=tol)
-
-if __name__ == "__main__":
-    test_sun_position()
-    test_moon_position()

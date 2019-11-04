@@ -7,8 +7,8 @@ import math
 # Modules Under Test
 from brahe.constants import *
 from brahe.epoch     import *
-from brahe.orbits    import sOSCtoCART
-from brahe.relorbits import *
+from brahe.coordinates import sOSCtoCART
+from brahe.relative_coordiantes import *
 
 # Test main code
 
@@ -50,7 +50,3 @@ def test_rtn_states():
     assert approx(xt[3], xt2[3], abs=tol)
     assert approx(xt[4], xt2[4], abs=tol)
     assert approx(xt[5], xt2[5], abs=tol)
-
-if __name__ == '__main__':
-    test_rtn_rotations()
-    test_rtn_states()

@@ -7,9 +7,9 @@ import math
 # Modules Under Test
 from brahe.constants import *
 from brahe.epoch     import *
-from brahe.astrodynamics import *
+from brahe.astro import *
 from brahe.attitude  import Rx, Ry, Rz
-from brahe.reference_frames import sECEFtoECI, sECItoECEF
+from brahe.frames import sECEFtoECI, sECItoECEF
 
 # Test main code
 

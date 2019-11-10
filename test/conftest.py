@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 import brahe.constants as constants
-import brahe.astrodynamics as astro
+import brahe.astro as astro
 import brahe.coordinates as coords
 
 # Add folder root to path

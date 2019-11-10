@@ -5,9 +5,9 @@ representations, as well as computing
 
 # Imports
 import logging as _logging
-import copy    as _copy
-import math    as _math
-import numpy   as _np
+import copy    as copy
+import math    as math
+import numpy   as np
 
 # Brahe Imports
 from   brahe.utils import logger
@@ -18,7 +18,7 @@ from   brahe.epoch     import Epoch
 # Rotation Matrices #
 #####################
 
-def Rx(angle:float, use_degrees:bool=False) -> _np.ndarray:
+def Rx(angle:float, use_degrees:bool=False) -> np.ndarray:
     """Rotation matrix, for a rotation about the x-axis.
 
     Args:
@@ -35,17 +35,17 @@ def Rx(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """
     
     if use_degrees:
-        angle *= _math.pi/180.0
+        angle *= math.pi/180.0
 
 
-    c = _math.cos(angle)
-    s = _math.sin(angle)
+    c = math.cos(angle)
+    s = math.sin(angle)
 
-    return _np.array([[1.0,  0.0,  0.0],
+    return np.array([[1.0,  0.0,  0.0],
                       [0.0,   +c,   +s],
                       [0.0,   -s,   +c]])
 
-def Ry(angle:float, use_degrees:bool=False) -> _np.ndarray:
+def Ry(angle:float, use_degrees:bool=False) -> np.ndarray:
     """Rotation matrix, for a rotation about the y-axis.
 
     Args:
@@ -62,17 +62,17 @@ def Ry(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """
     
     if use_degrees:
-        angle *= _math.pi/180.0
+        angle *= math.pi/180.0
 
 
-    c = _math.cos(angle)
-    s = _math.sin(angle)
+    c = math.cos(angle)
+    s = math.sin(angle)
 
-    return _np.array([[ +c,  0.0,   -s],
+    return np.array([[ +c,  0.0,   -s],
                       [0.0, +1.0,  0.0],
                       [ +s,  0.0,   +c]])
 
-def Rz(angle:float, use_degrees:bool=False) -> _np.ndarray:
+def Rz(angle:float, use_degrees:bool=False) -> np.ndarray:
     """Rotation matrix, for a rotation about the z-axis.
 
     Args:
@@ -89,12 +89,12 @@ def Rz(angle:float, use_degrees:bool=False) -> _np.ndarray:
     """
     
     if use_degrees:
-        angle *= _math.pi/180.0
+        angle *= math.pi/180.0
 
 
-    c = _math.cos(angle)
-    s = _math.sin(angle)
+    c = math.cos(angle)
+    s = math.sin(angle)
 
-    return _np.array([[ +c,   +s,  0.0],
+    return np.array([[ +c,   +s,  0.0],
                       [ -s,   +c,  0.0],
                       [0.0,  0.0,  1.0]])

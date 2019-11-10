@@ -24,8 +24,8 @@ import pysofa2 as _sofa
 from   brahe.utils import logger
 import brahe.constants as _constants
 import brahe.attitude as _att
-import brahe.astrodynamics as _astro
-import brahe.reference_frames as _frames
+import brahe.astro as _astro
+import brahe.frames as _frames
 from brahe.epoch import Epoch
 
 #############

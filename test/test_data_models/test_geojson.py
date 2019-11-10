@@ -23,10 +23,6 @@ def test_geojson_point():
     assert len(geopoint.geometry.coordinates) == 2
     assert geopoint.properties['prop0'] == 'value0'
 
-
-    import logging
-    logging.info(geopoint.dict())
-
 def test_geojson_linestring():
     linestring = {
       "type": "Feature",
@@ -77,6 +73,3 @@ def test_geojson_polygon():
     assert len(geopolygon.geometry.coordinates[0][0]) == 2
     assert geopolygon.properties['prop0'] == 'value0'
     assert geopolygon.properties['prop1']['this'] == 'that'
-    
-    import logging
-    logging.info(geopolygon.dict())

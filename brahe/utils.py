@@ -1,19 +1,19 @@
 import logging as _logging
 import typing as _typing
-import numpy as _np
-import numba as _numba
+import numpy as np
+import numba as numba
 
 # Setup logging
 logger = _logging.getLogger(__name__)
 
 # Define common array-like type
-AbstractArray = _typing.NewType('AbstractArray', _typing.Union[tuple, list, _np.ndarray])
+AbstractArray = _typing.NewType('AbstractArray', _typing.Union[tuple, list, np.ndarray])
 
 ###############
 # Mathematics #
 ###############
 
-@_numba.jit(nopython=True, cache=True)
+@numba.jit(nopython=True, cache=True)
 def kron_delta(a:float, b:float) -> int:
     """Cannonical Kronecker Delta function.
 

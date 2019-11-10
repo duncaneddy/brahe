@@ -9,7 +9,7 @@ Note:
 """
 
 # Imports
-import numpy   as _np
+import numpy   as np
 import pysofa2 as _sofa
 
 # Brahe Imports
@@ -24,7 +24,7 @@ from   brahe.epoch import Epoch
 #######################################
 
 
-def bias_precession_nutation(epc:Epoch) -> _np.ndarray:
+def bias_precession_nutation(epc:Epoch) -> np.ndarray:
     """Computes the Bias-Precession-Nutation matrix transforming the GCRS to the 
     CIRS intermediate reference frame. This transformation corrects for the 
     bias, precession, and nutation of Celestial Intermediate Origin (CIO) with
@@ -54,7 +54,7 @@ def bias_precession_nutation(epc:Epoch) -> _np.ndarray:
 
     return rc2i
 
-def earth_rotation(epc:Epoch) -> _np.ndarray:
+def earth_rotation(epc:Epoch) -> np.ndarray:
     """Computes the Earth rotation matrix transforming the CIRS to the TIRS
     intermediate reference frame. This transformation corrects for the Earth
     rotation.
@@ -70,11 +70,11 @@ def earth_rotation(epc:Epoch) -> _np.ndarray:
     era = _sofa.Era00(_constants.MJD_ZERO, epc.mjd(tsys="UT1"))
 
     # Rotate Matrix and return
-    r = _sofa.Rz(era, _np.eye(3))
+    r = _sofa.Rz(era, np.eye(3))
 
     return r
 
-def polar_motion(epc:Epoch) -> _np.ndarray:
+def polar_motion(epc:Epoch) -> np.ndarray:
     """Computes the Earth rotation matrix transforming the TIRS to the ITRF reference 
     frame.
 
@@ -92,7 +92,7 @@ def polar_motion(epc:Epoch) -> _np.ndarray:
 
     return rpm
 
-def rECItoECEF(epc:Epoch) -> _np.ndarray:
+def rECItoECEF(epc:Epoch) -> np.ndarray:
     """Computes the combined rotation matrix from the inertial to the Earth-fixed
     reference frame. Applies corrections for bias, precession, nutation,
     Earth-rotation, and polar motion.
@@ -115,7 +115,7 @@ def rECItoECEF(epc:Epoch) -> _np.ndarray:
 
     return rpm @ r @ rc2i
 
-def rECEFtoECI(epc:Epoch) -> _np.ndarray:
+def rECEFtoECI(epc:Epoch) -> np.ndarray:
     """Computes the combined rotation matrix from the Earth-fixed to the inertial
     reference frame. Applies corrections for bias, precession, nutation,
     Earth-rotation, and polar motion.
@@ -138,7 +138,7 @@ def rECEFtoECI(epc:Epoch) -> _np.ndarray:
 
     return rc2i.T @ r.T @ rpm.T
 
-def sECItoECEF(epc:Epoch, x:AbstractArray) -> _np.ndarray:
+def sECItoECEF(epc:Epoch, x:AbstractArray) -> np.ndarray:
     """Transforms an Earth inertial state into an Earth fixed state.
 
     The transformation is accomplished using the IAU 2006/2000A, CIO-based 
@@ -154,10 +154,10 @@ def sECItoECEF(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     """
 
     # Ensure input is array-like
-    x = _np.asarray(x)
+    x = np.asarray(x)
 
     dim_x  = len(x)
-    x_ecef = _np.zeros((dim_x,))
+    x_ecef = np.zeros((dim_x,))
 
     # Extract State Components
     r_eci = x[0:3]
@@ -174,23 +174,23 @@ def sECItoECEF(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     pm   = polar_motion(epc)
 
     # Create Earth's Angular Rotation Vector
-    omega_vec = _np.array([0, 0, _constants.OMEGA_EARTH]) # Neglect LOD effect
+    omega_vec = np.array([0, 0, _constants.OMEGA_EARTH]) # Neglect LOD effect
 
     # Calculate ECEF State
     x_ecef[0:3] = pm @  r @ rc2i @ r_eci
 
     if dim_x == 6:
-        x_ecef[3:6] = pm @ (r @ rc2i @ v_eci - _np.cross(omega_vec, r @ rc2i @ r_eci))
+        x_ecef[3:6] = pm @ (r @ rc2i @ v_eci - np.cross(omega_vec, r @ rc2i @ r_eci))
 
     
     if dim_x == 9:
-        x_ecef[6:9] = pm @ (r @ rc2i @ a_eci - _np.cross(omega_vec, _np.cross(omega_vec, r @ rc2i @ r_eci)) 
-                                         - 2 * _np.cross(omega_vec, r @ rc2i @ v_eci))
+        x_ecef[6:9] = pm @ (r @ rc2i @ a_eci - np.cross(omega_vec, np.cross(omega_vec, r @ rc2i @ r_eci)) 
+                                         - 2 * np.cross(omega_vec, r @ rc2i @ v_eci))
 
 
     return x_ecef
 
-def sECEFtoECI(epc:Epoch, x:AbstractArray) -> _np.ndarray:
+def sECEFtoECI(epc:Epoch, x:AbstractArray) -> np.ndarray:
     """Transforms an Earth fixed state into an Inertial state
 
     The transformation is accomplished using the IAU 2006/2000A, CIO-based 
@@ -206,11 +206,11 @@ def sECEFtoECI(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     """
 
     # Ensure input is array-like
-    x = _np.asarray(x)
+    x = np.asarray(x)
 
     # Set state variable size
     dim_x = len(x)
-    x_eci = _np.zeros((dim_x,))
+    x_eci = np.zeros((dim_x,))
 
     # Extract State Components
     r_ecef = x[0:3]
@@ -228,18 +228,18 @@ def sECEFtoECI(epc:Epoch, x:AbstractArray) -> _np.ndarray:
     pm  = polar_motion(epc)
 
     # Create Earth's Angular Rotation Vector
-    omega_vec = _np.array([0, 0, _constants.OMEGA_EARTH]) # Neglect LOD effect
+    omega_vec = np.array([0, 0, _constants.OMEGA_EARTH]) # Neglect LOD effect
     
     # Calculate ECEF State
     x_eci[0:3] = (pm @ rot @ bpn).T @ r_ecef
 
     if dim_x >= 6:
-        x_eci[3:6] = (rot @ bpn).T @ (pm.T @ v_ecef + _np.cross(omega_vec, pm.T @ r_ecef))
+        x_eci[3:6] = (rot @ bpn).T @ (pm.T @ v_ecef + np.cross(omega_vec, pm.T @ r_ecef))
 
 
     if dim_x >= 9:
-        x_eci[6:9] = (rot @ bpn).T @ (pm.T @ a_ecef + _np.cross(omega_vec, _np.cross(omega_vec, pm.T @ x_eci[3:6])) 
-                                 + 2 * _np.cross(omega_vec, pm.T @ x_eci[6:9])) 
+        x_eci[6:9] = (rot @ bpn).T @ (pm.T @ a_ecef + np.cross(omega_vec, np.cross(omega_vec, pm.T @ x_eci[3:6])) 
+                                 + 2 * np.cross(omega_vec, pm.T @ x_eci[6:9])) 
 
 
     return x_eci

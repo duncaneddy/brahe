@@ -6,7 +6,7 @@ the brahe package.
 # Imports
 import logging as _logging
 import requests as _requests
-import pathlib as _pathlib
+import pathlib as pathlib
 import typing as _typing
 
 # Brahe Imports
@@ -38,7 +38,7 @@ def download_datafile(url:str, outdir:str='.', filename:_typing.Optional[str]=No
 
     # Get filepath to output file
     filename = filename if filename else url.split('/')[-1]
-    filepath = _pathlib.Path(outdir, filename)
+    filepath = pathlib.Path(outdir, filename)
 
     # GET request to retrive data
     response = _requests.get(url)

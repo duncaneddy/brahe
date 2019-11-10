@@ -27,13 +27,13 @@ def mean_motion(a:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH) -
     """Compute the mean motion given a semi-major axis.
 
     Args:
-        a (float): Semi-major axis. Units: *m*
+        a (:obj:`float`): Semi-major axis. Units: *m*
         use_degrees (bool): If ``True`` returns result in units of degrees.
-        gm (float): Gravitational constant of central body. Defaults to 
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
             ``brahe.constants.GM_EARTH`` if not provided. Units: *m^3/s^2*
 
     Returns:
-        n (float): Orbital mean motion. Units: *rad/s* or *deg/s*
+        n (:obj:`float`): Orbital mean motion. Units: *rad/s* or *deg/s*
     """
 
     n = _math.sqrt(gm/a**3)
@@ -47,13 +47,13 @@ def semimajor_axis(n:float, use_degrees:bool=False, gm:float=_constants.GM_EARTH
     """Compute the semi-major axis given the mean-motion
 
     Args:
-        n (float): Orbital mean motion. Units: *rad/s* or *deg/s*
+        n (:obj:`float`): Orbital mean motion. Units: *rad/s* or *deg/s*
         use_degrees (bool): If ``True`` returns result in units of degrees.
-        gm (float): Gravitational constant of central body. Defaults to 
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
             ``brahe.constants.GM_EARTH`` if not provided. Units: *m^3/s^2*
 
     Returns:
-        a (float): Semi-major axis. Units: *m*
+        a (:obj:`float`): Semi-major axis. Units: *m*
     """
 
     if use_degrees:
@@ -67,16 +67,56 @@ def orbital_period(a:float, gm:float=_constants.GM_EARTH) -> float:
     """Compute the orbital period given the semi-major axis.
 
     Arguments:
-        a (float): Semi-major axis. Units: *m*
-        gm (float): Gravitational constant of central body. Defaults to 
+        a (:obj:`float`): Semi-major axis. Units: *m*
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
             ``brahe.constants.GM_EARTH`` if not provided. Units: *m^3/s^2*
 
     Returns:
-        T (float): Orbital period. Units: *s*
+        T (:obj:`float`): Orbital period. Units: *s*
     """
     
     return 2.0*_math.pi*_math.sqrt(a**3/gm)
 
+
+def perigee_velocity(a:_typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
+    '''Compute the perigee velocity from orbital element state. Accepts input as
+    semi-major axis and eccentricity or a Keplerian state vector.
+
+    Args:
+        a (:obj:`Union[float, AbstractArray]`): Input semi-major axis or Keplerian state vector
+        e (:obj:`Union[float, AbstractArray]`): Input eccentricity. Unused if a vector is provided for first argument.
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
+            ``brahe.constants.GM_EARTH`` if not provided. Units: *m^3/s^2*
+
+    Returns:
+        v_per (:obj:`float`): Velocity at perigee
+    '''
+
+    # Expand array inputs
+    if type(a) in [list, tuple, _np.ndarray]:
+        a, e = a[0], a[1]
+
+    return _math.sqrt(gm/a)*_math.sqrt((1+e)/(1-e))
+
+def apogee_velocity(a:_typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
+    '''Compute the apogee velocity from orbital element state. Accepts input as
+    semi-major axis and eccentricity or a Keplerian state vector.
+
+    Args:
+        a (:obj:`Union[float, AbstractArray]`): Input semi-major axis or Keplerian state vector
+        e (:obj:`Union[float, AbstractArray]`): Input eccentricity. Unused if a vector is provided for first argument.
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
+            ``brahe.constants.GM_EARTH`` if not provided. Units: *m^3/s^2*
+
+    Returns:
+        v_apo (:obj:`float`): Velocity at apogee
+    '''
+
+    # Expand array inputs
+    if type(a) in [list, tuple, _np.ndarray]:
+        a, e = a[0], a[1]
+
+    return _math.sqrt(gm/a)*_math.sqrt((1-e)/(1+e))
 
 def sun_sync_inclination(a:float, e:float, use_degrees:bool=False) -> float:
     """Compute the required inclination for a Sun-synchronous Earth orbit.
@@ -86,13 +126,12 @@ def sun_sync_inclination(a:float, e:float, use_degrees:bool=False) -> float:
     a first-order, non-iterative approximation.
 
     Args:
-        a (float): Semi-major axis. Units: *m*
-        e (float) Eccentricity. Units: *dimensionless*
-        use_degrees (bool): Return output in degrees (Default: false)
+        a (:obj:`float`): Semi-major axis. Units: *m*
+        e (:obj:`float`) Eccentricity. Units: *dimensionless*
+        use_degrees (obj:`bool`): Return output in degrees (Default: false)
 
     Returns:
-        i (float): Requierd inclination for a sun-synchronous orbit. Units:
-            *rad* or *deg*
+        i (:obj:`float`): Required inclination for a sun-synchronous orbit. Units: *rad* or *deg*
     """
 
     # Compute the required RAAN precession of a sun-synchronous orbit
@@ -111,12 +150,12 @@ def anm_eccentric_to_mean(E:float, e:float, use_degrees:bool=False) -> float:
     """Convert eccentric anomaly into mean anomaly.
 
     Args:
-        E (float): Eccentric anomaly. Units: *rad* or *deg*
-        e (float): Eccentricity. Units: *dimensionless*
+        E (:obj:`float`): Eccentric anomaly. Units: *rad* or *deg*
+        e (:obj:`float`): Eccentricity. Units: *dimensionless*
         use_degrees (bool): Handle input and output in degrees (Default: false)
 
     Returns:
-        M (float): Mean anomaly. Units: *rad* or *deg*
+        M (:obj:`float`): Mean anomaly. Units: *rad* or *deg*
     """
 
     # Convert degree input
@@ -136,12 +175,12 @@ def anm_mean_to_eccentric(M:float, e:float, use_degrees:bool=False) -> float:
     """Convert mean anomaly into eccentric anomaly.
 
     Args:
-        M (float): Mean anomaly. Units: *rad* or *deg*
-        e (float): Eccentricity. Units: *dimensionless*
+        M (:obj:`float`): Mean anomaly. Units: *rad* or *deg*
+        e (:obj:`float`): Eccentricity. Units: *dimensionless*
         use_degrees (bool): Handle input and output in degrees (Default: false)
 
     Returns:
-        E (float): Eccentric anomaly. Units: *rad* or *deg*
+        E (:obj:`float`): Eccentric anomaly. Units: *rad* or *deg*
     """
 
     # Convert degree input
@@ -200,7 +239,7 @@ def sOSCtoCART(x_oe:AbstractArray, use_degrees:bool=False, gm:float=_constants.G
         x_oe (np.array_like): Osculating orbital elements. See above for desription of
             the elements and their required order.
         use_degrees (bool): Handle input and output in degrees (Default: ``False``)
-        gm (float): Gravitational constant of central body. Defaults to 
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
             ``brahe.constants.GM_EARTH`` if not provided. Units: *m**3/s**2*
 
     Returns:
@@ -259,7 +298,7 @@ def sCARTtoOSC(x:AbstractArray, use_degrees:bool=False, gm:float=_constants.GM_E
         x (np.array_like): Cartesean inertial state. Returns position and 
             velocity. Units: [*m*; *m/s*]
         use_degrees (bool): Handle input and output in degrees (Default: ``False``)
-        gm (float): Gravitational constant of central body. Defaults to 
+        gm (:obj:`float`): Gravitational constant of central body. Defaults to 
             ``brahe.constants.GM_EARTH`` if not provided. Units: *m**3/s**2*
 
     Returns:

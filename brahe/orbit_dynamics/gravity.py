@@ -12,6 +12,7 @@ import numpy   as _np
 import numba   as _numba
 
 # Internal Imports
+from   brahe.utils import kron_delta, AbstractArray
 import brahe.constants   as _constants
 from   brahe.epoch       import Epoch
 import brahe.ephemerides as _ephem
@@ -27,7 +28,8 @@ GRAV_MODEL_GGM05C     = _constants.DATA_PATH / 'GGM05C.gfc'
 # Point Mass Gravity #
 ######################
 
-def accel_point_mass(r_sat:_np.ndarray, r_body:_np.ndarray, gm:float=_constants.GM_EARTH):
+@_numba.jit(nopython=True, cache=True)
+def accel_point_mass(r_sat:AbstractArray, r_body:AbstractArray, gm:float=_constants.GM_EARTH):
     """Computes the acceleration of a satellite caused by a point-mass approximation 
     of the central body. Returns the acceleration vector of the satellite.
 
@@ -185,40 +187,18 @@ class GravityModel():
 # Spherical Harmonic Gravity #
 ##############################
 
-"""
-Kronecker Delta Function.
-
-Returns 1 if inputs are equal returns 0 otherwise.
-
-Arguments:
-- `a::Real`: First input argument
-- `b::Real`: Second input argument 
-
-Returns:
-- `delta:Integer`: Kronecker delta result.
-"""
-function kron(a::Real, b::Real)
-    return a == b ? 1 : 0
-end
-
-"""
-Internal helper function to aid in denormalization of gravity field coefficients.
-
-Provides method co compute the factorial ratio: (n-m)!/(n+m)!
-
-Arguments:
-- `n::Real`: Gravity model degree, n.
-- `m::Real`: Gravity model order, m.
-
-Returns:
-- `p::Real`: Factorial product
-"""
+@_numba.jit(nopython=True, cache=True)
 def _facprod(n:int, m:int) -> float:
     '''Helper function to ain in denormalization of gravity field coefficients.
     This method computes the factorial ratio (n-m)!/(n+m)! in an efficient
     manner, without computing the full factorial products.
 
-    A
+    Args:
+        n (:obj:`int`): Gravity model degree, n.
+        m (:obj:`int`): Gravity model degree m.
+
+    Returns:
+        p (:obj:`float`) Factorial product
     '''
     p = 1.0
 
@@ -231,3 +211,129 @@ def _facprod(n:int, m:int) -> float:
 ######################
 # Third-Body Gravity #
 ######################
+
+@jit(nopython=False, cache=True)
+def _compute_spherical_harmonics(r_bf: _np.ndarray, CS: _np.ndarray, n_max: int, 
+                                   m_max: int, r_ref: float, GM: float,
+                                   is_normalized: bool):
+    '''Compute spherical harmonic expansion for gravity field.
+
+
+    '''
+
+    # Auxiliary quantities
+    r_sqr = _np.dot(r_bf, r_bf) # Square of distance
+    rho   = r_ref * r_ref / r_sqr
+    x0    = r_ref * r_bf[0] / r_sqr # Normalized
+    y0    = r_ref * r_bf[1] / r_sqr # coordinates
+    z0    = r_ref * r_bf[2] / r_sqr
+
+    # Initialize V and W intemetidary matrices
+    V = _np.zeros((n_max+2, n_max+2))
+    W = _np.zeros((n_max+2, n_max+2))
+    
+    # Calculate zonal terms V(n,0); set W(n,0)=0.0
+    V[0, 0] = r_ref / _math.sqrt(r_sqr)
+    W[0, 0] = 0.0
+
+    V[1, 0] = z0 * V[0, 0]
+    W[1, 0] = 0.0
+
+    for n in range(2, n_max+2):
+        V[n, 0] = ((2 * n - 1) * z0 * V[n - 1, 0] - (n - 1) * rho * V[n - 2, 0]) / n
+        W[n, 0] = 0.0
+
+    # Calculate tesseral and sectorial terms
+    for m in range(1, m_max+2):
+        # Calculate V(m,m) .. V(n_max+1,m)
+        V[m, m] = (2 * m - 1) * (x0 * V[m - 1, m - 1] - y0 * W[m - 1, m - 1])
+        W[m, m] = (2 * m - 1) * (x0 * W[m - 1, m - 1] + y0 * V[m - 1, m - 1])
+
+        if m <= n_max:
+            V[m + 1, m] = (2 * m + 1) * z0 * V[m, m]
+            W[m + 1, m] = (2 * m + 1) * z0 * W[m, m]
+
+        for n in range(m+2, n_max+2):
+            V[n, m] = ((2 * n - 1) * z0 * V[n - 1, m] - (n + m - 1) * rho * V[n - 2, m]) / (n - m)
+            W[n, m] = ((2 * n - 1) * z0 * W[n - 1, m] - (n + m - 1) * rho * W[n - 2, m]) / (n - m)
+
+    # Calculate accelerations ax,ay,az
+    ax = ay = az = 0.0
+
+    for m in range(m_max+1):
+        for n in range(m, n_max+1):
+            if m == 0:
+                # Denormalize coefficients, if required
+                if is_normalized:
+                    N = _math.sqrt(2*n + 1)
+                    C = N * CS[n, 0]
+                else:
+                    C = CS[n, 0]
+
+                ax -= C * V[n + 1, 1]
+                ay -= C * W[n + 1, 1]
+                az -= (n + 1) * C * V[n + 1, 0]
+            else:
+                # Denormalize coefficients, if required
+                if is_normalized:
+                    N = _math.sqrt((2 - kron_delta(0,m)) * (2*n + 1) * _facprod(n, m))
+                    C = N * CS[n, m]
+                    S = N * CS[m -1, n]
+                else:
+                    C = CS[n, m]
+                    S = CS[m -1, n]
+
+                Fac  = 0.5 * (n - m + 1) * (n - m + 2)
+                ax  += + 0.5 * (-C * V[n + 1, m + 1] - S * W[n + 1, m + 1]) \
+                       + Fac * (+C * V[n + 1, m - 1] + S * W[n + 1, m - 1])
+                ay  += + 0.5 * (-C * W[n + 1, m + 1] + S * V[n + 1, m + 1]) \
+                       + Fac * (-C * W[n + 1, m - 1] + S * V[n + 1, m - 1])
+                az  += (n - m + 1) * (-C * V[n + 1, m] - S * W[n + 1, m])
+
+    # Body-fixed acceleration
+    a_bf = (GM / (r_ref * r_ref)) * _np.array([ax, ay, az])
+
+    return a_bf
+
+    """
+Computes the accleration caused by Earth gravity as modeled by a spherical 
+harmonic gravity field.
+
+Arguments:
+- `r_sat::Array{<:Real, 1}`: Satellite position in the inertial frame [m]
+- `R_eci_ecef::Array{<:Real, 2}`: Rotation matrix transforming a vector from the inertial to body-fixed reference frames. 
+- `n_max::Integer`: Maximum degree coefficient to use in expansion
+- `m_max::Integer`: Maximum order coefficient to use in the expansion. Must be less than the degree.
+    
+Return:
+- `a::Array{<:Real, 1}`: Gravitational acceleration in X, Y, and Z inertial directions [m/s^2]
+
+References:
+1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.56-68.
+"""
+def accel_gravity(x:AbstractArray, R_eci_ecef:AbstractArray, n_max:int=20, m_max:int=20) -> _np.ndarray:
+    
+    # Check Limits of Gravity Field
+    if n_max > GRAVITY_MODEL.n_max
+        error("Requested gravity model order $n_max is larger than the maximum order of the model maximum: ", GRAVITY_MODEL.n_max)
+    end
+
+    if m_max > GRAVITY_MODEL.m_max
+        error("Requested gravity model degree $m_max is larger than the maximum degree of the model maximum: ", GRAVITY_MODEL.m_max)
+    end
+
+    # Gravitational parameters of primary body
+    GM    = GRAVITY_MODEL.GM
+    R_ref = GRAVITY_MODEL.R
+
+    # Body-fixed position
+    r_bf = R_eci_ecef * x[1:3]
+
+    # Compute spherical harmonic acceleration
+    a_ecef = _spherical_harmonic_gravity(r_bf, GRAVITY_MODEL.data, n_max, m_max, R_ref, GM, normalized=GRAVITY_MODEL.normalized)
+
+    # Inertial acceleration
+    a_eci = _np.transpose(R_eci_ecef) @ a_ecef
+
+    # Finished
+    return a_eci

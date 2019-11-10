@@ -94,7 +94,6 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-# html_theme = 'alabaster'
 html_theme = 'bootstrap'
 html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
@@ -104,6 +103,9 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # documentation.
 #
 html_theme_options = {
+    'bootswatch_theme': "paper",
+    'navbar_sidebarrel': False,
+    'bootstrap_version': "3",
     # 'navbar_pagenav': False,
     'globaltoc_depth': 1,
     'navbar_links': [

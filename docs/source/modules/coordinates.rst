@@ -1,5 +1,5 @@
 Coordinates
 ===========
 
-.. automodule:: brahe.coordiantes
+.. automodule:: brahe.coordinates
     :members:

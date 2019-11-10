@@ -9,6 +9,7 @@ Note:
 
 # Imports
 import logging
+import enum
 import re       as _re
 import datetime as _datetime
 import copy     as _copy
@@ -25,6 +26,20 @@ import brahe.time        as _bhtime
 #############
 # Constants #
 #############
+
+# TODO: Eventually implement Enum-Based Time SYstems
+# class TimeSystem(enum.Enum):
+#     '''Valid time systems.
+#     '''
+#     GPS = 0
+#     TAI = 1
+#     TT  = 2
+#     UTC = 3
+#     UT1 = 4
+
+#     @staticmethod
+#     def list():
+#         return list(map(lambda tsys: tsys.value, TimeSystem))
 
 VALID_TIME_SYSTEMS = ["GPS", "TAI", "TT", "UTC", "UT1"]
 
@@ -443,6 +458,90 @@ class Epoch():
                                         (self.seconds + offset + self.nanoseconds/1.0e9)/86400.0)
 
         return iy, im, id, int(ihmsf[0]), int(ihmsf[1]), float(ihmsf[2]), float(ihmsf[3])
+
+    def year(self, tsys:_typing.Optional[str]=None):
+        '''Year of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            int: Year of epoch
+        '''
+
+        year, _, _, _, _, _, _ = self.caldate(tsys=tsys)
+
+        return year
+
+    def month(self, tsys:_typing.Optional[str]=None):
+        '''Month of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            int: Month of epoch
+        '''
+
+        _, month, _, _, _, _, _ = self.caldate(tsys=tsys)
+
+        return month
+
+    def day(self, tsys:_typing.Optional[str]=None):
+        '''Day of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            int: Day of epoch
+        '''
+
+        _, _, day, _, _, _, _ = self.caldate(tsys=tsys)
+
+        return day
+
+    def hour(self, tsys:_typing.Optional[str]=None):
+        '''Hour of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            int: Hour of epoch
+        '''
+
+        _, _, _, hour, _, _, _ = self.caldate(tsys=tsys)
+
+        return hour
+
+    def minute(self, tsys:_typing.Optional[str]=None):
+        '''Minute of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            int: Minute of epoch
+        '''
+
+        _, _, _, _, minute, _, _ = self.caldate(tsys=tsys)
+
+        return minute
+
+    def second(self, tsys:_typing.Optional[str]=None):
+        '''Second of epoch.
+
+        Args:
+            tsys (str, optional): Time system to produce output in
+
+        Returns
+            float: Second of epoch
+        '''
+
+        _, _, _, _, _, second, nanoseconds = self.caldate(tsys=tsys)
+
+        return second + nanoseconds*1.0e9
 
     def gast(self, use_degrees:bool=False):
         """Compute the Greenwich Apparent Sidereal Time for the given Epoch.

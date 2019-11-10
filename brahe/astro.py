@@ -5,8 +5,8 @@ themselves.
 """
 
 # Imports
-import logging as _logging
-import typing as _typing
+import logging
+import typing
 import math   as math
 import copy   as copy
 import numpy  as np
@@ -17,7 +17,7 @@ from brahe.utils import AbstractArray
 import brahe.constants as _constants
 
 # Get Logger
-logger = _logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 ###########################
 # Astrodynamic Properties #
@@ -78,7 +78,7 @@ def orbital_period(a:float, gm:float=_constants.GM_EARTH) -> float:
     return 2.0*math.pi*math.sqrt(a**3/gm)
 
 
-def perigee_velocity(a:_typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
+def perigee_velocity(a:typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
     '''Compute the perigee velocity from orbital element state. Accepts input as
     semi-major axis and eccentricity or a Keplerian state vector.
 
@@ -98,7 +98,7 @@ def perigee_velocity(a:_typing.Union[float, AbstractArray], e:float, gm:float=_c
 
     return math.sqrt(gm/a)*math.sqrt((1+e)/(1-e))
 
-def apogee_velocity(a:_typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
+def apogee_velocity(a:typing.Union[float, AbstractArray], e:float, gm:float=_constants.GM_EARTH) -> float:
     '''Compute the apogee velocity from orbital element state. Accepts input as
     semi-major axis and eccentricity or a Keplerian state vector.
 

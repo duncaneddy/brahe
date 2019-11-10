@@ -9,7 +9,7 @@ Note:
 """
 
 # Imports
-import typing as _typing
+import typing
 import pysofa2 as _sofa
 
 # Brahe Imports
@@ -44,7 +44,7 @@ def caldate_to_mjd(year:int, month:int, day:int, hour:int=0, minute:int=0, secon
 
     return mjd
 
-def mjd_to_caldate(mjd:float) -> _typing.Tuple[float, float, float, float, float, float, float]:
+def mjd_to_caldate(mjd:float) -> typing.Tuple[float, float, float, float, float, float, float]:
     """Convert a Modified Julian Date to the equivalent Gregorian calendar date 
     representation of the same instant in time.
 
@@ -89,7 +89,7 @@ def caldate_to_jd(year:int, month:int, day:int, hour:int=0, minute:int=0, second
 
     return jd
 
-def jd_to_caldate(jd:float) -> _typing.Tuple[float, float, float, float, float, float, float]:
+def jd_to_caldate(jd:float) -> typing.Tuple[float, float, float, float, float, float, float]:
     """Convert a Julian Date to the equivalent Gregorian calendar date 
     representation of the same instant in time.
 

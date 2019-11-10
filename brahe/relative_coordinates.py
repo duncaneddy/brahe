@@ -4,8 +4,8 @@ of relative orbital coordinates.
 """
 
 # Imports
-import logging as _logging
-import typing  as _typing
+import logging
+import typing  as typing
 import math    as math
 import numpy   as np
 

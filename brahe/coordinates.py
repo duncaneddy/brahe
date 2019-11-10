@@ -5,8 +5,8 @@ themselves.
 """
 
 # Imports
-import logging as _logging
-import typing as _typing
+import logging
+import typing
 import math   as math
 import copy   as copy
 import numpy  as np
@@ -17,7 +17,7 @@ from brahe.utils import AbstractArray
 import brahe.constants as _constants
 
 # Get Logger
-logger = _logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 ###########################
 # Astrodynamic Properties #

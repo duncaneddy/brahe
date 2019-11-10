@@ -28,5 +28,10 @@ setup(
     maintainer           = about['__author__'],
     maintainer_email     = about['__author_email__'],
     description          = about['__description__'],
-    url                  = about['__url__']
+    url                  = about['__url__'],
+    entry_points={
+        'console_scripts': [
+            'brahe = brahe.cli.cli:cli_group',
+        ],
+    }
 )

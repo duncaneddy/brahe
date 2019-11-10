@@ -8,6 +8,7 @@ import numpy as np
 from brahe.epoch import Epoch
 import brahe.constants as _constants
 import brahe.frames as _frames
+import brahe.ephemerides as _ephem
 import brahe.orbit_dynamics.gravity as _grav
 
 def test_load():
@@ -57,6 +58,18 @@ def test_accel_gravity():
     assert a_grav[0] == approx(-9.81417404, abs=1e-8)
     assert a_grav[1] == approx(7.99391465e-5, abs=1e-12)
     assert a_grav[2] == approx(-7.98168795e-5, abs=1e-12)
+
+def test_accel_thirdbody(state_gcrf):
+    epc = Epoch(2018, 3, 20, 16, 15, 0)
+
+    # Compute moon position
+    r_sun = _ephem.sun_position(epc)
+
+    a_sun = _grav.accel_thirdbody(state_gcrf, r_sun, _constants.GM_SUN)
+
+    assert 0.0 < math.fabs(a_sun[0]) < 1.0e-5
+    assert 0.0 < math.fabs(a_sun[1]) < 1.0e-5
+    assert 0.0 < math.fabs(a_sun[2]) < 1.0e-5
 
 def test_accel_thirdbody_sun(state_gcrf):
     epc = Epoch(2018, 3, 20, 16, 15, 0)

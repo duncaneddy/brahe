@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This orbit dynamics submoduble provides functions for computing gravitational
 forces or satellites.
 """
@@ -234,7 +233,7 @@ def _facprod(n:int, m:int) -> float:
 
     return p
 
-@numba.jit(nopython=False, cache=True)
+@numba.jit(nopython=True, cache=True)
 def _compute_spherical_harmonics(r_bf: np.ndarray, CS: np.ndarray, n_max: int, 
                                    m_max: int, r_ref: float, GM: float,
                                    is_normalized: bool) -> np.ndarray:
@@ -368,6 +367,23 @@ def accel_gravity(x:np.ndarray, R_i2b:np.ndarray, n_max:int=20, m_max:int=20) ->
 # Third-Body Gravity #
 ######################
 
+def accel_thirdbody(x_eci:np.ndarray, r_body:np.ndarray, gm:float) -> np.ndarray:
+    '''Computes the acceleration of an object in the inertial frame due to the
+    gravitational attraction of a third-body.
+
+    Args:
+        x_eci (:obj:`np.ndarray`): Satellite state in the inertial frame
+        r_body (:obj:`np.ndarray`): Position of the third body in the frame of the primary body.
+
+    Returns:
+        np.ndarray: Acceleration in the cartesian inertial frame. Units: [m/s^2]
+
+    References:
+        1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
+    '''
+
+    return accel_point_mass(x_eci[0:3], r_body, gm)
+
 def accel_thirdbody_sun(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
     '''Computes the acceleration of an object in the inertial frame due to the
     gravitational attraction of the Sun.
@@ -383,13 +399,7 @@ def accel_thirdbody_sun(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
         1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
     '''
 
-    # Compute solar position
-    r_sun = _ephem.sun_position(epc)
-
-    # Acceleration due to sun point mass
-    a_sun = accel_point_mass(x_eci[0:3], r_sun, _constants.GM_SUN)
-
-    return a_sun
+    return accel_thirdbody(x_eci, _ephem.sun_position(epc), _constants.GM_SUN)
 
 def accel_thirdbody_moon(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
     '''Computes the acceleration of an object in the inertial frame due to the
@@ -406,10 +416,4 @@ def accel_thirdbody_moon(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
         1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
     '''
 
-    # Compute solar position
-    r_moon = _ephem.sun_position(epc)
-
-    # Acceleration due to sun point mass
-    a_moon = accel_point_mass(x_eci[0:3], r_moon, _constants.GM_MOON)
-
-    return a_moon
+    return accel_thirdbody(x_eci, _ephem.moon_position(epc), _constants.GM_MOON)

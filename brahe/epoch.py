@@ -15,7 +15,7 @@ import datetime as _datetime
 import copy     as copy
 import pysofa2  as _sofa
 import math     as math
-import typing   as _typing
+import typing   as typing
 
 # Brahe Imports
 from   brahe.utils       import logger
@@ -424,7 +424,7 @@ class Epoch():
             (self.seconds == other.seconds) and
             (self.nanoseconds >= other.nanoseconds)))
 
-    def caldate(self, tsys:_typing.Optional[str]=None):
+    def caldate(self, tsys:typing.Optional[str]=None):
         """Return the Gregorian calendar date for a specific 
 
         Args:
@@ -458,7 +458,7 @@ class Epoch():
 
         return iy, im, id, int(ihmsf[0]), int(ihmsf[1]), float(ihmsf[2]), float(ihmsf[3])
 
-    def year(self, tsys:_typing.Optional[str]=None):
+    def year(self, tsys:typing.Optional[str]=None):
         '''Year of epoch.
 
         Args:
@@ -472,7 +472,7 @@ class Epoch():
 
         return year
 
-    def month(self, tsys:_typing.Optional[str]=None):
+    def month(self, tsys:typing.Optional[str]=None):
         '''Month of epoch.
 
         Args:
@@ -486,7 +486,7 @@ class Epoch():
 
         return month
 
-    def day(self, tsys:_typing.Optional[str]=None):
+    def day(self, tsys:typing.Optional[str]=None):
         '''Day of epoch.
 
         Args:
@@ -500,7 +500,7 @@ class Epoch():
 
         return day
 
-    def hour(self, tsys:_typing.Optional[str]=None):
+    def hour(self, tsys:typing.Optional[str]=None):
         '''Hour of epoch.
 
         Args:
@@ -514,7 +514,7 @@ class Epoch():
 
         return hour
 
-    def minute(self, tsys:_typing.Optional[str]=None):
+    def minute(self, tsys:typing.Optional[str]=None):
         '''Minute of epoch.
 
         Args:
@@ -528,7 +528,7 @@ class Epoch():
 
         return minute
 
-    def second(self, tsys:_typing.Optional[str]=None):
+    def second(self, tsys:typing.Optional[str]=None):
         '''Second of epoch.
 
         Args:
@@ -576,7 +576,7 @@ class Epoch():
         
         return gmst*180.0/math.pi if use_degrees else gmst
 
-    def mjd(self, tsys:_typing.Optional[str]=None):
+    def mjd(self, tsys:typing.Optional[str]=None):
         """Return Epoch as a modified Julian date
 
         Args:
@@ -598,7 +598,7 @@ class Epoch():
 
         return (jd - _constants.MJD_ZERO) + fd
 
-    def jd(self, tsys:_typing.Optional[str]=None):
+    def jd(self, tsys:typing.Optional[str]=None):
         """Compute the Julian Date for a specific epoch
 
         Args:
@@ -620,7 +620,7 @@ class Epoch():
 
         return jd + fd
 
-    def day_of_year(self, tsys:_typing.Optional[str]=None):
+    def day_of_year(self, tsys:typing.Optional[str]=None):
         """Return the day-of-year number for a given `Epoch`. 
 
         January 1 0h of each year will return 1.
@@ -653,7 +653,7 @@ class Epoch():
 
         return doy
 
-    def to_datetime(self, tsys:_typing.Optional[str]=None):
+    def to_datetime(self, tsys:typing.Optional[str]=None):
         """Return equivalent datetime object for time system
 
         Args:
@@ -679,7 +679,7 @@ class Epoch():
         '''
         return '%4d-%02d-%02dT%02d:%02d:%02.0fZ' % self.caldate('UTC')[0:6]
 
-    def __str__(self, tsys:_typing.Optional[str]=None):
+    def __str__(self, tsys:typing.Optional[str]=None):
         year, month, day, hour, minute, second, microsecond = self.caldate()
         second += microsecond/1.0e6
         return '%4d-%02d-%02d %02d:%02d:%06.3f %s' % (year, month, day, hour, minute, second, self.tsys)

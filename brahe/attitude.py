@@ -4,7 +4,7 @@ representations, as well as computing
 """
 
 # Imports
-import logging as _logging
+import logging
 import copy    as copy
 import math    as math
 import numpy   as np

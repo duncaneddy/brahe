@@ -8,7 +8,7 @@ import math
 from brahe.constants import *
 from brahe.epoch     import *
 from brahe.coordinates import sOSCtoCART
-from brahe.relative_coordiantes import *
+from brahe.relative_coordinates import *
 
 # Test main code
 

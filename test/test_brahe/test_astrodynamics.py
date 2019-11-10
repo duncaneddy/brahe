@@ -31,6 +31,12 @@ def test_orbital_period():
     T = orbital_period(R_EARTH + 500e3)
     assert approx(T, 5676.977164028288, abs=1e-9)
 
+def test_perigee_velocity():
+    pass
+
+def test_apogee_velocity():
+    pass
+
 def test_sun_sync_incl():
     iss = sun_sync_inclination(R_EARTH + 574e3, 0.0, use_degrees=False)
     assert approx(iss, 97.685*math.pi/180, abs=1.0e-3)

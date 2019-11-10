@@ -27,7 +27,7 @@ def rRTNtoECI(x:AbstractArray) -> _np.ndarray:
             satellite. Units: [*m*; *m/s*]
 
     Returns:
-        R_rtn_to_eci (np.ndarray): Rotation matrix transforming from
+        np.ndarray Rotation matrix transforming from
             the RTN frame to the ECI frame.
     """
 
@@ -59,7 +59,7 @@ def rECItoRTN(x:AbstractArray) -> _np.ndarray:
             satellite.  Units: [*m*; *m/s*]
 
     Returns:
-        R_eci_to_rtn (np.ndarray): Rotation matrix transforming from the ECI 
+        np.ndarray: Rotation matrix transforming from the ECI 
         frame to the RTN frame.
     """
     
@@ -82,7 +82,7 @@ def sECItoRTN(x:AbstractArray, xt:AbstractArray) -> _np.ndarray:
             satellite. Units: [*m*; *m/s*]
 
     Returns:
-        rtn (np.ndarray): Position and velocity of the target relative of the 
+        np.ndarray: Position and velocity of the target relative of the 
             observing satellite in the RTN. Units: [*m*; *m/s*]
     """
 
@@ -127,7 +127,7 @@ def sRTNtoECI(x:AbstractArray, xrtn:AbstractArray) -> _np.ndarray:
             observing satellite in the RTN. Units: [*m*; *m/s*]
 
     Returns:
-        xt (np.ndarray): Inertial state (position and velocity) of the target 
+        np.ndarray: Inertial state (position and velocity) of the target 
             satellite. Units: [*m*; *m/s*]
     """
 

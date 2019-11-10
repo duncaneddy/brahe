@@ -5,9 +5,9 @@ perturbations on orbits.
 
 # Imports
 import logging
-import copy    as _copy
-import math    as _math
-import numpy   as _np
+import copy    as copy
+import math    as math
+import numpy   as np
 
 import brahe.constants as _constants
 from   brahe.epoch       import Epoch

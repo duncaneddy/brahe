@@ -1,5 +1,5 @@
 Reference Frames
 ================
 
-.. automodule:: brahe.reference_frames
+.. automodule:: brahe.frames
     :members:

@@ -6,7 +6,7 @@ from brahe.constants   import *
 from brahe.eop         import EOP
 from brahe.epoch       import *
 from brahe.coordinates import sOSCtoCART
-from brahe.reference_frames      import *
+from brahe.frames      import *
 
 def test_bpn():
     epc = Epoch(2007, 4, 5, 12, 0, 0, tsys="UTC")

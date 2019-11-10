@@ -9,7 +9,7 @@ from brahe.constants import *
 from brahe.epoch     import *
 from brahe.coordinates import *
 from brahe.attitude  import Rx, Ry, Rz
-from brahe.reference_frames import sECEFtoECI, sECItoECEF
+from brahe.frames import sECEFtoECI, sECItoECEF
 
 # Test main code
 

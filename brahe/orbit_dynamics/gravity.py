@@ -5,11 +5,11 @@ forces or satellites.
 
 # Imports
 import logging
-import copy    as _copy
-import pathlib as _pathlib
-import math    as _math
-import numpy   as _np
-import numba   as _numba
+import copy    as copy
+import pathlib as pathlib
+import math    as math
+import numpy   as np
+import numba   as numba
 
 # Internal Imports
 from   brahe.utils import kron_delta, AbstractArray
@@ -21,44 +21,8 @@ import brahe.ephemerides as _ephem
 logger = logging.getLogger(__name__)
 
 # Gravity Models
-GRAV_MODELGRAV_MODEL_EGM2008_90 = _constants.DATA_PATH / 'EGM2008_90.gfc'
+GRAV_MODEL_EGM2008_90 = _constants.DATA_PATH / 'EGM2008_90.gfc'
 GRAV_MODEL_GGM05C     = _constants.DATA_PATH / 'GGM05C.gfc'
-
-######################
-# Point Mass Gravity #
-######################
-
-@_numba.jit(nopython=True, cache=True)
-def accel_point_mass(r_sat:AbstractArray, r_body:AbstractArray, gm:float=_constants.GM_EARTH):
-    """Computes the acceleration of a satellite caused by a point-mass approximation 
-    of the central body. Returns the acceleration vector of the satellite.
-
-    Assumes the satellite is much, much less massive than the central body.
-
-    Arguments:
-        r_sat (np.ndarray): satellite position in a commonn inertial frame. Units: *m*
-        r_body (np.ndarray): position of body in a commonn inertial frame. Units: *m*
-        gm (float): gravitational coeffient of attracting body. Units: [*m*^3/*s*^2]
-            Default: brahe.constants.GM_EARTH)
-    Return:
-        a (np.ndarray): Acceleration in X, Y, and Z inertial directions [m/s^2]
-    """
-
-    # Ensure input is array-like
-    r_sat  = _np.asarray(r_sat)
-    r_body = _np.asarray(r_body)
-
-    # Restrict inputs to position only
-    r_sat  = r_sat[0:3]
-    r_body = r_body[0:3]
-
-    # Relative position vector of satellite w.r.t. the attraching body
-    d = r_sat - r_body
-
-    # Acceleration
-    a = - gm * (d/_np.linalg.norm(d)**3 + r_body/_np.linalg.norm(r_body)**3)
-
-    return a
 
 #######################
 # Gravity Model Class #
@@ -69,42 +33,62 @@ class GravityModel():
     field.
 
     Attributes:
-        _CS (:obj:`np.ndarray`): gravity field coefficients stored as square matrix.
+        data   (:obj:`np.ndarray`): gravity field coefficients stored as square matrix.
             C coeffients are store in the lower triangular corner and diagonal
             S coeffients in the upper triangular corner excluding the diagonal
-        _n_max (:obj:`int`): maximum model degree
-        _m_max (:obj:`int`): maximum model order
-        _gm    (:obj:`float`): gravity constant
-        _r     (:obj:`float`): equatorial raidus of body
-        _normalized (:obj:`str`): coefficient normalization status
-        _tides (:obj:`str`): model tide system
+        n_max  (:obj:`int`): maximum model degree
+        m_max  (:obj:`int`): maximum model order
+        gm     (:obj:`float`): gravity constant
+        radius (:obj:`float`): equatorial raidus of body
+        normalization (:obj:`str`): gravity model normalization type
+        tides  (:obj:`str`): model tide system
     '''
 
     # Initialize class variables
+    _data        = np.array((1, 1))
     _initialized = False
-    _CS          = _np.array((1, 1))
-    _n_max       = 0
-    _m_max       = 0
-    _gm          = 0
-    _radius      = 0
-    _tides       = ''
-    _modelname   = ''
-    _errors      = ''
-    _norm        = ''
+    n_max        = 0
+    m_max        = 0
+    gm           = 0
+    radius       = 0
+    tides        = ''
+    modelname    = ''
+    errors       = ''
+    norm         = ''
 
     @classmethod
-    def initialize(cls, file_path=GRAV_MODEL_EGM2008_90):
+    def initialize(cls, filepath=GRAV_MODEL_EGM2008_90):
         '''Initialize GravityModel if it is not already initialized.'''
 
         if not cls.initialized:
-            cls.load(file_path)
+            cls.load(filepath)
 
     @classmethod
-    def load(cls, file_path=GRAV_MODEL_EGM2008_90):
+    def is_initialized(cls):
+        '''Returns whether gravity model has been initialized.
+
+        Returns:
+            bool: Returns `True` if model has been previously initialized, False otherwise.
+        '''
+
+        return cls._initialized
+
+    @classmethod
+    def is_normalized(cls):
+        '''Returns whether loaded gravity field mode
+
+        Returns:
+            bool: Returns `True` if gravity model coefficients are normalized, False otherwise.
+        '''
+
+        return cls.normalization == 'fully_normalized'
+
+    @classmethod
+    def load(cls, filepath=GRAV_MODEL_EGM2008_90):
         '''Loads spherical harmonic gravity model file into memory.
 
         Arguments:
-            file_path - String path to gravity field model to load.
+            filepath - String path to gravity field model to load.
                         (Default: EGM2008_90)
 
         Notes:
@@ -131,10 +115,10 @@ class GravityModel():
                               effect on Earth's gravity field.
         '''
 
-        logger.debug(f'GravityModel loading file: {file_path:s}')
+        logger.debug(f'GravityModel loading from file: {filepath}')
         
         # Open file
-        with open(file_path) as fp:
+        with open(filepath) as fp:
             # Read first line
             line = fp.readline()
             
@@ -154,12 +138,12 @@ class GravityModel():
                 elif line[0:6] == 'errors':
                     cls.errors = line.split()[1]
                 elif line[0:4] == 'norm':
-                    cls.norm = line.split()[1]
+                    cls.normalization = line.split()[1]
                 elif line[0:11] == 'tide_system':
                     cls.tides = line.split()[1]
 
             # Initialize CS
-            cls._CS = _np.zeros((cls.n_max + 1, cls.m_max + 1))
+            cls._data = np.zeros((cls.n_max + 1, cls.m_max + 1))
 
             # Read in gravity model data:
             for line in fp:
@@ -178,16 +162,59 @@ class GravityModel():
                 sig_s = float(sig_s)
 
                 # Store coefficients in matrix
-                cls._CS[n, m]     = C
-                cls._CS[m - 1, n] = S  
+                cls._data[n, m]     = C
+                cls._data[m - 1, n] = S  
 
         cls.initialized = True
+
+######################
+# Point Mass Gravity #
+######################
+
+@numba.jit(nopython=True, cache=True)
+def accel_point_mass(r_sat:np.ndarray, r_body:np.ndarray=np.zeros(3), gm:float=_constants.GM_EARTH) -> np.ndarray:
+    """Computes the acceleration of a satellite caused by a point-mass approximation 
+    of the central body. Returns the acceleration vector of the satellite.
+
+    Assumes the satellite is much, much less massive than the central body.
+
+    Arguments:
+        r_sat (np.ndarray): satellite position in a common inertial frame. Units: *m*
+        r_body (np.ndarray, optional): position of body in a common inertial frame. Units: *m*
+        gm (float): gravitational coeffient of attracting body. Units: [*m*^3/*s*^2] Default: brahe.constants.GM_EARTH)
+    
+    Returns:
+        np.ndarray: Acceleration in the cartesian inertial frame. Units: [m/s^2]
+    """
+
+    # Ensure r_body exists if
+    if not np.any(r_body):
+        r_body = np.zeros(3)
+
+    # Ensure input is array-like
+    r_sat  = np.asarray(r_sat)
+    r_body = np.asarray(r_body)
+
+    # Restrict inputs to position only
+    r_sat  = r_sat[0:3]
+    r_body = r_body[0:3]
+
+    # Relative position vector of satellite w.r.t. the attraching body
+    d = r_sat - r_body
+
+    # Acceleration
+    if np.any(r_body):
+        a = - gm * (d/np.linalg.norm(d)**3 + r_body/np.linalg.norm(r_body)**3)
+    else:
+        a = - gm * d/np.linalg.norm(d)**3
+
+    return a
 
 ##############################
 # Spherical Harmonic Gravity #
 ##############################
 
-@_numba.jit(nopython=True, cache=True)
+@numba.jit(nopython=True, cache=True)
 def _facprod(n:int, m:int) -> float:
     '''Helper function to ain in denormalization of gravity field coefficients.
     This method computes the factorial ratio (n-m)!/(n+m)! in an efficient
@@ -207,33 +234,32 @@ def _facprod(n:int, m:int) -> float:
 
     return p
 
-
-######################
-# Third-Body Gravity #
-######################
-
-@jit(nopython=False, cache=True)
-def _compute_spherical_harmonics(r_bf: _np.ndarray, CS: _np.ndarray, n_max: int, 
+@numba.jit(nopython=False, cache=True)
+def _compute_spherical_harmonics(r_bf: np.ndarray, CS: np.ndarray, n_max: int, 
                                    m_max: int, r_ref: float, GM: float,
-                                   is_normalized: bool):
-    '''Compute spherical harmonic expansion for gravity field.
+                                   is_normalized: bool) -> np.ndarray:
+    '''Compute spherical harmonic expansion for gravity field. Internal helper
+    method used by accel_gravity. To enable JIT compiling of the primary computational
+    worload of the 
 
-
+    Args:
+        r_bf (:obj:`np.ndarray`): Position in body-fixed frame
+        CS (:obj:`np.ndarray)
     '''
 
     # Auxiliary quantities
-    r_sqr = _np.dot(r_bf, r_bf) # Square of distance
+    r_sqr = np.dot(r_bf, r_bf) # Square of distance
     rho   = r_ref * r_ref / r_sqr
     x0    = r_ref * r_bf[0] / r_sqr # Normalized
     y0    = r_ref * r_bf[1] / r_sqr # coordinates
     z0    = r_ref * r_bf[2] / r_sqr
 
     # Initialize V and W intemetidary matrices
-    V = _np.zeros((n_max+2, n_max+2))
-    W = _np.zeros((n_max+2, n_max+2))
+    V = np.zeros((n_max+2, n_max+2))
+    W = np.zeros((n_max+2, n_max+2))
     
     # Calculate zonal terms V(n,0); set W(n,0)=0.0
-    V[0, 0] = r_ref / _math.sqrt(r_sqr)
+    V[0, 0] = r_ref / math.sqrt(r_sqr)
     W[0, 0] = 0.0
 
     V[1, 0] = z0 * V[0, 0]
@@ -265,7 +291,7 @@ def _compute_spherical_harmonics(r_bf: _np.ndarray, CS: _np.ndarray, n_max: int,
             if m == 0:
                 # Denormalize coefficients, if required
                 if is_normalized:
-                    N = _math.sqrt(2*n + 1)
+                    N = math.sqrt(2*n + 1)
                     C = N * CS[n, 0]
                 else:
                     C = CS[n, 0]
@@ -276,7 +302,7 @@ def _compute_spherical_harmonics(r_bf: _np.ndarray, CS: _np.ndarray, n_max: int,
             else:
                 # Denormalize coefficients, if required
                 if is_normalized:
-                    N = _math.sqrt((2 - kron_delta(0,m)) * (2*n + 1) * _facprod(n, m))
+                    N = math.sqrt((2 - kron_delta(0,m)) * (2*n + 1) * _facprod(n, m))
                     C = N * CS[n, m]
                     S = N * CS[m -1, n]
                 else:
@@ -291,49 +317,99 @@ def _compute_spherical_harmonics(r_bf: _np.ndarray, CS: _np.ndarray, n_max: int,
                 az  += (n - m + 1) * (-C * V[n + 1, m] - S * W[n + 1, m])
 
     # Body-fixed acceleration
-    a_bf = (GM / (r_ref * r_ref)) * _np.array([ax, ay, az])
+    a_bf = (GM / (r_ref * r_ref)) * np.array([ax, ay, az])
 
     return a_bf
 
-    """
-Computes the accleration caused by Earth gravity as modeled by a spherical 
-harmonic gravity field.
+def accel_gravity(x:np.ndarray, R_i2b:np.ndarray, n_max:int=20, m_max:int=20) -> np.ndarray:
+    '''Compute the accceleration due to gravity
 
-Arguments:
-- `r_sat::Array{<:Real, 1}`: Satellite position in the inertial frame [m]
-- `R_eci_ecef::Array{<:Real, 2}`: Rotation matrix transforming a vector from the inertial to body-fixed reference frames. 
-- `n_max::Integer`: Maximum degree coefficient to use in expansion
-- `m_max::Integer`: Maximum order coefficient to use in the expansion. Must be less than the degree.
-    
-Return:
-- `a::Array{<:Real, 1}`: Gravitational acceleration in X, Y, and Z inertial directions [m/s^2]
+    Args:
+        x (:obj:`np.ndarray`): Object position in the inertial frame centered at the pirmary body or system barycenter.
+        R_i2b (:obj:`np.ndarray`): Rotation matrix that transform _from_ inertial _to_ body frame. That is x_ecef = R_i2b @ x
+        n_max (int) Maximum gravity model degree
+        m_max (int) Maximum gravity model order
 
-References:
-1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.56-68.
-"""
-def accel_gravity(x:AbstractArray, R_eci_ecef:AbstractArray, n_max:int=20, m_max:int=20) -> _np.ndarray:
-    
+    Returns:
+        np.ndarray: Acceleration in the cartesian inertial frame. Units: [m/s^2]
+
+    References:
+        1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.56-68.
+    '''
+
+    # Ensure Gravity Model Initialized
+    if not GravityModel.is_initialized():
+        GravityModel.initialize()
+
     # Check Limits of Gravity Field
-    if n_max > GRAVITY_MODEL.n_max
-        error("Requested gravity model order $n_max is larger than the maximum order of the model maximum: ", GRAVITY_MODEL.n_max)
-    end
+    if n_max > GravityModel.n_max:
+        raise RuntimeError(f"Requested gravity model order {n_max} is larger than the maximum order of the model maximum {GravityModel.n_max}.")
 
-    if m_max > GRAVITY_MODEL.m_max
-        error("Requested gravity model degree $m_max is larger than the maximum degree of the model maximum: ", GRAVITY_MODEL.m_max)
-    end
+    if m_max > GravityModel.m_max:
+        raise RuntimeError(f"Requested gravity model order {m_max} is larger than the maximum order of the model maximum {GravityModel.m_max}.")
 
     # Gravitational parameters of primary body
-    GM    = GRAVITY_MODEL.GM
-    R_ref = GRAVITY_MODEL.R
+    GM    = GravityModel.gm
+    R_ref = GravityModel.radius
 
     # Body-fixed position
-    r_bf = R_eci_ecef * x[1:3]
+    r_bf = R_i2b @ x[0:3]
 
     # Compute spherical harmonic acceleration
-    a_ecef = _spherical_harmonic_gravity(r_bf, GRAVITY_MODEL.data, n_max, m_max, R_ref, GM, normalized=GRAVITY_MODEL.normalized)
+    a_ecef = _compute_spherical_harmonics(r_bf, GravityModel._data, n_max, m_max, R_ref, GM, is_normalized=GravityModel.is_normalized())
 
-    # Inertial acceleration
-    a_eci = _np.transpose(R_eci_ecef) @ a_ecef
+    # # Inertial acceleration
+    a_eci = np.transpose(R_i2b) @ a_ecef
 
-    # Finished
+    # # Finished
     return a_eci
+
+######################
+# Third-Body Gravity #
+######################
+
+def accel_thirdbody_sun(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
+    '''Computes the acceleration of an object in the inertial frame due to the
+    gravitational attraction of the Sun.
+
+    Args:
+        epc (:obj:`Epoch`): Time of 
+        x_eci (:obj:`np.ndarray`): Satellite state in the inertial frame
+
+    Returns:
+        np.ndarray: Acceleration in the cartesian inertial frame. Units: [m/s^2]
+
+    References:
+        1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
+    '''
+
+    # Compute solar position
+    r_sun = _ephem.sun_position(epc)
+
+    # Acceleration due to sun point mass
+    a_sun = accel_point_mass(x_eci[0:3], r_sun, _constants.GM_SUN)
+
+    return a_sun
+
+def accel_thirdbody_moon(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
+    '''Computes the acceleration of an object in the inertial frame due to the
+    gravitational attraction of the Moon.
+
+    Args:
+        epc (:obj:`Epoch`): Time of 
+        x_eci (:obj:`np.ndarray`): Satellite state in the inertial frame
+
+    Returns:
+        np.ndarray: Acceleration in the cartesian inertial frame. Units: [m/s^2]
+
+    References:
+        1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.69-70.
+    '''
+
+    # Compute solar position
+    r_moon = _ephem.sun_position(epc)
+
+    # Acceleration due to sun point mass
+    a_moon = accel_point_mass(x_eci[0:3], r_moon, _constants.GM_MOON)
+
+    return a_moon

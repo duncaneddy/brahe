@@ -1,5 +1,5 @@
 Astrodynamics
 =============
 
-.. automodule:: brahe.astrodynamics
+.. automodule:: brahe.astro
     :members:

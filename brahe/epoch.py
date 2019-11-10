@@ -12,15 +12,14 @@ import logging
 import enum
 import re       as _re
 import datetime as _datetime
-import copy     as _copy
+import copy     as copy
 import pysofa2  as _sofa
-import math     as _math
+import math     as math
 import typing   as _typing
 
 # Brahe Imports
 from   brahe.utils       import logger
 import brahe.constants   as _constants
-from   brahe.eop         import EOP
 import brahe.time        as _bhtime
 
 #############
@@ -365,7 +364,7 @@ class Epoch():
 
     def __add__(self, other):
         # Create new epoch 
-        epc  = _copy.deepcopy(self)
+        epc  = copy.deepcopy(self)
         epc += other
         return epc
 
@@ -378,7 +377,7 @@ class Epoch():
         
         else:
             # Subtract seconds from Epoch
-            epc  = _copy.deepcopy(self)
+            epc  = copy.deepcopy(self)
             epc -= other
             return epc
 
@@ -558,7 +557,7 @@ class Epoch():
 
         gast = _sofa.Gst06a(uta, utb, tta, ttb)
 
-        return gast*180.0/_math.pi if use_degrees else gast
+        return gast*180.0/math.pi if use_degrees else gast
 
     def gmst(self, use_degrees:bool=False):
         """Compute the Greenwich Mean Sidereal Time for the given Epoch.
@@ -575,7 +574,7 @@ class Epoch():
 
         gmst = _sofa.Gmst06(uta, utb, tta, ttb)
         
-        return gmst*180.0/_math.pi if use_degrees else gmst
+        return gmst*180.0/math.pi if use_degrees else gmst
 
     def mjd(self, tsys:_typing.Optional[str]=None):
         """Return Epoch as a modified Julian date
@@ -673,7 +672,7 @@ class Epoch():
 
         year, month, day, hour, minute, second, microsecond = self.caldate(tsys=tsys)
 
-        return _datetime.datetime(year, month, day, hour, minute, second, _math.floor(microsecond))
+        return _datetime.datetime(year, month, day, hour, minute, second, math.floor(microsecond))
 
     def isoformat(self, tsys:str="UTC"):
         '''Return date and time as an ISO 8061 compliant string.

@@ -36,9 +36,9 @@ def test_request_point():
     assert request.center[1] == 37.770538
 
     ecef = request.center_ecef
-    assert ecef[0] == -2704991.697152399
-    assert ecef[1] == -4262161.912380129
-    assert ecef[2] == 3885342.7968954593
+    assert ecef[0] == approx(-2704991.697152399, abs=1e-8)
+    assert ecef[1] == approx(-4262161.912380129, abs=1e-8)
+    assert ecef[2] == approx(3885342.7968954593, abs=1e-8)
 
     # Check Request properties
     assert request.reward == 2
@@ -80,9 +80,9 @@ def test_request_polygon():
     assert request.center[1] == approx(37.8, abs=1e-12)
 
     ecef = request.center_ecef
-    assert ecef[0] == -2703817.254689778
-    assert ecef[1] == -4260534.252823733
-    assert ecef[2] == 3887927.165270581
+    assert ecef[0] == approx(-2703817.254689778, abs=1e-8)
+    assert ecef[1] == approx(-4260534.252823733, abs=1e-8)
+    assert ecef[2] == approx(3887927.165270581, abs=1e-8)
 
     # Check Request properties
     assert request.reward == 3.0
@@ -124,9 +124,9 @@ def test_tile():
     assert tile.center[1] == approx(37.8, abs=1e-12)
 
     ecef = tile.center_ecef
-    assert ecef[0] == -2703817.254689778
-    assert ecef[1] == -4260534.252823733
-    assert ecef[2] == 3887927.165270581
+    assert ecef[0] == approx(-2703817.254689778, abs=1e-8)
+    assert ecef[1] == approx(-4260534.252823733, abs=1e-8)
+    assert ecef[2] == approx(3887927.165270581, abs=1e-8)
 
     # Check Request properties
     assert 1 in tile.sat_ids
@@ -161,9 +161,9 @@ def test_station():
     assert station.center[1] == 37.770538
 
     ecef = station.center_ecef
-    assert ecef[0] == -2704991.697152399
-    assert ecef[1] == -4262161.912380129
-    assert ecef[2] == 3885342.7968954593
+    assert ecef[0] == approx(-2704991.697152399, abs=1e-8)
+    assert ecef[1] == approx(-4262161.912380129, abs=1e-8)
+    assert ecef[2] == approx(3885342.7968954593, abs=1e-8)
 
     # Check Station properties
     assert station.elevation_min == 10.0
@@ -193,9 +193,9 @@ def test_collect():
     assert collect.tile_id == uuid.UUID("23b6d83f-1abb-4f84-91ef-9d40c15311fc")
     assert collect.request_id == 99
 
-    assert collect.center_ecef[0] == -2704991.697152399
-    assert collect.center_ecef[1] == -4262161.912380129
-    assert collect.center_ecef[2] == 3885342.7968954593
+    assert collect.center_ecef[0] == approx(-2704991.697152399, abs=1e-8)
+    assert collect.center_ecef[1] == approx(-4262161.912380129, abs=1e-8)
+    assert collect.center_ecef[2] == approx(3885342.7968954593, abs=1e-8)
 
 def test_contact():
     contact_json = {
@@ -217,6 +217,6 @@ def test_contact():
     assert contact.id != None
     assert contact.sat_id == 1
 
-    assert contact.center_ecef[0] == -2704991.697152399
-    assert contact.center_ecef[1] == -4262161.912380129
-    assert contact.center_ecef[2] == 3885342.7968954593
+    assert contact.center_ecef[0] == approx(-2704991.697152399, abs=1e-8)
+    assert contact.center_ecef[1] == approx(-4262161.912380129, abs=1e-8)
+    assert contact.center_ecef[2] == approx(3885342.7968954593, abs=1e-8)

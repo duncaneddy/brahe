@@ -3,12 +3,16 @@ language: python
 notifications:
   email: false
 
+os:
+  - linux
+  - osx
+
+# dist: xenial
+
 python:
   - '3.6'
   - '3.7'
   - '3.8'
-
-dist: xenial
 
 before_script:
   - pip install -U -r requirements/requirements-dev.txt

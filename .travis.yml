@@ -12,7 +12,7 @@ os:
 python:
   - '3.6'
   - '3.7'
-  - '3.8'
+  # - '3.8' # Remove until Numba updates llvmlite support in Dec 2019 release
 
 before_script:
   - pip install -U -r requirements/requirements-dev.txt

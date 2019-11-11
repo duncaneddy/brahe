@@ -8,7 +8,7 @@ the code. The submodules are listed here:
     :maxdepth: 1
         
     modules/constants.rst
-    modules/astrodynamics.rst
+    modules/astro.rst
     modules/coordinates.rst
     modules/data.rst
     modules/eop.rst
@@ -16,4 +16,4 @@ the code. The submodules are listed here:
     modules/epoch.rst
     modules/relative_coordiantes.rst
     modules/attitude.rst
-    modules/reference_frames.rst
+    modules/frames.rst

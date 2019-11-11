@@ -672,7 +672,7 @@ class Epoch():
 
         year, month, day, hour, minute, second, microsecond = self.caldate(tsys=tsys)
 
-        return _datetime.datetime(year, month, day, hour, minute, second, math.floor(microsecond))
+        return _datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), int(second), math.floor(microsecond))
 
     def isoformat(self, tsys:str="UTC"):
         '''Return date and time as an ISO 8061 compliant string.

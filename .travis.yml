@@ -5,7 +5,7 @@ notifications:
 
 os:
   - linux
-  - osx
+  # - osx
 
 # dist: xenial
 

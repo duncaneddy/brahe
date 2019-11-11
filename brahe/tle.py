@@ -123,7 +123,7 @@ def tle_gmst82(epoch:Epoch, use_degrees:bool=False):
     theta  = ((jd_ut1 % 1.0) + (g / 86400.0 % 1.0)) * 2*math.pi
 
     if use_degrees == True:
-        theta *= _constants.RAD2DEG
+        theta *= 180.0/math.pi
 
     return theta
 

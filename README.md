@@ -47,3 +47,8 @@ usage and to make it easy to integrate with other tools.
 The only thing asked is that if you do use the package in your work, or appreciate
 the project, either send a message or star the project. Knowing that the project
 is being actively used is a large motivator for continued development.
+
+## Using brahe
+
+If you use brahe for your research or work, I'd love to know about it. Please
+message me, or let me know. If there are 

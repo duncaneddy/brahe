@@ -1,0 +1,59 @@
+[
+    {
+        "id": 1,
+        "name": "Spacecraft 1",
+        "line1": "1     1U          20  1.00000000  .00000000  00000-0  00000-0 0    07",
+        "line2": "2     1  97.4017   0.0000 0010000   0.0000   0.0000 15.21936719    06",
+        "model": {
+            "slew_rate": 1.0,
+            "settling_time": 15.0,
+            "power_max": 0.0,
+            "power_min": 0.0,
+            "power_rate_payload": 0.0,
+            "power_rate_downlink": 0.0,
+            "power_rate_idle": 0.0,
+            "power_rate_sunpoint": 0.0,
+            "data_max": 0.0,
+            "data_rate_payload": 0.0,
+            "data_rate_downlink": 0.0
+        }
+    },
+    {
+        "id": 2,
+        "name": "Spacecraft 2",
+        "line1": "1     2U          20  1.00000000  .00000000  00000-0  00000-0 0    08",
+        "line2": "2     2  97.4017 120.0000 0010000   0.0000 120.0000 15.21936719    03",
+        "model": {
+            "slew_rate": 1.0,
+            "settling_time": 15.0,
+            "power_max": 0.0,
+            "power_min": 0.0,
+            "power_rate_payload": 0.0,
+            "power_rate_downlink": 0.0,
+            "power_rate_idle": 0.0,
+            "power_rate_sunpoint": 0.0,
+            "data_max": 0.0,
+            "data_rate_payload": 0.0,
+            "data_rate_downlink": 0.0
+        }
+    },
+    {
+        "id": 3,
+        "name": "Spacecraft 3",
+        "line1": "1     3U          20  1.00000000  .00000000  00000-0  00000-0 0    09",
+        "line2": "2     3  97.4017 240.0000 0010000   0.0000 240.0000 15.21936719    00",
+        "model": {
+            "slew_rate": 1.0,
+            "settling_time": 15.0,
+            "power_max": 0.0,
+            "power_min": 0.0,
+            "power_rate_payload": 0.0,
+            "power_rate_downlink": 0.0,
+            "power_rate_idle": 0.0,
+            "power_rate_sunpoint": 0.0,
+            "data_max": 0.0,
+            "data_rate_payload": 0.0,
+            "data_rate_downlink": 0.0
+        }
+    }
+]

@@ -3,11 +3,16 @@ from .geojson import (
     GeoJSONObject,
 )
 
-from .operations import (
-    AscendingDescending,
+from .earth_observation import (
     Request,
-    Station,
     Tile,
+    Station,
+    Opportunity,
     Collect,
-    Contact,
+    Contact
+)
+
+from .spacecraft import (
+    Spacecraft,
+    SpacecraftModel
 )

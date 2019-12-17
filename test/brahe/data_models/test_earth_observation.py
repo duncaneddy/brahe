@@ -221,7 +221,7 @@ def test_station():
     assert ecef[2] == approx(3885342.7968954593, abs=1e-8)
 
     # Check Station properties
-    assert station.constraints.elevation_min == 10.0
+    assert station.constraints.elevation_min == 5.0
     assert station.downlink_rate_max == 0.0
 
 def test_collect():

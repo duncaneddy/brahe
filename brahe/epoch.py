@@ -88,23 +88,20 @@ def _align_epoch_data(days:int, seconds:int, nanoseconds:float):
     # Align nanoseconds to [0, 1.0e9)
     
     while nanoseconds < 0.0:
-        # print(f'{days}, {seconds}, {nanoseconds}')
+        n_ns = math.fabs(nanoseconds)//1.0e9
         nanoseconds += 1.0e9
         seconds     -= 1
 
     while nanoseconds >= 1.0e9:
-        # print(f'{days}, {seconds}, {nanoseconds}')
         nanoseconds -= 1.0e9
         seconds     += 1
 
     # Align seconds to [0, 86400)
-    while seconds < 0:
-        # print(f'{days}, {seconds}, {nanoseconds}')
+    if seconds < 0:
         seconds += 86400
         days    -= 1
 
-    while seconds >= 86400:
-        # print(f'{days}, {seconds}, {nanoseconds}')
+    if seconds >= 86400:
         seconds -= 86400
         days    += 1
 
@@ -170,7 +167,7 @@ class Epoch():
             raise RuntimeError('Invalid time system %s' % tsys)
         
         # Initialize Basic data members
-        self.tsys        = "UTC"
+        self.tsys        = tsys
         self.days        = 0
         self.seconds     = 0
         self.nanoseconds = 0.0
@@ -185,6 +182,8 @@ class Epoch():
                 self._init_epoch(args[0])
         elif 3 <= len(args) <= 7:
             self._init_date(*args, tsys=tsys)
+        else:
+            raise RuntimeError('No inputs provided for Epoch initialization')
         
         # TODO: Hangle kwargs initialization
 
@@ -294,22 +293,24 @@ class Epoch():
 
         jd, fd = _sofa.Dtf2d("TAI", datetime.year, datetime.month, datetime.day, 
                                     datetime.hour, datetime.minute, 0)
+
         
         # Get time system offset based on days and fractional days using SOFA
         tsys_offset     = _bhtime.time_system_offset(jd, fd, tsys, "TAI")
         foffset, offset = divmod(tsys_offset, 1.0)
 
+
         # Ensure days is an integer number, add entire fractional component to the
         # fractional days variable
-        fdays, days = divmod(jd, 1.0)
+        days, fdays = divmod(jd, 1.0)
         fd          = fd + fdays
 
         # Convert fractional days into total seconds still retaining fractional part
         seconds = fd * 86400.0
-        fsecs, secs = divmod(seconds, 1.0)
+        secs, fsecs = divmod(seconds, 1.0)
 
         # Now trip second of the fractional part
-        fsecond, second = divmod(datetime.second + datetime.microsecond/1.0e6, 1.0)
+        second, fsecond = divmod(datetime.second + datetime.microsecond/1.0e6, 1.0)
 
         # Add the integer parts together
         seconds = secs + second + offset
@@ -321,6 +322,7 @@ class Epoch():
         days        = int(days)
         seconds     = int(seconds)
         nanoseconds = float(nanoseconds)
+
 
         self.days, self.seconds, self.nanoseconds = _align_epoch_data(days, seconds, nanoseconds)
 

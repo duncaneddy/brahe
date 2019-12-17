@@ -61,15 +61,15 @@ References:
 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, 2012.
 """
 
-MJD2000  = 51544.0
+MJD2000  = 51544.5
 """
-Modified Julian Date of January 1, 2000 00:00:00. Value is independent of time
+Modified Julian Date of January 1, 2000 12:00:00. Value is independent of time
 scale.
 
 References:
-
+TODO: Fix Reference
 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and 
-Applications*, 2012.
+Applications*, 2012. 
 """
 
 GPS_TAI  = -19.0

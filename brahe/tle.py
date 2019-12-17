@@ -156,6 +156,9 @@ def tle_string_from_elements(epc:Epoch, oe:np.ndarray, norad_id:int=None,
     if not norad_id:
         norad_id = ''
 
+    if len(oe) != 9:
+        raise RuntimeError('Input orbital elements must be of length 9.')
+
     # Format Line 1
     norad_id  = norad_id
     year      = epc.year('UTC') % 100

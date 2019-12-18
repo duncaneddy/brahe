@@ -4,6 +4,8 @@ from .geojson import (
 )
 
 from .earth_observation import (
+    AscendingDescending,
+    LookDirection,
     Request,
     Tile,
     Station,

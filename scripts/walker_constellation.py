@@ -26,8 +26,7 @@ INIT_MANM = 0.0
 MEAN_MOTION = mean_motion(SMA, use_degrees=False)/(2*math.pi)*86400.0
 
 # Walker constellation specification
-# WALKER_SPEC = (36, 12, 1)
-WALKER_SPEC = (3, 3, 1)
+WALKER_SPEC = (36, 12, 1)
 
 # Spacecraft Properties
 SLEW_RATE = 1.0

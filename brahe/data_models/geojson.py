@@ -96,3 +96,54 @@ class GeoJSONObject(pydantic.BaseModel):
 
         # Convert point to ECEF frame
         return ecef
+
+    @property
+    def coordinates(self):
+        '''Returns the coordinates of the GeoJSON Object. If polygon type
+        the last point will be repeated.
+        '''
+
+        if self.geometry.type == 'Point':
+            pnt = self.geometry.coordinates
+            if len(pnt) == 2:
+                yield np.array([pnt[0], pnt[1], 0.0])
+            else:
+                yield np.array(pnt)
+        elif self.geometry.type == 'Polygon':
+            if len(self.geometry.coordinates) > 1:
+                raise RuntimeError('Polygon with multiple lines are not currently supported.')
+
+            for idx in range(0, self.num_points + 1):
+                pnt = self.geometry.coordinates[0][idx]
+                if len(pnt) == 2:
+                    yield np.array([pnt[0], pnt[1], 0.0])
+                else:
+                    yield np.array(pnt)
+        else:
+            raise NotImplementedError(f'Function not implemented for GeoJSON Geometry type: {self.geotype}')
+
+    @property
+    def vertices(self):
+        '''Returns the unique vertices of the GeoJSON Object. This ensures
+        for polygon types the last point won't be repeated.
+        '''
+
+        if self.geometry.type == 'Point':
+            pnt = self.geometry.coordinates
+            if len(pnt) == 2:
+                yield np.array([pnt[0], pnt[1], 0.0])
+            else:
+                yield np.array(pnt)
+
+        elif self.geometry.type == 'Polygon':
+            if len(self.geometry.coordinates) > 1:
+                raise RuntimeError('Polygon with multiple lines are not currently supported.')
+
+            for idx in range(0, self.num_points):
+                pnt = self.geometry.coordinates[0][idx]
+                if len(pnt) == 2:
+                    yield np.array([pnt[0], pnt[1], 0.0])
+                else:
+                    yield np.array(pnt)
+        else:
+            raise NotImplementedError(f'Function not implemented for GeoJSON Geometry type: {self.geotype}')

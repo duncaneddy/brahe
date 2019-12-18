@@ -176,16 +176,16 @@ class AccessConstraints(EOBase):
     ascdsc: AscendingDescending = pydantic.Field(AscendingDescending.either, description='Constraint on access being taken during an ascending or descending pass.')
     look_direction: LookDirection = pydantic.Field(LookDirection.either, description='Constraint on access look direction.')
     look_angle_min: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(0.0, description='Minimum look angle constraint.')
-    look_angle_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90, description='Maximum look angle constraint.')
+    look_angle_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90.0, description='Maximum look angle constraint.')
     elevation_min: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(0.0, description='Minimum elevation constraint.')
-    elevation_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90, description='Maximum elevation constraint.')
+    elevation_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90.0, description='Maximum elevation constraint.')
 
     @pydantic.validator('look_angle_max')
     def validate_look_angle(cls, look_angle_max, values):
         look_angle_min = values.get('look_angle_min')
 
-        if not look_angle_min or look_angle_min > look_angle_max:
-            raise ValueError('Minimum look angle constraint must be less than the maximum constraint.')
+        if look_angle_min != None and look_angle_min > look_angle_max:
+            raise ValueError(f'Minimum look angle constraint ({look_angle_min}) must be less than the maximum constraint ({look_angle_max}).')
 
         return look_angle_max
 
@@ -193,10 +193,18 @@ class AccessConstraints(EOBase):
     def validate_elevation(cls, elevation_max, values):
         elevation_min = values.get('elevation_min')
 
-        if not elevation_min or elevation_min > elevation_max:
-            raise ValueError('Minimum elevation constraint must be less than the maximum constraint.')
+        if elevation_min != None and elevation_min > elevation_max:
+            raise ValueError(f'Minimum elevation constraint ({elevation_min}) must be less than the maximum constraint ({elevation_max}).')
 
         return elevation_max
+
+class TessellationSettings(EOBase):
+    '''Settings used to tesselation.
+    '''
+    tile_width: pydantic.confloat(ge=100.0) = pydantic.Field(20000.0, description='Maximum tile width')
+    tile_length: pydantic.confloat(ge=100.0) = pydantic.Field(20000.0, description='Maximum tile length')
+    cross_track_overlap: pydantic.confloat(ge=100.0) = pydantic.Field(100.0, description='Cross-track overlap.')
+    along_track_overlap: pydantic.confloat(ge=100.0) = pydantic.Field(100.0, description='Along-track overlap.')
 
 class AccessProperties(EOBase):
     ascdsc: typing.Optional[AscendingDescending] = None
@@ -215,10 +223,12 @@ class AccessProperties(EOBase):
 ###########
 
 class RequestProperties(EOBase):
-    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Tasking request collection reward')
-    id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tasking request')
-    request_description: typing.Optional[str] = pydantic.Field('', description='Description of Tasking Request')
-    constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='')
+    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
+    id: StrUUID4 = pydantic.Field(None, description='Unique identifer for request')
+    request_description: typing.Optional[str] = pydantic.Field('', description='Description of imaging request')
+    constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Access constraint requirements on accessing this location.')
+    tessellation: TessellationSettings = pydantic.Field(TessellationSettings(), description='Tessellation settings.')
+
 
     @pydantic.validator('id', pre=True, always=True)
     def set_id(cls, id, values):
@@ -258,6 +268,15 @@ class Request(GeoJSONObject):
         return self.properties.constraints
 
     @property
+    def tessellation(self):
+        '''Direct access of tessellation settings.
+
+        Returns:
+            TessellationSettings: Tessellation settings.
+        '''
+        return self.properties.tessellation
+
+    @property
     def reward(self):
         '''Request collection reward
 
@@ -272,9 +291,9 @@ class Request(GeoJSONObject):
 
 class TileProperties(EOBase):
     id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
-    tile_group_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for tile group of the tile')
+    tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group of the tile')
     request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
-    sat_ids: typing.List[pydantic.conint(ge=1)] = pydantic.Field(..., description='Unique identifer of satellites that can collect this tile.')
+    spacecraft_ids: typing.List[pydantic.conint(ge=1)] = pydantic.Field([], description='Spacecraft IDs that can collect this tile.')
     tile_direction: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(..., description='Direction of tiling. Normalized unit vector in Cartesian ECEF frame.')
     
     @pydantic.validator('id', pre=True, always=True)
@@ -324,13 +343,13 @@ class Tile(GeoJSONObject):
         return self.properties.request_id
 
     @property
-    def sat_ids(self):
+    def spacecraft_ids(self):
         '''Return Satellite IDs
 
         Returns:
             UUID4: Statellite identifiers.
         '''
-        return self.properties.sat_ids
+        return self.properties.spacecraft_ids
 
 # ###########
 # # Station #
@@ -415,7 +434,7 @@ class Collect(Opportunity):
     request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
     tile_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
     tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group')
-    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Tasking request collection reward')
+    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
     access_properties: AccessProperties = pydantic.Field(AccessProperties(), descripton='Properties associated with collection')
 
     @pydantic.validator('center_ecef', pre=True, always=True)

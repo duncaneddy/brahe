@@ -155,7 +155,7 @@ def test_tile():
         ]
       },
       "properties": {
-        "sat_ids": [1],
+        "spacecraft_ids": [1],
         "tile_group_id": "1dce1fdf-a7af-4d5e-afb8-70ebc700db79",
         "request_id": '5e365123-7153-40fa-91f9-909b47f7fcb2',
         "tile_direction": [-1, 0, 0]
@@ -182,7 +182,7 @@ def test_tile():
     assert ecef[2] == approx(3887927.165270581, abs=1e-8)
 
     # Check Request properties
-    assert 1 in tile.sat_ids
+    assert 1 in tile.spacecraft_ids
     assert tile.request_id == '5e365123-7153-40fa-91f9-909b47f7fcb2'
     assert tile.id != None
 

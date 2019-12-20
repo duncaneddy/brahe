@@ -212,10 +212,10 @@ class AccessProperties(EOBase):
     local_time: pydantic.confloat(ge=0, lt=86400) = None
     azimuth_open: float = None
     azimuth_close: float = None
+    look_angle_min: float = None
+    look_angle_max: float = None
     elevation_min: float = None
     elevation_max: float = None
-    off_nadir_min: float = None
-    off_nadir_max: float = None
 
 
 ###########
@@ -228,6 +228,7 @@ class RequestProperties(EOBase):
     request_description: typing.Optional[str] = pydantic.Field('', description='Description of imaging request')
     constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Access constraint requirements on accessing this location.')
     tessellation: TessellationSettings = pydantic.Field(TessellationSettings(), description='Tessellation settings.')
+    collect_duration: pydantic.confloat(gt=0.0) = pydantic.Field(30.0, description='Duration of collection.')
 
 
     @pydantic.validator('id', pre=True, always=True)
@@ -351,13 +352,22 @@ class Tile(GeoJSONObject):
         '''
         return self.properties.spacecraft_ids
 
+    @property
+    def tile_direction(self):
+        '''Quick access for Tile Direction
+
+        Returns:
+            List: Tile direction
+        '''
+        return self.properties.tile_direction
+
 # ###########
 # # Station #
 # ###########
 
 class StationProperties(EOBase):
     id: StrUUID4 = pydantic.Field(None, description='Unique identifer for station')
-    station_name: StrUUID4 = pydantic.Field('', description='Name of station')
+    station_name: str = pydantic.Field('', description='Name of station')
     constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Constraints on accessing station')
     downlink_rate_max: pydantic.confloat() = pydantic.Field(0.0, description='Maximum downlink datarate at station. Units: [GB/s]')
     
@@ -389,6 +399,15 @@ class Station(GeoJSONObject):
             UUID4: Station identifier.
         '''
         return self.properties.id
+
+    @property
+    def station_name(self):
+        '''Direct access to station name.
+
+        Returns:
+            str: Station name.
+        '''
+        return self.properties.station_name
 
     @property
     def constraints(self):

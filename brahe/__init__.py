@@ -102,10 +102,10 @@ from .frames import (
 )
 
 from .relative_coordinates import (
-    rRTNtoECI,
-    rECItoRTN,
-    sECItoRTN,
-    sRTNtoECI,
+    rRTNtoCART,
+    rCARTtoRTN,
+    sCARTtoRTN,
+    sRTNtoCART,
 )
 
 from .time import (

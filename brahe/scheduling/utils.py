@@ -20,7 +20,7 @@ from brahe.tle import TLE
 
 import brahe.data_models as bdm
 
-from . import access_geometry as geo
+from . import access_geometry as ageo
 
 
 def sphere_point_to_latlon(vec: np.ndarray):
@@ -205,7 +205,7 @@ def find_latitude_crossing(tle: TLE, lat: float, epc_start: Epoch, epc_end: Epoc
     epc = copy.deepcopy(epc_start)
 
     # Determine desired direction based on velocity at mid time
-    ascdsc_dir = geo.ascdsc(tle.state_itrf(epc_start + (epc_end - epc_start) / 2.0))
+    ascdsc_dir = ageo.ascdsc(tle.state_itrf(epc_start + (epc_end - epc_start) / 2.0))
 
     if ascdsc_dir == bdm.AscendingDescending.ascending:
         ascdir = 1
@@ -333,7 +333,7 @@ def compute_crosstrack_width(geojson: bdm.GeoJSONObject, direction: np.ndarray):
     for pnt in geojson.vertices:
         # Get cross-track point
         C = np.asarray(pnt)
-        C = sGEODtoECEF(C, use_degrees=True,)
+        C = sGEODtoECEF(C, use_degrees=True)
         C = C / np.linalg.norm(C)
 
         # Get intersection point with arc

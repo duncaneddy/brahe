@@ -117,7 +117,15 @@ def tle_gmst82(epoch:Epoch, use_degrees:bool=False):
     t = (jd_ut1 - 2451545.0) / 36525.0
 
     # Apply Formula C-1
-    g  = 67310.54841 + (876000*3600 + 8640184.812866)*t + 0.093104*t**2 + -6.2*10**-6*t**3
+    # NOTE: This is the equation directly from AIAA 2006-6753 Appendix C.
+    # If the constant 876000*3600 is included it does not agree with STK output.
+    # g  = 67310.54841 + (876000*3600 + 8640184.812866)*t + 0.093104*t**2 + -6.2*10**-6*t**3
+
+    # Instead use formula from Brandon Rhoades SGP4 code, which cites 
+    # AIAA 2006-6753 but the implementation differs from the paper. And it agrees
+    # with STK output.
+    g  = 67310.54841 + (8640184.812866)*t + 0.093104*t**2 + -6.2*10**-6*t**3
+
 
     # Compute GMST as angle
     theta  = ((jd_ut1 % 1.0) + (g / 86400.0 % 1.0)) * 2*math.pi

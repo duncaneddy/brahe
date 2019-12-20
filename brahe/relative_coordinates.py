@@ -13,10 +13,10 @@ import numpy   as np
 from   brahe.utils import logger
 from brahe.utils import AbstractArray
 
-def rRTNtoECI(x:AbstractArray) -> np.ndarray:
+def rRTNtoCART(x:AbstractArray) -> np.ndarray:
     """Compute the radial, along-track, cross-track (RTN) rotation matrix. Which,
     if applied to a position vector in the RTN frame, will transform that vector to
-    beinto the equivalent relative position in the ECI frame.
+    beinto the equivalent relative position in the Cartesian frame.
 
     The RTN frame is also commonly refered to as the local-vertical, local-horizontal (LVLH) frame.
 
@@ -28,7 +28,7 @@ def rRTNtoECI(x:AbstractArray) -> np.ndarray:
 
     Returns:
         np.ndarray Rotation matrix transforming from
-            the RTN frame to the ECI frame.
+            the RTN frame to the Cartesian frame.
     """
 
     # Ensure input is array-like
@@ -45,9 +45,9 @@ def rRTNtoECI(x:AbstractArray) -> np.ndarray:
 
     return R_rtn2eci
 
-def rECItoRTN(x:AbstractArray) -> np.ndarray:
+def rCARTtoRTN(x:AbstractArray) -> np.ndarray:
     """Compute the Earth-centered inertial to radial, along-track, cross-track (RTN) 
-    rotation matrix. Which, if applied to a position vector in the ECI frame, will 
+    rotation matrix. Which, if applied to a position vector in the Cartesian frame, will 
     transform that vector into the equivalent position vector in the RTN frame.
 
     The RTN frame is also commonly refered to as the local-vertical, local-horizontal (LVLH) frame.
@@ -59,16 +59,16 @@ def rECItoRTN(x:AbstractArray) -> np.ndarray:
             satellite.  Units: [*m*; *m/s*]
 
     Returns:
-        np.ndarray: Rotation matrix transforming from the ECI 
+        np.ndarray: Rotation matrix transforming from the Cartesian 
         frame to the RTN frame.
     """
     
     # Ensure input is array-like
     x = np.asarray(x)
 
-    return rRTNtoECI(x).T
+    return rRTNtoCART(x).T
 
-def sECItoRTN(x:AbstractArray, xt:AbstractArray) -> np.ndarray:
+def sCARTtoRTN(x:AbstractArray, xt:AbstractArray) -> np.ndarray:
     """Compute the radial, along-track, cross-track (RTN) coordinates of a target 
     satellite in the primary satellite's RTN frame.
 
@@ -91,7 +91,7 @@ def sECItoRTN(x:AbstractArray, xt:AbstractArray) -> np.ndarray:
     xt = np.asarray(xt)
 
     # Create RTN rotation matrix
-    R_eci2rtn = rECItoRTN(x)
+    R_eci2rtn = rCARTtoRTN(x)
 
     # Initialize output vector
     x_rtn = np.zeros((6,)) if len(xt) >= 6 else np.zeros((3,))
@@ -112,7 +112,7 @@ def sECItoRTN(x:AbstractArray, xt:AbstractArray) -> np.ndarray:
 
     return x_rtn
 
-def sRTNtoECI(x:AbstractArray, xrtn:AbstractArray) -> np.ndarray:
+def sRTNtoCART(x:AbstractArray, xrtn:AbstractArray) -> np.ndarray:
     """Compute the Earth-center Inerttial coordinates of a satellite given the
     radial, along-track, cross-track coorinates in the observing satellite's
     RNT frame.
@@ -136,7 +136,7 @@ def sRTNtoECI(x:AbstractArray, xrtn:AbstractArray) -> np.ndarray:
     rtn = np.asarray(xrtn)
 
     # Create RTN rotation matrix
-    R_rtn2eci = rRTNtoECI(x)
+    R_rtn2eci = rRTNtoCART(x)
 
     # Initialize output vector
     xt = np.zeros((6,)) if len(xrtn) >= 6 else np.zeros((3,))

@@ -7,6 +7,7 @@ import numpy as np
 import brahe.data_models as bdm
 from brahe.constants import RAD2DEG
 from brahe.coordinates import sECEFtoENZ, sENZtoAZEL, sECEFtoGEOD, sGEODtoECEF
+from brahe.relative_coordinates import rCARTtoRTN
 
 
 def azelrng(sat_ecef: np.ndarray,
@@ -86,9 +87,7 @@ def range(sat_ecef: np.ndarray, loc_ecef: np.ndarray,
     return azelrng(sat_ecef, loc_ecef, use_degrees=use_degrees)[2]
 
 
-def look_angle(sat_ecef: np.ndarray,
-                    loc_ecef: np.ndarray,
-                    use_degrees: bool = True) -> np.ndarray:
+def look_angle(sat_ecef: np.ndarray, loc_ecef: np.ndarray, use_degrees: bool = True) -> np.ndarray:
     '''Compute the look angle angle between the satellite and the specific location.
 
     Args:
@@ -166,25 +165,8 @@ def look_direction(sat_ecef: np.ndarray,
     # Line of Sight Vector in ECEF Frame
     los_ecef = loc_ecef[0:3] - sat_ecef[0:3]
 
-    # Transform from ECEF to TRN
-    # TODO: Implement this in ATLAS
-    # Ensure input is array-like
-
-    # Compute RTN to ECEF rotation
-    r = sat_ecef[0:3]
-    v = sat_ecef[3:6]
-
-    R = r / np.linalg.norm(r)
-    N = np.cross(r, v) / np.linalg.norm(np.cross(r, v))
-    T = np.cross(N, R)
-
-    R_rtn2ecef = np.hstack((R.reshape(-1, 1), T.reshape(-1,
-                                                        1), N.reshape(-1, 1)))
-
-    # Create RTN rotation matrix
-    R_ecef2rtn = R_rtn2ecef.T
-
-    los_rtn = R_ecef2rtn @ los_ecef
+    # Apply ECEF to RTN rotation
+    los_rtn = rCARTtoRTN(sat_ecef) @ los_ecef
 
     # Compute cross product of RTN velocity and RTN LOS
     cp = np.cross([0, 1, 0], los_rtn)

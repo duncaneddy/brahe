@@ -11,7 +11,7 @@ import brahe.astro as astro
 import brahe.coordinates as coords
 import brahe.frames as frames
 
-geographic_point = pydantic.conlist(pydantic.confloat(ge=-180,le=180), min_items=2, max_items=2)
+geographic_point = pydantic.conlist(float, min_items=2, max_items=3)
 
 class GeoJSONGeometry(pydantic.BaseModel):
     type: typing_extensions.Literal['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon']

@@ -19,8 +19,8 @@ def test_rtn_rotations():
     oe  = [a, 0, 0, 0, 0, math.sqrt(GM_EARTH/a)]
     eci = sOSCtoCART(oe, use_degrees=True)
 
-    r_rtn   = rRTNtoECI(eci)
-    r_rtn_t = rECItoRTN(eci)
+    r_rtn   = rRTNtoCART(eci)
+    r_rtn_t = rCARTtoRTN(eci)
 
     np.testing.assert_almost_equal(r_rtn, r_rtn_t.T, decimal=8)
 
@@ -32,7 +32,7 @@ def test_rtn_states():
 
     xt = copy.deepcopy(eci) + [100, 0, 0, 0, 0, 0]
 
-    x_rtn = sECItoRTN(eci, xt)
+    x_rtn = sCARTtoRTN(eci, xt)
 
     tol = 1e-8
     assert approx(x_rtn[0], 100.0, abs=tol)
@@ -42,7 +42,7 @@ def test_rtn_states():
     assert approx(x_rtn[4], 0.0, abs=0.5)
     assert approx(x_rtn[5], 0.0, abs=tol)
 
-    xt2 = sRTNtoECI(eci, x_rtn)
+    xt2 = sRTNtoCART(eci, x_rtn)
 
     assert approx(xt[0], xt2[0], abs=tol)
     assert approx(xt[1], xt2[1], abs=tol)

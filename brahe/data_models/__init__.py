@@ -6,6 +6,9 @@ from .geojson import (
 from .earth_observation import (
     AscendingDescending,
     LookDirection,
+    AccessConstraints,
+    TessellationSettings,
+    AccessProperties,
     Request,
     Tile,
     Station,

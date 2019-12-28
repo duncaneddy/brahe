@@ -4,7 +4,7 @@ import uuid
 import json
 
 import brahe.data_models as bdm
-from brahe.scheduling.tessellation import *
+from brahe.access.tessellation import *
 
 def test_tessellate_point_point(spacecraft_polar, request_sf_point):
     tiles = tessellate(spacecraft_polar, request_sf_point)

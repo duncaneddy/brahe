@@ -5,8 +5,8 @@ import uuid
 from brahe.epoch import Epoch
 
 import brahe.data_models as bdm
-from brahe.scheduling.tessellation import tessellate
-from brahe.scheduling.access import *
+from brahe.access.tessellation import tessellate
+from brahe.access.access import *
 
 # STK Scenario
 

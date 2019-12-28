@@ -5,7 +5,7 @@ import uuid
 from brahe.epoch import Epoch
 
 import brahe.data_models as bdm
-from brahe.scheduling.access_geometry import *
+from brahe.access.access_geometry import *
 
 
 def test_azelrng(access_geometry_left):

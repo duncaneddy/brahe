@@ -7,8 +7,8 @@ import spherical_geometry.polygon as sgp
 import brahe.cli.cli
 from brahe.epoch import Epoch
 import brahe.data_models as bdm
-import brahe.scheduling.access_geometry as geo
-from brahe.scheduling.utils import *
+import brahe.access.access_geometry as geo
+from brahe.access.utils import *
 
 
 def test_spherical_polygon(request_sf_polygon):

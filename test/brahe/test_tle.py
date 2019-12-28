@@ -101,11 +101,11 @@ def test_tle_state_pef():
     state = tle.state_pef(tle.epoch)
 
     assert len(state) == 6
-    assert state[0] == approx(-3287540.882878293, abs=1e-8)
-    assert state[1] == approx(-2618722.697337534, abs=1e-8)
+    assert state[0] == approx(-3953205.7105210484, abs=1e-8)
+    assert state[1] == approx(1427514.704810681, abs=1e-8)
     assert state[2] == approx(5243614.536966579, abs=1e-8)
-    assert state[3] == approx(4006.910977959925, abs=1e-8)
-    assert state[4] == approx(-6194.389612632175, abs=1e-8)
+    assert state[3] == approx(-3175.692140186211, abs=1e-8)
+    assert state[4] == approx(-6658.887120918979, abs=1e-8)
     assert state[5] == approx(-583.775727402632, abs=1e-8)
 
 def test_tle_state_itrf():
@@ -114,12 +114,12 @@ def test_tle_state_itrf():
     state = tle.state_itrf(tle.epoch)
 
     assert len(state) == 6
-    assert state[0] == approx(-3287533.658136712, abs=1e-8)
-    assert state[1] == approx(-2618729.1716425056, abs=1e-8)
-    assert state[2] == approx(5243615.833243411, abs=1e-8)
-    assert state[3] == approx(4006.9101737491856, abs=1e-8)
-    assert state[4] == approx(-6194.388891759232, abs=1e-8)
-    assert state[5] == approx(-583.7888962979018, abs=1e-8)
+    assert state[0] == approx(-3953198.4858592334, abs=1e-8)
+    assert state[1] == approx(1427508.2304882656, abs=1e-8)
+    assert state[2] == approx(5243621.746247788, abs=1e-8)
+    assert state[3] == approx(-3175.6929443809036, abs=1e-8)
+    assert state[4] == approx(-6658.8864002006185, abs=1e-8)
+    assert state[5] == approx(-583.7795735705351, abs=1e-8)
 
 def test_tle_state_gcrf():
     tle = btle.TLE(ISS_TLE_LINE1, ISS_TLE_LINE2)
@@ -127,12 +127,12 @@ def test_tle_state_gcrf():
     state = tle.state_gcrf(tle.epoch)
 
     assert len(state) == 6
-    assert state[0] == approx(2996834.940592897, abs=1e-8)
-    assert state[1] == approx(2951770.3657203773, abs=1e-8)
-    assert state[2] == approx(5240912.046708163, abs=1e-8)
-    assert state[3] == approx(-4855.042748624366, abs=1e-8)
-    assert state[4] == approx(5954.264971551973, abs=1e-8)
-    assert state[5] == approx(-579.7561547164003, abs=1e-8)
+    assert state[0] == approx(4086521.0432801973, abs=1e-8)
+    assert state[1] == approx(-1001422.0546131282, abs=1e-8)
+    assert state[2] == approx(5240097.963377853, abs=1e-8)
+    assert state[3] == approx(2526.47546734367, abs=1e-8)
+    assert state[4] == approx(7254.93629077332, abs=1e-8)
+    assert state[5] == approx(-586.2164882389718, abs=1e-8)
 
 def test_tle_state_eci():
     tle = btle.TLE(ISS_TLE_LINE1, ISS_TLE_LINE2)
@@ -140,9 +140,9 @@ def test_tle_state_eci():
     state = tle.state_eci(tle.epoch)
 
     assert len(state) == 6
-    assert state[0] == approx(2996834.940592897, abs=1e-8)
-    assert state[1] == approx(2951770.3657203773, abs=1e-8)
-    assert state[2] == approx(5240912.046708163, abs=1e-8)
-    assert state[3] == approx(-4855.042748624366, abs=1e-8)
-    assert state[4] == approx(5954.264971551973, abs=1e-8)
-    assert state[5] == approx(-579.7561547164003, abs=1e-8)
+    assert state[0] == approx(4086521.0432801973, abs=1e-8)
+    assert state[1] == approx(-1001422.0546131282, abs=1e-8)
+    assert state[2] == approx(5240097.963377853, abs=1e-8)
+    assert state[3] == approx(2526.47546734367, abs=1e-8)
+    assert state[4] == approx(7254.93629077332, abs=1e-8)
+    assert state[5] == approx(-586.2164882389718, abs=1e-8)

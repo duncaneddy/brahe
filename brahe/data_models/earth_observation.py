@@ -225,7 +225,7 @@ class AccessProperties(EOBase):
 class RequestProperties(EOBase):
     reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
     id: StrUUID4 = pydantic.Field(None, description='Unique identifer for request')
-    request_description: typing.Optional[str] = pydantic.Field('', description='Description of imaging request')
+    description: typing.Optional[str] = pydantic.Field('', description='Description of imaging request')
     constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Access constraint requirements on accessing this location.')
     tessellation: TessellationSettings = pydantic.Field(TessellationSettings(), description='Tessellation settings.')
     collect_duration: pydantic.confloat(gt=0.0) = pydantic.Field(30.0, description='Duration of collection.')
@@ -260,6 +260,15 @@ class Request(GeoJSONObject):
         return self.properties.id
 
     @property
+    def description(self):
+        '''Return Request description.
+
+        Returns:
+            str: Request description.
+        '''
+        return self.properties.description
+
+    @property
     def constraints(self):
         '''Direct access of request constraints
 
@@ -285,6 +294,8 @@ class Request(GeoJSONObject):
             Reward for collection
         '''
         return self.properties.reward
+
+    
 
 # ########
 # # Tile #

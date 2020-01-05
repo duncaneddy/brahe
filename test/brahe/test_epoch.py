@@ -264,3 +264,14 @@ def test_logic():
     assert not (Epoch(2000, 1, 1, 12, 23, 59, 123456788) >= Epoch(2000, 1, 1, 12, 23, 59, 123456789))
     assert Epoch(2000, 1, 1, 12, 23, 59, 123456789) > Epoch(2000, 1, 1, 12, 23, 59, 123456788)
     assert Epoch(2000, 1, 1, 12, 23, 59, 123456789) >= Epoch(2000, 1, 1, 12, 23, 59, 123456788)
+
+def test_epoch_rage():
+    epc_start = Epoch(2020, 1, 1)
+    epc_end   = Epoch(2020, 1, 2)
+    step = 1
+
+    epcs = [epc for epc in epoch_range(epc_start, epc_end, step)]
+
+    assert len(epcs) == 86401
+    assert epcs[0] == epc_start
+    assert epcs[-1] == epc_end

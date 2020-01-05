@@ -691,3 +691,47 @@ class Epoch():
 
     def __hash__(self):
         return hash(tuple((self.days, self.seconds, self.nanoseconds)))
+
+def epoch_range(epoch_start, epoch_end, step=1.0):
+    '''Generator that provides epochs at evenly spaced intervals between the
+    start (inclusive) and stop (inclusive) times.
+
+    Args:
+        epoch_start (:obj:`Epoch`): Start epoch of range
+        epoch_end (:obj:`Epoch`): End epoch of range
+        step (float): Time increment in seconds.
+
+    Returns:
+        epoch (:obj:`Epoch`): Sequential epoch in range from epoch_start to
+            epoch_end, inclusive.
+    '''
+
+    # Make sure step size is non-zero
+    if math.fabs(step) == 0:
+        raise ValueError('A positve step size is required.')
+
+    # Make stepsize positive
+    step = math.fabs(step)
+
+    # Create running step
+    epc = Epoch(epoch_start)
+
+    # Iterate over all times in range creating them
+    h = 0
+
+    if epoch_end > epoch_start:
+        while epc < epoch_end:
+            yield Epoch(epc)
+            h = min(step, epoch_end - epc)
+            epc += h
+    else:
+        while epc > epoch_end:
+            yield Epoch(epc)
+            h = min(step, epc - epoch_end)
+            epc -= h
+
+    # If a step significantly different from the nominal step-size was taken
+    # as the last step, output one more epoch. This allows for non-integer
+    # divisible ranges, while still preventing duplicates of the final step.
+    if math.fabs(h) > 1.0e-10:
+        yield Epoch(epc)

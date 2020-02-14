@@ -295,6 +295,13 @@ def compute_access_properties(tle: TLE, center_ecef: np.ndarray,
     access_properties.look_angle_min = round(access_properties.look_angle_min, 6)
     access_properties.look_angle_max = round(access_properties.look_angle_max, 6)
 
+    # Compute LOS start and end
+    z_los_start = center_ecef - sat_start[0:3]  # Compute look angle
+    access_properties.los_start = (z_los_start / np.linalg.norm(z_los_start)).tolist()
+
+    z_los_end = center_ecef - sat_start[0:3]  # Compute look angle
+    access_properties.los_start = (z_los_end / np.linalg.norm(z_los_end)).tolist()
+
     return access_properties
 
 def find_location_accesses(spacecraft: bdm.Spacecraft, geojson: bdm.GeoJSONObject,

@@ -10,8 +10,10 @@ from .earth_observation import (
     TessellationSettings,
     AccessProperties,
     Request,
+    RequestProperties,
     Tile,
     Station,
+    StationProperties,
     Opportunity,
     Collect,
     Contact

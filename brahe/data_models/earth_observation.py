@@ -82,7 +82,7 @@ class TimeWindowProperties(EOBase):
             elif type(t_end) == str:
                 t_end = Epoch(t_end, tsys='UTC').to_datetime(tsys='UTC')
 
-            # Dervie duration
+            # Derive duration
             t_duration = (t_end - t_start).total_seconds()
 
             if t_end <= t_start:
@@ -144,21 +144,21 @@ class TimeWindowProperties(EOBase):
 # Types #
 #########
 
-class ScheduleStatus(enum.Enum):
+class ScheduleStatus(str, enum.Enum):
     '''Type to specify staus of item in schedule
     '''
     not_scheduled = 'not_scheduled'
     scheduled = 'scheduled'
 
 
-class AscendingDescending(enum.Enum):
+class AscendingDescending(str, enum.Enum):
     '''Type to specify whether location access is ascending, descending, or either.
     '''
     ascending = 'ascending'
     descending = 'descending'
     either = 'either'
 
-class LookDirection(enum.Enum):
+class LookDirection(str, enum.Enum):
     '''Whether collect is taken from a left-looking or right-looking direction.
     '''
     left = 'left'
@@ -216,6 +216,8 @@ class AccessProperties(EOBase):
     look_angle_max: float = None
     elevation_min: float = None
     elevation_max: float = None
+    los_start: list = []
+    los_end: list = []
 
 
 ###########
@@ -446,6 +448,9 @@ class Opportunity(TimeWindowProperties):
     id: StrUUID4 = pydantic.Field(None, description='Unique identifer of opportunity')
     spacecraft_id: typing.Union[pydantic.conint(ge=1)] = pydantic.Field(..., description='ID of spacecraft associated with opportunity.')
     status: ScheduleStatus = pydantic.Field('not_scheduled', description='Status of opportunity in schedule.')
+    center: pydantic.conlist(float, min_items=2, max_items=3) = pydantic.Field(..., description='Center Geodetic Point of Opportunity')
+    center_ecef: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(None, description='Center ECEF Point of Opportunity')
+    access_properties: AccessProperties = pydantic.Field(AccessProperties(), descripton='Properties associated with collection')
 
     @pydantic.validator('id', pre=True, always=True)
     def set_id(cls, id, values):
@@ -453,19 +458,6 @@ class Opportunity(TimeWindowProperties):
             return str(uuid.uuid4())
         else:
             return id
-
-###########
-# Collect #
-###########
-
-class Collect(Opportunity):
-    center: pydantic.conlist(float, min_items=2, max_items=3) = pydantic.Field(..., description='Center Geodetic Point for associated tile')
-    center_ecef: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(None, description='Center ECEF Point for associated tile')
-    request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
-    tile_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
-    tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group')
-    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
-    access_properties: AccessProperties = pydantic.Field(AccessProperties(), descripton='Properties associated with collection')
 
     @pydantic.validator('center_ecef', pre=True, always=True)
     def set_center_ecef(cls, center_ecef, values):
@@ -481,6 +473,16 @@ class Collect(Opportunity):
             return ecef.tolist()
         else:
             return center_ecef
+
+###########
+# Collect #
+###########
+
+class Collect(Opportunity):
+    request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
+    tile_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
+    tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group')
+    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
 
     @property
     def collect_id(self):
@@ -493,26 +495,8 @@ class Collect(Opportunity):
 ###########
 
 class Contact(Opportunity):
-    center: pydantic.conlist(float, min_items=2, max_items=3) = pydantic.Field(..., description='Center Geodetic Point for associated tile')
-    center_ecef: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(None, description='Center ECEF Point for associated tile')
     station_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for station')
     station_name: str = pydantic.Field('', description='Name of Station')
-    access_properties: AccessProperties = pydantic.Field(AccessProperties(), descripton='Properties associated with collection')
-
-    @pydantic.validator('center_ecef', pre=True, always=True)
-    def set_center_ecef(cls, center_ecef, values):
-        if not center_ecef:
-            center = values['center']
-            # Ensure input has altitude
-            if len(center) == 2:
-                center = np.array([center[0], center[1], 0.0])
-
-            ecef = coords.sGEODtoECEF(center, use_degrees=True)
-
-            # Convert point to ECEF frame
-            return ecef.tolist()
-        else:
-            return center_ecef
 
     @property
     def contact_id(self):

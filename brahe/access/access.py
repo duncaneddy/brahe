@@ -300,7 +300,7 @@ def compute_access_properties(tle: TLE, center_ecef: np.ndarray,
     access_properties.los_start = (z_los_start / np.linalg.norm(z_los_start)).tolist()
 
     z_los_end = center_ecef - sat_start[0:3]  # Compute look angle
-    access_properties.los_start = (z_los_end / np.linalg.norm(z_los_end)).tolist()
+    access_properties.los_end = (z_los_end / np.linalg.norm(z_los_end)).tolist()
 
     return access_properties
 

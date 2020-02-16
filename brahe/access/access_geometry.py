@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 import brahe.data_models as bdm
+from brahe.utils import fcross
 from brahe.constants import RAD2DEG
 from brahe.coordinates import sECEFtoENZ, sENZtoAZEL, sECEFtoGEOD, sGEODtoECEF
 from brahe.relative_coordinates import rCARTtoRTN
@@ -169,7 +170,7 @@ def look_direction(sat_ecef: np.ndarray,
     los_rtn = rCARTtoRTN(sat_ecef) @ los_ecef
 
     # Compute cross product of RTN velocity and RTN LOS
-    cp = np.cross([0, 1, 0], los_rtn)
+    cp = fcross([0, 1, 0], los_rtn)
 
     if np.sign(cp[0]) < 0:
         return bdm.LookDirection.right

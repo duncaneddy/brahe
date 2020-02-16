@@ -21,7 +21,7 @@ import sgp4.propagation
 import pysofa2 as _sofa
 
 # Brahe Imports
-from   brahe.utils import logger
+from   brahe.utils import logger, fcross
 import brahe.constants as _constants
 import brahe.attitude as _att
 import brahe.astro as _astro
@@ -473,7 +473,7 @@ class TLE():
         # Precession and Nutation Corrections are NOT applied since they are
         # already accounted for in the TEME frame
         r_pef = R @ r_eci
-        v_pef = R @ v_eci - np.cross(omega_earth, R @ r_eci)
+        v_pef = R @ v_eci - fcross(omega_earth, R @ r_eci)
 
         return np.hstack((r_pef, v_pef))
 

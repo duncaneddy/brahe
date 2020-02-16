@@ -11,6 +11,7 @@ import spherical_geometry.polygon as sgp
 import spherical_geometry.great_circle_arc as sggca
 import spherical_geometry.vector as sgv
 
+from brahe.utils import fcross
 from brahe.constants import R_EARTH, GM_EARTH, DEG2RAD, RAD2DEG
 from brahe.epoch import Epoch
 from brahe.coordinates import sECEFtoGEOD, sGEODtoECEF
@@ -62,7 +63,7 @@ def rodrigues_rotation(vector: np.ndarray, axis: np.ndarray, angle: float):
     vector = np.asarray(vector)
     axis = np.asarray(axis)
 
-    return vector * math.cos(angle) + np.cross(axis, vector) * math.sin(angle) + axis * np.dot(axis, vector) * (1 - math.cos(angle))
+    return vector * math.cos(angle) + np.array(fcross(axis, vector)) * math.sin(angle) + axis * np.dot(axis, vector) * (1 - math.cos(angle))
 
 
 def create_spherical_polygon(geojson: bdm.GeoJSONObject):
@@ -314,7 +315,7 @@ def compute_crosstrack_width(geojson: bdm.GeoJSONObject, direction: np.ndarray):
     cpnt = cpnt / np.linalg.norm(cpnt)
 
     # Compute great circle normal
-    N = np.cross(cpnt, direction) / np.linalg.norm(np.cross(cpnt, direction))
+    N = fcross(cpnt, direction) / np.linalg.norm(fcross(cpnt, direction))
 
     # Create arc points along-track - 1.5 Multiple to have margin for intersection
     max_len = 1.5*circumscription_length(geojson)
@@ -337,7 +338,7 @@ def compute_crosstrack_width(geojson: bdm.GeoJSONObject, direction: np.ndarray):
         C = C / np.linalg.norm(C)
 
         # Get intersection point with arc
-        D = np.cross(np.cross(np.cross(A, B), C), np.cross(A, B))
+        D = fcross(fcross(fcross(A, B), C), fcross(A, B))
         D = D / np.linalg.norm(D)
 
         # Compute cross-track angle and distance

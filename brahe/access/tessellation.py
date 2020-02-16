@@ -12,6 +12,7 @@ import spherical_geometry.great_circle_arc as sggca
 import spherical_geometry.vector as sgv
 
 from . import utils as utils
+from brahe.utils import fcross
 
 import brahe.data_models as bdm
 from brahe.constants import R_EARTH
@@ -107,14 +108,14 @@ def tessellate_point(spacecraft: bdm.Spacecraft, request: bdm.Request):
         ct_ang = request.tessellation.tile_width / R_EARTH
 
         # Compute Cross-Track Direction
-        # ct_dir = np.cross(sgcp, at_dir)
+        # ct_dir = fcross(sgcp, at_dir)
 
         # Rotate +/- ct_ang/2 using Rodriguez formula
         th = ct_ang / 2.0
         v = sgcp
         k = at_dir
-        ct_max = v * math.cos(th) + np.cross(k, v) * math.sin(th) + k * np.dot(k, v) * (1 - math.cos(th))
-        ct_min = v * math.cos(-th) + np.cross(k, v) * math.sin(-th) + k * np.dot(k, v) * (1 - math.cos(-th))
+        ct_max = v * math.cos(th) + np.array(fcross(k, v)) * math.sin(th) + k * np.dot(k, v) * (1 - math.cos(th))
+        ct_min = v * math.cos(-th) + np.array(fcross(k, v)) * math.sin(-th) + k * np.dot(k, v) * (1 - math.cos(-th))
 
         # Compute Along-Track Length
         at_ang = request.tessellation.tile_length / R_EARTH
@@ -122,19 +123,19 @@ def tessellate_point(spacecraft: bdm.Spacecraft, request: bdm.Request):
         # Compute forward strip points
         angle = at_ang / 2.0
         vec = ct_max
-        axis = np.cross(ct_min, at_dir)
+        axis = fcross(ct_min, at_dir)
         pnt1 = utils.rodrigues_rotation(vec, axis, angle)
         vec = ct_min
-        axis = np.cross(ct_max, at_dir)
+        axis = fcross(ct_max, at_dir)
         pnt2 = utils.rodrigues_rotation(vec, axis, angle)
 
         # Compute reverse Strip Points
         angle = -at_ang / 2.0
         vec = ct_min
-        axis = np.cross(ct_min, at_dir)
+        axis = fcross(ct_min, at_dir)
         pnt3 = utils.rodrigues_rotation(vec, axis, angle)
         vec = ct_max
-        axis = np.cross(ct_max, at_dir)
+        axis = fcross(ct_max, at_dir)
         pnt4 = utils.rodrigues_rotation(vec, axis, angle)
 
         # Create Tile Object
@@ -217,14 +218,14 @@ def find_polygon_intersection(request: bdm.Request, pnt1: np.ndarray, pnt2: np.n
         if sggca.intersects(pnt1, pnt2, ply1, ply2):
 
             # Compute intersection point
-            N1 = np.cross(pnt1, pnt2)
-            N2 = np.cross(ply1, ply2)
+            N1 = fcross(pnt1, pnt2)
+            N2 = fcross(ply1, ply2)
 
             N1 = N1 / np.linalg.norm(N1)
             N2 = N2 / np.linalg.norm(N2)
 
             # Get Intersection point.
-            N3 = np.cross(N1, N2)
+            N3 = fcross(N1, N2)
             N3 = N3 / np.linalg.norm(N3)
 
             # Ensure returned point is on correct side of Earth
@@ -297,7 +298,7 @@ def create_tile(request: bdm.Request, direction: np.ndarray,
     # Get line 1
     ct_pnt_l1 = utils.rodrigues_rotation(center_point, direction, -strip_angle / 2.0)
     ct_geod_l1 = sECEFtoGEOD(ct_pnt_l1 * R_EARTH, use_degrees=True)
-    N = np.cross(ct_pnt_l1, direction)
+    N = fcross(ct_pnt_l1, direction)
     N = N / np.linalg.norm(N)
 
     l1_fd = utils.rodrigues_rotation(ct_pnt_l1, N, max_angle)
@@ -306,7 +307,7 @@ def create_tile(request: bdm.Request, direction: np.ndarray,
     # Get line 2
     ct_pnt_l2 = utils.rodrigues_rotation(center_point, direction, strip_angle / 2.0)
     ct_geod_l2 = sECEFtoGEOD(ct_pnt_l2 * R_EARTH, use_degrees=True)
-    N = np.cross(ct_pnt_l2, direction)
+    N = fcross(ct_pnt_l2, direction)
     N = N / np.linalg.norm(N)
 
     l2_fd = utils.rodrigues_rotation(ct_pnt_l2, N, max_angle)
@@ -320,11 +321,11 @@ def create_tile(request: bdm.Request, direction: np.ndarray,
     lmax = find_max_alongtrack_distance(request, (ct_geod_l1, l1_geod_fd), (ct_geod_l2, l2_geod_fd))
 
     # Re-adjust forward point distance
-    N = np.cross(ct_pnt_l1, direction)
+    N = fcross(ct_pnt_l1, direction)
     N = N / np.linalg.norm(N)
     l1_fd = utils.rodrigues_rotation(ct_pnt_l1, N, lmax / R_EARTH)
 
-    N = np.cross(ct_pnt_l2, direction)
+    N = fcross(ct_pnt_l2, direction)
     N = N / np.linalg.norm(N)
     l2_fd = utils.rodrigues_rotation(ct_pnt_l2, N, lmax / R_EARTH)
 
@@ -334,11 +335,11 @@ def create_tile(request: bdm.Request, direction: np.ndarray,
     lmin = find_max_alongtrack_distance(request, (ct_geod_l1, l1_geod_bk), (ct_geod_l2, l2_geod_bk))
 
     # Re-adjust forward point distance
-    N = np.cross(ct_pnt_l1, direction)
+    N = fcross(ct_pnt_l1, direction)
     N = N / np.linalg.norm(N)
     l1_bk = utils.rodrigues_rotation(ct_pnt_l1, N, -lmin / R_EARTH)
 
-    N = np.cross(ct_pnt_l2, direction)
+    N = fcross(ct_pnt_l2, direction)
     N = N / np.linalg.norm(N)
     l2_bk = utils.rodrigues_rotation(ct_pnt_l2, N, -lmin / R_EARTH)
 

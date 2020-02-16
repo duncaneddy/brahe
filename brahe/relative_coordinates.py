@@ -10,8 +10,7 @@ import math    as math
 import numpy   as np
 
 # Brahe Imports
-from   brahe.utils import logger
-from brahe.utils import AbstractArray
+from   brahe.utils import logger, AbstractArray, fcross
 
 def rRTNtoCART(x:AbstractArray) -> np.ndarray:
     """Compute the radial, along-track, cross-track (RTN) rotation matrix. Which,
@@ -37,9 +36,9 @@ def rRTNtoCART(x:AbstractArray) -> np.ndarray:
     r = x[0:3]
     v = x[3:6]
 
-    R = r/np.linalg.norm(r)
-    N = np.cross(r, v)/np.linalg.norm(np.cross(r, v))
-    T = np.cross(N, R)
+    R = np.array(r/np.linalg.norm(r))
+    N = np.array(fcross(r, v)/np.linalg.norm(fcross(r, v)))
+    T = np.array(fcross(N, R))
 
     R_rtn2eci = np.hstack((R.reshape(-1, 1), T.reshape(-1, 1), N.reshape(-1, 1)))
 
@@ -105,10 +104,10 @@ def sCARTtoRTN(x:AbstractArray, xt:AbstractArray) -> np.ndarray:
     # Transform velocity
     if len(xt) >= 6:
         v          = x[3:6]
-        f_dot      = np.linalg.norm(np.cross(r[:], v[:]))/np.linalg.norm(r)**2
+        f_dot      = np.linalg.norm(fcross(r[:], v[:]))/np.linalg.norm(r)**2
         omega      = np.array([0.0, 0.0, f_dot])
         rho_dot    = xt[3:6] - v
-        x_rtn[3:6] = R_eci2rtn @ rho_dot - np.cross(omega, x_rtn[0:3])
+        x_rtn[3:6] = R_eci2rtn @ rho_dot - fcross(omega, x_rtn[0:3])
 
     return x_rtn
 
@@ -150,8 +149,8 @@ def sRTNtoCART(x:AbstractArray, xrtn:AbstractArray) -> np.ndarray:
     if len(xrtn) >= 6:
         v = x[3:6]
         v_rtn   = xrtn[3:6]
-        f_dot   = np.linalg.norm(np.cross(r, v))/np.linalg.norm(r)**2
+        f_dot   = np.linalg.norm(fcross(r, v))/np.linalg.norm(r)**2
         omega   = np.array([0.0, 0.0, f_dot])
-        xt[3:6] = R_rtn2eci @ (v_rtn + np.cross(omega, r_rtn)) + v
+        xt[3:6] = R_rtn2eci @ (v_rtn + fcross(omega, r_rtn)) + v
 
     return xt

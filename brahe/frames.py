@@ -13,8 +13,7 @@ import numpy   as np
 import pysofa2 as _sofa
 
 # Brahe Imports
-from   brahe.utils import logger
-from   brahe.utils import AbstractArray
+from   brahe.utils import logger, AbstractArray, fcross
 import brahe.constants as _constants
 from   brahe.eop import EOP as _EOP
 from   brahe.epoch import Epoch
@@ -180,12 +179,12 @@ def sECItoECEF(epc:Epoch, x:AbstractArray) -> np.ndarray:
     x_ecef[0:3] = pm @  r @ rc2i @ r_eci
 
     if dim_x == 6:
-        x_ecef[3:6] = pm @ (r @ rc2i @ v_eci - np.cross(omega_vec, r @ rc2i @ r_eci))
+        x_ecef[3:6] = pm @ (r @ rc2i @ v_eci - fcross(omega_vec, r @ rc2i @ r_eci))
 
     
     if dim_x == 9:
-        x_ecef[6:9] = pm @ (r @ rc2i @ a_eci - np.cross(omega_vec, np.cross(omega_vec, r @ rc2i @ r_eci)) 
-                                         - 2 * np.cross(omega_vec, r @ rc2i @ v_eci))
+        x_ecef[6:9] = pm @ (r @ rc2i @ a_eci - fcross(omega_vec, fcross(omega_vec, r @ rc2i @ r_eci)) 
+                                         - 2 * fcross(omega_vec, r @ rc2i @ v_eci))
 
 
     return x_ecef
@@ -234,12 +233,12 @@ def sECEFtoECI(epc:Epoch, x:AbstractArray) -> np.ndarray:
     x_eci[0:3] = (pm @ rot @ bpn).T @ r_ecef
 
     if dim_x >= 6:
-        x_eci[3:6] = (rot @ bpn).T @ (pm.T @ v_ecef + np.cross(omega_vec, pm.T @ r_ecef))
+        x_eci[3:6] = (rot @ bpn).T @ (pm.T @ v_ecef + fcross(omega_vec, pm.T @ r_ecef))
 
 
     if dim_x >= 9:
-        x_eci[6:9] = (rot @ bpn).T @ (pm.T @ a_ecef + np.cross(omega_vec, np.cross(omega_vec, pm.T @ x_eci[3:6])) 
-                                 + 2 * np.cross(omega_vec, pm.T @ x_eci[6:9])) 
+        x_eci[6:9] = (rot @ bpn).T @ (pm.T @ a_ecef + fcross(omega_vec, fcross(omega_vec, pm.T @ x_eci[3:6])) 
+                                 + 2 * fcross(omega_vec, pm.T @ x_eci[6:9])) 
 
 
     return x_eci

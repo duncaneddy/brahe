@@ -12,8 +12,7 @@ import copy   as copy
 import numpy  as np
 
 # Brahe Imports
-from brahe.utils import logger
-from brahe.utils import AbstractArray
+from brahe.utils import logger, AbstractArray, fcross
 import brahe.constants as _constants
 
 # Get Logger
@@ -313,7 +312,7 @@ def sCARTtoOSC(x:AbstractArray, use_degrees:bool=False, gm:float=_constants.GM_E
     r = x[0:3]
     v = x[3:6]
 
-    h = np.cross(r, v)  # Angular momentum vector
+    h = fcross(r, v)  # Angular momentum vector
     W = h/np.linalg.norm(h)    # Unit vector along angular momentum vector
 
     i     = math.atan2(math.sqrt(W[0]*W[0] + W[1]*W[1]), W[2])         # Compute inclination

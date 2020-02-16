@@ -39,6 +39,23 @@ def kron_delta(a:float, b:float) -> int:
     else:
         return 0
 
+def fcross(a, b):
+    '''Quickly compute cross-product between 3-length vectors a and b.
+
+    Args:
+        a (:obj:`np.ndarray`): First vector
+        b (:obj:`np.ndarray`): Second vector
+
+    Return:
+        np.ndarray: Cross product between input vectors
+    '''
+
+    c1 = a[1]*b[2] - a[2]*b[1]
+    c2 = a[2]*b[0] - a[0]*b[2]
+    c3 = a[0]*b[1] - a[1]*b[0]
+
+    return [c1, c2, c3]
+
 ################
 # Data Sources #
 ################

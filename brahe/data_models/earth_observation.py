@@ -219,6 +219,13 @@ class AccessProperties(EOBase):
     los_start: list = []
     los_end: list = []
 
+    @pydantic.validator('los_start', 'los_end', pre=True)
+    def validate_los(cls, los):
+        if type(los) == np.ndarray:
+            return los.tolist()
+        else:
+            return los
+
 
 ###########
 # Request #

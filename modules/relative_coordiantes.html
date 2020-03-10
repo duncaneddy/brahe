@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Relative Coordinates &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Attitude" href="attitude.html" />
+    <link rel="prev" title="Epoch" href="epoch.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.relative_coordinates">
+<span id="relative-coordinates"></span><h1>Relative Coordinates<a class="headerlink" href="#module-brahe.relative_coordinates" title="Permalink to this headline">¶</a></h1>
+<p>This module provides functions to convert between different representations
+of relative orbital coordinates.</p>
+<dl class="function">
+<dt id="brahe.relative_coordinates.rCARTtoRTN">
+<code class="sig-prename descclassname">brahe.relative_coordinates.</code><code class="sig-name descname">rCARTtoRTN</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.relative_coordinates.rCARTtoRTN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Earth-centered inertial to radial, along-track, cross-track (RTN)
+rotation matrix. Which, if applied to a position vector in the Cartesian frame, will
+transform that vector into the equivalent position vector in the RTN frame.</p>
+<p>The RTN frame is also commonly refered to as the local-vertical, local-horizontal (LVLH) frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of primary
+(observing) satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>xt</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of the target
+satellite.  Units: [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Rotation matrix transforming from the Cartesian
+frame to the RTN frame.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.relative_coordinates.rRTNtoCART">
+<code class="sig-prename descclassname">brahe.relative_coordinates.</code><code class="sig-name descname">rRTNtoCART</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.relative_coordinates.rRTNtoCART" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the radial, along-track, cross-track (RTN) rotation matrix. Which,
+if applied to a position vector in the RTN frame, will transform that vector to
+beinto the equivalent relative position in the Cartesian frame.</p>
+<p>The RTN frame is also commonly refered to as the local-vertical, local-horizontal (LVLH) frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of primary
+(observing) satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>xt</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of the target
+satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>np.ndarray Rotation matrix transforming from</dt><dd><p>the RTN frame to the Cartesian frame.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.relative_coordinates.sCARTtoRTN">
+<code class="sig-prename descclassname">brahe.relative_coordinates.</code><code class="sig-name descname">sCARTtoRTN</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">xt: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.relative_coordinates.sCARTtoRTN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the radial, along-track, cross-track (RTN) coordinates of a target
+satellite in the primary satellite’s RTN frame.</p>
+<p>The RTN frame is also commonly refered to as the local-vertical,
+local-horizontal (LVLH) frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of primary
+(observing) satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>xt</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of the target
+satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Position and velocity of the target relative of the</dt><dd><p>observing satellite in the RTN. Units: [<em>m</em>; <em>m/s</em>]</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.relative_coordinates.sRTNtoCART">
+<code class="sig-prename descclassname">brahe.relative_coordinates.</code><code class="sig-name descname">sRTNtoCART</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">xrtn: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.relative_coordinates.sRTNtoCART" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Earth-center Inerttial coordinates of a satellite given the
+radial, along-track, cross-track coorinates in the observing satellite’s
+RNT frame.</p>
+<p>The RTN frame is also commonly refered to as the local-vertical,
+local-horizontal (LVLH) frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Inertial state (position and velocity) of primary
+(observing) satellite. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>rtn</strong> (<em>np.ndarray</em>) – Position and velocity of the target relative of the
+observing satellite in the RTN. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Inertial state (position and velocity) of the target</dt><dd><p>satellite. Units: [<em>m</em>; <em>m/s</em>]</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reference Frames &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Examples" href="../examples.html" />
+    <link rel="prev" title="Attitude" href="attitude.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.frames">
+<span id="reference-frames"></span><h1>Reference Frames<a class="headerlink" href="#module-brahe.frames" title="Permalink to this headline">¶</a></h1>
+<p>This module provides functions to convert between reference frames.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Most transformations rely on the <a class="reference external" href="https://github.com/duncaneddy/pysofa2/">pysofa2</a>
+module to provide fast and accurate conversions. pysofa2 is a wrapper for the
+SOFA C implementation of the IAU reference frame conventions. The full
+source code can be found here: <a class="reference external" href="http://www.iausofa.org/">http://www.iausofa.org/</a></p>
+</div>
+<dl class="function">
+<dt id="brahe.frames.bias_precession_nutation">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">bias_precession_nutation</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.bias_precession_nutation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
+CIRS intermediate reference frame. This transformation corrects for the
+bias, precession, and nutation of Celestial Intermediate Origin (CIO) with
+respect to inertial space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>3x3 Rotation matrix transforming GCRS -&gt; CIRS</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>rc2i (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.earth_rotation">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">earth_rotation</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.earth_rotation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the Earth rotation matrix transforming the CIRS to the TIRS
+intermediate reference frame. This transformation corrects for the Earth
+rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>3x3 Rotation matrix transforming CIRS -&gt; TIRS</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>r (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.polar_motion">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">polar_motion</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.polar_motion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the Earth rotation matrix transforming the TIRS to the ITRF reference
+frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>3x3 Rotation matrix transforming TIRS -&gt; ITRF</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>rpm (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.rECEFtoECI">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">rECEFtoECI</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.rECEFtoECI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the combined rotation matrix from the Earth-fixed to the inertial
+reference frame. Applies corrections for bias, precession, nutation,
+Earth-rotation, and polar motion.</p>
+<p>The transformation is accomplished using the IAU 2006/2000A, CIO-based
+theory using classical angles. The method as described in section 5.5 of
+the SOFA C transformation cookbook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>3x3 Rotation matrix transforming ITRF -&gt; GCRF</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>r (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.rECItoECEF">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">rECItoECEF</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.rECItoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the combined rotation matrix from the inertial to the Earth-fixed
+reference frame. Applies corrections for bias, precession, nutation,
+Earth-rotation, and polar motion.</p>
+<p>The transformation is accomplished using the IAU 2006/2000A, CIO-based
+theory using classical angles. The method as described in section 5.5 of
+the SOFA C transformation cookbook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>3x3 Rotation matrix transforming GCRF -&gt; ITRF</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>r (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.sECEFtoECI">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">sECEFtoECI</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em>, <em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.sECEFtoECI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms an Earth fixed state into an Inertial state</p>
+<p>The transformation is accomplished using the IAU 2006/2000A, CIO-based
+theory using classical angles. The method as described in section 5.5 of
+the SOFA C transformation cookbook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Earth-fixed state (position, velocity) [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Inertial state (position, velocity)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x_ecef (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.frames.sECItoECEF">
+<code class="sig-prename descclassname">brahe.frames.</code><code class="sig-name descname">sECItoECEF</code><span class="sig-paren">(</span><em class="sig-param">epc: brahe.epoch.Epoch</em>, <em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.frames.sECItoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms an Earth inertial state into an Earth fixed state.</p>
+<p>The transformation is accomplished using the IAU 2006/2000A, CIO-based
+theory using classical angles. The method as described in section 5.5 of
+the SOFA C transformation cookbook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epc</strong> (<a class="reference internal" href="epoch.html#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><em>Epoch</em></a>) – Epoch of transformation</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Inertial state (position, velocity). Units: [<em>m</em>; <em>m/s</em>]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Earth-fixed state (position, velocity)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x_ecef (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

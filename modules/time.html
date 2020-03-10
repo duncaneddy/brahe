@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Time &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Epoch" href="epoch.html" />
+    <link rel="prev" title="Earth Orentation Parameters" href="eop.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.time">
+<span id="time"></span><h1>Time<a class="headerlink" href="#module-brahe.time" title="Permalink to this headline">¶</a></h1>
+<p>The time module provides various fundamental time system and time representation
+conversions.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Most function calls rely on the <a class="reference external" href="https://github.com/duncaneddy/pysofa2/">pysofa2</a>
+module to provide fast and accurate conversions. The pysofa2 also handles
+insertions of leap seconds.</p>
+</div>
+<dl class="function">
+<dt id="brahe.time.caldate_to_jd">
+<code class="sig-prename descclassname">brahe.time.</code><code class="sig-name descname">caldate_to_jd</code><span class="sig-paren">(</span><em class="sig-param">year: int</em>, <em class="sig-param">month: int</em>, <em class="sig-param">day: int</em>, <em class="sig-param">hour: int = 0</em>, <em class="sig-param">minute: int = 0</em>, <em class="sig-param">second: float = 0.0</em>, <em class="sig-param">nanoseconds: float = 0.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.time.caldate_to_jd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a Gregorian calendar date to the equivalent Julian Date
+representation of that time instant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>year</strong> (<em>int</em>) – Year</p></li>
+<li><p><strong>month</strong> (<em>int</em>) – Month</p></li>
+<li><p><strong>day</strong> (<em>int</em>) – Day</p></li>
+<li><p><strong>hour</strong> (<em>int</em>) – Hour</p></li>
+<li><p><strong>minute</strong> (<em>int</em>) – Minute</p></li>
+<li><p><strong>second</strong> (<em>float</em>) – Seconds</p></li>
+<li><p><strong>nanoseconds</strong> (<em>float</em>) – Nanoseconds</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Julian Date of Epoch</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>jd (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.time.caldate_to_mjd">
+<code class="sig-prename descclassname">brahe.time.</code><code class="sig-name descname">caldate_to_mjd</code><span class="sig-paren">(</span><em class="sig-param">year: int</em>, <em class="sig-param">month: int</em>, <em class="sig-param">day: int</em>, <em class="sig-param">hour: int = 0</em>, <em class="sig-param">minute: int = 0</em>, <em class="sig-param">second: float = 0.0</em>, <em class="sig-param">nanoseconds: float = 0.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.time.caldate_to_mjd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a Gregorian calendar date to the equivalent Modified Julian Date
+representation of that time instant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>year</strong> (<em>int</em>) – Year</p></li>
+<li><p><strong>month</strong> (<em>int</em>) – Month</p></li>
+<li><p><strong>day</strong> (<em>int</em>) – Day</p></li>
+<li><p><strong>hour</strong> (<em>int</em>) – Hour</p></li>
+<li><p><strong>minute</strong> (<em>int</em>) – Minute</p></li>
+<li><p><strong>second</strong> (<em>float</em>) – Seconds</p></li>
+<li><p><strong>nanoseconds</strong> (<em>float</em>) – Nanoseconds</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Modified Julian Date of Epoch</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>mjd (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.time.jd_to_caldate">
+<code class="sig-prename descclassname">brahe.time.</code><code class="sig-name descname">jd_to_caldate</code><span class="sig-paren">(</span><em class="sig-param">jd: float</em><span class="sig-paren">)</span> &#x2192; Tuple[float, float, float, float, float, float, float]<a class="headerlink" href="#brahe.time.jd_to_caldate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a Julian Date to the equivalent Gregorian calendar date
+representation of the same instant in time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>jd</strong> (<em>float</em>) – Julian Date of Epoch</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Year
+month (int): Month
+day (int): Day
+hour (int): Hour
+minute (int): Minute
+second (float): Seconds
+nanoseconds (float): Nanoseconds</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>year (int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.time.mjd_to_caldate">
+<code class="sig-prename descclassname">brahe.time.</code><code class="sig-name descname">mjd_to_caldate</code><span class="sig-paren">(</span><em class="sig-param">mjd: float</em><span class="sig-paren">)</span> &#x2192; Tuple[float, float, float, float, float, float, float]<a class="headerlink" href="#brahe.time.mjd_to_caldate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a Modified Julian Date to the equivalent Gregorian calendar date
+representation of the same instant in time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd</strong> (<em>float</em>) – Modified Julian Date of Epoch</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Year
+month (int): Month
+day (int): Day
+hour (int): Hour
+minute (int): Minute
+second (float): Seconds
+nanoseconds (float): Nanoseconds</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>year (int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.time.time_system_offset">
+<code class="sig-prename descclassname">brahe.time.</code><code class="sig-name descname">time_system_offset</code><span class="sig-paren">(</span><em class="sig-param">jd: float</em>, <em class="sig-param">fd: float</em>, <em class="sig-param">tsys_src: str</em>, <em class="sig-param">tsys_dest: str</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.time.time_system_offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the offset between two time systems at a given Epoch.</p>
+<p>The offset (in seconds) is computed as:</p>
+<blockquote>
+<div><p>time_system_offset = tsys_dest - tsys_src</p>
+</div></blockquote>
+<p>The value returned is the number of seconds that musted be added to the
+source time system given the input epoch, to get the equivalent epoch.</p>
+<p>Conversions are accomplished using SOFA C library calls.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>jd</strong> (<em>float</em>) – Part 1 of two-part date (Julian days)</p></li>
+<li><p><strong>fd</strong> (<em>float</em>) – Part 2 of two-part date (Fractional days)</p></li>
+<li><p><strong>tsys_src</strong> (<em>str</em>) – Base time system</p></li>
+<li><p><strong>tsys_dest</strong> (<em>str</em>) – Destination time system</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Offset between soruce and destination time systems in</dt><dd><p>seconds.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>offset (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

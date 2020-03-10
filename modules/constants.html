@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Constants &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Astrodynamics" href="astro.html" />
+    <link rel="prev" title="Modules" href="../modules.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.constants">
+<span id="constants"></span><h1>Constants<a class="headerlink" href="#module-brahe.constants" title="Permalink to this headline">¶</a></h1>
+<p>constants module provides common astrodynamics constants</p>
+<dl class="data">
+<dt id="brahe.constants.AS2RAD">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">AS2RAD</code><em class="property"> = 4.84813681109536e-06</em><a class="headerlink" href="#brahe.constants.AS2RAD" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>as/rad</em></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Constant to convert radians to arcseconds. Equal to (360*3600)/(2pi) Units</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.AU">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">AU</code><em class="property"> = 149597870700.0</em><a class="headerlink" href="#brahe.constants.AU" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of Modified Julian Days representation with respect to Julian Days. For
+a time, t, MJD_ZERO is equal to:</p>
+<p><code class="docutils literal notranslate"><span class="pre">MJD_ZERO</span> <span class="pre">=</span> <span class="pre">t_jd</span> <span class="pre">-</span> <span class="pre">t_mjd</span></code></p>
+<p>Where t_jd is the epoch represented in Julian Days, and t_mjd is the epoch in
+Modified Julian Days.</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><ol class="upperalpha simple" start="15">
+<li><p>Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and Applications</em>, 2012.</p></li>
+</ol>
+</li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.C_LIGHT">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">C_LIGHT</code><em class="property"> = 299792458.0</em><a class="headerlink" href="#brahe.constants.C_LIGHT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Astronomical Unit. Equal to the mean distance of the Earth from the sun.
+TDB-compatible value. Units: <em>m</em></p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><ol class="upperalpha simple" start="16">
+<li><p>Gérard and B. Luzum, <em>IERS Technical Note 36</em>, 2010</p></li>
+</ol>
+</li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.DATA_PATH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">DATA_PATH</code><em class="property"> = PosixPath('/home/travis/build/duncaneddy/brahe/brahe/data')</em><a class="headerlink" href="#brahe.constants.DATA_PATH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to internal module data. Path is defined relative to the package installation
+directory.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.DEG2RAD">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">DEG2RAD</code><em class="property"> = 0.017453292519943295</em><a class="headerlink" href="#brahe.constants.DEG2RAD" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>deg/rad</em></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Constant to convert radians to degrees. Equal to 360/2pi. Units</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.ECC_EARTH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">ECC_EARTH</code><em class="property"> = 0.081819190842622</em><a class="headerlink" href="#brahe.constants.ECC_EARTH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s first zonal harmonic. [dimensionless]</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><p>GGM05s Gravity Model.</p></li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_EARTH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_EARTH</code><em class="property"> = 398600441500000.0</em><a class="headerlink" href="#brahe.constants.GM_EARTH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s first eccentricity. WGS84 Value. [dimensionless]</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><p>NIMA Technical Report TR8350.2</p></li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_JUPITER">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_JUPITER</code><em class="property"> = 1.267127648e+17</em><a class="headerlink" href="#brahe.constants.GM_JUPITER" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Saturn. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_MARS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_MARS</code><em class="property"> = 42828375210000.0</em><a class="headerlink" href="#brahe.constants.GM_MARS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Jupiter. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_MERCURY">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_MERCURY</code><em class="property"> = 22031780000000.0</em><a class="headerlink" href="#brahe.constants.GM_MERCURY" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Venus. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_MOON">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_MOON</code><em class="property"> = 4902800066000.0</em><a class="headerlink" href="#brahe.constants.GM_MOON" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Mercury. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_NEPTUNE">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_NEPTUNE</code><em class="property"> = 6836527100580000.0</em><a class="headerlink" href="#brahe.constants.GM_NEPTUNE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Pluto. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_SATURN">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_SATURN</code><em class="property"> = 3.79405852e+16</em><a class="headerlink" href="#brahe.constants.GM_SATURN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Uranus. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_SUN">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_SUN</code><em class="property"> = 1.327124400419394e+20</em><a class="headerlink" href="#brahe.constants.GM_SUN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nominal solar photospheric radius. [m]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_URANUS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_URANUS</code><em class="property"> = 5794548600000000.0</em><a class="headerlink" href="#brahe.constants.GM_URANUS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Neptune. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GM_VENUS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GM_VENUS</code><em class="property"> = 324858592000000.0</em><a class="headerlink" href="#brahe.constants.GM_VENUS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Mars. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GPS_TAI">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GPS_TAI</code><em class="property"> = -19.0</em><a class="headerlink" href="#brahe.constants.GPS_TAI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of TAI time system with respect to GPS time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GPS_TT">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GPS_TT</code><em class="property"> = -51.184</em><a class="headerlink" href="#brahe.constants.GPS_TT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of TT time system with respect to GPS time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.GPS_ZERO">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">GPS_ZERO</code><em class="property"> = 44244.0</em><a class="headerlink" href="#brahe.constants.GPS_ZERO" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s equatorial radius. [m]</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><p>GGM05s Gravity Model</p></li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.J2_EARTH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">J2_EARTH</code><em class="property"> = 0.0010826358191967</em><a class="headerlink" href="#brahe.constants.J2_EARTH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth axial rotation rate. [rad/s]</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><ol class="upperalpha simple" start="4">
+<li><p>Vallado, <em>Fundamentals of Astrodynamics and Applications (4th Ed.)</em>, p. 222, 2010</p></li>
+</ol>
+</li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.MJD2000">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">MJD2000</code><em class="property"> = 51544.5</em><a class="headerlink" href="#brahe.constants.MJD2000" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of GPS time system with respect to TAI time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.MJD_ZERO">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">MJD_ZERO</code><em class="property"> = 2400000.5</em><a class="headerlink" href="#brahe.constants.MJD_ZERO" title="Permalink to this definition">¶</a></dt>
+<dd><p>00. Value is independent of time
+scale.</p>
+<p>References:
+TODO: Fix Reference
+1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Modified Julian Date of January 1, 2000 12</p>
+</dd>
+<dt class="field-even">Type</dt>
+<dd class="field-even"><p>00</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.OMEGA_EARTH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">OMEGA_EARTH</code><em class="property"> = 7.292115146706979e-05</em><a class="headerlink" href="#brahe.constants.OMEGA_EARTH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Sun. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.P_SUN">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">P_SUN</code><em class="property"> = 4.56e-06</em><a class="headerlink" href="#brahe.constants.P_SUN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gravitational constant of the Moon. [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.RAD2AS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">RAD2AS</code><em class="property"> = 206264.80624709636</em><a class="headerlink" href="#brahe.constants.RAD2AS" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>m/s</em></p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><ol class="upperalpha simple" start="4">
+<li><p>Vallado, <em>Fundamentals of Astrodynamics and Applications (4th Ed.)</em>, 2010</p></li>
+</ol>
+</li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Speed of light in vacuum. Units</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.RAD2DEG">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">RAD2DEG</code><em class="property"> = 57.29577951308232</em><a class="headerlink" href="#brahe.constants.RAD2DEG" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>rad/as</em></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Constant to convert arcseconds to radians. Equal to 2pi/(360*3600) Units</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.R_EARTH">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">R_EARTH</code><em class="property"> = 6378136.3</em><a class="headerlink" href="#brahe.constants.R_EARTH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s semi-major axis as defined by the WGS84 geodetic system. [m]</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><p>NIMA Technical Report TR8350.2</p></li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.R_SUN">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">R_SUN</code><em class="property"> = 695700000.0</em><a class="headerlink" href="#brahe.constants.R_SUN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nominal solar radiation pressure at 1 AU. [N/m^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.TAI_GPS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">TAI_GPS</code><em class="property"> = 19.0</em><a class="headerlink" href="#brahe.constants.TAI_GPS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of TT time system with respect to TAI time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.TAI_TT">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">TAI_TT</code><em class="property"> = -32.184</em><a class="headerlink" href="#brahe.constants.TAI_TT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of GPS time system with respect to TT time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.TT_GPS">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">TT_GPS</code><em class="property"> = 51.184</em><a class="headerlink" href="#brahe.constants.TT_GPS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Modified Julian Date of the start of the GPS time system in the GPS time system.
+This date was January 6, 1980 0H as reckond in the UTC time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.TT_TAI">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">TT_TAI</code><em class="property"> = 32.184</em><a class="headerlink" href="#brahe.constants.TT_TAI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Offset of TAI time system with respect to TT time system.</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.WGS84_a">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">WGS84_a</code><em class="property"> = 6378137.0</em><a class="headerlink" href="#brahe.constants.WGS84_a" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s ellipsoidal flattening.  WGS84 Value.</p>
+<p>References:</p>
+<ol class="arabic simple">
+<li><p>NIMA Technical Report TR8350.2</p></li>
+</ol>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.constants.WGS84_f">
+<code class="sig-prename descclassname">brahe.constants.</code><code class="sig-name descname">WGS84_f</code><em class="property"> = 0.0033528106647474805</em><a class="headerlink" href="#brahe.constants.WGS84_f" title="Permalink to this definition">¶</a></dt>
+<dd><p>Earth’s Gravitational constant [m^3/s^2]</p>
+<p>References:</p>
+<p>1. O. Montenbruck, and E. Gill, <em>Satellite Orbits: Models, Methods and
+Applications</em>, 2012.</p>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

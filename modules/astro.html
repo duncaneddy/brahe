@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Astrodynamics &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Coordinates" href="coordinates.html" />
+    <link rel="prev" title="Constants" href="constants.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.astro">
+<span id="astrodynamics"></span><h1>Astrodynamics<a class="headerlink" href="#module-brahe.astro" title="Permalink to this headline">¶</a></h1>
+<p>This module provides functions to convert between different representations
+of orbital coordinates. As well as functions to compute properties of the orbits
+themselves.</p>
+<dl class="function">
+<dt id="brahe.astro.anm_eccentric_to_mean">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">anm_eccentric_to_mean</code><span class="sig-paren">(</span><em class="sig-param">E: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.anm_eccentric_to_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert eccentric anomaly into mean anomaly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>E</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Eccentric anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p><strong>e</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean anomaly. Units: <em>rad</em> or <em>deg</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>M (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.anm_mean_to_eccentric">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">anm_mean_to_eccentric</code><span class="sig-paren">(</span><em class="sig-param">M: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.anm_mean_to_eccentric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert mean anomaly into eccentric anomaly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>M</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p><strong>e</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Eccentric anomaly. Units: <em>rad</em> or <em>deg</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.apogee_velocity">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">apogee_velocity</code><span class="sig-paren">(</span><em class="sig-param">a: Union[float, NewType.&lt;locals&gt;.new_type], e: float, gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.apogee_velocity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the apogee velocity from orbital element state. Accepts input as
+semi-major axis and eccentricity or a Keplerian state vector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Union[float,</span> <span class="pre">AbstractArray]</span></code>) – Input semi-major axis or Keplerian state vector</p></li>
+<li><p><strong>e</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Union[float,</span> <span class="pre">AbstractArray]</span></code>) – Input eccentricity. Unused if a vector is provided for first argument.</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Velocity at apogee</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>v_apo (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.mean_motion">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">mean_motion</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.mean_motion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the mean motion given a semi-major axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> returns result in units of degrees.</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Orbital mean motion. Units: <em>rad/s</em> or <em>deg/s</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>n (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.orbital_period">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">orbital_period</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.orbital_period" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the orbital period given the semi-major axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Orbital period. Units: <em>s</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>T (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.perigee_velocity">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">perigee_velocity</code><span class="sig-paren">(</span><em class="sig-param">a: Union[float, NewType.&lt;locals&gt;.new_type], e: float, gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.perigee_velocity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the perigee velocity from orbital element state. Accepts input as
+semi-major axis and eccentricity or a Keplerian state vector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Union[float,</span> <span class="pre">AbstractArray]</span></code>) – Input semi-major axis or Keplerian state vector</p></li>
+<li><p><strong>e</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Union[float,</span> <span class="pre">AbstractArray]</span></code>) – Input eccentricity. Unused if a vector is provided for first argument.</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Velocity at perigee</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>v_per (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.sCARTtoOSC">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">sCARTtoOSC</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.astro.sCARTtoOSC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a Cartesean position and velocity in the inertial frame, return the
+state expressed in terms of  osculating orbital elements.</p>
+<p>The osculating elements are assumed to be (in order):</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>_a_, Semi-major axis Units: <em>m</em></p></li>
+<li><p>_e_, Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p>_i_, Inclination. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_Ω_, Right Ascension of the Ascending Node (RAAN). Units: <em>rad</em></p></li>
+<li><p>_ω_, Argument of Perigee. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_M_, Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.array_like</em>) – Cartesean inertial state. Returns position and
+velocity. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m**3/s**2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Osculating orbital elements. See above for</dt><dd><p>desription of the elements and their required order.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x_oe (np.array_like)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.sOSCtoCART">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">sOSCtoCART</code><span class="sig-paren">(</span><em class="sig-param">x_oe: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.astro.sOSCtoCART" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an orbital state expressed in osculating orbital elements compute
+the equivalent Cartesean position and velocity of the inertial state.</p>
+<p>The osculating elements are assumed to be (in order):</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>_a_, Semi-major axis Units: <em>m</em></p></li>
+<li><p>_e_, Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p>_i_, Inclination. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_Ω_, Right Ascension of the Ascending Node (RAAN). Units: <em>rad</em></p></li>
+<li><p>_ω_, Argument of Perigee. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_M_, Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_oe</strong> (<em>np.array_like</em>) – Osculating orbital elements. See above for desription of
+the elements and their required order.</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m**3/s**2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Cartesean inertial state. Returns position and</dt><dd><p>velocity. Units: [<em>m</em>; <em>m/s</em>]</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.array_like)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.semimajor_axis">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">semimajor_axis</code><span class="sig-paren">(</span><em class="sig-param">n: float</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.semimajor_axis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the semi-major axis given the mean-motion</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Orbital mean motion. Units: <em>rad/s</em> or <em>deg/s</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> returns result in units of degrees.</p></li>
+<li><p><strong>gm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Semi-major axis. Units: <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>a (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.astro.sun_sync_inclination">
+<code class="sig-prename descclassname">brahe.astro.</code><code class="sig-name descname">sun_sync_inclination</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.astro.sun_sync_inclination" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the required inclination for a Sun-synchronous Earth orbit.</p>
+<p>Algorithm assumes the nodal precession is entirely due to the J2 perturbation,
+and no other perturbations are considered. The inclination is computed using
+a first-order, non-iterative approximation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>e</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – <em>dimensionless</em></p></li>
+<li><p><strong>(</strong><strong>obj</strong> (<em>use_degrees</em>) – <cite>bool</cite>): Return output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Required inclination for a sun-synchronous orbit. Units: <em>rad</em> or <em>deg</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>i (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

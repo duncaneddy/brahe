@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Coordinates &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data" href="data.html" />
+    <link rel="prev" title="Astrodynamics" href="astro.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.coordinates">
+<span id="coordinates"></span><h1>Coordinates<a class="headerlink" href="#module-brahe.coordinates" title="Permalink to this headline">¶</a></h1>
+<p>This module provides functions to convert between different representations
+of orbital coordinates. As well as functions to compute properties of the orbits
+themselves.</p>
+<dl class="function">
+<dt id="brahe.coordinates.anm_eccentric_to_mean">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">anm_eccentric_to_mean</code><span class="sig-paren">(</span><em class="sig-param">E: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.anm_eccentric_to_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert eccentric anomaly into mean anomaly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>E</strong> (<em>float</em>) – Eccentric anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p><strong>e</strong> (<em>float</em>) – Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean anomaly. Units: <em>rad</em> or <em>deg</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>M (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.anm_mean_to_eccentric">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">anm_mean_to_eccentric</code><span class="sig-paren">(</span><em class="sig-param">M: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.anm_mean_to_eccentric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert mean anomaly into eccentric anomaly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>M</strong> (<em>float</em>) – Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p><strong>e</strong> (<em>float</em>) – Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Eccentric anomaly. Units: <em>rad</em> or <em>deg</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.mean_motion">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">mean_motion</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.mean_motion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the mean motion given a semi-major axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>float</em>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> returns result in units of degrees.</p></li>
+<li><p><strong>gm</strong> (<em>float</em>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Orbital mean motion. Units: <em>rad/s</em> or <em>deg/s</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>n (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.orbital_period">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">orbital_period</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.orbital_period" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the orbital period given the semi-major axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>float</em>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>gm</strong> (<em>float</em>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Orbital period. Units: <em>s</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>T (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.rECEFtoENZ">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">rECEFtoENZ</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.rECEFtoENZ" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the rotation matrix from the Earth-fixed to the East-North-Zenith
+coorindate basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates. Units: <em>m</em></p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Topocentric rotation matrix</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.rECEFtoSEZ">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">rECEFtoSEZ</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.rECEFtoSEZ" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the rotation matrix from the Earth-fixed to the South-East-Zenith
+coorindate basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Topocentric rotation matrix</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.rENZtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">rENZtoECEF</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.rENZtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the rotation matrix from the the East-North-Zenith to the
+Earth-Centered-Earth-Fixed coorindate basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Topocentric rotation matrix</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.rSEZtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">rSEZtoECEF</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.rSEZtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the rotation matrix from the Earth-fixed to the South-East-Zenith
+coorindate basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Topocentric rotation matrix</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>E (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sCARTtoOSC">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sCARTtoOSC</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sCARTtoOSC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a Cartesean position and velocity in the inertial frame, return the
+state expressed in terms of  osculating orbital elements.</p>
+<p>The osculating elements are assumed to be (in order):</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>_a_, Semi-major axis Units: <em>m</em></p></li>
+<li><p>_e_, Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p>_i_, Inclination. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_Ω_, Right Ascension of the Ascending Node (RAAN). Units: <em>rad</em></p></li>
+<li><p>_ω_, Argument of Perigee. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_M_, Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.array_like</em>) – Cartesean inertial state. Returns position and
+velocity. Units: [<em>m</em>; <em>m/s</em>]</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+<li><p><strong>gm</strong> (<em>float</em>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m**3/s**2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Osculating orbital elements. See above for</dt><dd><p>desription of the elements and their required order.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x_oe (np.array_like)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sECEFtoENZ">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sECEFtoENZ</code><span class="sig-paren">(</span><em class="sig-param">station_ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sECEFtoENZ" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the coordinates of an object in East-Noth-Zenith topocentric
+coordinate basis of a given fixed-location station.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>ecef</strong> (<em>np.ndarray</em>) – Eartth-fixed coordinates of the object</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Object coordinates in East-North-Zenith basis.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sECEFtoGEOC">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sECEFtoGEOC</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sECEFtoGEOC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert Earth-fixed position to geocentric location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ecef</strong> (<em>np.ndarray</em>) – Earth-fixed coordinates. Units <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees. (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Geocentric coordinates (lon, lat, altitude). Units: <em>rad</em> or <em>deg</em> and <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>geoc (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sECEFtoGEOD">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sECEFtoGEOD</code><span class="sig-paren">(</span><em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sECEFtoGEOD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert Earth-fixed position to geodetic location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ecef</strong> (<em>np.ndarray</em>) – Earth-fixed coordinates. Units <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees. (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Geodettic coordinates (lon, lat, altitude). Units: <em>rad</em> or <em>deg</em> and <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>geod (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sECEFtoSEZ">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sECEFtoSEZ</code><span class="sig-paren">(</span><em class="sig-param">station_ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sECEFtoSEZ" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the coordinates of an object in South-East-Zenith topocentric
+coordinate basis of a given fixed-location station.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>ecef</strong> (<em>np.ndarray</em>) – Eartth-fixed coordinates of the object</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>SEZ coordinates of object</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sENZtoAZEL">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sENZtoAZEL</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sENZtoAZEL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert East-North-Zenith topocentric coordinates into
+azimuth, elevation, and range. Azimuth-rate, elevation-rate, and range-rate
+will also be computed is the object velocity if the ENZ-coordinates are also
+provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – East-North-Up coordinates.</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> returns result in units of degrees.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Azimuth, elevation and range. Units: <em>rad</em> or <em>deg</em> and <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>azel (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sENZtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sENZtoECEF</code><span class="sig-paren">(</span><em class="sig-param">station_ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">enz: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sENZtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Earth-fixed coordinates of an object given East-Noth-Zenith
+topocentric coordinates, and the Earth-fixed coordinates of the station.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>enz</strong> (<em>np.ndarray</em>) – ENZ coordinates of the object</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Object coordinates in Earth-fixed basis.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sGEOCtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sGEOCtoECEF</code><span class="sig-paren">(</span><em class="sig-param">geoc: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sGEOCtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert geocentric position to equivalent Earth-fixed position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>geoc</strong> (<em>np.ndarray</em>) – Geocentric coordinates (lon, lat, altitude). Units: <em>rad</em> or <em>deg</em> and <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees. (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Earth-fixed coordinates. Units <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ecef (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sGEODtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sGEODtoECEF</code><span class="sig-paren">(</span><em class="sig-param">geod: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sGEODtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert geodettic position to equivalent Earth-fixed position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>geod</strong> (<em>np.ndarray</em>) – Geodetic coordinates (lon, lat, altitude). Units: <em>rad</em> or <em>deg</em> and <em>m</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees. (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Earth-fixed coordinates. Units <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ecef (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sOSCtoCART">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sOSCtoCART</code><span class="sig-paren">(</span><em class="sig-param">x_oe: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sOSCtoCART" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an orbital state expressed in osculating orbital elements compute
+the equivalent Cartesean position and velocity of the inertial state.</p>
+<p>The osculating elements are assumed to be (in order):</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>_a_, Semi-major axis Units: <em>m</em></p></li>
+<li><p>_e_, Eccentricity. Units: <em>dimensionless</em></p></li>
+<li><p>_i_, Inclination. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_Ω_, Right Ascension of the Ascending Node (RAAN). Units: <em>rad</em></p></li>
+<li><p>_ω_, Argument of Perigee. Units: <em>rad</em> or <em>deg</em></p></li>
+<li><p>_M_, Mean anomaly. Units: <em>rad</em> or <em>deg</em></p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_oe</strong> (<em>np.array_like</em>) – Osculating orbital elements. See above for desription of
+the elements and their required order.</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Handle input and output in degrees (Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></li>
+<li><p><strong>gm</strong> (<em>float</em>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m**3/s**2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Cartesean inertial state. Returns position and</dt><dd><p>velocity. Units: [<em>m</em>; <em>m/s</em>]</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.array_like)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sSEZtoAZEL">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sSEZtoAZEL</code><span class="sig-paren">(</span><em class="sig-param">x: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sSEZtoAZEL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert South-East-Zenith topocentric coordinates into
+azimuth, elevation, and range. Azimuth-rate, elevation-rate, and range-rate
+will also be computed is the object velocity if the SEZ-coordinates are also
+provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – South-East-Zenith coordinates.</p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <cite>True</cite> returns result in units of degrees.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Azimuth, elevation and range [rad; rad; m]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>azel (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sSEZtoECEF">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sSEZtoECEF</code><span class="sig-paren">(</span><em class="sig-param">station_ecef: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">sez: NewType.&lt;locals&gt;.new_type</em>, <em class="sig-param">conversion: str = 'geodetic'</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="headerlink" href="#brahe.coordinates.sSEZtoECEF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the coordinates of an object in the topocentric frame of an
+Earth-fixed frame</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>station_ecef</strong> (<em>np.ndarray</em>) – Earth-fixed Cartesian station coordinates</p></li>
+<li><p><strong>sez</strong> (<em>np.ndarray</em>) – SEZ coordinates of the object</p></li>
+<li><p><strong>conversion</strong> (<em>bool</em>) – Conversion type to use. Can be “geocentric” or “geodetic”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Earth-fixed coordinates of the object</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>x (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.semimajor_axis">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">semimajor_axis</code><span class="sig-paren">(</span><em class="sig-param">n: float</em>, <em class="sig-param">use_degrees: bool = False</em>, <em class="sig-param">gm: float = 398600441500000.0</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.semimajor_axis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the semi-major axis given the mean-motion</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> (<em>float</em>) – Orbital mean motion. Units: <em>rad/s</em> or <em>deg/s</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> returns result in units of degrees.</p></li>
+<li><p><strong>gm</strong> (<em>float</em>) – Gravitational constant of central body. Defaults to
+<code class="docutils literal notranslate"><span class="pre">brahe.constants.GM_EARTH</span></code> if not provided. Units: <em>m^3/s^2</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Semi-major axis. Units: <em>m</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>a (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.coordinates.sun_sync_inclination">
+<code class="sig-prename descclassname">brahe.coordinates.</code><code class="sig-name descname">sun_sync_inclination</code><span class="sig-paren">(</span><em class="sig-param">a: float</em>, <em class="sig-param">e: float</em>, <em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.coordinates.sun_sync_inclination" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the required inclination for a Sun-synchronous Earth orbit.</p>
+<p>Algorithm assumes the nodal precession is entirely due to the J2 perturbation,
+and no other perturbations are considered. The inclination is computed using
+a first-order, non-iterative approximation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>float</em>) – Semi-major axis. Units: <em>m</em></p></li>
+<li><p><strong>e</strong> (<em>float</em>) – <em>dimensionless</em></p></li>
+<li><p><strong>use_degrees</strong> (<em>bool</em>) – Return output in degrees (Default: false)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Requierd inclination for a sun-synchronous orbit. Units:</dt><dd><p><em>rad</em> or <em>deg</em></p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>i (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

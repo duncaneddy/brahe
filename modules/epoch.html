@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Epoch &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Relative Coordinates" href="relative_coordiantes.html" />
+    <link rel="prev" title="Time" href="time.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eop.html">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.epoch">
+<span id="epoch"></span><h1>Epoch<a class="headerlink" href="#module-brahe.epoch" title="Permalink to this headline">¶</a></h1>
+<p>The epoch module provides the <code class="docutils literal notranslate"><span class="pre">Epoch</span></code> class and associated helper methods.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Time system transformations calls rely on the <a class="reference external" href="https://github.com/duncaneddy/pysofa2/">pysofa2</a>
+module to provide fast and accurate conversions. The pysofa2 also handles
+insertions of leap seconds.</p>
+</div>
+<dl class="class">
+<dt id="brahe.epoch.Epoch">
+<em class="property">class </em><code class="sig-prename descclassname">brahe.epoch.</code><code class="sig-name descname">Epoch</code><span class="sig-paren">(</span><em class="sig-param">*args</em>, <em class="sig-param">tsys='UTC'</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <cite>Epoch</cite> type represents a single instant in time. It is used throughout the
+SatelliteDynamics module. It is meant to provide a clear definition of moments
+in time and provide a convenient interface display time in various representations
+as well as in differrent time systems. The internal data members are also chosen
+such that the representation maintains nanosecond-precision in reprersenation
+of time and doesn’t accumulate floating-point arithmetic errors larger than
+nanoseconds even after centuries.</p>
+<dl class="attribute">
+<dt id="brahe.epoch.Epoch.tsys">
+<code class="sig-name descname">tsys</code><a class="headerlink" href="#brahe.epoch.Epoch.tsys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time system this Epoch was initialized in.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brahe.epoch.Epoch.days">
+<code class="sig-name descname">days</code><a class="headerlink" href="#brahe.epoch.Epoch.days" title="Permalink to this definition">¶</a></dt>
+<dd><p>Elapsed days since 0 JD TAI</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brahe.epoch.Epoch.seconds">
+<code class="sig-name descname">seconds</code><a class="headerlink" href="#brahe.epoch.Epoch.seconds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Total seconds into day</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brahe.epoch.Epoch.nanseconds">
+<code class="sig-name descname">nanseconds</code><a class="headerlink" href="#brahe.epoch.Epoch.nanseconds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nanoseconds</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>days, seconds, and nanoseconds is stored internally in the TAI reference
+systems. These values should not be accessed directly, but instead accessed
+through <code class="docutils literal notranslate"><span class="pre">Epoch</span></code> class methods which transform the state member date into
+the appropricate time system and format.</p>
+</div>
+<dl class="method">
+<dt id="brahe.epoch.Epoch.caldate">
+<code class="sig-name descname">caldate</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.caldate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Gregorian calendar date for a specific</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – Time system to compute output in.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Year of epoch
+month (int): Month of epoch
+day (int): Day of epoch
+hour (int): Hour of epoch
+minute (int): Minute of epoch
+second (float): Second of epoch
+nanoseconds (float): Year of epoch</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>year (int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.day">
+<code class="sig-name descname">day</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.day" title="Permalink to this definition">¶</a></dt>
+<dd><p>Day of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>int: Day of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.day_of_year">
+<code class="sig-name descname">day_of_year</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.day_of_year" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the day-of-year number for a given <cite>Epoch</cite>.</p>
+<p>January 1 0h of each year will return 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – time system to provide output in.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Day of year number.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>doy (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.gast">
+<code class="sig-name descname">gast</code><span class="sig-paren">(</span><em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.gast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Greenwich Apparent Sidereal Time for the given Epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>use_degrees</strong> (<em>bool</em>) – Return output in degrees (Default: false)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Greenwich Mean Sidereal Time [rad/deg]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>gast (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.gmst">
+<code class="sig-name descname">gmst</code><span class="sig-paren">(</span><em class="sig-param">use_degrees: bool = False</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.gmst" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Greenwich Mean Sidereal Time for the given Epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>use_degrees</strong> (<em>bool</em>) – Return output in degrees (Default: false)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Greenwich Mean Sidereal Time [rad/deg]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>gmst (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.hour">
+<code class="sig-name descname">hour</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.hour" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hour of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>int: Hour of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.isoformat">
+<code class="sig-name descname">isoformat</code><span class="sig-paren">(</span><em class="sig-param">tsys: str = 'UTC'</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.isoformat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return date and time as an ISO 8061 compliant string.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.jd">
+<code class="sig-name descname">jd</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.jd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Julian Date for a specific epoch</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – time system to provide output in.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Julian date of the epoch in the requested time system</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>jd (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.minute">
+<code class="sig-name descname">minute</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.minute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minute of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>int: Minute of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.mjd">
+<code class="sig-name descname">mjd</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.mjd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return Epoch as a modified Julian date</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – time system to provide output in.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Julian date of the epoch in the requested time system</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>mjd (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.month">
+<code class="sig-name descname">month</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.month" title="Permalink to this definition">¶</a></dt>
+<dd><p>Month of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>int: Month of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.second">
+<code class="sig-name descname">second</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.second" title="Permalink to this definition">¶</a></dt>
+<dd><p>Second of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>float: Second of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.to_datetime">
+<code class="sig-name descname">to_datetime</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.to_datetime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return equivalent datetime object for time system</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – time system to provide output in.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Datetime object storing epoch informatiotn.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dt (datetime)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.epoch.Epoch.year">
+<code class="sig-name descname">year</code><span class="sig-paren">(</span><em class="sig-param">tsys: Optional[str] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.Epoch.year" title="Permalink to this definition">¶</a></dt>
+<dd><p>Year of epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em><em>, </em><em>optional</em>) – Time system to produce output in</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>int: Year of epoch</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.epoch.epoch_range">
+<code class="sig-prename descclassname">brahe.epoch.</code><code class="sig-name descname">epoch_range</code><span class="sig-paren">(</span><em class="sig-param">epoch_start</em>, <em class="sig-param">epoch_end</em>, <em class="sig-param">step=1.0</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.epoch_range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generator that provides epochs at evenly spaced intervals between the
+start (inclusive) and stop (inclusive) times.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch_start</strong> (<a class="reference internal" href="#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Epoch</span></code></a>) – Start epoch of range</p></li>
+<li><p><strong>epoch_end</strong> (<a class="reference internal" href="#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Epoch</span></code></a>) – End epoch of range</p></li>
+<li><p><strong>step</strong> (<em>float</em>) – Time increment in seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Sequential epoch in range from epoch_start to</dt><dd><p>epoch_end, inclusive.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>epoch (<a class="reference internal" href="#brahe.epoch.Epoch" title="brahe.epoch.Epoch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Epoch</span></code></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brahe.epoch.valid_time_system">
+<code class="sig-prename descclassname">brahe.epoch.</code><code class="sig-name descname">valid_time_system</code><span class="sig-paren">(</span><em class="sig-param">tsys: str</em><span class="sig-paren">)</span><a class="headerlink" href="#brahe.epoch.valid_time_system" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if time system code is a valid time system identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tsys</strong> (<em>str</em>) – Time system</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether time system is valid or not</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>valid (bool)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

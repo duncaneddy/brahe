@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Earth Orentation Parameters &#8212; brahe 0.0.0 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Time" href="time.html" />
+    <link rel="prev" title="Data" href="data.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../_static/bootstrap-sphinx.js "></script>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../index.html">
+          brahe</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../index.html">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="astro.html">Astrodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Earth Orentation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="time.html">Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epoch.html">Epoch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relative_coordiantes.html">Relative Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attitude.html">Attitude</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frames.html">Reference Frames</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+    <div class="body col-md-12 content" role="main">
+      
+  <div class="section" id="module-brahe.eop">
+<span id="earth-orentation-parameters"></span><h1>Earth Orentation Parameters<a class="headerlink" href="#module-brahe.eop" title="Permalink to this headline">¶</a></h1>
+<p>The eop module provides data structures used to interact and access
+Earth-releated data files throughout the module.</p>
+<dl class="data">
+<dt id="brahe.eop.DEFAULT_EOP_DATA">
+<code class="sig-prename descclassname">brahe.eop.</code><code class="sig-name descname">DEFAULT_EOP_DATA</code><em class="property"> = PosixPath('/home/travis/build/duncaneddy/brahe/brahe/data/iau2000A_finals_ab.txt')</em><a class="headerlink" href="#brahe.eop.DEFAULT_EOP_DATA" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path of default earth orientation file used by the module. This is used
+by the Epoch class compute offsets between various time systems.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brahe.eop.EOP">
+<em class="property">class </em><code class="sig-prename descclassname">brahe.eop.</code><code class="sig-name descname">EOP</code><a class="headerlink" href="#brahe.eop.EOP" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class to store Earth Orientation parameters and data.</p>
+<dl class="method">
+<dt id="brahe.eop.EOP.clear">
+<em class="property">classmethod </em><code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#brahe.eop.EOP.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear loaded EOP data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.eop">
+<em class="property">classmethod </em><code class="sig-name descname">eop</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; Tuple[float, float, float]<a class="headerlink" href="#brahe.eop.EOP.eop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the specified Earth orientation parameters based on.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>UT1 - UTC time system offset. Units: <em>seconds</em>
+xp (float): x-vector component of polar offset. Units: <em>radians</em>
+yp (float): x-vector component of polar offset. Units: <em>radians</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ut1_utc (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.initialized">
+<em class="property">classmethod </em><code class="sig-name descname">initialized</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#brahe.eop.EOP.initialized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return whether data has been initialized</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param">filepath: str = PosixPath('/home/travis/build/duncaneddy/brahe/brahe/data/iau2000A_finals_ab.txt')</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#brahe.eop.EOP.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load Earth orientation data into class memory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filepath</strong> (<em>str</em>) – Path to Earth orientation data file to load and use
+in module.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.pole_locator">
+<em class="property">classmethod </em><code class="sig-name descname">pole_locator</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; Tuple[float, float]<a class="headerlink" href="#brahe.eop.EOP.pole_locator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the angular location of Earth rotational axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>x-vector component of polar offset. Units: <em>radians</em>
+yp (float): y-vector component of polar offset. Units: <em>radians</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xp (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.set">
+<em class="property">classmethod </em><code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: int</em>, <em class="sig-param">ut1_utc: float</em>, <em class="sig-param">xp: float</em>, <em class="sig-param">yp: float</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#brahe.eop.EOP.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Insert or set Earth orientation values for specified date.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mjd_utc</strong> (<em>int</em>) – Modified julian date of data Must be aligned to 0h
+UTC. Units: <em>seconds</em></p></li>
+<li><p><strong>ut1_utc</strong> (<em>float</em>) – UT1-UTC offset. Units: <em>arcseconds</em></p></li>
+<li><p><strong>xp</strong> (<em>float</em>) – UT1-UTC offset Units: <em>arcseconds</em></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.ut1_utc">
+<em class="property">classmethod </em><code class="sig-name descname">ut1_utc</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.eop.EOP.ut1_utc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the specified UT1 - UTC offset in seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>UT1 - UTC time system offset. Units: <em>seconds</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ut1_utc (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.utc_ut1">
+<em class="property">classmethod </em><code class="sig-name descname">utc_ut1</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.eop.EOP.utc_ut1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the specified UT1 - UTC offset in seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>UT1 - UTC time system offset. Units: <em>seconds</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>utc_ut1 (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.xp">
+<em class="property">classmethod </em><code class="sig-name descname">xp</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.eop.EOP.xp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the specified x-component of Earth Orientation .</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>x-vector component of polar offset. Units: <em>radians</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xp (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brahe.eop.EOP.yp">
+<em class="property">classmethod </em><code class="sig-name descname">yp</code><span class="sig-paren">(</span><em class="sig-param">mjd_utc: float</em>, <em class="sig-param">interp: bool = False</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#brahe.eop.EOP.yp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the specified y-component of Earth Orientation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mjd_utc</strong> (<em>float</em>) – Modified Julian Date in the UTC time system.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>y-vector component of polar offset. Units: <em>radians</em></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>yp (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.eop.IERS_AB_EOP_DATA">
+<code class="sig-prename descclassname">brahe.eop.</code><code class="sig-name descname">IERS_AB_EOP_DATA</code><em class="property"> = PosixPath('/home/travis/build/duncaneddy/brahe/brahe/data/iau2000A_finals_ab.txt')</em><a class="headerlink" href="#brahe.eop.IERS_AB_EOP_DATA" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path of IERS Finals AB data provided by module.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="brahe.eop.IERS_C04_DATA">
+<code class="sig-prename descclassname">brahe.eop.</code><code class="sig-name descname">IERS_C04_DATA</code><em class="property"> = PosixPath('/home/travis/build/duncaneddy/brahe/brahe/data/iau2000A_c04_14.txt')</em><a class="headerlink" href="#brahe.eop.IERS_C04_DATA" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path of IERS C04 soultion data provided by module.</p>
+</dd></dl>
+
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2019, Duncan Eddy.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.4.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

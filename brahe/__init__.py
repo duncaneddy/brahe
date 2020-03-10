@@ -88,7 +88,8 @@ from .ephemerides import (
 )
 
 from .epoch import (
-    Epoch
+    Epoch,
+    epoch_range,
 )
 
 from .frames import (

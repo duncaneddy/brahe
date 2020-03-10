@@ -18,7 +18,7 @@ def accel_srp(x:np.ndarray, r_sun:np.ndarray, mass:float=0, area:float=0, CR:flo
         x (:obj:`np.ndarray`): Satellite Cartesean state in the inertial reference frame [m; m/s]
 
     Returns:
-        np.ndarray: Satellite acceleration due to srp. [m/s^2]
+        np.ndarray: Satellite acceleration due to srp. [m/s**2]
 
     References:
         1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.77-79.
@@ -97,11 +97,11 @@ def eclipse_conical(x:np.ndarray, r_sun:np.ndarray) -> np.ndarray:
     if math.fabs(a - b) < c and c < (a + b):
         # Partial occultation
     
-        xx = (c^2 + a^2 - b^2)/(2*c)
-        yy = math.sqrt(a^2 - xx^2)
-        A  = a^2 * math.acos(xx/a) + b^2 * math.acos((c-xx)/b) - c * yy
+        xx = (c**2 + a**2 - b**2)/(2*c)
+        yy = math.sqrt(a**2 - xx**2)
+        A  = a**2 * math.acos(xx/a) + b**2 * math.acos((c-xx)/b) - c * yy
 
-        nu = 1 - A/(math.pi*a^2)
+        nu = 1 - A/(math.pi*a**2)
     elif (a + b) <= c:
         # No occultation
         nu = 1.0

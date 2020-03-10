@@ -683,7 +683,7 @@ class Epoch():
 
     def __str__(self, tsys:typing.Optional[str]=None):
         year, month, day, hour, minute, second, microsecond = self.caldate()
-        second += microsecond/1.0e6
+        second += microsecond/1.0e9
         return '%4d-%02d-%02d %02d:%02d:%06.3f %s' % (year, month, day, hour, minute, second, self.tsys)
 
     def __repr__(self):

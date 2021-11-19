@@ -65,7 +65,7 @@ URL_IERS_AB  = 'https://datacenter.iers.org/data/latestVersion/9_FINALS.ALL_IAU2
 URL_IERS_C04 = 'https://datacenter.iers.org/data/latestVersion/224_EOP_C04_14.62-NOW.IAU2000A224.txt'
 URL_CELESTRACK_SPACE_WEATHER = 'https://celestrak.com/SpaceData/sw19571001.txt'
 URL_SOLAR_FLUX = 'ftp://ftp.seismo.nrcan.gc.ca/spaceweather/solar_flux/daily_flux_values/fluxtable.txt'
-URL_KPAP_BASE = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/kp-ap/wdc/'
+URL_KPAP_BASE = ''
 
 ###############
 # Data Update #

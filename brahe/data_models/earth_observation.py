@@ -245,7 +245,7 @@ class RequestProperties(EOBase):
         if not id:
             return str(uuid.uuid4())
         else:
-            return id
+            return id 
 
 class Request(GeoJSONObject):
     properties: RequestProperties

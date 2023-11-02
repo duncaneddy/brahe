@@ -1,5 +1,6 @@
 # Editors
 .vscode*
+.idea*
 
 # Documentation
 docs/build*
@@ -63,3 +64,6 @@ venv.bak/
 
 # Script Outputs
 script_outputs*
+
+# Platform Files
+.DS_Store

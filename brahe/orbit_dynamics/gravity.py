@@ -164,7 +164,7 @@ class GravityModel():
                 cls._data[n, m]     = C
                 cls._data[m - 1, n] = S  
 
-        cls.initialized = True
+        cls._initialized = True
 
 ######################
 # Point Mass Gravity #

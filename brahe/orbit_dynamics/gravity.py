@@ -59,7 +59,7 @@ class GravityModel():
     def initialize(cls, filepath=GRAV_MODEL_EGM2008_90):
         '''Initialize GravityModel if it is not already initialized.'''
 
-        if not cls.initialized:
+        if not cls._initialized:
             cls.load(filepath)
 
     @classmethod
@@ -417,3 +417,4 @@ def accel_thirdbody_moon(epc:Epoch, x_eci:np.ndarray) -> np.ndarray:
     '''
 
     return accel_thirdbody(x_eci, _ephem.moon_position(epc), _constants.GM_MOON)
+

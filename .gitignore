@@ -1,69 +1,26 @@
-# Editors
-.vscode*
-.idea*
+# Build Artifacts - Rust
+/target
+Cargo.lock
 
-# Documentation
-docs/build*
-
-# Byte-compiled / optimized / DLL files
+# Build Artifacts - Python
+rastro_python/build/*
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Distribution / packaging
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
 sdist/
-var/
 wheels/
 *.egg-info/
-.installed.cfg
 *.egg
-MANIFEST
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
 .pytest_cache/
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
+*.so
+*.dylib
 .python-version
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Documentation
+docs/*/site/*
+docs/*/docs/figures/*
 
-# Script Outputs
-script_outputs*
-
-# Platform Files
+# Development
 .DS_Store
+.idea/*

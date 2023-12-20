@@ -16,8 +16,8 @@ plugins:
 
 theme:
   name: material
-  logo: images/icon.svg
-  favicon: images/favicon.png
+  logo: assets/icon.png
+  favicon: assets/favicon.png
   highlightjs: true
   hljs_languages:
       - yaml

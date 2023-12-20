@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/images/logo-gold.png" alt="Brahe"></a>
+  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/assets/logo-gold.png" alt="Brahe"></a>
 </p>
 <p align="center">
     <em>Brahe - easy-to-learn, high-performance, and quick-to-deploy</em>

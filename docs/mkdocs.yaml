@@ -63,10 +63,18 @@ nav:
     - getting_started/contact_prediction.md
   - Library API: 
     - library_api/index.md
-  - Examples (How-To):
+  - Examples (How-To): 
     - examples/index.md
     - examples/contact_prediction.md
     - examples/orbit_prediction.md
     - examples/tle_download.md
-  - Reference:
+  - Reference: 
     - reference/index.md
+  - About: 
+    - about/index.md
+    - about/roadmap.md
+    - about/design_decisions.md
+    - about/contributing.md
+    - about/license.md
+    - about/contact.md
+  - Development Blog: https://duncaneddy.com

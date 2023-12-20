@@ -18,7 +18,7 @@ readme = "../README.md"
 license = "MIT"
 
 [dependencies]
-rsofa = "0.4.5"
+rsofa = "0.5.0"
 nalgebra = "0.32.3"
 
 [dev-dependencies]

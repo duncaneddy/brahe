@@ -1,12 +1,12 @@
-<!-- <p align="center">
-  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/en/docs/img/logo-gold.png" alt="Brahe"></a>
+<p align="center">
+  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/images/logo-gold.png" alt="Brahe"></a>
 </p>
 <p align="center">
-    <em>FastAPI framework, high performance, easy to learn, fast to code, ready for production</em>
+    <em>Brahe - easy-to-learn, high-performance, and quick-to-deploy</em>
 </p>
 <p align="center">
-<a href="https://github.com/duncaneddy/brahe/actions/workflows/test.yml" target="_blank">
-    <img src="https://github.com/duncaneddy/brahe/actions/workflows/test.yml/badge.svg" alt="Test">
+<a href="https://github.com/duncaneddy/brahe/actions/workflows/commit.yml" target="_blank">
+    <img src="https://github.com/duncaneddy/brahe/actions/workflows/commit.yml/badge.svg" alt="Test">
 </a>
 <a href="https://crates.io/crates/brahe" target="_blank">
     <img src="https://img.shields.io/crates/v/brahe.svg" alt="Crate">
@@ -20,9 +20,9 @@
 <a href="https://github.com/duncaneddy/brahe/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-green.svg", alt="License">
 </a>
-</p> -->
+</p>
 
-<!-- ----
+----
 
 Documentation: https://duncaneddy.github.io/brahe
 
@@ -30,9 +30,9 @@ Rust Library Reference: https://docs.rs/crate/brahe/latest
 
 Source Code: https://github.com/duncaneddy/brahe
 
----- -->
+----
 
-# Overhaul Note
+# Overhaul Notice
 
 The older pure-Python version of brahe is currently being deprecated in favor of a mixed
 Rust-Python implementation, along with improved documentation. That means that the development
@@ -60,10 +60,9 @@ The old master branch can be found [here](https://github.com/duncaneddy/brahe/tr
 
 # Brahe
 Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, high-performance, 
-and ready for use in production applications. The north-star of the development
-is enabling users to solve meaningful problems and answer questions quickly,
-easily, and correctly.
+applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy. 
+The north-star of the development is enabling users to solve meaningful problems 
+and answer questions quickly, easily, and correctly.
 
 The key features of the library are:
 
@@ -141,7 +140,7 @@ appreciate the project, either send a message or star the project. Knowing
 that the project is being actively used is a large motivator for continued
 development.
 
-### Support and Acknowledgement
+## Support and Acknowledgement
 
 Brahe is currently being developed primarily for my own enjoyment and
 because I find having these tools helpful in professional and hobby work. I plan to
@@ -152,5 +151,3 @@ software is being adopted or found useful in wider practice. If you're
 using Brahe for school, research, or a commercial endeavour, I'd
 love to know about it! Tweet me [@duncaneddy](https://twitter.com/DuncanEddy) or
 email me at duncan.eddy (at) gmail.com.
-
-I'd love to hear your feedback or thoughts!

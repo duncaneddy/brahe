@@ -1,0 +1,25 @@
+[package]
+name = "brahe"
+version = "0.1.0"
+authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
+edition = "2021"
+description = """
+Brahe is a modern satellite dynamics library for research and engineering
+applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy. 
+The north-star of the development is enabling users to solve meaningful problems 
+and answer questions quickly, easily, and correctly.
+"""
+homepage = "https://https://duncaneddy.github.io/brahe/"
+documentation = "https://docs.rs/brahe/"
+repository = "https://github.com/duncaneddy/brahe/"
+keywords = ["space", "astrodynamics", "satellite"]
+categories = ["science"]
+readme = "../README.md"
+license = "MIT"
+
+[dependencies]
+rsofa = "0.4.5"
+nalgebra = "0.32.3"
+
+[dev-dependencies]
+approx = "0.5.1"

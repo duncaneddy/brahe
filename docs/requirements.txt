@@ -1,7 +1,6 @@
-mkdocs-material
-mkdocstrings
-mkdocs-section-index
+mkdocs-material>=9.5.2,<10.0.0
+mkdocstrings==0.24.0
+mkdocs-section-index==0.3.8
 
-matplotlib
-plotly
-pandas
+matplotlib>=3.8.2,<4.0.0
+plotly>5.18.0,<6.0.0

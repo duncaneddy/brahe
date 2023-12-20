@@ -20,6 +20,8 @@ wheels/
 # Documentation
 docs/*/site/*
 docs/*/docs/figures/*
+docs/pages/index.md
+docs/site/*
 
 # Development
 .DS_Store

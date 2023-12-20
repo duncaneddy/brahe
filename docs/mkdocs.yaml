@@ -1,0 +1,72 @@
+site_name: Brahe
+site_author: Duncan Eddy
+site_description: Brahe - easy-to-learn, high-performance, and quick-to-deploy
+site_url: https://github.com/duncaneddy/brahe
+repo_url: https://github.com/duncaneddy/brahe
+docs_dir: pages
+use_directory_urls: false
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - mkdocstrings
+  - section-index
+
+theme:
+  name: material
+  logo: images/icon.svg
+  favicon: images/favicon.png
+  highlightjs: true
+  hljs_languages:
+      - yaml
+      - rust
+      - python
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom # Star-Trek Orange
+      accent: black
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom # Star-Trek Orange
+      accent: black
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+nav:
+  - Brahe: index.md
+  - Getting Started (Tutorials): 
+    - getting_started/index.md
+    - getting_started/installation.md
+    - getting_started/first_script.md
+    - getting_started/frame_conversion.md
+    - getting_started/contact_prediction.md
+  - Library API: 
+    - library_api/index.md
+  - Examples (How-To):
+    - examples/index.md
+    - examples/contact_prediction.md
+    - examples/orbit_prediction.md
+    - examples/tle_download.md
+  - Reference:
+    - reference/index.md

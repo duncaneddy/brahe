@@ -1,0 +1,7 @@
+mkdocs-material
+mkdocstrings
+mkdocs-section-index
+
+matplotlib
+plotly
+pandas

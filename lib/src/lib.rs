@@ -1,13 +1,13 @@
 /*!
 # Brahe
 Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy. 
-The north-star of the development is enabling users to solve meaningful problems 
+applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.
+The north-star of the development is enabling users to solve meaningful problems
 and answer questions quickly, easily, and correctly.
 
 The key features of the library are:
 
-- **Intuitive API**: API designed to be easily composable, making it easy to 
+- **Intuitive API**: API designed to be easily composable, making it easy to
   solve complex problems correctly by building on core functionality.
 - **Easy-to-Learn**: Designed to be easy to use and learn. The objective is
   to provide clear documentation and visibility into what the software is doing
@@ -21,41 +21,41 @@ The key features of the library are:
   solutions to meaningful problems. High-fieldity, high-performance APIs are not
   the end-objective, but helping users solve their problems.
 
-Brahe gets its name from the combination of Rust and astrodynamics (Rust + 
+Brahe gets its name from the combination of Rust and astrodynamics (Rust +
 astrodynamics = Brahe). The library specifically focuses on satellite astrodynamics
-and space mission analysis. While the underlying concepts have been studied and known since 
-Kepler wrote down his three laws, there are few modern software 
+and space mission analysis. While the underlying concepts have been studied and known since
+Kepler wrote down his three laws, there are few modern software
 libraries that make these concepts easily accessible. While extremely well tested,
-other astrodynamics and mission analysis software can have an extremely steep 
+other astrodynamics and mission analysis software can have an extremely steep
 learning curve, making it difficult to quickly run simple analysis that is known
 to be correct.
 
-Because of this, students, researchers, and engineers frequently end up 
-reimplementing common astrodynamics and mission analysis tools with unfortunately 
-frequent regularity. While  reimplementation of common code can be a good learning 
-mechanisms, in most cases it is both error-prone and costs time better spent 
-on other endeavours. This project seeks to providing an easy-to-use, 
-well-tested library, to enable everyone to more easily, and quickly 
+Because of this, students, researchers, and engineers frequently end up
+reimplementing common astrodynamics and mission analysis tools with unfortunately
+frequent regularity. While  reimplementation of common code can be a good learning
+mechanisms, in most cases it is both error-prone and costs time better spent
+on other endeavours. This project seeks to providing an easy-to-use,
+well-tested library, to enable everyone to more easily, and quickly
 perform astrodynamics and space mission analysis without sacrificing performance
-or correctness. The software built in Rust for performance with bindings to 
+or correctness. The software built in Rust for performance with bindings to
 Python for ease of use.
 
 The implementation approach is opinionated, the objective is to provide an
 easy-to-use and accurate astrodynamics library to enable users to quickly
-and correctly solve most common problem types. it is not practical to try to 
+and correctly solve most common problem types. it is not practical to try to
 implement _every_ aerodynamics model and function utilized in practice or historically.
-Since Brahe is open source, if a specific function is not present, or a different 
-implementation is required, users can modify the code to address their specific 
-use case. This means that Brahe, while we want to continue expanding the 
-capabilities of the module over time, the immediate goal is to provide a well-tested, 
+Since Brahe is open source, if a specific function is not present, or a different
+implementation is required, users can modify the code to address their specific
+use case. This means that Brahe, while we want to continue expanding the
+capabilities of the module over time, the immediate goal is to provide a well-tested,
 flexible, composable API to quickly address modern problems in astrodynamics.
 
-One example of this in practice is that the built-in Earth reference frame transformation 
+One example of this in practice is that the built-in Earth reference frame transformation
 utilizes the IAU 2006/2000A precession-nutation model, CIO-based transformation.
-Even through there are multiple ways to construct this transformation, Brahe 
-only implements one. Another example, is that the geodetic and geocentric 
+Even through there are multiple ways to construct this transformation, Brahe
+only implements one. Another example, is that the geodetic and geocentric
 transformations use the latest NIMA technical report definitions for Earth's radius and flatness.
-If a desired model isn't implemented users are free to extend the software to 
+If a desired model isn't implemented users are free to extend the software to
 address and functionality or modeling gaps that exist to address their specific application.
 
 ## Documentation
@@ -67,8 +67,8 @@ the documentation will likely not be complete. Sections marked **[WIP]**
 will have some software functionality implemented but not be considered
 documented.
 
-The most complete API reference guide will always be the Rust crate API 
-reference, found on [crates.io](https://docs.rs/brahe/). This is always up-to-date with the latest release 
+The most complete API reference guide will always be the Rust crate API
+reference, found on [crates.io](https://docs.rs/brahe/). This is always up-to-date with the latest release
 since it is autogenerated at build time during the release process.
 
 ## Software Usage and License

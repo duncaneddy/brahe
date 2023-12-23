@@ -1,0 +1,125 @@
+/*!
+ * Provides helper functions for parsing IERS C04-formatted files
+ */
+
+use crate::constants::AS2RAD;
+
+/// Parse a line out of a C04 file and return the resulting data.
+///
+/// # Arguments
+/// - `line`: Reference to string to attempt to parse as a C04 formatted line
+///
+/// # Returns
+/// On successful parse returns tuple containing:
+/// - `mjd`: Modified Julian date of data point
+/// - `pm_x`: x-component of polar motion correction. Units: (radians)
+/// - `pm_y`: y-component of polar motion correction. Units: (radians)
+/// - `ut1_utc`: Offset of UT1 time scale from UTC time scale. Units: (seconds)
+/// - `dX`: "X" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
+/// - `dY`: "Y" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
+/// - `lod`: Difference between astronomically determined length of day and 86400 second TAI. Units: (seconds)
+///
+/// # References
+/// 1. See [EOP 20 C04 Series Metadata](https://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html) for more information on the C04 file format.
+#[allow(non_snake_case)]
+fn parse_c04_line(
+    line: &str,
+) -> Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), String> {
+    const MJD_RANGE: std::ops::Range<usize> = 16..26;
+    const PM_X_RANGE: std::ops::Range<usize> = 26..38;
+    const PM_Y_RANGE: std::ops::Range<usize> = 38..50;
+    const UT1_UTC_RANGE: std::ops::Range<usize> = 50..62;
+    const DX_RANGE: std::ops::Range<usize> = 62..74;
+    const DY_RANGE: std::ops::Range<usize> = 74..86;
+    const LOD_RANGE: std::ops::Range<usize> = 110..122;
+
+    let mjd = match line[MJD_RANGE].trim().parse::<f64>() {
+        Ok(mjd) => mjd,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse mjd from '{}': {}",
+                &line[MJD_RANGE], e
+            ))
+        }
+    };
+    let pm_x = match line[PM_X_RANGE].trim().parse::<f64>() {
+        Ok(pm_x) => pm_x * AS2RAD,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse pm_x from '{}': {}",
+                &line[PM_X_RANGE], e
+            ))
+        }
+    };
+    let pm_y = match line[PM_Y_RANGE].trim().parse::<f64>() {
+        Ok(pm_y) => pm_y * AS2RAD,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse pm_y from '{}': {}",
+                &line[PM_Y_RANGE], e
+            ))
+        }
+    };
+    let ut1_utc = match line[UT1_UTC_RANGE].trim().parse::<f64>() {
+        Ok(ut1_utc) => ut1_utc,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse ut1_utc from '{}': {}",
+                &line[UT1_UTC_RANGE], e
+            ))
+        }
+    };
+    let lod = match line[LOD_RANGE].trim().parse::<f64>() {
+        Ok(lod) => lod,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse lod from '{}': {}",
+                &line[LOD_RANGE], e
+            ))
+        }
+    };
+    let dX = match line[DX_RANGE].trim().parse::<f64>() {
+        Ok(dX) => dX * AS2RAD,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse dX from '{}': {}",
+                &line[DX_RANGE], e
+            ))
+        }
+    };
+    let dY = match line[DY_RANGE].trim().parse::<f64>() {
+        Ok(dY) => dY * AS2RAD,
+        Err(e) => {
+            return Err(format!(
+                "Failed to parse dY from '{}': {}",
+                &line[DY_RANGE], e
+            ))
+        }
+    };
+
+    Ok((mjd, pm_x, pm_y, ut1_utc, Some(dX), Some(dY), Some(lod)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_parse_c04_line() {
+        let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
+
+        let result = parse_c04_line(line);
+
+        assert!(result.is_ok());
+        let (mjd, pm_x, pm_y, ut1_utc, dX, dY, lod) = result.unwrap();
+
+        assert_eq!(mjd, 60269.0);
+        assert_eq!(pm_x, 0.244498 * AS2RAD);
+        assert_eq!(pm_y, 0.234480 * AS2RAD);
+        assert_eq!(ut1_utc, 0.0111044);
+        assert_eq!(dX, Some(0.000305 * AS2RAD));
+        assert_eq!(dY, Some(-0.000100 * AS2RAD));
+        assert_eq!(lod, Some(0.0002867));
+    }
+}

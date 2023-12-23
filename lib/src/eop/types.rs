@@ -1,4 +1,4 @@
-/*! 
+/*!
 Types for the EOP module.
 */
 

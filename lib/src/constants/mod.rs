@@ -10,9 +10,9 @@ They are specifically grouped into the following categories:
 */
 
 mod math;
-mod time;
 mod physical;
+mod time;
 
 pub use math::*;
-pub use time::*;
 pub use physical::*;
+pub use time::*;

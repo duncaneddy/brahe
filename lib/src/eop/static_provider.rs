@@ -6,11 +6,11 @@ or static values.
 use std::fmt;
 
 use crate::eop::eop_provider::EarthOrientationProvider;
-use crate::eop::types::{EOPType, EOPExtrapolation};
+use crate::eop::types::{EOPExtrapolation, EOPType};
 
 /// StaticEOPProvider is an EarthOrientationProvider that returns static
 /// values for all EOP parameters at all times.
-/// 
+///
 /// It can be initialized as zero-valued or with specific values. It will
 /// never extrapolate or interpolate since the data is only for a single
 /// time.
@@ -34,7 +34,6 @@ pub struct StaticEOPProvider {
     ///   day. Units: (seconds)
     data: (f64, f64, f64, f64, f64, f64),
 }
-
 
 impl fmt::Display for StaticEOPProvider {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -75,9 +74,9 @@ impl fmt::Debug for StaticEOPProvider {
 
 impl StaticEOPProvider {
     /// Creates a new, uninitialized `StaticEOPProvider`
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// * `StaticEOPProvider` - New `StaticEOPProvider` that is not initialized.
     pub fn new() -> Self {
         StaticEOPProvider {
@@ -116,7 +115,7 @@ impl StaticEOPProvider {
     pub fn from_values(values: (f64, f64, f64, f64, f64, f64)) -> Self {
         StaticEOPProvider {
             initialized: true,
-            data: values
+            data: values,
         }
     }
 }

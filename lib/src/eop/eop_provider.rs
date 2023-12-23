@@ -1,8 +1,8 @@
 /*!
-Defines the EarthOrientationProvider trait 
+Defines the EarthOrientationProvider trait
 */
 
-use crate::eop::types::{EOPType, EOPExtrapolation};
+use crate::eop::types::{EOPExtrapolation, EOPType};
 
 pub trait EarthOrientationProvider {
     fn len(&self) -> usize;

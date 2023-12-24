@@ -5,6 +5,7 @@ frame transformations.
 */
 
 mod c04_parser;
+mod standard_parser;
 mod eop_provider;
 mod file_provider;
 mod static_provider;

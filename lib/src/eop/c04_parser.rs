@@ -20,7 +20,7 @@ use crate::constants::AS2RAD;
 /// - `lod`: Difference between astronomically determined length of day and 86400 second TAI. Units: (seconds)
 ///
 /// # References
-/// 1. See [EOP 20 C04 Series Metadata](https://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html) for more information on the C04 file format.
+/// 1. See [EOP 20 C04 Series Metadata](https://datacenter.iers.org/versionMetadata.php?filename=latestVersionMeta/234_EOP_C04_20.62-NOW234.txt) for more information on the C04 file format.
 #[allow(non_snake_case)]
 fn parse_c04_line(
     line: &str,

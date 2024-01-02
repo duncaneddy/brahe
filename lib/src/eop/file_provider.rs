@@ -431,13 +431,11 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// * `Err(String)` - Error message if the UT1-UTC offset could not be retrieved.
     fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
-            let key = EOPKey(mjd);
-
             if mjd < self.mjd_max {
                 if self.interpolate == true {
                     // Get Above and below points
-                    let above = self.data.range(key.clone()..).next().unwrap();
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
     
                     // Time points and values
                     let t1: f64 = below.0.0;
@@ -450,14 +448,14 @@ impl EarthOrientationProvider for FileEOPProvider {
                 } else {
                     // Get First value below
 
-                    Ok(self.data.range(..key).next_back().unwrap().1.2)
+                    Ok(self.data.range(..EOPKey(mjd)).next_back().unwrap().1.2)
                 }
             } else {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
                     EOPExtrapolation::Hold => {
                         // UT1-UTC is guaranteed to be present through `mjd_max`
-                        Ok(self.data.get(&key).unwrap().2)
+                        Ok(self.data.get(&EOPKey(self.mjd_max)).unwrap().2)
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
@@ -481,13 +479,11 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// * `Err(String)` - Error message if the polar motion (PM) values could not be retrieved.
     fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
-            let key = EOPKey(mjd);
-
             if mjd < self.mjd_max {
                 if self.interpolate == true {
                     // Get Above and below points
-                    let above = self.data.range(key.clone()..).next().unwrap();
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
     
                     // Time points and values
                     let t1: f64 = below.0.0;
@@ -504,7 +500,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                     ))
                 } else {
                     // Get First value below
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
                     Ok((below.1.0, below.1.1))
                 }
             } else {
@@ -512,7 +508,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
                         // Get Last Value
-                        let last = self.data.get(&key);
+                        let last = self.data.get(&EOPKey(self.mjd_max));
                         Ok((last.unwrap().0, last.unwrap().1))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
@@ -538,13 +534,11 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// * `Err(String)` - Error message if the CIP offset values could not be retrieved.
     fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
-            let key = EOPKey(mjd);
-
             if mjd < self.mjd_last_dxdy {
                 if self.interpolate == true {
                     // Get Above and below points
-                    let above = self.data.range(key.clone()..).next().unwrap();
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
     
                     // Time points and values
                     let t1: f64 = below.0.0;
@@ -561,7 +555,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                     ))
                 } else {
                     // Get First value below
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
                     Ok((below.1.3.unwrap(), below.1.4.unwrap()))
                 }
             } else {
@@ -569,7 +563,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
                         // Get last value. This is guaranteed to be present through `mjd_last_dxdy`
-                        let last = self.data.get(&key).unwrap();
+                        let last = self.data.get(&EOPKey(self.mjd_last_dxdy)).unwrap();
                         Ok((last.3.unwrap(), last.4.unwrap()))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
@@ -595,13 +589,11 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// * `Err(String)` - Error message if the LOD value could not be retrieved.
     fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
-            let key = EOPKey(mjd);
-
             if mjd < self.mjd_last_lod {
                 if self.interpolate == true {
                     // Get Above and below points
-                    let above = self.data.range(key.clone()..).next().unwrap();
-                    let below = self.data.range(..key).next_back().unwrap();
+                    let above = self.data.range(EOPKey(mjd).clone()..).next().unwrap();
+                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
     
                     // Time points and values
                     let t1: f64 = below.0.0;
@@ -613,14 +605,14 @@ impl EarthOrientationProvider for FileEOPProvider {
                     Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
                 } else {
                     // Get last value.
-                    Ok(self.data.range(..key).next_back().unwrap().1.5.unwrap())
+                    Ok(self.data.range(..EOPKey(mjd)).next_back().unwrap().1.5.unwrap())
                 }
             } else {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
                     EOPExtrapolation::Hold => {
                         // LOD is guaranteed to be present through `mjd_last_lod`
-                        Ok(self.data.get(&key).unwrap().5.unwrap())
+                        Ok(self.data.get(&EOPKey(self.mjd_last_lod)).unwrap().5.unwrap())
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
@@ -657,6 +649,9 @@ impl EarthOrientationProvider for FileEOPProvider {
 mod tests {
     use super::*;
     use std::env;
+    use crate::constants::AS2RAD;
+
+    use approx::assert_abs_diff_eq;
 
     fn setup_test_eop(eop_interpolation: bool, eop_extrapolation: EOPExtrapolation) -> FileEOPProvider {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -759,5 +754,123 @@ mod tests {
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
         assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
         assert_eq!(eop.interpolate(), true);
+    }
+
+    #[test]
+    fn test_get_ut1_utc() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+
+        // Test getting exact point in table
+        let ut1_utc = eop.get_ut1_utc(59569.0).unwrap();
+        assert_eq!(ut1_utc, -0.1079939);
+
+        // Test interpolating within table
+        let ut1_utc = eop.get_ut1_utc(59569.5).unwrap();
+        assert_eq!(ut1_utc, (-0.1079939 + -0.1075984) / 2.0);
+
+        // Test extrapolation hold
+        let ut1_utc = eop.get_ut1_utc(99999.0).unwrap();
+        assert_eq!(ut1_utc, 0.0420038);
+
+        // Test extrapolation zero
+        let eop = setup_test_eop(true, EOPExtrapolation::Zero);
+
+        let ut1_utc = eop.get_ut1_utc(99999.0).unwrap();
+        assert_eq!(ut1_utc, 0.0);
+    }
+
+    #[test]
+    fn test_get_pm_xy() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+
+        // Test getting exact point in table
+        let (pm_x, pm_y) = eop.get_pm(59569.0).unwrap();
+        assert_eq!(pm_x, 0.075382 * AS2RAD);
+        assert_eq!(pm_y, 0.263451 * AS2RAD);
+
+        // Test interpolating within table
+        let (pm_x, pm_y) = eop.get_pm(59569.5).unwrap();
+        assert_eq!(pm_x, (0.075382 * AS2RAD + 0.073157 * AS2RAD) / 2.0);
+        assert_eq!(pm_y, (0.263451 * AS2RAD + 0.264273 * AS2RAD) / 2.0);
+
+        // Test extrapolation hold
+        let (pm_x, pm_y) = eop.get_pm(99999.0).unwrap();
+        assert_eq!(pm_x, 0.173369 * AS2RAD);
+        assert_eq!(pm_y, 0.266914 * AS2RAD);
+
+        // Test extrapolation zero
+        let eop = setup_test_eop(true, EOPExtrapolation::Zero);
+
+        let (pm_x, pm_y) = eop.get_pm(99999.0).unwrap();
+        assert_eq!(pm_x, 0.0);
+        assert_eq!(pm_y, 0.0);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_get_dxdy() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+
+        // Test getting exact point in table
+        let (dX, dY) = eop.get_dxdy(59569.0).unwrap();
+        assert_eq!(dX,  0.265 * 1.0e-3 * AS2RAD);
+        assert_eq!(dY, -0.067 * 1.0e-3 * AS2RAD);
+
+        // Test interpolating within table
+        let (dX, dY) = eop.get_dxdy(59569.5).unwrap();
+        assert_eq!(dX, ( 0.265 * AS2RAD + 0.268 * AS2RAD) * 1.0e-3 / 2.0);
+        assert_abs_diff_eq!(dY, (-0.067 * AS2RAD + -0.067 * AS2RAD) * 1.0e-3 / 2.0, epsilon = f64::EPSILON);
+
+        // Test extrapolation hold
+        let (dX, dY) = eop.get_dxdy(99999.0).unwrap();
+        assert_eq!(dX,  0.006 * 1.0e-3 * AS2RAD);
+        assert_eq!(dY, -0.118 * 1.0e-3 * AS2RAD);
+
+        // Test extrapolation zero
+        let eop = setup_test_eop(true, EOPExtrapolation::Zero);
+
+        let (dX, dY) = eop.get_dxdy(99999.0).unwrap();
+        assert_eq!(dX, 0.0);
+        assert_eq!(dY, 0.0);
+    }
+
+    #[test]
+    fn test_get_lod() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+
+        // Test getting exact point in table
+        let lod = eop.get_lod(59569.0).unwrap();
+        assert_eq!(lod, -0.3999 * 1.0e-3);
+
+        // Test interpolating within table
+        let lod = eop.get_lod(59569.5).unwrap();
+        assert_eq!(lod, (-0.3999 + -0.3604) * 1.0e-3 / 2.0);
+
+        // Test extrapolation hold
+        let lod = eop.get_lod(99999.0).unwrap();
+        assert_eq!(lod, 0.7706 * 1.0e-3);
+
+        // Test extrapolation zero
+        let eop = setup_test_eop(true,EOPExtrapolation::Zero);
+
+        let lod = eop.get_lod(99999.0).unwrap();
+        assert_eq!(lod, 0.0);
+    }
+
+    #[test]
+    fn test_eop_extrapolation_error() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Error);
+
+        // UT1-UTC
+        assert!(eop.get_ut1_utc(99999.0).is_err());
+
+        // Polar Motion
+        assert!(eop.get_pm(99999.0).is_err());
+
+        // dX, dY
+        assert!(eop.get_dxdy(99999.0).is_err());
+
+        // LOD
+        assert!(eop.get_lod(99999.0).is_err());
     }
 }

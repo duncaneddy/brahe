@@ -7,6 +7,7 @@ use std::fmt;
 
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::types::{EOPExtrapolation, EOPType};
+use crate::utils::errors::BraheError;
 
 /// StaticEOPProvider is an EarthOrientationProvider that returns static
 /// values for all EOP parameters at all times.
@@ -142,25 +143,25 @@ impl EarthOrientationProvider for StaticEOPProvider {
     }
 
     /// Returns the minimum Modified Julian Date (MJD) supported by the EOP data structure.
-    fn mjd_min(&self) -> u32 {
-        0
+    fn mjd_min(&self) -> f64 {
+        0.0
     }
 
     /// Returns the maximum Modified Julian Date (MJD) supported by the EOP data structure.
-    fn mjd_max(&self) -> u32 {
-        u32::MAX
+    fn mjd_max(&self) -> f64 {
+        f64::MAX
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
     /// for which the length of day (LOD) is known.
-    fn mjd_last_lod(&self) -> u32 {
-        u32::MAX
+    fn mjd_last_lod(&self) -> f64 {
+        f64::MAX
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
     /// for which celestial pole offsets (dX, dY) are known.
-    fn mjd_last_dxdy(&self) -> u32 {
-        u32::MAX
+    fn mjd_last_dxdy(&self) -> f64 {
+        f64::MAX
     }
 
     /// Returns the UT1-UTC offset for the given Modified Julian Date (MJD).
@@ -173,11 +174,11 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok(f64)` - UT1-UTC offset in seconds.
     /// * `Err(String)` - Error message if the UT1-UTC offset could not be retrieved.
-    fn get_ut1_utc(&self, _mjd: f64) -> Result<f64, String> {
+    fn get_ut1_utc(&self, _mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             Ok(self.data.2)
         } else {
-            Err(String::from("EOP provider not initialized"))
+            Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
     /// Returns the polar motion (PM) values for the given Modified Julian Date (MJD).
@@ -190,11 +191,11 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64))` - Polar motion (PM) values in radians.
     /// * `Err(String)` - Error message if the polar motion (PM) values could not be retrieved.
-    fn get_pm(&self, _mjd: f64) -> Result<(f64, f64), String> {
+    fn get_pm(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             Ok((self.data.0, self.data.1))
         } else {
-            Err(String::from("EOP provider not initialized"))
+            Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
 
@@ -208,11 +209,11 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64))` - CIP offset values in radians.
     /// * `Err(String)` - Error message if the CIP offset values could not be retrieved.
-    fn get_dxdy(&self, _mjd: f64) -> Result<(f64, f64), String> {
+    fn get_dxdy(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             Ok((self.data.3, self.data.4))
         } else {
-            Err(String::from("EOP provider not initialized"))
+            Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
 
@@ -226,11 +227,11 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok(f64)` - Length of day (LOD) value in seconds.
     /// * `Err(String)` - Error message if the LOD value could not be retrieved.
-    fn get_lod(&self, _mjd: f64) -> Result<f64, String> {
+    fn get_lod(&self, _mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             Ok(self.data.5)
         } else {
-            Err(String::from("EOP provider not initialized"))
+            Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
 
@@ -244,11 +245,11 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64, f64, f64, f64, f64))` - EOP values.
     /// * `Err(String)` - Error message if the EOP values could not be retrieved.
-    fn get_eop(&self, _mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), String> {
+    fn get_eop(&self, _mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
         if self.initialized {
             Ok(self.data)
         } else {
-            Err(String::from("EOP provider not initialized"))
+            Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
 }
@@ -271,8 +272,8 @@ mod tests {
 
         assert!(eop.initialized);
         assert_eq!(eop.len(), 1);
-        assert_eq!(eop.mjd_min(), 0);
-        assert_eq!(eop.mjd_max(), u32::MAX);
+        assert_eq!(eop.mjd_min(), 0.0);
+        assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
         assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
         assert_eq!(eop.interpolate(), false);
@@ -292,8 +293,8 @@ mod tests {
 
         assert!(eop.initialized);
         assert_eq!(eop.len(), 1);
-        assert_eq!(eop.mjd_min(), 0);
-        assert_eq!(eop.mjd_max(), u32::MAX);
+        assert_eq!(eop.mjd_min(), 0.0);
+        assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
         assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
         assert_eq!(eop.interpolate(), false);
@@ -318,7 +319,7 @@ mod tests {
     fn test_get_ut1_utc_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_ut1_utc(2459455.5);
-        assert_eq!(result, Err(String::from("EOP provider not initialized")));
+        assert_eq!(result, Err(BraheError::EOPError(String::from("EOP provider not initialized"))));
     }
 
     #[test]
@@ -332,7 +333,7 @@ mod tests {
     fn test_get_pm_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_pm(2459455.5);
-        assert_eq!(result, Err(String::from("EOP provider not initialized")));
+        assert_eq!(result, Err(BraheError::EOPError(String::from("EOP provider not initialized"))));
     }
 
     #[test]
@@ -346,7 +347,7 @@ mod tests {
     fn test_get_dxdy_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_dxdy(2459455.5);
-        assert_eq!(result, Err(String::from("EOP provider not initialized")));
+        assert_eq!(result, Err(BraheError::EOPError(String::from("EOP provider not initialized"))));
     }
 
     #[test]
@@ -360,7 +361,7 @@ mod tests {
     fn test_get_lod_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_lod(2459455.5);
-        assert_eq!(result, Err(String::from("EOP provider not initialized")));
+        assert_eq!(result, Err(BraheError::EOPError(String::from("EOP provider not initialized"))));
     }
 
     #[test]
@@ -374,6 +375,6 @@ mod tests {
     fn test_get_eop_error() {
         let provider = StaticEOPProvider::new();
         let result = provider.get_eop(2459455.5);
-        assert_eq!(result, Err(String::from("EOP provider not initialized")));
+        assert_eq!(result, Err(BraheError::EOPError(String::from("EOP provider not initialized"))));
     }
 }

@@ -9,9 +9,9 @@ They are specifically grouped into the following categories:
 - physical: Constants related to physical properties of the Earth, celestial bodies, and space
 */
 
-mod math;
-mod physical;
-mod time;
+pub mod math;
+pub mod physical;
+pub mod time;
 
 pub use math::*;
 pub use physical::*;

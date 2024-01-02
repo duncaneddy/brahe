@@ -38,18 +38,18 @@ impl fmt::Display for EOPExtrapolation {
 /// - `Static`: Static EOP data
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum EOPType {
+    Unknown,
     C04,
     StandardBulletinA,
-    StandardBulletinB,
     Static,
 }
 
 impl fmt::Display for EOPType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            EOPType::Unknown => write!(f, "Unknown"),
             EOPType::C04 => write!(f, "C04"),
             EOPType::StandardBulletinA => write!(f, "Bulletin A"),
-            EOPType::StandardBulletinB => write!(f, "Bulletin B"),
             EOPType::Static => write!(f, "Static"),
         }
     }

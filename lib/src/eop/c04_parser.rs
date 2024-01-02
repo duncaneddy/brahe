@@ -3,6 +3,7 @@
  */
 
 use crate::constants::AS2RAD;
+use crate::utils::errors::BraheError;
 
 /// Parse a line out of a C04 file and return the resulting data.
 ///
@@ -22,9 +23,9 @@ use crate::constants::AS2RAD;
 /// # References
 /// 1. See [EOP 20 C04 Series Metadata](https://datacenter.iers.org/versionMetadata.php?filename=latestVersionMeta/234_EOP_C04_20.62-NOW234.txt) for more information on the C04 file format.
 #[allow(non_snake_case)]
-fn parse_c04_line(
-    line: &str,
-) -> Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), String> {
+pub fn parse_c04_line(
+    line: String,
+) -> Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), BraheError> {
     const MJD_RANGE: std::ops::Range<usize> = 16..26;
     const PM_X_RANGE: std::ops::Range<usize> = 26..38;
     const PM_Y_RANGE: std::ops::Range<usize> = 38..50;
@@ -32,68 +33,76 @@ fn parse_c04_line(
     const DX_RANGE: std::ops::Range<usize> = 62..74;
     const DY_RANGE: std::ops::Range<usize> = 74..86;
     const LOD_RANGE: std::ops::Range<usize> = 110..122;
+    const C04_LINE_LENGTH: usize = 218;
+
+    if line.len() != C04_LINE_LENGTH {
+        return Err(BraheError::EOPError(format!(
+            "Line too short to be a standard line: found {} characters, expected {}",
+            line, C04_LINE_LENGTH
+        )));
+    }
 
     let mjd = match line[MJD_RANGE].trim().parse::<f64>() {
         Ok(mjd) => mjd,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse mjd from '{}': {}",
                 &line[MJD_RANGE], e
-            ))
+            )))
         }
     };
     let pm_x = match line[PM_X_RANGE].trim().parse::<f64>() {
         Ok(pm_x) => pm_x * AS2RAD,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_x from '{}': {}",
                 &line[PM_X_RANGE], e
-            ))
+            )))
         }
     };
     let pm_y = match line[PM_Y_RANGE].trim().parse::<f64>() {
         Ok(pm_y) => pm_y * AS2RAD,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_y from '{}': {}",
                 &line[PM_Y_RANGE], e
-            ))
+            )))
         }
     };
     let ut1_utc = match line[UT1_UTC_RANGE].trim().parse::<f64>() {
         Ok(ut1_utc) => ut1_utc,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse ut1_utc from '{}': {}",
                 &line[UT1_UTC_RANGE], e
-            ))
+            )))
         }
     };
     let lod = match line[LOD_RANGE].trim().parse::<f64>() {
         Ok(lod) => lod,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse lod from '{}': {}",
                 &line[LOD_RANGE], e
-            ))
+            )))
         }
     };
     let dX = match line[DX_RANGE].trim().parse::<f64>() {
         Ok(dX) => dX * AS2RAD,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse dX from '{}': {}",
                 &line[DX_RANGE], e
-            ))
+            )))
         }
     };
     let dY = match line[DY_RANGE].trim().parse::<f64>() {
         Ok(dY) => dY * AS2RAD,
         Err(e) => {
-            return Err(format!(
+            return Err(BraheError::EOPError(format!(
                 "Failed to parse dY from '{}': {}",
                 &line[DY_RANGE], e
-            ))
+            )))
         }
     };
 
@@ -109,7 +118,7 @@ mod tests {
     fn test_parse_c04_line() {
         let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
 
-        let result = parse_c04_line(line);
+        let result = parse_c04_line(line.to_string());
 
         assert!(result.is_ok());
         let (mjd, pm_x, pm_y, ut1_utc, dX, dY, lod) = result.unwrap();

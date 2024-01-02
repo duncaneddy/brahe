@@ -96,3 +96,4 @@ email me at duncan.eddy (at) gmail.com.
 
 pub mod constants;
 pub mod eop;
+pub mod utils;

@@ -3,7 +3,7 @@
  * and accessing EOP data from files.
  */
 
-
+use std::env;
 use std::fmt;
 use std::io;
 use std::cmp::Ordering;
@@ -201,7 +201,10 @@ impl FileEOPProvider {
             BTreeMap::new();
 
         for (line_num, line_str) in reader.lines().enumerate() {
-            // There is not header to skip in standard fiesl so we immediately start reading
+            // Skip first 6 lines of C04 data file header
+            if line_num < 6 {
+                continue;
+            }
 
             let line = match line_str {
                 Ok(l) => l,
@@ -213,7 +216,7 @@ impl FileEOPProvider {
                 }
             };
 
-            let eop_data = parse_standard_line(line)?;
+            let eop_data = parse_c04_line(line)?;
 
             let mjd = eop_data.0;
 
@@ -224,7 +227,7 @@ impl FileEOPProvider {
                 mjd_min = mjd;
             }
 
-            if (line_num == 0) || (mjd > mjd_max) {
+            if (mjd_max == 0.0) || (mjd > mjd_max) {
                 mjd_max = mjd;
             }
 
@@ -243,7 +246,7 @@ impl FileEOPProvider {
             extrapolate: extrapolate,
             interpolate: interpolate,
             mjd_min: mjd_min,
-            mjd_max: mjd_min,
+            mjd_max: mjd_max,
             mjd_last_lod: mjd_max,
             mjd_last_dxdy: mjd_max,
         })
@@ -263,10 +266,7 @@ impl FileEOPProvider {
             BTreeMap::new();
 
             for (line_num, line_str) in reader.lines().enumerate() {
-                // Skip first 14 lines of C04 data file header
-                if line_num < 7 {
-                    continue;
-                }
+                // There is not header to skip in standard file so we immediately start reading
 
                 let line = match line_str {
                     Ok(l) => l,
@@ -278,7 +278,17 @@ impl FileEOPProvider {
                     }
                 };
 
-                let eop_data = parse_standard_line(line)?;
+                let eop_data = match parse_standard_line(line) {
+                    Ok(data) => data,
+                    Err(e) => {
+                        // Skip trying to parse file on first empty pm_x line
+                        if e.to_string().contains("Failed to parse pm_x from '          '") {
+                            break;
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                };
 
                 let mjd = eop_data.0;
 
@@ -289,7 +299,7 @@ impl FileEOPProvider {
                     mjd_min = mjd;
                 }
 
-                if (line_num == 0) || (mjd > mjd_max) {
+                if (mjd_max == 0.0) || (mjd > mjd_max) {
                     mjd_max = mjd;
                 }
 
@@ -313,12 +323,12 @@ impl FileEOPProvider {
 
         Ok(Self{
             initialized: true,
-            eop_type: EOPType::C04,
+            eop_type: EOPType::StandardBulletinA,
             data,
             extrapolate: extrapolate,
             interpolate: interpolate,
             mjd_min: mjd_min,
-            mjd_max: mjd_min,
+            mjd_max: mjd_max,
             mjd_last_lod: mjd_last_lod,
             mjd_last_dxdy: mjd_last_dxdy,
         })
@@ -332,6 +342,35 @@ impl FileEOPProvider {
             _ => Err(BraheError::EOPError(format!(
                 "File does not match supported EOP file format: {}",
                 filepath.display()
+            ))),
+        }
+    }
+
+    pub fn from_default_c04(interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("data")
+            .join("EOP_20_C04_one_file_1962-now.txt");
+
+        Self::from_file(&filepath, interpolate, extrapolate)
+    }
+
+    pub fn from_default_standard(interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("data")
+            .join("finals.all.iau2000.txt");
+
+        Self::from_file(&filepath, interpolate, extrapolate)
+    }
+
+    pub fn from_default_file(eop_type: EOPType, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
+        match eop_type {
+            EOPType::C04 => Self::from_default_c04(interpolate, extrapolate),
+            EOPType::StandardBulletinA => Self::from_default_standard(interpolate, extrapolate),
+            _ => Err(BraheError::EOPError(format!(
+                "Unsupported EOP file type: {:?}",
+                eop_type
             ))),
         }
     }
@@ -619,6 +658,20 @@ mod tests {
     use super::*;
     use std::env;
 
+    fn setup_test_eop(eop_interpolation: bool, eop_extrapolation: EOPExtrapolation) -> FileEOPProvider {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+
+        let eop_result = FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation);
+        assert_eq!(eop_result.is_err(), false);
+        let eop = eop_result.unwrap();
+        assert_eq!(eop.initialized, true);
+
+        eop
+    }
+
     #[test]
     fn test_detect_eop_file_type() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -640,5 +693,71 @@ mod tests {
             detect_eop_file_type(&filepath.clone().join(unknown_file)).unwrap(),
             EOPType::Unknown
         );
+    }
+
+    #[test]
+    fn test_from_c04_file() {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("EOP_20_C04_one_file_1962-now.txt");
+
+        let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+
+        assert!(eop.initialized);
+        assert_eq!(eop.len(), 22605);
+        assert_eq!(eop.mjd_min(), 37665.0);
+        assert_eq!(eop.mjd_max(), 60269.0);
+        assert_eq!(eop.eop_type(), EOPType::C04);
+        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolate(), true);
+    }
+
+    #[test]
+    fn test_from_default_c04() {
+        let eop = FileEOPProvider::from_default_file(EOPType::C04, true, EOPExtrapolation::Hold).unwrap();
+
+        // These need to be structured slightly differently since the
+        // default package data is regularly updated.
+        assert!(eop.initialized);
+        assert_ne!(eop.len(), 0);
+        assert_eq!(eop.mjd_min(), 37665.0);
+        assert!(eop.mjd_max() >= 60269.0);
+        assert_eq!(eop.eop_type(), EOPType::C04);
+        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolate(), true);
+    }
+
+    #[test]
+    fn test_from_standard_file() {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+
+        let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+
+        assert!(eop.initialized);
+        assert_eq!(eop.len(), 18989);
+        assert_eq!(eop.mjd_min(), 41684.0);
+        assert_eq!(eop.mjd_max(), 60672.0);
+        assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
+        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolate(), true);
+    }
+
+    #[test]
+    fn test_from_default_standard() {
+        let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Hold).unwrap();
+
+        // These need to be structured slightly differently since the
+        // default package data is regularly updated.
+        assert!(eop.initialized);
+        assert_ne!(eop.len(), 0);
+        assert_eq!(eop.mjd_min(), 41684.0);
+        assert!(eop.mjd_max() >= 60672.0);
+        assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
+        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolate(), true);
     }
 }

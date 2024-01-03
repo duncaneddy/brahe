@@ -8,6 +8,7 @@ use crate::utils::errors::BraheError;
 pub trait EarthOrientationProvider {
     fn len(&self) -> usize;
     fn eop_type(&self) -> EOPType;
+    fn initialized(&self) -> bool;
     fn extrapolate(&self) -> EOPExtrapolation;
     fn interpolate(&self) -> bool;
     fn mjd_min(&self) -> f64;

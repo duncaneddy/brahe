@@ -122,6 +122,11 @@ impl StaticEOPProvider {
 }
 
 impl EarthOrientationProvider for StaticEOPProvider {
+    /// Returns the initialization status of the EOP data structure.
+    fn initialized(&self) -> bool {
+        self.initialized
+    }
+    
     /// Returns the number of entries in the EOP data structure.
     fn len(&self) -> usize {
         1

@@ -377,6 +377,11 @@ impl FileEOPProvider {
 }
 
 impl EarthOrientationProvider for FileEOPProvider {
+    /// Returns the initialization status of the EOP data structure.
+    fn initialized(&self) -> bool {
+        self.initialized
+    }
+
     /// Returns the number of entries in the EOP data structure.
     fn len(&self) -> usize {
         self.data.len()
@@ -699,7 +704,7 @@ mod tests {
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
-        assert!(eop.initialized);
+        assert!(eop.initialized());
         assert_eq!(eop.len(), 22605);
         assert_eq!(eop.mjd_min(), 37665.0);
         assert_eq!(eop.mjd_max(), 60269.0);
@@ -714,7 +719,7 @@ mod tests {
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.
-        assert!(eop.initialized);
+        assert!(eop.initialized());
         assert_ne!(eop.len(), 0);
         assert_eq!(eop.mjd_min(), 37665.0);
         assert!(eop.mjd_max() >= 60269.0);
@@ -732,7 +737,7 @@ mod tests {
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
-        assert!(eop.initialized);
+        assert!(eop.initialized());
         assert_eq!(eop.len(), 18989);
         assert_eq!(eop.mjd_min(), 41684.0);
         assert_eq!(eop.mjd_max(), 60672.0);
@@ -747,7 +752,7 @@ mod tests {
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.
-        assert!(eop.initialized);
+        assert!(eop.initialized());
         assert_ne!(eop.len(), 0);
         assert_eq!(eop.mjd_min(), 41684.0);
         assert!(eop.mjd_max() >= 60672.0);

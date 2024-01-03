@@ -11,7 +11,7 @@ use crate::eop::static_provider::StaticEOPProvider;
 use crate::utils::BraheError;
 
 static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Send>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(Box::new(StaticEOPProvider::from_zero())))
+    Arc::new(RwLock::new(Box::new(StaticEOPProvider::new())))
 });
 
 pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'static>(provider: T) {
@@ -396,4 +396,380 @@ pub fn get_global_eop_mjd_last_lod() -> f64 {
 /// ```
 pub fn get_global_eop_mjd_last_dxdy() -> f64 {
     GLOBAL_EOP.read().unwrap().mjd_last_dxdy()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::path::Path;
+    use crate::constants::AS2RAD;
+    use crate::eop::static_provider::StaticEOPProvider;
+    use crate::eop::file_provider::FileEOPProvider;
+
+    use serial_test::serial;
+
+    use approx::assert_abs_diff_eq;
+
+    fn setup_test_global_eop(eop_interpolation: bool, eop_extrapolation: EOPExtrapolation) {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+
+        let eop_result = FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation);
+        assert_eq!(eop_result.is_err(), false);
+        let eop = eop_result.unwrap();
+        assert_eq!(eop.initialized(), true);
+
+        set_global_eop_provider(eop);
+    }
+
+    fn clear_test_global_eop() {
+        set_global_eop_provider(StaticEOPProvider::new());
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_zero() {
+        clear_test_global_eop();
+
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let eop = StaticEOPProvider::from_zero();
+
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 1);
+        assert_eq!(get_global_eop_mjd_min(), 0.0);
+        assert_eq!(get_global_eop_mjd_max(), f64::MAX);
+        assert_eq!(get_global_eop_type(), EOPType::Static);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_interpolate(), false);
+
+        // EOP Values
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.0);
+        assert_eq!(get_global_pm(59950.0).unwrap().0, 0.0);
+        assert_eq!(get_global_pm(59950.0).unwrap().1, 0.0);
+        assert_eq!(get_global_dxdy(59950.0).unwrap().0, 0.0);
+        assert_eq!(get_global_dxdy(59950.0).unwrap().1, 0.0);
+        assert_eq!(get_global_lod(59950.0).unwrap(), 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_static_values() {
+        clear_test_global_eop();
+        
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
+
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 1);
+        assert_eq!(get_global_eop_mjd_min(), 0.0);
+        assert_eq!(get_global_eop_mjd_max(), f64::MAX);
+        assert_eq!(get_global_eop_type(), EOPType::Static);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_interpolate(), false);
+
+        // EOP Values
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.003);
+        assert_eq!(get_global_pm(59950.0).unwrap().0, 0.001);
+        assert_eq!(get_global_pm(59950.0).unwrap().1, 0.002);
+        assert_eq!(get_global_dxdy(59950.0).unwrap().0, 0.004);
+        assert_eq!(get_global_dxdy(59950.0).unwrap().1, 0.005);
+        assert_eq!(get_global_lod(59950.0).unwrap(), 0.006);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_c04_file() {
+        clear_test_global_eop();
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("EOP_20_C04_one_file_1962-now.txt");
+
+        let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 22605);
+        assert_eq!(get_global_eop_mjd_min(), 37665.0);
+        assert_eq!(get_global_eop_mjd_max(), 60269.0);
+        assert_eq!(get_global_eop_type(), EOPType::C04);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_interpolate(), true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_default_c04() {
+        clear_test_global_eop();
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let eop = FileEOPProvider::from_default_file(EOPType::C04, false, EOPExtrapolation::Zero).unwrap();
+        
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 22605);
+        assert_eq!(get_global_eop_mjd_min(), 37665.0);
+        assert!(get_global_eop_mjd_max() >= 60269.0);
+        assert_eq!(get_global_eop_type(), EOPType::C04);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Zero);
+        assert_eq!(get_global_eop_interpolate(), false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_standard_file() {
+        clear_test_global_eop();
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let filepath = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+
+        let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 18989);
+        assert_eq!(get_global_eop_mjd_min(), 41684.0);
+        assert_eq!(get_global_eop_mjd_max(), 60672.0);
+        assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_interpolate(), true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_from_default_standard() {
+        clear_test_global_eop();
+        assert_eq!(get_global_eop_initialization(), false);
+
+        let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, false, EOPExtrapolation::Zero).unwrap();
+        
+        set_global_eop_provider(eop);
+
+        assert_eq!(get_global_eop_initialization(), true);
+        assert_eq!(get_global_eop_len(), 18989);
+        assert_eq!(get_global_eop_mjd_min(), 41684.0);
+        assert!(get_global_eop_mjd_max() >= 60672.0);
+        assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Zero);
+        assert_eq!(get_global_eop_interpolate(), false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_ut1_utc() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+
+        // Test getting exact point in table
+        let ut1_utc = get_global_ut1_utc(59569.0).unwrap();
+        assert_eq!(ut1_utc, -0.1079939);
+
+        // Test interpolating within table
+        let ut1_utc = get_global_ut1_utc(59569.5).unwrap();
+        assert_eq!(ut1_utc, (-0.1079939 + -0.1075984) / 2.0);
+
+        // Test extrapolation hold
+        let ut1_utc = get_global_ut1_utc(99999.0).unwrap();
+        assert_eq!(ut1_utc, 0.0420038);
+
+        // Test extrapolation zero
+        setup_test_global_eop(true, EOPExtrapolation::Zero);
+
+        let ut1_utc = get_global_ut1_utc(99999.0).unwrap();
+        assert_eq!(ut1_utc, 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_pm_xy() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        // Test getting exact point in table
+        let (pm_x, pm_y) = get_global_pm(59569.0).unwrap();
+        assert_eq!(pm_x, 0.075382 * AS2RAD);
+        assert_eq!(pm_y, 0.263451 * AS2RAD);
+
+        // Test interpolating within table
+        let (pm_x, pm_y) = get_global_pm(59569.5).unwrap();
+        assert_eq!(pm_x, (0.075382 * AS2RAD + 0.073157 * AS2RAD) / 2.0);
+        assert_eq!(pm_y, (0.263451 * AS2RAD + 0.264273 * AS2RAD) / 2.0);
+
+        // Test extrapolation hold
+        let (pm_x, pm_y) = get_global_pm(99999.0).unwrap();
+        assert_eq!(pm_x, 0.173369 * AS2RAD);
+        assert_eq!(pm_y, 0.266914 * AS2RAD);
+
+        // Test extrapolation zero
+        setup_test_global_eop(true, EOPExtrapolation::Zero);
+
+        let (pm_x, pm_y) = get_global_pm(99999.0).unwrap();
+        assert_eq!(pm_x, 0.0);
+        assert_eq!(pm_y, 0.0);
+    }
+
+    #[test]
+    #[serial]
+    #[allow(non_snake_case)]
+    fn test_get_global_dxdy() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        // Test getting exact point in table
+        let (dX, dY) = get_global_dxdy(59569.0).unwrap();
+        assert_eq!(dX,  0.265 * 1.0e-3 * AS2RAD);
+        assert_eq!(dY, -0.067 * 1.0e-3 * AS2RAD);
+
+        // Test interpolating within table
+        let (dX, dY) = get_global_dxdy(59569.5).unwrap();
+        assert_eq!(dX, ( 0.265 * AS2RAD + 0.268 * AS2RAD) * 1.0e-3 / 2.0);
+        assert_abs_diff_eq!(dY, (-0.067 * AS2RAD + -0.067 * AS2RAD) * 1.0e-3 / 2.0, epsilon = f64::EPSILON);
+
+        // Test extrapolation hold
+        let (dX, dY) = get_global_dxdy(99999.0).unwrap();
+        assert_eq!(dX,  0.006 * 1.0e-3 * AS2RAD);
+        assert_eq!(dY, -0.118 * 1.0e-3 * AS2RAD);
+
+        // Test extrapolation zero
+        setup_test_global_eop(true, EOPExtrapolation::Zero);
+
+        let (dX, dY) = get_global_dxdy(99999.0).unwrap();
+        assert_eq!(dX, 0.0);
+        assert_eq!(dY, 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_lod() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        // Test getting exact point in table
+        let lod = get_global_lod(59569.0).unwrap();
+        assert_eq!(lod, -0.3999 * 1.0e-3);
+
+        // Test interpolating within table
+        let lod = get_global_lod(59569.5).unwrap();
+        assert_eq!(lod, (-0.3999 + -0.3604) * 1.0e-3 / 2.0);
+
+        // Test extrapolation hold
+        let lod = get_global_lod(99999.0).unwrap();
+        assert_eq!(lod, 0.7706 * 1.0e-3);
+
+        // Test extrapolation zero
+        setup_test_global_eop(true, EOPExtrapolation::Zero);
+
+        let lod = get_global_lod(99999.0).unwrap();
+        assert_eq!(lod, 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_initialization() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_len() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_len(), 18989);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_type() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_extrapolate() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_extrapolate(), EOPExtrapolation::Hold);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_interpolate() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_interpolate(), true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_mjd_min() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_mjd_min(), 41684.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_mjd_max() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_mjd_max(), 60672.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_mjd_last_lod() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_mjd_last_lod(), 60298.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_eop_mjd_last_dxdy() {
+        clear_test_global_eop();
+        setup_test_global_eop(true, EOPExtrapolation::Hold);
+        assert_eq!(get_global_eop_initialization(), true);
+
+        assert_eq!(get_global_eop_mjd_last_dxdy(), 60373.0);
+    }
 }

@@ -3,6 +3,8 @@
  * and accessing EOP data from files.
  */
 
+// TODO: Add LRU cache to EOP data retrieval to speed up repeated requests
+
 use std::env;
 use std::fmt;
 use std::io;
@@ -878,4 +880,58 @@ mod tests {
         // LOD
         assert!(eop.get_lod(99999.0).is_err());
     }
+
+    // #[test]
+    // #[allow(non_snake_case)]
+    // fn test_cip_format_consistency() {
+    //     // Check that the units of C04 and Standard format CIP corrections are
+    //     // approximately the same
+
+    //     // Load Standard file
+    //     let eop_standard = EarthOrientationProvider::new();
+
+    //     let _eop_standard_result = eop_standard
+    //         .from_standard_file(
+    //             filepath.to_str().unwrap(),
+    //             EOPExtrapolation::Hold,
+    //             true,
+    //             EOPType::StandardBulletinA,
+    //         )
+    //         .unwrap();
+    //     assert!(eop_standard.initialized());
+
+    //     // Load C04 file
+    //     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    //     let filepath = Path::new(&manifest_dir)
+    //         .join("test_assets")
+    //         .join("iau2000A_c04_14.txt");
+
+    //     let eop_c04 = EarthOrientationProvider::new();
+
+    //     let _eop_c04_result = eop_c04
+    //         .from_c04_file(filepath.to_str().unwrap(), EOPExtrapolation::Hold, true)
+    //         .unwrap();
+    //     assert!(eop_c04.initialized());
+
+    //     // Confrim xp and yp are approximately equal
+    //     let (pm_x_s, pm_y_s) = eop_standard.get_pm(54195.0).unwrap();
+    //     let (pm_x_c04, pm_y_c04) = eop_c04.get_pm(54195.0).unwrap();
+    //     assert_abs_diff_eq!(pm_x_s, pm_x_c04, epsilon = 1.0e-9);
+    //     assert_abs_diff_eq!(pm_y_s, pm_y_c04, epsilon = 1.0e-9);
+
+    //     // Confrim ut1-utc are approximately equal
+    //     let ut1_utc_s = eop_standard.get_ut1_utc(54195.0).unwrap();
+    //     let ut1_utc_c04 = eop_c04.get_ut1_utc(54195.0).unwrap();
+    //     assert_abs_diff_eq!(ut1_utc_s, ut1_utc_c04, epsilon = 1.0e-5);
+
+    //     // Confrim LOD are approximately equal
+    //     let lod_s = eop_standard.get_lod(54195.0).unwrap();
+    //     let lod_c04 = eop_c04.get_lod(54195.0).unwrap();
+    //     assert_abs_diff_eq!(lod_s, lod_c04, epsilon = 1.0e-4);
+
+    //     // Confirm dX, and dY are not approximately equal even for the same file
+    //     // let (dX_s, dY_s) = eop_standard.get_dxdy(54195.0).unwrap();
+    //     // let (dX_c04, dY_c04) = eop_c04.get_dxdy(54195.0).unwrap();
+    //     // assert_abs_diff_eq!(dX_s, dX_c04, epsilon = 1.0e-12)
+    // }
 }

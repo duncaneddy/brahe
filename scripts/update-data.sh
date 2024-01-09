@@ -5,7 +5,7 @@
 #   Update Earth orientation and space weather data
 #
 # Usage: 
-#   $ ./update_data.sh
+#   $ ./update-data.sh
 # 
 
 # IERS Earth Orientation Data

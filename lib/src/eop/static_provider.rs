@@ -49,8 +49,8 @@ impl fmt::Display for StaticEOPProvider {
             self.mjd_max(),
             self.mjd_last_lod(),
             self.mjd_last_dxdy(),
-            self.extrapolate(),
-            self.interpolate()
+            self.extrapolation(),
+            self.interpolation()
         )
     }
 }
@@ -67,18 +67,29 @@ impl fmt::Debug for StaticEOPProvider {
             self.mjd_max(),
             self.mjd_last_lod(),
             self.mjd_last_dxdy(),
-            self.extrapolate(),
-            self.interpolate()
+            self.extrapolation(),
+            self.interpolation()
         )
     }
 }
 
 impl StaticEOPProvider {
-    /// Creates a new, uninitialized `StaticEOPProvider`
+    /// Creates a new, uninitialized `StaticEOPProvider` with zero values for all EOP parameters.
+    /// This is the default constructor. It is not recommended to use this constructor unless a
+    /// placeholder `StaticEOPProvider` allocation is needed.
     ///
     /// # Returns
     ///
     /// * `StaticEOPProvider` - New `StaticEOPProvider` that is not initialized.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::new();
+    /// assert_eq!(eop.is_initialized(), false);
+    /// ```
     pub fn new() -> Self {
         StaticEOPProvider {
             initialized: false,
@@ -91,6 +102,15 @@ impl StaticEOPProvider {
     /// # Returns
     ///
     /// * `StaticEOPProvider` - New `StaticEOPProvider` that returns 0 for all EOP parameters.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// assert_eq!(eop.is_initialized(), true);
+    /// ```
     pub fn from_zero() -> Self {
         StaticEOPProvider {
             initialized: true,
@@ -98,7 +118,8 @@ impl StaticEOPProvider {
         }
     }
 
-    /// Creates a new `StaticEOPProvider` with the given values for all EOP parameters.
+    /// Creates a new `StaticEOPProvider` with the given values for all EOP parameters. The 
+    /// static values will be returned for all times.
     ///
     /// # Arguments
     ///
@@ -113,6 +134,15 @@ impl StaticEOPProvider {
     /// # Returns
     ///
     /// * `StaticEOPProvider` - New `StaticEOPProvider` with the given values for all EOP parameters.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// assert_eq!(eop.is_initialized(), true);
+    /// ```
     pub fn from_values(values: (f64, f64, f64, f64, f64, f64)) -> Self {
         StaticEOPProvider {
             initialized: true,
@@ -122,54 +152,189 @@ impl StaticEOPProvider {
 }
 
 impl EarthOrientationProvider for StaticEOPProvider {
-    /// Returns the initialization status of the EOP data structure.
-    fn initialized(&self) -> bool {
+    /// Returns the initialization status of the EOP data structure. Value is `true` if the
+    /// EOP data structure has been properly initialized and `false` otherwise.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if the EOP data structure has been properly initialized, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// assert_eq!(eop.is_initialized(), true);
+    /// ```
+    fn is_initialized(&self) -> bool {
         self.initialized
     }
-    
-    /// Returns the number of entries in the EOP data structure.
+
+    /// Returns the number of entries in the EOP data structure. For static EOP data structures,
+    /// this will always be 1.
+    /// 
+    /// # Returns
+    /// 
+    /// * `usize` - Number of entries in the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// assert_eq!(eop.len(), 1);
+    /// ```
     fn len(&self) -> usize {
         1
     }
 
-    /// Returns the type of EOP data stored in the data structure.
+    /// Returns the type of EOP data stored in the data structure. See the `EOPType` enum for
+    /// possible values.
+    /// 
+    /// # Returns
+    /// 
+    /// * `EOPType` - Type of EOP data stored in the data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// use brahe::eop::types::EOPType;
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// assert_eq!(eop.eop_type(), EOPType::Static);
+    /// ```
     fn eop_type(&self) -> EOPType {
         EOPType::Static
     }
 
-    /// Returns the extrapolation method used by the EOP data structure.
-    fn extrapolate(&self) -> EOPExtrapolation {
+    /// Returns the extrapolation method used by the EOP data structure. See the `EOPExtrapolation`
+    /// enum for possible values.
+    /// 
+    /// # Returns
+    /// 
+    /// * `EOPExtrapolation` - Extrapolation method used by the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// use brahe::eop::types::EOPExtrapolation;
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+    /// ```
+    fn extrapolation(&self) -> EOPExtrapolation {
         EOPExtrapolation::Hold
     }
 
-    /// Returns whether the EOP data structure supports interpolation.
-    fn interpolate(&self) -> bool {
+    /// Returns whether the EOP data structure supports interpolation. Returns `false` for static
+    /// EOP data structures.
+    /// 
+    /// # Returns
+    /// 
+    /// * `bool` - `true` if the EOP data structure supports interpolation, `false` otherwise.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.interpolation(), false);
+    /// ```
+    fn interpolation(&self) -> bool {
         false
     }
 
     /// Returns the minimum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// For static EOP data structures, this will always be 0.0.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Minimum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.mjd_min(), 0.0);
+    /// ```
     fn mjd_min(&self) -> f64 {
         0.0
     }
 
     /// Returns the maximum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// For static EOP data structures, this will always be `f64::MAX`.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Maximum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.mjd_max(), f64::MAX);
+    /// ```
     fn mjd_max(&self) -> f64 {
         f64::MAX
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
-    /// for which the length of day (LOD) is known.
+    /// for which the length of day (LOD) is known. For static EOP data structures, this
+    /// will always be `f64::MAX`.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Last Modified Julian Date (MJD) supported by the EOP data structure
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.mjd_last_lod(), f64::MAX);
+    /// ```
     fn mjd_last_lod(&self) -> f64 {
         f64::MAX
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
-    /// for which celestial pole offsets (dX, dY) are known.
+    /// for which celestial pole offsets (dX, dY) are known. For static EOP data structures, this
+    /// will always be `f64::MAX`.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Last Modified Julian Date (MJD) supported by the EOP data structure
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_zero();
+    /// 
+    /// assert_eq!(eop.mjd_last_dxdy(), f64::MAX);
+    /// ```
     fn mjd_last_dxdy(&self) -> f64 {
         f64::MAX
     }
 
-    /// Returns the UT1-UTC offset for the given Modified Julian Date (MJD).
+    /// Returns the UT1-UTC offset for the given Modified Julian Date (MJD). For static EOP data
+    /// structures, this will always be the same value.
     ///
     /// # Arguments
     ///
@@ -179,6 +344,19 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok(f64)` - UT1-UTC offset in seconds.
     /// * `Err(String)` - Error message if the UT1-UTC offset could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// assert_eq!(eop.get_ut1_utc(59950.0).unwrap(), 0.3);
+    /// 
+    /// // Can also use any MJD value since the EOP data is static
+    /// assert_eq!(eop.get_ut1_utc(0.0).unwrap(), 0.3);
+    /// ```
     fn get_ut1_utc(&self, _mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             Ok(self.data.2)
@@ -186,7 +364,9 @@ impl EarthOrientationProvider for StaticEOPProvider {
             Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
-    /// Returns the polar motion (PM) values for the given Modified Julian Date (MJD).
+
+    /// Returns the polar motion (PM) values for the given Modified Julian Date (MJD). For static EOP data
+    /// structures, this will always be the same value.
     ///
     /// # Arguments
     ///
@@ -196,6 +376,21 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64))` - Polar motion (PM) values in radians.
     /// * `Err(String)` - Error message if the polar motion (PM) values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// assert_eq!(eop.get_pm(59950.0).unwrap().0, 0.1);
+    /// assert_eq!(eop.get_pm(59950.0).unwrap().1, 0.2);
+    /// 
+    /// // Can also use any MJD value since the EOP data is static
+    /// assert_eq!(eop.get_pm(0.0).unwrap().0, 0.1);
+    /// assert_eq!(eop.get_pm(0.0).unwrap().1, 0.2);
+    /// ```
     fn get_pm(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             Ok((self.data.0, self.data.1))
@@ -205,6 +400,7 @@ impl EarthOrientationProvider for StaticEOPProvider {
     }
 
     /// Returns the Celestial Intermediate Pole (CIP) offset values for the given Modified Julian Date (MJD).
+    /// For static EOP data structures, this will always be the same value.
     ///
     /// # Arguments
     ///
@@ -214,6 +410,22 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64))` - CIP offset values in radians.
     /// * `Err(String)` - Error message if the CIP offset values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// assert_eq!(eop.get_dxdy(59950.0).unwrap().0, 0.4);
+    /// assert_eq!(eop.get_dxdy(59950.0).unwrap().1, 0.5);
+    /// 
+    /// // Can also use any MJD value since the EOP data is static
+    /// 
+    /// assert_eq!(eop.get_dxdy(0.0).unwrap().0, 0.4);
+    /// assert_eq!(eop.get_dxdy(0.0).unwrap().1, 0.5);
+    /// ```
     fn get_dxdy(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             Ok((self.data.3, self.data.4))
@@ -222,7 +434,8 @@ impl EarthOrientationProvider for StaticEOPProvider {
         }
     }
 
-    /// Returns the length of day (LOD) value for the given Modified Julian Date (MJD).
+    /// Returns the length of day (LOD) value for the given Modified Julian Date (MJD). For static EOP data
+    /// structures, this will always be the same value.
     ///
     /// # Arguments
     ///
@@ -232,6 +445,19 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok(f64)` - Length of day (LOD) value in seconds.
     /// * `Err(String)` - Error message if the LOD value could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// assert_eq!(eop.get_lod(59950.0).unwrap(), 0.6);
+    /// 
+    /// // Can also use any MJD value since the EOP data is static
+    /// assert_eq!(eop.get_lod(0.0).unwrap(), 0.6);
+    /// ```
     fn get_lod(&self, _mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             Ok(self.data.5)
@@ -241,6 +467,7 @@ impl EarthOrientationProvider for StaticEOPProvider {
     }
 
     /// Returns the Earth orientation parameter (EOP) values for the given Modified Julian Date (MJD).
+    /// For static EOP data structures, this will always be the same value.
     ///
     /// # Arguments
     ///
@@ -250,6 +477,19 @@ impl EarthOrientationProvider for StaticEOPProvider {
     ///
     /// * `Ok((f64, f64, f64, f64, f64, f64))` - EOP values.
     /// * `Err(String)` - Error message if the EOP values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
+    /// 
+    /// let eop = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// assert_eq!(eop.get_eop(59950.0).unwrap(), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// 
+    /// // Can also use any MJD value since the EOP data is static
+    /// assert_eq!(eop.get_eop(0.0).unwrap(), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+    /// ```
     fn get_eop(&self, _mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
         if self.initialized {
             Ok(self.data)
@@ -268,20 +508,20 @@ mod tests {
     #[test]
     fn test_uninitialized_provider() {
         let provider = StaticEOPProvider::new();
-        assert!(!provider.initialized);
+        assert!(!provider.is_initialized());
     }
 
     #[test]
     fn test_from_zero() {
         let eop = StaticEOPProvider::from_zero();
 
-        assert!(eop.initialized);
+        assert_eq!(eop.is_initialized(), true);
         assert_eq!(eop.len(), 1);
         assert_eq!(eop.mjd_min(), 0.0);
         assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), false);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), false);
 
         // EOP Values
         assert_eq!(eop.get_ut1_utc(59950.0).unwrap(), 0.0);
@@ -296,13 +536,13 @@ mod tests {
     fn test_from_values() {
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
 
-        assert!(eop.initialized);
+        assert_eq!(eop.is_initialized(), true);
         assert_eq!(eop.len(), 1);
         assert_eq!(eop.mjd_min(), 0.0);
         assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), false);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), false);
 
         // EOP Values
         assert_eq!(eop.get_pm(59950.0).unwrap().0, 0.001);

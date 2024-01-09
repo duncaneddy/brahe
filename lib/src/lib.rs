@@ -94,6 +94,10 @@ love to know about it! Tweet me [@duncaneddy](https://twitter.com/DuncanEddy) or
 email me at duncan.eddy (at) gmail.com.
 */
 
+// TODO: Remove when BTreeCursor is stabilized
+// See: https://github.com/rust-lang/rust/issues/107540
+#![feature(btree_cursors)]
+
 pub mod constants;
 pub mod eop;
 pub mod utils;

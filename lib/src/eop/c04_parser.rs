@@ -22,6 +22,27 @@ use crate::utils::errors::BraheError;
 ///
 /// # References
 /// 1. See [EOP 20 C04 Series Metadata](https://datacenter.iers.org/versionMetadata.php?filename=latestVersionMeta/234_EOP_C04_20.62-NOW234.txt) for more information on the C04 file format.
+///
+/// # Examples
+/// ```ignore
+/// use brahe::constants::AS2RAD;
+/// use brahe::eop::parse_c04_line;
+///
+/// let line = "2023  11  21   0  60269.00    0.244498    0.234480   0.0111044    0.000305   -0.000100   -0.000720   -0.001318   0.0002867    0.000052    0.000051   0.0000171    0.000054    0.000044    0.000094    0.000068   0.0000298";
+///
+/// let result = parse_c04_line(line.to_string());
+///
+/// assert!(result.is_ok());
+/// let (mjd, pm_x, pm_y, ut1_utc, dX, dY, lod) = result.unwrap();
+///
+/// assert_eq!(mjd, 60269.0);
+/// assert_eq!(pm_x, 0.244498 * AS2RAD);
+/// assert_eq!(pm_y, 0.234480 * AS2RAD);
+/// assert_eq!(ut1_utc, 0.0111044);
+/// assert_eq!(dX, Some(0.000305 * AS2RAD));
+/// assert_eq!(dY, Some(-0.000100 * AS2RAD));
+/// assert_eq!(lod, Some(0.0002867));
+/// ```
 #[allow(non_snake_case)]
 pub fn parse_c04_line(
     line: String,

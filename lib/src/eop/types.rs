@@ -54,3 +54,23 @@ impl fmt::Display for EOPType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_eop_extrapolation_display() {
+        assert_eq!(format!("{}", EOPExtrapolation::Zero), "EOPExtrapolation::Zero");
+        assert_eq!(format!("{}", EOPExtrapolation::Hold), "EOPExtrapolation::Hold");
+        assert_eq!(format!("{}", EOPExtrapolation::Error), "EOPExtrapolation::Error");
+    }
+
+    #[test]
+    fn test_eop_type_display() {
+        assert_eq!(format!("{}", EOPType::Unknown), "Unknown");
+        assert_eq!(format!("{}", EOPType::C04), "C04");
+        assert_eq!(format!("{}", EOPType::StandardBulletinA), "Bulletin A");
+        assert_eq!(format!("{}", EOPType::Static), "Static");
+    }
+}

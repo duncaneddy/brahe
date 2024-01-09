@@ -10,18 +10,6 @@ on:
 jobs:
   # Rust Tests
   test-rust:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly # TODO: Change to stable BTreeMap::cursor() is stabilized
-      - run: rustup default nightly
-      - run: cargo test
-  rust-coverage:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always

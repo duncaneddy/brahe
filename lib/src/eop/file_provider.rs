@@ -10,6 +10,7 @@ use std::fmt;
 use std::io;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::ops::Bound;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
@@ -23,7 +24,8 @@ use crate::eop::types::{EOPExtrapolation, EOPType};
 
 
 // Define a custom key type for the EOP data BTreeMap to enable use
-// since f64 does not implement Ord by default
+// since f64 does not implement Ord by default. This is not used
+// by and accessors and is only used internally to the FileEOPProvider.
 #[derive(Clone, PartialEq, PartialOrd)]
 struct EOPKey(f64);
 
@@ -42,47 +44,50 @@ impl Eq for EOPKey {}
 /// The structure assumes the input data uses the IAU 2010/2000A conventions. That is the
 /// precession/nutation parameter values are in terms of `dX` and `dY`, not `dPsi` and `dEps`.
 #[derive(Clone)]
+/// Provides Earth Orientation Parameter (EOP) data from a file.
+///
+/// The `FileEOPProvider` struct represents a provider of Earth Orientation Parameter (EOP) data
+/// loaded from a file. It stores the loaded EOP data and provides methods to access and manipulate
+/// the data.
+///
+/// # Fields
+///
+/// - `initialized`: Internal variable to indicate whether the Earth Orientation data object has been properly initialized.
+/// - `eop_type`: Type of Earth orientation data loaded.
+/// - `data`: Primary data structure storing loaded Earth orientation parameter data.
+/// - `extrapolate`: Defines desired behavior for out-of-bounds Earth Orientation data access.
+/// - `interpolate`: Defines interpolation behavior of data for requests between data points in table.
+/// - `mjd_min`: Minimum date of stored data.
+/// - `mjd_max`: Maximum date of stored data.
+/// - `mjd_last_lod`: Modified Julian date of last valid Length of Day (LOD) value.
+/// - `mjd_last_dxdy`: Modified Julian date of last valid precession/nutation dX/dY correction values.
+///
+/// The `data` field is a BTreeMap with the following structure:
+///
+/// Key:
+/// - `mjd`: Modified Julian date of the parameter values
+///
+/// Values:
+/// - `pm_x`: x-component of polar motion correction. Units: (radians)
+/// - `pm_y`: y-component of polar motion correction. Units: (radians)
+/// - `ut1_utc`: Offset of UT1 time scale from UTC time scale. Units: (seconds)
+/// - `dX`: "X" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
+/// - `dY`: "Y" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
+/// - `lod`: Difference between astronomically determined length of day and 86400 second TAI.Units: (seconds)
+///   day. Units: (seconds)
+///
+/// The `interpolate` field defines the interpolation behavior of the data for requests between data. If set to `true`
+/// the data will be linearly interpolated to the desired time. If set to `false` the data will be given as the value
+/// from the closest previous data entry present.
 pub struct FileEOPProvider {
-    /// Internal variable to indicate whether the Earth Orietnation data Object
-    /// has been properly initialized
     initialized: bool,
-    /// Type of Earth orientation data loaded
     pub eop_type: EOPType,
-    /// Primary data structure storing loaded Earth orientation parameter data.
-    ///
-    /// Key:
-    /// - `mjd`: Modified Julian date of the parameter values
-    ///
-    /// Values:
-    /// - `pm_x`: x-component of polar motion correction. Units: (radians)
-    /// - `pm_y`: y-component of polar motion correction. Units: (radians)
-    /// - `ut1_utc`: Offset of UT1 time scale from UTC time scale. Units: (seconds)
-    /// - `dX`: "X" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
-    /// - `dY`: "Y" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
-    /// - `lod`: Difference between astronomically determined length of day and 86400 second TAI.Units: (seconds)
-    ///   day. Units: (seconds)
     data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)>,
-    /// Defines desired behavior for out-of-bounds Earth Orientation data access
     pub extrapolate: EOPExtrapolation,
-    /// Defines interpolation behavior of data for requests between data points in table.
-    ///
-    /// When set to `true` data will be linearly interpolated to the desired time.
-    /// When set to `false` data will be given as the value as the closest previous data entry
-    /// present.
     pub interpolate: bool,
-    /// Minimum date of stored data. This is the value of the smallest key stored in the `data`
-    /// HashMap. Value is a modified Julian date.
     pub mjd_min: f64,
-    /// Maximum date of stored data. This is the value of the largest key stored in the `data`
-    /// HashMap. Behavior
-    /// of data retrieval for dates larger than this will be defined by the `extrapolate` value.
-    /// Babylon's Fall
     pub mjd_max: f64,
-    /// Modified Julian date of last valid Length of Day (LOD) value. Only applicable for
-    /// Bulletin A EOP data. Will be 0 for Bulletin B data and the same as `mjd_max` for C04 data.
     pub mjd_last_lod: f64,
-    /// Modified Julian date of last valid precession/nutation dX/dY correction values. Only
-    /// applicable for Bulletin A. Will always be the sam as `mjd_max` for Bulletin B and C04 data.
     pub mjd_last_dxdy: f64,
 }
 
@@ -91,16 +96,15 @@ impl fmt::Display for FileEOPProvider {
         write!(
             f,
             "FileEOPProvider - type: {}, {} entries, mjd_min: {}, mjd_max: {},  mjd_last_lod: \
-        {}, mjd_last_dxdy: {}, extrapolate: {}, \
-        interpolate: {}",
+        {}, mjd_last_dxdy: {}, extrapolation: {}, interpolation: {}",
             self.eop_type(),
             self.len(),
             self.mjd_min(),
             self.mjd_max(),
             self.mjd_last_lod(),
             self.mjd_last_dxdy(),
-            self.extrapolate(),
-            self.interpolate()
+            self.extrapolation(),
+            self.interpolation()
         )
     }
 }
@@ -110,28 +114,49 @@ impl fmt::Debug for FileEOPProvider {
         write!(
             f,
             "FileEOPProvider<Type: {}, Length: {}, mjd_min: {}, mjd_max: {},  mjd_last_lod: \
-        {}, mjd_last_dxdy: {}, extrapolate: {}, interpolate: {}>",
+        {}, mjd_last_dxdy: {}, extrapolation: {}, interpolation: {}>",
             self.eop_type(),
             self.len(),
             self.mjd_min(),
             self.mjd_max(),
             self.mjd_last_lod(),
             self.mjd_last_dxdy(),
-            self.extrapolate(),
-            self.interpolate()
+            self.extrapolation(),
+            self.interpolation()
         )
     }
 }
 
-/// Detects the type of EOP data stored in the given file.
+/// Detects the Earth Orientation Parameters (EOP) file type of the given file.
+///
+/// This function takes a path to a file and returns the detected EOP file type.
+/// The file type is determined based on the file's content and the ability for
+/// current parsers to read the file.
 ///
 /// # Arguments
 ///
-/// * `filepath` - Path to the EOP file
+/// * `filepath` - A `Path` reference to the file whose EOP file type is to be detected.
 ///
 /// # Returns
 ///
-/// * `Ok(EOPType)` - Type of EOP data stored in the file
+/// * `Ok(EOPType)` - The detected EOP file type if the file type could be successfully determined.
+/// * `Err(io::Error)` - An error that occurred while trying to read the file or if the file type could not be determined.
+///
+/// # Example
+///
+/// ```ignore
+/// use std::env;
+/// use std::path::Path;
+/// use brahe::eop::file_provider::detect_eop_file_type;
+///
+/// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+/// let filepath = Path::new(&manifest_dir)
+///                 .join("data")
+///                 .join("finals.all.iau2000.txt");
+///
+/// let filepath = Path::new("path/to/file");
+/// let eop_type = detect_eop_file_type(&filepath)?;
+/// ```
 fn detect_eop_file_type(filepath: &Path) -> Result<EOPType, io::Error> {
     // First attempt to open the file and parse as a C04 file
     let file = std::fs::File::open(filepath)?;
@@ -163,6 +188,21 @@ fn detect_eop_file_type(filepath: &Path) -> Result<EOPType, io::Error> {
 }
 
 impl FileEOPProvider {
+    /// Creates a new FileEOPProvider object. The object is not initialized and cannot be used
+    /// until data is loaded into it. This is useful for creating a FileEOPProvider object
+    /// that will be loaded with data from a file in the future.
+    ///
+    /// # Returns
+    ///
+    /// * `FileEOPProvider` - New FileEOPProvider object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::FileEOPProvider;
+    ///
+    /// let eop = FileEOPProvider::new();
+    /// ```
     pub fn new() -> Self {
         let data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)> =
             BTreeMap::new();
@@ -181,6 +221,8 @@ impl FileEOPProvider {
     }
 
     /// Creates a new FileEOPProvider from a file containing a C04-formatted EOP data file.
+    /// This should only be used if the file is known to be a C04 file. Otherwise,
+    /// the `from_file` function should be used, which can automatically detect the file type.
     ///
     /// # Arguments
     ///
@@ -190,8 +232,24 @@ impl FileEOPProvider {
     ///
     /// # Returns
     ///
-    /// * `Ok(FileEOPProvider)` - FileEOPProvider object containing the loaded EOP data
-    fn from_c04_file(filepath: &Path, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
+    /// * `Result<FileEOPProvider, BraheError>` - FileEOPProvider object containing the loaded EOP data, or an Error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::env;
+    /// use std::path::Path;
+    /// use brahe::eop::EOPExtrapolation;
+    /// use brahe::eop::FileEOPProvider;
+    ///
+    /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    /// let filepath = Path::new(&manifest_dir)
+    ///                 .join("data")
+    ///                 .join("EOP_20_C04_one_file_1962-now.txt");
+    ///
+    /// let eop = FileEOPProvider::from_c04_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+    /// ```
+    pub fn from_c04_file(filepath: &Path, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
         let file = std::fs::File::open(filepath)?;
         let reader = BufReader::new(file);
 
@@ -254,7 +312,36 @@ impl FileEOPProvider {
         })
     }
 
-    fn from_standard_file(filepath: &Path, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
+    /// Creates a new FileEOPProvider from a file containing a Standard-formatted EOP data file.
+    /// This should only be used if the file is known to be a Standard Bulletin A file. Otherwise,
+    /// the `from_file` function should be used, which can automatically detect the file type.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to the EOP file
+    /// * `interpolate` - Whether to interpolate between data points in the EOP file
+    /// * `extrapolate` - Defines the behavior for out-of-bounds EOP data access
+    ///
+    /// # Returns
+    ///
+    /// * `Result<FileEOPProvider, BraheError>` - FileEOPProvider object containing the loaded EOP data, or an Error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::env;
+    /// use std::path::Path;
+    /// use brahe::eop::EOPExtrapolation;
+    /// use brahe::eop::FileEOPProvider;
+    ///
+    /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    /// let filepath = Path::new(&manifest_dir)
+    ///                 .join("data")
+    ///                 .join("finals.all.iau2000.txt");
+    ///
+    /// let eop = FileEOPProvider::from_standard_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+    /// ```
+    pub fn from_standard_file(filepath: &Path, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
         let file = std::fs::File::open(filepath)?;
         let reader = BufReader::new(file);
 
@@ -336,6 +423,43 @@ impl FileEOPProvider {
         })
     }
 
+    /// Creates a new FileEOPProvider from a file containing a EOP data file. Function automatically detects
+    /// the file type and calls the appropriate function to load the data.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to the EOP file
+    /// * `interpolate` - Whether to interpolate between data points in the EOP file
+    /// * `extrapolate` - Defines the behavior for out-of-bounds EOP data access
+    ///
+    /// # Returns
+    ///
+    /// * `Result<FileEOPProvider, BraheError>` - FileEOPProvider object containing the loaded EOP data, or an Error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::env;
+    /// use std::path::Path;
+    /// use brahe::eop::EOPExtrapolation;
+    /// use brahe::eop::FileEOPProvider;
+    ///
+    /// // Load C04 file
+    /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    /// let filepath = Path::new(&manifest_dir)
+    ///                 .join("data")
+    ///                 .join("EOP_20_C04_one_file_1962-now.txt");
+    ///
+    /// let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+    ///
+    /// // Load Standard Bulletin A file
+    /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    /// let filepath = Path::new(&manifest_dir)
+    ///                 .join("data")
+    ///                 .join("finals.all.iau2000.txt");
+    ///
+    /// let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
+    /// ```
     pub fn from_file(filepath: &Path, interpolate: bool, extrapolate: EOPExtrapolation) -> Result<Self, BraheError> {
         // Detect file type
         match detect_eop_file_type(filepath)? {
@@ -379,54 +503,223 @@ impl FileEOPProvider {
 }
 
 impl EarthOrientationProvider for FileEOPProvider {
-    /// Returns the initialization status of the EOP data structure.
-    fn initialized(&self) -> bool {
+    /// Returns the initialization status of the EOP data structure. Value is `true` if the
+    /// EOP data structure has been properly initialized and `false` otherwise.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if the EOP data structure has been properly initialized, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    ///
+    /// let eop = FileEOPProvider::from_default_c04(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.is_initialized(), true);
+    /// ```
+    fn is_initialized(&self) -> bool {
         self.initialized
     }
 
-    /// Returns the number of entries in the EOP data structure.
+    /// Returns the number of entries stored in the EOP data structure.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - Number of entries stored in the EOP data structure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    ///
+    /// let eop = FileEOPProvider::from_default_c04(true, EOPExtrapolation::Hold).unwrap();
+    /// assert!(eop.len() >= 18262);
+    /// ```
     fn len(&self) -> usize {
         self.data.len()
     }
 
-    /// Returns the type of EOP data stored in the data structure.
+    /// Returns the type of EOP data stored in the data structure. See the `EOPType` enum for
+    /// possible values.
+    ///
+    /// # Returns
+    ///
+    /// * `EOPType` - Type of EOP data stored in the data structure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EOPType, EOPExtrapolation, EarthOrientationProvider};
+    ///
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
+    ///
+    /// let eop = FileEOPProvider::from_default_c04(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.eop_type(), EOPType::C04);
+    /// ```
     fn eop_type(&self) -> EOPType {
         self.eop_type
     }
 
-    /// Returns the extrapolation method used by the EOP data structure.
-    fn extrapolate(&self) -> EOPExtrapolation {
+    /// Returns the extrapolation method used by the EOP data structure. See the `EOPExtrapolation`
+    /// enum for possible values.
+    ///
+    /// # Returns
+    ///
+    /// * `EOPExtrapolation` - Extrapolation method used by the EOP data structure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EOPExtrapolation, EarthOrientationProvider};
+    ///
+    /// // Initialize using Hold extrapolation
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+    ///
+    /// // Initialize using Zero extrapolation
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Zero).unwrap();
+    /// assert_eq!(eop.extrapolation(), EOPExtrapolation::Zero);
+    ///
+    /// // Initialize using Error extrapolation
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Error).unwrap();
+    /// assert_eq!(eop.extrapolation(), EOPExtrapolation::Error);
+    /// ```
+    fn extrapolation(&self) -> EOPExtrapolation {
         self.extrapolate
     }
 
-    /// Returns whether the EOP data structure supports interpolation.
-    fn interpolate(&self) -> bool {
+    /// Returns whether the EOP data structure supports interpolation. If `true`, the data
+    /// structure will interpolate between data points when requested. If `false`, the data
+    /// structure will return the value from the closest previous data point.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if the EOP data structure supports interpolation, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    ///
+    /// // Initialize with interpolation enabled
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.interpolation(), true);
+    ///
+    /// // Calculate mid-day value intersection manually
+    /// let ut1_utc_manual = (eop.get_ut1_utc(58482.0).unwrap() - eop.get_ut1_utc(58481.0).unwrap())/2.0 + eop.get_ut1_utc(58481.0).unwrap();
+    ///
+    /// // Calculate mid-day value using provider interpolation
+    /// let ut1_utc = eop.get_ut1_utc(58481.5).unwrap();
+    ///
+    /// // Compare values
+    /// assert_eq!(ut1_utc_manual, ut1_utc); // ~ 0.0015388
+    ///
+    /// // Initialize with interpolation disabled
+    /// let eop = FileEOPProvider::from_default_standard(false, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.interpolation(), false);
+    ///
+    /// // Confirm hold value for mid-day is just the previous value in the table
+    /// let ut1_utc = eop.get_ut1_utc(58481.5).unwrap();
+    /// assert_eq!(ut1_utc, eop.get_ut1_utc(58481.0).unwrap());
+    /// ```
+    fn interpolation(&self) -> bool {
         self.interpolate
     }
 
     /// Returns the minimum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// This is the earliest date for which the EOP data structure has data.
+    ///
+    /// # Returns
+    ///
+    /// * `f64` - Minimum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// assert_eq!(eop.mjd_min(), 41684.0);
+    /// ```
     fn mjd_min(&self) -> f64 {
         self.mjd_min
     }
 
     /// Returns the maximum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// This is the latest date for which the EOP data structure has data.
+    ///
+    /// # Returns
+    ///
+    /// * `f64` - Maximum Modified Julian Date (MJD) supported by the EOP data structure.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// assert!(eop.mjd_max() >= 60679.0);
+    /// ```
     fn mjd_max(&self) -> f64 {
         self.mjd_max
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
     /// for which the length of day (LOD) is known.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Last Modified Julian Date (MJD) for which the length of day (LOD) is known.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm last LOD date is after 2022-01-01
+    /// assert!(eop.mjd_last_lod() >= 59580.0);
+    /// ```
     fn mjd_last_lod(&self) -> f64 {
         self.mjd_last_lod
     }
 
     /// Returns the last Modified Julian Date (MJD) supported by the EOP data structure
     /// for which celestial pole offsets (dX, dY) are known.
+    /// 
+    /// # Returns
+    /// 
+    /// * `f64` - Last Modified Julian Date (MJD) for which celestial pole offsets (dX, dY) are known.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm last dX/dY date is after 2022-01-01
+    /// assert!(eop.mjd_last_dxdy() >= 59580.0);
+    /// ```
     fn mjd_last_dxdy(&self) -> f64 {
         self.mjd_last_dxdy
     }
 
-    /// Returns the UT1-UTC offset for the given Modified Julian Date (MJD).
+    /// Returns the UT1-UTC offset for the given Modified Julian Date (MJD). Return value depends on
+    /// the `interpolate` and `extrapolate` settings of the EOP data structure.
+    /// 
+    /// Setting `interpolate` to `true` will cause the data structure to linearly interpolate the returned
+    /// value between data points. Setting `interpolate` to `false` will cause the data structure to return
+    /// the value from the closest previous data point.
+    /// 
+    /// Setting `extrapolate` to `EOPExtrapolation::Zero` will cause the data structure to return a value of
+    /// zero for any request beyond the end of the loaded data. Setting `extrapolate` to `EOPExtrapolation::Hold`
+    /// will cause the data structure to return the last valid value for any request beyond the end of the loaded data.
+    /// Setting `extrapolate` to `EOPExtrapolation::Error` will cause the data structure to return an error for any
+    /// request beyond the end of the loaded data.
     ///
     /// # Arguments
     ///
@@ -436,26 +729,40 @@ impl EarthOrientationProvider for FileEOPProvider {
     ///
     /// * `Ok(f64)` - UT1-UTC offset in seconds.
     /// * `Err(String)` - Error message if the UT1-UTC offset could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm UT1-UTC value for 2022-01-01
+    /// assert!((eop.get_ut1_utc(59580.0).unwrap() - -0.1104988).abs() < 1e-6);
+    /// ```
     fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             if mjd < self.mjd_max {
                 if self.interpolate == true {
-                    // Get Above and below points
-                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
+                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
+                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
     
                     // Time points and values
-                    let t1: f64 = below.0.0;
-                    let t2: f64 = above.0.0;
-                    let y1: f64 = below.1.2;
-                    let y2: f64 = above.1.2;
+                    let t1: f64 = below.key().unwrap().0;
+                    let t2: f64 = above.key().unwrap().0;
+                    let y1: f64 = below.value().unwrap().2;
+                    let y2: f64 = above.value().unwrap().2;
     
-                    // Interpolate
-                    Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
+                    // Interpolate, checking if we are exactly at a data point
+                    if t1 == t2 {
+                        Ok(y1)
+                    } else {
+                        Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
+                    }
                 } else {
-                    // Get First value below
-
-                    Ok(self.data.range(..EOPKey(mjd)).next_back().unwrap().1.2)
+                    // Get First value below - Note the "upper" bound is actually the lower time value
+                    Ok(self.data.upper_bound(Bound::Included(&EOPKey(mjd))).value().unwrap().2)
                 }
             } else {
                 match self.extrapolate {
@@ -474,7 +781,19 @@ impl EarthOrientationProvider for FileEOPProvider {
             Err(BraheError::EOPError(String::from("EOP provider not initialized")))
         }
     }
-    /// Returns the polar motion (PM) values for the given Modified Julian Date (MJD).
+
+    /// Returns the polar motion (PM) values for the given Modified Julian Date (MJD). Return value depends on
+    /// the `interpolate` and `extrapolate` settings of the EOP data structure.
+    /// 
+    /// Setting `interpolate` to `true` will cause the data structure to linearly interpolate the returned
+    /// value between data points. Setting `interpolate` to `false` will cause the data structure to return
+    /// the value from the closest previous data point.
+    /// 
+    /// Setting `extrapolate` to `EOPExtrapolation::Zero` will cause the data structure to return a value of
+    /// zero for any request beyond the end of the loaded data. Setting `extrapolate` to `EOPExtrapolation::Hold`
+    /// will cause the data structure to return the last valid value for any request beyond the end of the loaded data.
+    /// Setting `extrapolate` to `EOPExtrapolation::Error` will cause the data structure to return an error for any
+    /// request beyond the end of the loaded data.
     ///
     /// # Arguments
     ///
@@ -484,31 +803,48 @@ impl EarthOrientationProvider for FileEOPProvider {
     ///
     /// * `Ok((f64, f64))` - Polar motion (PM) values in radians.
     /// * `Err(String)` - Error message if the polar motion (PM) values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// use brahe::constants::AS2RAD;
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm polar motion values for 2022-01-01
+    /// assert!((eop.get_pm(59580.0).unwrap().0 - 0.054644 * AS2RAD).abs() < 1e-6);
+    /// assert!((eop.get_pm(59580.0).unwrap().1 - 0.276986 * AS2RAD).abs() < 1e-6);
+    /// ```
     fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             if mjd < self.mjd_max {
                 if self.interpolate == true {
-                    // Get Above and below points
-                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
+                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
+                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
     
                     // Time points and values
-                    let t1: f64 = below.0.0;
-                    let t2: f64 = above.0.0;
-                    let pm_x1: f64 = below.1.0;
-                    let pm_x2: f64 = above.1.0;
-                    let pm_y1: f64 = below.1.1;
-                    let pm_y2: f64 = above.1.1;
+                    let t1: f64 = below.key().unwrap().0;
+                    let t2: f64 = above.key().unwrap().0;
+                    let pm_x1: f64 = below.value().unwrap().0;
+                    let pm_x2: f64 = above.value().unwrap().0;
+                    let pm_y1: f64 = below.value().unwrap().1;
+                    let pm_y2: f64 = above.value().unwrap().1;
     
                     // Interpolate
-                    Ok((
-                        (pm_x2 - pm_x1) / (t2 - t1) * (mjd - t1) + pm_x1,
-                        (pm_y2 - pm_y1) / (t2 - t1) * (mjd - t1) + pm_y1,
-                    ))
+                    if t1 == t2 {
+                        Ok((pm_x1, pm_y1))
+                    } else {
+                        Ok((
+                            (pm_x2 - pm_x1) / (t2 - t1) * (mjd - t1) + pm_x1,
+                            (pm_y2 - pm_y1) / (t2 - t1) * (mjd - t1) + pm_y1,
+                        ))
+                    }
                 } else {
-                    // Get First value below
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
-                    Ok((below.1.0, below.1.1))
+                    // Get First value below - Note the "upper" bound is actually the lower time value
+                    let below = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    Ok((below.value().unwrap().0, below.value().unwrap().1))
                 }
             } else {
                 match self.extrapolate {
@@ -529,41 +865,69 @@ impl EarthOrientationProvider for FileEOPProvider {
         }
     }
 
-    /// Returns the Celestial Intermediate Pole (CIP) offset values for the given Modified Julian Date (MJD).
+    /// Returns the Celestial Intermediate Pole (CIP) offset values for the given Modified Julian Date (MJD). Return value depends on
+    /// the `interpolate` and `extrapolate` settings of the EOP data structure.
+    /// 
+    /// Setting `interpolate` to `true` will cause the data structure to linearly interpolate the returned
+    /// value between data points. Setting `interpolate` to `false` will cause the data structure to return
+    /// the value from the closest previous data point.
+    /// 
+    /// Setting `extrapolate` to `EOPExtrapolation::Zero` will cause the data structure to return a value of
+    /// zero for any request beyond the end of the loaded data. Setting `extrapolate` to `EOPExtrapolation::Hold`
+    /// will cause the data structure to return the last valid value for any request beyond the end of the loaded data.
+    /// Setting `extrapolate` to `EOPExtrapolation::Error` will cause the data structure to return an error for any
+    /// request beyond the end of the loaded data.
     ///
     /// # Arguments
     ///
-    /// * `mjd` - Modified Julian Date (MJD) to retrieve the CIP offset values for.
+    /// * `mjd` - Modified Julian Date (MJD) to retrieve the Celestial Intermediate Pole (CIP) offset values for.
     ///
     /// # Returns
     ///
     /// * `Ok((f64, f64))` - CIP offset values in radians.
     /// * `Err(String)` - Error message if the CIP offset values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// use brahe::constants::AS2RAD;
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm CIP offset values for 2022-01-01
+    /// assert!((eop.get_dxdy(59580.0).unwrap().0 - 0.095 * 1.0e-3 * AS2RAD).abs() < 1e-6);
+    /// assert!((eop.get_dxdy(59580.0).unwrap().1 - -0.250 * 1.0e-3 * AS2RAD).abs() < 1e-6);
+    /// ```
     fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             if mjd < self.mjd_last_dxdy {
                 if self.interpolate == true {
-                    // Get Above and below points
-                    let above = self.data.range(EOPKey(mjd)..).next().unwrap();
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
+                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
+                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
     
                     // Time points and values
-                    let t1: f64 = below.0.0;
-                    let t2: f64 = above.0.0;
-                    let dx1: f64 = below.1.3.unwrap();
-                    let dx2: f64 = above.1.3.unwrap();
-                    let dy1: f64 = below.1.4.unwrap();
-                    let dy2: f64 = above.1.4.unwrap();
+                    let t1: f64 = below.key().unwrap().0;
+                    let t2: f64 = above.key().unwrap().0;
+                    let dx1: f64 = below.value().unwrap().3.unwrap();
+                    let dx2: f64 = above.value().unwrap().3.unwrap();
+                    let dy1: f64 = below.value().unwrap().4.unwrap();
+                    let dy2: f64 = above.value().unwrap().4.unwrap();
     
                     // Interpolate
-                    Ok((
-                        (dx2 - dx1) / (t2 - t1) * (mjd - t1) + dx1,
-                        (dy2 - dy1) / (t2 - t1) * (mjd - t1) + dy1,
-                    ))
+                    if t1 == t2 {
+                        Ok((dx1, dy1))
+                    } else {
+                        Ok((
+                            (dx2 - dx1) / (t2 - t1) * (mjd - t1) + dx1,
+                            (dy2 - dy1) / (t2 - t1) * (mjd - t1) + dy1,
+                        ))
+                    }
                 } else {
-                    // Get First value below
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
-                    Ok((below.1.3.unwrap(), below.1.4.unwrap()))
+                    // Get First value below - Note the "upper" bound is actually the lower time value
+                    let below = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    Ok((below.value().unwrap().3.unwrap(), below.value().unwrap().4.unwrap()))
                 }
             } else {
                 match self.extrapolate {
@@ -584,35 +948,61 @@ impl EarthOrientationProvider for FileEOPProvider {
         }
     }
 
-    /// Returns the length of day (LOD) value for the given Modified Julian Date (MJD).
+    /// Returns the length of day (LOD) value for the given Modified Julian Date (MJD). Return value depends on
+    /// the `interpolate` and `extrapolate` settings of the EOP data structure.
+    /// 
+    /// Setting `interpolate` to `true` will cause the data structure to linearly interpolate the returned
+    /// value between data points. Setting `interpolate` to `false` will cause the data structure to return
+    /// the value from the closest previous data point.
+    /// 
+    /// Setting `extrapolate` to `EOPExtrapolation::Zero` will cause the data structure to return a value of
+    /// zero for any request beyond the end of the loaded data. Setting `extrapolate` to `EOPExtrapolation::Hold`
+    /// will cause the data structure to return the last valid value for any request beyond the end of the loaded data.
+    /// Setting `extrapolate` to `EOPExtrapolation::Error` will cause the data structure to return an error for any
+    /// request beyond the end of the loaded data.
     ///
     /// # Arguments
     ///
-    /// * `mjd` - Modified Julian Date (MJD) to retrieve the LOD value for.
+    /// * `mjd` - Modified Julian Date (MJD) to retrieve the length of day (LOD) value for.
     ///
     /// # Returns
     ///
     /// * `Ok(f64)` - Length of day (LOD) value in seconds.
     /// * `Err(String)` - Error message if the LOD value could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// 
+    /// // Confirm LOD value for 2022-01-01
+    /// assert!((eop.get_lod(59580.0).unwrap() - -0.0267 * 1.0e-3).abs() < 1e-6);
+    /// ```
     fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             if mjd < self.mjd_last_lod {
                 if self.interpolate == true {
-                    // Get Above and below points
-                    let above = self.data.range(EOPKey(mjd).clone()..).next().unwrap();
-                    let below = self.data.range(..EOPKey(mjd)).next_back().unwrap();
+                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
+                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
     
                     // Time points and values
-                    let t1: f64 = below.0.0;
-                    let t2: f64 = above.0.0;
-                    let y1: f64 = below.1.5.unwrap();
-                    let y2: f64 = above.1.5.unwrap();
+                    let t1: f64 = below.key().unwrap().0;
+                    let t2: f64 = above.key().unwrap().0;
+                    let y1: f64 = below.value().unwrap().5.unwrap();
+                    let y2: f64 = above.value().unwrap().5.unwrap();
     
                     // Interpolate
-                    Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
+                    if t1 == t2 {
+                        Ok(y1)
+                    } else {
+                        Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
+                    }
                 } else {
-                    // Get last value.
-                    Ok(self.data.range(..EOPKey(mjd)).next_back().unwrap().1.5.unwrap())
+                    // Get last value below - Note the "upper" bound is actually the lower time value
+                    Ok(self.data.upper_bound(Bound::Included(&EOPKey(mjd))).value().unwrap().5.unwrap())
                 }
             } else {
                 match self.extrapolate {
@@ -632,7 +1022,18 @@ impl EarthOrientationProvider for FileEOPProvider {
         }
     }
 
-    /// Returns the Earth orientation parameter (EOP) values for the given Modified Julian Date (MJD).
+    /// Returns the full set of Earth orientation parameter (EOP) values for the given Modified Julian Date (MJD). 
+    /// Return value depends on the `interpolate` and `extrapolate` settings of the EOP data structure.
+    /// 
+    /// Setting `interpolate` to `true` will cause the data structure to linearly interpolate the returned
+    /// value between data points. Setting `interpolate` to `false` will cause the data structure to return
+    /// the value from the closest previous data point.
+    /// 
+    /// Setting `extrapolate` to `EOPExtrapolation::Zero` will cause the data structure to return a value of
+    /// zero for any request beyond the end of the loaded data. Setting `extrapolate` to `EOPExtrapolation::Hold`
+    /// will cause the data structure to return the last valid value for any request beyond the end of the loaded data.
+    /// Setting `extrapolate` to `EOPExtrapolation::Error` will cause the data structure to return an error for any
+    /// request beyond the end of the loaded data.
     ///
     /// # Arguments
     ///
@@ -642,6 +1043,24 @@ impl EarthOrientationProvider for FileEOPProvider {
     ///
     /// * `Ok((f64, f64, f64, f64, f64, f64))` - EOP values.
     /// * `Err(String)` - Error message if the EOP values could not be retrieved.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use brahe::eop::{FileEOPProvider, EarthOrientationProvider, EOPExtrapolation};
+    /// use brahe::constants::AS2RAD;
+    /// 
+    /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+    /// let (pm_x, pm_y, ut1_utc, dX, dY, lod) = eop.get_eop(59580.0).unwrap();
+    /// 
+    /// // Confirm EOP values for 2022-01-01
+    /// assert!((pm_x - 0.054644 * AS2RAD).abs() < 1e-6);
+    /// assert!((pm_y - 0.276986 * AS2RAD).abs() < 1e-6);
+    /// assert!((ut1_utc - -0.1104988).abs() < 1e-6);
+    /// assert!((dX - 0.095 * 1.0e-3 * AS2RAD).abs() < 1e-6);
+    /// assert!((dY - -0.250 * 1.0e-3 * AS2RAD).abs() < 1e-6);
+    /// assert!((lod - -0.0267 * 1.0e-3).abs() < 1e-6);
+    /// ```
     #[allow(non_snake_case)]
     fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
         let (pm_x, pm_y) = self.get_pm(mjd)?;
@@ -706,13 +1125,13 @@ mod tests {
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
-        assert!(eop.initialized());
+        assert!(eop.is_initialized());
         assert_eq!(eop.len(), 22605);
         assert_eq!(eop.mjd_min(), 37665.0);
         assert_eq!(eop.mjd_max(), 60269.0);
         assert_eq!(eop.eop_type(), EOPType::C04);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), true);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), true);
     }
 
     #[test]
@@ -721,13 +1140,13 @@ mod tests {
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.
-        assert!(eop.initialized());
+        assert!(eop.is_initialized());
         assert_ne!(eop.len(), 0);
         assert_eq!(eop.mjd_min(), 37665.0);
         assert!(eop.mjd_max() >= 60269.0);
         assert_eq!(eop.eop_type(), EOPType::C04);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), true);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), true);
     }
 
     #[test]
@@ -739,13 +1158,13 @@ mod tests {
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
-        assert!(eop.initialized());
+        assert!(eop.is_initialized());
         assert_eq!(eop.len(), 18989);
         assert_eq!(eop.mjd_min(), 41684.0);
         assert_eq!(eop.mjd_max(), 60672.0);
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), true);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), true);
     }
 
     #[test]
@@ -754,13 +1173,13 @@ mod tests {
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.
-        assert!(eop.initialized());
+        assert!(eop.is_initialized());
         assert_ne!(eop.len(), 0);
         assert_eq!(eop.mjd_min(), 41684.0);
         assert!(eop.mjd_max() >= 60672.0);
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
-        assert_eq!(eop.extrapolate(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolate(), true);
+        assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
+        assert_eq!(eop.interpolation(), true);
     }
 
     #[test]
@@ -784,6 +1203,12 @@ mod tests {
 
         let ut1_utc = eop.get_ut1_utc(99999.0).unwrap();
         assert_eq!(ut1_utc, 0.0);
+
+        // Test return without interpolation
+        let eop = setup_test_eop(false, EOPExtrapolation::Hold);
+
+        let ut1_utc = eop.get_ut1_utc(59569.5).unwrap();
+        assert_eq!(ut1_utc, -0.1079939);
     }
 
     #[test]
@@ -811,6 +1236,14 @@ mod tests {
         let (pm_x, pm_y) = eop.get_pm(99999.0).unwrap();
         assert_eq!(pm_x, 0.0);
         assert_eq!(pm_y, 0.0);
+
+        // Test return without interpolation
+        let eop = setup_test_eop(false, EOPExtrapolation::Hold);
+
+        let (pm_x, pm_y) = eop.get_pm(59569.5).unwrap();
+        assert_eq!(pm_x, 0.075382 * AS2RAD);
+        assert_eq!(pm_y, 0.263451 * AS2RAD);
+
     }
 
     #[test]
@@ -839,6 +1272,13 @@ mod tests {
         let (dX, dY) = eop.get_dxdy(99999.0).unwrap();
         assert_eq!(dX, 0.0);
         assert_eq!(dY, 0.0);
+
+        // Test return without interpolation
+        let eop = setup_test_eop(false, EOPExtrapolation::Hold);
+
+        let (dX, dY) = eop.get_dxdy(59569.5).unwrap();
+        assert_eq!(dX,  0.265 * 1.0e-3 * AS2RAD);
+        assert_eq!(dY, -0.067 * 1.0e-3 * AS2RAD);
     }
 
     #[test]
@@ -862,6 +1302,12 @@ mod tests {
 
         let lod = eop.get_lod(99999.0).unwrap();
         assert_eq!(lod, 0.0);
+
+        // Test return without interpolation
+        let eop = setup_test_eop(false, EOPExtrapolation::Hold);
+
+        let lod = eop.get_lod(59569.5).unwrap();
+        assert_eq!(lod, -0.3999 * 1.0e-3);
     }
 
     #[test]
@@ -898,7 +1344,7 @@ mod tests {
     //             EOPType::StandardBulletinA,
     //         )
     //         .unwrap();
-    //     assert!(eop_standard.initialized());
+    //     assert!(eop_standard.is_initialized());
 
     //     // Load C04 file
     //     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -911,7 +1357,7 @@ mod tests {
     //     let _eop_c04_result = eop_c04
     //         .from_c04_file(filepath.to_str().unwrap(), EOPExtrapolation::Hold, true)
     //         .unwrap();
-    //     assert!(eop_c04.initialized());
+    //     assert!(eop_c04.is_initialized());
 
     //     // Confrim xp and yp are approximately equal
     //     let (pm_x_s, pm_y_s) = eop_standard.get_pm(54195.0).unwrap();

@@ -19,6 +19,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly # TODO: Change to stable BTreeMap::cursor() is stabilized
+      - run: rustup default nightly
       - run: cargo test
 
   # # Python Binding Tests

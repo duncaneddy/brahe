@@ -1,6 +1,6 @@
 [package]
 name = "brahe"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2021"
 description = """

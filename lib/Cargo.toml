@@ -20,9 +20,13 @@ license = "MIT"
 [dependencies]
 rsofa = "0.5.0"
 nalgebra = "0.32.3"
-kd-tree = "0.5.1"
+kd-tree = "0.5.3"
 once_cell = "1.19.0"
+geojson = "0.24.1"
+uluru = "3.0.0"
+num-traits = "0.2.17"
 
 [dev-dependencies]
 approx = "0.5.1"
-serial_test = "2.0.0"
+rstest = "0.18.2"
+serial_test = "3.0.0"

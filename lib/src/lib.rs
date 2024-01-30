@@ -18,7 +18,7 @@ The key features of the library are:
   while allowing users to take advantage of Python's rich scientific ecosystem
   if they so choose.
 - **Answer Questions Quickly**: Brahe is designed to make it easy to code up
-  solutions to meaningful problems. High-fieldity, high-performance APIs are not
+  solutions to meaningful problems. High-fidelity, high-performance APIs are not
   the end-objective, but helping users solve their problems.
 
 Brahe gets its name from the combination of Rust and astrodynamics (Rust +
@@ -100,4 +100,5 @@ email me at duncan.eddy (at) gmail.com.
 
 pub mod constants;
 pub mod eop;
+pub mod time;
 pub mod utils;

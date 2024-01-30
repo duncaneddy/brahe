@@ -35,7 +35,7 @@ impl Ord for EOPKey {
     }
 }
 
-// Technically Eq trait should not be implement for f64, but we are
+// Technically Eq trait should not be implemented for f64, but we are
 // certain that the values not be NaN or inf in the input data files
 impl Eq for EOPKey {}
 
@@ -70,7 +70,7 @@ impl Eq for EOPKey {}
 /// Values:
 /// - `pm_x`: x-component of polar motion correction. Units: (radians)
 /// - `pm_y`: y-component of polar motion correction. Units: (radians)
-/// - `ut1_utc`: Offset of UT1 time scale from UTC time scale. Units: (seconds)
+/// - `ut1_utc`: Offset of the UT1 time scale from UTC time scale. Units: (seconds)
 /// - `dX`: "X" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
 /// - `dY`: "Y" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
 /// - `lod`: Difference between astronomically determined length of day and 86400 second TAI.Units: (seconds)
@@ -303,10 +303,10 @@ impl FileEOPProvider {
             initialized: true,
             eop_type: EOPType::C04,
             data,
-            extrapolate: extrapolate,
-            interpolate: interpolate,
-            mjd_min: mjd_min,
-            mjd_max: mjd_max,
+            extrapolate,
+            interpolate,
+            mjd_min,
+            mjd_max,
             mjd_last_lod: mjd_max,
             mjd_last_dxdy: mjd_max,
         })
@@ -355,7 +355,7 @@ impl FileEOPProvider {
             BTreeMap::new();
 
             for (line_num, line_str) in reader.lines().enumerate() {
-                // There is not header to skip in standard file so we immediately start reading
+                // There is no header to skip in standard file, so we immediately start reading
 
                 let line = match line_str {
                     Ok(l) => l,
@@ -414,12 +414,12 @@ impl FileEOPProvider {
             initialized: true,
             eop_type: EOPType::StandardBulletinA,
             data,
-            extrapolate: extrapolate,
-            interpolate: interpolate,
-            mjd_min: mjd_min,
-            mjd_max: mjd_max,
-            mjd_last_lod: mjd_last_lod,
-            mjd_last_dxdy: mjd_last_dxdy,
+            extrapolate,
+            interpolate,
+            mjd_min,
+            mjd_max,
+            mjd_last_lod,
+            mjd_last_dxdy,
         })
     }
 
@@ -607,10 +607,10 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
     /// assert_eq!(eop.interpolation(), true);
     ///
-    /// // Calculate mid-day value intersection manually
+    /// // Calculate midday value intersection manually
     /// let ut1_utc_manual = (eop.get_ut1_utc(58482.0).unwrap() - eop.get_ut1_utc(58481.0).unwrap())/2.0 + eop.get_ut1_utc(58481.0).unwrap();
     ///
-    /// // Calculate mid-day value using provider interpolation
+    /// // Calculate midday value using provider interpolation
     /// let ut1_utc = eop.get_ut1_utc(58481.5).unwrap();
     ///
     /// // Compare values
@@ -620,7 +620,7 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// let eop = FileEOPProvider::from_default_standard(false, EOPExtrapolation::Hold).unwrap();
     /// assert_eq!(eop.interpolation(), false);
     ///
-    /// // Confirm hold value for mid-day is just the previous value in the table
+    /// // Confirm hold value for midday is just the previous value in the table
     /// let ut1_utc = eop.get_ut1_utc(58481.5).unwrap();
     /// assert_eq!(ut1_utc, eop.get_ut1_utc(58481.0).unwrap());
     /// ```
@@ -1359,18 +1359,18 @@ mod tests {
     //         .unwrap();
     //     assert!(eop_c04.is_initialized());
 
-    //     // Confrim xp and yp are approximately equal
+    //     // Confirm xp and yp are approximately equal
     //     let (pm_x_s, pm_y_s) = eop_standard.get_pm(54195.0).unwrap();
     //     let (pm_x_c04, pm_y_c04) = eop_c04.get_pm(54195.0).unwrap();
     //     assert_abs_diff_eq!(pm_x_s, pm_x_c04, epsilon = 1.0e-9);
     //     assert_abs_diff_eq!(pm_y_s, pm_y_c04, epsilon = 1.0e-9);
 
-    //     // Confrim ut1-utc are approximately equal
+    //     // Confirm ut1-utc are approximately equal
     //     let ut1_utc_s = eop_standard.get_ut1_utc(54195.0).unwrap();
     //     let ut1_utc_c04 = eop_c04.get_ut1_utc(54195.0).unwrap();
     //     assert_abs_diff_eq!(ut1_utc_s, ut1_utc_c04, epsilon = 1.0e-5);
 
-    //     // Confrim LOD are approximately equal
+    //     // Confirm LOD are approximately equal
     //     let lod_s = eop_standard.get_lod(54195.0).unwrap();
     //     let lod_c04 = eop_c04.get_lod(54195.0).unwrap();
     //     assert_abs_diff_eq!(lod_s, lod_c04, epsilon = 1.0e-4);

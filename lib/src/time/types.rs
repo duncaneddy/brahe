@@ -50,3 +50,17 @@ impl fmt::Display for TimeSystem {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_time_system_display() {
+        assert_eq!(format!("{}", TimeSystem::GPS), "GPS");
+        assert_eq!(format!("{}", TimeSystem::TAI), "TAI");
+        assert_eq!(format!("{}", TimeSystem::TT), "TT");
+        assert_eq!(format!("{}", TimeSystem::UTC), "UTC");
+        assert_eq!(format!("{}", TimeSystem::UT1), "UT1");
+    }
+}

@@ -3,11 +3,11 @@
  */
 
 use std::f64::consts::PI;
-use std::fmt;
+use std::{fmt, ops};
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
-use num_traits::float::Float;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::cmp::Ordering;
+
 use regex::Regex;
 
 use crate::constants::{MJD_ZERO, GPS_ZERO, SECONDS_PER_DAY};
@@ -42,15 +42,13 @@ fn align_epoch_data(days: u64, seconds: u32, nanoseconds: f64) -> (u64, u32, f64
     const SECONDS_IN_DAY_INT: u32 = 86400;
 
     while ns < 0.0 {
-        ns += NANOSECONDS_PER_SECOND_FLOAT;
-
-        // Ensure that there are seconds to remove from
-        if s > 0 {
-            s -= 1;
-        } else {
-            s += SECONDS_IN_DAY_INT;
+        if s == 0 {
             d -= 1;
+            s += SECONDS_IN_DAY_INT;
         }
+
+        s -= 1;
+        ns += NANOSECONDS_PER_SECOND_FLOAT;
     }
 
     while ns >= NANOSECONDS_PER_SECOND_FLOAT {
@@ -66,6 +64,30 @@ fn align_epoch_data(days: u64, seconds: u32, nanoseconds: f64) -> (u64, u32, f64
     (d, s, ns)
 }
 
+
+/// `Epoch` representing a specific instant in time.
+///
+/// The Epoch structure is the primary and preferred mechanism for representing
+/// time in the Brahe library. It is designed to be able to accurately represent,
+/// track, and compare instants in time accurately.
+///
+/// Internally, the Epoch structure stores time in terms of `days`, `seconds`, and
+/// `nanoseconds`. This representation was chosen so that underlying time system
+/// conversions and comparisons can be performed using the IAU SOFA library, which
+/// has an API that operations in days and fractional days. However, a day-based representation
+/// does not accurately handle small changes in time (sub-second time) especially when
+/// propagating or adding small values over long periods. Therefore, the Epoch structure
+/// internally stores time in terms of seconds and nanoseconds and converts changes to
+/// seconds and days when required. This enables the best of both worlds. Accurate
+/// time representation of small differences and changes in time (nanoseconds) and
+/// validated conversions between time systems.
+///
+/// The Epoch structure also supports addition and subtraction. If the other structure is
+/// a rust primitive (e.g. u64, u32, f64) then the operation assumes the other value is in seconds.
+/// The operations utilize [Kahan summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) to
+/// accurately handle running sums over long periods of time without losing accuracy to
+/// floating point arithmetic errors.
+#[derive(Copy, Clone)]
 pub struct Epoch {
     pub time_system: TimeSystem,
     days: u64,
@@ -113,7 +135,7 @@ impl Epoch {
     // Because Epoch internally stores the data representation in terms of days, seconds, and
     // nanoseconds as (u64, u32, f64). It is important to ensure that when initializing the
     // time representation that any subtraction due to time-system offset conversion or
-    // from changes from arithmetic operations does not result in subtraction from a u32 below
+    // from changes from arithmetic operations does not result in subtraction from an u32 below
     // 0. Additionally, when initializing the Epoch object it is important to ensure that
     // that factional date components are properly handled to retain resolution and assign
     // the time value to the appropriate storage range.
@@ -1127,6 +1149,374 @@ impl Epoch {
     }
 }
 
+// Epoch Arithmetic
+
+impl ops::AddAssign<f64> for Epoch {
+    fn add_assign(&mut self, f: f64) {
+        // Kahan summation algorithm to compensate for floating-point arithmetic errors
+        let y = f * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
+        let t = self.nanoseconds + y;
+        let nanoseconds_kc = y - (t - self.nanoseconds);
+        let nanoseconds = t;
+
+        let (days, seconds, nanoseconds) = align_epoch_data(self.days, self.seconds, nanoseconds);
+
+        *self = Self {
+            time_system: self.time_system,
+            days,
+            seconds,
+            nanoseconds,
+            nanoseconds_kc,
+        };
+    }
+}
+
+impl ops::AddAssign<f32> for Epoch {
+    fn add_assign(&mut self, f: f32) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<u8> for Epoch {
+    fn add_assign(&mut self, f: u8) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<u16> for Epoch {
+    fn add_assign(&mut self, f: u16) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<u32> for Epoch {
+    fn add_assign(&mut self, f: u32) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<u64> for Epoch {
+    fn add_assign(&mut self, f: u64) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<i8> for Epoch {
+    fn add_assign(&mut self, f: i8) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<i16> for Epoch {
+    fn add_assign(&mut self, f: i16) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<i32> for Epoch {
+    fn add_assign(&mut self, f: i32) {
+        *self += f as f64;
+    }
+}
+
+impl ops::AddAssign<i64> for Epoch {
+    fn add_assign(&mut self, f: i64) {
+        *self += f as f64;
+    }
+}
+
+impl ops::SubAssign<f64> for Epoch {
+    fn sub_assign(&mut self, f: f64) {
+        *self += -f;
+    }
+}
+
+impl ops::SubAssign<f32> for Epoch {
+    fn sub_assign(&mut self, f: f32) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<u8> for Epoch {
+    fn sub_assign(&mut self, f: u8) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<u16> for Epoch {
+    fn sub_assign(&mut self, f: u16) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<u32> for Epoch {
+    fn sub_assign(&mut self, f: u32) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<u64> for Epoch {
+    fn sub_assign(&mut self, f: u64) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<i8> for Epoch {
+    fn sub_assign(&mut self, f: i8) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<i16> for Epoch {
+    fn sub_assign(&mut self, f: i16) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<i32> for Epoch {
+    fn sub_assign(&mut self, f: i32) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::SubAssign<i64> for Epoch {
+    fn sub_assign(&mut self, f: i64) {
+        *self += -(f as f64);
+    }
+}
+
+impl ops::Add<f64> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: f64) -> Epoch {
+        // Kahan summation algorithm to compensate for floating-point arithmetic errors
+        let y = f * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
+        let t = self.nanoseconds + y;
+        let nanoseconds_kc = y - (t - self.nanoseconds);
+        let nanoseconds = t;
+
+        let (days, seconds, nanoseconds) = align_epoch_data(self.days, self.seconds, nanoseconds);
+
+        Epoch {
+            time_system: self.time_system,
+            days,
+            seconds,
+            nanoseconds,
+            nanoseconds_kc,
+        }
+    }
+}
+
+impl ops::Add<f32> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: f32) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<u8> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: u8) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<u16> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: u16) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<u32> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: u32) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<u64> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: u64) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<i8> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: i8) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<i16> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: i16) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<i32> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: i32) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Add<i64> for Epoch {
+    type Output = Epoch;
+
+    fn add(self, f: i64) -> Epoch {
+        self + (f as f64)
+    }
+}
+
+impl ops::Sub<Epoch> for Epoch {
+    type Output = f64;
+
+    fn sub(self, other: Epoch) -> f64 {
+        (((self.days as i64 - other.days as i64) * 86400) as f64)
+            + ((self.seconds as i64 - other.seconds as i64) as f64)
+            + (self.nanoseconds - other.nanoseconds) * 1.0e-9
+            + (self.nanoseconds_kc - other.nanoseconds_kc) * 1.0e-9
+    }
+}
+
+impl ops::Sub<f64> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: f64) -> Epoch {
+        self + -f
+    }
+}
+
+impl ops::Sub<f32> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: f32) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<u8> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: u8) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<u16> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: u16) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<u32> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: u32) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<u64> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: u64) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<i8> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: i8) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<i16> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: i16) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<i32> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: i32) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+impl ops::Sub<i64> for Epoch {
+    type Output = Epoch;
+
+    fn sub(self, f: i64) -> Epoch {
+        self + -(f as f64)
+    }
+}
+
+//
+// Epoch Arithmetic Operators
+//
+
+impl PartialEq for Epoch {
+    fn eq(&self, other: &Self) -> bool {
+        (self.days == other.days)
+            && (self.seconds == other.seconds)
+            && (((self.nanoseconds + self.nanoseconds_kc)
+            - (other.nanoseconds + other.nanoseconds_kc))
+            .abs()
+            < 1.0e-6)
+    }
+}
+
+impl Eq for Epoch {}
+
+impl PartialOrd for Epoch {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Epoch {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if (self.days < other.days)
+            || ((self.days == other.days) && (self.seconds < other.seconds))
+            || ((self.days == other.days)
+            && (self.seconds == other.seconds)
+            && ((self.nanoseconds + self.nanoseconds_kc)
+            < (other.nanoseconds + other.nanoseconds_kc)))
+        {
+            Ordering::Less
+        } else if (self.days > other.days)
+            || ((self.days == other.days) && (self.seconds > other.seconds))
+            || ((self.days == other.days)
+            && (self.seconds == other.seconds)
+            && ((self.nanoseconds + self.nanoseconds_kc)
+            > (other.nanoseconds + other.nanoseconds_kc)))
+        {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::f64::consts::PI;
@@ -1191,7 +1581,7 @@ mod tests {
         assert_eq!(second, 5.0);
         assert_eq!(nanoseconds, 6.0);
 
-        // Test initialization with seconds and nanosecondss
+        // Test initialization with seconds and nanoseconds
         let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.5, 1.2345, TimeSystem::TAI);
 
         let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
@@ -1597,5 +1987,366 @@ mod tests {
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
         assert_abs_diff_eq!(epc.gast(false), 99.965 * PI / 180.0, epsilon = 1.0e-3);
+    }
+
+    #[test]
+    fn test_ops_add_assign() {
+        setup_global_test_eop();
+
+        // Test Positive additions of different size
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 2);
+        assert_eq!(day, 1);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1.23456789e-9;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+        assert_eq!(nanosecond, 1.23456789);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test subtractions of different size
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += -1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += -86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 29);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test types
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += -1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+    }
+
+    #[test]
+    fn test_ops_sub_assign() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1.23456789e-9;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 999_999_999.7654321);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test subtractions of different size
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 29);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test types
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+    }
+
+    #[test]
+    fn test_ops_add() {
+        setup_global_test_eop();
+
+        // Base epoch
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+
+        // Test Positive additions of different size
+        let epc_2: Epoch = epc + 1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let epc_2: Epoch = epc + 86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 2);
+        assert_eq!(day, 1);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let epc_2: Epoch = epc + 1.23456789e-9;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+        assert_eq!(nanosecond, 1.23456789);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test subtractions of different size
+        let epc_2: Epoch = epc + -1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let epc_2: Epoch = epc + -86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 29);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test types
+        let epc_2: Epoch = epc + 1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let epc_2: Epoch = epc + -1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+    }
+
+    #[test]
+    fn test_ops_sub() {
+        setup_global_test_eop();
+
+        // Base epoch
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+
+        // Test subtractions of different size
+        let epc_2: Epoch = epc - 1.0;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        let epc_2: Epoch = epc - 86400.5;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 29);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 500_000_000.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+
+        // Test types
+        let epc_2: Epoch = epc - 1;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+        assert_eq!(epc.time_system, TimeSystem::TAI);
+    }
+
+    #[test]
+    fn test_ops_sub_epoch() {
+        setup_global_test_eop();
+
+        let epc_1 = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2 = Epoch::from_date(2022, 2, 1, TimeSystem::TAI);
+        assert_eq!(epc_2 - epc_1, 86400.0);
+
+        let epc_1 = Epoch::from_date(2021, 1, 1, TimeSystem::TAI);
+        let epc_2 = Epoch::from_date(2022, 1, 1, TimeSystem::TAI);
+        assert_eq!(epc_2 - epc_1, 86400.0 * 365.0);
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 1.0, TimeSystem::TAI);
+        assert_eq!(epc_2 - epc_1, 1.0e-9);
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 2, 1, 1, 1.0, 1.0, TimeSystem::TAI);
+        assert_eq!(epc_2 - epc_1, 86400.0 + 3600.0 + 60.0 + 1.0 + 1.0e-9);
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 0, 0, 19.0, 0.0, TimeSystem::TAI);
+        assert_eq!(epc_2 - epc_1, 19.0);
+        assert_eq!(epc_1 - epc_2, -19.0);
+        assert_eq!(epc_1 - epc_1, 0.0);
+    }
+
+    #[test]
+    fn test_eq_epoch() {
+        setup_global_test_eop();
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, TimeSystem::TAI);
+        assert_eq!(epc_1 == epc_2, true);
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, TimeSystem::TAI);
+        assert_eq!(epc_1 != epc_2, true);
+
+        // Check instant comparison against time systems works
+        let epc_1 = Epoch::from_datetime(1980, 1, 6, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+        let epc_2 = Epoch::from_datetime(1980, 1, 6, 0, 0, 19.0, 0.0, TimeSystem::TAI);
+        assert_eq!(epc_1 == epc_2, true);
+    }
+
+    #[test]
+    fn test_cmp_epoch() {
+        setup_global_test_eop();
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, TimeSystem::TAI);
+        assert_eq!(epc_1 > epc_2, true);
+        assert_eq!(epc_1 >= epc_2, true);
+        assert_eq!(epc_1 < epc_2, false);
+        assert_eq!(epc_1 <= epc_2, false);
+
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
+        assert_eq!(epc_1 > epc_2, false);
+        assert_eq!(epc_1 >= epc_2, true);
+        assert_eq!(epc_1 < epc_2, false);
+        assert_eq!(epc_1 <= epc_2, true);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci", ignore)] // This test is slow and only executed in CI
+    fn test_nanosecond_addition_stability() {
+        let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+
+        for _i in 0..1_000_000_000 {
+            epc += 1.0e-9;
+        }
+
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 1);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
     }
 }

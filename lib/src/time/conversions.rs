@@ -5,8 +5,6 @@
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 
-use num_traits::float::Float;
-
 use rsofa;
 
 use crate::constants::{MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI, GPS_TAI};

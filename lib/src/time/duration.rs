@@ -4,10 +4,7 @@
 
 
 use std::fmt;
-use std::ops::Index;
 use num_traits::float::Float;
-use num_traits::int::PrimInt;
-use num_traits::sign::{Signed, Unsigned};
 use num_traits::ToPrimitive;
 
 /// Represents a span of time.

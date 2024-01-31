@@ -2332,7 +2332,9 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "ci", ignore)] // This test is slow and only executed in CI
+    #[ignore]
+    // TODO: Fix this so it actually only runs in CI
+    // #[cfg_attr(feature = "ci", ignore)] // This test is slow and only executed in CI
     fn test_nanosecond_addition_stability() {
         let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 

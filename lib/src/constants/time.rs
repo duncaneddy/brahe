@@ -75,3 +75,6 @@ pub const TT_GPS: f64 = -GPS_TT;
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 ///  Applications*, 2012.
 pub const GPS_ZERO: f64 = 44244.0;
+
+/// Seconds per day. Units: (s)
+pub const SECONDS_PER_DAY: f64 = 86400.0;

@@ -20,7 +20,7 @@ const ECC2: f64 = constants::WGS84_F * (2.0 - constants::WGS84_F);
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
@@ -64,7 +64,7 @@ pub fn position_geodetic_to_ecef(
 /// - `x_geod`: Geodetic coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;

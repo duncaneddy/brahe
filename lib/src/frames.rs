@@ -31,7 +31,7 @@ use crate::utils::matrix3_from_array;
 /// - `rc2i`: 3x3 Rotation matrix transforming GCRS -> CIRS
 ///
 /// # Examples:
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -89,7 +89,7 @@ pub fn bias_precession_nutation(epc: Epoch) -> na::Matrix3<f64> {
 /// - `r`: 3x3 Rotation matrix transforming CIRS -> TIRS
 ///
 /// # Examples:
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -133,7 +133,7 @@ pub fn earth_rotation(epc: Epoch) -> na::Matrix3<f64> {
 /// - `rpm`: 3x3 Rotation matrix transforming TIRS -> ITRF
 ///
 /// # Examples:
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -185,7 +185,7 @@ pub fn polar_motion(epc: Epoch) -> na::Matrix3<f64> {
 /// - `r`: 3x3 Rotation matrix transforming GCRF -> ITRF
 ///
 /// # Examples:
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -224,7 +224,7 @@ pub fn rotation_eci_to_ecef(epc: Epoch) -> na::Matrix3<f64> {
 /// - `r`: 3x3 Rotation matrix transforming ITRF -> GCRF
 ///
 /// # Examples:
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -259,7 +259,7 @@ pub fn rotation_ecef_to_eci(epc: Epoch) -> na::Matrix3<f64> {
 /// - `x_ecef`: Cartesian Earth-fixed position. Units: (*m*)
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector3_from_array;
@@ -298,7 +298,7 @@ pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// - `x_eci`: Cartesian Earth-inertial position. Units: (*m*)
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector3_from_array;
@@ -337,7 +337,7 @@ pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// - `x_ecef`: Cartesian Earth-fixed state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::utils::vector6_from_array;
 /// use brahe::constants::R_EARTH;
@@ -390,7 +390,7 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: na::Vector6<f64>) -> na::Vector6<f64
 /// - `x_eci`: Cartesian Earth inertial state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector6_from_array;

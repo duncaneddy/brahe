@@ -23,7 +23,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
@@ -66,7 +66,7 @@ pub fn position_geocentric_to_ecef(
 /// - `x_geoc`: Geocentric coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;

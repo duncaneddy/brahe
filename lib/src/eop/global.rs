@@ -2,6 +2,9 @@
  * Defines crate-wide EOP loading functionality
  */
 
+#[cfg(test)]
+use serial_test::serial;
+
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 
@@ -475,6 +478,7 @@ pub fn get_global_eop_mjd_last_dxdy() -> f64 {
 }
 
 #[cfg(test)]
+#[serial]
 mod tests {
     use super::*;
     use std::env;

@@ -1151,6 +1151,8 @@ impl Epoch {
 
 // Epoch Arithmetic
 
+// TODO: Implement arithmetic for Duration
+
 impl ops::AddAssign<f64> for Epoch {
     fn add_assign(&mut self, f: f64) {
         // Kahan summation algorithm to compensate for floating-point arithmetic errors

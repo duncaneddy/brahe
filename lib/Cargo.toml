@@ -31,3 +31,6 @@ regex = "1.10.2"
 approx = "0.5.1"
 rstest = "0.18.2"
 serial_test = "3.0.0"
+
+[features]
+ci = []

@@ -218,17 +218,11 @@ fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
     let mut u1 = jd;
     let mut u2 = fd;
 
-    for _ in 0..3 {
-        let mut d1 = 0.0;
-        let mut d2 = 0.0;
-
-        unsafe {
-            rsofa::iauUtctai(u1, u2, &mut d1, &mut d2);
-        }
-
-        // Adjust UTC guess
-        u1 += jd - d1;
-        u2 += fd - d2;
+    // Convert TAI into quasi-UTC per SOFA documentation
+    // The quasi-UTC time can then be used with the iauD2dtf function to
+    // get the UTC offset for the current TAI time
+    unsafe {
+        rsofa::iauUtctai(jd, fd, &mut u1, &mut u2);
     }
 
     // Return the difference between the input TAI time and the adjusted UTC time

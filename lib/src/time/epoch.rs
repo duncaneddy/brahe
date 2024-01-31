@@ -121,7 +121,7 @@ impl Epoch {
     // The intended storage ranges are:
     //     - days [0, ∞)
     //     - seconds [0, 86400)
-    //     - nanoseconds [0, 1_000_000_000_000)
+    //     - nanoseconds [0, 1_000_000_000)
     //
     // There when initializing or altering Epoch objects it is important to ensure that the
     // final object at the end of the operations results in a time representation with values

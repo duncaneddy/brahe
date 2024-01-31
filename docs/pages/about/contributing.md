@@ -73,7 +73,7 @@ enable users to more easily navigate and learn the library.
 * `value_name`: {{ Value description}}. Units: {{ Optional, Units as (value). e.g. (rad) or (deg)}}
 
 ## Examples
-\`\`\`rust
+\`\`\`
 {{ Implement shor function in language }}
 \`\`\`
 

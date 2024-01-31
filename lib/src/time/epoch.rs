@@ -166,7 +166,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -198,7 +198,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -296,7 +296,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -414,7 +414,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -456,7 +456,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -485,7 +485,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::constants::SECONDS_PER_DAY;
     /// use brahe::eop::*;
     /// use brahe::time::*;
@@ -533,7 +533,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::constants::SECONDS_PER_DAY;
     /// use brahe::eop::*;
     /// use brahe::time::*;
@@ -581,7 +581,7 @@ impl Epoch {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -670,7 +670,7 @@ impl Epoch {
     /// - `nanoseconds`: Picoseconds into day
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -737,7 +737,7 @@ impl Epoch {
     /// - `nanoseconds`: Picoseconds into day
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -765,7 +765,7 @@ impl Epoch {
     /// - `jd`: Julian date of Epoch
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -792,7 +792,7 @@ impl Epoch {
     /// - `jd`: Julian date of Epoch
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -819,7 +819,7 @@ impl Epoch {
     /// - `mjd`: Modified Julian date of Epoch
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -846,7 +846,7 @@ impl Epoch {
     /// - `mjd`: Modified Julian date of Epoch
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -872,7 +872,7 @@ impl Epoch {
     /// - `gps_seconds`: Seconds into week. 0 seconds represents Sunday at midnight (0h)
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -902,7 +902,7 @@ impl Epoch {
     /// - `gps_seconds`: Elapsed GPS seconds. 0 seconds represents GPS epoch of January 6, 1980 0h.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -929,7 +929,7 @@ impl Epoch {
     /// - `gps_nanoseconds`: Elapsed GPS nanoseconds. 0 seconds represents GPS epoch of January 6, 1980 0h.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -955,7 +955,7 @@ impl Epoch {
     /// - `time_string`: ISO8061 formatted time string
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -989,7 +989,7 @@ impl Epoch {
     /// - `time_string`: ISO8061 formatted time string with specified decimal precision
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -1039,7 +1039,7 @@ impl Epoch {
     /// - `time_string`: ISO8061 formatted time string with specified decimal precision
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -1080,7 +1080,7 @@ impl Epoch {
     /// - `as_degrees`: Returns output in (degrees) if `true` or (radians) if `false`
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///
@@ -1118,7 +1118,7 @@ impl Epoch {
     /// - `as_degrees`: Returns output in (degrees) if `true` or (radians) if `false`
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///

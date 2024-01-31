@@ -30,7 +30,7 @@ use crate::eop::get_global_ut1_utc;
 /// - `jd` Julian date of epoch
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::time::datetime_to_jd;
 /// let jd = datetime_to_jd(2000, 1, 1, 12, 0, 0.0, 0.0);
 ///
@@ -85,7 +85,7 @@ pub fn datetime_to_jd(
 /// - `mjd` Modified Julian date of epoch
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::time::datetime_to_mjd;
 /// let mjd = datetime_to_mjd(2000, 1, 1, 12, 0, 0.0, 0.0);
 ///
@@ -123,7 +123,7 @@ pub fn datetime_to_mjd(
 /// - `second`: Second
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::time::jd_to_datetime;
 /// let (year, month, day, hour, minute, second, nanosecond) = jd_to_datetime(2451545.0);
 ///
@@ -185,7 +185,7 @@ pub fn jd_to_datetime(jd: f64) -> (u32, u8, u8, u8, u8, f64, f64) {
 /// - `second`: Second
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::time::mjd_to_datetime;
 /// let (year, month, day, hour, minute, second, nanosecond) = mjd_to_datetime(51544.5);
 ///
@@ -289,7 +289,7 @@ fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
 ///     offset (float): Offset between soruce and destination time systems in seconds.
 ///
 /// Example:
-/// ```rust
+/// ```
 /// use brahe::constants::MJD_ZERO;
 /// use brahe::eop::*;
 /// use brahe::time::{time_system_offset, TimeSystem};

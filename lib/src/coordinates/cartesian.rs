@@ -31,7 +31,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector6_from_array;
 /// use brahe::coordinates::*;
@@ -92,7 +92,7 @@ pub fn state_osculating_to_cartesian(x_oe: na::Vector6<f64>, as_degrees: bool) -
 /// - `x_oe`: Osculating orbital elements
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// use brahe::constants::R_EARTH;
 /// use brahe::utils::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;

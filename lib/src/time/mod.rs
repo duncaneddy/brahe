@@ -3,10 +3,10 @@
  */
 
 pub mod types;
-mod duration;
-mod epoch;
-mod time_series;
-mod conversions;
+pub mod duration;
+pub mod epoch;
+pub mod time_series;
+pub mod conversions;
 
 pub use types::*;
 pub use conversions::*;

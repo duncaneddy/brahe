@@ -98,7 +98,22 @@ email me at duncan.eddy (at) gmail.com.
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
 
+pub mod utils;
 pub mod constants;
 pub mod eop;
 pub mod time;
-pub mod utils;
+pub mod frames;
+pub mod orbits;
+pub mod coordinates;
+
+// Re-export commonly used types
+pub use constants::*;
+pub use eop::{EOPExtrapolation, EOPType, StaticEOPProvider, FileEOPProvider, set_global_eop_provider};
+pub use time::{Duration, Epoch, TimeSystem, TimeSeries};
+pub use time::conversions::*;
+pub use frames::*;
+pub use orbits::*;
+pub use coordinates::*;
+
+
+

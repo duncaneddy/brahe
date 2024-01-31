@@ -34,7 +34,7 @@ impl TimeSeries {
     /// specified by the inputs
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
     ///

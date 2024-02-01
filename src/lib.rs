@@ -105,6 +105,7 @@ pub mod time;
 pub mod frames;
 pub mod orbits;
 pub mod coordinates;
+mod pymodule;
 
 // Re-export commonly used types
 pub use constants::*;
@@ -114,6 +115,3 @@ pub use time::conversions::*;
 pub use frames::*;
 pub use orbits::*;
 pub use coordinates::*;
-
-
-

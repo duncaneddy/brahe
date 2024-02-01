@@ -1,0 +1,19 @@
+name: Update Bundled Data
+
+on:
+  schedule:
+    - cron: '30 9 * * *'
+
+jobs:
+  update-eop-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update package data
+        run: ./scripts/update-data.sh
+      - name: Commit and push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: Github Worker
+          message: 'Commit from GitHub Actions - Daily Update of Bundled Data'
+          add: 'data/*'

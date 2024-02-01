@@ -6,7 +6,7 @@ use nalgebra::{Vector3, Matrix3};
 use std::f64::consts::PI;
 
 use crate::utils::math::{from_degrees, to_degrees};
-use crate::coordinates::types::EllipsoidalConversionType;
+use crate::coordinates::coordinate_types::EllipsoidalConversionType;
 use crate::coordinates::geocentric::position_ecef_to_geocentric;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
 

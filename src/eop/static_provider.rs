@@ -6,7 +6,7 @@ or static values.
 use std::fmt;
 
 use crate::eop::eop_provider::EarthOrientationProvider;
-use crate::eop::types::{EOPExtrapolation, EOPType};
+use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::utils::errors::BraheError;
 
 /// StaticEOPProvider is an EarthOrientationProvider that returns static
@@ -501,7 +501,7 @@ impl EarthOrientationProvider for StaticEOPProvider {
 
 #[cfg(test)]
 mod tests {
-    use crate::eop::types::*;
+    use crate::eop::eop_types::*;
 
     use super::*;
 

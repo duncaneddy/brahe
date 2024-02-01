@@ -2,7 +2,7 @@
 Defines the EarthOrientationProvider trait
 */
 
-use crate::eop::types::{EOPExtrapolation, EOPType};
+use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::utils::errors::BraheError;
 
 /// `EarthOrientationProvider` is a trait for objects that provide Earth orientation parameters.

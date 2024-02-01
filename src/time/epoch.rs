@@ -11,7 +11,7 @@ use std::cmp::Ordering;
 use regex::Regex;
 
 use crate::constants::{MJD_ZERO, GPS_ZERO, SECONDS_PER_DAY};
-use crate::time::types::TimeSystem;
+use crate::time::time_types::TimeSystem;
 use crate::time::conversions::time_system_offset;
 
 use crate::utils::math::split_float;

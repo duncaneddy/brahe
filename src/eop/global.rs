@@ -8,7 +8,7 @@ use serial_test::serial;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 
-use crate::eop::types::{EOPExtrapolation, EOPType};
+use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::static_provider::StaticEOPProvider;
 use crate::utils::BraheError;

@@ -20,7 +20,7 @@ use crate::utils::BraheError;
 use crate::eop::c04_parser::parse_c04_line;
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::standard_parser::parse_standard_line;
-use crate::eop::types::{EOPExtrapolation, EOPType};
+use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 
 
 // Define a custom key type for the EOP data BTreeMap to enable use

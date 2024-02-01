@@ -10,12 +10,12 @@ mod file_provider;
 mod standard_parser;
 mod static_provider;
 mod global;
-pub mod types;
+pub mod eop_types;
 pub mod download;
 
 pub use eop_provider::*;
 pub use file_provider::*;
 pub use static_provider::*;
-pub use types::*;
+pub use eop_types::*;
 pub use global::*;
 pub use download::*;

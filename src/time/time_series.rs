@@ -94,7 +94,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     use crate::time::epoch::Epoch;
-    use crate::time::types::TimeSystem;
+    use crate::time::time_types::TimeSystem;
     use super::*;
 
     #[test]

@@ -8,7 +8,7 @@ use std::os::raw::{c_char, c_int};
 use rsofa;
 
 use crate::constants::{MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI, GPS_TAI};
-use crate::time::types::TimeSystem;
+use crate::time::time_types::TimeSystem;
 use crate::eop::get_global_ut1_utc;
 
 /// Convert a Gregorian calendar date representation to the equivalent Julian Date

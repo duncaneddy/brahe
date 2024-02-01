@@ -1,4 +1,8 @@
+# This workflow will run only if the only changes made are in the docs folder.
+# This enables quick fixes to documentation to be deployed without running the entire test suite.
+
 name: Update Docs
+
 on:
   push:
     branches:
@@ -7,8 +11,6 @@ on:
       - docs/**
 
 jobs:
-  # Uncomment this to update docs on every commit. Only used for fast documentation updating outside
-  # of release cycle.
   publish-docs:
     runs-on: ubuntu-latest
     needs: test-python

@@ -59,8 +59,14 @@ macro_rules! numpy_to_vector {
     }};
 }
 
-// Direct import files
+// We directly include the contents of the module-definition files as they need to be part of a
+// single module for the Python bindings to work correctly.
 
+include!("eop.rs");
+include!("time.rs");
+include!("orbits.rs");
+include!("coordinates.rs");
+include!("frames.rs");
 
 // Define Module
 
@@ -104,6 +110,10 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add("GM_URANUS", constants::GM_URANUS)?;
     module.add("GM_NEPTUNE", constants::GM_NEPTUNE)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
+
+    // EOP
+    module.add_function(wrap_pyfunction!(download_c04_eop_file, module)?)?;
+    module.add_function(wrap_pyfunction!(download_standard_eop_file, module)?)?;
 
     Ok(())
 }

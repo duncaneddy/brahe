@@ -98,6 +98,7 @@ email me at duncan.eddy (at) gmail.com.
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
 
+#[cfg(feature = "python")]
 mod pymodule;
 
 pub mod utils;
@@ -111,8 +112,8 @@ pub mod attitude;
 
 // Re-export commonly used types
 pub use constants::*;
-pub use eop::{EOPExtrapolation, EOPType, StaticEOPProvider, FileEOPProvider, set_global_eop_provider};
-pub use time::{Duration, Epoch, TimeSystem, TimeSeries};
+pub use eop::*;
+pub use time::*;
 pub use time::conversions::*;
 pub use frames::*;
 pub use orbits::*;

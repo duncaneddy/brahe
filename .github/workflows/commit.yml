@@ -17,7 +17,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update nightly
-      - run: rustup default nightly
+      # TODO: Remove this when the nightly fixes BTreeCursor regression or is stabilized
+      # - run: rustup default nightly
+      - name: (TEMP) Install stable nightly of BTreeCursor
+        run: rustup install nightly-2023-12-21
+      - name: (TEMP) Set compiler to stable nightly
+        run: rustup default nightly-2023-12-21
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
@@ -29,28 +34,26 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
-  # # Python Binding Tests
-  # test-python:
-  #   runs-on: ${{ matrix.os }}
-  #   needs: test-rust
-  #   strategy:
-  #     matrix:
-  #       os: [ubuntu-latest]
-  #       python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Python ${{ matrix.python-version }}
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #     - name: Install dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         python -m pip install -r ./rastro_python/requirements-dev.txt
-  #     - name: Install package
-  #       run: python -m pip install -e ./rastro_python
-  #     - name: Run Tests
-  #       run: pytest
+   # Python Binding Tests
+  test-python:
+    runs-on: ${{ matrix.os }}
+    needs: test-rust
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip
+      - name: Install package
+        run: python -m pip install '.[dev]'
+      - name: Run Tests
+        run: pytest
 
   # Uncomment this to update docs on every commit. Only used for fast documentation updating outside
   # of release cycle.

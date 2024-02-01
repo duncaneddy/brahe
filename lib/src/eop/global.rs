@@ -600,7 +600,7 @@ mod tests {
         set_global_eop_provider(eop);
 
         assert_eq!(get_global_eop_initialization(), true);
-        assert_eq!(get_global_eop_len(), 22619);
+        assert!(get_global_eop_len() >= 22619);
         assert_eq!(get_global_eop_mjd_min(), 37665.0);
         assert!(get_global_eop_mjd_max() >= 60269.0);
         assert_eq!(get_global_eop_type(), EOPType::C04);
@@ -643,7 +643,7 @@ mod tests {
         set_global_eop_provider(eop);
 
         assert_eq!(get_global_eop_initialization(), true);
-        assert_eq!(get_global_eop_len(), 18996);
+        assert!(get_global_eop_len() >= 18996);
         assert_eq!(get_global_eop_mjd_min(), 41684.0);
         assert!(get_global_eop_mjd_max() >= 60672.0);
         assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);

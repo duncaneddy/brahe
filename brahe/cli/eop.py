@@ -4,15 +4,14 @@ import brahe
 
 class ProductType(str, Enum):
     standard = "standard"
-    C04 = "C04"
+    c04 = "c04"
 
 app = typer.Typer()
 
 @app.command()
 def download(filepath:str = typer.Argument(..., help="Filepath to output data"),
-             product:ProductType = typer.Option(..., help="Type of data product to download")):
-    typer.echo("Hello")
-    # if product == ProductType.standard:
-    #     brahe.eop.download_standard_eop_file(filepath)
-    # else:
-    #     brahe.eop.download_c04_eop_file(filepath)
+             type:ProductType = typer.Option(..., help="Type of data product to download")):
+    if type == ProductType.standard:
+        brahe.download_standard_eop_file(filepath)
+    else:
+        brahe.download_c04_eop_file(filepath)

@@ -1,0 +1,47 @@
+[project]
+name = "brahe"
+description = """
+Brahe is a modern satellite dynamics library for research and engineering
+applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.
+The north-star of the development is enabling users to solve meaningful problems
+and answer questions quickly, easily, and correctly.
+"""
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+keywords = ["space", "astrodynamics", "satellite"]
+authors = [
+    {name = "Duncan Eddy", email = "duncan.eddy@gmail.com"}
+]
+maintainers = [
+    {name = "Duncan Eddy", email = "duncan.eddy@gmail.com"}
+]
+
+[project.scripts]
+brahe = "brahe.cli.__main__:main"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# We name the rust module with a leading underscore to avoid a name conflict with the python module
+# This is a workaround for IDEs to avoid confusion in function naming.
+#
+# See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
+module-name = "brahe._brahe"
+# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["pyo3/extension-module", "python"]
+
+dependencies = [
+    'typer>=0.9.0,<1.0.0',
+    'rich>=13.0.0,<14.0.0',
+    'numpy>=1.26.0,<2.0.0'
+]
+
+# To install dev dependencies, run `pip install -e '.[dev]'`
+[project.optional-dependencies]
+dev = [
+    'pytest>=7.1.2,<8.0.0',
+    'pytest-cov>=3.0.0,<4.0.0'
+]

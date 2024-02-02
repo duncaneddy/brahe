@@ -2,12 +2,12 @@
 // Help functions for type conversions
 
 /// Helper function to parse strings into appropriate EOPExtrapolation enumerations
-fn string_to_eop_extrapolation(s: &str) -> Result<eop::EOPExtrapolation, PyErr> {
+fn string_to_eop_extrapolation(s: &str) -> Result<eop::EOPExtrapolation, BraheError> {
     match s.as_ref() {
         "Hold" => Ok(eop::EOPExtrapolation::Hold),
         "Zero" => Ok(eop::EOPExtrapolation::Zero),
         "Error" => Ok(eop::EOPExtrapolation::Error),
-        _ => Err(exceptions::PyRuntimeError::new_err(format!(
+        _ => Err(BraheError::Error(format!(
             "Unknown EOP Extrapolation string \"{}\"",
             s
         ))),
@@ -24,13 +24,13 @@ fn eop_extrapolation_to_string(extrapolation: eop::EOPExtrapolation) -> String {
 }
 
 /// Helper function to parse strings into appropriate EOPType enumerations
-fn string_to_eop_type(s: &str) -> Result<eop::EOPType, PyErr> {
+fn string_to_eop_type(s: &str) -> Result<eop::EOPType, BraheError> {
     match s.as_ref() {
         "C04" => Ok(eop::EOPType::C04),
         "StandardBulletinA" => Ok(eop::EOPType::StandardBulletinA),
         "Unknown" => Ok(eop::EOPType::Unknown),
         "Static" => Ok(eop::EOPType::Static),
-        _ => Err(exceptions::PyRuntimeError::new_err(format!(
+        _ => Err(BraheError::Error(format!(
             "Unknown EOP Type string \"{}\"",
             s
         ))),
@@ -79,51 +79,302 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
     Ok(())
 }
 
+// Fake Class to get typing to workout for setting the Global EOP Provider
+trait PyEOPProvider {}
+
 #[pyclass]
 #[pyo3(name = "StaticEOPProvider")]
-struct py_StaticEOPProvider {
+struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
 }
 
+impl PyEOPProvider for PyStaticEOPProvider {}
+
 #[pymethods]
-impl py_StaticEOPProvider {
-    fn __repr__(&self) -> String {
+impl PyStaticEOPProvider {
+    pub fn __repr__(&self) -> String {
         format!("{:?}", self.obj)
     }
 
-    fn __str__(&self) -> String {
+    pub fn __str__(&self) -> String {
         self.obj.to_string()
     }
 
     #[new]
-    fn new() -> Self {
-        py_StaticEOPProvider {
+    pub fn new() -> Self {
+        PyStaticEOPProvider {
             obj: eop::StaticEOPProvider::new(),
         }
     }
 
     #[classmethod]
-    fn from_zero(_cls: &PyType) -> Self {
-        py_StaticEOPProvider {
+    pub fn from_zero(_cls: &PyType) -> Self {
+        PyStaticEOPProvider {
             obj: eop::StaticEOPProvider::from_zero(),
         }
     }
+    #[classmethod]
+    pub fn from_values(_cls: &PyType, ut1_utc: f64, pm_x: f64, pm_y: f64, dx: f64, dy: f64, lod: f64) -> Self {
+        PyStaticEOPProvider {
+            obj: eop::StaticEOPProvider::from_values((ut1_utc, pm_x, pm_y, dx, dy, lod))
+        }
+    }
 
-    // from_values
+    pub fn is_initialized(&self) -> bool {
+        self.obj.is_initialized()
+    }
 
-    // fn is_initialized
-    // fn len
-    // fn eop_type
-    // fn extrapolation
-    // fn interpolation
-    // fn mjd_min
-    // fn mjd_max
-    // fn mjd_last_lod
-    // fn mjd_last_dxdy
-    // fn get_ut1_utc
-    // fn get_pm
-    // fn get_dxdy
-    // fn get_lod
-    // fn get_eop
+    pub fn len(&self) -> usize {
+        self.obj.len()
+    }
 
+    pub fn eop_type(&self) -> String {
+        eop_type_to_string(self.obj.eop_type())
+    }
+
+    pub fn extrapolation(&self) -> String {
+        eop_extrapolation_to_string(self.obj.extrapolation())
+    }
+
+    pub fn interpolation(&self) -> bool {
+        self.obj.interpolation()
+    }
+
+    pub fn mjd_min(&self) -> f64 {
+        self.obj.mjd_min()
+    }
+
+    pub fn mjd_max(&self) -> f64 {
+        self.obj.mjd_max()
+    }
+
+    pub fn mjd_last_lod(&self) -> f64 {
+        self.obj.mjd_last_lod()
+    }
+
+    pub fn mjd_last_dxdy(&self) -> f64 {
+        self.obj.mjd_last_dxdy()
+    }
+
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_ut1_utc(mjd)
+    }
+
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_pm(mjd)
+    }
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_dxdy(mjd)
+    }
+
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_lod(mjd)
+    }
+
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+        self.obj.get_eop(mjd)
+    }
+
+}
+
+#[pyclass]
+#[pyo3(name = "FileEOPProvider")]
+struct PyFileEOPProvider {
+    obj: eop::FileEOPProvider,
+}
+
+impl PyEOPProvider for PyFileEOPProvider {}
+
+#[pymethods]
+impl PyFileEOPProvider {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self.obj)
+    }
+
+    pub fn __str__(&self) -> String {
+        self.obj.to_string()
+    }
+
+    #[new]
+    pub fn new() -> Self {
+        PyFileEOPProvider {
+            obj: eop::FileEOPProvider::new(),
+        }
+    }
+
+    #[classmethod]
+    pub fn from_c04_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_c04_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    #[classmethod]
+    pub fn from_standard_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_standard_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    #[classmethod]
+    pub fn from_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    #[classmethod]
+    pub fn from_default_c04(_cls: &PyType, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_default_c04(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    #[classmethod]
+    pub fn from_default_standard(_cls: &PyType, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_default_standard(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    #[classmethod]
+    pub fn from_default_file(_cls: &PyType, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+        Ok(PyFileEOPProvider {
+            obj: eop::FileEOPProvider::from_default_file(string_to_eop_type(eop_type)?, interpolate, string_to_eop_extrapolation(extrapolate)?)?,
+        })
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.obj.is_initialized()
+    }
+
+    pub fn len(&self) -> usize {
+        self.obj.len()
+    }
+
+    pub fn eop_type(&self) -> String {
+        eop_type_to_string(self.obj.eop_type())
+    }
+
+    pub fn extrapolation(&self) -> String {
+        eop_extrapolation_to_string(self.obj.extrapolation())
+    }
+
+    pub fn interpolation(&self) -> bool {
+        self.obj.interpolation()
+    }
+
+    pub fn mjd_min(&self) -> f64 {
+        self.obj.mjd_min()
+    }
+
+    pub fn mjd_max(&self) -> f64 {
+        self.obj.mjd_max()
+    }
+
+    pub fn mjd_last_lod(&self) -> f64 {
+        self.obj.mjd_last_lod()
+    }
+
+    pub fn mjd_last_dxdy(&self) -> f64 {
+        self.obj.mjd_last_dxdy()
+    }
+
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_ut1_utc(mjd)
+    }
+
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_pm(mjd)
+    }
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_dxdy(mjd)
+    }
+
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_lod(mjd)
+    }
+
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+        self.obj.get_eop(mjd)
+    }
+
+}
+
+
+#[pyfunction]
+#[pyo3(text_signature = "(provider)")]
+#[pyo3(name = "set_global_eop_provider_from_static_provider")]
+pub fn py_set_global_eop_provider_from_static_provider(provider: &PyStaticEOPProvider) {
+    eop::set_global_eop_provider(provider.obj);
+}
+
+#[pyfunction]
+#[pyo3(text_signature = "(provider)")]
+#[pyo3(name = "set_global_eop_provider_from_file_provider")]
+pub fn py_set_global_eop_provider_from_file_provider(provider: &PyFileEOPProvider) {
+    // We have to clone the object because FileEOPProvider is not Copy and
+    // cannot implement a trivial one. Passing the reference to set the
+    // global provider would result in a transfer of ownership, so instead we
+    // clone the object and pass the clone.
+    //
+    // It would be preferable not to duplicate the memory and have to do the
+    // clone, but it is necessary to maintain the current API.
+    eop::set_global_eop_provider(provider.obj.clone());
+}
+
+pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
+    eop::get_global_ut1_utc(mjd)
+}
+
+pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
+    eop::get_global_pm(mjd)
+}
+
+pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
+    eop::get_global_dxdy(mjd)
+}
+
+pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
+    eop::get_global_lod(mjd)
+}
+
+pub fn get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+    eop::get_global_eop(mjd)
+}
+
+pub fn get_global_eop_initialization() -> bool {
+    eop::get_global_eop_initialization()
+}
+
+pub fn get_global_eop_len() -> usize {
+    eop::get_global_eop_len()
+}
+
+pub fn get_global_eop_type() -> String {
+    eop_type_to_string(eop::get_global_eop_type())
+}
+
+pub fn get_global_eop_extrapolation() -> String {
+    eop_extrapolation_to_string(eop::get_global_eop_extrapolation())
+}
+
+pub fn get_global_eop_interpolation() -> bool {
+    eop::get_global_eop_interpolation()
+}
+
+pub fn get_global_eop_mjd_min() -> f64 {
+    eop::get_global_eop_mjd_min()
+}
+
+pub fn get_global_eop_mjd_max() -> f64 {
+    eop::get_global_eop_mjd_max()
+}
+
+pub fn get_global_eop_mjd_last_lod() -> f64 {
+    eop::get_global_eop_mjd_last_lod()
+}
+
+pub fn get_global_eop_mjd_last_dxdy() -> f64 {
+    eop::get_global_eop_mjd_last_dxdy()
 }

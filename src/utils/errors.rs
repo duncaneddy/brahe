@@ -5,6 +5,12 @@
 use std::fmt;
 use std::io;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyOSError;
+
 #[derive(Debug, PartialEq)]
 pub enum BraheError {
     /// General-purpose error
@@ -39,5 +45,12 @@ impl From<io::Error> for BraheError {
 impl From<String> for BraheError {
     fn from(msg: String) -> Self {
         BraheError::Error(msg)
+    }
+}
+
+#[cfg(feature = "python")]
+impl From<BraheError> for PyErr {
+    fn from(error: BraheError) -> PyErr {
+        PyOSError::new_err(error.to_string())
     }
 }

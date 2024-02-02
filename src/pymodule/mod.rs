@@ -1,16 +1,21 @@
 /*!
  * This module defines the Python module for the Brahe library. It aggregates
- * all of the Python bindings for the core library into a single module.
+ * all the Python bindings for the core library into a single module.
  */
+
+use std::path::Path;
 
 use nalgebra as na;
 use numpy;
 use numpy::{Ix1, Ix2, PyArray};
+
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::PyType;
 use pyo3::{exceptions, wrap_pyfunction};
+
 use crate::*;
+use crate::utils::errors::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where
@@ -74,7 +79,7 @@ include!("time.rs");
 #[pymodule]
 #[pyo3(name = "_brahe")] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
 pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
-    /// Constants
+    //* Constants *//
     module.add("DEG2RAD", constants::DEG2RAD)?;
     module.add("RAD2DEG", constants::RAD2DEG)?;
     module.add("AS2RAD", constants::AS2RAD)?;
@@ -111,25 +116,32 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add("GM_NEPTUNE", constants::GM_NEPTUNE)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
 
-    /// EOP
+    //* EOP *//
 
     // Download
     module.add_function(wrap_pyfunction!(py_download_c04_eop_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_download_standard_eop_file, module)?)?;
 
     // Static Provider
-    module.add_class::<py_StaticEOPProvider>()?;
+    module.add_class::<PyStaticEOPProvider>()?;
+    module.add_class::<PyFileEOPProvider>()?;
 
     // File Provider
 
     // Global
 
-    /// Time
+    //* Time *//
 
     module.add_function(wrap_pyfunction!(py_mjd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_jd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_jd, module)?)?;
+
+    //* Frames *//
+
+    //* Orbits *//
+
+    //* Coordinates *//
 
     Ok(())
 }

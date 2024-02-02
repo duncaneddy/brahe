@@ -14,14 +14,14 @@ use crate::time::epoch::Epoch;
 /// The `TimeSeries` iterator will return a new `Epoch` for each iteration it is
 /// called. The iteration is exclusive so the `epoch_end` will not be reached.
 /// The last value will be one whole or partial step from the iterator end.
-pub struct TimeSeries {
+pub struct TimeRange {
     epoch_current: Epoch,
     epoch_end: Epoch,
     step: f64,
     positive_step: bool,
 }
 
-impl TimeSeries {
+impl TimeRange {
     /// Create an `Epoch` from a Julian date and time system. The time system is needed
     /// to make the instant unambiguous.
     ///
@@ -65,7 +65,7 @@ impl TimeSeries {
     }
 }
 
-impl Iterator for TimeSeries {
+impl Iterator for TimeRange {
     type Item = Epoch;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -106,7 +106,7 @@ mod tests {
         let epcf = Epoch::from_datetime(2022, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::TAI);
         let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 
-        for e in TimeSeries::new(epcs, epcf, 1.0) {
+        for e in TimeRange::new(epcs, epcf, 1.0) {
             assert_eq!(epc, e);
             epc += 1;
             epcv.push(e);
@@ -127,7 +127,7 @@ mod tests {
         let epcf = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
         let mut epc = Epoch::from_datetime(2022, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 
-        for e in TimeSeries::new(epcs, epcf, 1.0) {
+        for e in TimeRange::new(epcs, epcf, 1.0) {
             assert_eq!(epc, e);
             epc -= 1;
             epcv.push(e);

@@ -15,7 +15,7 @@ use crate::utils::errors::BraheError;
 /// It can be initialized as zero-valued or with specific values. It will
 /// never extrapolate or interpolate since the data is only for a single
 /// time.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct StaticEOPProvider {
     /// Internal variable to indicate whether the Earth Orietnation data Object
     /// has been properly initialized
@@ -72,7 +72,6 @@ impl fmt::Debug for StaticEOPProvider {
         )
     }
 }
-
 impl StaticEOPProvider {
     /// Creates a new, uninitialized `StaticEOPProvider` with zero values for all EOP parameters.
     /// This is the default constructor. It is not recommended to use this constructor unless a

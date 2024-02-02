@@ -124,11 +124,27 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
 
     // Static Provider
     module.add_class::<PyStaticEOPProvider>()?;
-    module.add_class::<PyFileEOPProvider>()?;
 
     // File Provider
+    module.add_class::<PyFileEOPProvider>()?;
 
     // Global
+    module.add_function(wrap_pyfunction!(py_set_global_eop_provider_from_static_provider, module)?)?;
+    module.add_function(wrap_pyfunction!(py_set_global_eop_provider_from_file_provider, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ut1_utc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_pm, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_dxdy, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_lod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_initialization, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_len, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_type, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_extrapolation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_interpolation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_min, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_max, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_lod, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_dxdy, module)?)?;
 
     //* Time *//
 

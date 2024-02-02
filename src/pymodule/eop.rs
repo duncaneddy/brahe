@@ -323,58 +323,100 @@ pub fn py_set_global_eop_provider_from_file_provider(provider: &PyFileEOPProvide
     eop::set_global_eop_provider(provider.obj.clone());
 }
 
-pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
+#[pyfunction]
+#[pyo3(text_signature = "(mjd)")]
+#[pyo3(name = "get_global_ut1_utc")]
+pub fn py_get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
     eop::get_global_ut1_utc(mjd)
 }
 
-pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
+#[pyfunction]
+#[pyo3(text_signature = "(mjd)")]
+#[pyo3(name = "get_global_pm")]
+pub fn py_get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
     eop::get_global_pm(mjd)
 }
 
-pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
+#[pyfunction]
+#[pyo3(text_signature = "(mjd)")]
+#[pyo3(name = "get_global_dxdy")]
+pub fn py_get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
     eop::get_global_dxdy(mjd)
 }
 
-pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
+#[pyfunction]
+#[pyo3(text_signature = "(mjd)")]
+#[pyo3(name = "get_global_lod")]
+pub fn py_get_global_lod(mjd: f64) -> Result<f64, BraheError> {
     eop::get_global_lod(mjd)
 }
 
-pub fn get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+#[pyfunction]
+#[pyo3(text_signature = "(mjd)")]
+#[pyo3(name = "get_global_eop")]
+pub fn py_get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
     eop::get_global_eop(mjd)
 }
 
-pub fn get_global_eop_initialization() -> bool {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_initialization")]
+pub fn py_get_global_eop_initialization() -> bool {
     eop::get_global_eop_initialization()
 }
 
-pub fn get_global_eop_len() -> usize {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_len")]
+pub fn py_get_global_eop_len() -> usize {
     eop::get_global_eop_len()
 }
 
-pub fn get_global_eop_type() -> String {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_type")]
+pub fn py_get_global_eop_type() -> String {
     eop_type_to_string(eop::get_global_eop_type())
 }
 
-pub fn get_global_eop_extrapolation() -> String {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_extrapolation")]
+pub fn py_get_global_eop_extrapolation() -> String {
     eop_extrapolation_to_string(eop::get_global_eop_extrapolation())
 }
 
-pub fn get_global_eop_interpolation() -> bool {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_interpolation")]
+pub fn py_get_global_eop_interpolation() -> bool {
     eop::get_global_eop_interpolation()
 }
 
-pub fn get_global_eop_mjd_min() -> f64 {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_mjd_min")]
+pub fn py_get_global_eop_mjd_min() -> f64 {
     eop::get_global_eop_mjd_min()
 }
 
-pub fn get_global_eop_mjd_max() -> f64 {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_mjd_max")]
+pub fn py_get_global_eop_mjd_max() -> f64 {
     eop::get_global_eop_mjd_max()
 }
 
-pub fn get_global_eop_mjd_last_lod() -> f64 {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_mjd_last_lod")]
+pub fn py_get_global_eop_mjd_last_lod() -> f64 {
     eop::get_global_eop_mjd_last_lod()
 }
 
-pub fn get_global_eop_mjd_last_dxdy() -> f64 {
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_global_eop_mjd_last_dxdy")]
+pub fn py_get_global_eop_mjd_last_dxdy() -> f64 {
     eop::get_global_eop_mjd_last_dxdy()
 }

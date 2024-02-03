@@ -69,9 +69,9 @@ macro_rules! numpy_to_vector {
 
 include!("eop.rs");
 include!("time.rs");
-// include!("orbits.rs");
-// include!("coordinates.rs");
-// include!("frames.rs");
+include!("orbits.rs");
+include!("coordinates.rs");
+include!("frames.rs");
 
 // Define Module
 
@@ -168,10 +168,44 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     )?)?;
 
     //* Frames *//
+    module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_earth_rotation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_polar_motion, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ecef_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_ecef_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ecef_to_eci, module)?)?;
 
     //* Orbits *//
+    module.add_function(wrap_pyfunction!(py_state_osculating_to_cartesian, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_cartesian_to_osculating, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_ecef_to_geocentric, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_geodetic_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_ecef_to_geodetic, module)?)?;
 
     //* Coordinates *//
+    module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
+    module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mean_motion, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
+    module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;
+    module.add_function(wrap_pyfunction!(py_semimajor_axis_general, module)?)?;
+    module.add_function(wrap_pyfunction!(py_perigee_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_periapsis_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_periapsis_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apogee_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apoapsis_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apoapsis_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_synchronous_inclination, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_mean, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_mean_to_eccentric, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_true_to_eccentric, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
+    module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
 
     Ok(())
 }

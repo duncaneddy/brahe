@@ -8,41 +8,40 @@ use serial_test::serial;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 
-use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::eop_provider::EarthOrientationProvider;
+use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::static_provider::StaticEOPProvider;
 use crate::utils::BraheError;
 
-static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Send>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(Box::new(StaticEOPProvider::new())))
-});
+static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Send>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(Box::new(StaticEOPProvider::new()))));
 
 /// Set the crate-wide static Earth orientation data provider. This function should be called
 /// before any other function in the crate which accesses the global Earth orientation data.
 /// If this function is not called, the crate-wide static Earth orientation data provider will
 /// not be initialized and any function which accesses it will panic.
-/// 
+///
 /// The global provider can be set to any object which implements the `EarthOrientationProvider`
 /// trait. This includes the `StaticEOPProvider` and `FileEOPProvider` objects. The global
 /// provider can also be set to a custom object which implements the `EarthOrientationProvider`
 /// trait.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// - `provider`: Object which implements the `EarthOrientationProvider` trait
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
-/// 
+///
 /// // Initialize Global EOP from StaticEOPProvider
-/// 
+///
 /// let eop = StaticEOPProvider::from_zero();
 /// set_global_eop_provider(eop);
-/// 
+///
 /// // Initialize Global EOP from FileEOPProvider
-/// 
+///
 /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
 /// set_global_eop_provider(eop);
 /// ```
@@ -75,7 +74,7 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 /// - `ut1_utc`: Offset of UT1 time scale from UTC time scale. Units: (seconds)
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -116,7 +115,7 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 /// - `pm_y`: y-component of polar motion correction. Units: (radians)
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -157,7 +156,7 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// - `dY`: "Y" component of Celestial Intermediate Pole (CIP) offset. Units: (radians)
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -198,7 +197,7 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 ///     TAI day. Units: (seconds)
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -246,7 +245,7 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 ///    TAI day. Units: (seconds)
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -265,11 +264,11 @@ pub fn get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheE
 /// Returns initialzation state of global Earth orientation data provider.
 ///
 /// # Returns
-/// 
+///
 /// - `intialized`: Boolean, which if `true` indicates that the global static variable has been properly initialized.
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -286,11 +285,11 @@ pub fn get_global_eop_initialization() -> bool {
 /// Return length of loaded global Earth orientation data provider.
 ///
 /// # Returns
-/// 
+///
 /// - `len`: length of number of loaded EOP data points
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -309,11 +308,11 @@ pub fn get_global_eop_len() -> usize {
 /// See the `EOPType` enum for possible values.
 ///
 /// # Returns
-/// 
+///
 /// - `eop_type`: Type of loaded Earth Orientation data
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -332,11 +331,11 @@ pub fn get_global_eop_type() -> EOPType {
 /// See the `EOPExtrapolation` enum for possible values.
 ///
 /// # Returns
-/// 
+///
 /// - `extrapolation`: Extrapolation setting of loaded Earth Orientation data
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -352,18 +351,18 @@ pub fn get_global_eop_extrapolation() -> EOPExtrapolation {
 }
 
 /// Return interpolation status of the global Earth orientation data provider.
-/// 
+///
 /// When `true`, the global Earth orientation data provider will linearly interpolate between
 /// data points when the requested date is between two data points. When `false`, the
 /// global Earth orientation data provider will return the value from the most recent
 /// data point.
 ///
 /// # Returns
-/// 
+///
 /// - `interpolation`: Interpolation setting of loaded Earth Orientation data
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -382,11 +381,11 @@ pub fn get_global_eop_interpolation() -> bool {
 /// provider. Attempting to access data before this date will result in an error.
 ///
 /// # Returns
-/// 
+///
 /// - `mjd_min`: Minimum MJD of loaded EOP data points
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -407,11 +406,11 @@ pub fn get_global_eop_mjd_min() -> f64 {
 /// by the `extrapolation` setting of the underlying `EarthOrientationData` object.
 ///
 /// # Returns
-/// 
+///
 /// - `mjd_max`: Maximum MJD of loaded EOP data points
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -432,11 +431,11 @@ pub fn get_global_eop_mjd_max() -> f64 {
 /// by the `extrapolation` setting of the underlying `EarthOrientationData` object.
 ///
 /// # Returns
-/// 
+///
 /// - `mjd_last_lod`: MJD of latest chronological EOP data points with a valid LOD value
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -457,11 +456,11 @@ pub fn get_global_eop_mjd_last_lod() -> f64 {
 /// the behavior specified by the `extrapolation` setting of the underlying `EarthOrientationData`.
 ///
 /// # Returns
-/// 
+///
 /// - `mjd_last_dxdy`: MJD of latest chronological EOP data points with valid dX, dY values
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::eop::*;
 ///
@@ -481,11 +480,11 @@ pub fn get_global_eop_mjd_last_dxdy() -> f64 {
 #[serial]
 mod tests {
     use super::*;
+    use crate::constants::AS2RAD;
+    use crate::eop::file_provider::FileEOPProvider;
+    use crate::eop::static_provider::StaticEOPProvider;
     use std::env;
     use std::path::Path;
-    use crate::constants::AS2RAD;
-    use crate::eop::static_provider::StaticEOPProvider;
-    use crate::eop::file_provider::FileEOPProvider;
 
     use serial_test::serial;
 
@@ -497,7 +496,8 @@ mod tests {
             .join("test_assets")
             .join("finals.all.iau2000.txt");
 
-        let eop_result = FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation);
+        let eop_result =
+            FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation);
         assert_eq!(eop_result.is_err(), false);
         let eop = eop_result.unwrap();
         assert_eq!(eop.is_initialized(), true);
@@ -541,7 +541,7 @@ mod tests {
     #[serial]
     fn test_set_global_eop_from_static_values() {
         clear_test_global_eop();
-        
+
         assert_eq!(get_global_eop_initialization(), false);
 
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
@@ -595,8 +595,9 @@ mod tests {
         clear_test_global_eop();
         assert_eq!(get_global_eop_initialization(), false);
 
-        let eop = FileEOPProvider::from_default_file(EOPType::C04, false, EOPExtrapolation::Zero).unwrap();
-        
+        let eop = FileEOPProvider::from_default_file(EOPType::C04, false, EOPExtrapolation::Zero)
+            .unwrap();
+
         set_global_eop_provider(eop);
 
         assert_eq!(get_global_eop_initialization(), true);
@@ -638,8 +639,13 @@ mod tests {
         clear_test_global_eop();
         assert_eq!(get_global_eop_initialization(), false);
 
-        let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, false, EOPExtrapolation::Zero).unwrap();
-        
+        let eop = FileEOPProvider::from_default_file(
+            EOPType::StandardBulletinA,
+            false,
+            EOPExtrapolation::Zero,
+        )
+        .unwrap();
+
         set_global_eop_provider(eop);
 
         assert_eq!(get_global_eop_initialization(), true);
@@ -657,7 +663,6 @@ mod tests {
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert_eq!(get_global_eop_initialization(), true);
-
 
         // Test getting exact point in table
         let ut1_utc = get_global_ut1_utc(59569.0).unwrap();
@@ -718,17 +723,21 @@ mod tests {
 
         // Test getting exact point in table
         let (dX, dY) = get_global_dxdy(59569.0).unwrap();
-        assert_eq!(dX,  0.265 * 1.0e-3 * AS2RAD);
+        assert_eq!(dX, 0.265 * 1.0e-3 * AS2RAD);
         assert_eq!(dY, -0.067 * 1.0e-3 * AS2RAD);
 
         // Test interpolating within table
         let (dX, dY) = get_global_dxdy(59569.5).unwrap();
-        assert_eq!(dX, ( 0.265 * AS2RAD + 0.268 * AS2RAD) * 1.0e-3 / 2.0);
-        assert_abs_diff_eq!(dY, (-0.067 * AS2RAD + -0.067 * AS2RAD) * 1.0e-3 / 2.0, epsilon = f64::EPSILON);
+        assert_eq!(dX, (0.265 * AS2RAD + 0.268 * AS2RAD) * 1.0e-3 / 2.0);
+        assert_abs_diff_eq!(
+            dY,
+            (-0.067 * AS2RAD + -0.067 * AS2RAD) * 1.0e-3 / 2.0,
+            epsilon = f64::EPSILON
+        );
 
         // Test extrapolation hold
         let (dX, dY) = get_global_dxdy(99999.0).unwrap();
-        assert_eq!(dX,  0.006 * 1.0e-3 * AS2RAD);
+        assert_eq!(dX, 0.006 * 1.0e-3 * AS2RAD);
         assert_eq!(dY, -0.118 * 1.0e-3 * AS2RAD);
 
         // Test extrapolation zero

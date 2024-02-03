@@ -93,9 +93,9 @@ impl Iterator for TimeRange {
 mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
+    use super::*;
     use crate::time::epoch::Epoch;
     use crate::time::time_types::TimeSystem;
-    use super::*;
 
     #[test]
     fn test_time_series() {

@@ -61,9 +61,18 @@ mod tests {
 
     #[test]
     fn test_eop_extrapolation_display() {
-        assert_eq!(format!("{}", EOPExtrapolation::Zero), "EOPExtrapolation::Zero");
-        assert_eq!(format!("{}", EOPExtrapolation::Hold), "EOPExtrapolation::Hold");
-        assert_eq!(format!("{}", EOPExtrapolation::Error), "EOPExtrapolation::Error");
+        assert_eq!(
+            format!("{}", EOPExtrapolation::Zero),
+            "EOPExtrapolation::Zero"
+        );
+        assert_eq!(
+            format!("{}", EOPExtrapolation::Hold),
+            "EOPExtrapolation::Hold"
+        );
+        assert_eq!(
+            format!("{}", EOPExtrapolation::Error),
+            "EOPExtrapolation::Error"
+        );
     }
 
     #[test]

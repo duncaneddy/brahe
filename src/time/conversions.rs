@@ -7,9 +7,10 @@ use std::os::raw::{c_char, c_int};
 
 use rsofa;
 
-use crate::constants::{MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI, GPS_TAI};
-use crate::time::time_types::TimeSystem;
+use crate::constants::{GPS_TAI, MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI};
 use crate::eop::get_global_ut1_utc;
+use crate::time::time_types::TimeSystem;
+use crate::utils::split_float;
 
 /// Convert a Gregorian calendar date representation to the equivalent Julian Date
 /// representation of that same instant in time.
@@ -367,14 +368,149 @@ pub fn time_system_offset(
     offset
 }
 
+/// Compute the offset between two time systems at a given Modified Julian Date.
+///
+/// The offset (in seconds) is computed as:
+///    time_system_offset = time_system_destination - time_system_source
+///
+/// The value returned is the number of seconds that must be added to the
+/// source time system at given the input epoch instant to get the equivalent
+/// instant in the destination time system.
+///
+/// Conversions are accomplished using SOFA C library calls.
+///
+/// # Arguments
+/// - `mjd`: Modified Julian date of epoch
+/// - `time_system_src`: Source time system
+/// - `time_system_dst`: Destination time system
+///
+/// Returns:
+///    offset (float): Offset between soruce and destination time systems in seconds.
+///
+/// Example:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{time_system_offset_for_mjd, TimeSystem};
+///
+/// // Initialize Global EOP
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Get offset between GPS and TAI. This should be 19 seconds.
+/// let offset = time_system_offset_for_mjd(58909.0, TimeSystem::GPS, TimeSystem::TAI);
+/// assert_eq!(offset, 19.0);
+/// ```
+pub fn time_system_offset_for_mjd(
+    mjd: f64,
+    time_system_src: TimeSystem,
+    time_system_dst: TimeSystem,
+) -> f64 {
+    time_system_offset(MJD_ZERO, mjd, time_system_src, time_system_dst)
+}
+
+/// Compute the offset between two time systems at a given Julian Date.
+///
+/// The offset (in seconds) is computed as:
+///   time_system_offset = time_system_destination - time_system_source
+///
+/// The value returned is the number of seconds that must be added to the
+/// source time system at given the input epoch instant to get the equivalent
+/// instant in the destination time system.
+///
+/// Conversions are accomplished using SOFA C library calls.
+///
+/// # Arguments
+/// - `jd`: Julian date of epoch
+/// - `time_system_src`: Source time system
+/// - `time_system_dst`: Destination time system
+///
+/// Returns:
+///   offset (float): Offset between soruce and destination time systems in seconds.
+///
+/// Example:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{time_system_offset_for_jd, TimeSystem};
+///
+/// // Initialize Global EOP
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Get offset between GPS and TAI. This should be 19 seconds.
+/// let offset = time_system_offset_for_jd(58909.0, TimeSystem::GPS, TimeSystem::TAI);
+/// assert_eq!(offset, 19.0);
+/// ```
+pub fn time_system_offset_for_jd(
+    jd: f64,
+    time_system_src: TimeSystem,
+    time_system_dst: TimeSystem,
+) -> f64 {
+    let (jd, fd) = split_float(jd);
+    time_system_offset(jd, fd, time_system_src, time_system_dst)
+}
+
+/// Compute the offset between two time systems at a given Gregorian calendar date.
+///
+/// The offset (in seconds) is computed as:
+///  time_system_offset = time_system_destination - time_system_source
+///
+/// The value returned is the number of seconds that must be added to the
+/// source time system at given the input epoch instant to get the equivalent
+/// instant in the destination time system.
+///
+/// Conversions are accomplished using SOFA C library calls.
+///
+/// # Arguments
+/// - `year`: Year
+/// - `month`: Month
+/// - `day`: Day
+/// - `hour`: Hour
+/// - `minute`: Minute
+/// - `second`: Second
+/// - `time_system_src`: Source time system
+/// - `time_system_dst`: Destination time system
+///
+/// Returns:
+/// offset (float): Offset between soruce and destination time systems in seconds.
+///
+/// Example:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{time_system_offset_for_datetime, TimeSystem};
+///
+/// // Initialize Global EOP
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Get offset between GPS and TAI. This should be 19 seconds.
+/// let offset = time_system_offset_for_datetime(2018, 6, 1, 0, 0, 0.0, 0.0, TimeSystem::GPS, TimeSystem::TAI);
+/// assert_eq!(offset, 19.0);
+/// ```
+pub fn time_system_offset_for_datetime(
+    year: u32,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: f64,
+    nanosecond: f64,
+    time_system_src: TimeSystem,
+    time_system_dst: TimeSystem,
+) -> f64 {
+    let jd = datetime_to_jd(year, month, day, hour, minute, second, nanosecond);
+    let (jd, fd) = split_float(jd);
+    time_system_offset(jd, fd, time_system_src, time_system_dst)
+}
+
 #[cfg(test)]
 mod tests {
 
     use approx::assert_abs_diff_eq;
 
-    use crate::utils::testing::setup_global_test_eop;
+    use super::*;
     use crate::constants::*;
     use crate::time::*;
+    use crate::utils::testing::setup_global_test_eop;
 
     #[test]
     fn test_datetime_to_jd() {
@@ -543,4 +679,644 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_time_system_offset_for_mjd() {
+        setup_global_test_eop();
+
+        // Test date
+        let mjd = datetime_to_mjd(2018, 6, 1, 0, 0, 0.0, 0.0);
+
+        // UTC - TAI offset
+        let dutc = -37.0;
+        let dut1 = 0.0769966;
+
+        // GPS
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::GPS, TimeSystem::GPS),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::GPS, TimeSystem::TT),
+            TT_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::GPS, TimeSystem::UTC),
+            dutc + TAI_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::GPS, TimeSystem::UT1),
+            dutc + TAI_GPS + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::GPS, TimeSystem::TAI),
+            TAI_GPS
+        );
+
+        // TT
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TT, TimeSystem::GPS),
+            GPS_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TT, TimeSystem::TT),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TT, TimeSystem::UTC),
+            dutc + TAI_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TT, TimeSystem::UT1),
+            dutc + TAI_TT + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TT, TimeSystem::TAI),
+            TAI_TT
+        );
+
+        // UTC
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UTC, TimeSystem::GPS),
+            -dutc + GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UTC, TimeSystem::TT),
+            -dutc + TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UTC, TimeSystem::UTC),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UTC, TimeSystem::UT1),
+            dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UTC, TimeSystem::TAI),
+            -dutc
+        );
+
+        // UT1
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UT1, TimeSystem::GPS),
+            -dutc + GPS_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UT1, TimeSystem::TT),
+            -dutc + TT_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UT1, TimeSystem::UTC),
+            -dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UT1, TimeSystem::UT1),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::UT1, TimeSystem::TAI),
+            -dutc - dut1,
+            epsilon = 1e-6
+        );
+
+        // TAI
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TAI, TimeSystem::GPS),
+            GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TAI, TimeSystem::TT),
+            TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TAI, TimeSystem::UTC),
+            dutc
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TAI, TimeSystem::UT1),
+            dutc + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_mjd(mjd, TimeSystem::TAI, TimeSystem::TAI),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_time_system_offset_for_jd() {
+        setup_global_test_eop();
+
+        // Test date
+        let jd = datetime_to_jd(2018, 6, 1, 0, 0, 0.0, 0.0);
+
+        // UTC - TAI offset
+        let dutc = -37.0;
+        let dut1 = 0.0769966;
+
+        // GPS
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::GPS, TimeSystem::GPS),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::GPS, TimeSystem::TT),
+            TT_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::GPS, TimeSystem::UTC),
+            dutc + TAI_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::GPS, TimeSystem::UT1),
+            dutc + TAI_GPS + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::GPS, TimeSystem::TAI),
+            TAI_GPS
+        );
+
+        // TT
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TT, TimeSystem::GPS),
+            GPS_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TT, TimeSystem::TT),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TT, TimeSystem::UTC),
+            dutc + TAI_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TT, TimeSystem::UT1),
+            dutc + TAI_TT + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TT, TimeSystem::TAI),
+            TAI_TT
+        );
+
+        // UTC
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UTC, TimeSystem::GPS),
+            -dutc + GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UTC, TimeSystem::TT),
+            -dutc + TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UTC, TimeSystem::UTC),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UTC, TimeSystem::UT1),
+            dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UTC, TimeSystem::TAI),
+            -dutc
+        );
+
+        // UT1
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UT1, TimeSystem::GPS),
+            -dutc + GPS_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UT1, TimeSystem::TT),
+            -dutc + TT_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UT1, TimeSystem::UTC),
+            -dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UT1, TimeSystem::UT1),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::UT1, TimeSystem::TAI),
+            -dutc - dut1,
+            epsilon = 1e-6
+        );
+
+        // TAI
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TAI, TimeSystem::GPS),
+            GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TAI, TimeSystem::TT),
+            TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TAI, TimeSystem::UTC),
+            dutc
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TAI, TimeSystem::UT1),
+            dutc + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_jd(jd, TimeSystem::TAI, TimeSystem::TAI),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_time_system_offset_for_datetime() {
+        setup_global_test_eop();
+
+        // Test date
+        // UTC - TAI offset
+        let dutc = -37.0;
+        let dut1 = 0.0769966;
+
+        // GPS
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS,
+                TimeSystem::GPS
+            ),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS,
+                TimeSystem::TT
+            ),
+            TT_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS,
+                TimeSystem::UTC
+            ),
+            dutc + TAI_GPS
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS,
+                TimeSystem::UT1
+            ),
+            dutc + TAI_GPS + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS,
+                TimeSystem::TAI
+            ),
+            TAI_GPS
+        );
+
+        // TT
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TT,
+                TimeSystem::GPS
+            ),
+            GPS_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TT,
+                TimeSystem::TT
+            ),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TT,
+                TimeSystem::UTC
+            ),
+            dutc + TAI_TT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TT,
+                TimeSystem::UT1
+            ),
+            dutc + TAI_TT + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TT,
+                TimeSystem::TAI
+            ),
+            TAI_TT
+        );
+
+        // UTC
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+                TimeSystem::GPS
+            ),
+            -dutc + GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+                TimeSystem::TT
+            ),
+            -dutc + TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+                TimeSystem::UTC
+            ),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+                TimeSystem::UT1
+            ),
+            dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+                TimeSystem::TAI
+            ),
+            -dutc
+        );
+
+        // UT1
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UT1,
+                TimeSystem::GPS
+            ),
+            -dutc + GPS_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UT1,
+                TimeSystem::TT
+            ),
+            -dutc + TT_TAI - dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UT1,
+                TimeSystem::UTC
+            ),
+            -dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UT1,
+                TimeSystem::UT1
+            ),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UT1,
+                TimeSystem::TAI
+            ),
+            -dutc - dut1,
+            epsilon = 1e-6
+        );
+
+        // TAI
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TAI,
+                TimeSystem::GPS
+            ),
+            GPS_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TAI,
+                TimeSystem::TT
+            ),
+            TT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TAI,
+                TimeSystem::UTC
+            ),
+            dutc
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TAI,
+                TimeSystem::UT1
+            ),
+            dutc + dut1,
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            time_system_offset_for_datetime(
+                2018,
+                6,
+                1,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::TAI,
+                TimeSystem::TAI
+            ),
+            0.0
+        );
+    }
 }

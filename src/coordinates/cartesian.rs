@@ -157,16 +157,14 @@ pub fn state_cartesian_to_osculating(
     )
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::utils::math::*;
-    use crate::utils::testing::setup_global_test_eop;
-    use crate::constants::{R_EARTH};
+    use crate::constants::R_EARTH;
     use crate::coordinates::*;
     use crate::orbits::*;
+    use crate::utils::math::*;
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
-
 
     #[test]
     fn test_state_osculating_to_cartesian() {

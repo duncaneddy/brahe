@@ -2,20 +2,19 @@
  * Defines the `Duration` type, which represents a span of time.
  */
 
-
-use std::fmt;
 use num_traits::float::Float;
 use num_traits::ToPrimitive;
+use std::fmt;
 
 /// Represents a span of time.
-/// 
+///
 /// Durations are composed of a number of days and a number of picosecondss.
 /// Picosecondss are represented as a signed integer to allow for negative durations.
 /// Integers are used to represent picosecondss to avoid floating point rounding errors.
 /// Picosecondss were chosen as the smallest unit of time to allow for fine grained
 /// resolution of time differences, especially those that can arise in precision
 /// measurement systems.
-/// 
+///
 /// # Fields
 /// - `days`: The number of days in the duration.
 /// - `picoseconds`: Number of picoseconds in the duration.
@@ -29,7 +28,7 @@ pub struct Duration {
 
 impl Duration {
     /// Creates a new `Duration` from the specified number of days and picoseconds.
-    /// 
+    ///
     /// # Arguments
     /// - `days`: The number of days in the duration.
     /// - `picoseconds`: Number of picoseconds in the duration.
@@ -71,7 +70,10 @@ impl Duration {
     /// ```
     pub fn from_years(years: u64) -> Duration {
         let days = (years as f64) * 365.25;
-        Duration::new(days.floor() as u64, (days.fract() * 86_400_000_000_000_000.0) as u64)
+        Duration::new(
+            days.floor() as u64,
+            (days.fract() * 86_400_000_000_000_000.0) as u64,
+        )
     }
 
     /// Creates a new `Duration` from the input number of days.
@@ -176,7 +178,10 @@ impl Duration {
     /// assert_eq!(duration.picoseconds, 1_000_000_000);
     /// ```
     pub fn from_milliseconds(milliseconds: u64) -> Duration {
-        Duration::new(milliseconds / 86_400_000, (milliseconds % 86_400_000) * 1_000_000_000)
+        Duration::new(
+            milliseconds / 86_400_000,
+            (milliseconds % 86_400_000) * 1_000_000_000,
+        )
     }
 
     /// Creates a new `Duration` from the input number of microseconds.
@@ -197,7 +202,10 @@ impl Duration {
     /// assert_eq!(duration.picoseconds, 1_000_000);
     /// ```
     pub fn from_microseconds(microseconds: u64) -> Duration {
-        Duration::new(microseconds / 86_400_000_000, (microseconds % 86_400_000_000) * 1_000_000)
+        Duration::new(
+            microseconds / 86_400_000_000,
+            (microseconds % 86_400_000_000) * 1_000_000,
+        )
     }
 
     /// Creates a new `Duration` from the input number of nanoseconds.
@@ -218,7 +226,10 @@ impl Duration {
     /// assert_eq!(duration.picoseconds, 1_000);
     /// ```
     pub fn from_nanoseconds(nanoseconds: u64) -> Duration {
-        Duration::new(nanoseconds / 86_400_000_000_000, (nanoseconds % 86_400_000_000_000) * 1000)
+        Duration::new(
+            nanoseconds / 86_400_000_000_000,
+            (nanoseconds % 86_400_000_000_000) * 1000,
+        )
     }
 
     /// Creates a new `Duration` from the input number of picoseconds.
@@ -239,7 +250,10 @@ impl Duration {
     /// assert_eq!(duration.picoseconds, 1);
     /// ```
     pub fn from_picoseconds(picoseconds: u64) -> Duration {
-        Duration::new(picoseconds / 86_400_000_000_000_000, picoseconds % 86_400_000_000_000_000)
+        Duration::new(
+            picoseconds / 86_400_000_000_000_000,
+            picoseconds % 86_400_000_000_000_000,
+        )
     }
 
     /// Creates a new `Duration` from the total duration of the input time units.
@@ -262,11 +276,22 @@ impl Duration {
     /// assert_eq!(duration.days, 366);
     /// assert_eq!(duration.picoseconds, 25_261_000_000_000_001);
     /// ```
-    pub fn from_time_units(years: u64, days: u64, hours: u64, minutes: u64, seconds: u64, picoseconds: u64) -> Duration {
+    pub fn from_time_units(
+        years: u64,
+        days: u64,
+        hours: u64,
+        minutes: u64,
+        seconds: u64,
+        picoseconds: u64,
+    ) -> Duration {
         let days = (years as f64) * 365.25 + days as f64;
         Duration::new(
             days.floor() as u64,
-            (days.fract() * 86_400_000_000_000_000.0) as u64 + hours * 3_600_000_000_000_000 + minutes * 60_000_000_000_000 + seconds * 1_000_000_000_000 + picoseconds
+            (days.fract() * 86_400_000_000_000_000.0) as u64
+                + hours * 3_600_000_000_000_000
+                + minutes * 60_000_000_000_000
+                + seconds * 1_000_000_000_000
+                + picoseconds,
         )
     }
 
@@ -317,7 +342,14 @@ impl Duration {
     pub fn from_float<T: Float + Into<T> + ToPrimitive>(time: T, ndp: i32) -> Duration {
         const PICOSECONDS_EXPONENT: i32 = 12;
         let picoseconds = time * T::from(10).unwrap().powi(ndp + PICOSECONDS_EXPONENT);
-        Duration::new((picoseconds / T::from(86_400_000_000_000_000_i64).unwrap()).to_u64().unwrap(), (picoseconds % T::from(86_400_000_000_000_000_i64).unwrap()).to_u64().unwrap())
+        Duration::new(
+            (picoseconds / T::from(86_400_000_000_000_000_i64).unwrap())
+                .to_u64()
+                .unwrap(),
+            (picoseconds % T::from(86_400_000_000_000_000_i64).unwrap())
+                .to_u64()
+                .unwrap(),
+        )
     }
 
     // /// Initialize duration from an unsigned integer.
@@ -398,7 +430,11 @@ impl fmt::Display for Duration {
 
 impl fmt::Debug for Duration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Duration<{} days, {} picoseconds>", self.days, self.picoseconds)
+        write!(
+            f,
+            "Duration<{} days, {} picoseconds>",
+            self.days, self.picoseconds
+        )
     }
 }
 
@@ -419,7 +455,6 @@ trait ToDuration {
     fn weeks(&self) -> Duration;
     fn months(&self) -> Duration;
     fn years(&self) -> Duration;
-
 }
 
 #[cfg(test)]
@@ -436,9 +471,21 @@ mod tests {
 
     #[test]
     fn test_duration_debug_display() {
-        assert_eq!(format!("{:?}", Duration::new(1, 1)), "Duration<1 days, 1 picoseconds>");
-        assert_eq!(format!("{:?}", Duration::new(1, 0)), "Duration<1 days, 0 picoseconds>");
-        assert_eq!(format!("{:?}", Duration::new(0, 1)), "Duration<0 days, 1 picoseconds>");
-        assert_eq!(format!("{:?}", Duration::new(0, 0)), "Duration<0 days, 0 picoseconds>");
+        assert_eq!(
+            format!("{:?}", Duration::new(1, 1)),
+            "Duration<1 days, 1 picoseconds>"
+        );
+        assert_eq!(
+            format!("{:?}", Duration::new(1, 0)),
+            "Duration<1 days, 0 picoseconds>"
+        );
+        assert_eq!(
+            format!("{:?}", Duration::new(0, 1)),
+            "Duration<0 days, 1 picoseconds>"
+        );
+        assert_eq!(
+            format!("{:?}", Duration::new(0, 0)),
+            "Duration<0 days, 0 picoseconds>"
+        );
     }
 }

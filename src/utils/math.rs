@@ -1,4 +1,3 @@
-
 use num_traits::float::Float;
 
 use nalgebra as na;
@@ -191,7 +190,10 @@ mod tests {
     fn test_matrix3_from_array() {
         let mat = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
         let m = matrix3_from_array(&mat);
-        assert_eq!(m, na::Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0));
+        assert_eq!(
+            m,
+            na::Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
+        );
 
         assert_eq!(m[(0, 0)], 1.0);
         assert_eq!(m[(0, 1)], 2.0);

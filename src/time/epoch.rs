@@ -2,17 +2,17 @@
  * Defines the `Epoch` type, which represents a point in time relative to MJD2000 in the TAI time system.
  */
 
+use std::cmp::Ordering;
 use std::f64::consts::PI;
-use std::{fmt, ops};
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
-use std::cmp::Ordering;
+use std::{fmt, ops};
 
 use regex::Regex;
 
-use crate::constants::{MJD_ZERO, GPS_ZERO, SECONDS_PER_DAY};
-use crate::time::time_types::TimeSystem;
+use crate::constants::{GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
 use crate::time::conversions::time_system_offset;
+use crate::time::time_types::TimeSystem;
 
 use crate::utils::math::split_float;
 
@@ -63,7 +63,6 @@ fn align_epoch_data(days: u64, seconds: u32, nanoseconds: f64) -> (u64, u32, f64
 
     (d, s, ns)
 }
-
 
 /// `Epoch` representing a specific instant in time.
 ///
@@ -263,7 +262,8 @@ impl Epoch {
             seconds = (SECONDS_PER_DAY + (ws + woffset + f64::trunc(second))) as u32;
         }
 
-        let nanoseconds = nanoseconds + (fs + foffset + f64::fract(second)) * NANOSECONDS_PER_SECOND_FLOAT;
+        let nanoseconds =
+            nanoseconds + (fs + foffset + f64::fract(second)) * NANOSECONDS_PER_SECOND_FLOAT;
 
         let (d, s, ns) = align_epoch_data(days, seconds, nanoseconds);
 
@@ -505,7 +505,8 @@ impl Epoch {
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds = seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let mut seconds =
+            seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
 
         while seconds < 0.0 {
             days -= 1.0;
@@ -553,7 +554,8 @@ impl Epoch {
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds = gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let mut seconds =
+            gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
 
         while seconds < 0.0 {
             days -= 1.0;
@@ -600,7 +602,8 @@ impl Epoch {
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds = gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let mut seconds =
+            gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
 
         while seconds < 0.0 {
             days -= 1.0;
@@ -643,7 +646,8 @@ impl Epoch {
     fn get_jdfd(&self, time_system: TimeSystem) -> (f64, f64) {
         // Get JD / FD from Epoch
         let jd = self.days as f64;
-        let fd = ((self.nanoseconds) / NANOSECONDS_PER_SECOND_FLOAT + self.seconds as f64) / SECONDS_PER_DAY;
+        let fd = ((self.nanoseconds) / NANOSECONDS_PER_SECOND_FLOAT + self.seconds as f64)
+            / SECONDS_PER_DAY;
 
         let offset = time_system_offset(jd, fd, TimeSystem::TAI, time_system);
         let fd = fd + offset / SECONDS_PER_DAY;
@@ -685,7 +689,10 @@ impl Epoch {
     /// let (year, month, day, hour, minutes, seconds, nanoseconds) = epc.to_datetime_as_time_system(TimeSystem::UTC);
     /// ```
     #[allow(temporary_cstring_as_ptr)]
-    pub fn to_datetime_as_time_system(&self, time_system: TimeSystem) -> (u32, u8, u8, u8, u8, f64, f64) {
+    pub fn to_datetime_as_time_system(
+        &self,
+        time_system: TimeSystem,
+    ) -> (u32, u8, u8, u8, u8, f64, f64) {
         // Get JD / FD from Epoch
         let (jd, fd) = self.get_jdfd(time_system);
 
@@ -1481,9 +1488,9 @@ impl PartialEq for Epoch {
         (self.days == other.days)
             && (self.seconds == other.seconds)
             && (((self.nanoseconds + self.nanoseconds_kc)
-            - (other.nanoseconds + other.nanoseconds_kc))
-            .abs()
-            < 1.0e-6)
+                - (other.nanoseconds + other.nanoseconds_kc))
+                .abs()
+                < 1.0e-6)
     }
 }
 
@@ -1500,17 +1507,17 @@ impl Ord for Epoch {
         if (self.days < other.days)
             || ((self.days == other.days) && (self.seconds < other.seconds))
             || ((self.days == other.days)
-            && (self.seconds == other.seconds)
-            && ((self.nanoseconds + self.nanoseconds_kc)
-            < (other.nanoseconds + other.nanoseconds_kc)))
+                && (self.seconds == other.seconds)
+                && ((self.nanoseconds + self.nanoseconds_kc)
+                    < (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Less
         } else if (self.days > other.days)
             || ((self.days == other.days) && (self.seconds > other.seconds))
             || ((self.days == other.days)
-            && (self.seconds == other.seconds)
-            && ((self.nanoseconds + self.nanoseconds_kc)
-            > (other.nanoseconds + other.nanoseconds_kc)))
+                && (self.seconds == other.seconds)
+                && ((self.nanoseconds + self.nanoseconds_kc)
+                    > (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Greater
         } else {
@@ -1521,12 +1528,12 @@ impl Ord for Epoch {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::PI;
     use approx::assert_abs_diff_eq;
+    use std::f64::consts::PI;
 
-    use crate::utils::testing::setup_global_test_eop;
     use crate::constants::*;
     use crate::time::*;
+    use crate::utils::testing::setup_global_test_eop;
 
     #[test]
     fn test_epoch_display() {
@@ -1874,7 +1881,10 @@ mod tests {
         assert_eq!(epc.mjd(), MJD2000);
 
         let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
-        assert_eq!(epc.mjd_as_time_system(TimeSystem::UTC), MJD2000 - 32.0 / 86400.0)
+        assert_eq!(
+            epc.mjd_as_time_system(TimeSystem::UTC),
+            MJD2000 - 32.0 / 86400.0
+        )
     }
 
     #[test]

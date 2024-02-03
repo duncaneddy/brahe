@@ -101,21 +101,21 @@ email me at duncan.eddy (at) gmail.com.
 #[cfg(feature = "python")]
 mod pymodule;
 
-pub mod utils;
+pub mod attitude;
 pub mod constants;
+pub mod coordinates;
 pub mod eop;
-pub mod time;
 pub mod frames;
 pub mod orbits;
-pub mod coordinates;
-pub mod attitude;
+pub mod time;
+pub mod utils;
 
 // Re-export commonly used types
+pub use attitude::*;
 pub use constants::*;
+pub use coordinates::*;
 pub use eop::*;
-pub use time::*;
-pub use time::conversions::*;
 pub use frames::*;
 pub use orbits::*;
-pub use coordinates::*;
-pub use attitude::*;
+pub use time::conversions::*;
+pub use time::*;

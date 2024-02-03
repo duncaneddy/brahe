@@ -37,8 +37,8 @@ use crate::utils::matrix3_from_array;
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -95,8 +95,8 @@ pub fn bias_precession_nutation(epc: Epoch) -> na::Matrix3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -139,8 +139,8 @@ pub fn earth_rotation(epc: Epoch) -> na::Matrix3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -191,8 +191,8 @@ pub fn polar_motion(epc: Epoch) -> na::Matrix3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -230,8 +230,8 @@ pub fn rotation_eci_to_ecef(epc: Epoch) -> na::Matrix3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -268,8 +268,8 @@ pub fn rotation_ecef_to_eci(epc: Epoch) -> na::Matrix3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -307,8 +307,8 @@ pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -346,8 +346,8 @@ pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// use brahe::frames::*;
 ///
 /// // Quick EOP initialization
-    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
-    /// set_global_eop_provider(eop);
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
@@ -437,12 +437,12 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: na::Vector6<f64>) -> na::Vector6<f6
 mod tests {
     use crate::constants::{AS2RAD, R_EARTH};
     use crate::coordinates::state_osculating_to_cartesian;
+    use crate::eop::{set_global_eop_provider, StaticEOPProvider};
     use crate::frames::*;
+    use crate::utils::testing::setup_global_test_eop;
     use crate::utils::vector6_from_array;
-    use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use approx::assert_abs_diff_eq;
     use serial_test::serial;
-    use crate::utils::testing::setup_global_test_eop;
 
     #[allow(non_snake_case)]
     #[serial]

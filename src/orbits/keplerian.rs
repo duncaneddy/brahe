@@ -307,7 +307,7 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> f64 {
     // Compute inclination required for the desired RAAN precession
     let i = (-2.0 * a.powf(3.5) * omega_dot_ss * (1.0 - e.powi(2)).powi(2)
         / (3.0 * (R_EARTH.powi(2)) * J2_EARTH * GM_EARTH.sqrt()))
-        .acos();
+    .acos();
 
     if as_degrees == true {
         i * 180.0 / PI
@@ -582,9 +582,9 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::PI;
     use crate::constants::{GM_EARTH, R_EARTH, R_MOON};
     use crate::{constants, orbits::*};
+    use std::f64::consts::PI;
 
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne};
 

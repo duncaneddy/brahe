@@ -2,13 +2,13 @@
  * Provides topocentric coordiante transformations.
  */
 
-use nalgebra::{Vector3, Matrix3};
+use nalgebra::{Matrix3, Vector3};
 use std::f64::consts::PI;
 
-use crate::utils::math::{from_degrees, to_degrees};
 use crate::coordinates::coordinate_types::EllipsoidalConversionType;
 use crate::coordinates::geocentric::position_ecef_to_geocentric;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
+use crate::utils::math::{from_degrees, to_degrees};
 
 /// Compute the rotation matrix from body-fixed to East-North-Zenith (ENZ)
 /// Cartesian coordinates for a given set of coordinates on an ellipsoidal body.
@@ -409,8 +409,8 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, as_degrees: bool) -> Vector3<f6
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_abs_diff_eq;
     use crate::{position_geocentric_to_ecef, position_geodetic_to_ecef, R_EARTH};
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn test_rotation_ellipsoid_to_enz() {

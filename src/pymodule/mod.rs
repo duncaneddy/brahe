@@ -14,8 +14,8 @@ use pyo3::pyclass::CompareOp;
 use pyo3::types::PyType;
 use pyo3::{exceptions, wrap_pyfunction};
 
-use crate::*;
 use crate::utils::errors::*;
+use crate::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where
@@ -129,8 +129,14 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_class::<PyFileEOPProvider>()?;
 
     // Global
-    module.add_function(wrap_pyfunction!(py_set_global_eop_provider_from_static_provider, module)?)?;
-    module.add_function(wrap_pyfunction!(py_set_global_eop_provider_from_file_provider, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_set_global_eop_provider_from_static_provider,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_set_global_eop_provider_from_file_provider,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_get_global_ut1_utc, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_global_pm, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_global_dxdy, module)?)?;
@@ -148,10 +154,18 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
 
     //* Time *//
 
+    module.add_class::<PyEpoch>()?;
+    module.add_class::<PyTimeRange>()?;
     module.add_function(wrap_pyfunction!(py_mjd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_jd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_jd, module)?)?;
+    module.add_function(wrap_pyfunction!(py_time_system_offset_for_mjd, module)?)?;
+    module.add_function(wrap_pyfunction!(py_time_system_offset_for_jd, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_time_system_offset_for_datetime,
+        module
+    )?)?;
 
     //* Frames *//
 

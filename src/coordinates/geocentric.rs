@@ -97,7 +97,7 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
 
-    use crate::constants::{WGS84_A};
+    use crate::constants::WGS84_A;
 
     #[test]
     fn test_position_geocentric() {

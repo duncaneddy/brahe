@@ -1,6 +1,6 @@
-mod attitude_types;
 mod attitude_representation;
-mod quaternion;
+mod attitude_types;
 mod euler_angle;
-mod rotation_maxtrix;
 mod euler_axis;
+mod quaternion;
+mod rotation_maxtrix;

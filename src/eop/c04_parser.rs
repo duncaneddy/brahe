@@ -59,7 +59,8 @@ pub fn parse_c04_line(
     if line.len() != C04_LINE_LENGTH {
         return Err(BraheError::EOPError(format!(
             "Line too short to be a standard line: found {} characters, expected {}",
-            line.len(), C04_LINE_LENGTH
+            line.len(),
+            C04_LINE_LENGTH
         )));
     }
 

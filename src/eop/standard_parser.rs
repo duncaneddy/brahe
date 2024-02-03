@@ -38,7 +38,8 @@ pub fn parse_standard_line(
     if line.len() != STANDARD_LINE_LENGTH {
         return Err(BraheError::EOPError(format!(
             "Line too short to be a standard line: found {} characters, expected {}",
-            line.len(), STANDARD_LINE_LENGTH
+            line.len(),
+            STANDARD_LINE_LENGTH
         )));
     }
 

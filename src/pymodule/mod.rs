@@ -178,15 +178,33 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_eci_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_ecef_to_eci, module)?)?;
 
-    //* Orbits *//
+    //* Coordinates *//
+
+    // Cartesian
     module.add_function(wrap_pyfunction!(py_state_osculating_to_cartesian, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_cartesian_to_osculating, module)?)?;
+
+    // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_ecef_to_geocentric, module)?)?;
+
+    // Geodetic
     module.add_function(wrap_pyfunction!(py_position_geodetic_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_ecef_to_geodetic, module)?)?;
 
-    //* Coordinates *//
+    // Topocentric
+    module.add_function(wrap_pyfunction!(py_rotation_ellipsoid_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_enz_to_ellipsoid, module)?)?;
+    module.add_function(wrap_pyfunction!(py_relative_position_ecef_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_relative_position_enz_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ellipsoid_to_sez, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_sez_to_ellipsoid, module)?)?;
+    module.add_function(wrap_pyfunction!(py_relative_position_ecef_to_sez, module)?)?;
+    module.add_function(wrap_pyfunction!(py_relative_position_sez_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_enz_to_azel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_sez_to_azel, module)?)?;
+
+    //* Orbits *//
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion, module)?)?;
@@ -206,6 +224,7 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
+
 
     Ok(())
 }

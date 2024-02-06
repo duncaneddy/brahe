@@ -20,7 +20,7 @@ maintainers = [
 dependencies = [
     'typer>=0.9.0,<1.0.0',
     'rich>=13.0.0,<14.0.0',
-    'numpy>=1.26.0,<2.0.0'
+    'numpy>=1.24.4,<2.0.0'
 ]
 
 # To install dev dependencies, run `pip install -e '.[dev]'`

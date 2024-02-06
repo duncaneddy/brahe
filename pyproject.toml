@@ -17,6 +17,20 @@ maintainers = [
     {name = "Duncan Eddy", email = "duncan.eddy@gmail.com"}
 ]
 
+dependencies = [
+    'typer>=0.9.0,<1.0.0',
+    'rich>=13.0.0,<14.0.0',
+    'numpy>=1.26.0,<2.0.0'
+]
+
+# To install dev dependencies, run `pip install -e '.[dev]'`
+[project.optional-dependencies]
+dev = [
+    'pytest>=7.1.2,<8.0.0',
+    'pytest-cov>=3.0.0,<4.0.0',
+    'pytest-order>=1.0.0,<2.0.0'
+]
+
 [project.scripts]
 brahe = "brahe.cli.__main__:main"
 
@@ -32,17 +46,3 @@ build-backend = "maturin"
 module-name = "brahe._brahe"
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 features = ["pyo3/extension-module", "python"]
-
-dependencies = [
-    'typer>=0.9.0,<1.0.0',
-    'rich>=13.0.0,<14.0.0',
-    'numpy>=1.26.0,<2.0.0'
-]
-
-# To install dev dependencies, run `pip install -e '.[dev]'`
-[project.optional-dependencies]
-dev = [
-    'pytest>=7.1.2,<8.0.0',
-    'pytest-cov>=3.0.0,<4.0.0',
-    'pytest-order>=1.0.0,<2.0.0'
-]

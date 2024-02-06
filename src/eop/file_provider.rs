@@ -7,7 +7,6 @@
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::env;
 use std::fmt;
 use std::io;
 use std::io::prelude::*;
@@ -21,6 +20,14 @@ use crate::eop::c04_parser::parse_c04_line;
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::standard_parser::parse_standard_line;
+
+// Package EOP data as part of crate
+
+/// Packaged C04 EOP Data File
+static PACKAGED_C04_FILE: &'static [u8] = include_bytes!("../../data/EOP_20_C04_one_file_1962-now.txt");
+
+/// Packaged Finals 2000A Data File
+static PACKAGED_STANDARD2000_FILE: &'static [u8] = include_bytes!("../../data/finals.all.iau2000.txt");
 
 // Define a custom key type for the EOP data BTreeMap to enable use
 // since f64 does not implement Ord by default. This is not used
@@ -256,6 +263,22 @@ impl FileEOPProvider {
         let file = std::fs::File::open(filepath)?;
         let reader = BufReader::new(file);
 
+        Self::from_c04_file_bufreader(reader, interpolate, extrapolate)
+    }
+
+    /// Creates a new FileEOPProvider from a BufReader containing a C04-formatted EOP data file.
+    /// This is an internal function used to allow for embedding of EOP data files in the package.
+    ///
+    /// # Arguments
+    /// - `reader` - BufReader containing the EOP data file
+    ///
+    /// # Returns
+    /// * `Result<FileEOPProvider, BraheError>` - FileEOPProvider object containing the loaded EOP data, or an Error
+    fn from_c04_file_bufreader<T: Read>(
+        reader: BufReader<T>,
+        interpolate: bool,
+        extrapolate: EOPExtrapolation,
+    ) -> Result<Self, BraheError> {
         // Creeate main data structures f
         let mut mjd_min = 0.0;
         let mut mjd_max = 0.0;
@@ -352,7 +375,25 @@ impl FileEOPProvider {
         let file = std::fs::File::open(filepath)?;
         let reader = BufReader::new(file);
 
-        // Creeate main data structures f
+        Self::from_standard_file_bufreader(reader, interpolate, extrapolate)
+    }
+
+    /// Creates a new FileEOPProvider from a BufReader containing a Standard-formatted EOP data file.
+    /// This is an internal function used to allow for embedding of EOP data files in the package.
+    ///
+    /// # Arguments
+    /// - `reader` - BufReader containing the EOP data file
+    /// - `interpolate` - Whether to interpolate between data points in the EOP file
+    /// - `extrapolate` - Defines the behavior for out-of-bounds EOP data access
+    ///
+    /// # Returns
+    /// * `Result<FileEOPProvider, BraheError>` - FileEOPProvider object containing the loaded EOP data, or an Error
+    fn from_standard_file_bufreader<T: Read>(
+        reader: BufReader<T>,
+        interpolate: bool,
+        extrapolate: EOPExtrapolation
+    ) -> Result<Self, BraheError> {
+        // Create main data structures f
         let mut mjd_min = 0.0;
         let mut mjd_max = 0.0;
         let mut mjd_last_lod = 0.0;
@@ -491,24 +532,18 @@ impl FileEOPProvider {
         interpolate: bool,
         extrapolate: EOPExtrapolation,
     ) -> Result<Self, BraheError> {
-        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let filepath = Path::new(&manifest_dir)
-            .join("data")
-            .join("EOP_20_C04_one_file_1962-now.txt");
+        let reader = BufReader::new(PACKAGED_C04_FILE);
 
-        Self::from_file(&filepath, interpolate, extrapolate)
+        Self::from_c04_file_bufreader(reader, interpolate, extrapolate)
     }
 
     pub fn from_default_standard(
         interpolate: bool,
         extrapolate: EOPExtrapolation,
     ) -> Result<Self, BraheError> {
-        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let filepath = Path::new(&manifest_dir)
-            .join("data")
-            .join("finals.all.iau2000.txt");
+        let reader = BufReader::new(PACKAGED_STANDARD2000_FILE);
 
-        Self::from_file(&filepath, interpolate, extrapolate)
+        Self::from_standard_file_bufreader(reader, interpolate, extrapolate)
     }
 
     pub fn from_default_file(

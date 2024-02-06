@@ -225,6 +225,5 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
 
-
     Ok(())
 }

@@ -24,10 +24,12 @@ use crate::eop::standard_parser::parse_standard_line;
 // Package EOP data as part of crate
 
 /// Packaged C04 EOP Data File
-static PACKAGED_C04_FILE: &'static [u8] = include_bytes!("../../data/EOP_20_C04_one_file_1962-now.txt");
+static PACKAGED_C04_FILE: &'static [u8] =
+    include_bytes!("../../data/EOP_20_C04_one_file_1962-now.txt");
 
 /// Packaged Finals 2000A Data File
-static PACKAGED_STANDARD2000_FILE: &'static [u8] = include_bytes!("../../data/finals.all.iau2000.txt");
+static PACKAGED_STANDARD2000_FILE: &'static [u8] =
+    include_bytes!("../../data/finals.all.iau2000.txt");
 
 // Define a custom key type for the EOP data BTreeMap to enable use
 // since f64 does not implement Ord by default. This is not used
@@ -391,7 +393,7 @@ impl FileEOPProvider {
     fn from_standard_file_bufreader<T: Read>(
         reader: BufReader<T>,
         interpolate: bool,
-        extrapolate: EOPExtrapolation
+        extrapolate: EOPExtrapolation,
     ) -> Result<Self, BraheError> {
         // Create main data structures f
         let mut mjd_min = 0.0;

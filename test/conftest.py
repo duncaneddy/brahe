@@ -17,7 +17,7 @@ def iau2000_standard_filepath():
     filepath = TEST_ASSETS / 'finals.all.iau2000.txt'
     yield str(filepath)
 
-@pytest.fixture
-def eop(iau2000_c04_20_filepath):
-    eop = brahe.FileEOPProvider.from_file(iau2000_c04_20_filepath, "Hold", True)
-    brahe.set_global_eop_from_c04_file(eop)
+@pytest.fixture(scope='module')
+def eop(iau2000_standard_filepath):
+    eop = brahe.FileEOPProvider.from_standard_file(iau2000_standard_filepath, True, "Hold")
+    brahe.set_global_eop_provider_from_file_provider(eop)

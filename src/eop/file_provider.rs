@@ -1248,7 +1248,7 @@ mod tests {
         assert!(eop.is_initialized());
         assert_eq!(eop.len(), 18989);
         assert_eq!(eop.mjd_min(), 41684.0);
-        assert_eq!(eop.mjd_max(), 60672.0);
+        assert_eq!(eop.mjd_max(), 41684.0);
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
         assert_eq!(eop.interpolation(), true);

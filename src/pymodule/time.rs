@@ -202,7 +202,7 @@ fn py_time_system_offset_for_jd(
 ///    offset (`float`): Offset between time systems in seconds
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond, time_system_src, time_system_dst)")]
-#[pyo3(name = "time_system_offset_for_mjd")]
+#[pyo3(name = "time_system_offset_for_datetime")]
 fn py_time_system_offset_for_datetime(
     year: u32,
     month: u8,

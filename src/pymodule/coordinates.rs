@@ -2,10 +2,10 @@
 /// Helper function to parse strings into appropriate ellipsoidal conversion type
 fn string_to_ellipsoidal_conversion_type(s: &str) -> Result<coordinates::EllipsoidalConversionType, PyErr> {
     match s.as_ref() {
-        "GPS" => Ok(coordinates::EllipsoidalConversionType::Geocentric),
-        "TAI" => Ok(coordinates::EllipsoidalConversionType::Geodetic),
+        "Geocentric" => Ok(coordinates::EllipsoidalConversionType::Geocentric),
+        "Geodetic" => Ok(coordinates::EllipsoidalConversionType::Geodetic),
         _ => Err(exceptions::PyRuntimeError::new_err(format!(
-            "Unknown time system string \"{}\"",
+            "Unknown EllipsoidalConverstionType \"{}\". Can be either \"Geocentric\" or \"Geodetic\".",
             s
         ))),
     }

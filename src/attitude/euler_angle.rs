@@ -60,8 +60,36 @@ impl EulerAngle {
     ///
     /// let e = EulerAngle::from_vector(EulerAngleOrder::XYZ, v, true);
     /// ```
-    pub fn from_vector(order: EulerAngleOrder, vector: Vector3<f64>, as_degrees: bool) -> Self {
+    pub fn from_vector(vector: Vector3<f64>, order: EulerAngleOrder, as_degrees: bool) -> Self {
         Self::new(order, vector.x, vector.y, vector.z, as_degrees)
+    }
+
+    /// Convert a `Quaternion` to an `EulerAngle`.
+    ///
+    /// # Arguments
+    ///
+    /// - `q` - A `Quaternion` struct.
+    ///
+    /// # Returns
+    ///
+    /// - A new `EulerAngle` struct.
+    ///
+    /// # Example
+    ///
+    fn from_quaternion(q: Quaternion, order: EulerAngleOrder) -> Self {
+        q.to_euler_angle(order)
+    }
+
+    fn from_euler_axis(e: EulerAxis, order: EulerAngleOrder) -> Self {
+        todo!()
+    }
+
+    fn from_euler_angle(e: EulerAngle, order: EulerAngleOrder) -> Self {
+        todo!()
+    }
+
+    fn from_rotation_matrix(r: RotationMatrix, order: EulerAngleOrder) -> Self {
+        todo!()
     }
 }
 
@@ -89,35 +117,6 @@ impl fmt::Debug for EulerAngle {
 }
 
 impl ToAttitude for EulerAngle {
-
-    /// Convert a `Quaternion` to an `EulerAngle`.
-    ///
-    /// # Arguments
-    ///
-    /// - `q` - A `Quaternion` struct.
-    ///
-    /// # Returns
-    ///
-    /// - A new `EulerAngle` struct.
-    ///
-    /// # Example
-    ///
-    fn from_quaternion(q: Quaternion, order: EulerAngleOrder) -> Self {
-        q.to_euler_angle()
-    }
-
-    fn from_euler_axis(e: EulerAxis) -> Self {
-        todo!()
-    }
-
-    fn from_euler_angle(e: EulerAngle) -> Self {
-        todo!()
-    }
-
-    fn from_rotation_matrix(r: RotationMatrix) -> Self {
-        todo!()
-    }
-
     fn to_quaternion(&self) -> Quaternion {
         todo!()
     }

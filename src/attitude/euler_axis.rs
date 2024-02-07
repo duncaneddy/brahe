@@ -9,6 +9,7 @@ use nalgebra::{Vector3, Vector4};
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::attitude::ToAttitude;
 use crate::attitude::attitude_types::{Quaternion, EulerAngle, RotationMatrix, EulerAngleOrder, EulerAxis};
+use crate::FromAttitude;
 
 impl EulerAxis {
     pub fn new(axis: Vector3<f64>, angle: f64) -> Self {
@@ -77,7 +78,7 @@ impl PartialEq for EulerAxis {
     }
 }
 
-impl ToAttitude for EulerAxis {
+impl FromAttitude for EulerAxis {
     fn from_quaternion(q: Quaternion) -> Self {
         todo!()
     }
@@ -93,7 +94,9 @@ impl ToAttitude for EulerAxis {
     fn from_rotation_matrix(r: RotationMatrix) -> Self {
         todo!()
     }
+}
 
+impl ToAttitude for EulerAxis {
     fn to_quaternion(&self) -> Quaternion {
         todo!()
     }

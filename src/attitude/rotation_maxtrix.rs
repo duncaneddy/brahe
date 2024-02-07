@@ -9,6 +9,7 @@ use nalgebra::{Matrix3, Vector3};
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::attitude::ToAttitude;
 use crate::attitude::attitude_types::{Quaternion, EulerAngle, EulerAxis, EulerAngleOrder, RotationMatrix};
+use crate::FromAttitude;
 
 impl RotationMatrix {
     pub fn new(matrix: Matrix3<f64>) -> Self {
@@ -111,7 +112,7 @@ impl std::ops::Index<(usize, usize)> for RotationMatrix {
     }
 }
 
-impl ToAttitude for RotationMatrix {
+impl FromAttitude for RotationMatrix {
     fn from_quaternion(q: Quaternion) -> Self {
         todo!()
     }
@@ -127,7 +128,9 @@ impl ToAttitude for RotationMatrix {
     fn from_rotation_matrix(r: RotationMatrix) -> Self {
         todo!()
     }
+}
 
+impl ToAttitude for RotationMatrix {
     fn to_quaternion(&self) -> Quaternion {
         todo!()
     }

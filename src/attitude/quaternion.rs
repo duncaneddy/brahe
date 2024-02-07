@@ -7,7 +7,7 @@ use std::{fmt, ops};
 
 use crate::attitude::attitude_representation::ToAttitude;
 use crate::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder, RotationMatrix};
-use crate::Quaternion;
+use crate::{FromAttitude, Quaternion};
 
 impl Quaternion {
     /// Create a new `Quaternion` from the scalar and vector components.
@@ -350,7 +350,7 @@ impl PartialEq for Quaternion {
     }
 }
 
-impl ToAttitude for Quaternion {
+impl FromAttitude for Quaternion {
     /// Create a new `Quaternion` from a `Quaternion`.
     ///
     /// # Arguments
@@ -555,7 +555,9 @@ impl ToAttitude for Quaternion {
             };
         }
     }
+}
 
+impl ToAttitude for Quaternion {
     /// Return a new `Quaternion` from the current one. Since the `Quaternion` is already a `Quaternion`, this
     /// method simply returns a copy of the quaternion.
     ///

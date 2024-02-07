@@ -11,7 +11,7 @@ use nalgebra::{Matrix3, Vector3, Vector4};
 ///
 /// `q = [s, v] = [s, v1, v2, v3]`
 ///
-/// `Quaternion` structure implements the AttitudeRepresentation trait, which allows for conversion to and from
+/// `Quaternion` structure implements the `ToAttitude` and `FromAttitude` traits, which allows for conversion to and from
 /// other attitude representations. Specifically, `EulerAxis`, `EulerAngle`, and `RotationMatrix`.
 #[derive(Clone, Copy)]
 pub struct Quaternion {
@@ -23,7 +23,7 @@ pub struct Quaternion {
 ///
 /// `e = [angle, v] = [angle, v1, v2, v3]`
 ///
-/// `EulerAxis` structure implements the AttitudeRepresentation trait, which allows for conversion to and from
+/// `EulerAxis` structure implements the `ToAttitude` and `FromAttitude` trait`, which allows for conversion to and from
 /// other attitude representations. Specifically, `Quaternion`, `EulerAngle`, and `RotationMatrix`.
 #[derive(Clone, Copy)]
 pub struct EulerAxis {
@@ -107,8 +107,13 @@ impl fmt::Debug for EulerAngleOrder {
 /// Where `phi` is first rotation, `theta` is the second rotation, and `psi` is the third rotation. The axis of each
 /// rotation is determined by the order, which is specified by the `EulerAngleOrder` enum field, `order`.
 ///
-/// The EulerAngle structure implements the AttitudeRepresentation trait, which allows for conversion to and from
+/// The EulerAngle structure implements the `ToAttitude` trait, which allows for conversion to
 /// other attitude representations. Specifically, `Quaternion`, `EulerAxis`, and `RotationMatrix`.
+///
+/// It does _**NOT**_ implement the `FromAttitude` trait, as when converting to an Euler Angle representation from a
+/// different attitude representation and angle order must be supplied. Since this information is not part of the
+/// `FromAttitude` trait method signatures, `EulerAngle` implements its own initialization function for initialization
+/// from `Quaternion`, `EulerAxis`, and `RotationMatrix`.
 #[derive(Clone, Copy)]
 pub struct EulerAngle {
     pub order: EulerAngleOrder,
@@ -124,7 +129,7 @@ pub struct EulerAngle {
 /// `    | r21, r22, r23 |`
 /// `    | r31, r32, r33 |`
 ///
-/// The RotationMatrix structure implements the AttitudeRepresentation trait, which allows for conversion to and from
+/// The RotationMatrix structure implements the `ToAttitude` and `FromAttitude` traits, which allows for conversion to and from
 /// other attitude representations. Specifically, `Quaternion`, `EulerAxis`, and `EulerAngle`.
 #[derive(Clone, Copy)]
 pub struct RotationMatrix {

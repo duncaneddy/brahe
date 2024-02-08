@@ -2,7 +2,9 @@
  * Attitude representation trait defines the interface for converting between different attitude representations.
  */
 
-use crate::attitude::attitude_types::{EulerAngle, EulerAxis, Quaternion, RotationMatrix, EulerAngleOrder};
+use crate::attitude::attitude_types::{
+    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix,
+};
 
 /// `ToAttitude` trait defines the interface for converting to different attitude representations. Any struct that
 /// implements `ToAttitude` can convert its attitude representation into the main attitude representation methods of
@@ -13,7 +15,6 @@ use crate::attitude::attitude_types::{EulerAngle, EulerAxis, Quaternion, Rotatio
 /// See [_Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors_ by James Diebel](https://www.astro.rug.nl/software/kapteyn-beta/_downloads/attitude.pdf) for more information
 /// on the different attitude representations and their conversions.
 pub trait ToAttitude {
-
     fn to_quaternion(&self) -> Quaternion;
     fn to_euler_axis(&self) -> EulerAxis;
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle;

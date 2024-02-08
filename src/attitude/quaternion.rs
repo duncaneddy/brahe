@@ -2,11 +2,11 @@
 The `quaternion` module provides the implementation of the `Quaternion` struct, associated methods, and traits.
 */
 
-use nalgebra::{Vector3, Vector4, Matrix3};
+use nalgebra::{Matrix3, Vector3, Vector4};
 use std::{fmt, ops};
 
 use crate::attitude::attitude_representation::ToAttitude;
-use crate::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder, RotationMatrix};
+use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::{FromAttitude, Quaternion};
 
 impl Quaternion {
@@ -205,11 +205,7 @@ impl Quaternion {
 
         // If the dot product is negative, the quaternions have opposite handed-ness
         // and slerp won't take the shortest path. Fix by reversing one quaternion.
-        let other_data = if dot < 0.0 {
-            -other.data
-        } else {
-            other.data
-        };
+        let other_data = if dot < 0.0 { -other.data } else { other.data };
 
         if dot < 0.0 {
             dot = -dot;
@@ -379,10 +375,10 @@ impl FromAttitude for Quaternion {
     /// Create a new `Quaternion` from an `EulerAxis`.
     fn from_euler_axis(e: EulerAxis) -> Self {
         Quaternion::new(
-            (e.angle/2.0).cos(),
-            e.axis[0] * (e.angle/2.0).sin(),
-            e.axis[1] * (e.angle/2.0).sin(),
-            e.axis[2] * (e.angle/2.0).sin()
+            (e.angle / 2.0).cos(),
+            e.axis[0] * (e.angle / 2.0).sin(),
+            e.axis[1] * (e.angle / 2.0).sin(),
+            e.axis[2] * (e.angle / 2.0).sin(),
         )
     }
 
@@ -519,39 +515,43 @@ impl FromAttitude for Quaternion {
         // Create the quaternion based on the index of the maximum value
         if ind_max == 0 {
             return Quaternion {
-                data: 0.5 * Vector4::new(
-                    q_max.sqrt(),
-                    (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
-                    (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
-                    (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
-                )
+                data: 0.5
+                    * Vector4::new(
+                        q_max.sqrt(),
+                        (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
+                        (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
+                        (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
+                    ),
             };
         } else if ind_max == 1 {
             return Quaternion {
-                data: 0.5 * Vector4::new(
-                    (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
-                    q_max.sqrt(),
-                    (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
-                    (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
-                )
+                data: 0.5
+                    * Vector4::new(
+                        (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
+                        q_max.sqrt(),
+                        (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
+                        (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
+                    ),
             };
         } else if ind_max == 2 {
             return Quaternion {
-                data: 0.5 * Vector4::new(
-                    (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
-                    (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
-                    q_max.sqrt(),
-                    (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
-                )
+                data: 0.5
+                    * Vector4::new(
+                        (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
+                        (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
+                        q_max.sqrt(),
+                        (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
+                    ),
             };
         } else {
             return Quaternion {
-                data: 0.5 * Vector4::new(
-                    (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
-                    (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
-                    (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
-                    q_max.sqrt(),
-                )
+                data: 0.5
+                    * Vector4::new(
+                        (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
+                        (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
+                        (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
+                        q_max.sqrt(),
+                    ),
             };
         }
     }
@@ -600,7 +600,7 @@ impl ToAttitude for Quaternion {
     fn to_euler_axis(&self) -> EulerAxis {
         let angle = 2.0 * self.data[0].acos();
         let axis = Vector3::new(self.data[1], self.data[2], self.data[3]);
-        EulerAxis::new(axis/axis.norm(), angle)
+        EulerAxis::new(axis / axis.norm(), angle, false)
     }
 
     /// Convert the current `Quaternion` to a new `EulerAngle` representation of the attitude transformation.
@@ -625,130 +625,7 @@ impl ToAttitude for Quaternion {
         // The easiest way to convert a quaternion to an Euler angle is to convert the quaternion to a rotation matrix
         // then extract the Euler angles from the rotation matrix per the order specific and the equations in Diebel
         // Section 8.
-
-        let rot = self.to_rotation_matrix();
-
-        // Extract matrix components for easier-to-read correspondence to Diebel's equations
-        let r11 = rot[(0, 0)];
-        let r12 = rot[(0, 1)];
-        let r13 = rot[(0, 2)];
-        let r21 = rot[(1, 0)];
-        let r22 = rot[(1, 1)];
-        let r23 = rot[(1, 2)];
-        let r31 = rot[(2, 0)];
-        let r32 = rot[(2, 1)];
-        let r33 = rot[(2, 2)];
-
-        match order {
-            EulerAngleOrder::XYX => {
-                EulerAngle::new(
-                    order,
-                    r21.atan2(r31),
-                    r11.acos(),
-                    r12.atan2(-r13),
-                    false
-                )
-            },
-            EulerAngleOrder::XYZ => {
-                EulerAngle::new(
-                    order,
-                    r23.atan2(r33),
-                    -r13.asin(),
-                    r12.atan2(r11),
-                    false
-                )
-            },
-            EulerAngleOrder::XZX => {
-                EulerAngle::new(
-                    order,
-                    r31.atan2(-r21),
-                    r11.acos(),
-                    r13.atan2(r12),
-                    false
-                )
-            },
-            EulerAngleOrder::XZY => {
-                EulerAngle::new(
-                    order,
-                    (-r32).atan2(r22),
-                    r22.acos(),
-                    r21.atan2(r23),
-                    false
-                )
-            },
-            EulerAngleOrder::YXY => {
-                EulerAngle::new(
-                    order,
-                    r12.atan2(-r32),
-                    r22.acos(),
-                    r21.atan2(r23),
-                    false
-                )
-            },
-            EulerAngleOrder::YXZ => {
-                EulerAngle::new(
-                    order,
-                    (-r31).atan2(r33),
-                    r23.asin(),
-                    (-r21).atan2(r22),
-                    false
-                )
-            },
-            EulerAngleOrder::YZX => {
-                EulerAngle::new(
-                    order,
-                    r31.atan2(r11),
-                    -r21.asin(),
-                    r23.atan2(r22),
-                    false
-                )
-            },
-            EulerAngleOrder::YZY => {
-                EulerAngle::new(
-                    order,
-                    r32.atan2(r12),
-                    r22.acos(),
-                    r23.atan2(-r21),
-                    false
-                )
-            },
-            EulerAngleOrder::ZXY => {
-                EulerAngle::new(
-                    order,
-                    r12.atan2(r22),
-                    -r32.asin(),
-                    r31.atan2(r33),
-                    false
-                )
-            },
-            EulerAngleOrder::ZXZ => {
-                EulerAngle::new(
-                    order,
-                    r13.atan2(r23),
-                    r33.acos(),
-                    r31.atan2(-r32),
-                    false
-                )
-            },
-            EulerAngleOrder::ZYX => {
-                EulerAngle::new(
-                    order,
-                    (-r21).atan2(r11),
-                    r31.asin(),
-                    (-r32).atan2(r33),
-                    false
-                )
-            },
-            EulerAngleOrder::ZYZ => {
-                EulerAngle::new(
-                    order,
-                    r23.atan2(-r13),
-                    r33.acos(),
-                    r32.atan2(r31),
-                    false
-                )
-            },
-        }
+        self.to_rotation_matrix().to_euler_angle(order)
     }
 
     /// Convert the current `Quaternion` to a new `RotationMatrix` representation of the attitude transformation.
@@ -777,17 +654,37 @@ impl ToAttitude for Quaternion {
         // Algorithm
         RotationMatrix {
             data: Matrix3::new(
-                qs*qs + q1*q1 - q2*q2 - q3*q3,
-                2.0*q1*q2 + 2.0*qs*q3,
-                2.0*q1*q3 - 2.0*qs*q2,
-                2.0*q1*q2 - 2.0*qs*q3,
-                qs*qs - q1*q1 + q2*q2 - q3*q3,
-                2.0*q2*q3 + 2.0*qs*q1,
-                2.0*q1*q3 + 2.0*qs*q2,
-                2.0*q2*q3 - 2.0*qs*q1,
-                qs*qs - q1*q1 - q2*q2 + q3*q3
-            )
+                qs * qs + q1 * q1 - q2 * q2 - q3 * q3,
+                2.0 * q1 * q2 + 2.0 * qs * q3,
+                2.0 * q1 * q3 - 2.0 * qs * q2,
+                2.0 * q1 * q2 - 2.0 * qs * q3,
+                qs * qs - q1 * q1 + q2 * q2 - q3 * q3,
+                2.0 * q2 * q3 + 2.0 * qs * q1,
+                2.0 * q1 * q3 + 2.0 * qs * q2,
+                2.0 * q2 * q3 - 2.0 * qs * q1,
+                qs * qs - q1 * q1 - q2 * q2 + q3 * q3,
+            ),
         }
+    }
+}
+
+// Implement From and Into for Quaternion for applicable types
+
+impl From<EulerAngle> for Quaternion {
+    fn from(e: EulerAngle) -> Self {
+        Quaternion::from_euler_angle(e)
+    }
+}
+
+impl From<EulerAxis> for Quaternion {
+    fn from(e: EulerAxis) -> Self {
+        Quaternion::from_euler_axis(e)
+    }
+}
+
+impl From<RotationMatrix> for Quaternion {
+    fn from(r: RotationMatrix) -> Self {
+        Quaternion::from_rotation_matrix(r)
     }
 }
 

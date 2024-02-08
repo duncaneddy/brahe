@@ -2,8 +2,8 @@
  * Defines the attitude types used in Brahe
  */
 
-use std::fmt;
 use nalgebra::{Matrix3, Vector3, Vector4};
+use std::fmt;
 
 /// The `Quaternion` struct represents a quaternion in the form of one scalar and three vector components.
 /// The scalar component is the real part of the quaternion, and the vector components are the imaginary
@@ -114,6 +114,9 @@ impl fmt::Debug for EulerAngleOrder {
 /// different attitude representation and angle order must be supplied. Since this information is not part of the
 /// `FromAttitude` trait method signatures, `EulerAngle` implements its own initialization function for initialization
 /// from `Quaternion`, `EulerAxis`, and `RotationMatrix`.
+///
+/// The internal representation of the Euler angles is in radians. When creating a new `EulerAngle` struct, the angles
+/// can be specified in either radians or degrees.
 #[derive(Clone, Copy)]
 pub struct EulerAngle {
     pub order: EulerAngleOrder,

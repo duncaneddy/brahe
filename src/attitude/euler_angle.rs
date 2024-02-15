@@ -7,7 +7,7 @@ use std::fmt;
 
 use crate::attitude::{FromAttitude, ToAttitude};
 use crate::constants::DEG2RAD;
-use crate::{EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix};
+use crate::{EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON};
 
 impl EulerAngle {
     /// Create a new `EulerAngle`, which represents an attitude transformation in the form of three successive rotations
@@ -186,17 +186,17 @@ impl fmt::Display for EulerAngle {
 
 impl PartialEq for EulerAngle {
     fn eq(&self, other: &Self) -> bool {
-        self.phi == other.phi
-            && self.theta == other.theta
-            && self.psi == other.psi
-            && self.order == other.order
+        (self.phi - other.phi).abs() <= ATTITUDE_EPSILON &&
+        (self.theta - other.theta).abs() <= ATTITUDE_EPSILON &&
+        (self.psi - other.psi).abs() <= ATTITUDE_EPSILON &&
+        self.order == other.order
     }
 
     fn ne(&self, other: &Self) -> bool {
-        self.phi != other.phi
-            || self.theta != other.theta
-            || self.psi != other.psi
-            || self.order != other.order
+        (self.phi - other.phi).abs() > ATTITUDE_EPSILON ||
+        (self.theta - other.theta).abs() > ATTITUDE_EPSILON ||
+        (self.psi - other.psi).abs() > ATTITUDE_EPSILON ||
+        self.order != other.order
     }
 }
 

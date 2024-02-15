@@ -519,14 +519,14 @@ impl ToAttitude for RotationMatrix {
                 EulerAngle::new(order, r31.atan2(-r21), r11.acos(), r13.atan2(r12), false)
             }
             EulerAngleOrder::XZY => {
-                EulerAngle::new(order, (-r32).atan2(r22), r22.acos(), r21.atan2(r23), false)
+                EulerAngle::new(order, (-r32).atan2(r22), r12.asin(), (-r13).atan2(r11), false)
             }
             EulerAngleOrder::YXY => {
                 EulerAngle::new(order, r12.atan2(-r32), r22.acos(), r21.atan2(r23), false)
             }
             EulerAngleOrder::YXZ => EulerAngle::new(
                 order,
-                (-r31).atan2(r33),
+                (-r13).atan2(r33),
                 r23.asin(),
                 (-r21).atan2(r22),
                 false,

@@ -9,6 +9,9 @@ use crate::attitude::attitude_representation::ToAttitude;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::{FromAttitude, Quaternion};
 
+// Used for PartialEq tolerances
+const TOL: f64 = 1e-14;
+
 impl Quaternion {
     /// Create a new `Quaternion` from the scalar and vector components.
     ///
@@ -252,6 +255,14 @@ impl fmt::Debug for Quaternion {
     }
 }
 
+impl ops::Neg for Quaternion {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Quaternion::new(self.data[0], -self.data[1], -self.data[2], -self.data[3])
+    }
+}
+
 impl ops::Add for Quaternion {
     type Output = Self;
 
@@ -317,9 +328,12 @@ impl ops::Index<usize> for Quaternion {
 }
 
 impl PartialEq for Quaternion {
+
     fn eq(&self, other: &Self) -> bool {
         if self.norm() == 1.0 && other.norm() == 1.0 {
-            self.data == other.data
+            (self.data[0] - other.data[0]).abs() < TOL && (self.data[1] - other.data[1]).abs() < TOL
+                && (self.data[2] - other.data[2]).abs() < TOL
+                && (self.data[3] - other.data[3]).abs() < TOL
         } else {
             // While implementing the quaternion equality check, we need to handle the case where the quaternions
             // are not normalized. This is because two quaternions can represent the same rotation, but have different
@@ -327,13 +341,20 @@ impl PartialEq for Quaternion {
             //
             // While this introduces more computational cost it removes a class of unintentional errors for the user
             // where they may not have normalized the quaternions before comparing them.
-            return self.data / self.norm() == other.data / other.norm();
+            let v1 = self.data / self.norm();
+            let v2 = other.data / other.norm();
+
+            (v1[0] - v2[0]).abs() < TOL && (v1[1] - v2[1]).abs() < TOL
+                && (v1[2] - v2[2]).abs() < TOL
+                && (v1[3] - v2[3]).abs() < TOL
         }
     }
 
     fn ne(&self, other: &Self) -> bool {
         if self.norm() == 1.0 && other.norm() == 1.0 {
-            self.data != other.data
+            (self.data[0] - other.data[0]).abs() > TOL || (self.data[1] - other.data[1]).abs() > TOL
+                || (self.data[2] - other.data[2]).abs() > TOL
+                || (self.data[3] - other.data[3]).abs() > TOL
         } else {
             // While implementing the quaternion equality check, we need to handle the case where the quaternions
             // are not normalized. This is because two quaternions can represent the same rotation, but have different
@@ -599,6 +620,12 @@ impl ToAttitude for Quaternion {
     /// - _Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors_ by James Diebel (2006), eq. 175
     fn to_euler_axis(&self) -> EulerAxis {
         let angle = 2.0 * self.data[0].acos();
+
+        // If the angle is zero, the axis is undefined. We'll just return a unit vector in the x-direction
+        if angle == 0.0 {
+            return EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, false);
+        }
+
         let axis = Vector3::new(self.data[1], self.data[2], self.data[3]);
         EulerAxis::new(axis / axis.norm(), angle, false)
     }
@@ -607,7 +634,7 @@ impl ToAttitude for Quaternion {
     ///
     /// # Arguments
     ///
-    /// * `order` - The order of the the Euler angle transformation to use for the resulting Euler angle representation
+    /// * `order` - The order of the Euler angle transformation to use for the resulting Euler angle representation
     ///
     /// # Returns
     ///
@@ -690,123 +717,324 @@ impl From<RotationMatrix> for Quaternion {
 
 #[cfg(test)]
 mod tests {
-
+    use approx::assert_abs_diff_eq;
     use super::*;
 
     #[test]
     fn test_quaternion_display() {
-        let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(format!("{}", q), "Quaternion: [s: 1, v: [2, 3, 4]]");
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        assert_eq!(format!("{}", q), "Quaternion: [s: 0.5, v: [0.5, 0.5, 0.5]]");
     }
 
     #[test]
     fn test_quaternion_debug() {
-        let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(format!("{:?}", q), "Quaternion<1, 2, 3, 4>");
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        assert_eq!(format!("{:?}", q), "Quaternion<0.5, 0.5, 0.5, 0.5>");
     }
 
     #[test]
     fn test_quaternion_new() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        assert_eq!(q.data, Vector4::new(1.0, 0.0, 0.0, 0.0));
+
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        assert_eq!(q.data, Vector4::new(0.5, 0.5, 0.5, 0.5));
     }
 
     #[test]
     fn test_quaternion_from_vector() {
-        todo!()
+        let v = Vector4::new(1.0, 0.0, 0.0, 0.0);
+        let q = Quaternion::from_vector(v, true);
+        assert_eq!(q.data, Vector4::new(1.0, 0.0, 0.0, 0.0));
+
+        let v = Vector4::new(0.0, 0.0, 0.0, 1.0);
+        let q = Quaternion::from_vector(v, false);
+        assert_eq!(q.data, Vector4::new(1.0, 0.0, 0.0, 0.0));
     }
 
     #[test]
     fn test_quaternion_to_vector() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let v = q.to_vector(true);
+        assert_eq!(v, Vector4::new(1.0, 0.0, 0.0, 0.0));
+
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        let v = q.to_vector(true);
+        assert_eq!(v, Vector4::new(0.5, 0.5, 0.5, 0.5));
     }
 
     #[test]
     fn test_quaternion_normalize() {
-        todo!()
+        let mut q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        q.data = Vector4::new(4.0, 4.0, 4.0, 4.0);
+        assert_eq!(q.data, Vector4::new(4.0, 4.0, 4.0, 4.0));
+        q.normalize();
+        assert_eq!(q.data, Vector4::new(0.5, 0.5, 0.5, 0.5));
     }
 
     #[test]
     fn test_quaternion_norm() {
-        todo!()
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        assert_eq!(q.norm(), 1.0);
+
+        let mut q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        q.data = Vector4::new(2.0, 2.0, 2.0, 2.0);
+        assert_eq!(q.norm(), 4.0);
     }
 
     #[test]
     fn test_quaternion_conjugate() {
-        todo!()
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        let q_conj = q.conjugate();
+        assert_eq!(q_conj.to_vector(true), Vector4::new(0.5, -0.5, -0.5, -0.5));
     }
 
     #[test]
     fn test_quaternion_inverse() {
-        todo!()
+        let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
+        let q_inv = q.inverse();
+        assert_eq!(q * q_inv, Quaternion::new(1.0, 0.0, 0.0, 0.0));
+
+        let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
+        let q_inv = q.inverse();
+        assert_eq!(q * q_inv, Quaternion::new(1.0, 0.0, 0.0, 0.0));
     }
 
     #[test]
     fn test_quaternion_slerp() {
-        todo!()
+        let q1 = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, true).to_quaternion();
+        let q2 = EulerAngle::new(EulerAngleOrder::XYZ, 180.0, 0.0, 0.0, true).to_quaternion();
+        let q = q1.slerp(q2, 0.5);
+        assert_eq!(q, EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, true).to_quaternion());
     }
 
     #[test]
     fn test_quaternion_add() {
-        todo!()
+        let q1 = Quaternion::new(0.5, 1.0, 0.0, 0.5);
+        let q2 = Quaternion::new(0.5, 0.0, 1.0, 0.5);
+        let q = q1 + q2;
+        assert_eq!(q, Quaternion::new(0.5, 0.5, 0.5, 0.5));
     }
 
     #[test]
     fn test_quaternion_sub() {
-        todo!()
+        let q1 = Quaternion::new(0.5, 0.5, 0.0, 0.0);
+        let q2 = Quaternion::new(-0.5, 0.0, 0.0, -0.5);
+        let q = q1 - q2;
+
+        let q_exp = Quaternion::new(1.0, 0.5, 0.0, 0.5);
+        assert_abs_diff_eq!(q.data[0], q_exp[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(q.data[1], q_exp[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(q.data[2], q_exp[2], epsilon = 1e-12);
+        assert_abs_diff_eq!(q.data[3], q_exp[3], epsilon = 1e-12);
     }
 
     #[test]
     fn test_quaternion_add_assign() {
-        todo!()
+        let mut q1 = Quaternion::new(0.5, 1.0, 0.0, 0.5);
+        let q2 = Quaternion::new(0.5, 0.0, 1.0, 0.5);
+        q1 += q2;
+        assert_eq!(q1, Quaternion::new(0.5, 0.5, 0.5, 0.5));
     }
 
     #[test]
     fn test_quaternion_sub_assign() {
-        todo!()
+        let mut q1 = Quaternion::new(0.5, 0.5, 0.0, 0.0);
+        let q2 = Quaternion::new(-0.5, 0.0, 0.0, -0.5);
+        q1 -= q2;
+
+        let q_exp = Quaternion::new(1.0, 0.5, 0.0, 0.5);
+        assert_abs_diff_eq!(q1.data[0], q_exp[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(q1.data[1], q_exp[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(q1.data[2], q_exp[2], epsilon = 1e-12);
+        assert_abs_diff_eq!(q1.data[3], q_exp[3], epsilon = 1e-12);
     }
 
     #[test]
     fn test_quaternion_mul() {
-        todo!()
+        let q1 = Quaternion::new(1.0, 1.0, 0.0, 0.0);
+        let q2 = Quaternion::new(1.0, 0.0, 1.0, 0.0);
+        let q = q1 * q2;
+        assert_eq!(q, Quaternion::new(1.0, 1.0, 1.0, 1.0));
     }
 
     #[test]
     fn test_attitude_representation_from_quaternion() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let q2 = Quaternion::from_quaternion(q);
+
+        assert_eq!(q, q2);
     }
 
     #[test]
     fn test_attitude_representation_from_euler_axis() {
-        todo!()
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, true);
+        let q = Quaternion::from_euler_axis(e);
+
+        assert_eq!(q, Quaternion::new(1.0, 0.0, 0.0, 0.0));
+
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 90.0, true);
+        let q = Quaternion::from_euler_axis(e);
+
+        assert_eq!(q, Quaternion::new(0.5, 0.5, 0.0, 0.0));
     }
 
     #[test]
     fn test_attitude_representation_from_euler_angle() {
-        todo!()
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, true);
+        let q = Quaternion::from_euler_angle(e);
+
+        assert_eq!(q, Quaternion::new(0.7071067811865476, 0.7071067811865475, 0.0, 0.0));
     }
 
     #[test]
     fn test_attitude_representation_from_rotation_matrix() {
-        todo!()
+        let r = RotationMatrix::new(1.0, 0.0, 0.0, 0.0, 2.0_f64.sqrt()/2.0, -2.0_f64.sqrt()/2.0, 0.0, 2.0_f64.sqrt()/2.0, 2.0_f64.sqrt()/2.0).unwrap();
+        let q = Quaternion::from_rotation_matrix(r);
+
+        assert_eq!(q, Quaternion::new(0.9238795325112867, -0.3826834323650898, 0.0, 0.0));
     }
 
     #[test]
     fn test_attitude_representation_to_quaternion() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let q2 = q.to_quaternion();
+
+        assert_eq!(q, q2);
+
+        // Check that the quaternions are not the same in memory
+        assert!(!std::ptr::eq(&q, &q2));
     }
 
     #[test]
     fn test_attitude_representation_to_euler_axis() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let e = q.to_euler_axis();
+
+        assert_eq!(e, EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, true));
     }
 
     #[test]
-    fn test_attitude_representation_to_euler_angle() {
-        todo!()
+    fn test_attitude_representation_to_euler_angle_xyx() {
+        let order = EulerAngleOrder::XYX;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_xyz() {
+        let order = EulerAngleOrder::XYZ;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_xzx() {
+        let order = EulerAngleOrder::XZX;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_xzy() {
+        let order = EulerAngleOrder::XZY;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_yxy() {
+        let order = EulerAngleOrder::YXY;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_yxz() {
+        let order = EulerAngleOrder::YXZ;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_yzx() {
+        let order = EulerAngleOrder::YZX;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_yzy() {
+        let order = EulerAngleOrder::YZY;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_zxy() {
+        let order = EulerAngleOrder::ZXZ;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_zyx() {
+        let order = EulerAngleOrder::ZYX;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
+    }
+
+    #[test]
+    fn test_attitude_representation_to_euler_angle_zyz() {
+        let order = EulerAngleOrder::ZYZ;
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_angle(order);
+
+        assert_eq!(Quaternion::from_euler_angle(e), q);
     }
 
     #[test]
     fn test_attitude_representation_to_rotation_matrix() {
-        todo!()
+        let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
+        let r = q.to_rotation_matrix();
+
+        assert_eq!(r.to_matrix(), Matrix3::identity());
     }
+
+    #[test]
+    fn test_quaternion_to_euler_axis_circular() {
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let e = q.to_euler_axis();
+
+        assert_eq!(Quaternion::from_euler_axis(e), q);
+    }
+
+    #[test]
+    fn test_quaternion_to_rotation_matrix_circular() {
+        let q = Quaternion::new(0.675, 0.42, 0.5, 0.71);
+        let r = q.to_rotation_matrix();
+
+        assert_eq!(Quaternion::from_rotation_matrix(r), q);
+    }
+
 }

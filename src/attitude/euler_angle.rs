@@ -484,4 +484,88 @@ mod tests {
         assert_abs_diff_eq!(r[(2, 1)], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(2, 2)], 1.0, epsilon = 1e-12);
     }
+
+    #[test]
+    fn test_to_euler_angle_circular_xyx() {
+        let e = EulerAngle::new(EulerAngleOrder::XYX, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::XYX);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_xyz() {
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_xzx() {
+        let e = EulerAngle::new(EulerAngleOrder::XZX, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::XZX);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_xzy() {
+        let e = EulerAngle::new(EulerAngleOrder::XZY, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::XZY);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_yxy() {
+        let e = EulerAngle::new(EulerAngleOrder::YXY, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::YXY);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_yxz() {
+        let e = EulerAngle::new(EulerAngleOrder::YXZ, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::YXZ);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_yzx() {
+        let e = EulerAngle::new(EulerAngleOrder::YZX, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::YZX);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_yzy() {
+        let e = EulerAngle::new(EulerAngleOrder::YZY, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::YZY);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_zxy() {
+        let e = EulerAngle::new(EulerAngleOrder::ZXY, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::ZXY);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_zxz() {
+        let e = EulerAngle::new(EulerAngleOrder::ZXZ, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::ZXZ);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_zyx() {
+        let e = EulerAngle::new(EulerAngleOrder::ZYX, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::ZYX);
+        assert_eq!(e, e2);
+    }
+
+    #[test]
+    fn test_to_euler_angle_circular_zyz() {
+        let e = EulerAngle::new(EulerAngleOrder::ZYZ, 30.0, 45.0, 60.0, true);
+        let e2 = e.to_euler_angle(EulerAngleOrder::ZYZ);
+        assert_eq!(e, e2);
+    }
 }

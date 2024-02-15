@@ -853,11 +853,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xyx() {
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::XYX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -865,11 +863,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xyz() {
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::XYZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -877,11 +873,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xzx() {
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::XZX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -889,11 +883,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xzy() {
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::XZY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -901,11 +893,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yxy() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::YXY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -913,11 +903,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yxz() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::YXZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -925,11 +913,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yzx() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::YZX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -937,11 +923,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yzy() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::YZY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -949,11 +933,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zxy() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::ZXY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -961,11 +943,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zxz() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::ZXZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -973,11 +953,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zyx() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::ZYX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -985,11 +963,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zyz() {
-        let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let r = RotationMatrix::Rx(30.0, true)
+            * RotationMatrix::Ry(45.0, true)
+            * RotationMatrix::Rx(60.0, true);
         let e = r.to_euler_angle(EulerAngleOrder::ZYZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);

@@ -4,6 +4,8 @@
 
 use nalgebra::{Matrix3, Vector3, Vector4};
 use std::fmt;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 /// The `Quaternion` struct represents a quaternion in the form of one scalar and three vector components.
 /// The scalar component is the real part of the quaternion, and the vector components are the imaginary
@@ -45,7 +47,7 @@ pub struct EulerAxis {
 /// that is used to represent the order in the EulerAngles struct, where `1` represents a rotation about the x-axis,
 /// `2` represents a rotation about the y-axis, and `3` represents a rotation about the z-axis. So `EulerAngleOrder::XYZ`
 /// constant has a numerical value of `123`.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, EnumIter)]
 pub enum EulerAngleOrder {
     XYX = 121,
     XYZ = 123,

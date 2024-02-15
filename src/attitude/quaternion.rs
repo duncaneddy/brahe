@@ -7,10 +7,8 @@ use std::{fmt, ops};
 
 use crate::attitude::attitude_representation::ToAttitude;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
+use crate::attitude::attitude_types::{ATTITUDE_EPSILON};
 use crate::{FromAttitude, Quaternion};
-
-// Used for PartialEq tolerances
-const TOL: f64 = 1e-14;
 
 impl Quaternion {
     /// Create a new `Quaternion` from the scalar and vector components.
@@ -331,9 +329,9 @@ impl PartialEq for Quaternion {
 
     fn eq(&self, other: &Self) -> bool {
         if self.norm() == 1.0 && other.norm() == 1.0 {
-            (self.data[0] - other.data[0]).abs() < TOL && (self.data[1] - other.data[1]).abs() < TOL
-                && (self.data[2] - other.data[2]).abs() < TOL
-                && (self.data[3] - other.data[3]).abs() < TOL
+            (self.data[0] - other.data[0]).abs() < ATTITUDE_EPSILON && (self.data[1] - other.data[1]).abs() < ATTITUDE_EPSILON
+                && (self.data[2] - other.data[2]).abs() < ATTITUDE_EPSILON
+                && (self.data[3] - other.data[3]).abs() < ATTITUDE_EPSILON
         } else {
             // While implementing the quaternion equality check, we need to handle the case where the quaternions
             // are not normalized. This is because two quaternions can represent the same rotation, but have different
@@ -344,17 +342,17 @@ impl PartialEq for Quaternion {
             let v1 = self.data / self.norm();
             let v2 = other.data / other.norm();
 
-            (v1[0] - v2[0]).abs() < TOL && (v1[1] - v2[1]).abs() < TOL
-                && (v1[2] - v2[2]).abs() < TOL
-                && (v1[3] - v2[3]).abs() < TOL
+            (v1[0] - v2[0]).abs() < ATTITUDE_EPSILON && (v1[1] - v2[1]).abs() < ATTITUDE_EPSILON
+                && (v1[2] - v2[2]).abs() < ATTITUDE_EPSILON
+                && (v1[3] - v2[3]).abs() < ATTITUDE_EPSILON
         }
     }
 
     fn ne(&self, other: &Self) -> bool {
         if self.norm() == 1.0 && other.norm() == 1.0 {
-            (self.data[0] - other.data[0]).abs() > TOL || (self.data[1] - other.data[1]).abs() > TOL
-                || (self.data[2] - other.data[2]).abs() > TOL
-                || (self.data[3] - other.data[3]).abs() > TOL
+            (self.data[0] - other.data[0]).abs() > ATTITUDE_EPSILON || (self.data[1] - other.data[1]).abs() > ATTITUDE_EPSILON
+                || (self.data[2] - other.data[2]).abs() > ATTITUDE_EPSILON
+                || (self.data[3] - other.data[3]).abs() > ATTITUDE_EPSILON
         } else {
             // While implementing the quaternion equality check, we need to handle the case where the quaternions
             // are not normalized. This is because two quaternions can represent the same rotation, but have different

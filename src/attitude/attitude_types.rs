@@ -4,8 +4,10 @@
 
 use nalgebra::{Matrix3, Vector3, Vector4};
 use std::fmt;
-use strum::IntoEnumIterator;
+pub use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
+pub(crate) const ATTITUDE_EPSILON: f64 = 1.0e-12;
 
 /// The `Quaternion` struct represents a quaternion in the form of one scalar and three vector components.
 /// The scalar component is the real part of the quaternion, and the vector components are the imaginary

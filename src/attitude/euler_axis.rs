@@ -7,7 +7,7 @@ use nalgebra::{Vector3, Vector4};
 use std::{fmt, ops};
 
 use crate::attitude::attitude_types::{
-    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix,
+    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON
 };
 use crate::attitude::ToAttitude;
 use crate::constants::{DEG2RAD, RAD2DEG};
@@ -188,11 +188,17 @@ impl ops::Index<usize> for EulerAxis {
 
 impl PartialEq for EulerAxis {
     fn eq(&self, other: &Self) -> bool {
-        self.axis == other.axis && self.angle == other.angle
+        (self.axis[0] - other.axis[0]).abs() <= ATTITUDE_EPSILON &&
+        (self.axis[1] - other.axis[1]).abs() <= ATTITUDE_EPSILON &&
+        (self.axis[2] - other.axis[2]).abs() <= ATTITUDE_EPSILON &&
+        (self.angle - other.angle).abs() <= ATTITUDE_EPSILON
     }
 
     fn ne(&self, other: &Self) -> bool {
-        self.axis != other.axis || self.angle != other.angle
+        (self.axis[0] - other.axis[0]).abs() > ATTITUDE_EPSILON ||
+        (self.axis[1] - other.axis[1]).abs() > ATTITUDE_EPSILON ||
+        (self.axis[2] - other.axis[2]).abs() > ATTITUDE_EPSILON ||
+        (self.angle - other.angle).abs() > ATTITUDE_EPSILON
     }
 }
 

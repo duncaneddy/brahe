@@ -80,7 +80,6 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
 }
 
 // Fake Class to get typing to workout for setting the Global EOP Provider
-trait PyEOPProvider {}
 
 #[pyclass]
 #[pyo3(name = "StaticEOPProvider")]
@@ -88,7 +87,6 @@ struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
 }
 
-impl PyEOPProvider for PyStaticEOPProvider {}
 
 #[pymethods]
 impl PyStaticEOPProvider {
@@ -183,7 +181,6 @@ struct PyFileEOPProvider {
     obj: eop::FileEOPProvider,
 }
 
-impl PyEOPProvider for PyFileEOPProvider {}
 
 #[pymethods]
 impl PyFileEOPProvider {

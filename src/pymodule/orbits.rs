@@ -94,6 +94,20 @@ fn py_semimajor_axis_general(n: f64, gm: f64, as_degrees: bool) -> PyResult<f64>
     Ok(orbits::semimajor_axis_general(n, gm, as_degrees))
 }
 
+#[pyfunction]
+#[pyo3(text_signature = "(T, gm)")]
+#[pyo3(name = "semimajor_axis_from_orbital_period_general")]
+fn py_semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> PyResult<f64> {
+    Ok(orbits::semimajor_axis_from_orbital_period_general(period, gm))
+}
+
+#[pyfunction]
+#[pyo3(text_signature = "(T)")]
+#[pyo3(name = "semimajor_axis_from_orbital_period")]
+fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
+    Ok(orbits::semimajor_axis_from_orbital_period(period))
+}
+
 /// Computes the perigee velocity of an astronomical object around Earth.
 ///
 /// Arguments:

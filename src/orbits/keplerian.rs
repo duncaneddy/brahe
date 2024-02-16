@@ -51,6 +51,49 @@ pub fn orbital_period_general(a: f64, gm: f64) -> f64 {
     2.0 * PI * (a.powi(3) / gm).sqrt()
 }
 
+/// Computes the semi-major axis of an astronomical object from its orbital period.
+///
+/// # Arguments
+///
+/// * `period`: The orbital period of the astronomical object. Units: (s)
+/// * `gm`: The standard gravitational parameter of primary body. Units: (_m^3/s^2_)
+///
+/// # Returns
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbits::semimajor_axis_from_orbital_period;
+/// let a = semimajor_axis_from_orbital_period(5676.977164028288);
+/// ```
+pub fn semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> f64 {
+    (period.powi(2) * gm / (4.0 * PI.powi(2))).powf(1.0 / 3.0)
+}
+
+/// Computes the semi-major axis of an astronomical object from its orbital period around Earth.
+///
+/// Uses brahe::constants::GM_EARTH as the standard gravitational parameter.
+///
+/// # Arguments
+///
+/// * `period`: The orbital period of the astronomical object. Units: (s)
+///
+/// # Returns
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbits::semimajor_axis_from_orbital_period;
+/// let a = semimajor_axis_from_orbital_period(5676.977164028288);
+/// ```
+pub fn semimajor_axis_from_orbital_period(period: f64) -> f64 {
+    semimajor_axis_from_orbital_period_general(period, GM_EARTH)
+}
+
 /// Computes the mean motion of an astronomical object around Earth.
 ///
 /// # Arguments
@@ -583,7 +626,7 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f
 #[cfg(test)]
 mod tests {
     use crate::constants::{GM_EARTH, R_EARTH, R_MOON};
-    use crate::{constants, orbits::*};
+    use crate::{constants, GM_SUN, orbits::*, R_SUN};
     use std::f64::consts::PI;
 
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne};
@@ -658,6 +701,20 @@ mod tests {
 
         let n = semimajor_axis_general(0.0378926170446499, constants::GM_MOON, true);
         assert_abs_diff_ne!(n, constants::R_MOON + 500e3, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_orbital_period_from_semimajor_axis() {
+        let period = orbital_period_general(R_EARTH + 500e3, GM_EARTH);
+        let a = semimajor_axis_from_orbital_period_general(period, GM_EARTH);
+        assert_abs_diff_eq!(a, R_EARTH + 500e3, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_orbital_period_from_semimajor_axis_general() {
+        let period = orbital_period_general(R_SUN + 1000e3, GM_SUN);
+        let a = semimajor_axis_from_orbital_period_general(period, GM_SUN);
+        assert_abs_diff_eq!(a, R_SUN + 1000e3, epsilon = 1e-6);
     }
 
     #[test]

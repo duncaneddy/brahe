@@ -212,6 +212,8 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis_general, module)?)?;
+    module.add_function(wrap_pyfunction!(py_semimajor_axis_from_orbital_period, module)?)?;
+    module.add_function(wrap_pyfunction!(py_semimajor_axis_from_orbital_period_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_perigee_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_periapsis_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_periapsis_distance, module)?)?;

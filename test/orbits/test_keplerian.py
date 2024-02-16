@@ -38,21 +38,29 @@ def test_mean_motion_general():
     assert n != pytest.approx(0.0634140299667068, abs=1e-12)
 
 def test_semimajor_axis():
-    a = brahe.semimajor_axis(0.0011067836148773837)
+    a = brahe.semimajor_axis(0.0011067836148773837, False)
     assert a == pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
 
-    a = brahe.semimajor_axis(0.0634140299667068)
+    a = brahe.semimajor_axis(0.0634140299667068, True)
     assert a == pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
 
-    a = brahe.semimajor_axis(0.0634140299667068)
-    assert a == pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
 
-def test_semimajor_axis():
+def test_semimajor_axis_general():
     a = brahe.semimajor_axis_general(0.0011067836148773837, brahe.GM_MOON, as_degrees=False)
     assert a != pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
 
     a = brahe.semimajor_axis_general(0.0634140299667068, brahe.GM_MOON, as_degrees=True)
     assert a != pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
+
+def test_semimajor_axis_from_orbital_period():
+    period = brahe.orbital_period_general(brahe.R_EARTH + 500e3, brahe.GM_EARTH)
+    a = brahe.semimajor_axis_from_orbital_period(period)
+    assert a == pytest.approx(brahe.R_EARTH + 500e3, abs=1e-6)
+
+def test_semimajor_axis_from_orbital_period_general():
+    period = brahe.orbital_period_general(brahe.R_SUN + 1000e3, brahe.GM_SUN)
+    a = brahe.semimajor_axis_from_orbital_period_general(period, brahe.GM_SUN)
+    assert a == pytest.approx(brahe.R_SUN + 1000e3, abs=1e-6)
 
 def test_perigee_velocity():
     vp = brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.001)

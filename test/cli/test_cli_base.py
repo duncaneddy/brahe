@@ -24,10 +24,10 @@ def test_orbits_help():
     assert result.exit_code == 0
     assert "Usage: brahe orbits [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
-def test_conversions_help():
-    result = runner.invoke(app, ["conversions", "--help"])
+def test_convert_help():
+    result = runner.invoke(app, ["convert", "--help"])
     assert result.exit_code == 0
-    assert "Usage: brahe conversions [OPTIONS] COMMAND [ARGS]..." in result.stdout
+    assert "Usage: brahe convert [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
 def test_space_track_help():
     result = runner.invoke(app, ["space-track", "--help"])

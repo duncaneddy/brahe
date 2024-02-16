@@ -53,7 +53,7 @@ macro_rules! vector_to_numpy {
 }
 
 macro_rules! numpy_to_matrix {
-    ($py:expr,$mat:expr,$r:expr,$c:expr,$typ:ty) => {{
+    ($mat:expr,$r:expr,$c:expr,$typ:ty) => {{
         na::SMatrix::<$typ, $r, $c>::from_vec($mat.to_vec().unwrap())
     }};
 }
@@ -72,6 +72,7 @@ include!("time.rs");
 include!("orbits.rs");
 include!("coordinates.rs");
 include!("frames.rs");
+include!("attitude.rs");
 
 // Define Module
 
@@ -224,6 +225,12 @@ pub fn module(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
+
+    //* Attitude *//
+    module.add_class::<PyQuaternion>()?;
+    module.add_class::<PyEulerAxis>()?;
+    module.add_class::<PyEulerAngle>()?;
+    module.add_class::<PyRotationMatrix>()?;
 
     Ok(())
 }

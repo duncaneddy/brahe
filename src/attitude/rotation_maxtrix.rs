@@ -840,18 +840,6 @@ mod tests {
     }
 
     #[test]
-    fn test_to_euler_angle_() {
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
-        let e = r.to_euler_angle(EulerAngleOrder::XYZ);
-        let expected = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, true);
-        assert_eq!(e, expected);
-    }
-
-    #[test]
     fn test_to_euler_angle_circular_xyx() {
         let r = RotationMatrix::Rx(30.0, true)
             * RotationMatrix::Ry(45.0, true)

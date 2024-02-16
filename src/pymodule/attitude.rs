@@ -146,6 +146,11 @@ impl PyQuaternion {
         self.obj[index]
     }
 
+    #[getter]
+    pub unsafe fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix1> {
+        vector_to_numpy!(py, self.obj.data, 4, f64)
+    }
+
     #[classmethod]
     pub fn from_quaternion(_cls: &PyType, q: &PyQuaternion) -> PyQuaternion {
         PyQuaternion {
@@ -354,6 +359,13 @@ impl PyEulerAxis {
     pub fn new(axis: &PyArray<f64, Ix1>, angle: f64, as_degrees: bool) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::new(numpy_to_vector!(axis, 3, f64), angle, as_degrees),
+        }
+    }
+
+    #[classmethod]
+    pub fn from_values(_cls: &PyType, x: f64, y: f64, z: f64, angle: f64, as_degrees: bool) -> PyEulerAxis {
+        PyEulerAxis {
+            obj: attitude::EulerAxis::from_values(x, y, z, angle, as_degrees),
         }
     }
 

@@ -8,8 +8,6 @@ import brahe
 runner = CliRunner()
 
 
-
-
 def test_cli_eop_download_standard(mocker):
     tmpfile = tempfile.NamedTemporaryFile().name
     with patch("brahe.download_standard_eop_file") as mock:

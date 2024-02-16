@@ -1,3 +1,5 @@
+import typer
+import brahe
 from brahe import Epoch
 
 def parse_float(s):
@@ -32,4 +34,9 @@ def epoch_from_epochlike(time: str) -> Epoch:
     except ValueError:
         pass
 
-    raise ValueError(f"Could not parse \"{time}\" as an Epoch-like object")
+    typer.echo(f"Could not parse \"{time}\" as an Epoch-like object")
+    raise typer.Exit(code=1)
+
+def set_cli_eop():
+    eop = brahe.FileEOPProvider.from_default_standard(True, "Error")
+    brahe.set_global_eop_provider_from_file_provider(eop)

@@ -49,8 +49,8 @@ impl TimeRange {
     /// // Vector to confirm equivalence of iterator to addition of time
     /// let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
     ///
-    /// // Use `TimeSeries` iterator to generate Epochs over range
-    /// for e in TimeSeries::new(epcs, epcf, 1.0) {
+    /// // Use `TimeRange` iterator to generate Epochs over range
+    /// for e in TimeRange::new(epcs, epcf, 1.0) {
     ///     assert_eq!(epc, e);
     ///     epc += 1;
     /// }

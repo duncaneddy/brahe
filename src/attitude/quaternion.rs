@@ -55,8 +55,9 @@ impl Quaternion {
     ///
     /// ```
     /// use brahe::attitude::Quaternion;
+    /// use nalgebra::Vector4;
     ///
-    /// let v = na::Vector4::new(1.0, 0.0, 0.0, 0.0);
+    /// let v = Vector4::new(1.0, 0.0, 0.0, 0.0);
     /// let q = Quaternion::from_vector(v, true);
     /// ```
     pub fn from_vector(v: Vector4<f64>, scalar_first: bool) -> Self {
@@ -121,7 +122,7 @@ impl Quaternion {
     /// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
     /// let n = q.norm();
     ///
-    /// assert_eq!(n, 1.0);
+    /// assert!((n - 1.0).abs() < 1e-15);
     /// ```
     pub fn norm(&self) -> f64 {
         self.data.norm()
@@ -138,13 +139,13 @@ impl Quaternion {
     /// ```
     /// use brahe::attitude::Quaternion;
     ///
-    /// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
+    /// let q = Quaternion::new(0.5, 0.5, 0.5, 0.5);
     /// let q_conj = q.conjugate();
     ///
-    /// assert_eq!(s, 1.0);
-    /// assert_eq!(v1, -2.0);
-    /// assert_eq!(v2, -3.0);
-    /// assert_eq!(v3, -4.0);
+    /// assert_eq!(q_conj[0],  0.5);
+    /// assert_eq!(q_conj[1], -0.5);
+    /// assert_eq!(q_conj[2], -0.5);
+    /// assert_eq!(q_conj[3], -0.5);
     /// ```
     pub fn conjugate(&self) -> Self {
         Quaternion::new(self.data[0], -self.data[1], -self.data[2], -self.data[3])
@@ -380,6 +381,7 @@ impl FromAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::Quaternion;
+    /// use brahe::attitude::FromAttitude;
     ///
     /// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
     ///
@@ -501,14 +503,15 @@ impl FromAttitude for Quaternion {
     /// # Example
     ///
     /// ```
-    /// use brahe::attitude::Quaternion;
+    /// use brahe::attitude::{Quaternion, RotationMatrix};
     /// use nalgebra::Matrix3;
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let rot = Matrix3::new(
+    /// let rot = RotationMatrix::new(
     ///    1.0,  0.0, 0.0,
-    ///    0.0,  0.5, 0.5,
-    ///    0.0, -0.5, 0.5
-    /// );
+    ///    0.0,  std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
+    ///    0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
+    /// ).unwrap();
     ///
     /// let q = Quaternion::from_rotation_matrix(rot);
     /// ```
@@ -588,6 +591,7 @@ impl ToAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::Quaternion;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let q2 = q.to_quaternion();
@@ -608,6 +612,7 @@ impl ToAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::Quaternion;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let e = q.to_euler_axis();
@@ -642,6 +647,7 @@ impl ToAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::{Quaternion, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let q = Quaternion::new(1.0, 1.0, 1.0, 1.0);
     /// let e = q.to_euler_angle(EulerAngleOrder::XYZ);
@@ -663,11 +669,13 @@ impl ToAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::Quaternion;
+    /// use brahe::attitude::ToAttitude;
+    /// use nalgebra::Matrix3;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let r = q.to_rotation_matrix();
     ///
-    /// assert_eq!(r.to_matrix(), na::Matrix3::identity());
+    /// assert_eq!(r.to_matrix(), Matrix3::identity());
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {
         // Extract components of the quaternion for easier-to-read correspondence to Diebel's equations

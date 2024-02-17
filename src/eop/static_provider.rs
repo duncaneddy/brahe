@@ -199,8 +199,7 @@ impl EarthOrientationProvider for StaticEOPProvider {
     /// # Example
     ///
     /// ```
-    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
-    /// use brahe::eop::types::EOPType;
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider, EOPType};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     /// assert_eq!(eop.eop_type(), EOPType::Static);
@@ -219,8 +218,7 @@ impl EarthOrientationProvider for StaticEOPProvider {
     /// # Example
     ///
     /// ```
-    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider};
-    /// use brahe::eop::types::EOPExtrapolation;
+    /// use brahe::eop::{StaticEOPProvider, EarthOrientationProvider, EOPExtrapolation};
     ///
     /// let eop = StaticEOPProvider::from_zero();
     ///

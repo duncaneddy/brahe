@@ -359,9 +359,10 @@ impl FromAttitude for RotationMatrix {
     /// # Example
     ///
     /// ```
-    /// use brahe::attitude::attitude_types::Quaternion;
+    /// use brahe::attitude::attitude_types::{Quaternion, RotationMatrix};
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0).unwrap();
+    /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let r = RotationMatrix::from_quaternion(q);
     /// ```
     fn from_quaternion(q: Quaternion) -> Self {
@@ -382,9 +383,10 @@ impl FromAttitude for RotationMatrix {
     ///
     /// ```
     /// use nalgebra::Vector3;
-    /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::attitude::attitude_types::{EulerAxis, RotationMatrix};
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0);
+    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
     /// let r = RotationMatrix::from_euler_axis(e);
     /// ```
     fn from_euler_axis(e: EulerAxis) -> Self {
@@ -404,7 +406,8 @@ impl FromAttitude for RotationMatrix {
     /// # Example
     ///
     /// ```
-    /// use brahe::attitude::attitude_types::EulerAngle;
+    /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder, RotationMatrix};
+    /// use brahe::attitude::FromAttitude;
     ///
     /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 30.0, 60.0, true);
     /// let r = RotationMatrix::from_euler_angle(e);
@@ -428,6 +431,7 @@ impl FromAttitude for RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::attitude::FromAttitude;
     ///
     /// let r = RotationMatrix::new(
     ///     1.0, 0.0, 0.0,
@@ -454,6 +458,7 @@ impl ToAttitude for RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let r = RotationMatrix::new(
     ///     1.0, 0.0, 0.0,
@@ -501,6 +506,7 @@ impl ToAttitude for RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{RotationMatrix, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let r = RotationMatrix::new(
     ///     1.0, 0.0, 0.0,
@@ -583,6 +589,7 @@ impl ToAttitude for RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let r = RotationMatrix::new(
     ///     1.0, 0.0, 0.0,

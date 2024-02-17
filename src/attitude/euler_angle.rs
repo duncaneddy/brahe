@@ -67,7 +67,7 @@ impl EulerAngle {
     ///
     /// let v = Vector3::new(30.0, 45.0, 60.0);
     ///
-    /// let e = EulerAngle::from_vector(EulerAngleOrder::XYZ, v, true);
+    /// let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, true);
     /// ```
     pub fn from_vector(vector: Vector3<f64>, order: EulerAngleOrder, as_degrees: bool) -> Self {
         Self::new(order, vector.x, vector.y, vector.z, as_degrees)
@@ -110,6 +110,7 @@ impl EulerAngle {
     /// # Example
     ///
     /// ```
+    /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder};
     ///
     /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
@@ -160,12 +161,13 @@ impl EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder, RotationMatrix};
+    /// use brahe::attitude::FromAttitude;
     ///
     /// let r = RotationMatrix::new(
     ///    1.0, 0.0, 0.0,
-    ///    0.0, 0.866, -0.5,
-    ///    0.0, 0.5, 0.866
-    /// );
+    ///    0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
+    ///    0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
+    /// ).unwrap();
     /// let e = EulerAngle::from_rotation_matrix(r, EulerAngleOrder::XYZ);
     /// ```
     pub fn from_rotation_matrix(r: RotationMatrix, order: EulerAngleOrder) -> Self {
@@ -221,6 +223,7 @@ impl ToAttitude for EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
     /// let q = e.to_quaternion();
@@ -239,6 +242,7 @@ impl ToAttitude for EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
     /// let e = e.to_euler_axis();
@@ -262,6 +266,7 @@ impl ToAttitude for EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
     /// let e = e.to_euler_angle(EulerAngleOrder::ZYX);
@@ -280,6 +285,7 @@ impl ToAttitude for EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
     /// let r = e.to_rotation_matrix();

@@ -30,7 +30,7 @@ use nalgebra::Vector3;
 ///
 /// // Acceleration should be in the negative x-direction and magnitude should be GM_EARTH / R_EARTH^2
 /// // Roughly -9.81 m/s^2
-/// assert_eq!(a_grav, Vector3::new(-GM_EARTH / R_EARTH.powi(2), 0.0, 0.0));
+/// assert!((a_grav - Vector3::new(-GM_EARTH / R_EARTH.powi(2), 0.0, 0.0)).norm() < 1e-12);
 /// ```
 ///
 /// # References

@@ -235,8 +235,9 @@ impl FromAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{Quaternion, EulerAxis};
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let q = Quaternion::from_values(0.0, 0.0, 0.0, 1.0);
+    /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let e = EulerAxis::from_quaternion(q);
     /// ```
     fn from_quaternion(q: Quaternion) -> Self {
@@ -257,6 +258,7 @@ impl FromAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::attitude::FromAttitude;
     ///
     /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
     /// let e2 = EulerAxis::from_euler_axis(e);
@@ -278,9 +280,10 @@ impl FromAttitude for EulerAxis {
     /// # Example
     ///
     /// ```
-    /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis};
+    /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder};
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let e = EulerAngle::from_values(45.0, 45.0, 45.0, true, true, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 45.0, 45.0, true);
     /// let e2 = EulerAxis::from_euler_angle(e);
     /// ```
     fn from_euler_angle(e: EulerAngle) -> Self {
@@ -301,12 +304,15 @@ impl FromAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{RotationMatrix, EulerAxis};
+    /// use brahe::attitude::FromAttitude;
     ///
-    /// let r = RotationMatrix::from_values(
+    /// let r = RotationMatrix::new(
     ///    1.0, 0.0, 0.0,
     ///    0.0, 0.70710678, -0.70710678,
     ///    0.0, 0.70710678, 0.70710678
-    /// );
+    /// ).unwrap();
+    /// let e = EulerAxis::from_rotation_matrix(r);
+    /// ```
     fn from_rotation_matrix(r: RotationMatrix) -> Self {
         // Convert to quaternion and then to euler axis
         r.to_quaternion().to_euler_axis()
@@ -324,6 +330,7 @@ impl ToAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
     /// let q = e.to_quaternion();
@@ -342,6 +349,7 @@ impl ToAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
     /// let e2 = e.to_euler_axis();
@@ -365,9 +373,10 @@ impl ToAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAxis, EulerAngleOrder};
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let euler_axis = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
-    /// let euler_angle = e.to_euler_angle(EulerAngleOrder::XYZ);
+    /// let euler_angle = euler_axis.to_euler_angle(EulerAngleOrder::XYZ);
     /// ```
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle {
         EulerAngle::from_euler_axis(*self, order)
@@ -383,6 +392,7 @@ impl ToAttitude for EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::attitude::ToAttitude;
     ///
     /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
     /// let r = e.to_rotation_matrix();

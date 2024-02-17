@@ -29,11 +29,11 @@ kd-tree = "0.5.3"
 once_cell = "1.19.0"
 geojson = "0.24.1"
 uluru = "3.0.0"
-num-traits = "0.2.17"
+num-traits = "0.2.18"
 regex = "1.10.3"
 is_close = "0.1.3"
 numpy = "0.20.0"
-ureq = "2.0.0"
+ureq = "2.9.6"
 strum = "0.26"
 strum_macros = "0.26"
 
@@ -46,8 +46,8 @@ features = ["extension-module"]
 approx = "0.5.1"
 rstest = "0.18.2"
 serial_test = "3.0.0"
-httpmock = "0.6.0"
-tempfile = "3.9.0"
+httpmock = "0.7.0"
+tempfile = "3.10.0"
 
 [features]
 ci = []

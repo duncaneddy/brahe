@@ -20,7 +20,7 @@ license = "MIT"
 [lib]
 name = "brahe"
 # "cdylib" is necessary to produce a shared library for Python to import from.
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 rsofa = "0.5.0"

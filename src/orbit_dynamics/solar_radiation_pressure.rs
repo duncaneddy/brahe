@@ -23,17 +23,17 @@ use nalgebra::Vector3;
 /// # Examples
 ///
 /// ```
-/// use brahe::orbit_dynamics::solar_radiation_pressure;
+/// use brahe::orbit_dynamics::acceleration_solar_radiation_pressure;
 /// use nalgebra::Vector3;
 /// use brahe::constants::AU;
 ///
 /// let r_object = Vector3::new(AU, 0.0, 0.0);
 /// let r_sun = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let a_srp = solar_radiation_pressure(&r_object, &r_sun, 1.0, 1.0, 1.0, 4.5e-6);
+/// let a_srp = acceleration_solar_radiation_pressure(&r_object, &r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 ///
 /// // Acceleration should be in the negative x-direction and magnitude should be 4.5e-6 AU^2
-/// assert_eq!(a_srp, Vector3::new(-4.5e-6, 0.0, 0.0));
+/// assert_eq!(a_srp, Vector3::new(4.5e-6, 0.0, 0.0));
 /// ```
 pub fn acceleration_solar_radiation_pressure(
     r_object: &Vector3<f64>,
@@ -76,8 +76,8 @@ pub fn eclipse_conical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
 ///
 /// let nu = eclipse_cylindrical(&r_object, &r_sun);
 ///
-/// // The object is in full sunlight, so the illumination fraction should be 1.0
-/// assert_eq!(nu, 1.0);
+/// // The object is shadowed, so the illumination fraction should be 0.0
+/// assert_eq!(nu, 0.0);
 /// ```
 pub fn eclipse_cylindrical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
     // Unit vector in the direction of the sun

@@ -109,6 +109,7 @@ pub mod frames;
 pub mod orbits;
 pub mod time;
 pub mod utils;
+pub mod orbit_dynamics;
 
 // Re-export commonly used types
 pub use attitude::*;
@@ -119,3 +120,4 @@ pub use frames::*;
 pub use orbits::*;
 pub use time::conversions::*;
 pub use time::*;
+pub use orbit_dynamics::*;

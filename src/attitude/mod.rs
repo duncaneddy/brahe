@@ -2,6 +2,8 @@
 The `attitude` module provides types and traits for representing and converting between different attitude representations.
 */
 
+#![allow(unused_imports)]
+
 pub mod attitude_representation;
 pub mod attitude_types;
 pub mod euler_angle;

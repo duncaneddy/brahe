@@ -2,7 +2,7 @@
  Models of solar radiation pressure.
 */
 
-use crate::constants::{AU, R_EARTH};
+use crate::constants::{AU, R_EARTH, R_SUN};
 use nalgebra::Vector3;
 
 /// Calculate the acceleration due to solar radiation pressure.
@@ -48,8 +48,57 @@ pub fn acceleration_solar_radiation_pressure(
     d * cr*(area/mass)*p0*AU.powi(2) / d.norm().powi(3)
 }
 
+/// Calculate the fraction of the object that is illuminated by the sun using a conical model
+/// for Earth shadowing.
+///
+/// # Arguments
+///
+/// - `r_object`: Position vector of the object in the ECI frame.
+/// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
+///
+/// # Returns
+///
+/// - `nu`: Illumination fraction of the object (0.0 = fully shadowed, 1.0 = fully illuminated).
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbit_dynamics::eclipse_conical;
+/// use nalgebra::Vector3;
+/// use brahe::constants::R_EARTH;
+///
+/// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let r_sun = Vector3::new(0.0, 0.0, 0.0);
+///
+/// let nu = eclipse_conical(&r_object, &r_sun);
+///
+/// // The object is shadowed, so the illumination fraction should be 0.0
+/// assert_eq!(nu, 0.0);
+/// ```
+#[allow(non_snake_case)] // To better comply with the literature
 pub fn eclipse_conical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
-    0.0
+
+    // Occultation Geometry
+    let a = (R_SUN/(r_sun - r_object).norm()).asin();
+    let b = (R_EARTH/r_object.norm()).asin();
+    let c = (r_object.dot(&(r_sun-r_object))/(r_object.norm()*(r_sun-r_object).norm())).acos();
+
+    // Test Occulation Conditions and return illumination fraction
+    if (a - b).abs() < c && c < (a + b) {
+        // Partial occultation
+
+        let xx = (c.powi(2) + a.powi(2) - b.powi(2)) / (2.0 * c);
+        let yy = (a.powi(2) - xx.powi(2)).sqrt();
+        let A = a.powi(2) * (xx / a).acos() + b.powi(2) * ((c - xx) / b).acos() - c * yy;
+
+        1.0 - A / (std::f64::consts::PI * a.powi(2))
+    } else if (a + b) <= c {
+        // No occultation
+        1.0
+    } else {
+        // Full occultation
+        0.0
+    }
 }
 
 /// Calculate the fraction of the object that is illuminated by the sun using a cylindrical model
@@ -112,5 +161,15 @@ mod tests {
         assert_abs_diff_eq!(a_srp[1], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(a_srp[2], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(a_srp.norm(), 4.5e-6, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_eclipse_conical() {
+        // TODO: Add tests
+    }
+
+    #[test]
+    fn test_eclipse_cylindrical() {
+        // TODO: Add tests
     }
 }

@@ -110,6 +110,8 @@ pub mod orbits;
 pub mod time;
 pub mod utils;
 pub mod orbit_dynamics;
+pub mod space_track;
+pub mod integrators;
 
 // Re-export commonly used types
 pub use attitude::*;
@@ -121,3 +123,5 @@ pub use orbits::*;
 pub use time::conversions::*;
 pub use time::*;
 pub use orbit_dynamics::*;
+pub use space_track::*;
+pub use integrators::*;

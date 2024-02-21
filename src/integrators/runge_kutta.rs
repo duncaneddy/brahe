@@ -2,7 +2,7 @@
  Implementation of Runge-Kutta integration methods.
 */
 
-use nalgebra::{Scalar, SMatrix, SVector, Vector3};
+use nalgebra::{SMatrix, SVector};
 use crate::integrators::numerical_integrator::NumericalIntegrator;
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 
@@ -170,14 +170,13 @@ impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use num_traits::ToPrimitive;
     use crate::{Epoch, GM_EARTH, orbital_period, R_EARTH, state_osculating_to_cartesian, TimeSystem, varmat_from_fixed_offset, varmat_from_offset_vector};
     use super::*;
 
     #[test]
     fn test_rk4_integrator_cubic() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, state: &SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
             state_new[0] = 3.0*t*t;
             state_new
@@ -185,7 +184,6 @@ mod tests {
 
         let rk4 = RK4Integrator::new(f, None);
 
-        let mut t = 0.0;
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 1.0;
 
@@ -199,7 +197,7 @@ mod tests {
     #[test]
     fn test_rk4_integrator_parabola() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, state: &SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
             state_new[0] = 2.0*t;
             state_new
@@ -211,7 +209,7 @@ mod tests {
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 0.01;
 
-        for i in 0..100{
+        for _ in 0..100{
             state = rk4.step(t, &state, dt);
             t += dt;
         }
@@ -219,7 +217,7 @@ mod tests {
         assert_abs_diff_eq!(state[0], 1.0, epsilon = 1.0e-12);
     }
 
-    fn point_earth(t: f64, x: &SVector<f64, 6>) -> SVector<f64, 6> {
+    fn point_earth(_: f64, x: &SVector<f64, 6>) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -249,7 +247,7 @@ mod tests {
         // Get start and end times of propagation (1 orbit)
         let epc0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         let epcf = epc0 + orbital_period(oe0[0]);
-        let mut dt = 0.0;
+        let mut dt;
         let mut epc = epc0.clone();
 
         while epc < epcf {
@@ -280,10 +278,6 @@ mod tests {
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
         let state0 = state_osculating_to_cartesian(oe0, false);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
-
-        // Get start and end times of propagation (1 orbit)
-        let epc0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
-        let epcf = epc0 + orbital_period(oe0[0]);
 
         // Take no setp and confirm the variational matrix is the identity matrix
         let (state1, phi1) = rk4.step_with_varmat(0.0, &state0, &phi0, 0.0);

@@ -1,8 +1,9 @@
 /*!
- Implements the Butcher tableau for Runge-Kutta methods.
+Implements the Butcher tableau for Runge-Kutta methods.
  */
 
 use nalgebra::{SMatrix, SVector};
+
 use crate::utils::BraheError;
 
 /// Defines a Butcher tableau for a Runge-Kutta method.
@@ -16,7 +17,6 @@ pub struct ButcherTableau<const S: usize> {
 }
 
 impl<const S: usize> ButcherTableau<S> {
-
     /// Create a new Butcher tableau for a Runge-Kutta method.
     ///
     /// # Arguments
@@ -35,7 +35,7 @@ impl<const S: usize> ButcherTableau<S> {
     ///
     /// ```
     /// use nalgebra::{SMatrix, SVector};
-    /// use brahe::integrators::runge_kutta::ButcherTableau;
+    /// use brahe::integrators::ButcherTableau;
     ///
     /// // Define the Butcher tableau for the standard Runge-Kutta 4th order method
     /// let a = SMatrix::<f64, 4, 4>::new(
@@ -63,7 +63,6 @@ impl<const S: usize> ButcherTableau<S> {
     fn validate(&self) -> Result<(), BraheError> {
         validate_explicit_butcher_tableau(self.a, self.b, self.c)
     }
-
 }
 
 /// Validate a Butcher tableau for a Runge-Kutta method.
@@ -111,7 +110,7 @@ pub(crate) const RK4_TABLEAU: ButcherTableau<4> = ButcherTableau {
         0.0, 0.5, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
     ),
-    b: SVector::<f64, 4>::new(1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0),
+    b: SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0),
     c: SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0),
 };
 
@@ -128,7 +127,7 @@ mod tests {
             0.0, 0.0, 1.0, 0.0,
         );
 
-        let b = SVector::<f64, 4>::new(1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0);
+        let b = SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0);
         let c = SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0);
 
         let bt = ButcherTableau::new(a, b, c);

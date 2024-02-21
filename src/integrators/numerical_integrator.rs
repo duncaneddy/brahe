@@ -84,3 +84,21 @@ pub fn varmat_from_offset_vector<const S: usize>(t: f64, state: &SVector<f64, S>
 
     phi
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_varmat_from_percentage_offset() {
+        // todo!()
+    }
+
+    #[test]
+    fn test_varmat_from_fixed_offset() {
+        // todo!()
+    }
+
+    #[test]
+    fn test_varmat_from_offset_vector() {
+        // todo!()
+    }
+}

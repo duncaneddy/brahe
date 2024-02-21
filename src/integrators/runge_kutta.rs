@@ -1,10 +1,11 @@
 /*!
- Implementation of Runge-Kutta integration methods.
-*/
+Implementation of Runge-Kutta integration methods.
+ */
 
 use nalgebra::{SMatrix, SVector};
-use crate::integrators::numerical_integrator::NumericalIntegrator;
+
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
+use crate::integrators::numerical_integrator::NumericalIntegrator;
 
 /// Perform a single step of an explicit Runge-Kutta method. This function is generic over the size
 /// of the state vector and the size of the Butcher tableau.
@@ -25,7 +26,7 @@ use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 ///
 /// - The state of the system after taking a single step.
 ///
-pub fn rk_step_vector<const S: usize, const O: usize>(t: f64, state: &SVector<f64, S>, dt: f64, f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>, bt: &ButcherTableau<O>) -> SVector<f64, S>  {
+pub fn rk_step_vector<const S: usize, const O: usize>(t: f64, state: &SVector<f64, S>, dt: f64, f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>, bt: &ButcherTableau<O>) -> SVector<f64, S> {
     let mut k = SMatrix::<f64, S, O>::zeros();
     let mut state_update = SVector::<f64, S>::zeros();
 
@@ -49,11 +50,11 @@ pub fn rk_step_vector<const S: usize, const O: usize>(t: f64, state: &SVector<f6
 }
 
 pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
-          state: &SVector<f64, S>,
-          phi: &SMatrix<f64, S, S>, dt: f64,
-          f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>,
-          varmat: fn(f64, &SVector<f64, S>) -> SMatrix<f64, S, S>,
-          bt: &ButcherTableau<O>) -> (SVector<f64, S>, SMatrix<f64, S, S>)  {
+                                                                 state: &SVector<f64, S>,
+                                                                 phi: &SMatrix<f64, S, S>, dt: f64,
+                                                                 f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>,
+                                                                 varmat: fn(f64, &SVector<f64, S>) -> SMatrix<f64, S, S>,
+                                                                 bt: &ButcherTableau<O>) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
 
     // Define working variables to hold internal step state
     let mut k = SMatrix::<f64, S, O>::zeros();
@@ -74,7 +75,7 @@ pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
         }
 
         k.set_column(i, &f(t + bt.c[i] * dt, &(state + dt * ksum)));
-        k_phi[i] = varmat(t + bt.c[i] * dt, &(state + dt * ksum));
+        k_phi[i] = varmat(t + bt.c[i] * dt, &(state + dt * ksum)) * (phi + dt * k_phi_sum);
     }
 
     // Compute the state update from each internal step
@@ -84,21 +85,7 @@ pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
     }
 
     // Combine the state and the state update to get the new state
-    // (state + state_update, phi + phi_update)
-
-    let xk1 = f(t, state);
-    let xk2 = f(t + dt / 2.0, &(state + dt / 2.0 * xk1));
-    let xk3 = f(t + dt / 2.0, &(state + dt / 2.0 * xk2));
-    let xk4 = f(t + dt, &(state + dt * xk3));
-    let xu = state + dt / 6.0 * (xk1 + 2.0 * xk2 + 2.0 * xk3 + xk4);
-
-    let phik1 = varmat(t, state) * phi;
-    let phik2 = varmat(t + dt / 2.0, &(state + dt / 2.0 * xk1)) * (phi + dt / 2.0 * phik1);
-    let phik3 = varmat(t + dt / 2.0, &(state + dt / 2.0 * xk2)) * (phi + dt / 2.0 * phik2);
-    let phik4 = varmat(t + dt, &(state + dt * xk3)) * (phi + dt * phik3);
-    let phiu = phi + dt / 6.0 * (phik1 + 2.0 * phik2 + 2.0 * phik3 + phik4);
-
-    (xu, phiu)
+    (state + state_update, phi + phi_update)
 }
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
@@ -170,7 +157,9 @@ impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
+
     use crate::{Epoch, GM_EARTH, orbital_period, R_EARTH, state_osculating_to_cartesian, TimeSystem, varmat_from_fixed_offset, varmat_from_offset_vector};
+
     use super::*;
 
     #[test]
@@ -178,7 +167,7 @@ mod tests {
         // Define a simple function for testing x' = 2x,
         let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
-            state_new[0] = 3.0*t*t;
+            state_new[0] = 3.0 * t * t;
             state_new
         };
 
@@ -187,7 +176,7 @@ mod tests {
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 1.0;
 
-        for i in 0..10{
+        for i in 0..10 {
             state = rk4.step(i as f64, &state, dt);
         }
 
@@ -199,7 +188,7 @@ mod tests {
         // Define a simple function for testing x' = 2x,
         let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
-            state_new[0] = 2.0*t;
+            state_new[0] = 2.0 * t;
             state_new
         };
 
@@ -209,7 +198,7 @@ mod tests {
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 0.01;
 
-        for _ in 0..100{
+        for _ in 0..100 {
             state = rk4.step(t, &state, dt);
             t += dt;
         }
@@ -222,7 +211,7 @@ mod tests {
         let v = x.fixed_rows::<3>(3);
 
         // Calculate acceleration
-        let a = - GM_EARTH / r.norm().powi(3);
+        let a = -GM_EARTH / r.norm().powi(3);
 
         // Construct state derivative
         let r_dot = v;

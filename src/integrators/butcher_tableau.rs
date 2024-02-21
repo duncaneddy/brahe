@@ -131,7 +131,9 @@ mod tests {
         let b = SVector::<f64, 4>::new(1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0);
         let c = SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0);
 
-        let bt = ButcherTableau::new(a, b, c).unwrap();
+        let bt = ButcherTableau::new(a, b, c);
+
+        assert!(bt.is_ok());
     }
 
     #[test]

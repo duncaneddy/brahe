@@ -269,7 +269,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no setp and confirm the variational matrix is the identity matrix
-        let (state1, phi1) = rk4.step_with_varmat(0.0, &state0, &phi0, 0.0);
+        let (_, phi1) = rk4.step_with_varmat(0.0, &state0, &phi0, 0.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -281,7 +281,7 @@ mod tests {
         }
 
         // Propagate one step and indecently confirm the variational matrix update
-        let (state2, phi2) = rk4.step_with_varmat(0.0, &state0, &phi0, 1.0);
+        let (_, phi2) = rk4.step_with_varmat(0.0, &state0, &phi0, 1.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {

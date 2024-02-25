@@ -252,6 +252,7 @@ impl FileEOPProvider {
     /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
+    ///                 .join("eop")
     ///                 .join("EOP_20_C04_one_file_1962-now.txt");
     ///
     /// let eop = FileEOPProvider::from_c04_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
@@ -364,6 +365,7 @@ impl FileEOPProvider {
     /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
+    ///                 .join("eop")
     ///                 .join("finals.all.iau2000.txt");
     ///
     /// let eop = FileEOPProvider::from_standard_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
@@ -499,6 +501,7 @@ impl FileEOPProvider {
     /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
+    ///                 .join("eop")
     ///                 .join("EOP_20_C04_one_file_1962-now.txt");
     ///
     /// let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
@@ -507,6 +510,7 @@ impl FileEOPProvider {
     /// let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
+    ///                 .join("eop")
     ///                 .join("finals.all.iau2000.txt");
     ///
     /// let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();

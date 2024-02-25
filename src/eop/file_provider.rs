@@ -9,27 +9,26 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io;
-use std::io::prelude::*;
 use std::io::BufReader;
+use std::io::prelude::*;
 use std::ops::Bound;
 use std::path::Path;
-
-use crate::utils::BraheError;
 
 use crate::eop::c04_parser::parse_c04_line;
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::standard_parser::parse_standard_line;
+use crate::utils::BraheError;
 
 // Package EOP data as part of crate
 
 /// Packaged C04 EOP Data File
 static PACKAGED_C04_FILE: &'static [u8] =
-    include_bytes!("../../data/EOP_20_C04_one_file_1962-now.txt");
+    include_bytes!("../../data/eop/EOP_20_C04_one_file_1962-now.txt");
 
 /// Packaged Finals 2000A Data File
 static PACKAGED_STANDARD2000_FILE: &'static [u8] =
-    include_bytes!("../../data/finals.all.iau2000.txt");
+    include_bytes!("../../data/eop/finals.all.iau2000.txt");
 
 // Define a custom key type for the EOP data BTreeMap to enable use
 // since f64 does not implement Ord by default. This is not used
@@ -300,7 +299,7 @@ impl FileEOPProvider {
                     return Err(BraheError::EOPError(format!(
                         "Failed to parse EOP file on line {}: {}",
                         line_num, e
-                    )))
+                    )));
                 }
             };
 
@@ -413,7 +412,7 @@ impl FileEOPProvider {
                     return Err(BraheError::EOPError(format!(
                         "Failed to parse EOP file on line {}: {}",
                         line_num, e
-                    )))
+                    )));
                 }
             };
 
@@ -1157,11 +1156,13 @@ impl EarthOrientationProvider for FileEOPProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::constants::AS2RAD;
     use std::env;
 
     use approx::assert_abs_diff_eq;
+
+    use crate::constants::AS2RAD;
+
+    use super::*;
 
     fn setup_test_eop(
         eop_interpolation: bool,
@@ -1263,7 +1264,7 @@ mod tests {
             true,
             EOPExtrapolation::Hold,
         )
-        .unwrap();
+            .unwrap();
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.

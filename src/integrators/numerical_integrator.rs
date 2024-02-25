@@ -73,13 +73,14 @@ pub fn varmat_from_offset_vector<const S: usize>(t: f64, state: &SVector<f64, S>
     // Initialize the variational matrix
     let mut phi = SMatrix::<f64, S, S>::zeros();
 
-    // Compute the perturbed for each state component
-    let state_perturbation = state + offset;
-
     // Compute the variational matrix for each state component
     for i in 0..S {
-        let pfx = f(t, &(state + state_perturbation));
-        phi.set_column(i, &((pfx - fx) / state_perturbation[i]));
+        // Compute the perturbed for each state component
+        let mut px = *state;
+        px[i] += offset[i];
+
+        let pfx = f(t, &px);
+        phi.set_column(i, &((pfx - fx) / offset[i]));
     }
 
     phi
@@ -89,16 +90,47 @@ pub fn varmat_from_offset_vector<const S: usize>(t: f64, state: &SVector<f64, S>
 mod tests {
     #[test]
     fn test_varmat_from_percentage_offset() {
-        // todo!()
+        let t = 0.0;
+        let state = nalgebra::SVector::<f64, 2>::new(1.0, 2.0);
+        let f = |_t: f64, state: &nalgebra::SVector<f64, 2>| -> nalgebra::SVector<f64, 2> {
+            nalgebra::SVector::<f64, 2>::new(state[0], state[1])
+        };
+
+        let phi = super::varmat_from_percentage_offset(t, &state, f, 0.01);
+        assert!(phi[(0, 0)] >= 1.0);
+        assert_eq!(phi[(0, 1)], 0.0);
+        assert_eq!(phi[(1, 0)], 0.0);
+        assert!(phi[(1, 1)] >= 1.0);
     }
 
     #[test]
     fn test_varmat_from_fixed_offset() {
-        // todo!()
+        let t = 0.0;
+        let state = nalgebra::SVector::<f64, 2>::new(1.0, 2.0);
+        let f = |_t: f64, state: &nalgebra::SVector<f64, 2>| -> nalgebra::SVector<f64, 2> {
+            nalgebra::SVector::<f64, 2>::new(state[0], state[1])
+        };
+
+        let phi = super::varmat_from_fixed_offset(t, &state, f, 0.01);
+        assert_ne!(phi[(0, 0)], 1.0);
+        assert_eq!(phi[(0, 1)], 0.0);
+        assert_eq!(phi[(1, 0)], 0.0);
+        assert_ne!(phi[(1, 1)], 1.0);
     }
 
     #[test]
     fn test_varmat_from_offset_vector() {
-        // todo!()
+        let t = 0.0;
+        let state = nalgebra::SVector::<f64, 2>::new(1.0, 2.0);
+        let f = |_t: f64, state: &nalgebra::SVector<f64, 2>| -> nalgebra::SVector<f64, 2> {
+            nalgebra::SVector::<f64, 2>::new(state[0], state[1])
+        };
+
+        let offset = nalgebra::SVector::<f64, 2>::new(0.01, 0.01);
+        let phi = super::varmat_from_offset_vector(t, &state, f, &offset);
+        assert_ne!(phi[(0, 0)], 1.0);
+        assert_eq!(phi[(0, 1)], 0.0);
+        assert_eq!(phi[(1, 0)], 0.0);
+        assert_ne!(phi[(1, 1)], 1.0);
     }
 }

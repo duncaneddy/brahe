@@ -2,10 +2,11 @@
  * Provide transformations for Cartesian state representations.
  */
 
+use std::f64::consts::PI;
+
 use is_close::is_close;
 use nalgebra as na;
 use nalgebra::{Vector3, Vector6};
-use std::f64::consts::PI;
 
 use crate::constants;
 use crate::constants::GM_EARTH;
@@ -44,7 +45,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// # Reference
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
-pub fn state_osculating_to_cartesian(x_oe: na::Vector6<f64>, as_degrees: bool) -> na::Vector6<f64> {
+pub fn state_osculating_to_cartesian(x_oe: Vector6<f64>, as_degrees: bool) -> na::Vector6<f64> {
     // Unpack input
     let a = x_oe[0];
     let e = x_oe[1];
@@ -159,12 +160,13 @@ pub fn state_cartesian_to_osculating(
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_abs_diff_eq;
+
     use crate::constants::R_EARTH;
     use crate::coordinates::*;
     use crate::orbits::*;
     use crate::utils::math::*;
     use crate::utils::testing::setup_global_test_eop;
-    use approx::assert_abs_diff_eq;
 
     #[test]
     fn test_state_osculating_to_cartesian() {

@@ -1,6 +1,5 @@
-use num_traits::float::Float;
-
 use nalgebra as na;
+use num_traits::float::Float;
 
 use crate::constants;
 
@@ -136,11 +135,41 @@ pub fn matrix3_from_array(mat: &[[f64; 3]; 3]) -> na::Matrix3<f64> {
     )
 }
 
+
+/// Compute the Kronecker delta function.
+///
+/// # Arguments
+///
+/// - `i`: The first index.
+/// - `j`: The second index.
+///
+/// # Returns
+///
+/// - `u8`: The value of the Kronecker delta function.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::math::kronecker_delta;
+///
+/// assert_eq!(kronecker_delta(0, 0), 1);
+/// assert_eq!(kronecker_delta(0, 1), 0);
+/// assert_eq!(kronecker_delta(1, 0), 0);
+/// assert_eq!(kronecker_delta(1, 1), 1);
+/// ```
+pub fn kronecker_delta(i: usize, j: usize) -> u8 {
+    if i == j {
+        1
+    } else {
+        0
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::f64::consts::PI;
+
+    use super::*;
 
     #[test]
     fn test_from_degrees() {
@@ -206,5 +235,13 @@ mod tests {
         assert_eq!(m[(2, 0)], 7.0);
         assert_eq!(m[(2, 1)], 8.0);
         assert_eq!(m[(2, 2)], 9.0);
+    }
+
+    #[test]
+    fn test_kronecker_delta() {
+        assert_eq!(kronecker_delta(0, 0), 1);
+        assert_eq!(kronecker_delta(0, 1), 0);
+        assert_eq!(kronecker_delta(1, 0), 0);
+        assert_eq!(kronecker_delta(1, 1), 1);
     }
 }

@@ -3,7 +3,7 @@ THE SATELLITE-ONLY GRACE GRAVITY MODEL GGM05S
 
 Current Reference:
 
-Tapley, B. D., F. Flechtner, S. V. Bettadpur, M. M. Watkins, The status and future prospect
+Tapley, B. D., F. Flechtner, s. V. Bettadpur, M. M. Watkins, The status and future prospect
 for GRACE after the first decade, Eos Trans., Fall Meet. Suppl., Abstract G22A-01, 2013.
 
 GGM05S is an unconstrained global gravity model complete to degree and order 180 
@@ -31,7 +31,7 @@ tide_system                   zero_tide
  
  
  
-key    L    M         C                  S               sigma C      sigma S
+key    L    M         c                  s               sigma c      sigma s
 end_of_head ====================================================================
 gfc    0    0  1.000000000000e+00  0.000000000000e+00  0.00000e+00  0.00000e+00
 gfc    1    0  0.000000000000e+00  0.000000000000e+00  0.00000e+00  0.00000e+00

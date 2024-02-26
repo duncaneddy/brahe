@@ -479,9 +479,9 @@ impl std::fmt::Debug for GravityModel {
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(&r_eci, &R_i2b, &gravity_model, 20, 20);
+/// let a_grav = brahe::gravity::acceleration_gravity_spherical_harmonics(&r_eci, &R_i2b, &gravity_model, 20, 20);
 /// ```
-pub fn accel_gravity_spherical_harmonics(
+pub fn acceleration_gravity_spherical_harmonics(
     r_eci: &Vector3<f64>,
     R_i2b: &Matrix3<f64>,
     gravity_model: &GravityModel,

@@ -7,15 +7,33 @@ The north-star of the development is enabling users to solve meaningful problems
 and answer questions quickly, easily, and correctly.
 """
 readme = "README.md"
-requires-python = ">=3.9"
-license = {file = "LICENSE"}
-keywords = ["space", "astrodynamics", "satellite"]
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = ["space", "astrodynamics", "satellite", "research"]
 authors = [
-    {name = "Duncan Eddy", email = "duncan.eddy@gmail.com"}
+    { name = "Duncan Eddy", email = "duncan.eddy@gmail.com" }
 ]
 maintainers = [
-    {name = "Duncan Eddy", email = "duncan.eddy@gmail.com"}
+    { name = "Duncan Eddy", email = "duncan.eddy@gmail.com" }
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    # Specify the Python versions you support here.
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+[project.urls]
+Homepage = "https://duncaneddy.github.io/brahe/"
+Documentation = "https://duncaneddy.github.io/brahe/"
+Repository = "https://github.com/duncaneddy/brahe"
+Issues = "https://github.com/duncaneddy/brahe/pulls"
+#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
 
 dependencies = [
     'typer>=0.9.0,<1.0.0',

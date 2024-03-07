@@ -16,7 +16,7 @@ keywords = ["space", "astrodynamics", "satellite"]
 categories = ["science"]
 readme = "README.md"
 license = "MIT"
-exclude = ["/test_data", "/test", "/scripts", "/docs", "/brahe"]
+exclude = ["/test_data", "/test", "/scripts", "/docs", "/brahe", ".github"]
 
 [lib]
 name = "brahe"

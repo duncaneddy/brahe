@@ -17,11 +17,7 @@ jobs:
       # TODO: Remove this when the nightly BTreeCursor is stabilized and released
       - name: Install Rust
         run: rustup update nightly
-      # - run: rustup default nightly
-      - name: (TEMP) Install stable nightly of BTreeCursor
-        run: rustup install nightly-2023-12-21
-      - name: (TEMP) Set compiler to stable nightly
-        run: rustup default nightly-2023-12-21
+      - run: rustup default nightly
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
         uses: actions/setup-python@v5

@@ -809,15 +809,18 @@ impl EarthOrientationProvider for FileEOPProvider {
         if self.initialized {
             if mjd < self.mjd_max {
                 if self.interpolate == true {
-                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
-                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+                    // Get cursor pointing at the gap after the data for the previous data point
+                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+
 
                     // Time points and values
-                    let t1: f64 = below.key().unwrap().0;
-                    let t2: f64 = above.key().unwrap().0;
-                    let y1: f64 = below.value().unwrap().2;
-                    let y2: f64 = above.value().unwrap().2;
+                    let (t1, data1) = cursor.peek_prev().unwrap();
+                    let (t2, data2) = cursor.peek_next().unwrap();
+
+                    let t1 = t1.0;
+                    let t2 = t2.0;
+                    let y1 = data1.2;
+                    let y2 = data2.2;
 
                     // Interpolate, checking if we are exactly at a data point
                     if t1 == t2 {
@@ -829,10 +832,9 @@ impl EarthOrientationProvider for FileEOPProvider {
                     // Get First value below - Note the "upper" bound is actually the lower time value
                     Ok(self
                         .data
-                        .upper_bound(Bound::Included(&EOPKey(mjd)))
-                        .value()
-                        .unwrap()
-                        .2)
+                        .lower_bound(Bound::Included(&EOPKey(mjd)))
+                        .peek_prev()
+                        .unwrap().1.2)
                 }
             } else {
                 match self.extrapolate {
@@ -892,17 +894,20 @@ impl EarthOrientationProvider for FileEOPProvider {
         if self.initialized {
             if mjd < self.mjd_max {
                 if self.interpolate == true {
-                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
-                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+                    // Get cursor pointing at the gap after the data for the previous data point
+                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+
 
                     // Time points and values
-                    let t1: f64 = below.key().unwrap().0;
-                    let t2: f64 = above.key().unwrap().0;
-                    let pm_x1: f64 = below.value().unwrap().0;
-                    let pm_x2: f64 = above.value().unwrap().0;
-                    let pm_y1: f64 = below.value().unwrap().1;
-                    let pm_y2: f64 = above.value().unwrap().1;
+                    let (t1, data1) = cursor.peek_prev().unwrap();
+                    let (t2, data2) = cursor.peek_next().unwrap();
+
+                    let t1 = t1.0;
+                    let t2 = t2.0;
+                    let pm_x1 = data1.0;
+                    let pm_x2 = data2.0;
+                    let pm_y1 = data1.1;
+                    let pm_y2 = data2.1;
 
                     // Interpolate
                     if t1 == t2 {
@@ -915,8 +920,8 @@ impl EarthOrientationProvider for FileEOPProvider {
                     }
                 } else {
                     // Get First value below - Note the "upper" bound is actually the lower time value
-                    let below = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
-                    Ok((below.value().unwrap().0, below.value().unwrap().1))
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd))).peek_prev().unwrap().1;
+                    Ok((below.0, below.1))
                 }
             } else {
                 match self.extrapolate {
@@ -977,17 +982,20 @@ impl EarthOrientationProvider for FileEOPProvider {
         if self.initialized {
             if mjd < self.mjd_last_dxdy {
                 if self.interpolate == true {
-                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
-                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+                    // Get cursor pointing at the gap after the data for the previous data point
+                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+
 
                     // Time points and values
-                    let t1: f64 = below.key().unwrap().0;
-                    let t2: f64 = above.key().unwrap().0;
-                    let dx1: f64 = below.value().unwrap().3.unwrap();
-                    let dx2: f64 = above.value().unwrap().3.unwrap();
-                    let dy1: f64 = below.value().unwrap().4.unwrap();
-                    let dy2: f64 = above.value().unwrap().4.unwrap();
+                    let (t1, data1) = cursor.peek_prev().unwrap();
+                    let (t2, data2) = cursor.peek_next().unwrap();
+
+                    let t1 = t1.0;
+                    let t2 = t2.0;
+                    let dx1 = data1.3.unwrap();
+                    let dx2 = data2.3.unwrap();
+                    let dy1 = data1.4.unwrap();
+                    let dy2 = data2.4.unwrap();
 
                     // Interpolate
                     if t1 == t2 {
@@ -1000,10 +1008,10 @@ impl EarthOrientationProvider for FileEOPProvider {
                     }
                 } else {
                     // Get First value below - Note the "upper" bound is actually the lower time value
-                    let below = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
+                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd))).peek_prev().unwrap().1;
                     Ok((
-                        below.value().unwrap().3.unwrap(),
-                        below.value().unwrap().4.unwrap(),
+                        below.3.unwrap(),
+                        below.4.unwrap(),
                     ))
                 }
             } else {
@@ -1063,15 +1071,18 @@ impl EarthOrientationProvider for FileEOPProvider {
         if self.initialized {
             if mjd < self.mjd_last_lod {
                 if self.interpolate == true {
-                    // Get Above and below points, note for BTreeMap the "upper" bound is actually the lower time value
-                    let above = self.data.upper_bound(Bound::Included(&EOPKey(mjd)));
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+                    // Get cursor pointing at the gap after the data for the previous data point
+                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
+
 
                     // Time points and values
-                    let t1: f64 = below.key().unwrap().0;
-                    let t2: f64 = above.key().unwrap().0;
-                    let y1: f64 = below.value().unwrap().5.unwrap();
-                    let y2: f64 = above.value().unwrap().5.unwrap();
+                    let (t1, data1) = cursor.peek_prev().unwrap();
+                    let (t2, data2) = cursor.peek_next().unwrap();
+
+                    let t1 = t1.0;
+                    let t2 = t2.0;
+                    let y1 = data1.5.unwrap();
+                    let y2 = data2.5.unwrap();
 
                     // Interpolate
                     if t1 == t2 {
@@ -1083,10 +1094,10 @@ impl EarthOrientationProvider for FileEOPProvider {
                     // Get last value below - Note the "upper" bound is actually the lower time value
                     Ok(self
                         .data
-                        .upper_bound(Bound::Included(&EOPKey(mjd)))
-                        .value()
+                        .lower_bound(Bound::Included(&EOPKey(mjd)))
+                        .peek_prev()
                         .unwrap()
-                        .5
+                        .1.5
                         .unwrap())
                 }
             } else {

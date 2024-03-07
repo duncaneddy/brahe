@@ -16,7 +16,6 @@ keywords = ["space", "astrodynamics", "satellite"]
 categories = ["science"]
 readme = "README.md"
 license = "MIT"
-rust-version = "nightly"
 exclude = ["/test_data", "/test", "/scripts", "/docs", "/brahe"]
 
 [lib]

@@ -28,12 +28,12 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-[project.urls]
-Homepage = "https://duncaneddy.github.io/brahe/"
-Documentation = "https://duncaneddy.github.io/brahe/"
-Repository = "https://github.com/duncaneddy/brahe"
-Issues = "https://github.com/duncaneddy/brahe/pulls"
-#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+urls = [
+    { name = "Documentation", url = "https://duncaneddy.github.io/brahe/" },
+    { name = "Repository", url = "https://github.com/duncaneddy/brahe" },
+    { name = "Issues", url = "https://github.com/duncaneddy/brahe/pulls" }
+]
+
 
 dependencies = [
     'typer>=0.9.0,<1.0.0',

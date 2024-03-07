@@ -32,7 +32,7 @@ use crate::time::Epoch;
 /// ```
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
 /// use brahe::time::Epoch;
-/// use brahe::third_body::third_body_sun;
+/// use brahe::third_body::acceleration_third_body_sun;
 /// use brahe::constants::R_EARTH;
 /// use nalgebra::Vector3;
 ///
@@ -42,9 +42,9 @@ use crate::time::Epoch;
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = third_body_sun(epc, &r_object);
+/// let a = acceleration_third_body_sun(epc, &r_object);
 /// ```
-pub fn third_body_sun(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
+pub fn acceleration_third_body_sun(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
     acceleration_point_mass_gravity(r_object, &sun_position(epc), GM_SUN)
 }
 
@@ -65,7 +65,24 @@ pub fn third_body_sun(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
 ///
 /// - `a` - Acceleration due to the Moon. Units: [m/s^2]
 ///
-pub fn third_body_moon(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
+/// # Example
+///
+/// ```
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::acceleration_third_body_moon;
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// let a = acceleration_third_body_moon(epc, &r_object);
+/// ```
+pub fn acceleration_third_body_moon(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
     acceleration_point_mass_gravity(r_object, &moon_position(epc), GM_MOON)
 }
 
@@ -80,7 +97,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_third_body_sun() {
+    fn test_acceleration_third_body_sun() {
         let epc = Epoch::from_date(2023, 1, 1, TimeSystem::UTC);
 
         let oe = Vector6::new(
@@ -93,14 +110,14 @@ mod tests {
         );
         let r_object = state_osculating_to_cartesian(oe, true).xyz();
 
-        let a = third_body_sun(epc, &r_object);
+        let a = acceleration_third_body_sun(epc, &r_object);
 
         // TODO: Do better validation of the implementation and the expected results
         assert!(a.norm() < 1.0e-1);
     }
 
     #[test]
-    fn test_third_body_moon() {
+    fn test_acceleration_third_body_moon() {
         let epc = Epoch::from_date(2023, 1, 1, TimeSystem::UTC);
 
         let oe = Vector6::new(
@@ -113,7 +130,7 @@ mod tests {
         );
         let r_object = state_osculating_to_cartesian(oe, true).xyz();
 
-        let a = third_body_moon(epc, &r_object);
+        let a = acceleration_third_body_moon(epc, &r_object);
 
         // TODO: Do better validation of the implementation and the expected results
         assert!(a.norm() < 1.0e-4);

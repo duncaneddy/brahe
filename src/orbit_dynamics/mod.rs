@@ -2,6 +2,7 @@
 Module implementing orbit dynamics models.
  */
 
+pub use drag::*;
 pub use ephemerides::*;
 pub use gravity::*;
 pub use relativity::*;
@@ -13,4 +14,5 @@ pub mod solar_radiation_pressure;
 pub mod relativity;
 pub mod third_body;
 pub mod ephemerides;
+pub mod drag;
 

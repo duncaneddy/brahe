@@ -16,7 +16,11 @@ jobs:
             -   name: Generate code coverage
                 run: cargo llvm-cov  --workspace --lcov --output-path lcov.info --features ci
             -   name: Upload coverage to Codecov
-                uses: codecov/codecov-action@v4
+                # TODO: This needs to be pinned on v3 until this issue is resolved:
+                # https://github.com/codecov/codecov-action/issues/1292
+                #
+                # The issue prevents properly passing the secret to the codecov-action
+                uses: codecov/codecov-action@v3
                 with:
                     token: ${{ secrets.CODECOV_TOKEN }}
                     files: lcov.info

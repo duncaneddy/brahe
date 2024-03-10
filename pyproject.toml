@@ -28,18 +28,16 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-urls = [
-    { name = "Documentation", url = "https://duncaneddy.github.io/brahe/" },
-    { name = "Repository", url = "https://github.com/duncaneddy/brahe" },
-    { name = "Issues", url = "https://github.com/duncaneddy/brahe/pulls" }
-]
-
-
 dependencies = [
     'typer>=0.9.0,<1.0.0',
     'rich>=13.0.0,<14.0.0',
     'numpy>=1.24.4,<2.0.0'
 ]
+
+[project.urls]
+Documentation = "https://duncaneddy.github.io/brahe/"
+Repository = "https://github.com/duncaneddy/brahe"
+Issues = "https://github.com/duncaneddy/brahe/pulls"
 
 # To install dev dependencies, run `pip install -e '.[dev]'`
 [project.optional-dependencies]

@@ -3,31 +3,26 @@
 
 name: Update Docs
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - docs/**
+on: [ workflow_call ]
 
 jobs:
-  publish-docs:
-    runs-on: ubuntu-latest
-    steps:
-      # TODO: Remove this when the nightly BTreeCursor is stabilized and released
-      - name: Install Rust
-        run: rustup update nightly
-      - run: rustup default nightly
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          ./scripts/build-docs.sh install
-      - name: Build docs
-        run: ./scripts/build-docs.sh build
-      - name: Deploy docs
-        run: ./scripts/build-docs.sh publish
+    publish-docs:
+        runs-on: ubuntu-latest
+        steps:
+            # TODO: Remove this when the nightly BTreeCursor is stabilized and released
+            -   name: Install Rust
+                run: rustup update nightly
+            -   run: rustup default nightly
+            -   uses: actions/checkout@v4
+            -   name: Set up Python 3.12
+                uses: actions/setup-python@v5
+                with:
+                    python-version: 3.12
+            -   name: Install dependencies
+                run: |
+                    python -m pip install --upgrade pip
+                    ./scripts/build-docs.sh install
+            -   name: Build docs
+                run: ./scripts/build-docs.sh build
+            -   name: Deploy docs
+                run: ./scripts/build-docs.sh publish

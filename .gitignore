@@ -17,6 +17,9 @@ wheels/
 *.dylib
 .python-version
 
+# Build Artifacts - Validation
+/build
+
 # Documentation
 docs/*/site/*
 docs/*/docs/figures/*

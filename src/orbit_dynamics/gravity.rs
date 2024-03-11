@@ -511,6 +511,7 @@ pub fn acceleration_gravity_spherical_harmonics(
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use rstest::rstest;
 
     use crate::{Epoch, rotation_eci_to_ecef, TimeSystem};
     use crate::constants::{GM_EARTH, R_EARTH};
@@ -654,5 +655,43 @@ mod tests {
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[2], -7.29925652190e-5, epsilon = 1e-12);
+    }
+
+    #[rstest]
+    #[case(2, 2, - 6.97922756436, - 1.8292810538, - 2.69001658552)]
+    #[case(3, 3, - 6.97926211185, - 1.82929165145, - 2.68998602761)]
+    #[case(4, 4, - 6.97931189287, - 1.82931487069, - 2.6899914012)]
+    #[case(5, 5, - 6.9792700471, - 1.82929795164, - 2.68997917147)]
+    #[case(6, 6, - 6.979220667, - 1.8292787808, - 2.68997263887)]
+    #[case(7, 7, - 6.97925478463, - 1.82926946742, - 2.68999296889)]
+    #[case(8, 8, - 6.97927699747, - 1.82928186346, - 2.68998582282)]
+    #[case(9, 9, - 6.97925893036, - 1.82928170212, - 2.68997442046)]
+    #[case(10, 10, - 6.97924447943, - 1.82928331386, - 2.68997524437)]
+    #[case(11, 11, - 6.9792517591, - 1.82928094754, - 2.68998382906)]
+    #[case(12, 12, - 6.97924725688, - 1.82928130662, - 2.68998625958)]
+    #[case(13, 13, - 6.97924858679, - 1.82928591192, - 2.6899891726)]
+    #[case(14, 14, - 6.97924919386, - 1.82928546814, - 2.68999164569)]
+    #[case(15, 15, - 6.97925490319, - 1.82928469874, - 2.68999376747)]
+    #[case(16, 16, - 6.97926211023, - 1.82928438361, - 2.68999719587)]
+    #[case(17, 17, - 6.97926308133, - 1.82928484644, - 2.68999716187)]
+    #[case(18, 18, - 6.97926208121, - 1.829284918, - 2.6899952379)]
+    #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
+    #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
+    fn test_acceleration_gravity_jgm3_validation(#[case] n: usize, #[case] m: usize, #[case] ax: f64, #[case] ay: f64, #[case] az: f64) {
+        let R_i2b = Matrix3::<f64>::identity();
+
+        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+        let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
+
+        let a_grav = acceleration_gravity_spherical_harmonics(&r_body, &R_i2b, &gravity_model, n, m);
+
+        // This could potentially be validated to a higher degree of accuracy, but currently the
+        // parameters provided by the Satellite Orbits book are only accurate to seven decimal 
+        // places, so without using the exact same parameters, it's difficult to validate to a higher
+        // degree of accuracy.
+        let tol = 1e-7;
+        assert_abs_diff_eq!(a_grav[0], ax, epsilon = tol);
+        assert_abs_diff_eq!(a_grav[1], ay, epsilon = tol);
+        assert_abs_diff_eq!(a_grav[2], az, epsilon = tol);
     }
 }

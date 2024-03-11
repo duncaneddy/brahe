@@ -9,13 +9,16 @@ use nalgebra::{DMatrix, Matrix3, Vector3};
 
 use crate::utils::{BraheError, kronecker_delta};
 
-/// Packaged EGM2008 Data File
-static PACKAGED_EGM2008: &'static [u8] =
+/// Packaged EGM2008_360 Data File
+static PACKAGED_EGM2008_360: &'static [u8] =
     include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
 
 /// Packaged GGM05S Data File
 static PACKAGED_GGM05S: &'static [u8] =
     include_bytes!("../../data/gravity_models/GGM05S.gfc");
+
+/// Packaged JGM3
+static PACKAGED_JGM3: &'static [u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
 
 /// Helper function to aid in denormalization of gravity field coefficients.
 /// This method computes the factorial ratio (n-m)!/(n+m)! in an efficient
@@ -108,8 +111,9 @@ pub enum GravityModelNormalization {
 /// Enumeration of the default gravity models available in Brahe.
 #[derive(Debug, PartialEq)]
 pub enum DefaultGravityModel {
-    EGM2008,
+    EGM2008_360,
     GGM05S,
+    JGM3,
 }
 
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
@@ -266,21 +270,27 @@ impl GravityModel {
     }
 
     /// Load a gravity model from default models included with Brahe. The available default models
-    /// are defined by the `DefaultGravityModel` enum. Currently, the available default models are
-    /// `EGM2008` and `GGM05S`. The `EGM2008` model is a truncated 360x360 version of the model,
-    /// while the `GGM05S` model is a 180x180 model.
+    /// are defined by the `DefaultGravityModel` enum. Currently, the available default models are:
+    ///
+    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008_360 model.
+    /// - `GGM05S` - The full 180x180 GGM05S model.
+    /// - `JGM3` - The full 70x70 JGM3 model.
     ///
     /// # Arguments
     ///
     /// - `model` : Default gravity model to load. This is a `DefaultGravityModel` enum.
     pub fn from_default(model: DefaultGravityModel) -> Self {
         match model {
-            DefaultGravityModel::EGM2008 => {
-                let reader = BufReader::new(PACKAGED_EGM2008);
+            DefaultGravityModel::EGM2008_360 => {
+                let reader = BufReader::new(PACKAGED_EGM2008_360);
                 Self::from_bufreader(reader).unwrap()
             }
             DefaultGravityModel::GGM05S => {
                 let reader = BufReader::new(PACKAGED_GGM05S);
+                Self::from_bufreader(reader).unwrap()
+            }
+            DefaultGravityModel::JGM3 => {
+                let reader = BufReader::new(PACKAGED_JGM3);
                 Self::from_bufreader(reader).unwrap()
             }
         }
@@ -471,7 +481,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008);
+/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -524,8 +534,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_egm2008() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008);
+    fn test_gravity_model_from_default_egm2008_360() {
+        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -552,8 +562,22 @@ mod tests {
     }
 
     #[test]
+    fn test_gravity_model_from_default_jgm3() {
+        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+
+        assert_eq!(gravity_model.model_name, "JGM3");
+        assert_eq!(gravity_model.gm, GM_EARTH);
+        assert_eq!(gravity_model.radius, R_EARTH);
+        assert_eq!(gravity_model.n_max, 70);
+        assert_eq!(gravity_model.m_max, 70);
+        assert_eq!(gravity_model.tide_system, GravityModelTideSystem::Unknown);
+        assert_eq!(gravity_model.model_errors, GravityModelErrors::Formal);
+        assert_eq!(gravity_model.normalization, GravityModelNormalization::FullyNormalized);
+    }
+
+    #[test]
     fn test_gravity_model_get() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008);
+        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 
         let (c, s) = gravity_model.get(2, 0).unwrap();
         assert_abs_diff_eq!(c, -0.484165143790815e-03, epsilon = 1e-12);
@@ -613,7 +637,7 @@ mod tests {
         let epc = Epoch::from_date(2019, 1, 1, TimeSystem::UTC);
         let R_i2b = rotation_eci_to_ecef(epc);
 
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008);
+        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 
 
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);

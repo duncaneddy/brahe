@@ -1,9 +1,10 @@
 /*!
- Models of solar radiation pressure.
-*/
+Models of solar radiation pressure.
+ */
+
+use nalgebra::Vector3;
 
 use crate::constants::{AU, R_EARTH, R_SUN};
-use nalgebra::Vector3;
 
 /// Calculate the acceleration due to solar radiation pressure.
 ///
@@ -45,7 +46,7 @@ pub fn acceleration_solar_radiation_pressure(
 ) -> Vector3<f64> {
     let d = r_object - r_sun;
 
-    d * cr*(area/mass)*p0*AU.powi(2) / d.norm().powi(3)
+    d * cr * (area / mass) * p0 * AU.powi(2) / d.norm().powi(3)
 }
 
 /// Calculate the fraction of the object that is illuminated by the sun using a conical model
@@ -79,9 +80,9 @@ pub fn acceleration_solar_radiation_pressure(
 pub fn eclipse_conical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
 
     // Occultation Geometry
-    let a = (R_SUN/(r_sun - r_object).norm()).asin();
-    let b = (R_EARTH/r_object.norm()).asin();
-    let c = (r_object.dot(&(r_sun-r_object))/(r_object.norm()*(r_sun-r_object).norm())).acos();
+    let a = (R_SUN / (r_sun - r_object).norm()).asin();
+    let b = (R_EARTH / r_object.norm()).asin();
+    let c = (r_object.dot(&(r_sun - r_object)) / (r_object.norm() * (r_sun - r_object).norm())).acos();
 
     // Test Occulation Conditions and return illumination fraction
     if (a - b).abs() < c && c < (a + b) {
@@ -136,18 +137,18 @@ pub fn eclipse_cylindrical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64
     let r_proj = r_object.dot(&e_sun);
 
     // Compute illumination fraction
-    let mut nu = 0.0;
-    if r_proj >= 1.0 || (r_object - r_proj*e_sun).norm() > R_EARTH {
-        nu = 1.0;
+    if r_proj >= 1.0 || (r_object - r_proj * e_sun).norm() > R_EARTH {
+        1.0
+    } else {
+        0.0
     }
-
-    nu
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use approx::assert_abs_diff_eq;
+
+    use super::*;
 
     #[test]
     fn test_acceleration_solar_radiation_pressure() {

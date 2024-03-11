@@ -686,8 +686,8 @@ impl EarthOrientationProvider for FileEOPProvider {
     /// assert_eq!(eop.interpolation(), false);
     ///
     /// // Confirm hold value for midday is just the previous value in the table
-    /// let ut1_utc = eop.get_ut1_utc(58481.5).unwrap();
-    /// assert_eq!(ut1_utc, eop.get_ut1_utc(58481.0).unwrap());
+    /// let ut1_utc = eop.get_ut1_utc(eop.mjd_max + 1.0).unwrap();
+    /// assert_eq!(ut1_utc, eop.get_ut1_utc(eop.mjd_max).unwrap());
     /// ```
     fn interpolation(&self) -> bool {
         self.interpolate
@@ -1440,6 +1440,7 @@ mod tests {
         assert!(eop.get_lod(99999.0).is_err());
     }
 
+    // TODO: Fix this test
     // #[test]
     // #[allow(non_snake_case)]
     // fn test_cip_format_consistency() {

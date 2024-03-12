@@ -687,7 +687,7 @@ mod tests {
         let r_ecef = Vector3::new(R_EARTH + 100.0, 0.0, 0.0);
 
         let r_sez =
-            relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
+            relative_position_ecef_to_sez(&x_sta, &r_ecef, EllipsoidalConversionType::Geocentric);
 
         assert_abs_diff_eq!(r_sez[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(r_sez[1], 0.0, epsilon = tol);
@@ -698,7 +698,7 @@ mod tests {
         let r_ecef = Vector3::new(R_EARTH, 0.0, 100.0);
 
         let r_sez =
-            relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
+            relative_position_ecef_to_sez(&x_sta, &r_ecef, EllipsoidalConversionType::Geocentric);
 
         assert_abs_diff_eq!(r_sez[0], -100.0, epsilon = tol);
         assert_abs_diff_eq!(r_sez[1], 0.0, epsilon = tol);
@@ -709,7 +709,7 @@ mod tests {
         let r_ecef = Vector3::new(R_EARTH, 100.0, 0.0);
 
         let r_sez =
-            relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
+            relative_position_ecef_to_sez(&x_sta, &r_ecef, EllipsoidalConversionType::Geocentric);
 
         assert_abs_diff_eq!(r_sez[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(r_sez[1], 100.0, epsilon = tol);
@@ -721,7 +721,7 @@ mod tests {
         let r_ecef = position_geocentric_to_ecef(&x_geoc, true).unwrap();
 
         let r_sez_geoc =
-            relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
+            relative_position_ecef_to_sez(&x_sta, &r_ecef, EllipsoidalConversionType::Geocentric);
 
         assert!(r_sez_geoc[0] < 0.0);
         assert!(r_sez_geoc[1] > 0.0);
@@ -733,7 +733,7 @@ mod tests {
         let r_ecef = position_geodetic_to_ecef(&x_geod, true).unwrap();
 
         let r_sez_geod =
-            relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geodetic);
+            relative_position_ecef_to_sez(&x_sta, &r_ecef, EllipsoidalConversionType::Geodetic);
 
         assert!(r_sez_geod[0] < 0.0);
         assert!(r_sez_geod[1] > 0.0);

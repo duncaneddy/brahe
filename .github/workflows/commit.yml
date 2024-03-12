@@ -1,4 +1,4 @@
-name: Commit Unit Tests
+name: Unit Tests
 
 on:
     push:

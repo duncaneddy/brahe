@@ -4,7 +4,7 @@
 // 
 // Purpose: 
 //
-//   Exercise the reference implementaiton of spherical harmonic gravity
+//   Exercise the reference implementation of spherical harmonic gravity
 //   field acceleration to provide reference values for the validation of
 //   the Rust implementation.
 //

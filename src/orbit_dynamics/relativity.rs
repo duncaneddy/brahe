@@ -50,8 +50,28 @@ pub fn acceleration_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
 
 #[cfg(test)]
 mod tests {
+    use crate::constants::R_EARTH;
+    use crate::coordinates::*;
+
     #[test]
     fn test_acceleration_relativity() {
-        // TODO: Add tests
+        use super::*;
+
+        let oe = Vector6::new(
+            R_EARTH + 500e3,
+            0.01,
+            97.3,
+            15.0,
+            30.0,
+            45.0,
+        );
+
+        let x_object = state_osculating_to_cartesian(oe, true);
+
+        let a = acceleration_relativity(x_object);
+
+        // According to Motenbruck and Gill this should be order of ~1e-8 for a satellite around
+        // 500 km altitude.
+        assert!(a.norm() < 1.0e-7);
     }
 }

@@ -66,7 +66,7 @@ mod tests {
             45.0,
         );
 
-        let x_object = state_osculating_to_cartesian(oe, true);
+        let x_object = state_osculating_to_cartesian(&oe, true);
 
         let a = acceleration_relativity(x_object);
 

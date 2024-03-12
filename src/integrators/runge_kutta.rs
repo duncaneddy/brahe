@@ -230,7 +230,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, false);
+        let state0 = state_osculating_to_cartesian(&oe0, false);
         let mut state = state0.clone();
 
         // Get start and end times of propagation (1 orbit)
@@ -265,7 +265,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, false);
+        let state0 = state_osculating_to_cartesian(&oe0, false);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no setp and confirm the variational matrix is the identity matrix

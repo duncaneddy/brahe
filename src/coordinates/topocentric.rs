@@ -250,8 +250,8 @@ pub fn rotation_sez_to_ellipsoid(x_ellipsoid: &Vector3<f64>, as_degrees: bool) -
 /// ```
 #[allow(non_snake_case)]
 pub fn relative_position_ecef_to_sez(
-    location_ecef: Vector3<f64>,
-    r_ecef: Vector3<f64>,
+    location_ecef: &Vector3<f64>,
+    r_ecef: &Vector3<f64>,
     conversion_type: EllipsoidalConversionType,
 ) -> Vector3<f64> {
     // Create ENZ rotation matrix

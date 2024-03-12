@@ -4,7 +4,7 @@
 //
 // Purpose:
 //
-//   Exercise the reference implementation of Sun position function to validate
+//   Exercise the reference implementation of Moon position function to validate
 //   the Rust implementaiton
 //
 //------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ int main() {
 
   // Header
 
-  cout << "Validate Sun Position" << endl << endl;
+  cout << "Validate Moon Position" << endl << endl;
 
   cout << "(mjd_tt,p_x,p_y,p_z)" << endl << endl;
 
@@ -49,7 +49,7 @@ int main() {
 
     // Evaluate Sun Position
     mjd_tt = MJD_TT_BASE + n/24.0;
-    p = Sun(mjd_tt);
+    p = Moon(mjd_tt);
     cout << "(" << mjd_tt << "," << setprecision(15) << p(0) << "," << p(1) << "," << p(2) << ")" << endl;
   };
 

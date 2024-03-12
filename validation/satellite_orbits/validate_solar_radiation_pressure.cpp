@@ -52,7 +52,7 @@ int main() {
 
     // Header
 
-    cout << "Validate Third-Body Sun Acceleration" << endl << endl;
+    cout << "Validate Solar Radiation Pressure Acceleration" << endl << endl;
 
     cout << "(mjd_tt,area,mass,Cr,P_Sun,AU,illumination,r_x,r_y,r_z,a_x,a_y,a_z)" << endl << endl;
 

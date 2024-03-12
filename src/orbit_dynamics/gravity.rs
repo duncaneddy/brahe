@@ -77,7 +77,7 @@ pub fn acceleration_point_mass_gravity(
     let r_central_body_norm = r_central_body.norm();
 
     if r_central_body_norm != 0.0 {
-        -gm * (d / d_norm.powi(3) - r_central_body / r_central_body_norm.powi(3))
+        -gm * (d / d_norm.powi(3) + r_central_body / r_central_body_norm.powi(3))
     } else {
         -gm * d / d_norm.powi(3)
     }
@@ -386,7 +386,7 @@ impl GravityModel {
             for n in m..n_max + 1 {
                 let nf = n as f64;
                 if m == 0 {
-                    let mut C = 0.0;
+                    let C;
                     // Denormalize coefficients, if required
                     if self.normalization == GravityModelNormalization::FullyNormalized {
                         let N = (2.0 * nf + 1.0).sqrt();
@@ -399,8 +399,8 @@ impl GravityModel {
                     ay -= C * W[(n + 1, 1)];
                     az -= (nf + 1.0) * C * V[(n + 1, 0)];
                 } else {
-                    let mut C = 0.0;
-                    let mut S = 0.0;
+                    let C;
+                    let S;
                     // Denormalize coefficients, if required
                     if self.normalization == GravityModelNormalization::FullyNormalized {
                         let N = ((2 - kronecker_delta(0, m)) as f64 * (2.0 * nf + 1.0) * factorial_product(n, m)).sqrt();
@@ -491,6 +491,7 @@ impl std::fmt::Debug for GravityModel {
 /// // Compute the acceleration due to gravity
 /// let a_grav = brahe::gravity::acceleration_gravity_spherical_harmonics(&r_eci, &R_i2b, &gravity_model, 20, 20);
 /// ```
+#[allow(non_snake_case)]
 pub fn acceleration_gravity_spherical_harmonics(
     r_eci: &Vector3<f64>,
     R_i2b: &Matrix3<f64>,
@@ -513,7 +514,6 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::{Epoch, rotation_eci_to_ecef, TimeSystem};
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::utils::testing::setup_global_test_eop;
 
@@ -635,9 +635,6 @@ mod tests {
     fn test_gravity_model_compute_spherical_harmonics() {
         setup_global_test_eop();
 
-        let epc = Epoch::from_date(2019, 1, 1, TimeSystem::UTC);
-        let R_i2b = rotation_eci_to_ecef(epc);
-
         let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 
 
@@ -650,7 +647,6 @@ mod tests {
         assert_abs_diff_eq!(a_grav[2], 0.0, epsilon = 1e-12);
 
         // Test a more complex case
-        // TODO: Do more validation of the spherical harmonic implementation
         let a_grav = gravity_model.compute_spherical_harmonics(&r_body, 60, 60).unwrap();
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
@@ -678,15 +674,15 @@ mod tests {
     #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
     #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
     fn test_acceleration_gravity_jgm3_validation(#[case] n: usize, #[case] m: usize, #[case] ax: f64, #[case] ay: f64, #[case] az: f64) {
-        let R_i2b = Matrix3::<f64>::identity();
+        let rot = Matrix3::<f64>::identity();
 
         let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = acceleration_gravity_spherical_harmonics(&r_body, &R_i2b, &gravity_model, n, m);
+        let a_grav = acceleration_gravity_spherical_harmonics(&r_body, &rot, &gravity_model, n, m);
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
-        // parameters provided by the Satellite Orbits book are only accurate to seven decimal 
+        // parameters provided by the Satellite Orbits book are only accurate to seven decimal
         // places, so without using the exact same parameters, it's difficult to validate to a higher
         // degree of accuracy.
         let tol = 1e-7;

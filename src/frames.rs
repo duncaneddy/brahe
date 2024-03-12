@@ -1,7 +1,5 @@
 use nalgebra as na;
 use nalgebra::{Vector3, Vector6};
-use rsofa;
-
 #[cfg(test)]
 use serial_test::serial;
 
@@ -435,14 +433,15 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: na::Vector6<f64>) -> na::Vector6<f6
 #[cfg(test)]
 #[serial]
 mod tests {
+    use approx::assert_abs_diff_eq;
+    use serial_test::serial;
+
     use crate::constants::{AS2RAD, R_EARTH};
     use crate::coordinates::state_osculating_to_cartesian;
     use crate::eop::{set_global_eop_provider, StaticEOPProvider};
     use crate::frames::*;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::vector6_from_array;
-    use approx::assert_abs_diff_eq;
-    use serial_test::serial;
 
     #[allow(non_snake_case)]
     #[serial]

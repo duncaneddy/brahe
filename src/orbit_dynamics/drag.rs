@@ -5,7 +5,7 @@ Module to provide implementation of drag force and simple atmospheric models.
 
 use nalgebra::{Matrix3, Vector3, Vector6};
 
-use crate::OMEGA_EARTH;
+use crate::{OMEGA_EARTH, position_ecef_to_geodetic};
 
 const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 
@@ -84,56 +84,52 @@ pub fn density_harris_priester(x: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
         1.190e-01, 9.776e-02, 8.059e-02, 5.741e-02, 4.210e-02, 3.130e-02,
         2.360e-02, 1.810e-02];
 
-    0.0
     // Satellite height
-    // let geod = position_ecef_to_geodetic(x, true);
-    // let height = geod[2] / 1.0e3; // height in [km]
-    //
-    // // Exit with zero density outside height model limits
-    // if height > HP_UPPER_LIMIT || height < HP_LOWER_LIMIT {
-    //     return 0.0;
-    // }
-    //
-    // // Sun right ascension, declination
-    // let ra_sun = r_sun[1].atan2(r_sun[0]);
-    // let dec_sun = r_sun[2].atan2((r_sun[0].powi(2) + r_sun[1].powi(2)).sqrt());
-    //
-    //
-    // // Unit vector u towards the apex of the diurnal bulge
-    // // in inertial geocentric coordinates
-    // let c_dec = dec_sun.cos();
-    // let u = Vector3::new(c_dec * (ra_sun + HP_RA_LAG).cos(),
-    //                      c_dec * (ra_sun + HP_RA_LAG).sin(),
-    //                      dec_sun.sin());
-    //
-    //
-    // // Cosine of half angle between satellite position vector and
-    // // apex of diurnal bulge
-    // let c_psi2 = 0.5 + 0.5 * x.dot(&u) / x.norm();
-    //
-    // // Height index search and exponential density interpolation
-    // let mut ih = 0;                                 // section index reset
-    // for i in 0..(HP_N - 1) {                           // loop over N_Coef height regimes
-    //     if height >= hp_h[i] && height < hp_h[i + 1] {
-    //         ih = i;                                        // ih identifies height section
-    //         break;
-    //     }
-    // }
-    //
-    // let h_min = (hp_h[ih] - hp_h[ih + 1]) / (hp_c_min[ih + 1] / hp_c_min[ih]).ln();
-    // let h_max = (hp_h[ih] - hp_h[ih + 1]) / (hp_c_max[ih + 1] / hp_c_max[ih]).ln();
-    //
-    // let d_min = hp_c_min[ih] * ((hp_h[ih] - height) / h_min).exp();
-    // let d_max = hp_c_max[ih] * ((hp_h[ih] - height) / h_max).exp();
-    //
-    // // Density computation
-    // let mut density = d_min + (d_max - d_min) * c_psi2.powf(HP_N_PRM);
-    //
-    // // Convert from g/km^3 to kg/m^3
-    // density *= 1.0e-12;
-    //
-    // // Finished
-    // density
+    let geod = position_ecef_to_geodetic(x, true);
+    let height = geod[2] / 1.0e3; // height in [km]
+
+    // Exit with zero density outside height model limits
+    if height > HP_UPPER_LIMIT || height < HP_LOWER_LIMIT {
+        return 0.0;
+    }
+
+    // Sun right ascension, declination
+    let ra_sun = r_sun[1].atan2(r_sun[0]);
+    let dec_sun = r_sun[2].atan2((r_sun[0].powi(2) + r_sun[1].powi(2)).sqrt());
+
+
+    // Unit vector u towards the apex of the diurnal bulge
+    // in inertial geocentric coordinates
+    let c_dec = dec_sun.cos();
+    let u = Vector3::new(c_dec * (ra_sun + HP_RA_LAG).cos(),
+                         c_dec * (ra_sun + HP_RA_LAG).sin(),
+                         dec_sun.sin());
+
+
+    // Cosine of half angle between satellite position vector and
+    // apex of diurnal bulge
+    let c_psi2 = 0.5 + 0.5 * x.dot(&u) / x.norm();
+
+    // Height index search and exponential density interpolation
+    let mut ih = 0;                                 // section index reset
+    for i in 0..(HP_N - 1) {                           // loop over N_Coef height regimes
+        if height >= hp_h[i] && height < hp_h[i + 1] {
+            ih = i;                                        // ih identifies height section
+            break;
+        }
+    }
+
+    let h_min = (hp_h[ih] - hp_h[ih + 1]) / (hp_c_min[ih + 1] / hp_c_min[ih]).ln();
+    let h_max = (hp_h[ih] - hp_h[ih + 1]) / (hp_c_max[ih + 1] / hp_c_max[ih]).ln();
+
+    let d_min = hp_c_min[ih] * ((hp_h[ih] - height) / h_min).exp();
+    let d_max = hp_c_max[ih] * ((hp_h[ih] - height) / h_max).exp();
+
+    // Density computation
+    let density = d_min + (d_max - d_min) * c_psi2.powf(HP_N_PRM);
+
+    // Convert from g/km^3 to kg/m^3 and return
+    density * 1.0e-12
 }
 
 #[cfg(test)]
@@ -161,12 +157,10 @@ mod tests {
             45.0,
         );
 
-        let x_object = state_osculating_to_cartesian(oe, true);
+        let x_object = state_osculating_to_cartesian(&oe, true);
 
         let a = acceleration_drag(&x_object, 1.0e-12, 1000.0, 1.0, 2.0, &Matrix3::identity());
 
         assert_abs_diff_eq!(a.norm(), 5.97601877277239e-8, epsilon = 1.0e-10);
-
-        // TODO: Do better validation of the implementation and the expected results
     }
 }

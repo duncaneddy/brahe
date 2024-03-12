@@ -5,8 +5,6 @@
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 
-use rsofa;
-
 use crate::constants::{GPS_TAI, MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI};
 use crate::eop::get_global_ut1_utc;
 use crate::time::time_types::TimeSystem;
@@ -504,13 +502,13 @@ pub fn time_system_offset_for_datetime(
 
 #[cfg(test)]
 mod tests {
-
     use approx::assert_abs_diff_eq;
 
-    use super::*;
     use crate::constants::*;
     use crate::time::*;
     use crate::utils::testing::setup_global_test_eop;
+
+    use super::*;
 
     #[test]
     fn test_datetime_to_jd() {

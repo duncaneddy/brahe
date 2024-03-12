@@ -4,7 +4,8 @@ relativity.
  */
 
 use nalgebra::{Vector3, Vector6};
-use crate::constants::{GM_EARTH, C_LIGHT};
+
+use crate::constants::{C_LIGHT, GM_EARTH};
 
 /// Calculate the acceleration due to special and general relativity for an Earth orbiting object.
 ///
@@ -40,19 +41,15 @@ pub fn acceleration_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
     let c2 = C_LIGHT.powi(2);
 
     // Compute unit vectors
-    let er = r/norm_r;
-    let ev = v/norm_v;
+    let er = r / norm_r;
+    let ev = v / norm_v;
 
     // Compute perturbation acceleration and return
-    GM_EARTH/r2 * ( (4.0*GM_EARTH/(c2*norm_r) - v2/c2)*er + 4.0*v2/c2*er.dot(&ev)*ev )
+    GM_EARTH / r2 * ((4.0 * GM_EARTH / (c2 * norm_r) - v2 / c2) * er + 4.0 * v2 / c2 * er.dot(&ev) * ev)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use approx::assert_abs_diff_eq;
-    use crate::R_EARTH;
-
     #[test]
     fn test_acceleration_relativity() {
         // TODO: Add tests

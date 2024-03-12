@@ -37,6 +37,7 @@ use crate::time::{Epoch, TimeSystem};
 ///
 /// let r = sun_position(epc);
 /// ```
+#[allow(non_snake_case)]
 pub fn sun_position(epc: Epoch) -> Vector3<f64> {
     // Constants
     let pi = std::f64::consts::PI;
@@ -79,6 +80,7 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// let r = moon_position(epc);
 /// ```
+#[allow(non_snake_case)]
 pub fn moon_position(epc: Epoch) -> Vector3<f64> {
     // Constants
     let pi = std::f64::consts::PI;
@@ -121,9 +123,6 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
-
-    use crate::time::Epoch;
-    use crate::TimeSystem;
 
     use super::*;
 

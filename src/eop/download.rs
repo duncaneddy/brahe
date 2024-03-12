@@ -4,7 +4,6 @@
 
 use std::fs;
 use std::path::Path;
-use ureq;
 
 const STANDARD_FILE_SOURCE: &str =
     "https://datacenter.iers.org/data/latestVersion/finals.all.iau2000.txt";
@@ -73,10 +72,12 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::env;
+
     use httpmock::prelude::*;
-    use std::{env, fs};
     use tempfile::tempdir;
+
+    use super::*;
 
     fn get_standard_file_contents() -> String {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();

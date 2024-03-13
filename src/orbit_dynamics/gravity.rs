@@ -4,8 +4,10 @@ Implement central-body gravity force models.
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Matrix3, Vector3};
+use once_cell::sync::Lazy;
 
 use crate::utils::{BraheError, kronecker_delta};
 
@@ -19,6 +21,50 @@ static PACKAGED_GGM05S: &'static [u8] =
 
 /// Packaged JGM3
 static PACKAGED_JGM3: &'static [u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
+static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> = Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
+
+/// Set the global gravity model to a new gravity model. A global gravity model is useful as it 
+/// allows for a single gravity model to be used throughout a program. This is useful when multiple
+/// objects are being propagated, as it allows for the gravity model to only be loaded into memory
+/// once, reducing memory usage and improving performance.
+///
+/// # Arguments
+///
+/// - `gravity_model` : New gravity model to set as the global gravity model.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, DefaultGravityModel};
+///
+/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// set_global_gravity_model(gravity_model);
+/// ```
+pub fn set_global_gravity_model(gravity_model: GravityModel) {
+    *GLOBAL_GRAVITY_MODEL.write().unwrap() = Box::new(gravity_model);
+}
+
+/// Get the global gravity model.
+///
+/// # Returns
+///
+/// - `GravityModel`: Gravity model object.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, DefaultGravityModel};
+///
+/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// set_global_gravity_model(gravity_model);
+///
+/// let model = get_global_gravity_model();
+///
+/// assert_eq!(model.model_name, "EGM2008_360");
+/// ```
+pub fn get_global_gravity_model() -> RwLockReadGuard<'static, Box<GravityModel>> {
+    GLOBAL_GRAVITY_MODEL.read().unwrap()
+}
 
 /// Helper function to aid in denormalization of gravity field coefficients.
 /// This method computes the factorial ratio (n-m)!/(n+m)! in an efficient
@@ -142,6 +188,22 @@ pub struct GravityModel {
 }
 
 impl GravityModel {
+    /// Create a new gravity model. This is an internal method used to aid in initializing the
+    /// global gravity model. It should not be used directly.
+    fn new() -> Self {
+        Self {
+            data: DMatrix::zeros(1, 1),
+            tide_system: GravityModelTideSystem::Unknown,
+            n_max: 0,
+            m_max: 0,
+            gm: 0.0,
+            radius: 0.0,
+            model_name: String::from("Unknown"),
+            model_errors: GravityModelErrors::No,
+            normalization: GravityModelNormalization::FullyNormalized,
+        }
+    }
+
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
         let mut lines = reader.lines();
 

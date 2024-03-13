@@ -165,6 +165,29 @@ pub fn kronecker_delta(i: usize, j: usize) -> u8 {
     }
 }
 
+/// Wrap an angle to the range \[0, 2π\].
+///
+/// # Arguments
+///
+/// - `angle`: The angle to wrap.
+///
+/// # Returns
+///
+/// - `f64`: The wrapped angle.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::math::wrap_to_2pi;
+///
+/// assert_eq!(wrap_to_2pi(2.0 * std::f64::consts::PI), 0.0);
+/// assert_eq!(wrap_to_2pi(3.0 * std::f64::consts::PI), std::f64::consts::PI);
+/// ```
+pub fn wrap_to_2pi(angle: f64) -> f64 {
+    let two_pi = 2.0 * std::f64::consts::PI;
+    angle.rem_euclid(two_pi)
+}
+
 #[cfg(test)]
 mod tests {
     use std::f64::consts::PI;
@@ -243,5 +266,15 @@ mod tests {
         assert_eq!(kronecker_delta(0, 1), 0);
         assert_eq!(kronecker_delta(1, 0), 0);
         assert_eq!(kronecker_delta(1, 1), 1);
+    }
+
+    #[test]
+    fn test_wrap_to_2pi() {
+        assert_eq!(wrap_to_2pi(PI), PI);
+        assert_eq!(wrap_to_2pi(2.0 * PI), 0.0);
+        assert_eq!(wrap_to_2pi(3.0 * PI), PI);
+
+        assert_eq!(wrap_to_2pi(-PI), PI);
+        assert_eq!(wrap_to_2pi(-3.0 / 2.0 * PI), PI / 2.0);
     }
 }

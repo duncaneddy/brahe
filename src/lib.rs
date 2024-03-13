@@ -92,11 +92,25 @@ software is being adopted or found useful in wider practice. If you're
 using Brahe for school, research, or a commercial endeavour, I'd
 love to know about it! Tweet me [@duncaneddy](https://twitter.com/DuncanEddy) or
 email me at duncan.eddy (at) gmail.com.
-*/
+ */
 
 // TODO: Remove when BTreeCursor is stabilized
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
+
+// Re-export commonly used types
+pub use attitude::*;
+pub use constants::*;
+pub use coordinates::*;
+pub use eop::*;
+pub use frames::*;
+pub use integrators::*;
+pub use orbit_dynamics::*;
+pub use orbits::*;
+pub use propagators::*;
+pub use space_track::*;
+pub use time::*;
+pub use time::conversions::*;
 
 #[cfg(feature = "python")]
 mod pymodule;
@@ -112,16 +126,5 @@ pub mod utils;
 pub mod orbit_dynamics;
 pub mod space_track;
 pub mod integrators;
+pub mod propagators;
 
-// Re-export commonly used types
-pub use attitude::*;
-pub use constants::*;
-pub use coordinates::*;
-pub use eop::*;
-pub use frames::*;
-pub use orbits::*;
-pub use time::conversions::*;
-pub use time::*;
-pub use orbit_dynamics::*;
-pub use space_track::*;
-pub use integrators::*;

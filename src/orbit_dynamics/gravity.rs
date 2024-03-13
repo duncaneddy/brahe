@@ -60,7 +60,7 @@ pub fn set_global_gravity_model(gravity_model: GravityModel) {
 ///
 /// let model = get_global_gravity_model();
 ///
-/// assert_eq!(model.model_name, "EGM2008_360");
+/// assert_eq!(model.model_name, "EGM2008");
 /// ```
 pub fn get_global_gravity_model() -> RwLockReadGuard<'static, Box<GravityModel>> {
     GLOBAL_GRAVITY_MODEL.read().unwrap()
@@ -102,7 +102,7 @@ fn factorial_product(n: usize, m: usize) -> f64 {
 /// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
 /// let r_central_body = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let a_grav = acceleration_point_mass_gravity(&r_object, &r_central_body, GM_EARTH);
+/// let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 ///
 /// // Acceleration should be in the negative x-direction and magnitude should be GM_EARTH / R_EARTH^2
 /// // Roughly -9.81 m/s^2
@@ -113,8 +113,8 @@ fn factorial_product(n: usize, m: usize) -> f64 {
 ///
 /// - TODO: Add references
 pub fn acceleration_point_mass_gravity(
-    r_object: &Vector3<f64>,
-    r_central_body: &Vector3<f64>,
+    r_object: Vector3<f64>,
+    r_central_body: Vector3<f64>,
     gm: f64,
 ) -> Vector3<f64> {
     let d = r_object - r_central_body;
@@ -382,7 +382,7 @@ impl GravityModel {
     }
 
     #[allow(non_snake_case)]
-    pub fn compute_spherical_harmonics(&self, r_body: &Vector3<f64>, n_max: usize, m_max: usize) -> Result<Vector3<f64>, BraheError> {
+    pub fn compute_spherical_harmonics(&self, r_body: Vector3<f64>, n_max: usize, m_max: usize) -> Result<Vector3<f64>, BraheError> {
         if n_max > self.n_max || m_max > self.m_max {
             return Err(BraheError::OutOfBoundsError(format!("Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds for the input model (n_max={}, m_max={}).", n_max, m_max, self.n_max, self.m_max)));
         }
@@ -547,16 +547,16 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(&oe, true);
+/// let x_eci = state_osculating_to_cartesian(oe, true);
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::acceleration_gravity_spherical_harmonics(&r_eci, &R_i2b, &gravity_model, 20, 20);
+/// let a_grav = brahe::gravity::acceleration_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20);
 /// ```
 #[allow(non_snake_case)]
 pub fn acceleration_gravity_spherical_harmonics(
-    r_eci: &Vector3<f64>,
-    R_i2b: &Matrix3<f64>,
+    r_eci: Vector3<f64>,
+    R_i2b: Matrix3<f64>,
     gravity_model: &GravityModel,
     n_max: usize,
     m_max: usize,
@@ -565,7 +565,7 @@ pub fn acceleration_gravity_spherical_harmonics(
     let r_bf = R_i2b * r_eci;
 
     // Compute spherical harmonic acceleration
-    let a_ecef = gravity_model.compute_spherical_harmonics(&r_bf, n_max, m_max).unwrap();
+    let a_ecef = gravity_model.compute_spherical_harmonics(r_bf, n_max, m_max).unwrap();
 
     // Inertial acceleration
     R_i2b.transpose() * a_ecef
@@ -663,7 +663,7 @@ mod tests {
         let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
         let r_central_body = Vector3::new(0.0, 0.0, 0.0);
 
-        let a_grav = acceleration_point_mass_gravity(&r_object, &r_central_body, GM_EARTH);
+        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative x-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -673,7 +673,7 @@ mod tests {
         assert_abs_diff_eq!(a_grav.norm(), 9.798, epsilon = 1e-3);
 
         let r_object = Vector3::new(0.0, R_EARTH, 0.0);
-        let a_grav = acceleration_point_mass_gravity(&r_object, &r_central_body, GM_EARTH);
+        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative y-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -683,7 +683,7 @@ mod tests {
         assert_abs_diff_eq!(a_grav.norm(), 9.798, epsilon = 1e-3);
 
         let r_object = Vector3::new(0.0, 0.0, R_EARTH);
-        let a_grav = acceleration_point_mass_gravity(&r_object, &r_central_body, GM_EARTH);
+        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative z-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -703,13 +703,13 @@ mod tests {
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
         // Simple test confirming point-mass equivalence
-        let a_grav = gravity_model.compute_spherical_harmonics(&r_body, 0, 0).unwrap();
+        let a_grav = gravity_model.compute_spherical_harmonics(r_body, 0, 0).unwrap();
         assert_abs_diff_eq!(a_grav[0], -GM_EARTH/R_EARTH.powi(2), epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[1], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[2], 0.0, epsilon = 1e-12);
 
         // Test a more complex case
-        let a_grav = gravity_model.compute_spherical_harmonics(&r_body, 60, 60).unwrap();
+        let a_grav = gravity_model.compute_spherical_harmonics(r_body, 60, 60).unwrap();
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[2], -7.29925652190e-5, epsilon = 1e-12);
@@ -741,7 +741,7 @@ mod tests {
         let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = acceleration_gravity_spherical_harmonics(&r_body, &rot, &gravity_model, n, m);
+        let a_grav = acceleration_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal

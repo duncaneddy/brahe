@@ -122,7 +122,7 @@ unsafe fn py_position_eci_to_ecef<'py>(
     epc: &PyEpoch,
     x: &'py PyArray<f64, Ix1>,
 ) -> &'py PyArray<f64, Ix1> {
-    let vec = frames::position_eci_to_ecef(epc.obj, &numpy_to_vector!(x, 3, f64));
+    let vec = frames::position_eci_to_ecef(epc.obj, numpy_to_vector!(x, 3, f64));
 
     vector_to_numpy!(py, vec, 3, f64)
 }
@@ -135,7 +135,7 @@ unsafe fn py_position_ecef_to_eci<'py>(
     epc: &PyEpoch,
     x: &'py PyArray<f64, Ix1>,
 ) -> &'py PyArray<f64, Ix1> {
-    let vec = frames::position_ecef_to_eci(epc.obj, &numpy_to_vector!(x, 3, f64));
+    let vec = frames::position_ecef_to_eci(epc.obj, numpy_to_vector!(x, 3, f64));
 
     vector_to_numpy!(py, vec, 3, f64)
 }
@@ -148,7 +148,7 @@ unsafe fn py_state_eci_to_ecef<'py>(
     epc: &PyEpoch,
     x_eci: &'py PyArray<f64, Ix1>,
 ) -> &'py PyArray<f64, Ix1> {
-    let vec = frames::state_eci_to_ecef(epc.obj, &numpy_to_vector!(x_eci, 6, f64));
+    let vec = frames::state_eci_to_ecef(epc.obj, numpy_to_vector!(x_eci, 6, f64));
 
     vector_to_numpy!(py, vec, 6, f64)
 }
@@ -161,7 +161,7 @@ unsafe fn py_state_ecef_to_eci<'py>(
     epc: &PyEpoch,
     x_ecef: &'py PyArray<f64, Ix1>,
 ) -> &'py PyArray<f64, Ix1> {
-    let vec = frames::state_ecef_to_eci(epc.obj, &numpy_to_vector!(x_ecef, 6, f64));
+    let vec = frames::state_ecef_to_eci(epc.obj, numpy_to_vector!(x_ecef, 6, f64));
 
     vector_to_numpy!(py, vec, 6, f64)
 }

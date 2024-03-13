@@ -42,10 +42,10 @@ use crate::time::Epoch;
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = acceleration_third_body_sun(epc, &r_object);
+/// let a = acceleration_third_body_sun(epc, r_object);
 /// ```
-pub fn acceleration_third_body_sun(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
-    acceleration_point_mass_gravity(r_object, &sun_position(epc), GM_SUN)
+pub fn acceleration_third_body_sun(epc: Epoch, r_object: Vector3<f64>) -> Vector3<f64> {
+    acceleration_point_mass_gravity(r_object, sun_position(epc), GM_SUN)
 }
 
 /// Calculate the acceleration due to the Moon on an object at a given epoch.
@@ -80,10 +80,10 @@ pub fn acceleration_third_body_sun(epc: Epoch, r_object: &Vector3<f64>) -> Vecto
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = acceleration_third_body_moon(epc, &r_object);
+/// let a = acceleration_third_body_moon(epc, r_object);
 /// ```
-pub fn acceleration_third_body_moon(epc: Epoch, r_object: &Vector3<f64>) -> Vector3<f64> {
-    acceleration_point_mass_gravity(r_object, &moon_position(epc), GM_MOON)
+pub fn acceleration_third_body_moon(epc: Epoch, r_object: Vector3<f64>) -> Vector3<f64> {
+    acceleration_point_mass_gravity(r_object, moon_position(epc), GM_MOON)
 }
 
 #[cfg(test)]
@@ -116,7 +116,7 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = acceleration_third_body_sun(epc, &r_object);
+        let a = acceleration_third_body_sun(epc, r_object);
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);
@@ -144,7 +144,7 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = acceleration_third_body_moon(epc, &r_object);
+        let a = acceleration_third_body_moon(epc, r_object);
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);

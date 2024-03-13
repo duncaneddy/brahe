@@ -275,9 +275,9 @@ pub fn rotation_ecef_to_eci(epc: Epoch) -> na::Matrix3<f64> {
 /// let x_cart = vector3_from_array([R_EARTH, 0.0, 0.0]);
 ///
 /// // Convert to ECEF state
-/// let x_ecef = position_eci_to_ecef(epc, &x_cart);
+/// let x_ecef = position_eci_to_ecef(epc, x_cart);
 /// ```
-pub fn position_eci_to_ecef(epc: Epoch, x: &Vector3<f64>) -> Vector3<f64> {
+pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
     rotation_eci_to_ecef(epc) * x
 }
 
@@ -314,9 +314,9 @@ pub fn position_eci_to_ecef(epc: Epoch, x: &Vector3<f64>) -> Vector3<f64> {
 /// let x_ecef = vector3_from_array([R_EARTH, 0.0, 0.0]);
 ///
 /// // Convert to ECEF state
-/// let x_eci = position_ecef_to_eci(epc, &x_ecef);
+/// let x_eci = position_ecef_to_eci(epc, x_ecef);
 /// ```
-pub fn position_ecef_to_eci(epc: Epoch, x: &Vector3<f64>) -> Vector3<f64> {
+pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
     rotation_ecef_to_eci(epc) * x
 }
 
@@ -353,9 +353,9 @@ pub fn position_ecef_to_eci(epc: Epoch, x: &Vector3<f64>) -> Vector3<f64> {
 /// let x_cart = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0]);
 ///
 /// // Convert to ECEF state
-/// let x_ecef = state_eci_to_ecef(epc, &x_cart);
+/// let x_ecef = state_eci_to_ecef(epc, x_cart);
 /// ```
-pub fn state_eci_to_ecef(epc: Epoch, x_eci: &Vector6<f64>) -> Vector6<f64> {
+pub fn state_eci_to_ecef(epc: Epoch, x_eci: Vector6<f64>) -> Vector6<f64> {
     // Compute Sequential Transformation Matrices
     let bpn = bias_precession_nutation(epc);
     let r = earth_rotation(epc);
@@ -406,12 +406,12 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: &Vector6<f64>) -> Vector6<f64> {
 /// let x_cart = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0]);
 ///
 /// // Convert to ECEF state
-/// let x_ecef = state_eci_to_ecef(epc, &x_cart);
+/// let x_ecef = state_eci_to_ecef(epc, x_cart);
 ///
 /// // Convert ECEF state back to inertial state
-/// let x_eci = state_ecef_to_eci(epc, &x_ecef);
+/// let x_eci = state_ecef_to_eci(epc, x_ecef);
 /// ```
-pub fn state_ecef_to_eci(epc: Epoch, x_ecef: &Vector6<f64>) -> Vector6<f64> {
+pub fn state_ecef_to_eci(epc: Epoch, x_ecef: Vector6<f64>) -> Vector6<f64> {
     // Compute Sequential Transformation Matrices
     let bpn = bias_precession_nutation(epc);
     let r = earth_rotation(epc);
@@ -567,7 +567,7 @@ mod tests {
 
         let p_eci = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
-        let p_ecef = position_eci_to_ecef(epc, &p_eci);
+        let p_ecef = position_eci_to_ecef(epc, p_eci);
 
         assert_ne!(p_eci[0], p_ecef[0]);
         assert_ne!(p_eci[1], p_ecef[1]);
@@ -581,7 +581,7 @@ mod tests {
 
         let p_ecef = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
-        let p_eci = position_ecef_to_eci(epc, &p_ecef);
+        let p_eci = position_ecef_to_eci(epc, p_ecef);
 
         assert_ne!(p_eci[0], p_ecef[0]);
         assert_ne!(p_eci[1], p_ecef[1]);
@@ -594,12 +594,12 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eci = state_osculating_to_cartesian(&oe, true);
+        let eci = state_osculating_to_cartesian(oe, true);
 
         // Perform circular transformations
-        let ecef = state_eci_to_ecef(epc, &eci);
-        let eci2 = state_ecef_to_eci(epc, &ecef);
-        let ecef2 = state_eci_to_ecef(epc, &eci2);
+        let ecef = state_eci_to_ecef(epc, eci);
+        let eci2 = state_ecef_to_eci(epc, ecef);
+        let ecef2 = state_eci_to_ecef(epc, eci2);
 
         let tol = 1e-6;
         // Check equivalence of ECI coordinates

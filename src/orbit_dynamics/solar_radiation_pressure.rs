@@ -31,14 +31,14 @@ use crate::constants::{AU, R_EARTH, R_SUN};
 /// let r_object = Vector3::new(AU, 0.0, 0.0);
 /// let r_sun = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let a_srp = acceleration_solar_radiation_pressure(&r_object, &r_sun, 1.0, 1.0, 1.0, 4.5e-6);
+/// let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 ///
 /// // Acceleration should be in the negative x-direction and magnitude should be 4.5e-6 AU^2
 /// assert_eq!(a_srp, Vector3::new(4.5e-6, 0.0, 0.0));
 /// ```
 pub fn acceleration_solar_radiation_pressure(
-    r_object: &Vector3<f64>,
-    r_sun: &Vector3<f64>,
+    r_object: Vector3<f64>,
+    r_sun: Vector3<f64>,
     mass: f64,
     cr: f64,
     area: f64,
@@ -71,13 +71,13 @@ pub fn acceleration_solar_radiation_pressure(
 /// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
 /// let r_sun = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let nu = eclipse_conical(&r_object, &r_sun);
+/// let nu = eclipse_conical(r_object, r_sun);
 ///
 /// // The object is shadowed, so the illumination fraction should be 0.0
 /// assert_eq!(nu, 0.0);
 /// ```
 #[allow(non_snake_case)] // To better comply with the literature
-pub fn eclipse_conical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
+pub fn eclipse_conical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
 
     // Occultation Geometry
     let a = (R_SUN / (r_sun - r_object).norm()).asin();
@@ -124,12 +124,12 @@ pub fn eclipse_conical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
 /// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
 /// let r_sun = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let nu = eclipse_cylindrical(&r_object, &r_sun);
+/// let nu = eclipse_cylindrical(r_object, r_sun);
 ///
 /// // The object is shadowed, so the illumination fraction should be 0.0
 /// assert_eq!(nu, 0.0);
 /// ```
-pub fn eclipse_cylindrical(r_object: &Vector3<f64>, r_sun: &Vector3<f64>) -> f64 {
+pub fn eclipse_cylindrical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
     // Unit vector in the direction of the sun
     let e_sun = r_sun / r_sun.norm();
 
@@ -158,7 +158,7 @@ mod tests {
         let r_object = Vector3::new(AU, 0.0, 0.0);
         let r_sun = Vector3::new(0.0, 0.0, 0.0);
 
-        let a_srp = acceleration_solar_radiation_pressure(&r_object, &r_sun, 1.0, 1.0, 1.0, 4.5e-6);
+        let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 
         // Acceleration should be in the negative x-direction and magnitude should be 4.5e-6 AU^2
         assert_abs_diff_eq!(a_srp[0], 4.5e-6, epsilon = 1e-12);
@@ -206,8 +206,8 @@ mod tests {
 
         let r_sun = sun_position(epc);
 
-        let a_srp = acceleration_solar_radiation_pressure(&r_object, &r_sun, mass, cr, area, p0);
-        let nu = eclipse_cylindrical(&r_object, &r_sun);
+        let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, mass, cr, area, p0);
+        let nu = eclipse_cylindrical(r_object, r_sun);
 
         let tol = 1.0e-9;
         assert_abs_diff_eq!(a_srp[0], ax, epsilon = tol);
@@ -583,8 +583,8 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_sun = sun_position(epc);
 
-        let nu_cyl = eclipse_cylindrical(&r_object, &r_sun);
-        let nu_con = eclipse_conical(&r_object, &r_sun);
+        let nu_cyl = eclipse_cylindrical(r_object, r_sun);
+        let nu_con = eclipse_conical(r_object, r_sun);
 
         assert_eq!(nu_cyl, illum);
 

@@ -1,16 +1,21 @@
 import math
+
 import pytest
+
 import brahe
+
 
 def test_epoch_string(eop):
     epc = brahe.Epoch.from_date(2022, 1, 1, "GPS")
 
     assert str(epc) == "2022-01-01 00:00:00.000 GPS"
 
+
 def test_epoch_repr(eop):
     epc = brahe.Epoch.from_date(2022, 1, 1, "GPS")
 
     assert epc.__repr__() == "Epoch<2459580, 43219, 0, 0, GPS>"
+
 
 def test_epoch_time_system(eop):
     epc = brahe.Epoch.from_date(2022, 1, 1, "GPS")
@@ -28,6 +33,7 @@ def test_epoch_time_system(eop):
     epc = brahe.Epoch.from_date(2022, 1, 1, "UT1")
     assert epc.time_system == "UT1"
 
+
 def test_epoch_from_date(eop):
     epc = brahe.Epoch.from_date(2020, 1, 2, "GPS")
 
@@ -41,6 +47,7 @@ def test_epoch_from_date(eop):
     assert second == 0.0
     assert nanosecond == 0.0
 
+
 def test_epoch_from_datetime(eop):
     epc = brahe.Epoch.from_datetime(2020, 1, 2, 3, 4, 5.0, 6.0, "GPS")
 
@@ -53,6 +60,7 @@ def test_epoch_from_datetime(eop):
     assert minute == 4
     assert second == 5.0
     assert nanosecond == 6.0
+
 
 def test_epoch_from_string(eop):
     epc = brahe.Epoch.from_string("2018-12-20")
@@ -165,6 +173,7 @@ def test_epoch_from_string(eop):
     assert nanosecond == 123456789.0
     assert epc.time_system == "GPS"
 
+
 def test_epoch_from_jd(eop):
     epc = brahe.Epoch.from_jd(brahe.MJD_ZERO + brahe.MJD2000, "TAI")
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
@@ -185,8 +194,9 @@ def test_epoch_from_jd(eop):
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert nanosecond == 17643.974853515625 # Rounding error from floating point conversion
+    assert nanosecond == 17643.974853515625  # Rounding error from floating point conversion
     assert epc.time_system == "GPS"
+
 
 def test_epoch_from_mjd(eop):
     epc = brahe.Epoch.from_mjd(brahe.MJD2000, "TAI")
@@ -208,8 +218,9 @@ def test_epoch_from_mjd(eop):
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert nanosecond == 17643.974853515625 # Rounding error from floating point conversion
+    assert nanosecond == 17643.974853515625  # Rounding error from floating point conversion
     assert epc.time_system == "GPS"
+
 
 def test_epoch_from_gps_date():
     epc = brahe.Epoch.from_gps_date(0, 0.0)
@@ -234,6 +245,7 @@ def test_epoch_from_gps_date():
     assert nanosecond == 500000000.0
     assert epc.time_system == "GPS"
 
+
 def test_epoch_from_gps_seconds():
     epc = brahe.Epoch.from_gps_seconds(0.0)
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
@@ -256,6 +268,7 @@ def test_epoch_from_gps_seconds():
     assert second == 1.0
     assert nanosecond == 500000000.0
     assert epc.time_system == "GPS"
+
 
 def test_epoch_from_gps_nanoseconds():
     epc = brahe.Epoch.from_gps_nanoseconds(0)
@@ -281,6 +294,7 @@ def test_epoch_from_gps_nanoseconds():
     assert nanosecond == 1.0
     assert epc.time_system == "GPS"
 
+
 def test_epoch_to_jd(eop):
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, "TAI")
 
@@ -289,6 +303,7 @@ def test_epoch_to_jd(eop):
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, "TAI")
     assert epc.jd_as_time_system("UTC") == brahe.MJD_ZERO + brahe.MJD2000 - 32.0 / 86400.0
 
+
 def test_epoch_to_mjd(eop):
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, "TAI")
 
@@ -296,6 +311,7 @@ def test_epoch_to_mjd(eop):
 
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, "TAI")
     assert epc.mjd_as_time_system("UTC") == brahe.MJD2000 - 32.0 / 86400.0
+
 
 def test_gps_date(eop):
     epc = brahe.Epoch.from_date(2018, 3, 1, "GPS")
@@ -318,6 +334,7 @@ def test_gps_date(eop):
     assert gps_week == 1993
     assert gps_seconds == 6.0 * 86400.0
 
+
 def test_gps_seconds(eop):
     epc = brahe.Epoch.from_date(1980, 1, 6, "GPS")
     assert epc.gps_seconds() == 0.0
@@ -325,12 +342,14 @@ def test_gps_seconds(eop):
     epc = brahe.Epoch.from_datetime(1980, 1, 7, 0, 0, 1.0, 0.0, "GPS")
     assert epc.gps_seconds() == 86401.0
 
+
 def test_gps_nanoseconds(eop):
     epc = brahe.Epoch.from_date(1980, 1, 6, "GPS")
     assert epc.gps_nanoseconds() == 0.0
 
     epc = brahe.Epoch.from_datetime(1980, 1, 7, 0, 0, 1.0, 0.0, "GPS")
     assert epc.gps_nanoseconds() == 86401.0 * 1.0e9
+
 
 def test_isostring(eop):
     # Confirm Before the leap second
@@ -345,6 +364,7 @@ def test_isostring(eop):
     epc = brahe.Epoch.from_datetime(2017, 1, 1, 0, 0, 0.0, 0.0, "UTC")
     assert epc.isostring() == "2017-01-01T00:00:00Z"
 
+
 def test_isostring_with_decimals(eop):
     # Confirm Before the leap second
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 1.23456, 0.0, "UTC")
@@ -353,25 +373,29 @@ def test_isostring_with_decimals(eop):
     assert epc.isostring_with_decimals(2) == "2000-01-01T12:00:01.23Z"
     assert epc.isostring_with_decimals(3) == "2000-01-01T12:00:01.234Z"
 
+
 def test_to_string_as_time_system(eop):
     # Confirm Before the leap second
     epc = brahe.Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, "UTC")
     epc.to_string_as_time_system("UTC") == "2020-01-01 00:00:00.000 UTC"
     epc.to_string_as_time_system("GPS") == "2020-01-01 00:00:18.000 GPS"
 
+
 def test_gmst(eop):
     epc = brahe.Epoch.from_date(2000, 1, 1, "UTC")
     assert epc.gmst(True) == pytest.approx(99.969, abs=1e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, "UTC")
-    assert epc.gmst(False) == pytest.approx(99.969 * math.pi / 180.0, abs = 1.0e-3)
+    assert epc.gmst(False) == pytest.approx(99.969 * math.pi / 180.0, abs=1.0e-3)
+
 
 def test_gast(eop):
     epc = brahe.Epoch.from_date(2000, 1, 1, "UTC")
-    assert epc.gast(True) == pytest.approx(99.965, abs = 1.0e-3)
+    assert epc.gast(True) == pytest.approx(99.965, abs=1.0e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, "UTC")
-    assert epc.gast(False) == pytest.approx(99.965 * math.pi / 180.0, abs = 1.0e-3)
+    assert epc.gast(False) == pytest.approx(99.965 * math.pi / 180.0, abs=1.0e-3)
+
 
 def test_ops_add_assign():
     # Test Positive additions of different size
@@ -461,6 +485,7 @@ def test_ops_add_assign():
     assert nanosecond == 0.0
     assert epc.time_system == "TAI"
 
+
 def test_ops_sub_assign():
     epc = brahe.Epoch.from_date(2022, 1, 31, "TAI")
     epc -= 1.23456789e-9
@@ -511,6 +536,7 @@ def test_ops_sub_assign():
     assert second == 59.0
     assert nanosecond == 0.0
     assert epc.time_system == "TAI"
+
 
 def test_ops_add():
     # Base epoch
@@ -596,6 +622,7 @@ def test_ops_add():
     assert nanosecond == 0.0
     assert epc.time_system == "TAI"
 
+
 # def test_ops_sub(eop):
 #     # Base epoch
 #     epc = brahe.Epoch.from_date(2022, 1, 31, "TAI")
@@ -658,19 +685,21 @@ def test_ops_sub_epoch():
     assert epc_1 - epc_2 == -19.0
     assert epc_1 - epc_1 == 0.0
 
+
 def test_eq_epoch(eop):
     epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, "TAI")
     epc_2 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, "TAI")
     assert epc_1 == epc_2
 
-    epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, "TAI")
-    epc_2 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, "TAI")
+    epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.234, "TAI")
+    epc_2 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.235, "TAI")
     assert epc_1 != epc_2
 
     # Check instant comparison against time systems works
     epc_1 = brahe.Epoch.from_datetime(1980, 1, 6, 0, 0, 0.0, 0.0, "GPS")
     epc_2 = brahe.Epoch.from_datetime(1980, 1, 6, 0, 0, 19.0, 0.0, "TAI")
     assert epc_1 == epc_2
+
 
 def test_cmp_epoch(eop):
     epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, "TAI")
@@ -687,6 +716,7 @@ def test_cmp_epoch(eop):
     assert (epc_1 < epc_2) == False
     assert (epc_1 <= epc_2) == True
 
+
 # def test_nanosecond_addition_stability():
 #     pass
 #
@@ -694,7 +724,7 @@ def test_addition_stability():
     epc = brahe.Epoch.from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, "TAI")
 
     # Advance a year 1 second at a time
-    for _ in range(0, 86400*365):
+    for _ in range(0, 86400 * 365):
         epc += 1.0
 
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()

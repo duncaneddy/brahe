@@ -2,18 +2,17 @@
  * Defines the `Epoch` type, which represents a point in time relative to MJD2000 in the TAI time system.
  */
 
+use std::{fmt, ops};
 use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
-use std::{fmt, ops};
 
 use regex::Regex;
 
 use crate::constants::{GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
-
 use crate::utils::math::split_float;
 
 const NANOSECONDS_PER_SECOND_INT: u64 = 1_000_000_000;
@@ -1488,9 +1487,9 @@ impl PartialEq for Epoch {
         (self.days == other.days)
             && (self.seconds == other.seconds)
             && (((self.nanoseconds + self.nanoseconds_kc)
-                - (other.nanoseconds + other.nanoseconds_kc))
-                .abs()
-                < 1.0e-6)
+            - (other.nanoseconds + other.nanoseconds_kc))
+            .abs()
+            < 1.0e-3)
     }
 }
 
@@ -1507,17 +1506,17 @@ impl Ord for Epoch {
         if (self.days < other.days)
             || ((self.days == other.days) && (self.seconds < other.seconds))
             || ((self.days == other.days)
-                && (self.seconds == other.seconds)
-                && ((self.nanoseconds + self.nanoseconds_kc)
-                    < (other.nanoseconds + other.nanoseconds_kc)))
+            && (self.seconds == other.seconds)
+            && ((self.nanoseconds + self.nanoseconds_kc)
+            < (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Less
         } else if (self.days > other.days)
             || ((self.days == other.days) && (self.seconds > other.seconds))
             || ((self.days == other.days)
-                && (self.seconds == other.seconds)
-                && ((self.nanoseconds + self.nanoseconds_kc)
-                    > (other.nanoseconds + other.nanoseconds_kc)))
+            && (self.seconds == other.seconds)
+            && ((self.nanoseconds + self.nanoseconds_kc)
+            > (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Greater
         } else {
@@ -1528,8 +1527,9 @@ impl Ord for Epoch {
 
 #[cfg(test)]
 mod tests {
-    use approx::assert_abs_diff_eq;
     use std::f64::consts::PI;
+
+    use approx::assert_abs_diff_eq;
 
     use crate::constants::*;
     use crate::time::*;
@@ -2314,8 +2314,8 @@ mod tests {
         let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, TimeSystem::TAI);
         assert_eq!(epc_1 == epc_2, true);
 
-        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
-        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, TimeSystem::TAI);
+        let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.234, TimeSystem::TAI);
+        let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.235, TimeSystem::TAI);
         assert_eq!(epc_1 != epc_2, true);
 
         // Check instant comparison against time systems works

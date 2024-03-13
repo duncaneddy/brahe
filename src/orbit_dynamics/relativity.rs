@@ -28,7 +28,7 @@ use crate::constants::{C_LIGHT, GM_EARTH};
 /// let x_object = Vector6::new(R_EARTH + 500.0e3, 0.0, 0.0, 0.0, 0.0, 0.0);
 /// let a_relativity = acceleration_relativity(x_object);
 /// ```
-pub fn acceleration_relativity(x_object: &Vector6<f64>) -> Vector3<f64> {
+pub fn acceleration_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
     // Extract state variables
     let r = x_object.fixed_rows::<3>(0);
     let v = x_object.fixed_rows::<3>(3);
@@ -66,9 +66,9 @@ mod tests {
             45.0,
         );
 
-        let x_object = state_osculating_to_cartesian(&oe, true);
+        let x_object = state_osculating_to_cartesian(oe, true);
 
-        let a = acceleration_relativity(&x_object);
+        let a = acceleration_relativity(x_object);
 
         // According to Motenbruck and Gill this should be on ghd order of ~1e-8 for a satellite
         // around 500 km altitude.

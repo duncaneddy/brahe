@@ -38,14 +38,14 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// use brahe::coordinates::*;
 ///
 /// let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
-/// let cart = state_osculating_to_cartesian(&osc, false);
+/// let cart = state_osculating_to_cartesian(osc, false);
 /// // Returns state [R_EARTH + 500e3, 0, 0, perigee_velocity(R_EARTH + 500e3, 0.0), 0]
 /// ```
 ///
 /// # Reference
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
-pub fn state_osculating_to_cartesian(x_oe: &Vector6<f64>, as_degrees: bool) -> na::Vector6<f64> {
+pub fn state_osculating_to_cartesian(x_oe: Vector6<f64>, as_degrees: bool) -> na::Vector6<f64> {
     // Unpack input
     let a = x_oe[0];
     let e = x_oe[1];
@@ -100,7 +100,7 @@ pub fn state_osculating_to_cartesian(x_oe: &Vector6<f64>, as_degrees: bool) -> n
 /// use brahe::coordinates::*;
 ///
 /// let cart = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0, ]);
-/// let osc = state_cartesian_to_osculating(&cart, true);
+/// let osc = state_cartesian_to_osculating(cart, true);
 /// // Returns state [R_EARTH + 500e3, 0, 0, 0, 0, 0]
 /// ```
 ///
@@ -108,7 +108,7 @@ pub fn state_osculating_to_cartesian(x_oe: &Vector6<f64>, as_degrees: bool) -> n
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
 #[allow(non_snake_case)]
 pub fn state_cartesian_to_osculating(
-    x_cart: &Vector6<f64>,
+    x_cart: Vector6<f64>,
     as_degrees: bool,
 ) -> Vector6<f64> {
     // # Initialize Cartesian Polistion and Velocity
@@ -173,7 +173,7 @@ mod tests {
         setup_global_test_eop();
 
         let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        let cart = state_osculating_to_cartesian(&osc, false);
+        let cart = state_osculating_to_cartesian(osc, false);
 
         assert_eq!(cart[0], R_EARTH + 500e3);
         assert_eq!(cart[1], 0.0);
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(cart[5], 0.0);
 
         let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 90.0, 0.0, 0.0, 0.0]);
-        let cart = state_osculating_to_cartesian(&osc, true);
+        let cart = state_osculating_to_cartesian(osc, true);
 
         assert_eq!(cart[0], R_EARTH + 500e3);
         assert_eq!(cart[1], 0.0);
@@ -205,7 +205,7 @@ mod tests {
             perigee_velocity(R_EARTH + 500e3, 0.0),
             0.0,
         ]);
-        let osc = state_cartesian_to_osculating(&cart, true);
+        let osc = state_cartesian_to_osculating(cart, true);
 
         assert_abs_diff_eq!(osc[0], R_EARTH + 500e3, epsilon = 1e-9);
         assert_eq!(osc[1], 0.0);
@@ -222,7 +222,7 @@ mod tests {
             0.0,
             perigee_velocity(R_EARTH + 500e3, 0.0),
         ]);
-        let osc = state_cartesian_to_osculating(&cart, true);
+        let osc = state_cartesian_to_osculating(cart, true);
 
         assert_abs_diff_eq!(osc[0], R_EARTH + 500e3, epsilon = 1.0e-9);
         assert_eq!(osc[1], 0.0);

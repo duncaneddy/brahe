@@ -15,7 +15,6 @@ use crate::utils::BraheError;
 /// The state propagator should store the initial state and epoch, and should be able to propagate
 /// the state forward in time using the `step` method.
 pub trait StatePropagator<const S: usize> {
-    fn new(initial_epoch: Epoch, initial_state: SVector<f64, S>) -> Self;
     fn get_state_size(&self) -> usize;
     fn get_num_states(&self) -> usize;
     fn get_initial_state(&self) -> &SVector<f64, S>;

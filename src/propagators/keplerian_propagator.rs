@@ -64,9 +64,7 @@ impl KeplerianPropagator {
             self.initial_state[4],
             wrap_to_2pi(M))
     }
-}
 
-impl StatePropagator<6> for KeplerianPropagator {
     /// Create a new `KeplerianPropagator` with the given initial epoch and state.
     ///
     /// # Arguments
@@ -97,7 +95,7 @@ impl StatePropagator<6> for KeplerianPropagator {
     /// let state = Vector6::new(R_EARTH + 500e3, 0.01, 90.0*RAD2DEG, 15.0*RAD2DEG, 30.0*RAD2DEG, 0.0);
     /// let propagator = KeplerianPropagator::new(epoch, state);
     /// ```
-    fn new(initial_epoch: Epoch, initial_state: SVector<f64, 6>) -> Self {
+    pub fn new(initial_epoch: Epoch, initial_state: SVector<f64, 6>) -> Self {
         let mut states = Vec::new();
         let mut epoch_index = BTreeMap::new();
         states.push(initial_state.clone());
@@ -118,7 +116,9 @@ impl StatePropagator<6> for KeplerianPropagator {
             mean_motion,
         }
     }
+}
 
+impl StatePropagator<6> for KeplerianPropagator {
     /// Get the size of the state vector.
     ///
     /// # Returns

@@ -104,7 +104,7 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, as_degrees: bool) -> Vect
         iter += 1;
     }
 
-    if iter == 10 {
+    if iter == 20 {
         panic!("Reached maximum number of iterations.");
     }
 

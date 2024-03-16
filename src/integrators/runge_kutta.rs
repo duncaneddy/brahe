@@ -7,105 +7,25 @@ use nalgebra::{SMatrix, SVector};
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::numerical_integrator::NumericalIntegrator;
 
-/// Perform a single step of an explicit Runge-Kutta method. This function is generic over the size
-/// of the state vector and the size of the Butcher tableau.
-///
-/// This function should generally not be called directly, but rather utilized when
-/// implementing a new Runge-Kutta method in the `NumericalIntegrator` trait implementation.
-///
-/// # Arguments
-///
-/// - `t`: The current time.
-/// - `state`: The current state of the system.
-/// - `dt`: The time step to take.
-/// - `f`: The function defining the dynamics of the system. Specifically, the function should take
-///    the current time and state, and return the derivative of the state.
-/// - `bt`: The Butcher tableau for the Runge-Kutta method.
-///
-/// # Returns
-///
-/// - The state of the system after taking a single step.
-///
-pub fn rk_step_vector<const S: usize, const O: usize>(t: f64, state: &SVector<f64, S>, dt: f64, f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>, bt: &ButcherTableau<O>) -> SVector<f64, S> {
-    let mut k = SMatrix::<f64, S, O>::zeros();
-    let mut state_update = SVector::<f64, S>::zeros();
-
-    // Compute internal steps based on the Butcher tableau
-    for i in 0..O {
-        let mut ksum = SVector::<f64, S>::zeros();
-        for j in 0..i {
-            ksum += bt.a[(i, j)] * k.column(j);
-        }
-
-        k.set_column(i, &f(t + bt.c[i] * dt, &(state + dt * ksum)));
-    }
-
-    // Compute the state update from each internal step
-    for i in 0..O {
-        state_update += dt * bt.b[i] * k.column(i);
-    }
-
-    // Combine the state and the state update to get the new state
-    state + state_update
-}
-
-pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
-                                                                 state: &SVector<f64, S>,
-                                                                 phi: &SMatrix<f64, S, S>, dt: f64,
-                                                                 f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>,
-                                                                 varmat: fn(f64, &SVector<f64, S>) -> SMatrix<f64, S, S>,
-                                                                 bt: &ButcherTableau<O>) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
-
-    // Define working variables to hold internal step state
-    let mut k = SMatrix::<f64, S, O>::zeros();
-    let mut k_phi = [SMatrix::<f64, S, S>::zeros(); O];
-
-    // Define working variables to hold the state and variational matrix updates
-    let mut state_update = SVector::<f64, S>::zeros();
-    let mut phi_update = SMatrix::<f64, S, S>::zeros();
-
-    // Compute internal steps based on the Butcher tableau
-    for i in 0..O {
-        let mut ksum = SVector::<f64, S>::zeros();
-        let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
-
-        for j in 0..i {
-            ksum += bt.a[(i, j)] * k.column(j);
-            k_phi_sum += bt.a[(i, j)] * k_phi[j];
-        }
-
-        k.set_column(i, &f(t + bt.c[i] * dt, &(state + dt * ksum)));
-        k_phi[i] = varmat(t + bt.c[i] * dt, &(state + dt * ksum)) * (phi + dt * k_phi_sum);
-    }
-
-    // Compute the state update from each internal step
-    for i in 0..O {
-        state_update += dt * bt.b[i] * k.column(i);
-        phi_update += dt * bt.b[i] * k_phi[i];
-    }
-
-    // Combine the state and the state update to get the new state
-    (state + state_update, phi + phi_update)
-}
-
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
 /// over the size of the state vector.
 ///
 /// # Example
 ///
 /// ```
-/// use nalgebra::SVector;
+/// use nalgebra::{SVector, SMatrix};
 /// use brahe::integrators::{RK4Integrator, NumericalIntegrator};
 ///
 /// // Define a simple function for testing x' = 2x,
-/// let f = |t: f64, state: &SVector<f64, 1>| -> SVector<f64, 1> {
+/// let f = |t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
 ///    let mut state_new = SVector::<f64, 1>::zeros();
 ///     state_new[0] = 2.0*t;
 ///     state_new
 /// };
 ///
+///
 /// // Create a new RK4 integrator
-/// let rk4 = RK4Integrator::new(f, None);
+/// let rk4 = RK4Integrator::new(Box::new(f), None);
 ///
 /// // Define the initial state and time step
 /// let mut t = 0.0;
@@ -114,7 +34,7 @@ pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
 ///
 /// // Integrate the system forward in time to t = 1.0 (analytic solution is x = 1.0)
 /// for i in 0..100{
-///    state = rk4.step(t, &state, dt);
+///    state = rk4.step(t, state, dt);
 ///    t += dt;
 /// }
 ///
@@ -122,20 +42,20 @@ pub fn rk_step_vector_and_varmat<const S: usize, const O: usize>(t: f64,
 ///
 /// // Now integrate the system forward in time to t = 10.0 (analytic solution is x = 100.0)
 /// for i in 100..1000{
-///     state = rk4.step(t, &state, dt);
+///     state = rk4.step(t, state, dt);
 ///     t += dt;
 /// }
 ///
 /// assert!(state[0] - 100.0 < 1.0e-12);
 /// ```
 pub struct RK4Integrator<const S: usize> {
-    f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>,
-    varmat: Option<fn(f64, &SVector<f64, S>) -> SMatrix<f64, S, S>>,
+    f: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>,
+    varmat: Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>,
     bt: ButcherTableau<4>,
 }
 
 impl<const S: usize> RK4Integrator<S> {
-    pub fn new(f: fn(f64, &SVector<f64, S>) -> SVector<f64, S>, varmat: Option<fn(f64, &SVector<f64, S>) -> SMatrix<f64, S, S>>) -> Self {
+    pub fn new(f: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>, varmat: Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>) -> Self {
         Self {
             f,
             varmat,
@@ -145,12 +65,60 @@ impl<const S: usize> RK4Integrator<S> {
 }
 
 impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
-    fn step(&self, t: f64, state: &SVector<f64, S>, dt: f64) -> SVector<f64, S> {
-        rk_step_vector(t, &state, dt, self.f, &self.bt)
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> SVector<f64, S> {
+        let mut k = SMatrix::<f64, S, 4>::zeros();
+        let mut state_update = SVector::<f64, S>::zeros();
+
+        // Compute internal steps based on the Butcher tableau
+        for i in 0..4 {
+            let mut ksum = SVector::<f64, S>::zeros();
+            for j in 0..i {
+                ksum += self.bt.a[(i, j)] * k.column(j);
+            }
+
+            k.set_column(i, &(self.f)(t + self.bt.c[i] * dt, state + dt * ksum));
+        }
+
+        // Compute the state update from each internal step
+        for i in 0..4 {
+            state_update += dt * self.bt.b[i] * k.column(i);
+        }
+
+        // Combine the state and the state update to get the new state
+        state + state_update
     }
 
-    fn step_with_varmat(&self, t: f64, state: &SVector<f64, S>, phi: &SMatrix<f64, S, S>, dt: f64) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
-        rk_step_vector_and_varmat(t, &state, &phi, dt, self.f, self.varmat.unwrap(), &self.bt)
+    fn step_with_varmat(&self, t: f64, state: SVector<f64, S>, phi: SMatrix<f64, S, S>, dt: f64) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
+        // Define working variables to hold internal step state
+        let mut k = SMatrix::<f64, S, 4>::zeros();
+        let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 4];
+
+        // Define working variables to hold the state and variational matrix updates
+        let mut state_update = SVector::<f64, S>::zeros();
+        let mut phi_update = SMatrix::<f64, S, S>::zeros();
+
+        // Compute internal steps based on the Butcher tableau
+        for i in 0..4 {
+            let mut ksum = SVector::<f64, S>::zeros();
+            let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
+
+            for j in 0..i {
+                ksum += self.bt.a[(i, j)] * k.column(j);
+                k_phi_sum += self.bt.a[(i, j)] * k_phi[j];
+            }
+
+            k.set_column(i, &(self.f)(t + self.bt.c[i] * dt, state + dt * ksum));
+            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, state + dt * ksum) * (phi + dt * k_phi_sum);
+        }
+
+        // Compute the state update from each internal step
+        for i in 0..4 {
+            state_update += dt * self.bt.b[i] * k.column(i);
+            phi_update += dt * self.bt.b[i] * k_phi[i];
+        }
+
+        // Combine the state and the state update to get the new state
+        (state + state_update, phi + phi_update)
     }
 }
 
@@ -165,19 +133,19 @@ mod tests {
     #[test]
     fn test_rk4_integrator_cubic() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
             state_new[0] = 3.0 * t * t;
             state_new
         };
 
-        let rk4 = RK4Integrator::new(f, None);
+        let rk4 = RK4Integrator::new(Box::new(f), None);
 
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, &state, dt);
+            state = rk4.step(i as f64, state, dt);
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -186,27 +154,28 @@ mod tests {
     #[test]
     fn test_rk4_integrator_parabola() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, _: &SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> {
             let mut state_new = SVector::<f64, 1>::zeros();
             state_new[0] = 2.0 * t;
             state_new
         };
 
-        let rk4 = RK4Integrator::new(f, None);
+
+        let rk4 = RK4Integrator::new(Box::new(f), None);
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 1>::new(0.0);
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, &state, dt);
+            state = rk4.step(t, state, dt);
             t += dt;
         }
 
         assert_abs_diff_eq!(state[0], 1.0, epsilon = 1.0e-12);
     }
 
-    fn point_earth(_: f64, x: &SVector<f64, 6>) -> SVector<f64, 6> {
+    fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -226,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_rk4_integrator_orbit() {
-        let rk4 = RK4Integrator::new(point_earth, None);
+        let rk4 = RK4Integrator::new(Box::new(point_earth), None);
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -241,7 +210,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, &state, dt);
+            state = rk4.step(epc - epc0, state, dt);
             epc += dt;
         }
 
@@ -257,11 +226,11 @@ mod tests {
     #[test]
     fn test_rk4_integrator_varmat() {
         // Define how we want to calculate the variational matrix for the RK4 integrator
-        let varmat = |t: f64, state: &SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_fixed_offset(t, state, point_earth, 1.0)
+        let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_from_fixed_offset(t, state, &point_earth, 1.0)
         };
 
-        let rk4 = RK4Integrator::new(point_earth, Some(varmat));
+        let rk4 = RK4Integrator::new(Box::new(point_earth), Some(Box::new(varmat)));
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -269,7 +238,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no setp and confirm the variational matrix is the identity matrix
-        let (_, phi1) = rk4.step_with_varmat(0.0, &state0, &phi0, 0.0);
+        let (_, phi1) = rk4.step_with_varmat(0.0, state0, phi0, 0.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -281,7 +250,7 @@ mod tests {
         }
 
         // Propagate one step and indecently confirm the variational matrix update
-        let (_, phi2) = rk4.step_with_varmat(0.0, &state0, &phi0, 1.0);
+        let (_, phi2) = rk4.step_with_varmat(0.0, state0, phi0, 1.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -298,16 +267,16 @@ mod tests {
         // Compare updating the state with a perturbation and the result from using the variational matrix
         // Define a simple perturbation to simplify the tests
         let pert = SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let varmat = |t: f64, state: &SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_offset_vector(t, state, point_earth, &SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+        let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_from_offset_vector(t, state, &point_earth, SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
         };
-        let rk4 = RK4Integrator::new(point_earth, Some(varmat));
+        let rk4 = RK4Integrator::new(Box::new(point_earth), Some(Box::new(varmat)));
 
         // Get the state with a perturbation
-        let (state_pert, _) = rk4.step_with_varmat(0.0, &(state0 + pert), &phi0, 1.0);
+        let (state_pert, _) = rk4.step_with_varmat(0.0, state0 + pert, phi0, 1.0);
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, &state0, 1.0) + phi2 * pert;
+        let state_stm = rk4.step(0.0, state0, 1.0) + phi2 * pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);

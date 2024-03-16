@@ -30,6 +30,7 @@ const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 ///
 /// 1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.83-86.
 ///
+#[allow(non_snake_case)]
 pub fn acceleration_drag(x_object: Vector6<f64>, density: f64, mass: f64, area: f64, drag_coefficient: f64, T: Matrix3<f64>) -> Vector3<f64> {
     // Position and velocity in true-of-date system
     let r_tod: Vector3<f64> = T * x_object.fixed_rows::<3>(0);
@@ -146,7 +147,6 @@ pub fn density_harris_priester(r_tod: Vector3<f64>, r_sun: Vector3<f64>) -> f64 
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use nalgebra::Vector6;
     use rstest::rstest;
 
     use crate::{sun_position, TimeSystem};
@@ -158,8 +158,6 @@ mod tests {
 
     #[test]
     fn test_acceleration_drag() {
-        let epc = Epoch::from_date(2023, 1, 1, TimeSystem::UTC);
-
         let oe = Vector6::new(
             R_EARTH + 500e3,
             0.01,
@@ -526,7 +524,6 @@ mod tests {
     #[case(60310.000, 1.000, 100.000, 2.300, 5.722314467058e+06, 3.595279736803e+06, 8.454390492652e+05, - 4.108466612970e+03, 5.841107621980e+03, 2.846284516417e+03, 5.767674716446e-07, - 8.133252603937e-07, - 4.268119157331e-07)]
     fn validate_acceleration_drag(#[case] mjd_tt: f64, #[case] area: f64, #[case] mass: f64, #[case] cd: f64, #[case] r_x: f64, #[case] r_y: f64, #[case] r_z: f64, #[case] v_x: f64, #[case] v_y: f64, #[case] v_z: f64, #[case] a_x_expected: f64, #[case] a_y_expected: f64, #[case] a_z_expected: f64) {
         let x = Vector6::new(r_x, r_y, r_z, v_x, v_y, v_z);
-        let a_expected = Vector3::new(a_x_expected, a_y_expected, a_z_expected);
 
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_sun = sun_position(epc);

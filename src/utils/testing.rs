@@ -6,6 +6,7 @@ use std::env;
 use std::path::Path;
 
 use crate::eop::*;
+use crate::orbit_dynamics::gravity::{DefaultGravityModel, GravityModel, set_global_gravity_model};
 
 pub fn setup_global_test_eop() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -18,4 +19,9 @@ pub fn setup_global_test_eop() {
 
     let eop = FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation).unwrap();
     set_global_eop_provider(eop);
+}
+
+pub fn setup_global_test_gravity_model() {
+    let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+    set_global_gravity_model(gravity_model);
 }

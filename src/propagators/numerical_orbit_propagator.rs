@@ -1707,8 +1707,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    // TODO: Fix this so it actually only runs in CI
     fn test_numerical_propagator_step_to_final_epoch_full_force() {
         setup_global_test_eop();
         setup_global_test_gravity_model();
@@ -1722,8 +1720,8 @@ mod tests {
         // Parameters for two-body motion
         let params = NumericalOrbitPropagatorParams {
             mass: 1000.0,
-            n_gravity: 80,
-            m_gravity: 80,
+            n_gravity: 20,
+            m_gravity: 20,
             enable_drag: true,
             drag_coefficient: 2.3,
             drag_area: 0.5,

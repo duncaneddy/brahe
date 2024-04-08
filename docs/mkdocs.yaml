@@ -13,7 +13,10 @@ plugins:
     - search
     - mkdocstrings
     - section-index
-
+    -   git-revision-date-localized:
+            enable_creation_date: true
+            fallback_to_build_date: true
+            type: iso_date
 theme:
     name: material
     logo: assets/icon.png

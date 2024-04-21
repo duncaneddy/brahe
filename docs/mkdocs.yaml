@@ -79,3 +79,8 @@ nav:
             - about/license.md
             - about/contact.md
     -   Blog: https://duncaneddy.com
+
+extra:
+    analytics:
+        provider: google
+        property: G-437544299

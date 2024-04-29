@@ -13,17 +13,17 @@ def test_Rx():
     r = Rx(deg, use_degrees=True)
 
     tol = 1e-8
-    assert approx(r[0, 0], 1.0,       abs=tol)
-    assert approx(r[0, 1], 0.0,       abs=tol)
-    assert approx(r[0, 2], 0.0,       abs=tol)
+    assert approx(r[0, 0], abs=tol) == 1.0
+    assert approx(r[0, 1], abs=tol) == 0.0
+    assert approx(r[0, 2], abs=tol) == 0.0
 
-    assert approx(r[1, 0], 0.0,       abs=tol)
-    assert approx(r[1, 1], +cos(rad), abs=tol)
-    assert approx(r[1, 2], +sin(rad), abs=tol)
+    assert approx(r[1, 0], abs=tol) == 0.0
+    assert approx(r[1, 1], abs=tol) == math.cos(rad)
+    assert approx(r[1, 2], abs=tol) == math.sin(rad)
 
-    assert approx(r[2, 0], 0.0,       abs=tol)
-    assert approx(r[2, 1], -sin(rad), abs=tol)
-    assert approx(r[2, 2], +cos(rad), abs=tol)
+    assert approx(r[2, 0], abs=tol) == 0.0
+    assert approx(r[2, 1], abs=tol) == -math.sin(rad)
+    assert approx(r[2, 2], abs=tol) == math.cos(rad)
 
     # Test 30 Degrees
     r = Rx(30, True)
@@ -76,17 +76,17 @@ def test_Ry():
     r = Ry(deg, use_degrees=True)
 
     tol = 1e-8
-    assert approx(r[0, 0], +cos(rad), abs=tol)
-    assert approx(r[0, 1], 0.0,       abs=tol)
-    assert approx(r[0, 2], -sin(rad), abs=tol)
+    assert approx(r[0, 0], abs=tol) == math.cos(rad)
+    assert approx(r[0, 1], abs=tol) == 0.0
+    assert approx(r[0, 2], abs=tol) == -math.sin(rad)
 
-    assert approx(r[1, 0], 0.0,       abs=tol)
-    assert approx(r[1, 1], 1.0,       abs=tol)
-    assert approx(r[1, 2], 0.0,       abs=tol)
+    assert approx(r[1, 0], abs=tol) == 0.0
+    assert approx(r[1, 1], abs=tol) == 1.0
+    assert approx(r[1, 2], abs=tol) == 0.0
 
-    assert approx(r[2, 0], +sin(rad), abs=tol)
-    assert approx(r[2, 1], 0.0,       abs=tol)
-    assert approx(r[2, 2], +cos(rad), abs=tol)
+    assert approx(r[2, 0], abs=tol) == math.sin(rad)
+    assert approx(r[2, 1], abs=tol) == 0.0
+    assert approx(r[2, 2], abs=tol) == math.cos(rad)
 
     # Test 30 Degrees
     r = Ry(30, True)
@@ -140,17 +140,17 @@ def test_Rz():
     r = Rz(deg, use_degrees=True)
 
     tol = 1e-8
-    assert approx(r[0, 0], +cos(rad), abs=tol)
-    assert approx(r[0, 1], +sin(rad), abs=tol)
-    assert approx(r[0, 2], 0.0,       abs=tol)
+    assert approx(r[0, 0], abs=tol) == math.cos(rad)
+    assert approx(r[0, 1], abs=tol) == math.sin(rad)
+    assert approx(r[0, 2], abs=tol) == 0.0
 
-    assert approx(r[1, 0], -sin(rad), abs=tol)
-    assert approx(r[1, 1], +cos(rad), abs=tol)
-    assert approx(r[1, 2], 0.0,       abs=tol)
+    assert approx(r[1, 0], abs=tol) == -math.sin(rad)
+    assert approx(r[1, 1], abs=tol) == math.cos(rad)
+    assert approx(r[1, 2], abs=tol) == 0.0
 
-    assert approx(r[2, 0], 0.0,       abs=tol)
-    assert approx(r[2, 1], 0.0,       abs=tol)
-    assert approx(r[2, 2], 1.0,       abs=tol)
+    assert approx(r[2, 0], abs=tol) == 0.0
+    assert approx(r[2, 1], abs=tol) == 0.0
+    assert approx(r[2, 2], abs=tol) == 1.0
 
     # Test 30 Degrees
     r = Rz(30, True)

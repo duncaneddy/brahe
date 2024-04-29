@@ -235,17 +235,17 @@ def test_day_of_year():
 
 def test_gmst():
     epc = Epoch(2000, 1, 1)
-    assert approx(epc.gmst(use_degrees=True), 99.835, abs=1e-3)
+    assert approx(epc.gmst(use_degrees=True), abs=1e-3) == 99.835
 
     epc = Epoch(2000, 1, 1)
-    assert approx(epc.gmst(use_degrees=False), 1.742, abs=1e-3)
-
+    assert approx(epc.gmst(use_degrees=False), abs=1e-3) == 1.742
+ 
 def test_gast():
     epc = Epoch(2000, 1, 1)
-    assert approx(epc.gast(use_degrees=True), 99.832, abs=1e-3)
+    assert approx(epc.gast(use_degrees=True), abs=1e-3) ==  99.832
 
     epc = Epoch(2000, 1, 1)
-    assert approx(epc.gast(use_degrees=False), 1.742, abs=1e-3)
+    assert approx(epc.gast(use_degrees=False), abs=1e-3) == 1.742
 
 # Arithmetic Comparisons
 def test_logic():

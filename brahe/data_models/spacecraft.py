@@ -11,6 +11,8 @@ import numpy as np
 
 from brahe.epoch import Epoch
 from brahe.tle import TLE
+from pydantic import Field
+from typing_extensions import Annotated
 
 class SpacecraftModel(pydantic.BaseModel):
     '''Spacecraft Dynamics and resource model
@@ -29,7 +31,7 @@ class SpacecraftModel(pydantic.BaseModel):
     data_rate_downlink: float = pydantic.Field( 0.0, description='Spacecraft data rates when downlinking. All units in [GB/s]')
 
 class Spacecraft(pydantic.BaseModel):
-    id: pydantic.conint(ge=0) = pydantic.Field(None, description='Spacecraft Identifider')
+    id: Annotated[int, Field(ge=0)] = pydantic.Field(None, description='Spacecraft Identifider')
     name: str = pydantic.Field('', description='Spacecraft name')
     line1: typing.Optional[str] = pydantic.Field(None, description='First line of TLE associated with spacecraft [Optional]')
     line2: typing.Optional[str] = pydantic.Field(None, description='Second line of TLE associated with spacecraft [Optional]')

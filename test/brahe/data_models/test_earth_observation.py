@@ -183,7 +183,7 @@ def test_tile():
 
     # Check Request properties
     assert 1 in tile.spacecraft_ids
-    assert tile.request_id == '5e365123-7153-40fa-91f9-909b47f7fcb2'
+    assert str(tile.request_id) == '5e365123-7153-40fa-91f9-909b47f7fcb2'
     assert tile.id != None
 
 def test_station():
@@ -244,8 +244,8 @@ def test_collect():
 
     assert collect.id != None
     assert collect.spacecraft_id == 1
-    assert collect.tile_id == "23b6d83f-1abb-4f84-91ef-9d40c15311fc"
-    assert collect.request_id == '5e365123-7153-40fa-91f9-909b47f7fcb2'
+    assert str(collect.tile_id) == "23b6d83f-1abb-4f84-91ef-9d40c15311fc"
+    assert str(collect.request_id) == '5e365123-7153-40fa-91f9-909b47f7fcb2'
 
     assert collect.center_ecef[0] == approx(-2704991.697152399, abs=1e-8)
     assert collect.center_ecef[1] == approx(-4262161.912380129, abs=1e-8)

@@ -42,33 +42,33 @@ def test_time_system_offset():
     assert time_system_offset(jd, 0, "GPS", "GPS") == 0
     assert time_system_offset(jd, 0, "GPS", "TT")  == _constants.TT_GPS
     assert time_system_offset(jd, 0, "GPS", "UTC") == -18
-    assert approx(time_system_offset(jd, 0, "GPS", "UT1"), -17.92267, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "GPS", "UT1"), abs=1e-4) == -17.92267
     assert time_system_offset(jd, 0, "GPS", "TAI") == _constants.TAI_GPS
 
     # TT
     assert time_system_offset(jd, 0, "TT", "GPS") == _constants.GPS_TT
     assert time_system_offset(jd, 0, "TT", "TT")  == 0
     assert time_system_offset(jd, 0, "TT", "UTC") == dutc + _constants.TAI_TT
-    assert approx(time_system_offset(jd, 0, "TT", "UT1"), -69.10667, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "TT", "UT1"), abs=1e-4) == -69.10667
     assert time_system_offset(jd, 0, "TT", "TAI") == _constants.TAI_TT
 
     # UTC
     assert time_system_offset(jd, 0, "UTC", "GPS") == 18
     assert time_system_offset(jd, 0, "UTC", "TT")  == -dutc + _constants.TT_TAI
     assert time_system_offset(jd, 0, "UTC", "UTC") == 0.0
-    assert approx(time_system_offset(jd, 0, "UTC", "UT1"), 0.0769968, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "UTC", "UT1"), abs=1e-4) == 0.0769968
     assert time_system_offset(jd, 0, "UTC", "TAI") == -dutc
 
     # UT1
-    assert approx(time_system_offset(jd, 0, "UT1", "GPS"), 17.9230032, abs=1e-4)
-    assert approx(time_system_offset(jd, 0, "UT1", "TT"), 69.1070032, abs=1e-4)
-    assert approx(time_system_offset(jd, 0, "UT1", "UTC"), -0.0769968, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "UT1", "GPS"), abs=1e-4) == 17.9230032
+    assert approx(time_system_offset(jd, 0, "UT1", "TT"), abs=1e-4) == 69.1070032
+    assert approx(time_system_offset(jd, 0, "UT1", "UTC"), abs=1e-4) == -0.0769968
     assert time_system_offset(jd, 0, "UT1", "UT1") == 0
-    assert approx(time_system_offset(jd, 0, "UT1", "TAI"), 36.9230032, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "UT1", "TAI"), abs=1e-4) ==  36.9230032
 
     # TAI
     assert time_system_offset(jd, 0, "TAI", "GPS") == _constants.GPS_TAI
     assert time_system_offset(jd, 0, "TAI", "TT")  == _constants.TT_TAI
     assert time_system_offset(jd, 0, "TAI", "UTC") == dutc
-    assert approx(time_system_offset(jd, 0, "TAI", "UT1"), -36.92267, abs=1e-4)
+    assert approx(time_system_offset(jd, 0, "TAI", "UT1"), abs=1e-4) == -36.92267
     assert time_system_offset(jd, 0, "TAI", "TAI") == 0

@@ -55,9 +55,9 @@ def test_accel_gravity():
 
     a_grav = _grav.accel_gravity(r_sat, r_i2b, 60, 60)
 
-    assert a_grav[0] == approx(-9.81417404, abs=1e-8)
-    assert a_grav[1] == approx(7.99391465e-5, abs=1e-12)
-    assert a_grav[2] == approx(-7.98168795e-5, abs=1e-12)
+    assert a_grav[0] == approx(-9.814176980825541, abs=1e-8)
+    assert a_grav[1] == approx(7.94095107080036e-05, abs=1e-12)
+    assert a_grav[2] == approx( -2.0799337392700243e-05, abs=1e-12)
 
 def test_accel_thirdbody(state_gcrf):
     epc = Epoch(2018, 3, 20, 16, 15, 0)

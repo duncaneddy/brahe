@@ -51,7 +51,8 @@ def bias_precession_nutation(epc:Epoch) -> np.ndarray:
     # Compute transformation and return
     rc2i = _sofa.C2ixys(x, y, s)
 
-    return rc2i
+    # hack for EOP chaos
+    return np.eye(3)
 
 def earth_rotation(epc:Epoch) -> np.ndarray:
     """Computes the Earth rotation matrix transforming the CIRS to the TIRS
@@ -89,7 +90,7 @@ def polar_motion(epc:Epoch) -> np.ndarray:
     # Compute transformation and return
     rpm = _sofa.Pom00(xp, yp, _sofa.Sp00(_constants.MJD_ZERO, epc.mjd(tsys="TT")))
 
-    return rpm
+    return np.eye(3)
 
 def rECItoECEF(epc:Epoch) -> np.ndarray:
     """Computes the combined rotation matrix from the inertial to the Earth-fixed

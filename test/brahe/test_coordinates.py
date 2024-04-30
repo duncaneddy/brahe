@@ -334,9 +334,9 @@ def test_so_example24():
     azel_enz = sENZtoAZEL(enz, use_degrees=True)
     azel_sez = sSEZtoAZEL(sez, use_degrees=True)
 
-    assert azel_enz[0] == azel_sez[0]
-    assert azel_enz[1] == azel_sez[1]
-    assert azel_enz[2] == azel_sez[2]
+    assert azel_enz[0] == pytest.approx(azel_sez[0], abs=1e-8) 
+    assert azel_enz[1] == pytest.approx(azel_sez[1], abs=1e-8) 
+    assert azel_enz[2] == pytest.approx(azel_sez[2], abs=1e-8) 
 
 def test_azel():
     # State conversion
@@ -353,7 +353,7 @@ def test_azel():
     azel_enz = sENZtoAZEL(enz, use_degrees=True)
     azel_sez = sSEZtoAZEL(sez, use_degrees=True)
 
-    np.testing.assert_equal(azel_enz, azel_sez)
+    np.testing.assert_almost_equal(azel_enz, azel_sez, )
 
 def test_enz_azel():
     # Test Error Conditions

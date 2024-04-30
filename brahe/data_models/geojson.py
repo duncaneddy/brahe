@@ -10,8 +10,11 @@ import numpy as np
 import brahe.astro as astro
 import brahe.coordinates as coords
 import brahe.frames as frames
+from pydantic import Field
+from typing import List
+from typing_extensions import Annotated
 
-geographic_point = pydantic.conlist(float, min_items=2, max_items=3)
+geographic_point = Annotated[List[float], Field(min_length=2, max_length=3)]
 
 class GeoJSONGeometry(pydantic.BaseModel):
     type: typing_extensions.Literal['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon']

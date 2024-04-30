@@ -13,23 +13,29 @@ from brahe.epoch import Epoch
 import brahe.coordinates as coords
 
 from .geojson import GeoJSONObject
+from pydantic import Field, ConfigDict
+from typing import List
+from typing_extensions import Annotated
+from pydantic import UUID4
 
 # Custom Type for UUID 4 validation
-class StrUUID4(str):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+# class StrUUID4(str):
+#     @classmethod
+#     # TODO[pydantic]: We couldn't refactor `__get_validators__`, please create the `__get_pydantic_core_schema__` manually.
+#     # Check https://docs.pydantic.dev/latest/migration/#defining-custom-types for more information.
+#     def __get_pydantic_core_schema__(cls):
+#         yield cls.validate
 
-    @classmethod
-    def validate(cls, v):
-        try:
-            if type(v) == str:
-                v = str(uuid.UUID(v, version=4))
-            else:
-                raise ValueError(f'"{v}" is not a valid UUID4 formatted string')
-        except ValueError:
-            raise ValueError(f'"{v}" is not a valid UUID4 formatted string')
-        return v
+#     @classmethod
+#     def validate(cls, v):
+#         try:
+#             if type(v) == str:
+#                 v = str(uuid.UUID(v, version=4))
+#             else:
+#                 raise ValueError(f'"{v}" is not a valid UUID4 formatted string')
+#         except ValueError:
+#             raise ValueError(f'"{v}" is not a valid UUID4 formatted string')
+#         return v
 
 ##########################
 # Earth Observation Base #
@@ -40,12 +46,13 @@ class EOBase(pydantic.BaseModel):
 
     Provides the pydantic `Config` class type to set serializa
     '''
-    class Config:
-        json_encoders = {
-            datetime.datetime: lambda v: v.strftime('%Y-%m-%dT%H:%M:%S.%f')
-            [:-3] + 'Z',  # Truncated Milliseconds
-            np.ndarray: lambda v: v.tolist()
-        }
+    # TODO[pydantic]: The following keys were removed: `json_encoders`.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-config for more information.
+    model_config = ConfigDict(json_encoders={
+        datetime.datetime: lambda v: v.strftime('%Y-%m-%dT%H:%M:%S.%f')
+        [:-3] + 'Z',  # Truncated Milliseconds
+        np.ndarray: lambda v: v.tolist()
+    })
 
 class TimeWindowProperties(EOBase):
     '''Add time window properties to an object. These are start-time, end-time,
@@ -175,10 +182,10 @@ class AccessConstraints(EOBase):
     
     ascdsc: AscendingDescending = pydantic.Field(AscendingDescending.either, description='Constraint on access being taken during an ascending or descending pass.')
     look_direction: LookDirection = pydantic.Field(LookDirection.either, description='Constraint on access look direction.')
-    look_angle_min: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(0.0, description='Minimum look angle constraint.')
-    look_angle_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90.0, description='Maximum look angle constraint.')
-    elevation_min: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(0.0, description='Minimum elevation constraint.')
-    elevation_max: pydantic.confloat(ge=0.0,le=90.0) = pydantic.Field(90.0, description='Maximum elevation constraint.')
+    look_angle_min: Annotated[float, Field(ge=0.0,le=90.0)] = pydantic.Field(0.0, description='Minimum look angle constraint.')
+    look_angle_max: Annotated[float, Field(ge=0.0,le=90.0)] = pydantic.Field(90.0, description='Maximum look angle constraint.')
+    elevation_min: Annotated[float, Field(ge=0.0,le=90.0)] = pydantic.Field(0.0, description='Minimum elevation constraint.')
+    elevation_max: Annotated[float, Field(ge=0.0,le=90.0)] = pydantic.Field(90.0, description='Maximum elevation constraint.')
 
     @pydantic.validator('look_angle_max')
     def validate_look_angle(cls, look_angle_max, values):
@@ -201,15 +208,15 @@ class AccessConstraints(EOBase):
 class TessellationSettings(EOBase):
     '''Settings used to tesselation.
     '''
-    tile_width: pydantic.confloat(ge=100.0) = pydantic.Field(20000.0, description='Maximum tile width')
-    tile_length: pydantic.confloat(ge=100.0) = pydantic.Field(20000.0, description='Maximum tile length')
-    cross_track_overlap: pydantic.confloat(ge=100.0) = pydantic.Field(100.0, description='Cross-track overlap.')
-    along_track_overlap: pydantic.confloat(ge=100.0) = pydantic.Field(100.0, description='Along-track overlap.')
+    tile_width: Annotated[float, Field(ge=100.0)] = pydantic.Field(20000.0, description='Maximum tile width')
+    tile_length: Annotated[float, Field(ge=100.0)] = pydantic.Field(20000.0, description='Maximum tile length')
+    cross_track_overlap: Annotated[float, Field(ge=100.0)] = pydantic.Field(100.0, description='Cross-track overlap.')
+    along_track_overlap: Annotated[float, Field(ge=100.0)] = pydantic.Field(100.0, description='Along-track overlap.')
 
 class AccessProperties(EOBase):
     ascdsc: typing.Optional[AscendingDescending] = None
     look_direction: typing.Optional[LookDirection] = None
-    local_time: pydantic.confloat(ge=0, lt=86400) = None
+    local_time: Annotated[float, Field(ge=0, lt=86400)] = None
     azimuth_open: float = None
     azimuth_close: float = None
     look_angle_min: float = None
@@ -232,12 +239,12 @@ class AccessProperties(EOBase):
 ###########
 
 class RequestProperties(EOBase):
-    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
-    id: StrUUID4 = pydantic.Field(None, description='Unique identifer for request')
+    reward: Annotated[float, Field(ge=0.0)] = pydantic.Field(1.0, description='Request collection reward')
+    id: UUID4 = pydantic.Field(None, description='Unique identifer for request')
     description: typing.Optional[str] = pydantic.Field('', description='Description of imaging request')
     constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Access constraint requirements on accessing this location.')
     tessellation: TessellationSettings = pydantic.Field(TessellationSettings(), description='Tessellation settings.')
-    collect_duration: pydantic.confloat(gt=0.0) = pydantic.Field(30.0, description='Duration of collection.')
+    collect_duration: Annotated[float, Field(gt=0.0)] = pydantic.Field(30.0, description='Duration of collection.')
 
 
     @pydantic.validator('id', pre=True, always=True)
@@ -311,11 +318,11 @@ class Request(GeoJSONObject):
 # ########
 
 class TileProperties(EOBase):
-    id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
-    tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group of the tile')
-    request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
-    spacecraft_ids: typing.List[pydantic.conint(ge=1)] = pydantic.Field([], description='Spacecraft IDs that can collect this tile.')
-    tile_direction: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(..., description='Direction of tiling. Normalized unit vector in Cartesian ECEF frame.')
+    id: UUID4 = pydantic.Field(None, description='Unique identifer for tile')
+    tile_group_id: UUID4 = pydantic.Field(None, description='Unique identifer for tile group of the tile')
+    request_id: UUID4 = pydantic.Field(..., description='Unique identifer for request')
+    spacecraft_ids: typing.List[Annotated[int, Field(ge=1)]] = pydantic.Field([], description='Spacecraft IDs that can collect this tile.')
+    tile_direction: Annotated[List[float], Field(min_length=3, max_length=3)] = pydantic.Field(..., description='Direction of tiling. Normalized unit vector in Cartesian ECEF frame.')
     
     @pydantic.validator('id', pre=True, always=True)
     def set_id(cls, id, values):
@@ -386,10 +393,10 @@ class Tile(GeoJSONObject):
 # ###########
 
 class StationProperties(EOBase):
-    id: StrUUID4 = pydantic.Field(None, description='Unique identifer for station')
+    id: UUID4 = pydantic.Field(None, description='Unique identifer for station')
     station_name: str = pydantic.Field('', description='Name of station')
     constraints: AccessConstraints = pydantic.Field(AccessConstraints(), description='Constraints on accessing station')
-    downlink_rate_max: pydantic.confloat() = pydantic.Field(0.0, description='Maximum downlink datarate at station. Units: [GB/s]')
+    downlink_rate_max: Annotated[float, Field()] = pydantic.Field(0.0, description='Maximum downlink datarate at station. Units: [GB/s]')
     
 
     @pydantic.validator('id', pre=True, always=True)
@@ -452,11 +459,11 @@ class Station(GeoJSONObject):
 ###############
 
 class Opportunity(TimeWindowProperties):
-    id: StrUUID4 = pydantic.Field(None, description='Unique identifer of opportunity')
-    spacecraft_id: typing.Union[pydantic.conint(ge=1)] = pydantic.Field(..., description='ID of spacecraft associated with opportunity.')
+    id: UUID4 = pydantic.Field(None, description='Unique identifer of opportunity')
+    spacecraft_id: typing.Union[Annotated[int, Field(ge=1)]] = pydantic.Field(..., description='ID of spacecraft associated with opportunity.')
     status: ScheduleStatus = pydantic.Field('not_scheduled', description='Status of opportunity in schedule.')
-    center: pydantic.conlist(float, min_items=2, max_items=3) = pydantic.Field(..., description='Center Geodetic Point of Opportunity')
-    center_ecef: pydantic.conlist(float, min_items=3, max_items=3) = pydantic.Field(None, description='Center ECEF Point of Opportunity')
+    center: Annotated[List[float], Field(min_length=2, max_length=3)] = pydantic.Field(..., description='Center Geodetic Point of Opportunity')
+    center_ecef: Annotated[List[float], Field(min_length=3, max_length=3)] = pydantic.Field(None, description='Center ECEF Point of Opportunity')
     access_properties: AccessProperties = pydantic.Field(AccessProperties(), descripton='Properties associated with collection')
 
     @pydantic.validator('id', pre=True, always=True)
@@ -486,10 +493,10 @@ class Opportunity(TimeWindowProperties):
 ###########
 
 class Collect(Opportunity):
-    request_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for request')
-    tile_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile')
-    tile_group_id: StrUUID4 = pydantic.Field(None, description='Unique identifer for tile group')
-    reward: pydantic.confloat(ge=0.0) = pydantic.Field(1.0, description='Request collection reward')
+    request_id: UUID4 = pydantic.Field(..., description='Unique identifer for request')
+    tile_id: UUID4 = pydantic.Field(None, description='Unique identifer for tile')
+    tile_group_id: typing.Optional[UUID4] = pydantic.Field(None, description='Unique identifer for tile group')
+    reward: Annotated[float, Field(ge=0.0)] = pydantic.Field(1.0, description='Request collection reward')
 
     @property
     def collect_id(self):
@@ -502,7 +509,7 @@ class Collect(Opportunity):
 ###########
 
 class Contact(Opportunity):
-    station_id: StrUUID4 = pydantic.Field(..., description='Unique identifer for station')
+    station_id: UUID4 = pydantic.Field(..., description='Unique identifer for station')
     station_name: str = pydantic.Field('', description='Name of Station')
 
     @property

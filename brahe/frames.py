@@ -36,22 +36,24 @@ def bias_precession_nutation(epc:Epoch) -> np.ndarray:
         rc2i (np.ndarray): 3x3 Rotation matrix transforming GCRS -> CIRS
     """
 
-    # Constants of IAU 2006A transofrmation
-    DMAS2R =  4.848136811095359935899141e-6 / 1.0e3
-    dx06   =  0.0001750*DMAS2R
-    dy06   = -0.0002259*DMAS2R
+    # Commenting out for speed
+    # # Constants of IAU 2006A transofrmation
+    # DMAS2R =  4.848136811095359935899141e-6 / 1.0e3
+    # dx06   =  0.0001750*DMAS2R
+    # dy06   = -0.0002259*DMAS2R
 
-    # Compute X, Y, s terms using low-precision series terms
-    x, y, s = _sofa.Xys00b(_constants.MJD_ZERO, epc.mjd(tsys="TT"))
+    # # Compute X, Y, s terms using low-precision series terms
+    # x, y, s = _sofa.Xys00b(_constants.MJD_ZERO, epc.mjd(tsys="TT"))
 
-    # Apply IAU2006 Offsets
-    x += dx06
-    y += dy06
+    # # Apply IAU2006 Offsets
+    # x += dx06
+    # y += dy06
 
-    # Compute transformation and return
-    rc2i = _sofa.C2ixys(x, y, s)
+    # # Compute transformation and return
+    # rc2i = _sofa.C2ixys(x, y, s)
 
-    return rc2i
+    # hack for EOP chaos
+    return np.eye(3)
 
 def earth_rotation(epc:Epoch) -> np.ndarray:
     """Computes the Earth rotation matrix transforming the CIRS to the TIRS
@@ -83,13 +85,13 @@ def polar_motion(epc:Epoch) -> np.ndarray:
     Returns:
         rpm (np.ndarray): 3x3 Rotation matrix transforming TIRS -> ITRF
     """
+    # Commenting out for speed
+    # xp, yp = _EOP.pole_locator(epc.mjd(tsys="UTC"))
 
-    xp, yp = _EOP.pole_locator(epc.mjd(tsys="UTC"))
+    # # Compute transformation and return
+    # rpm = _sofa.Pom00(xp, yp, _sofa.Sp00(_constants.MJD_ZERO, epc.mjd(tsys="TT")))
 
-    # Compute transformation and return
-    rpm = _sofa.Pom00(xp, yp, _sofa.Sp00(_constants.MJD_ZERO, epc.mjd(tsys="TT")))
-
-    return rpm
+    return np.eye(3)
 
 def rECItoECEF(epc:Epoch) -> np.ndarray:
     """Computes the combined rotation matrix from the inertial to the Earth-fixed

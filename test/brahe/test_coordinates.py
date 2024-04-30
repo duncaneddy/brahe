@@ -20,70 +20,73 @@ def test_geocentric():
     geoc1 = [0.0, 0.0, 0.0]
     ecef1 = sGEOCtoECEF(geoc1)
 
-    assert approx(ecef1[0], WGS84_a, abs=tol)
-    assert approx(ecef1[1], 0, abs=tol)
-    assert approx(ecef1[2], 0, abs=tol)
+    assert approx(ecef1[0], abs=tol) == WGS84_a
+    assert approx(ecef1[1], abs=tol) == 0
+    assert approx(ecef1[2], abs=tol) ==  0
 
     geoc2 = [90.0, 0.0, 0.0]
     ecef2 = sGEOCtoECEF(geoc2, use_degrees=True)
 
-    assert approx(ecef2[0], 0, abs=tol)
-    assert approx(ecef2[1], WGS84_a, abs=tol)
-    assert approx(ecef2[2], 0, abs=tol)
+    assert approx(ecef2[0], abs=tol) == 0
+    assert approx(ecef2[1], abs=tol) == WGS84_a
+    assert approx(ecef2[2], abs=tol) == 0
 
     geoc3 = [0.0, 90.0, 0.0]
     ecef3 = sGEOCtoECEF(geoc3, use_degrees=True)
 
-    assert approx(ecef3[0], 0, abs=tol)
-    assert approx(ecef3[1], 0, abs=tol)
-    assert approx(ecef3[2], WGS84_a, abs=tol)
+    assert approx(ecef3[0], abs=tol) ==  0
+    assert approx(ecef3[1], abs=tol) == 0
+    assert approx(ecef3[2], abs=tol) == WGS84_a
 
     # Test two-input format 
     geoc = [0.0, 0.0]
     ecef = sGEOCtoECEF(geoc)
 
-    assert approx(ecef[0], WGS84_a, abs=tol)
-    assert approx(ecef[1], 0, abs=tol)
-    assert approx(ecef[2], 0, abs=tol)
+    assert approx(ecef[0], abs=tol) == WGS84_a
+    assert approx(ecef[1], abs=tol) == 0
+    assert approx(ecef[2], abs=tol) == 0
 
     geoc = [90.0, 0.0]
     ecef = sGEOCtoECEF(geoc, use_degrees=True)
 
-    assert approx(ecef[0], 0, abs=tol)
-    assert approx(ecef[1], WGS84_a, abs=tol)
-    assert approx(ecef[2], 0, abs=tol)
+    assert approx(ecef[0], abs=tol) == 0
+    assert approx(ecef[1], abs=tol) == WGS84_a
+    assert approx(ecef[2], abs=tol) == 0
 
     geoc = [0.0, 90.0]
     ecef = sGEOCtoECEF(geoc, use_degrees=True)
 
-    assert approx(ecef[0], 0, abs=tol)
-    assert approx(ecef[1], 0, abs=tol)
-    assert approx(ecef[2], WGS84_a, abs=tol)
+    assert approx(ecef[0], abs=tol) == 0
+    assert approx(ecef[1], abs=tol) == 0
+    assert approx(ecef[2], abs=tol) == WGS84_a
 
     # Test circularity
     geoc4 = sECEFtoGEOC(ecef1, use_degrees=True)
     geoc5 = sECEFtoGEOC(ecef2, use_degrees=True)
     geoc6 = sECEFtoGEOC(ecef3, use_degrees=True)
 
-    assert approx(geoc4[0], geoc1[0], abs=tol)
-    assert approx(geoc4[1], geoc1[1], abs=tol)
-    assert approx(geoc4[2], geoc1[2], abs=tol)
+    # Check geoc4 against geoc1
+    assert approx(geoc4[0], abs=tol) == geoc1[0]
+    assert approx(geoc4[1], abs=tol) == geoc1[1]
+    assert approx(geoc4[2], abs=tol) == geoc1[2]
 
-    assert approx(geoc5[0], geoc2[0], abs=tol)
-    assert approx(geoc5[1], geoc2[1], abs=tol)
-    assert approx(geoc5[2], geoc2[2], abs=tol)
+    # Check geoc5 against geoc2
+    assert approx(geoc5[0], abs=tol) == geoc2[0]
+    assert approx(geoc5[1], abs=tol) == geoc2[1]
+    assert approx(geoc5[2], abs=tol) == geoc2[2]
 
-    assert approx(geoc6[0], geoc3[0], abs=tol)
-    assert approx(geoc6[1], geoc3[1], abs=tol)
-    assert approx(geoc6[2], geoc3[2], abs=tol)
+    # Check geoc6 against geoc3
+    assert approx(geoc6[0], abs=tol) == geoc3[0]
+    assert approx(geoc6[1], abs=tol) == geoc3[1]
+    assert approx(geoc6[2], abs=tol) == geoc3[2]
 
     # Random point circularity
     geoc  = [77.875000, 20.975200, 0.000000]
     ecef  = sGEOCtoECEF(geoc, use_degrees=True)
     geocc = sECEFtoGEOC(ecef, use_degrees=True)
-    assert approx(geoc[0], geocc[0], abs=tol)
-    assert approx(geoc[1], geocc[1], abs=tol)
-    assert approx(geoc[2], geocc[2], abs=tol)
+    assert approx(geoc[0], abs=tol) == geocc[0]
+    assert approx(geoc[1], abs=tol) == geocc[1]
+    assert approx(geoc[2], abs=tol) == geocc[2]
 
     # Test Error Condition
     with pytest.raises(RuntimeError):
@@ -99,69 +102,72 @@ def test_geodetic():
     geod1 = [0, 0, 0]
     ecef1 = sGEODtoECEF(geod1)
 
-    assert approx(ecef1[0], WGS84_a, abs=tol)
-    assert approx(ecef1[1], 0, abs=tol)
-    assert approx(ecef1[2], 0, abs=tol)
+    assert approx(ecef1[0], abs=tol) == WGS84_a
+    assert approx(ecef1[1], abs=tol) == 0
+    assert approx(ecef1[2], abs=tol) == 0
 
     geod2 = [90.0, 0.0, 0.0]
     ecef2 = sGEODtoECEF(geod2, use_degrees=True)
 
-    assert approx(ecef2[0], 0, abs=tol)
-    assert approx(ecef2[1], WGS84_a, abs=tol)
-    assert approx(ecef2[2], 0, abs=tol)
+    assert approx(ecef2[0], abs=tol) == 0
+    assert approx(ecef2[1], abs=tol) == WGS84_a
+    assert approx(ecef2[2], abs=tol) == 0
 
     geod3 = [0, 90.0, 0]
     ecef3 = sGEODtoECEF(geod3, use_degrees=True)
 
-    assert approx(ecef3[0], 0, abs=tol)
-    assert approx(ecef3[1], 0, abs=tol)
-    assert approx(ecef3[2], WGS84_a*(1.0-WGS84_f), abs=tol)
+    assert approx(ecef3[0], abs=tol) == 0
+    assert approx(ecef3[1], abs=tol) == 0
+    assert approx(ecef3[2], abs=tol) == WGS84_a * (1.0 - WGS84_f)
 
     # Test two input format
     geod = [0.0, 0.0]
     ecef = sGEODtoECEF(geod)
 
-    assert approx(ecef[0], WGS84_a, abs=tol)
-    assert approx(ecef[1], 0, abs=tol)
-    assert approx(ecef[2], 0, abs=tol)
+    assert approx(ecef[0], abs=tol) == WGS84_a
+    assert approx(ecef[1], abs=tol) == 0
+    assert approx(ecef[2], abs=tol) == 0
 
     geod = [90.0, 0.0]
     ecef = sGEODtoECEF(geod, use_degrees=True)
 
-    assert approx(ecef[0], 0, abs=tol)
-    assert approx(ecef[1], WGS84_a, abs=tol)
-    assert approx(ecef[2], 0, abs=tol)
+    assert approx(ecef[0], abs=tol) == 0
+    assert approx(ecef[1], abs=tol) == WGS84_a
+    assert approx(ecef[2], abs=tol) == 0
 
     geod = [0.0, 90.0]
     ecef = sGEODtoECEF(geod, use_degrees=True)
 
-    assert approx(ecef[0], 0, abs=tol)
-    assert approx(ecef[1], 0, abs=tol)
-    assert approx(ecef[2], WGS84_a*(1.0-WGS84_f), abs=tol)
+    assert approx(ecef[0], abs=tol) == 0
+    assert approx(ecef[1], abs=tol) == 0
+    assert approx(ecef[2], abs=tol) == WGS84_a * (1.0 - WGS84_f)
 
     # Test circularity
     geod4 = sECEFtoGEOD(ecef1, use_degrees=True)
     geod5 = sECEFtoGEOD(ecef2, use_degrees=True)
     geod6 = sECEFtoGEOD(ecef3, use_degrees=True)
 
-    assert approx(geod4[0], geod1[0], abs=tol)
-    assert approx(geod4[1], geod1[1], abs=tol)
-    assert approx(geod4[2], geod1[2], abs=tol)
+    # Assertions for geod4 against geod1
+    assert approx(geod4[0], abs=tol) == geod1[0]
+    assert approx(geod4[1], abs=tol) == geod1[1]
+    assert approx(geod4[2], abs=tol) == geod1[2]
 
-    assert approx(geod5[0], geod2[0], abs=tol)
-    assert approx(geod5[1], geod2[1], abs=tol)
-    assert approx(geod5[2], geod2[2], abs=tol)
+    # Assertions for geod5 against geod2
+    assert approx(geod5[0], abs=tol) == geod2[0]
+    assert approx(geod5[1], abs=tol) == geod2[1]
+    assert approx(geod5[2], abs=tol) == geod2[2]
 
-    assert approx(geod6[0], geod3[0], abs=tol)
-    assert approx(geod6[1], geod3[1], abs=tol)
-    assert approx(geod6[2], geod3[2], abs=tol)
+    # Assertions for geod6 against geod3
+    assert approx(geod6[0], abs=tol) == geod3[0]
+    assert approx(geod6[1], abs=tol) == geod3[1]
+    assert approx(geod6[2], abs=tol) == geod3[2]
 
     geod  = [77.875000,    20.975200,     0.000000]
     ecef  = sGEODtoECEF(geod, use_degrees=True)
     geodc = sECEFtoGEOD(ecef, use_degrees=True)
-    assert approx(geod[0], geodc[0], abs=tol)
-    assert approx(geod[1], geodc[1], abs=tol)
-    assert approx(geod[2], geodc[2], abs=tol)
+    assert approx(geod[0], abs=tol) == geodc[0]
+    assert approx(geod[1], abs=tol) == geodc[1]
+    assert approx(geod[2], abs=tol) == geodc[2]
 
     # Test Error Condition
     with pytest.raises(RuntimeError):
@@ -190,12 +196,12 @@ def test_enz():
     enz   = sECEFtoENZ(station_ecef, ecef)
     ecef2 = sENZtoECEF(station_ecef, enz)
 
-    assert approx(ecef[0], ecef2[0], abs=tol)
-    assert approx(ecef[1], ecef2[1], abs=tol)
-    assert approx(ecef[2], ecef2[2], abs=tol)
-    assert approx(ecef[3], ecef2[3], abs=tol)
-    assert approx(ecef[4], ecef2[4], abs=tol)
-    assert approx(ecef[5], ecef2[5], abs=tol)
+    assert approx(ecef[0], abs=tol) == ecef2[0]
+    assert approx(ecef[1], abs=tol) == ecef2[1]
+    assert approx(ecef[2], abs=tol) == ecef2[2]
+    assert approx(ecef[3], abs=tol) == ecef2[3]
+    assert approx(ecef[4], abs=tol) == ecef2[4]
+    assert approx(ecef[5], abs=tol) == ecef2[5]
 
     ecef         = sGEODtoECEF([-122.4, 37.78, 200.0],    use_degrees=True)
     station_ecef = sGEODtoECEF([-122.4056, 37.7716, 0.0], use_degrees=True)
@@ -203,9 +209,9 @@ def test_enz():
     enz   = sECEFtoENZ(station_ecef, ecef, conversion="geocentric")
     ecef2 = sENZtoECEF(station_ecef, enz, conversion="geocentric")
 
-    assert approx(ecef[0], ecef2[0], abs=tol)
-    assert approx(ecef[1], ecef2[1], abs=tol)
-    assert approx(ecef[2], ecef2[2], abs=tol)
+    assert approx(ecef[0], abs=tol) == ecef2[0]
+    assert approx(ecef[1], abs=tol) == ecef2[1]
+    assert approx(ecef[2], abs=tol) == ecef2[2]
 
     # Test ENZ Error Conditions
     with pytest.raises(RuntimeError):
@@ -253,12 +259,12 @@ def test_sez():
     sez   = sECEFtoSEZ(station_ecef, ecef)
     ecef2 = sSEZtoECEF(station_ecef, sez)
 
-    assert approx(ecef[0], ecef2[0], abs=tol)
-    assert approx(ecef[1], ecef2[1], abs=tol)
-    assert approx(ecef[2], ecef2[2], abs=tol)
-    assert approx(ecef[3], ecef2[3], abs=tol)
-    assert approx(ecef[4], ecef2[4], abs=tol)
-    assert approx(ecef[5], ecef2[5], abs=tol)
+    assert approx(ecef[0], abs=tol) == ecef2[0]
+    assert approx(ecef[1], abs=tol) == ecef2[1]
+    assert approx(ecef[2], abs=tol) == ecef2[2]
+    assert approx(ecef[3], abs=tol) == ecef2[3]
+    assert approx(ecef[4], abs=tol) == ecef2[4]
+    assert approx(ecef[5], abs=tol) == ecef2[5]
 
     ecef         = sGEODtoECEF([-122.4, 37.78, 200.0],    use_degrees=True)
     station_ecef = sGEODtoECEF([-122.4056, 37.7716, 0.0], use_degrees=True)
@@ -266,9 +272,9 @@ def test_sez():
     sez   = sECEFtoSEZ(station_ecef, ecef, conversion="geocentric")
     ecef2 = sSEZtoECEF(station_ecef, sez, conversion="geocentric")
 
-    assert approx(ecef[0], ecef2[0], abs=tol)
-    assert approx(ecef[1], ecef2[1], abs=tol)
-    assert approx(ecef[2], ecef2[2], abs=tol)
+    assert approx(ecef[0], abs=tol) == ecef2[0]
+    assert approx(ecef[1], abs=tol) == ecef2[1]
+    assert approx(ecef[2], abs=tol) == ecef2[2]
 
     # Test SEZ Error Conditions
     with pytest.raises(RuntimeError):
@@ -328,9 +334,9 @@ def test_so_example24():
     azel_enz = sENZtoAZEL(enz, use_degrees=True)
     azel_sez = sSEZtoAZEL(sez, use_degrees=True)
 
-    assert azel_enz[0] == azel_sez[0]
-    assert azel_enz[1] == azel_sez[1]
-    assert azel_enz[2] == azel_sez[2]
+    assert azel_enz[0] == pytest.approx(azel_sez[0], abs=1e-8) 
+    assert azel_enz[1] == pytest.approx(azel_sez[1], abs=1e-8) 
+    assert azel_enz[2] == pytest.approx(azel_sez[2], abs=1e-8) 
 
 def test_azel():
     # State conversion
@@ -347,7 +353,7 @@ def test_azel():
     azel_enz = sENZtoAZEL(enz, use_degrees=True)
     azel_sez = sSEZtoAZEL(sez, use_degrees=True)
 
-    np.testing.assert_equal(azel_enz, azel_sez)
+    np.testing.assert_almost_equal(azel_enz, azel_sez, )
 
 def test_enz_azel():
     # Test Error Conditions

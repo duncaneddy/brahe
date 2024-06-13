@@ -10,8 +10,9 @@ As per the NRLMSIS-2.1 license agreement, the software shall carry prominite not
 made to the software as well as the date of the change. The of modifications is:
 
 Modifications:
-- 2023-03-15: Translated the original Fortran code into Rust.
-- 2023-03-17: Add function to calculate LVMMR constant since Rust cannot call the non-const "ln" function at compile time.
+- 2024-03-15: Translated the original Fortran code into Rust.
+- 2024-03-17: Add function to calculate LVMMR constant since Rust cannot call the non-const "ln" function at compile time.
+- 2024-04-13: Modified `bspline` routine to return values instead of modifying an input array.
  */
 
 // MSIS (NRL-SOF-014-1) SOFTWARE
@@ -127,85 +128,133 @@ pub(crate) fn gph2alt(theta: f64, gph: f64) -> f64 {
 ///==================================================================================================
 /// BSPLINE: Returns array of nonzero b-spline values, for all orders up to specified order (max 6)
 ///==================================================================================================
-#[allow(non_snake_case)]
-pub(crate) fn bspline(x: f64, nodes: &[f64], nd: usize, kmax: usize, eta: &[[f64; 6]; 31], s: &mut [[f64; 7]; 6], i: &mut isize) {
-    // Working variables
-    let mut j: isize;
-    let mut w: [f64; 5] = [0.0; 5];
 
-    // Initialize to zero
-    for row in s.iter_mut() {
-        for item in row.iter_mut() {
-            *item = 0.0;
-        }
-    }
+// Translating the indexing of this function is cursed because the original Fortran code uses both
+// 1-based and negative indexing. Rust uses 0-based indexing, so we're holding onto our butts and
+// praying to test cases that I don't mess this up.
+#[allow(non_snake_case)]
+pub(crate) fn bspline(x: f64, nodes: &[f64], nd: usize, kmax: usize, eta: &[[f64; 6]; 31]) -> ([[f64; 5]; 6], usize) {
+    // Output variables
+    let mut i: isize = 0;
+    let mut s: [[f64; 5]; 6] = [[0.0; 5]; 6];
+
+    // Working variables
+
+    let mut low: isize = 0;
+    let mut high: isize = nd as isize;
+    let mut w: [f64; 5] = [0.0; 5]; // Weights for recursion relation
+    let mut j: isize = 0;
 
     // Find index of last (rightmost) nonzero spline
-    if x >= nodes[nd] {
-        *i = nd as isize;
-        return;
+    if x >= nodes[nd - 1 as usize] {
+        i = nd as isize - 1;
+        return (s, i as usize);
     }
     if x <= nodes[0] {
-        *i = -1;
-        return;
-    }
-    let mut low = 0;
-    let mut high = nd;
-    *i = ((low + high) / 2) as isize;
-    while x < nodes[*i as usize] || x >= nodes[(*i + 1) as usize] {
-        if x < nodes[*i as usize] {
-            high = *i as usize;
-        } else {
-            low = *i as usize;
-        }
-        *i = ((low + high) / 2) as isize;
+        i = 0;
+        return (s, i as usize);
     }
 
-    // Initialize with linear splines
-    s[5][2] = (x - nodes[*i as usize]) * eta[*i as usize][2];
-    if *i > 0 {
-        s[4][2] = 1.0 - s[5][2];
+    i = (low + high) / 2;
+    while x < nodes[i as usize] || x >= nodes[i as usize + 1] {
+        if x < nodes[i as usize] {
+            high = i;
+        } else {
+            low = i;
+        }
+        i = (low + high) / 2;
     }
-    if *i >= (nd - 1) as isize {
-        s[5][2] = 0.0; // Reset out-of-bounds spline to zero
+
+    // Initialize with linear spines
+    s[if2r(0, -5)][if2r(2, 2)] = (x - nodes[i as usize]) * eta[i as usize][2];
+    if i > 0 {
+        s[if2r(-1, -5)][if2r(2, 2)] = 1.0 - s[if2r(0, -5)][if2r(2, 2)];
+    }
+    // Reset out-of-bounds spline to zero
+    if i >= nd as isize - 1 {
+        s[if2r(0, 2)][if2r(2, 2)] = 0.0;
     }
 
     // k = 3 (quadratic splines)
-    w[4] = (x - nodes[*i as usize]) * eta[*i as usize][3];
-    if *i != 0 {
-        w[3] = (x - nodes[(*i - 1) as usize]) * eta[(*i - 1) as usize][3];
+    w[0] = (x - nodes[(i - 1) as usize]) * eta[(i - 1) as usize][if2r(3, 2)];
+    if i != 0 {
+        w[if2r(-1, -5)] = (x - nodes[(i - 1) as usize]) * eta[(i - 1) as usize][if2r(3, 2)];
     }
-    if *i < (nd - 2) as isize {
-        s[5][3] = w[4] * s[5][2];
+    if i < nd as isize - 2 { // TODO: Check array bounds maybe should be nd-1
+        s[if2r(0, -5)][if2r(3, 2)] = w[if2r(0, -5)] + s[if2r(0, -5)][if2r(2, 2)];
     }
-    if (*i - 1) >= 0 && (*i - 1) < (nd - 2) as isize {
-        s[4][3] = w[3] * s[4][2] + (1.0 - w[4]) * s[5][2];
+    if ((i - 1) >= 0) && ((i - 1) < nd as isize - 2) {
+        s[if2r(-1, -5)][if2r(3, 2)] = w[if2r(-1, -5)] * s[if2r(-1, -5)][if2r(2, 2)] + (1.0 - w[if2r(0, -5)]) * s[if2r(0, -2)][if2r(2, 2)];
     }
-    if (*i - 2) >= 0 {
-        s[3][3] = (1.0 - w[3]) * s[4][2];
+    if (i - 2) >= 0 {
+        s[if2r(-2, -5)][if2r(3, 2)] = (1.0 - w[if2r(-1, -5)]) * s[if2r(-1, -5)][if2r(2, 2)];
     }
 
-    // Higher order splines
-    for k in 4..=kmax {
-        for l in (0..=k - 2).rev() {
-            j = *i + l as isize;
-            if j < 0 {
-                break; // Skip out-of-bounds splines
-            }
-            w[l + 4] = (x - nodes[j as usize]) * eta[j as usize][k];
+    // k = 4 (cubic splines)
+    for l in [0, -2, -1] {
+        j = i + l;
+        if j < 0 {
+            break; // skip out-of-bounds splines
         }
-        if *i < (nd - k) as isize {
-            s[5][k] = w[4] * s[5][k - 1];
-        }
-        for l in (0..=k - 3).rev() {
-            if (*i + l as isize) >= 0 && (*i + l as isize) < (nd - k) as isize {
-                s[l + 5][k] = w[l + 4] * s[l + 5][k - 1] + (1.0 - w[l + 5]) * s[l + 6][k - 1];
-            }
-        }
-        if (*i - k as isize + 1) >= 0 {
-            s[5 - k][k] = (1.0 - w[4 - k]) * s[6 - k][k - 1];
+        w[if2r(l, -5)] = (x - nodes[j as usize]) * eta[j as usize][if2r(4, 2)];
+    }
+    if i < (nd - 3) as isize {
+        s[if2r(0, -5)][if2r(4, 2)] = w[if2r(0, -5)] * s[if2r(0, -5)][if2r(3, 2)];
+    }
+    for l in [-1, -2, -1] {
+        if ((i + l) >= 0) && ((i + l) < (nd - 3) as isize) {
+            s[if2r(l, -5)][if2r(4, 2)] = w[if2r(l, -5)] * s[if2r(l, -5)][if2r(3, 2)] + (1.0 - w[if2r(l + 1, -5)]) * s[if2r(l + 1, -5)][if2r(3, 2)];
         }
     }
+    if (i - 3) >= 0 {
+        s[if2r(-3, -5)][if2r(4, 2)] = (1.0 - w[if2r(-2, -5)]) * s[if2r(-2, -5)][if2r(3, 2)];
+    }
+
+    // k = 5
+    for l in [0, -3, -1] {
+        j = i + l;
+        if j < 0 {
+            break; // skip out-of-bounds splines
+        }
+        w[if2r(l, -5)] = (x - nodes[j as usize]) * eta[j as usize][if2r(5, 2)];
+    }
+    if i < (nd - 4) as isize {
+        s[if2r(0, -5)][if2r(5, 2)] = w[if2r(0, -5)] * s[if2r(0, -5)][if2r(4, 2)];
+    }
+    for l in [-1, -3, -1] {
+        if ((i + l) >= 0) && ((i + l) < (nd - 4) as isize) {
+            s[if2r(l, -5)][if2r(5, 2)] = w[if2r(l, -5)] * s[if2r(l, -5)][if2r(4, 2)] + (1.0 - w[if2r(l + 1, -5)]) * s[if2r(l + 1, -5)][if2r(4, 2)];
+        }
+    }
+    if (i - 4) >= 0 {
+        s[if2r(-4, -5)][if2r(5, 2)] = (1.0 - w[if2r(-3, -5)]) * s[if2r(-3, -5)][if2r(4, 2)];
+    }
+    if kmax == 5 {
+        // Exit if only 5th order spline is needed
+        return (s, i as usize);
+    }
+
+    // k = 6
+    for l in [0, -4, -1] {
+        j = i + l;
+        if j < 0 {
+            break; // skip out-of-bounds splines
+        }
+        w[if2r(l, -5)] = (x - nodes[j as usize]) * eta[j as usize][if2r(6, 2)];
+    }
+    if i < (nd - 5) as isize {
+        s[if2r(0, -5)][if2r(6, 2)] = w[if2r(0, -5)] * s[if2r(0, -5)][if2r(5, 2)];
+    }
+    for l in [-1, -4, -1] {
+        if ((i + l) >= 0) && ((i + l) < (nd - 5) as isize) {
+            s[if2r(l, -5)][if2r(6, 2)] = w[if2r(l, -5)] * s[if2r(l, -5)][if2r(5, 2)] + (1.0 - w[if2r(l + 1, -5)]) * s[if2r(l + 1, -5)][if2r(5, 2)];
+        }
+    }
+    if (i - 5) >= 0 {
+        s[if2r(-5, -5)][if2r(6, 2)] = (1.0 - w[if2r(-4, -5)]) * s[if2r(-4, -5)][if2r(5, 2)];
+    }
+
+    (s, i as usize)
 }
 
 ///==================================================================================================
@@ -239,29 +288,92 @@ pub(crate) fn dilog(x0: f64) -> f64 {
     }
 }
 
-// Dry air log volume mixing ratios (CIPM 2007)
-pub(crate) fn get_lnvmr() -> [f64; 10] {
-    let input: [f64; 10] = [1.0, 0.780848, 0.209390, 1.0, 0.0000052, 1.0, 0.009332, 1.0, 1.0, 1.0];
-    let mut output = [0.0_f64; 10];
-    for (i, &x) in input.iter().enumerate() {
-        output[i] = x.ln();
-    }
-    output
-}
-
 // Constants needed for analytical integration by parts of hydrostatic piecewise effective mass profile
-pub(crate) fn calculate_wbeta() -> [f64; NL as usize + 1] {
-    let mut output = [0.0_f64; NL as usize + 1];
-    for i in 0..=NL as usize {
+pub(crate) fn calculate_wbeta() -> [f64; NL + 1] {
+    let mut output = [0.0_f64; NL + 1];
+    for i in 0..=NL {
         output[i] = (NODESTN[4 + i] - NODESTN[i]) / 4.0;
     }
     output
 }
 
-pub(crate) fn calculate_wgamma() -> [f64; NL as usize + 1] {
-    let mut output = [0.0_f64; NL as usize + 1];
-    for i in 0..=NL as usize {
+pub(crate) fn calculate_wgamma() -> [f64; NL + 1] {
+    let mut output = [0.0_f64; NL + 1];
+    for i in 0..=NL {
         output[i] = (NODESTN[5 + i] - NODESTN[i]) / 5.0;
     }
     output
+}
+
+pub(crate) fn dot_product(a: &[f64], b: &[f64]) -> f64 {
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
+/// Convert a Fortran-style index to a Rust-style index.
+///
+/// # Arguments
+/// - `fi`: Fortran-style index
+/// - `fl`: Fortran-style lower bound of the array
+///
+/// # Returns
+/// - Rust-style index (0-based)
+#[inline]
+pub(crate) fn if2r(fi: isize, fl: isize) -> usize {
+    (fi - fl) as usize
+}
+
+/// Convert a row and column index for a column-major (Fortran) array to a linear index.
+///
+/// # Arguments
+/// - `r`: Row index
+/// - `c`: Column index
+/// - `nr`: Number of rows
+///
+/// # Returns
+/// - Linear index
+#[inline]
+pub(crate) fn cm2l(r: usize, c: usize, nr: usize) -> usize {
+    c * nr + r
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cm2l() {
+        let nr = 2;
+        assert_eq!(cm2l(0, 0, nr), 0);
+        assert_eq!(cm2l(1, 0, nr), 1);
+        assert_eq!(cm2l(0, 1, nr), 2);
+        assert_eq!(cm2l(1, 1, nr), 3);
+        assert_eq!(cm2l(0, 2, nr), 4);
+        assert_eq!(cm2l(1, 2, nr), 5);
+    }
+
+    #[test]
+    fn test_dot_product() {
+        let a = [1.0, 2.0, 3.0];
+        let b = [4.0, 5.0, 6.0];
+        let dp = dot_product(&a, &b);
+        assert_eq!(dp, 32.0);
+    }
+
+    #[test]
+    fn test_if2r() {
+        let i = if2r(0, -5);
+        assert_eq!(i, 5);
+        let i = if2r(2, 2);
+        assert_eq!(i, 0);
+
+        let i = if2r(-5, -5);
+        assert_eq!(i, 0);
+        let i = if2r(2, 2);
+        assert_eq!(i, 0);
+
+        let i = if2r(0, -5);
+        assert_eq!(i, 5);
+        let it = if2r(6, 2);
+        assert_eq!(i, 4);
+    }
 }

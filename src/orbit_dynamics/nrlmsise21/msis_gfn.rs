@@ -498,8 +498,10 @@ pub(crate) fn utdep_from_slice(params: &MsisParams, p0: &[f64], bf: &[f64]) -> f
     utdep(params, <&[f64; 12]>::try_from(p0).unwrap(), <&[f64; 9]>::try_from(bf).unwrap())
 }
 
-pub(crate) fn utdep(params: &MsisParams, p0: &[f64; NUT], bf: &[f64; 9]) -> f64 {
-    let mut p = p0.clone();
+pub(crate) fn utdep(params: &MsisParams, p0: &[f64], bf: &[f64]) -> f64 {
+    // Copy of parameters used to apply switches
+    let mut p = [0.0; NUT];
+    p.copy_from_slice(p0);
 
     for i in 3..NUT {
         if !params.swg[i] {
@@ -507,12 +509,10 @@ pub(crate) fn utdep(params: &MsisParams, p0: &[f64; NUT], bf: &[f64; 9]) -> f64 
         }
     }
 
-    // Calculate function
-    let utdep = (bf[0] - p[0]).cos() *
+    // Calculate function and return
+    (bf[0] - p[0]).cos() *
         (1.0 + p[3] * bf[4] * (bf[1] - p[1]).cos()) *
         (1.0 + p[4] * bf[2]) * (1.0 + p[5] * bf[4]) *
         (p[6] * bf[4] + p[7] * bf[5] + p[8] * bf[6]) +
-        (bf[0] - p[2] + 2.0 * bf[3]).cos() * (p[9] * bf[7] + p[10] * bf[8]) * (1.0 + p[11] * bf[2]);
-
-    utdep
+        (bf[0] - p[2] + 2.0 * bf[3]).cos() * (p[9] * bf[7] + p[10] * bf[8]) * (1.0 + p[11] * bf[2])
 }

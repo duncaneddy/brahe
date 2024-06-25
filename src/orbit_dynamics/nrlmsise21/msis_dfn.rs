@@ -19,11 +19,11 @@ Modifications:
 
 // Floating Point Precision
 
-use crate::nrlmsise21::msis_constants::{CMAG, get_lnvmr, MAXNBF, MBF, NMAG, NSPLO1, ZETAF};
-use crate::nrlmsise21::msis_gfn::geomag;
+use crate::nrlmsise21::msis_constants::{C1NO, C1NOADJ, C1O1, C1O1ADJ, CMAG, CUT, G0DIVKB, get_lnvmr, MAXNBF, MBAR, MBF, ND, NMAG, NODESO1, NODESTN, NSPLO1, NUT, SPECMASS, TANH1, ZETAA, ZETAB, ZETAF, ZETAREFNO, ZETAREFO1, ZETAREFOA};
+use crate::nrlmsise21::msis_gfn::{geomag, sfluxmod, utdep};
 use crate::nrlmsise21::msis_init::MsisParams;
 use crate::nrlmsise21::msis_tfn::Tnparm;
-use crate::nrlmsise21::msis_utils::cm2l;
+use crate::nrlmsise21::msis_utils::{bspline, cm2l, dilog};
 
 #[derive(Copy, Clone)]
 pub struct DnParm {
@@ -160,46 +160,335 @@ pub(crate) fn dfnparm(params: &MsisParams, ispec: usize, gf: &[f64; MAXNBF], tpr
             dpro.hr = params.o2.beta[cm2l(0, 9, MAXNBF)];
         }
         // Atomic Oxygen
-        // 4 => {
-        //     // Reference number density
-        //     dpro.ln_phi_f = 0.0;
-        //     dpro.lnd_ref = params.o1.beta[0..=MBF][7].iter().zip(gf[0..=MBF].iter()).map(|(a, b)| a * b).sum();
-        //     dpro.z_ref = ZETAREFO1;
-        //     dpro.z_min = NODESO1[3]; // TODO: Confirm this is right index. It looks like it since array is initialized with 0-indexing
-        //     dpro.z_hyd = ZETAREFO1;
-        //
-        //     // Effective mass
-        //     dpro.zeta_m = params.o1.beta[0][1];
-        //     dpro.hml = params.o1.beta[0][2];
-        //     dpro.hmu = params.o1.beta[0][3];
-        //
-        //     // Chapman Correction
-        //     dpro.c = params.o1.beta[0..=MBF][4].iter().zip(gf[0..=MBF].iter()).map(|(a, b)| a * b).sum();
-        //     dpro.zeta_c = params.o1.beta[0][5];
-        //     dpro.hc = params.o1.beta[0][6];
-        //
-        //     // Dynamical Correction
-        //     dpro.r = params.o1.beta[0..=MBF][7].iter().zip(gf[0..=MBF].iter()).map(|(a, b)| a * b).sum();
-        //     dpro.r = dpro.r + sfluxmod(params, 7, gf, &params.o1, 0.0);
-        //     dpro.r = dpro.r
-        // }
+        4 => {
+            // Reference number density
+            dpro.ln_phi_f = 0.0;
+            dpro.lnd_ref = dot_product(&params.o1.beta, gf, 0..=MBF, 0, MAXNBF);
+            dpro.z_ref = ZETAREFO1;
+            dpro.z_min = NODESO1[2]; // Note adjusted from original code value of 3
+            dpro.z_hyd = ZETAREFO1;
+
+            // Effective mass
+            dpro.zeta_m = params.o1.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.o1.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.o1.beta[cm2l(0, 3, MAXNBF)];
+
+            // Chapman Correction
+            dpro.c = dot_product(&params.o1.beta, gf, 0..=MBF, 4, MAXNBF);
+            dpro.zeta_c = params.o1.beta[cm2l(0, 5, MAXNBF)];
+            dpro.hc = params.o1.beta[cm2l(0, 6, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.o1.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.r = dpro.r + sfluxmod(params, 7, gf, &params.o1, 0.0);
+            dpro.r = dpro.r + geomag(params, &get_p0_input(&params.o1.beta, CMAG, CMAG + NMAG, 7, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.r = dpro.r + utdep(params, &get_p0_input(&params.o1.beta, CUT, CUT + NUT, 7, NUT), &gf[CUT..=CUT + 8]);
+            dpro.zeta_r = params.o1.beta[cm2l(0, 8, MAXNBF)];
+            dpro.hr = params.o1.beta[cm2l(0, 9, MAXNBF)];
+
+            // Unconstrained splines
+            for izf in 0..NSPLO1 {
+                dpro.cf[izf] = dot_product(&params.o1.beta, gf, 0..=MBF, izf + 10, MAXNBF);
+            }
+
+            // Constrained splines calculated after match statement
+        }
         // Helium
-        5 => {}
+        5 => {
+            // Mixing ratio and reference number density
+            dpro.ln_phi_f = lnvmr[ispec - 1]; // NOTE: Need to correct index to match desired access
+            dpro.lnd_ref = tpro.lndtotf + dpro.ln_phi_f;
+            dpro.z_ref = ZETAF;
+            dpro.z_min = -1.0;
+            dpro.z_hyd = ZETAF;
+
+            // Effective mass
+            dpro.zeta_m = params.he.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.he.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.he.beta[cm2l(0, 3, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.he.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.r = dpro.r + geomag(params, &get_p0_input(&params.he.beta, CMAG, CMAG + NMAG, 7, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.r = dpro.r + utdep(params, &get_p0_input(&params.he.beta, CUT, CUT + NUT, 7, NUT), &gf[CUT..=CUT + 8]);
+            dpro.zeta_r = params.he.beta[cm2l(0, 8, MAXNBF)];
+            dpro.hr = params.he.beta[cm2l(0, 9, MAXNBF)];
+        }
         // Atomic Hydrogen
-        6 => {}
+        6 => {
+            // Reference number density
+            dpro.ln_phi_f = 0.0;
+            dpro.lnd_ref = dot_product(&params.h1.beta, gf, 0..=MBF, 0, MAXNBF);
+            dpro.z_ref = ZETAREFO1;
+            dpro.z_min = NODESO1[2]; // Note adjusted from original code value of 3
+            dpro.z_hyd = ZETAREFO1;
+
+            // Effective mass
+            dpro.zeta_m = params.h1.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.h1.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.h1.beta[cm2l(0, 3, MAXNBF)];
+
+            // Chapman Correction
+            dpro.c = dot_product(&params.h1.beta, gf, 0..=MBF, 4, MAXNBF);
+            dpro.zeta_c = dot_product(&params.h1.beta, gf, 0..=MBF, 5, MAXNBF);
+            dpro.hc = params.h1.beta[cm2l(0, 6, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.h1.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.r = dpro.r + sfluxmod(params, 7, gf, &params.h1, 0.0);
+            dpro.r = dpro.r + geomag(params, &get_p0_input(&params.h1.beta, CMAG, CMAG + NMAG, 7, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.r = dpro.r + utdep(params, &get_p0_input(&params.h1.beta, CUT, CUT + NUT, 7, NUT), &gf[CUT..=CUT + 8]);
+            dpro.zeta_r = params.h1.beta[cm2l(0, 8, MAXNBF)];
+            dpro.hr = params.h1.beta[cm2l(0, 9, MAXNBF)];
+        }
         // Argon
-        7 => {}
+        7 => {
+            // Mixing ratio and reference number density
+            dpro.ln_phi_f = lnvmr[ispec - 1]; // NOTE: Need to correct index to match desired access
+            dpro.lnd_ref = tpro.lndtotf + dpro.ln_phi_f;
+            dpro.z_ref = ZETAF;
+            dpro.z_min = -1.0;
+            dpro.z_hyd = ZETAF;
+
+            // Effective mass
+            dpro.zeta_m = params.ar.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.ar.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.ar.beta[cm2l(0, 3, MAXNBF)];
+
+            // Chapman Correction
+            dpro.c = dot_product(&params.ar.beta, gf, 0..=MBF, 4, MAXNBF);
+            dpro.zeta_c = dot_product(&params.ar.beta, gf, 0..=MBF, 5, MAXNBF);
+            dpro.hc = params.ar.beta[cm2l(0, 6, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.ar.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.r = dpro.r + sfluxmod(params, 7, gf, &params.ar, 0.0);
+            dpro.r = dpro.r + geomag(params, &get_p0_input(&params.ar.beta, CMAG, CMAG + NMAG, 7, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.r = dpro.r + utdep(params, &get_p0_input(&params.ar.beta, CUT, CUT + NUT, 7, NUT), &gf[CUT..=CUT + 8]);
+            dpro.zeta_r = params.ar.beta[cm2l(0, 8, MAXNBF)];
+            dpro.hr = params.ar.beta[cm2l(0, 9, MAXNBF)];
+        }
         // Atomic Nitrogen
-        8 => {}
+        8 => {
+            // Reference number density
+            dpro.ln_phi_f = 0.0;
+            dpro.lnd_ref = dot_product(&params.n1.beta, gf, 0..=MBF, 0, MAXNBF);
+            dpro.lnd_ref = dpro.lnd_ref + sfluxmod(params, 0, gf, &params.n1, 0.0);
+            dpro.lnd_ref = dpro.lnd_ref + geomag(params, &get_p0_input(&params.n1.beta, CMAG, CMAG + NMAG, 0, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.lnd_ref = dpro.lnd_ref + utdep(params, &get_p0_input(&params.n1.beta, CUT, CUT + NUT, 0, NUT), &gf[CUT..=CUT + 8]);
+            dpro.z_ref = ZETAB;
+            dpro.z_min = 90.0;
+            dpro.z_hyd = ZETAF;
+
+            // Effective mass
+            dpro.zeta_m = params.n1.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.n1.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.n1.beta[cm2l(0, 3, MAXNBF)];
+
+            // Chapman Correction
+            dpro.c = params.n1.beta[cm2l(0, 4, MAXNBF)];
+            dpro.zeta_c = params.n1.beta[cm2l(0, 5, MAXNBF)];
+            dpro.hc = params.n1.beta[cm2l(0, 6, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.n1.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.zeta_r = params.n1.beta[cm2l(0, 8, MAXNBF)];
+            dpro.hr = params.n1.beta[cm2l(0, 9, MAXNBF)];
+        }
         // Anomalous Oxygen
-        9 => {}
+        9 => {
+            dpro.lnd_ref = dot_product(&params.o1.beta, gf, 0..=MBF, 0, MAXNBF);
+            dpro.lnd_ref = dpro.lnd_ref + geomag(params, &get_p0_input(&params.oa.beta, CMAG, CMAG + NMAG, 0, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.z_ref = ZETAREFOA;
+            dpro.z_min = 0.0;
+            dpro.c = params.oa.beta[cm2l(0, 4, MAXNBF)];
+            dpro.zeta_c = params.oa.beta[cm2l(0, 5, MAXNBF)];
+            dpro.hc = params.oa.beta[cm2l(0, 6, MAXNBF)];
+        }
         // Nitric Oxide
         // Added geomag dependence 2/18/21
-        10 => {}
+        10 => {
+            // Skip if parameters are not defined
+            if params.no.beta[cm2l(0, 0, MAXNBF)] == 0.0 {
+                return dpro;
+            }
+
+            // Reference number density
+            dpro.ln_phi_f = 0.0;
+            dpro.lnd_ref = dot_product(&params.no.beta, gf, 0..=MBF, 0, MAXNBF);
+            dpro.lnd_ref = dpro.lnd_ref + geomag(params, &get_p0_input(&params.no.beta, CMAG, CMAG + NMAG, 0, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.z_ref = ZETAREFNO;
+            dpro.z_min = 72.5; // JTE 1/18/22 Cut off profile below 72.5 km, due to possible spline artefacts at edge of domain (70 km)
+            dpro.z_hyd = ZETAREFNO;
+
+            // Effective Mass
+            dpro.zeta_m = params.no.beta[cm2l(0, 1, MAXNBF)];
+            dpro.hml = params.no.beta[cm2l(0, 2, MAXNBF)];
+            dpro.hmu = params.no.beta[cm2l(0, 3, MAXNBF)];
+
+            // Chapman Correction
+            dpro.c = params.no.beta[cm2l(0, 4, MAXNBF)];
+            dpro.c = dpro.c + geomag(params, &get_p0_input(&params.no.beta, CMAG, CMAG + NMAG, 4, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            dpro.zeta_c = params.no.beta[cm2l(0, 5, MAXNBF)];
+            dpro.hc = params.no.beta[cm2l(0, 6, MAXNBF)];
+
+            // Dynamical Correction
+            dpro.r = dot_product(&params.no.beta, gf, 0..=MBF, 7, MAXNBF);
+            dpro.zeta_r = dot_product(&params.no.beta, gf, 0..=MBF, 8, MAXNBF);
+            dpro.hr = dot_product(&params.no.beta, gf, 0..=MBF, 9, MAXNBF);
+
+            // Unconstrained splines
+            for izf in 0..NSPLO1 {
+                dpro.cf[izf] = dot_product(&params.no.beta, gf, 0..=MBF, izf + 10, MAXNBF);
+                dpro.cf[izf] = dpro.cf[izf] + geomag(params, &get_p0_input(&params.no.beta, CMAG, CMAG + NMAG, izf + 10, NMAG), &gf[CMAG..=CMAG + 12], &gf[CMAG + 13..=CMAG + 26]);
+            }
+        }
+        // Failsafe
         _ => panic!("Species not yet implemented")
     }
 
+    // Compute piecewise mass profile values and integration terms
+    dpro.zeta_mi[0] = dpro.zeta_m - 2.0 * dpro.hml;
+    dpro.zeta_mi[1] = dpro.zeta_m - dpro.hml;
+    dpro.zeta_mi[2] = dpro.zeta_m;
+    dpro.zeta_mi[3] = dpro.zeta_m + dpro.hmu;
+    dpro.zeta_mi[4] = dpro.zeta_m + 2.0 * dpro.hmu;
+    dpro.mi[0] = MBAR;
+    dpro.mi[4] = SPECMASS[ispec - 1];
+    dpro.mi[2] = (dpro.mi[0] + dpro.mi[4]) / 2.0;
+    let delM = TANH1 * (dpro.mi[4] - dpro.mi[0]) / 2.0;
+    dpro.mi[1] = dpro.mi[2] - delM;
+    dpro.mi[3] = dpro.mi[2] + delM;
+    for i in 0..=3 {
+        dpro.a_mi[i] = (dpro.mi[i + 1] - dpro.mi[i]) / (dpro.zeta_mi[i + 1] - dpro.zeta_mi[i]);
+    }
+    let mut delz = 0.0;
+    for i in 0..=4 {
+        delz = dpro.zeta_mi[i] - ZETAB;
+        if dpro.zeta_mi[i] < ZETAB {
+            let (Si, iz) = bspline(dpro.zeta_mi[i], &NODESTN, ND + 2, 6, &params.eta_tn);
+            dpro.w_mi[i] = tpro.cvs * delz + tpro.cws;
+
+            // Direct
+            for idx in 0..5 {
+                dpro.w_mi[i] = dpro.w_mi[i] + tpro.gamma[(iz as isize + idx - 5) as usize] * Si[idx as usize][6 - 1]; // NOTE: Changed index to match 0-based Rust array
+            }
+        } else {
+            dpro.w_mi[i] = (0.5 * delz * delz + dilog(tpro.b + (-tpro.sigma * delz).exp()) / tpro.sigmasq) / tpro.tex + tpro.cvb * delz + tpro.cwb;
+        }
+    }
+
+    dpro.x_mi[0] = -dpro.a_mi[0] * dpro.w_mi[0];
+
+    for i in 1..=3 {
+        dpro.x_mi[i] = dpro.x_mi[i - 1] - dpro.w_mi[i] * (dpro.a_mi[i] - dpro.a_mi[i - 1]);
+    }
+    dpro.x_mi[4] = dpro.x_mi[3] + dpro.w_mi[4] * dpro.a_mi[3];
+
+    // Calculate hydrostatic integral at reference height, and copy temperature
+    let mzref;
+    if dpro.z_ref == ZETAF {
+        mzref = MBAR;
+        dpro.t_ref = tpro.tzetaf;
+        dpro.iz_ref = MBAR * tpro.vzetaf;
+    } else if dpro.z_ref == ZETAB {
+        mzref = pwmp(dpro.z_ref, dpro.zeta_mi, dpro.mi, dpro.a_mi);
+        dpro.t_ref = tpro.tb0;
+        dpro.iz_ref = 0.00;
+        if (ZETAB > dpro.zeta_mi[0]) && (ZETAB < dpro.zeta_mi[4]) {
+            let mut i = 0;
+            for i1 in 1..=3 {
+                if ZETAB < dpro.zeta_mi[i1] {
+                    break;
+                } else {
+                    i = i1;
+                }
+            }
+            dpro.iz_ref = dpro.iz_ref - dpro.x_mi[i];
+        } else {
+            dpro.iz_ref = dpro.iz_ref - dpro.x_mi[4];
+        }
+    } else if dpro.z_ref == ZETAA {
+        mzref = pwmp(dpro.z_ref, dpro.zeta_mi, dpro.mi, dpro.a_mi);
+        dpro.t_ref = tpro.tzetaa;
+        dpro.iz_ref = mzref * tpro.vzetaa;
+        if (ZETAA > dpro.zeta_mi[0]) && (ZETAA < dpro.zeta_mi[4]) {
+            let mut i = 0;
+            for i1 in 1..=3 {
+                if ZETAA < dpro.zeta_mi[i1] {
+                    break;
+                } else {
+                    i = i1;
+                }
+            }
+            dpro.iz_ref = dpro.iz_ref - (dpro.a_mi[i] * tpro.wzetaa + dpro.x_mi[i]);
+        } else {
+            dpro.iz_ref = dpro.iz_ref - dpro.x_mi[4];
+        }
+    } else {
+        panic!("Integrals at reference height not available")
+    }
+
+    // C1 constraint for O1 at 85 km
+    if ispec == 4 {
+        let cterm = dpro.c * (-(dpro.z_ref - dpro.zeta_c) / dpro.hc).exp();
+        let rterm0 = ((dpro.z_ref - dpro.zeta_r) / (params.hrfact_o1ref * dpro.hr)).tanh();
+        let rterm = dpro.r * (1.0 + rterm0);
+
+        let bc1 = dpro.lnd_ref - cterm + rterm - dpro.cf[7] * C1O1ADJ[0]; // TODO: Check CF reference
+        let bc2 = -mzref * G0DIVKB / tpro.tzetaa // Gradient hydrostatic term
+            - tpro.dlntdza // Gradient of ideal gas law term
+            + cterm / dpro.hc // Gradient of Chapman term
+            + rterm * (1.0 - rterm0) / dpro.hr * params.dhrfact_o1ref // Gradient of tapered logistic term
+            - dpro.cf[7] * C1O1ADJ[1]; // Subtraction of gradient of last unconstrained spline(7)
+
+        // Compute coefficients of matrix
+        // NOTE: This was modified to manually perform the matrix multiplication
+        dpro.cf[8] = bc1 * C1O1[0][0] + bc2 * C1O1[1][0];
+        dpro.cf[9] = bc1 * C1O1[1][1] + bc2 * C1O1[1][1];
+    }
+
+    // C1 constraint for NO at 122.5 km
+    if ispec == 10 {
+        let cterm = dpro.c * (-(dpro.z_ref - dpro.zeta_c) / dpro.hc).exp();
+        let rterm0 = ((dpro.z_ref - dpro.zeta_r) / (params.hrfact_noref * dpro.hr)).tanh();
+        let rterm = dpro.r * (1.0 + rterm0);
+        let bc1 = dpro.lnd_ref - cterm + rterm - dpro.cf[7] * C1NOADJ[0]; // TODO: Check CF reference
+        let bc2 = -mzref * G0DIVKB / tpro.tzetaa // Gradient hydrostatic term
+            - tpro.tgb0 / tpro.tb0 // Gradient of ideal gas law term
+            + cterm / dpro.hc // Gradient of Chapman term
+            + rterm * (1.0 - rterm0) / dpro.hr * params.dhrfact_noref // Gradient of tapered logistic term
+            - dpro.cf[7] * C1NOADJ[1]; // Subtraction of gradient of last unconstrained spline(7)
+
+        // Compute coefficients of matrix
+        // NOTE: This was modified to manually perform the matrix multiplication
+        dpro.cf[8] = bc1 * C1NO[0][0] + bc2 * C1NO[1][0];
+        dpro.cf[9] = bc1 * C1NO[1][1] + bc2 * C1NO[1][1];
+    }
+
     dpro
+}
+
+/// Piecewise effective mass profile interpolation
+fn pwmp(z: f64, zm: [f64; 5], m: [f64; 5], dmdz: [f64; 5]) -> f64 {
+
+    // Most probably case
+    if z >= zm[4] {
+        return m[4];
+    }
+
+    // Second most probable case
+    if z <= zm[0] {
+        return m[0];
+    }
+
+    for inode in 0..=3 {
+        if z < zm[inode + 1] {
+            return m[inode] + dmdz[inode] * (z - zm[inode]);
+        }
+    }
+
+    panic!("Error in pwmp");
 }
 
 /// Internal helper function to compute the dot product of two slices. This assumes the first

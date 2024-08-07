@@ -14,4 +14,4 @@ curl -L https://datacenter.iers.org/data/latestVersion/EOP_20_C04_one_file_1962-
 
 # Space Weather Data
 curl -L https://celestrak.com/SpaceData/sw19571001.txt -o ./data/sw19571001.txt
-curl -L ftp://ftp.seismo.nrcan.gc.ca/spaceweather/solar_flux/daily_flux_values/fluxtable.txt -o ./data/fluxtable.txt
+curl -L https://www.spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt -o ./data/fluxtable.txt

@@ -18,12 +18,13 @@ Modifications:
 // USING OR MODIFYING THIS SOFTWARE, YOU ARE AGREEING TO THE TERMS AND
 // CONDITIONS OF THE LICENSE.
 
-use crate::nrlmsise21::msis_constants::{MAXNBF, ND, NODESTN, NSPEC, ZETAB, ZETAF};
+use std::cmp::max;
+use crate::nrlmsise21::msis_constants::{DMISSING, MAXNBF, ND, NODESTN, NSPEC, ZETAB, ZETAF};
 use crate::nrlmsise21::msis_dfn::{dfnparm, DnParm};
 use crate::nrlmsise21::msis_gfn::globe;
 use crate::nrlmsise21::msis_init::MsisParams;
-use crate::nrlmsise21::msis_tfn::{tfnparm, Tnparm};
-use crate::nrlmsise21::msis_utils::{alt2gph, bspline};
+use crate::nrlmsise21::msis_tfn::{tfnparm, tfnx, Tnparm};
+use crate::nrlmsise21::msis_utils::{alt2gph, bspline, if2r};
 use crate::utils::BraheError;
 
 // use crate::msis_gfn::globe;
@@ -85,7 +86,7 @@ use crate::utils::BraheError;
 /// # Notes on output variables
 /// Missing density values are returned as 9.999e-38
 /// Species included in mass density calculation are set in `MSISINIT`
-pub fn msiscalc(params: &mut MsisParams, day: f64, utsec: f64, z: f64, lat: f64, lon: f64, sfluxavg: f64, sflux: f64, ap: [f64; 7], tn: &mut f64, dn: &mut [f64; 10], tex: Option<&mut f64>) -> Result<(f64, [f64; 10], f64), BraheError> {
+pub fn msiscalc(params: &mut MsisParams, day: f64, utsec: f64, z: f64, lat: f64, lon: f64, sfluxavg: f64, sflux: f64, ap: [f64; 7], tn: &mut f64, dn: &mut [f64; 10]) -> Result<(f64, [f64; 10], f64), BraheError> {
     let mut lastday: f64 = -9999.0;
     let mut lastutsec: f64 = -9999.0;
     let mut lastlat: f64 = -9999.0;
@@ -162,23 +163,22 @@ pub fn msiscalc(params: &mut MsisParams, day: f64, utsec: f64, z: f64, lat: f64,
         lastap = ap;
     }
 
-    // // Exospheric temperature
-    // if let Some(tex) = tex {
-    //     *tex = tpro.tex;
-    // }
-    //
-    // // Temperature at altitude
-    // *tn = tfnx(zeta, iz, &Sz[3..=6], &tpro);
-    //
+    // Exospheric temperature
+    // NOTE this is modified from the original code to always return the exospheric temperature
+    let tex = tpro.tex;
+
+    // Temperature at altitude
+    let tn = tfnx(zeta, iz, [Sz[if2r(-3, 6)][4], Sz[if2r(-2, 6)][4], Sz[if2r(-1, 6)][4], Sz[if2r(0, 6)][4]], &tpro);
+
     // // Temperature integration terms at altitude, total number density
-    // delz = zeta - zetaB;
-    // if zeta < zetaF {
-    //     i = iz.max(4);
-    //     if iz < 4 {
-    //         j = -iz;
-    //     } else {
-    //         j = -4;
-    //     }
+    delz = zeta - ZETAB;
+    if zeta < ZETAF {
+        let i = max(iz, 4) as isize;
+        if iz < 4 {
+            j = -(iz as isize);
+        } else {
+            j = -4;
+        }
     //     Vz = dot_product(&tpro.beta[i..=iz], &Sz[j..=0][5]) + tpro.cVS;
     //     Wz = 0.0;
     //     lnPz = lnp0 - Mbarg0divkB * (Vz - tpro.Vzeta0);
@@ -193,23 +193,24 @@ pub fn msiscalc(params: &mut MsisParams, day: f64, utsec: f64, z: f64, lat: f64,
     //             + tpro.cVB * delz + tpro.cWB;
     //     }
     // }
-    //
-    // // Species number densities at altitude
+
+    // Species number densities at altitude
+    let mut dn: [f64; 10] = [0.0; 10];
     // HRfact = 0.5 * (1.0 + (Hgamma * (zeta - zetagamma)).tanh()); // Reduction factor for chemical/dynamical correction scale height below zetagamma
     // for ispec in 2..nspec {
     //     if specflag[ispec] {
     //         dn[ispec] = dfnx(zeta, *tn, lndtotz, Vz, Wz, HRfact, &tpro, &dpro[ispec]);
     //     } else {
-    //         dn[ispec] = dmissing;
+    //         dn[ispec] = DMISSING;
     //     }
     // }
-    //
-    // // Mass density
-    // if specflag[1] {
-    //     dn[1] = dn.iter().zip(masswgt.iter()).map(|(a, b)| a * b).sum();
-    // } else {
-    //     dn[1] = dmissing;
-    // }
 
-    return Ok((0.0, [0.0; 10], 0.0));
+    // Mass density
+    if params.specflag[1] {
+        dn[1] = dn.iter().zip(params.masswgt.iter()).map(|(a, b)| a * b).sum();
+    } else {
+        dn[1] = DMISSING;
+    }
+
+    return Ok((tn, dn, tex));
 }

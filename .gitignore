@@ -1,3 +1,6 @@
+# Scratch & WIP
+nrlmsis2.1/
+
 # Build Artifacts - Rust
 /target
 Cargo.lock

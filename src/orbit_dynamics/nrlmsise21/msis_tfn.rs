@@ -17,6 +17,7 @@ Modifications:
 // USING OR MODIFYING THIS SOFTWARE, YOU ARE AGREEING TO THE TERMS AND
 // CONDITIONS OF THE LICENSE.
 
+use std::cmp::max;
 use crate::nrlmsise21::msis_constants::{CMAG, CUT, get_wbeta, get_wgamma, ITB0, ITEX, ITGB0, IZAX, IZFX, KB, LNP0, MAXNBF, MBARG0DIVKB, MBF, NMAG, NUT, S4ZETAA, S4ZETAF, S5ZETA0, S5ZETAA, S5ZETAB, S5ZETAF, S6ZETAA, S6ZETAB, WGHTAXDZ, ZETAA, ZETAB};
 use crate::nrlmsise21::msis_gfn::{geomag_from_slice, sfluxmod, utdep_from_slice};
 use crate::nrlmsise21::msis_init::MsisParams;
@@ -202,4 +203,28 @@ pub fn tfnparm(params: &MsisParams, gf: &[f64; MAXNBF]) -> Tnparm {
     tpro.lndtotf = LNP0 - MBARG0DIVKB * (tpro.vzetaf - tpro.vzeta0) - (KB * tpro.tzetaf).ln();
 
     tpro
+}
+
+/// TFNX: Compute the temperature at specified geopotential height
+pub(crate) fn tfnx(z: f64, iz: usize, wght: [f64; 4], tpro: &Tnparm) -> f64 {
+    
+    let i;
+    let j;
+    
+    if z < ZETAB {
+        // Spline region
+        i = max(iz as isize -3, 0);
+        
+        if iz < 3 {
+            j = -iz as isize;
+        } else {
+            j = -3;
+        }
+        
+        // NOTE: Modified dot-product formulation
+        let val
+    } else {
+        // Bates profile region
+        tpro.tex - (tpro.tex - tpro.tb0)*(-tpro.sigma * (z - ZETAB)).exp();
+    }
 }

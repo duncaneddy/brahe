@@ -22,7 +22,7 @@
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "bias_precession_nutation")]
-unsafe fn py_bias_precession_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f64, Ix2> {
+unsafe fn py_bias_precession_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::bias_precession_nutation(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
@@ -39,7 +39,7 @@ unsafe fn py_bias_precession_nutation<'py>(py: Python<'py>, epc: &PyEpoch) -> &'
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "earth_rotation")]
-unsafe fn py_earth_rotation<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f64, Ix2> {
+unsafe fn py_earth_rotation<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::earth_rotation(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
@@ -59,7 +59,7 @@ unsafe fn py_earth_rotation<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "polar_motion")]
-unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f64, Ix2> {
+unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::polar_motion(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
@@ -84,7 +84,7 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_eci_to_ecef")]
-unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f64, Ix2> {
+unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::rotation_eci_to_ecef(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
@@ -109,7 +109,7 @@ unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py P
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_ecef_to_eci")]
-unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py PyArray<f64, Ix2> {
+unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = frames::rotation_ecef_to_eci(epc.obj);
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
@@ -120,8 +120,8 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> &'py P
 unsafe fn py_position_eci_to_ecef<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x: &'py PyArray<f64, Ix1>,
-) -> &'py PyArray<f64, Ix1> {
+    x: Bound<'py, PyArray<f64, Ix1>>,
+) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = frames::position_eci_to_ecef(epc.obj, numpy_to_vector!(x, 3, f64));
 
     vector_to_numpy!(py, vec, 3, f64)
@@ -133,8 +133,8 @@ unsafe fn py_position_eci_to_ecef<'py>(
 unsafe fn py_position_ecef_to_eci<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x: &'py PyArray<f64, Ix1>,
-) -> &'py PyArray<f64, Ix1> {
+    x: Bound<'py, PyArray<f64, Ix1>>,
+) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = frames::position_ecef_to_eci(epc.obj, numpy_to_vector!(x, 3, f64));
 
     vector_to_numpy!(py, vec, 3, f64)
@@ -146,8 +146,8 @@ unsafe fn py_position_ecef_to_eci<'py>(
 unsafe fn py_state_eci_to_ecef<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x_eci: &'py PyArray<f64, Ix1>,
-) -> &'py PyArray<f64, Ix1> {
+    x_eci: Bound<'py, PyArray<f64, Ix1>>,
+) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = frames::state_eci_to_ecef(epc.obj, numpy_to_vector!(x_eci, 6, f64));
 
     vector_to_numpy!(py, vec, 6, f64)
@@ -159,8 +159,8 @@ unsafe fn py_state_eci_to_ecef<'py>(
 unsafe fn py_state_ecef_to_eci<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x_ecef: &'py PyArray<f64, Ix1>,
-) -> &'py PyArray<f64, Ix1> {
+    x_ecef: Bound<'py, PyArray<f64, Ix1>>,
+) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = frames::state_ecef_to_eci(epc.obj, numpy_to_vector!(x_ecef, 6, f64));
 
     vector_to_numpy!(py, vec, 6, f64)

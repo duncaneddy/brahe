@@ -1,4 +1,3 @@
-
 /// Helper function to parse strings into appropriate EOPExtrapolation enumerations
 fn string_to_euler_angle_order(s: &str) -> Result<attitude::EulerAngleOrder, BraheError> {
     match s.as_ref() {
@@ -48,7 +47,6 @@ struct PyQuaternion {
 
 #[pymethods]
 impl PyQuaternion {
-
     #[new]
     pub fn new(w: f64, x: f64, y: f64, z: f64) -> PyQuaternion {
         PyQuaternion {
@@ -59,7 +57,7 @@ impl PyQuaternion {
     #[classmethod]
     pub fn from_vector(
         _cls: &PyType,
-        v: &PyArray<f64, Ix1>,
+        v: &Bound<'_, PyArray<f64, Ix1>>,
         scalar_first: bool,
     ) -> PyQuaternion {
         PyQuaternion {
@@ -67,7 +65,7 @@ impl PyQuaternion {
         }
     }
 
-    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> &'py PyArray<f64, Ix1> {
+    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(scalar_first), 4, f64)
     }
 
@@ -147,7 +145,7 @@ impl PyQuaternion {
     }
 
     #[getter]
-    pub unsafe fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix1> {
+    pub unsafe fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.data, 4, f64)
     }
 
@@ -257,7 +255,7 @@ impl PyEulerAngle {
     }
 
     #[classmethod]
-    pub fn from_vector(_cls: &PyType, v: &PyArray<f64, Ix1>, order: &str, as_degrees: bool) -> PyEulerAngle {
+    pub fn from_vector(_cls: &PyType, v: &Bound<'_, PyArray<f64, Ix1>>, order: &str, as_degrees: bool) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_vector(numpy_to_vector!(v, 3, f64), string_to_euler_angle_order(order).unwrap(), as_degrees),
         }
@@ -351,12 +349,12 @@ impl PyEulerAxis {
     }
 
     #[getter]
-    pub unsafe fn axis<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix1> {
+    pub unsafe fn axis<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.axis, 3, f64)
     }
 
     #[new]
-    pub fn new(axis: &PyArray<f64, Ix1>, angle: f64, as_degrees: bool) -> PyEulerAxis {
+    pub fn new(axis: &Bound<'_, PyArray<f64, Ix1>>, angle: f64, as_degrees: bool) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::new(numpy_to_vector!(axis, 3, f64), angle, as_degrees),
         }
@@ -370,13 +368,13 @@ impl PyEulerAxis {
     }
 
     #[classmethod]
-    pub fn from_vector(_cls: &PyType, v: &PyArray<f64, Ix1>, as_degrees: bool, vector_first: bool) -> PyEulerAxis {
+    pub fn from_vector(_cls: &PyType, v: &Bound<'_, PyArray<f64, Ix1>>, as_degrees: bool, vector_first: bool) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_vector(numpy_to_vector!(v, 4, f64), as_degrees, vector_first),
         }
     }
 
-    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, as_degrees: bool, vector_first: bool) -> &'py PyArray<f64, Ix1> {
+    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, as_degrees: bool, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(as_degrees, vector_first), 4, f64)
     }
 
@@ -480,13 +478,13 @@ impl PyRotationMatrix {
     }
 
     #[classmethod]
-    pub fn from_matrix(_cls: &PyType, m: &PyArray<f64, Ix2>) -> Result<PyRotationMatrix, BraheError> {
+    pub fn from_matrix(_cls: &PyType, m: &Bound<'_, PyArray<f64, Ix2>>) -> Result<PyRotationMatrix, BraheError> {
         Ok(PyRotationMatrix {
             obj: attitude::RotationMatrix::from_matrix(numpy_to_matrix!(m, 3, 3, f64))?,
         })
     }
 
-    pub unsafe fn to_matrix<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
+    pub unsafe fn to_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
         matrix_to_numpy!(py, self.obj.to_matrix(), 3, 3, f64)
     }
 

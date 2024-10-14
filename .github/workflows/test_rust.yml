@@ -20,7 +20,7 @@ jobs:
                 # https://github.com/codecov/codecov-action/issues/1292
                 #
                 # The issue prevents properly passing the secret to the codecov-action
-                uses: codecov/codecov-action@v3
+                uses: codecov/codecov-action@v4
                 with:
                     token: ${{ secrets.CODECOV_TOKEN }}
                     files: lcov.info

@@ -3,6 +3,7 @@ on: [ workflow_call ]
 jobs:
     test-rust:
         runs-on: ubuntu-latest
+        environment: release
         env:
             CARGO_TERM_COLOR: always
             CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

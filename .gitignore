@@ -1,5 +1,6 @@
 # Scratch & WIP
 nrlmsis2.1/
+sgp4/
 
 # Build Artifacts - Rust
 /target

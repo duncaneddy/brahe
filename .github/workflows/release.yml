@@ -1,41 +1,107 @@
 name: Publish Version Release
 
 on:
-    push:
-        tags:
-            - v[0-9].[0-9]+.[0-9]+
+  push:
+    tags:
+      - v[0-9].[0-9]+.[0-9]+
 
 jobs:
-    test-rust:
-        uses: ./.github/workflows/test_rust.yml
-    test-python:
-        uses: ./.github/workflows/test_python.yml
-        needs: [ test-rust ]
-    update-docs:
-        uses: ./.github/workflows/update_docs.yml
-        needs: [ test-python ]
+  test-rust:
+    uses: ./.github/workflows/test_rust.yml
+  test-python:
+    uses: ./.github/workflows/test_python.yml
+    needs: [ test-rust ]
+  update-docs:
+    uses: ./.github/workflows/update_docs.yml
+    needs: [ test-python ]
 
-    release-rust:
-        runs-on: ubuntu-latest
-        needs: [ update-docs ]
-        steps:
-            -   uses: actions/checkout@v4
-            -   name: Install Rust
-                run: rustup update nightly
-            -   run: rustup default nightly
-            -   name: Publish to crates.io
-                run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+  python-build-source:
+    needs: [update-docs]
+    runs-on: ubuntu-latest
+    environment: release
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.12' ]
 
-    release-python:
-        runs-on: ${{ matrix.os }}
-        needs: [ update-docs ]
-        strategy:
-            matrix:
-                os: [ ubuntu-latest ]
-                python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
-        steps:
-            -   uses: actions/checkout@v4
-            -   name: Install dependencies
-                run: |
-                    python -m pip install --upgrade pip
-                    python -m pip install maturin
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Set up Python #{{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: #{{ matrix.python-version }}
+
+    - name: Install 'build' library
+      run: pip install -U build
+
+    - name: Build library
+      run: python -m build
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        path: dist/*.tar.gz
+        name: pymdps-${{ github.ref_name }}-${{ runner.os }}-source
+
+  python-build-wheels:
+    needs: [update-docs]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+          os: [ ubuntu-latest, macos-latest ]
+          python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+    environment: release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - uses: PyO3/maturin-action@v1
+      with:
+        command: build
+        args: --release -i python${{ matrix.python-version }} 
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        path: target/wheels/*.whl
+        name: pymdps-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ runner.os }}-wheel
+
+  release-python:
+    needs: [python-build-source, python-build-wheels]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+
+    steps:
+    # Download all artifacts to dist folder
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Copy artifacts to dist folder
+      run: |
+        mkdir dist
+        cp -r ${{ github.workspace }}/*-source/* dist/
+        cp -r ${{ github.workspace }}/*-wheel/* dist/
+
+    - name: Upload package to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+  release-rust:
+    runs-on: ubuntu-latest
+    needs: [ python-build-source, python-build-wheels, update-docs ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update nightly
+      - run: rustup default nightly
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_TOKEN }}

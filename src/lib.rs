@@ -108,9 +108,10 @@ pub use integrators::*;
 pub use orbit_dynamics::*;
 pub use orbits::*;
 pub use propagators::*;
+pub use sgp::*;
 pub use space_track::*;
-pub use time::*;
 pub use time::conversions::*;
+pub use time::*;
 
 #[cfg(feature = "python")]
 mod pymodule;
@@ -127,4 +128,5 @@ pub mod orbit_dynamics;
 pub mod space_track;
 pub mod integrators;
 pub mod propagators;
+pub mod sgp;
 

@@ -35,7 +35,7 @@ use crate::utils::split_float;
 ///
 /// assert_eq!(jd, 2451545.0);
 /// ```
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 pub fn datetime_to_jd(
     year: u32,
     month: u8,
@@ -90,7 +90,7 @@ pub fn datetime_to_jd(
 ///
 /// assert_eq!(mjd, 51544.5);
 /// ```
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 pub fn datetime_to_mjd(
     year: u32,
     month: u8,
@@ -134,7 +134,7 @@ pub fn datetime_to_mjd(
 /// assert_eq!(second, 0.0);
 /// assert_eq!(nanosecond, 0.0);
 /// ```
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 pub fn jd_to_datetime(jd: f64) -> (u32, u8, u8, u8, u8, f64, f64) {
     let mut iy: i32 = 0;
     let mut im: i32 = 0;
@@ -209,7 +209,7 @@ pub fn mjd_to_datetime(mjd: f64) -> (u32, u8, u8, u8, u8, f64, f64) {
 ///
 /// Returns:
 /// - offset (float): Offset between UTC and TAI in seconds.
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
     // Initial UTC guess
     let mut u1 = jd;
@@ -236,7 +236,7 @@ fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
 ///
 /// Returns:
 /// - offset (float): Offset between UTC and TAI in seconds.
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
     let mut iy: i32 = 0;
     let mut im: i32 = 0;
@@ -304,7 +304,7 @@ fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
 /// // Get offset between GPS time and UT1 for 0h 2020-03-01
 /// let offset = time_system_offset(58909.0 + MJD_ZERO, 0.0, TimeSystem::GPS, TimeSystem::UT1);
 /// ```
-#[allow(temporary_cstring_as_ptr)]
+#[allow(dangling_pointers_from_temporaries)]
 pub fn time_system_offset(
     jd: f64,
     fd: f64,

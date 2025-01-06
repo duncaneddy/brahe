@@ -207,7 +207,7 @@ impl Epoch {
     /// // April 1, 2022
     /// let epc = Epoch::from_datetime(2022, 4, 1, 1, 2, 3.4, 5.6, TimeSystem::GPS);
     /// ```
-    #[allow(temporary_cstring_as_ptr)]
+    #[allow(dangling_pointers_from_temporaries)]
     pub fn from_datetime(
         year: u32,
         month: u8,
@@ -687,7 +687,7 @@ impl Epoch {
     /// // Date in UTC time system
     /// let (year, month, day, hour, minutes, seconds, nanoseconds) = epc.to_datetime_as_time_system(TimeSystem::UTC);
     /// ```
-    #[allow(temporary_cstring_as_ptr)]
+    #[allow(dangling_pointers_from_temporaries)]
     pub fn to_datetime_as_time_system(
         &self,
         time_system: TimeSystem,

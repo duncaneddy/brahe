@@ -34,6 +34,8 @@ Source Code: https://github.com/duncaneddy/brahe
 
 ----
 
+# Brahe
+
 > [!WARNING]
 >
 > The older pure-Python version of brahe is currently being deprecated in favor of a mixed
@@ -58,7 +60,6 @@ Source Code: https://github.com/duncaneddy/brahe
 >
 > The old master branch can be found [here](https://github.com/duncaneddy/brahe/tree/master).
 
-# Brahe
 
 Brahe is a modern satellite dynamics library for research and engineering
 applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.

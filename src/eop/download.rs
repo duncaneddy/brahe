@@ -32,7 +32,8 @@ pub fn download_c04_eop_file(filepath: &str) -> Result<(), &str> {
     let body = ureq::get(C04_FILE_SOURCE)
         .call()
         .expect("Download Request failed")
-        .into_string()
+        .body_mut()
+        .read_to_string()
         .expect("Failed to parse response into string");
 
     fs::write(filepath, body).expect(&*format!("Failed to write file: {}", filepath.display()));
@@ -62,7 +63,8 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
     let body = ureq::get(STANDARD_FILE_SOURCE)
         .call()
         .expect("Download Request failed")
-        .into_string()
+        .body_mut()
+        .read_to_string()
         .expect("Failed to parse response into string");
 
     fs::write(filepath, body).expect(&*format!("Failed to write file: {}", filepath.display()));

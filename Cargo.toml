@@ -2,7 +2,7 @@
 name = "brahe"
 version = "0.1.0"
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = """
 Brahe is a modern satellite dynamics library for research and engineering
 applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy. 

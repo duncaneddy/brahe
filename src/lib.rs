@@ -112,6 +112,7 @@ pub use sgp::*;
 pub use space_track::*;
 pub use time::conversions::*;
 pub use time::*;
+pub use trajectories::*;
 
 #[cfg(feature = "python")]
 mod pymodule;
@@ -121,12 +122,12 @@ pub mod constants;
 pub mod coordinates;
 pub mod eop;
 pub mod frames;
-pub mod orbits;
-pub mod time;
-pub mod utils;
-pub mod orbit_dynamics;
-pub mod space_track;
 pub mod integrators;
+pub mod orbit_dynamics;
+pub mod orbits;
 pub mod propagators;
 pub mod sgp;
-
+pub mod space_track;
+pub mod time;
+pub mod trajectories;
+pub mod utils;

@@ -6,10 +6,10 @@ use nalgebra::{Vector3, Vector6};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::coordinates;
 use crate::time::Epoch;
 use crate::trajectories::state::{ReferenceFrame, State};
 use crate::utils::BraheError;
+use crate::{coordinates, frames};
 
 /// Enumeration of orbit reference frames
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -197,15 +197,23 @@ impl State for OrbitState {
 
         match (self.frame, frame) {
             (OrbitFrame::ECI, OrbitFrame::ECEF) => {
-                // TODO: Implement ECI to ECEF transformation
-                Err(BraheError::Error(
-                    "ECI to ECEF transformation not yet implemented".to_string(),
+                // Convert ECI to ECEF
+                let ecef_state = frames::state_eci_to_ecef(self.epoch, cart_state.state);
+                Ok(OrbitState::new(
+                    cart_state.epoch,
+                    ecef_state,
+                    OrbitFrame::ECEF,
+                    OrbitStateType::Cartesian,
                 ))
             }
             (OrbitFrame::ECEF, OrbitFrame::ECI) => {
-                // TODO: Implement ECEF to ECI transformation
-                Err(BraheError::Error(
-                    "ECEF to ECI transformation not yet implemented".to_string(),
+                // Convert ECEF to ECI
+                let eci_state = frames::state_ecef_to_eci(self.epoch, cart_state.state);
+                Ok(OrbitState::new(
+                    cart_state.epoch,
+                    eci_state,
+                    OrbitFrame::ECI,
+                    OrbitStateType::Cartesian,
                 ))
             }
             _ => Err(BraheError::Error(format!(
@@ -220,7 +228,7 @@ impl State for OrbitState {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
-    use approx::{abs_diff_eq, assert_abs_diff_eq};
+    use approx::assert_abs_diff_eq;
 
     fn create_test_state(time_offset: f64) -> OrbitState {
         // Create a test state at J2000 + time_offset

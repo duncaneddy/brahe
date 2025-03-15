@@ -193,7 +193,7 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
     }
 
     /// Interpolate between states using linear interpolation
-    fn interpolate_linear(&self, epoch: &Epoch) -> Result<S, BraheError> {
+    fn interpolate_linear(&self, _epoch: &Epoch) -> Result<S, BraheError> {
         // This method depends on the specifics of how to interpolate between your state types
         // For now, return a not implemented error
         Err(BraheError::Error(

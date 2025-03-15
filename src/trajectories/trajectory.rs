@@ -1,7 +1,3 @@
-/*!
- * Implementation of a generic trajectory that can contain any state type.
- */
-
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::ops::Index;
 
@@ -48,6 +44,9 @@ pub struct Trajectory<S: State> {
 
     /// Interpolation method to use when retrieving states
     pub interpolation_method: InterpolationMethod,
+
+    /// Current iterator position
+    current_index: usize,
 }
 
 impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
@@ -57,6 +56,7 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: Vec::new(),
             propagator_type: None,
             interpolation_method,
+            current_index: 0,
         }
     }
 
@@ -90,6 +90,7 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: sorted_states,
             propagator_type: None,
             interpolation_method,
+            current_index: 0,
         })
     }
 
@@ -121,9 +122,9 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
                 insert_idx = i;
                 break;
             } else if state.epoch() == existing.epoch() {
-                // Insert after if epochs are equal
-                insert_idx = i + 1;
-                break;
+                // Replace state if epochs are equal
+                self.states[i] = state;
+                return Ok(());
             }
         }
 
@@ -132,8 +133,13 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         Ok(())
     }
 
+    /// Get the state at a specific epoch using interpolation - primary API method
+    pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<S, BraheError> {
+        self.interpolate_to(epoch)
+    }
+
     /// Get the state at a specific epoch using interpolation
-    pub fn state_at(&self, epoch: &Epoch) -> Result<S, BraheError> {
+    pub fn interpolate_to(&self, epoch: &Epoch) -> Result<S, BraheError> {
         if self.states.is_empty() {
             return Err(BraheError::Error(
                 "Cannot interpolate state from empty trajectory".to_string(),
@@ -174,7 +180,13 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
     }
 
     /// Find the nearest state to the specified epoch
-    fn nearest_state(&self, epoch: &Epoch) -> Result<S, BraheError> {
+    pub fn nearest_state(&self, epoch: &Epoch) -> Result<S, BraheError> {
+        if self.states.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot find nearest state in empty trajectory".to_string(),
+            ));
+        }
+
         let mut nearest_idx = 0;
         let mut min_diff = f64::MAX;
 
@@ -185,15 +197,84 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
                 nearest_idx = i;
             }
 
-            // NOTE: This could be improved by exiting early if the epochs are sorted
-            // and the current epoch is greater than the requested epoch
+            // Optimization: if we're past the epoch and moving away, we can stop
+            if i > 0 && state.epoch() > epoch && diff > min_diff {
+                break;
+            }
         }
 
         Ok(self.states[nearest_idx].clone())
     }
 
+    /// Find the state occurring before the specified epoch
+    pub fn state_before(&self, epoch: &Epoch) -> Result<S, BraheError> {
+        if self.states.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot find state in empty trajectory".to_string(),
+            ));
+        }
+
+        // If the epoch is before the first state
+        if epoch <= self.states[0].epoch() {
+            return Err(BraheError::Error(
+                "Requested epoch is before or equal to the first state in trajectory".to_string(),
+            ));
+        }
+
+        let mut before_idx = 0;
+        for (i, state) in self.states.iter().enumerate() {
+            if state.epoch() < epoch {
+                before_idx = i;
+            } else {
+                break;
+            }
+        }
+
+        Ok(self.states[before_idx].clone())
+    }
+
+    /// Find the state occurring after the specified epoch
+    pub fn state_after(&self, epoch: &Epoch) -> Result<S, BraheError> {
+        if self.states.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot find state in empty trajectory".to_string(),
+            ));
+        }
+
+        // If the epoch is after the last state
+        if epoch >= self.states.last().unwrap().epoch() {
+            return Err(BraheError::Error(
+                "Requested epoch is after or equal to the last state in trajectory".to_string(),
+            ));
+        }
+
+        for (i, state) in self.states.iter().enumerate() {
+            if state.epoch() > epoch {
+                return Ok(state.clone());
+            }
+        }
+
+        // This should never happen given the checks above
+        Err(BraheError::Error(
+            "Could not find state after the specified epoch".to_string(),
+        ))
+    }
+
+    /// Get the state at the specified index
+    pub fn state_at_index(&self, index: usize) -> Result<S, BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok(self.states[index].clone())
+    }
+
     /// Interpolate between states using linear interpolation
-    fn interpolate_linear(&self, _epoch: &Epoch) -> Result<S, BraheError> {
+    fn interpolate_linear(&self, epoch: &Epoch) -> Result<S, BraheError> {
         // This method depends on the specifics of how to interpolate between your state types
         // For now, return a not implemented error
         Err(BraheError::Error(
@@ -229,6 +310,11 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         })
     }
 
+    /// Reset the iterator to the beginning
+    pub fn reset_iterator(&mut self) {
+        self.current_index = 0;
+    }
+
     /// Convert the trajectory to JSON format
     pub fn to_json(&self) -> Result<String, BraheError> {
         serde_json::to_string_pretty(self)
@@ -242,11 +328,27 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
     }
 }
 
+// Allow indexing into the trajectory directly
 impl<S: State> Index<usize> for Trajectory<S> {
     type Output = S;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
+    }
+}
+
+// Implement Iterator trait for Trajectory
+impl<S: State> Iterator for Trajectory<S> {
+    type Item = S;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index < self.states.len() {
+            let state = self.states[self.current_index].clone();
+            self.current_index += 1;
+            Some(state)
+        } else {
+            None
+        }
     }
 }
 
@@ -285,22 +387,9 @@ impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
             states: helper.states,
             propagator_type: helper.propagator_type,
             interpolation_method: helper.interpolation_method,
+            current_index: 0,
         })
     }
-}
-
-/// Trait for propagating orbital states into trajectories
-pub trait Propagator<S: State> {
-    /// Propagate to a single epoch
-    fn propagate_to(&self, epoch: &Epoch) -> Result<S, BraheError>;
-
-    /// Propagate over a time span with a specific step
-    fn propagate_range(
-        &self,
-        start: &Epoch,
-        end: &Epoch,
-        step: f64,
-    ) -> Result<Trajectory<S>, BraheError>;
 }
 
 #[cfg(test)]
@@ -353,24 +442,94 @@ mod tests {
     fn test_trajectory_nearest_state() {
         let states = vec![
             create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
+            create_test_state(1.0),
+            create_test_state(2.0),
         ];
 
         let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
 
         // Request a time exactly at a state
         let state_at_0 = trajectory
-            .state_at(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
+            .nearest_state(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
             .unwrap();
         assert_eq!(state_at_0.epoch().jd(), 2451545.0);
 
-        // Request a time between states
-        let state_at_0_05 = trajectory
-            .state_at(&Epoch::from_jd(2451545.05, TimeSystem::UTC))
+        // Request a time halfway between two states
+        let state_at_0_5 = trajectory
+            .nearest_state(&Epoch::from_jd(2451545.5, TimeSystem::UTC))
             .unwrap();
         // Should return the closest state (0.0)
-        assert_eq!(state_at_0_05.epoch().jd(), 2451545.0);
+        assert_eq!(state_at_0_5.epoch().jd(), 2451545.0);
+
+        // Request a time nearer one state
+        let state_at_0_25 = trajectory
+            .nearest_state(&Epoch::from_jd(2451545.25, TimeSystem::UTC))
+            .unwrap();
+        // Should return the closest state (0.0)
+        assert_eq!(state_at_0_25.epoch().jd(), 2451545.0);
+
+        // Request a time nearer another state
+        let state_at_1_75 = trajectory
+            .nearest_state(&Epoch::from_jd(2451545.75, TimeSystem::UTC))
+            .unwrap();
+        // Should return the closest state (1.0)
+        assert_eq!(state_at_1_75.epoch().jd(), 2451546.0);
+    }
+
+    #[test]
+    fn test_trajectory_state_before_after() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Test state_before
+        let state_before = trajectory
+            .state_before(&Epoch::from_jd(2451545.15, TimeSystem::UTC))
+            .unwrap();
+        assert_eq!(state_before.epoch().jd(), 2451545.1);
+
+        // Test state_after
+        let state_after = trajectory
+            .state_after(&Epoch::from_jd(2451545.15, TimeSystem::UTC))
+            .unwrap();
+        assert_eq!(state_after.epoch().jd(), 2451545.2);
+
+        // Test out of bounds
+        assert!(
+            trajectory
+                .state_before(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
+                .is_err()
+        );
+        assert!(
+            trajectory
+                .state_after(&Epoch::from_jd(2451545.2, TimeSystem::UTC))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_trajectory_state_at_index() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Test valid indices
+        let state_0 = trajectory.state_at_index(0).unwrap();
+        assert_eq!(state_0.epoch().jd(), 2451545.0);
+
+        let state_2 = trajectory.state_at_index(2).unwrap();
+        assert_eq!(state_2.epoch().jd(), 2451545.2);
+
+        // Test out of bounds
+        assert!(trajectory.state_at_index(3).is_err());
     }
 
     #[test]
@@ -386,5 +545,32 @@ mod tests {
         assert_eq!(trajectory[0].epoch().jd(), 2451545.0);
         assert_eq!(trajectory[1].epoch().jd(), 2451545.1);
         assert_eq!(trajectory[2].epoch().jd(), 2451545.2);
+    }
+
+    #[test]
+    fn test_trajectory_iterator() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Test iterator
+        let mut count = 0;
+        for state in &mut trajectory {
+            assert_eq!(state.epoch().jd(), 2451545.0 + (count as f64) * 0.1);
+            count += 1;
+        }
+        assert_eq!(count, 3);
+
+        // Test reset and re-iteration
+        trajectory.reset_iterator();
+        count = 0;
+        for state in &mut trajectory {
+            count += 1;
+        }
+        assert_eq!(count, 3);
     }
 }

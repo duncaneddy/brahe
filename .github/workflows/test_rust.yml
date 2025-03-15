@@ -6,7 +6,6 @@ jobs:
         environment: release
         env:
             CARGO_TERM_COLOR: always
-            CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         steps:
             -   uses: actions/checkout@v4
             -   name: Set up Rust

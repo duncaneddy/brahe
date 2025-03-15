@@ -4,6 +4,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Enumeration of different time systems.
 ///
 /// A time system is a recognized time standard for representing instants in time
@@ -30,7 +32,7 @@ use std::fmt;
 /// - UT1: Universal Time 1. UT1 is a solar time that is conceptually the mean time at 0 degrees
 ///   longitude. UT1 is the same everywhere on Earth simultaneously and represents the rotation of the
 ///   Earth with respect to the ICRF inertial reference frame.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TimeSystem {
     GPS,
     TAI,

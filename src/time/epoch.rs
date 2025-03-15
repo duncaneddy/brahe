@@ -2,13 +2,15 @@
  * Defines the `Epoch` type, which represents a point in time relative to MJD2000 in the TAI time system.
  */
 
-use std::{fmt, ops};
 use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
+use std::{fmt, ops};
 
 use regex::Regex;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::constants::{GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
 use crate::time::conversions::time_system_offset;
@@ -124,6 +126,43 @@ impl fmt::Debug for Epoch {
             self.nanoseconds_kc,
             self.time_system.to_string()
         )
+    }
+}
+
+impl Serialize for Epoch {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize as an ISO8601 string with 9 decimal places for nanosecond precision
+        serializer.serialize_str(&self.isostring_with_decimals(9))
+    }
+}
+
+struct EpochVisitor;
+
+impl<'de> Visitor<'de> for EpochVisitor {
+    type Value = Epoch;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an ISO8601 formatted date string")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Epoch::from_string(value)
+            .ok_or_else(|| E::custom(format!("invalid ISO8601 date: {}", value)))
+    }
+}
+
+impl<'de> Deserialize<'de> for Epoch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(EpochVisitor)
     }
 }
 
@@ -1109,11 +1148,7 @@ impl Epoch {
             gast = rsofa::iauGst06a(uta, utb, tta, ttb);
         }
 
-        if as_degrees {
-            gast * 180.0 / PI
-        } else {
-            gast
-        }
+        if as_degrees { gast * 180.0 / PI } else { gast }
     }
 
     /// Computes the Greenwich Mean Sidereal Time (GMST) as an angular value
@@ -1147,11 +1182,7 @@ impl Epoch {
             gast = rsofa::iauGmst06(uta, utb, tta, ttb);
         }
 
-        if as_degrees {
-            gast * 180.0 / PI
-        } else {
-            gast
-        }
+        if as_degrees { gast * 180.0 / PI } else { gast }
     }
 }
 
@@ -1487,9 +1518,10 @@ impl PartialEq for Epoch {
         (self.days == other.days)
             && (self.seconds == other.seconds)
             && (((self.nanoseconds + self.nanoseconds_kc)
-            - (other.nanoseconds + other.nanoseconds_kc))
-            .abs()
-            < 1.0e-3)
+                - (other.nanoseconds + other.nanoseconds_kc))
+                .abs()
+                < 0.001) // Allow 0.001 nanosecond difference
+        // && (self.time_system == other.time_system)
     }
 }
 
@@ -1506,17 +1538,17 @@ impl Ord for Epoch {
         if (self.days < other.days)
             || ((self.days == other.days) && (self.seconds < other.seconds))
             || ((self.days == other.days)
-            && (self.seconds == other.seconds)
-            && ((self.nanoseconds + self.nanoseconds_kc)
-            < (other.nanoseconds + other.nanoseconds_kc)))
+                && (self.seconds == other.seconds)
+                && ((self.nanoseconds + self.nanoseconds_kc)
+                    < (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Less
         } else if (self.days > other.days)
             || ((self.days == other.days) && (self.seconds > other.seconds))
             || ((self.days == other.days)
-            && (self.seconds == other.seconds)
-            && ((self.nanoseconds + self.nanoseconds_kc)
-            > (other.nanoseconds + other.nanoseconds_kc)))
+                && (self.seconds == other.seconds)
+                && ((self.nanoseconds + self.nanoseconds_kc)
+                    > (other.nanoseconds + other.nanoseconds_kc)))
         {
             Ordering::Greater
         } else {
@@ -1534,6 +1566,41 @@ mod tests {
     use crate::constants::*;
     use crate::time::*;
     use crate::utils::testing::setup_global_test_eop;
+
+    #[test]
+    fn test_epoch_serialization() {
+        let epc = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
+        let json = serde_json::to_string(&epc).unwrap();
+
+        // Should be a JSON string containing ISO8601 date
+        assert!(json.contains("2022-04-01T12:34:56"));
+    }
+
+    #[test]
+    fn test_epoch_deserialization() {
+        let json = r#""2022-04-01T12:34:56.789Z""#;
+        let epc: Epoch = serde_json::from_str(json).unwrap();
+
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 4);
+        assert_eq!(day, 1);
+        assert_eq!(hour, 12);
+        assert_eq!(minute, 34);
+        assert_eq!(second, 56.0);
+        assert_abs_diff_eq!(nanosecond, 789000000.0, epsilon = 1.0);
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+    }
+
+    #[test]
+    fn test_epoch_roundtrip() {
+        let epc1 = Epoch::from_datetime(2022, 4, 1, 12, 34, 56.789, 0.0, TimeSystem::UTC);
+        let json = serde_json::to_string(&epc1).unwrap();
+        let epc2: Epoch = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(epc1.jd(), epc2.jd());
+        assert_eq!(epc1.time_system, epc2.time_system);
+    }
 
     #[test]
     fn test_epoch_display() {

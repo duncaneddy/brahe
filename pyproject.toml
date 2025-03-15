@@ -6,6 +6,7 @@ applications. It is designed to be easy-to-learn, high-performance, and quick-to
 The north-star of the development is enabling users to solve meaningful problems
 and answer questions quickly, easily, and correctly.
 """
+version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }

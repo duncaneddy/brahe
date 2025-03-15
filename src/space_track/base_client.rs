@@ -1,4 +1,0 @@
-/*!
- Base space-track client
-*/
-

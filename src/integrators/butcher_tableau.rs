@@ -50,7 +50,11 @@ impl<const S: usize> ButcherTableau<S> {
     /// let rk4_bt = ButcherTableau::new(a, b, c);
     /// assert!(rk4_bt.is_ok());
     /// ```
-    pub fn new(a: SMatrix<f64, S, S>, b: SVector<f64, S>, c: SVector<f64, S>) -> Result<Self, BraheError> {
+    pub fn new(
+        a: SMatrix<f64, S, S>,
+        b: SVector<f64, S>,
+        c: SVector<f64, S>,
+    ) -> Result<Self, BraheError> {
         // Validate that the Butcher tableau is consistent
         validate_explicit_butcher_tableau(a, b, c)?;
 
@@ -60,6 +64,7 @@ impl<const S: usize> ButcherTableau<S> {
     /// Validate the Butcher tableau for a Runge-Kutta method.
     ///
     /// This is a convenience method to implement tests that validate pre-defined Butcher tableaus.
+    #[allow(dead_code)] // For some reason, this is being flagged as dead code
     fn validate(&self) -> Result<(), BraheError> {
         validate_explicit_butcher_tableau(self.a, self.b, self.c)
     }
@@ -79,22 +84,34 @@ impl<const S: usize> ButcherTableau<S> {
 /// # Returns
 ///
 /// - A `Result` containing `()` if the Butcher tableau is valid, or a `BraheError` if the Butcher tableau is invalid.
-fn validate_explicit_butcher_tableau<const S: usize>(a: SMatrix<f64, S, S>, b: SVector<f64, S>, c: SVector<f64, S>) -> Result<(), BraheError> {
+fn validate_explicit_butcher_tableau<const S: usize>(
+    a: SMatrix<f64, S, S>,
+    b: SVector<f64, S>,
+    c: SVector<f64, S>,
+) -> Result<(), BraheError> {
     // Validate that the Butcher tableau is consistent
     let b_sum = b.sum();
     if (b_sum - 1.0).abs() <= 1.0e-16 {
-        return Err(BraheError::Error(format!("Invalid Butcher tableau: sum of b coefficients must be 1.0. Found {}", b_sum)));
+        return Err(BraheError::Error(format!(
+            "Invalid Butcher tableau: sum of b coefficients must be 1.0. Found {}",
+            b_sum
+        )));
     }
 
     if c[0] != 0.0 {
-        return Err(BraheError::Error(format!("Invalid Butcher tableau: c[0] must be 0.0. Found {}", c[0])));
+        return Err(BraheError::Error(format!(
+            "Invalid Butcher tableau: c[0] must be 0.0. Found {}",
+            c[0]
+        )));
     }
 
     for i in 0..S {
         for j in 0..i {
             if j >= i && a[(i, j)] != 0.0 {
                 // Return immediately if we found a non-zero value in the upper diagonal
-                return Err(BraheError::Error("Invalid Butcher tableau: upper-diagonal of a must be 0.0.".to_string()));
+                return Err(BraheError::Error(
+                    "Invalid Butcher tableau: upper-diagonal of a must be 0.0.".to_string(),
+                ));
             }
         }
     }
@@ -105,10 +122,7 @@ fn validate_explicit_butcher_tableau<const S: usize>(a: SMatrix<f64, S, S>, b: S
 /// Standard Runge-Kutta 4th order method
 pub(crate) const RK4_TABLEAU: ButcherTableau<4> = ButcherTableau {
     a: SMatrix::<f64, 4, 4>::new(
-        0.0, 0.0, 0.0, 0.0,
-        0.5, 0.0, 0.0, 0.0,
-        0.0, 0.5, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
     ),
     b: SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0),
     c: SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0),
@@ -121,10 +135,7 @@ mod tests {
     #[test]
     fn test_butcher_tableau() {
         let a = SMatrix::<f64, 4, 4>::new(
-            0.0, 0.0, 0.0, 0.0,
-            0.5, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
         );
 
         let b = SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0);

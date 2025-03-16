@@ -222,6 +222,93 @@ impl State for OrbitState {
             ))),
         }
     }
+
+    /// Interpolate between two states
+    ///
+    /// This method performs linear interpolation between two states, `self` and `other`, at a given
+    /// interpolation factor `alpha`. The resulting state will be in the same frame and orbit type as
+    /// the input states.
+    ///
+    /// # Arguments
+    /// - `other`: The other state to interpolate with
+    /// - `alpha`: The interpolation factor (0.0 to 1.0)
+    /// - `epoch`: The epoch at which to create the interpolated state
+    ///
+    /// # Returns
+    /// A new state that is the linear interpolation between `self` and `other`
+    ///
+    /// # Errors
+    /// This method will return an error if the two states have different orbit types or frames
+    fn interpolate_with(
+        &self,
+        other: &Self,
+        alpha: f64,
+        epoch: &Epoch,
+    ) -> Result<Self, BraheError> {
+        // Check that both states have the same type and frame
+        if self.orbit_type != other.orbit_type {
+            return Err(BraheError::Error(format!(
+                "Cannot interpolate between different orbit types: {:?} and {:?}",
+                self.orbit_type, other.orbit_type
+            )));
+        }
+
+        if self.frame != other.frame {
+            return Err(BraheError::Error(format!(
+                "Cannot interpolate between different frames: {:?} and {:?}",
+                self.frame, other.frame
+            )));
+        }
+
+        // For certain state types like Keplerian elements, we might need
+        // special interpolation logic to handle wraparound of angular values
+
+        // For now, we'll do simple linear interpolation on each element
+        let mut interpolated_state = Vector6::zeros();
+
+        for i in 0..6 {
+            let val1 = self.state[i];
+            let val2 = other.state[i];
+
+            // Special handling for angular elements in Keplerian orbits
+            if self.orbit_type == OrbitStateType::Keplerian
+                && (i == 2 || i == 3 || i == 4 || i == 5)
+            {
+                // Handle angular wraparound for i, Ω, ω, and M
+                // to ensure small angle difference around 0 is handled correctly
+                let mut diff = val2 - val1;
+
+                if diff > std::f64::consts::PI {
+                    diff -= 2.0 * std::f64::consts::PI;
+                } else if diff < -std::f64::consts::PI {
+                    diff += 2.0 * std::f64::consts::PI;
+                }
+
+                interpolated_state[i] = val1 + alpha * diff;
+
+                // Ensure the angle stays in the correct range
+                if i == 2 || i == 3 || i == 4 || i == 5 {
+                    while interpolated_state[i] < 0.0 {
+                        interpolated_state[i] += 2.0 * std::f64::consts::PI;
+                    }
+                    while interpolated_state[i] >= 2.0 * std::f64::consts::PI {
+                        interpolated_state[i] -= 2.0 * std::f64::consts::PI;
+                    }
+                }
+            } else {
+                // Standard linear interpolation for non-angular elements
+                interpolated_state[i] = val1 * (1.0 - alpha) + val2 * alpha;
+            }
+        }
+
+        // Create a new state with the interpolated elements
+        Ok(OrbitState::new(
+            epoch.clone(),
+            interpolated_state,
+            self.frame,
+            self.orbit_type,
+        ))
+    }
 }
 
 #[cfg(test)]

@@ -275,17 +275,54 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
 
     /// Interpolate between states using linear interpolation
     fn interpolate_linear(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        // This method depends on the specifics of how to interpolate between your state types
-        // For now, return a not implemented error
-        Err(BraheError::Error(
-            "Linear interpolation between arbitrary state types not yet implemented".to_string(),
-        ))
+        if self.states.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot interpolate state from empty trajectory".to_string(),
+            ));
+        }
 
-        // Implementation would follow this approach:
-        // 1. Find the two states that bracket the requested epoch
-        // 2. Calculate interpolation factor based on epoch
-        // 3. Linearly interpolate each element of the state
-        // 4. Create a new state with the interpolated values
+        // If only one state, return it
+        if self.states.len() == 1 {
+            return Ok(self.states[0].clone());
+        }
+
+        // Handle boundary cases
+        if epoch < self.states[0].epoch() {
+            return Err(BraheError::Error(
+                "Requested epoch is before the first state in trajectory".to_string(),
+            ));
+        }
+
+        if epoch > self.states.last().unwrap().epoch() {
+            return Err(BraheError::Error(
+                "Requested epoch is after the last state in trajectory".to_string(),
+            ));
+        }
+
+        // Find the two states that bracket the requested epoch
+        for i in 0..self.states.len() - 1 {
+            let state1 = &self.states[i];
+            let state2 = &self.states[i + 1];
+
+            // Check if the requested epoch is between these two states
+            if epoch >= state1.epoch() && epoch <= state2.epoch() {
+                // Calculate interpolation factor (t)
+                let t1 = *state1.epoch();
+                let t2 = *state2.epoch();
+                let t = *epoch;
+
+                // This computes the normalized interpolation factor (0 to 1)
+                let alpha = (t - t1) / (t2 - t1);
+
+                // Use the state's own interpolation method
+                return state1.interpolate_with(state2, alpha, epoch);
+            }
+        }
+
+        // If we reach here, something went wrong with our epoch comparison logic
+        Err(BraheError::Error(
+            "Failed to find bracketing states for interpolation".to_string(),
+        ))
     }
 
     /// Converts the trajectory to a different reference frame
@@ -395,9 +432,12 @@ impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::DEG2RAD;
     use crate::time::{Epoch, TimeSystem};
     use crate::trajectories::orbit_state::{OrbitFrame, OrbitState, OrbitStateType};
     use nalgebra::Vector6;
+
+    use approx::assert_abs_diff_eq;
 
     fn create_test_state(time_offset: f64) -> OrbitState {
         // Create a test state at J2000 + time_offset
@@ -572,5 +612,127 @@ mod tests {
             count += 1;
         }
         assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_trajectory_linear_interpolation_cartesian() {
+        // Create a trajectory with states having different positions and velocities
+        let epoch0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let epoch1 = Epoch::from_jd(2451546.0, TimeSystem::UTC);
+
+        // Create state with increasing position and velocity
+        let state0 = OrbitState::new(
+            epoch0.clone(),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+        );
+
+        let state1 = OrbitState::new(
+            epoch1.clone(),
+            Vector6::new(8000e3, 1000e3, 500e3, 100.0, 8.5e3, 50.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+        );
+
+        let trajectory =
+            Trajectory::from_states(vec![state0, state1], InterpolationMethod::Linear).unwrap();
+
+        // Test interpolation at 25% between the two states
+        let epoch_25 = Epoch::from_jd(2451545.25, TimeSystem::UTC);
+        let state_at_25 = trajectory.state_at_epoch(&epoch_25).unwrap();
+
+        // Verify epoch
+        assert_eq!(state_at_25.epoch().jd(), 2451545.25);
+
+        // Get the position and velocity
+        let position = state_at_25.position().unwrap();
+        let velocity = state_at_25.velocity().unwrap();
+
+        // The interpolated values should be 25% between the original states
+        assert_abs_diff_eq!(position.x, 7250e3, epsilon = 1.0); // 7000 + 0.25*(8000-7000)
+        assert_abs_diff_eq!(position.y, 250e3, epsilon = 1.0); // 0 + 0.25*(1000-0)
+        assert_abs_diff_eq!(position.z, 125e3, epsilon = 1.0); // 0 + 0.25*(500-0)
+
+        assert_abs_diff_eq!(velocity.x, 25.0, epsilon = 0.1); // 0 + 0.25*(100-0)
+        assert_abs_diff_eq!(velocity.y, 7.75e3, epsilon = 1.0); // 7.5 + 0.25*(8.5-7.5)
+        assert_abs_diff_eq!(velocity.z, 12.5, epsilon = 0.1); // 0 + 0.25*(50-0)
+
+        // Test interpolation at 50% between the two states
+        let epoch_50 = Epoch::from_jd(2451545.5, TimeSystem::UTC);
+        let state_at_50 = trajectory.state_at_epoch(&epoch_50).unwrap();
+
+        // Get the position and velocity
+        let position = state_at_50.position().unwrap();
+        let velocity = state_at_50.velocity().unwrap();
+
+        // The interpolated values should be 50% between the original states
+        assert_abs_diff_eq!(position.x, 7500e3, epsilon = 1.0); // 7000 + 0.5*(8000-7000)
+        assert_abs_diff_eq!(position.y, 500e3, epsilon = 1.0); // 0 + 0.5*(1000-0)
+        assert_abs_diff_eq!(position.z, 250e3, epsilon = 1.0); // 0 + 0.5*(500-0)
+
+        assert_abs_diff_eq!(velocity.x, 50.0, epsilon = 0.1); // 0 + 0.5*(100-0)
+        assert_abs_diff_eq!(velocity.y, 8.0e3, epsilon = 1.0); // 7.5 + 0.5*(8.5-7.5)
+        assert_abs_diff_eq!(velocity.z, 25.0, epsilon = 0.1); // 0 + 0.5*(50-0)
+
+        // Test interpolation at 75% between the two states
+        let epoch_75 = Epoch::from_jd(2451545.75, TimeSystem::UTC);
+        let state_at_75 = trajectory.state_at_epoch(&epoch_75).unwrap();
+
+        // Get the position and velocity
+        let position = state_at_75.position().unwrap();
+        let velocity = state_at_75.velocity().unwrap();
+
+        // The interpolated values should be 75% between the original states
+        assert_abs_diff_eq!(position.x, 7750e3, epsilon = 1.0); // 7000 + 0.75*(8000-7000)
+        assert_abs_diff_eq!(position.y, 750e3, epsilon = 1.0); // 0 + 0.75*(1000-0)
+        assert_abs_diff_eq!(position.z, 375e3, epsilon = 1.0); // 0 + 0.75*(500-0)
+
+        assert_abs_diff_eq!(velocity.x, 75.0, epsilon = 0.1); // 0 + 0.75*(100-0)
+        assert_abs_diff_eq!(velocity.y, 8.25e3, epsilon = 1.0); // 7.5 + 0.75*(8.5-7.5)
+        assert_abs_diff_eq!(velocity.z, 37.5, epsilon = 0.1); // 0 + 0.75*(50-0)
+    }
+
+    #[test]
+    fn test_trajectory_linear_interpolation_keplerian() {
+        let epoch0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let epoch1 = Epoch::from_jd(2451546.0, TimeSystem::UTC);
+
+        // Test the method specifically handles Keplerian elements correctly
+        let kep_state0 = OrbitState::new(
+            epoch0.clone(),
+            Vector6::new(7000e3, 0.01, 0.0, 359.0 * DEG2RAD, 3.0 * DEG2RAD, 0.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Keplerian,
+        );
+
+        let kep_state1 = OrbitState::new(
+            epoch1.clone(),
+            Vector6::new(7200e3, 0.02, 0.1, 3.0 * DEG2RAD, 359.0 * DEG2RAD, 0.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Keplerian,
+        );
+
+        let kep_trajectory =
+            Trajectory::from_states(vec![kep_state0, kep_state1], InterpolationMethod::Linear)
+                .unwrap();
+
+        // Test interpolation with Keplerian elements
+        let epoch_50 = Epoch::from_jd(2451545.5, TimeSystem::UTC);
+        let kep_state_at_50 = kep_trajectory.state_at_epoch(&epoch_50).unwrap();
+
+        // The semi-major axis and eccentricity should be linearly interpolated
+        assert_abs_diff_eq!(kep_state_at_50.state[0], 7100e3, epsilon = 1.0); // 7000 + 0.5*(7200-7000)
+        assert_abs_diff_eq!(kep_state_at_50.state[1], 0.015, epsilon = 0.0001); // 0.01 + 0.5*(0.02-0.01)
+
+        // The angular elements should be correctly interpolated, respecting angle wrapping
+        assert_abs_diff_eq!(kep_state_at_50.state[2], 0.05, epsilon = 0.0001); // 0.0 + 0.5*(0.1-0.0)
+
+        // Test angle wrap handling: mean anomaly wraps from 6.0 (close to 2π) back to 0
+        assert_abs_diff_eq!(kep_state_at_50.state[3], 1.0 * DEG2RAD, epsilon = 0.0001); // 359.0 + 0.5*(3.0-359.0) (wrapped)
+        assert_abs_diff_eq!(kep_state_at_50.state[4], 1.0 * DEG2RAD, epsilon = 0.0001); // 3.0 + 0.5*(359.0-3.0) (wrapped)
+
+        let expected_M = 0.0;
+        assert_abs_diff_eq!(kep_state_at_50.state[5], expected_M, epsilon = 0.0001);
     }
 }

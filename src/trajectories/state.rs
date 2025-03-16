@@ -35,4 +35,8 @@ pub trait State: Clone {
 
     /// Convert to another reference frame
     fn to_frame(&self, frame: &Self::Frame) -> Result<Self, BraheError>;
+
+    /// Create a new state at a different epoch with linearly interpolated elements
+    fn interpolate_with(&self, other: &Self, alpha: f64, epoch: &Epoch)
+    -> Result<Self, BraheError>;
 }

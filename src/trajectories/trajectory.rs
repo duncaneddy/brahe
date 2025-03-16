@@ -44,9 +44,6 @@ pub struct Trajectory<S: State> {
 
     /// Interpolation method to use when retrieving states
     pub interpolation_method: InterpolationMethod,
-
-    /// Current iterator position
-    current_index: usize,
 }
 
 impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
@@ -56,7 +53,6 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: Vec::new(),
             propagator_type: None,
             interpolation_method,
-            current_index: 0,
         }
     }
 
@@ -90,7 +86,6 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: sorted_states,
             propagator_type: None,
             interpolation_method,
-            current_index: 0,
         })
     }
 
@@ -248,7 +243,7 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             ));
         }
 
-        for (i, state) in self.states.iter().enumerate() {
+        for state in self.states.iter() {
             if state.epoch() > epoch {
                 return Ok(state.clone());
             }
@@ -347,11 +342,6 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         })
     }
 
-    /// Reset the iterator to the beginning
-    pub fn reset_iterator(&mut self) {
-        self.current_index = 0;
-    }
-
     /// Convert the trajectory to JSON format
     pub fn to_json(&self) -> Result<String, BraheError> {
         serde_json::to_string_pretty(self)
@@ -371,21 +361,6 @@ impl<S: State> Index<usize> for Trajectory<S> {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
-    }
-}
-
-// Implement Iterator trait for Trajectory
-impl<S: State> Iterator for Trajectory<S> {
-    type Item = S;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.states.len() {
-            let state = self.states[self.current_index].clone();
-            self.current_index += 1;
-            Some(state)
-        } else {
-            None
-        }
     }
 }
 
@@ -424,8 +399,71 @@ impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
             states: helper.states,
             propagator_type: helper.propagator_type,
             interpolation_method: helper.interpolation_method,
-            current_index: 0,
         })
+    }
+}
+
+/// Iterator for traversing trajectory states
+pub struct TrajectoryIter<'a, S: State> {
+    trajectory: &'a Trajectory<S>,
+    current_index: usize,
+}
+
+impl<'a, S: State> Iterator for TrajectoryIter<'a, S> {
+    type Item = &'a S;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index < self.trajectory.states.len() {
+            let state = &self.trajectory.states[self.current_index];
+            self.current_index += 1;
+            Some(state)
+        } else {
+            None
+        }
+    }
+}
+
+impl<S: State> Trajectory<S> {
+    /// Returns an iterator over the states in the trajectory
+    pub fn iter(&self) -> TrajectoryIter<'_, S> {
+        TrajectoryIter {
+            trajectory: self,
+            current_index: 0,
+        }
+    }
+}
+
+/// Mutable iterator for traversing and modifying trajectory states
+pub struct TrajectoryIterMut<'a, S: State> {
+    states: &'a mut [S],
+    current_index: usize,
+}
+
+impl<'a, S: State> Iterator for TrajectoryIterMut<'a, S> {
+    type Item = &'a mut S;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index < self.states.len() {
+            // Safety: We're ensuring the indexes are valid and non-overlapping
+            let state = unsafe {
+                let ptr = self.states.as_mut_ptr().add(self.current_index);
+                &mut *ptr
+            };
+            self.current_index += 1;
+            Some(state)
+        } else {
+            None
+        }
+    }
+}
+
+impl<S: State> Trajectory<S> {
+    /// Returns a mutable iterator over the states in the trajectory
+    pub fn iter_mut(&mut self) -> TrajectoryIterMut<'_, S> {
+        TrajectoryIterMut {
+            states: &mut self.states,
+            current_index: 0,
+        }
     }
 }
 
@@ -595,23 +633,62 @@ mod tests {
             create_test_state(0.2),
         ];
 
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
 
         // Test iterator
         let mut count = 0;
-        for state in &mut trajectory {
+        for state in trajectory.iter() {
             assert_eq!(state.epoch().jd(), 2451545.0 + (count as f64) * 0.1);
             count += 1;
         }
         assert_eq!(count, 3);
 
-        // Test reset and re-iteration
-        trajectory.reset_iterator();
+        // Test that we can iterate multiple times (creating new iterators)
         count = 0;
-        for state in &mut trajectory {
+        for _state in trajectory.iter() {
             count += 1;
         }
         assert_eq!(count, 3);
+
+        // Test that we can have multiple independent iterators
+        let mut iter1 = trajectory.iter();
+        let mut iter2 = trajectory.iter();
+
+        // Advance the first iterator
+        let _ = iter1.next();
+        let _ = iter1.next();
+
+        // The second iterator should still be at the beginning
+        assert_eq!(iter2.next().unwrap().epoch().jd(), 2451545.0);
+    }
+
+    #[test]
+    fn test_trajectory_mutable_iterator() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Use mutable iterator to modify states
+        // For each state, modify the x position by adding 1000 km
+        for state in trajectory.iter_mut() {
+            if let OrbitStateType::Cartesian = state.orbit_type {
+                // Update x-position by adding 1000 km
+                state.state[0] += 1000e3;
+            }
+        }
+
+        // Verify modifications were applied
+        for state in trajectory.iter() {
+            let position = state.position().unwrap();
+            assert_eq!(position.x, 8000e3); // Original 7000e3 + 1000e3
+            // Other components should remain unchanged
+            assert_eq!(position.y, 0.0);
+            assert_eq!(position.z, 0.0);
+        }
     }
 
     #[test]
@@ -732,7 +809,6 @@ mod tests {
         assert_abs_diff_eq!(kep_state_at_50.state[3], 1.0 * DEG2RAD, epsilon = 0.0001); // 359.0 + 0.5*(3.0-359.0) (wrapped)
         assert_abs_diff_eq!(kep_state_at_50.state[4], 1.0 * DEG2RAD, epsilon = 0.0001); // 3.0 + 0.5*(359.0-3.0) (wrapped)
 
-        let expected_M = 0.0;
-        assert_abs_diff_eq!(kep_state_at_50.state[5], expected_M, epsilon = 0.0001);
+        assert_abs_diff_eq!(kep_state_at_50.state[5], 0.0, epsilon = 0.0001);
     }
 }

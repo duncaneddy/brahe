@@ -2,12 +2,15 @@
  * Implementation of orbit state types based on the State trait.
  */
 
+use std::collections::HashMap;
+use std::ops::{Index, IndexMut};
+
 use nalgebra::{Vector3, Vector6};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
+use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::time::Epoch;
-use crate::trajectories::state::{ReferenceFrame, State};
+use crate::trajectories::state::{AngleFormat, ReferenceFrame, State};
 use crate::utils::BraheError;
 use crate::{coordinates, frames};
 
@@ -56,10 +59,36 @@ pub struct OrbitState {
     /// The type of state vector (Cartesian, Keplerian, etc.)
     pub orbit_type: OrbitStateType,
 
+    /// The format of angular quantities in the state
+    pub angle_format: AngleFormat,
+
     /// Optional additional state information (could be propagator-specific)
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     pub metadata: HashMap<String, String>,
+}
+
+// Implement Index trait for OrbitState
+impl Index<usize> for OrbitState {
+    type Output = f64;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        if index >= self.len() {
+            panic!("Index out of bounds: {} (len: {})", index, self.len());
+        }
+
+        &self.state[index]
+    }
+}
+
+impl IndexMut<usize> for OrbitState {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        if index >= self.len() {
+            panic!("Index out of bounds: {} (len: {})", index, self.len());
+        }
+
+        &mut self.state[index]
+    }
 }
 
 impl OrbitState {
@@ -69,12 +98,18 @@ impl OrbitState {
         state: Vector6<f64>,
         frame: OrbitFrame,
         orbit_type: OrbitStateType,
-    ) -> Self {
+        angle_format: AngleFormat,
+    ) -> OrbitState {
+        if orbit_type == OrbitStateType::Keplerian && angle_format == AngleFormat::None {
+            panic!("Angle format must be specified for Keplerian elements");
+        }
+
         Self {
             epoch,
             state,
             frame,
             orbit_type,
+            angle_format,
             metadata: HashMap::new(),
         }
     }
@@ -114,13 +149,19 @@ impl OrbitState {
         match self.orbit_type {
             OrbitStateType::Cartesian => Ok(self.clone()),
             OrbitStateType::Keplerian => {
-                let cart_state = coordinates::state_osculating_to_cartesian(self.state, false);
+                let as_degrees = if self.angle_format == AngleFormat::Degrees {
+                    true
+                } else {
+                    false
+                };
+                let cart_state = coordinates::state_osculating_to_cartesian(self.state, as_degrees);
                 Ok(Self::new(
                     self.epoch,
                     cart_state,
                     self.frame,
                     OrbitStateType::Cartesian,
-                ))
+                    AngleFormat::None,
+                )) // We know this will succeed because we're converting to Cartesian
             }
             OrbitStateType::TLEMean => Err(BraheError::Error(
                 "Conversion from TLE mean elements to Cartesian not yet implemented".to_string(),
@@ -129,16 +170,22 @@ impl OrbitState {
     }
 
     /// Convert to Keplerian elements if not already
-    pub fn to_keplerian(&self) -> Result<Self, BraheError> {
+    pub fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> {
         match self.orbit_type {
             OrbitStateType::Keplerian => Ok(self.clone()),
             OrbitStateType::Cartesian => {
-                let kep_state = coordinates::state_cartesian_to_osculating(self.state, false);
+                let as_degrees = if self.angle_format == AngleFormat::Degrees {
+                    true
+                } else {
+                    false
+                };
+                let kep_state = coordinates::state_cartesian_to_osculating(self.state, as_degrees);
                 Ok(Self::new(
                     self.epoch,
                     kep_state,
                     self.frame,
                     OrbitStateType::Keplerian,
+                    angle_format,
                 ))
             }
             OrbitStateType::TLEMean => Err(BraheError::Error(
@@ -169,6 +216,44 @@ impl State for OrbitState {
 
     fn frame(&self) -> &Self::Frame {
         &self.frame
+    }
+
+    fn angle_format(&self) -> AngleFormat {
+        self.angle_format
+    }
+
+    /// Convert the state to degrees representation
+    fn as_degrees(&self) -> Self {
+        if self.angle_format == AngleFormat::Degrees || self.angle_format == AngleFormat::None {
+            return self.clone();
+        }
+
+        let mut new_state = self.clone();
+        new_state.angle_format = AngleFormat::Degrees;
+
+        // Convert i, Ω, ω, M from radians to degrees (elements 2-5)
+        for i in 2..6 {
+            new_state.state[i] = new_state.state[i] * RAD2DEG;
+        }
+
+        new_state
+    }
+
+    /// Convert the state to radians representation
+    fn as_radians(&self) -> Self {
+        if self.angle_format == AngleFormat::Radians || self.angle_format == AngleFormat::None {
+            return self.clone();
+        }
+
+        let mut new_state = self.clone();
+        new_state.angle_format = AngleFormat::Radians;
+
+        // Convert i, Ω, ω, M from degrees to radians (elements 2-5)
+        for i in 2..6 {
+            new_state.state[i] = new_state.state[i] * DEG2RAD;
+        }
+
+        new_state
     }
 
     fn get_element(&self, index: usize) -> Result<f64, BraheError> {
@@ -204,6 +289,7 @@ impl State for OrbitState {
                     ecef_state,
                     OrbitFrame::ECEF,
                     OrbitStateType::Cartesian,
+                    self.angle_format,
                 ))
             }
             (OrbitFrame::ECEF, OrbitFrame::ECI) => {
@@ -214,6 +300,7 @@ impl State for OrbitState {
                     eci_state,
                     OrbitFrame::ECI,
                     OrbitStateType::Cartesian,
+                    self.angle_format,
                 ))
             }
             _ => Err(BraheError::Error(format!(
@@ -307,6 +394,7 @@ impl State for OrbitState {
             interpolated_state,
             self.frame,
             self.orbit_type,
+            self.angle_format,
         ))
     }
 }
@@ -314,6 +402,7 @@ impl State for OrbitState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::DEG2RAD;
     use crate::time::{Epoch, TimeSystem};
     use approx::assert_abs_diff_eq;
 
@@ -321,7 +410,13 @@ mod tests {
         // Create a test state at J2000 + time_offset
         let epoch = Epoch::from_jd(2451545.0 + time_offset, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        OrbitState::new(epoch, state, OrbitFrame::ECI, OrbitStateType::Cartesian)
+        OrbitState::new(
+            epoch,
+            state,
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        )
     }
 
     #[test]
@@ -382,5 +477,186 @@ mod tests {
         assert_eq!(state2.frame, state.frame);
         assert_eq!(state2.orbit_type, state.orbit_type);
         assert_eq!(state2.state, state.state);
+    }
+
+    #[test]
+    fn test_orbit_state_angle_format() {
+        // Create a Keplerian state in radians
+        let kep_state_rad = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(
+                7000e3,
+                0.01,
+                30.0 * DEG2RAD,
+                60.0 * DEG2RAD,
+                45.0 * DEG2RAD,
+                90.0 * DEG2RAD,
+            ),
+            OrbitFrame::ECI,
+            OrbitStateType::Keplerian,
+            AngleFormat::Radians,
+        );
+
+        // By default, it should be in radians
+        assert_eq!(kep_state_rad.angle_format, AngleFormat::Radians);
+
+        // Convert to degrees
+        let kep_state_deg = kep_state_rad.as_degrees();
+        assert_eq!(kep_state_deg.angle_format, AngleFormat::Degrees);
+
+        // Check the values were converted properly
+        assert_abs_diff_eq!(kep_state_deg.state[0], 7000e3); // a doesn't change
+        assert_abs_diff_eq!(kep_state_deg.state[1], 0.01); // e doesn't change
+        assert_abs_diff_eq!(kep_state_deg.state[2], 30.0, epsilon = 1e-12); // i converted to degrees
+        assert_abs_diff_eq!(kep_state_deg.state[3], 60.0, epsilon = 1e-12); // Ω converted to degrees
+        assert_abs_diff_eq!(kep_state_deg.state[4], 45.0, epsilon = 1e-12); // ω converted to degrees
+        assert_abs_diff_eq!(kep_state_deg.state[5], 90.0, epsilon = 1e-12); // M converted to degrees
+
+        // Convert back to radians
+        let kep_state_rad2 = kep_state_deg.as_radians();
+        assert_eq!(kep_state_rad2.angle_format, AngleFormat::Radians);
+
+        // Check the values match the original
+        assert_abs_diff_eq!(kep_state_rad2.state[0], kep_state_rad.state[0]);
+        assert_abs_diff_eq!(kep_state_rad2.state[1], kep_state_rad.state[1]);
+        assert_abs_diff_eq!(
+            kep_state_rad2.state[2],
+            kep_state_rad.state[2],
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            kep_state_rad2.state[3],
+            kep_state_rad.state[3],
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            kep_state_rad2.state[4],
+            kep_state_rad.state[4],
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            kep_state_rad2.state[5],
+            kep_state_rad.state[5],
+            epsilon = 1e-12
+        );
+
+        // Test with Cartesian state
+        let cart_state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        );
+
+        // Should be None for Cartesian
+        assert_eq!(cart_state.angle_format, AngleFormat::None);
+
+        // Converting to degrees should result in passing through
+        let cart_state_deg = cart_state.as_degrees();
+        assert_eq!(cart_state_deg.angle_format, AngleFormat::None);
+        assert_eq!(cart_state_deg.state, cart_state.state);
+    }
+
+    // Add to tests in src/trajectories/orbit_state.rs
+    #[test]
+    fn test_orbit_state_indexing() {
+        // Create a test Cartesian state
+        let cart_state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 1000e3, 2000e3, 100.0, 200.0, 300.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        );
+
+        // Test direct indexing
+        assert_eq!(cart_state[0], 7000e3);
+        assert_eq!(cart_state[1], 1000e3);
+        assert_eq!(cart_state[2], 2000e3);
+        assert_eq!(cart_state[3], 100.0);
+        assert_eq!(cart_state[4], 200.0);
+        assert_eq!(cart_state[5], 300.0);
+
+        // Create a Keplerian state
+        let kep_state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.01, 0.2, 0.3, 0.4, 0.5),
+            OrbitFrame::ECI,
+            OrbitStateType::Keplerian,
+            AngleFormat::Degrees,
+        );
+
+        // Test direct indexing
+        assert_eq!(kep_state[0], 7000e3); // a
+        assert_eq!(kep_state[1], 0.01); // e
+        assert_eq!(kep_state[2], 0.2); // i
+        assert_eq!(kep_state[3], 0.3); // Ω
+        assert_eq!(kep_state[4], 0.4); // ω
+        assert_eq!(kep_state[5], 0.5); // M
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_index_out_of_bounds() {
+        let state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        );
+
+        let _value = state[6]; // This should panic
+    }
+
+    #[test]
+    fn test_orbit_state_mutable_indexing() {
+        // Create a mutable Cartesian state
+        let mut cart_state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 1000e3, 2000e3, 100.0, 200.0, 300.0),
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        );
+
+        // Modify elements using mutable indexing
+        cart_state[0] = 8000e3;
+        cart_state[3] = 150.0;
+
+        // Verify changes
+        assert_eq!(cart_state[0], 8000e3);
+        assert_eq!(cart_state[3], 150.0);
+
+        // Original values shouldn't have changed
+        assert_eq!(cart_state[1], 1000e3);
+        assert_eq!(cart_state[2], 2000e3);
+
+        // Verify that changes are reflected in position/velocity methods
+        let position = cart_state.position().unwrap();
+        assert_eq!(position.x, 8000e3);
+
+        // Create a mutable Keplerian state
+        let mut kep_state = OrbitState::new(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.01, 0.2, 0.3, 0.4, 0.5),
+            OrbitFrame::ECI,
+            OrbitStateType::Keplerian,
+            AngleFormat::Degrees,
+        );
+
+        // Modify elements
+        kep_state[0] = 7500e3; // Change semi-major axis
+        kep_state[1] = 0.02; // Change eccentricity
+
+        // Verify changes
+        assert_eq!(kep_state[0], 7500e3);
+        assert_eq!(kep_state[1], 0.02);
+
+        // Converting to Cartesian should reflect the changes
+        let cart_converted = kep_state.to_cartesian().unwrap();
+        // The position/velocity will be different from the original values
+        assert_ne!(cart_converted[0], 7000e3);
     }
 }

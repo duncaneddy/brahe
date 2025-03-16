@@ -342,6 +342,34 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         })
     }
 
+    /// Convert the trajectory to degrees representation
+    pub fn as_degrees(&self) -> Result<Self, BraheError> {
+        // Convert all states to degrees
+        let mut new_states = Vec::with_capacity(self.states.len());
+        for state in &self.states {
+            new_states.push(state.as_degrees());
+        }
+
+        let mut new_trajectory = self.clone();
+        new_trajectory.states = new_states;
+
+        Ok(new_trajectory)
+    }
+
+    /// Convert the trajectory to radians representation
+    pub fn as_radians(&self) -> Result<Self, BraheError> {
+        // Convert all states to radians
+        let mut new_states = Vec::with_capacity(self.states.len());
+        for state in &self.states {
+            new_states.push(state.as_radians());
+        }
+
+        let mut new_trajectory = self.clone();
+        new_trajectory.states = new_states;
+
+        Ok(new_trajectory)
+    }
+
     /// Convert the trajectory to JSON format
     pub fn to_json(&self) -> Result<String, BraheError> {
         serde_json::to_string_pretty(self)
@@ -475,13 +503,20 @@ mod tests {
     use crate::trajectories::orbit_state::{OrbitFrame, OrbitState, OrbitStateType};
     use nalgebra::Vector6;
 
+    use crate::{AngleFormat, RAD2DEG};
     use approx::assert_abs_diff_eq;
 
     fn create_test_state(time_offset: f64) -> OrbitState {
         // Create a test state at J2000 + time_offset
         let epoch = Epoch::from_jd(2451545.0 + time_offset, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        OrbitState::new(epoch, state, OrbitFrame::ECI, OrbitStateType::Cartesian)
+        OrbitState::new(
+            epoch,
+            state,
+            OrbitFrame::ECI,
+            OrbitStateType::Cartesian,
+            AngleFormat::None,
+        )
     }
 
     #[test]
@@ -703,6 +738,7 @@ mod tests {
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
+            AngleFormat::None,
         );
 
         let state1 = OrbitState::new(
@@ -710,6 +746,7 @@ mod tests {
             Vector6::new(8000e3, 1000e3, 500e3, 100.0, 8.5e3, 50.0),
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
+            AngleFormat::None,
         );
 
         let trajectory =
@@ -781,6 +818,7 @@ mod tests {
             Vector6::new(7000e3, 0.01, 0.0, 359.0 * DEG2RAD, 3.0 * DEG2RAD, 0.0),
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
+            AngleFormat::Radians,
         );
 
         let kep_state1 = OrbitState::new(
@@ -788,6 +826,7 @@ mod tests {
             Vector6::new(7200e3, 0.02, 0.1, 3.0 * DEG2RAD, 359.0 * DEG2RAD, 0.0),
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
+            AngleFormat::Radians,
         );
 
         let kep_trajectory =
@@ -810,5 +849,217 @@ mod tests {
         assert_abs_diff_eq!(kep_state_at_50.state[4], 1.0 * DEG2RAD, epsilon = 0.0001); // 3.0 + 0.5*(359.0-3.0) (wrapped)
 
         assert_abs_diff_eq!(kep_state_at_50.state[5], 0.0, epsilon = 0.0001);
+    }
+
+    #[test]
+    fn test_trajectory_as_degrees() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_degrees().unwrap();
+
+        // Verify all states are unchanged
+        for state in trajectory.iter() {
+            let position = state.position().unwrap();
+            assert_eq!(position.x, 7000.0e3);
+            assert_eq!(position.y, 0.0);
+            assert_eq!(position.z, 0.0);
+
+            let velocity = state.velocity().unwrap();
+            assert_eq!(velocity.x, 0.0);
+            assert_eq!(velocity.y, 7.5e3);
+            assert_eq!(velocity.z, 0.0);
+        }
+
+        let states = vec![
+            OrbitState::new(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(7000.0, 0.0, 10.0, 20.0, 30.0, 40.0),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Degrees,
+            ),
+            OrbitState::new(
+                Epoch::from_jd(2451545.1, TimeSystem::UTC),
+                Vector6::new(7000.0, 0.0, 10.0, 20.0, 30.0, 40.0),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Degrees,
+            ),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_degrees().unwrap();
+
+        // Verify all states are unchanged
+        for state in trajectory.iter() {
+            assert_eq!(state[0], 7000.0);
+            assert_eq!(state[1], 0.0);
+            assert_eq!(state[2], 10.0);
+            assert_eq!(state[3], 20.0);
+            assert_eq!(state[4], 30.0);
+            assert_eq!(state[5], 40.0);
+        }
+
+        // Create Radians trajectory
+        let states = vec![
+            OrbitState::new(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(
+                    7000.0,
+                    0.0,
+                    10.0 * DEG2RAD,
+                    20.0 * DEG2RAD,
+                    30.0 * DEG2RAD,
+                    40.0 * DEG2RAD,
+                ),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Radians,
+            ),
+            OrbitState::new(
+                Epoch::from_jd(2451545.1, TimeSystem::UTC),
+                Vector6::new(
+                    7000.0,
+                    0.0,
+                    10.0 * DEG2RAD,
+                    20.0 * DEG2RAD,
+                    30.0 * DEG2RAD,
+                    40.0 * DEG2RAD,
+                ),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Radians,
+            ),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_degrees().unwrap();
+
+        // Verify all states are what we expect
+        for state in trajectory.iter() {
+            assert_eq!(state[0], 7000.0);
+            assert_eq!(state[1], 0.0);
+            assert_abs_diff_eq!(state[2], 10.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[3], 20.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[4], 30.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[5], 40.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_trajectory_as_radians() {
+        let states = vec![
+            create_test_state(0.0),
+            create_test_state(0.1),
+            create_test_state(0.2),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_radians().unwrap();
+
+        // Verify all states are unchanged
+        for state in trajectory.iter() {
+            let position = state.position().unwrap();
+            assert_eq!(position.x, 7000.0e3);
+            assert_eq!(position.y, 0.0);
+            assert_eq!(position.z, 0.0);
+
+            let velocity = state.velocity().unwrap();
+            assert_eq!(velocity.x, 0.0);
+            assert_eq!(velocity.y, 7.5e3);
+            assert_eq!(velocity.z, 0.0);
+        }
+
+        let states = vec![
+            OrbitState::new(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(7000.0, 0.0, 1.0, 2.0, 3.0, 4.0),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Radians,
+            ),
+            OrbitState::new(
+                Epoch::from_jd(2451545.1, TimeSystem::UTC),
+                Vector6::new(7000.0, 0.0, 1.0, 2.0, 3.0, 4.0),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Radians,
+            ),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_radians().unwrap();
+
+        // Verify all states are unchanged
+        for state in trajectory.iter() {
+            assert_eq!(state[0], 7000.0);
+            assert_eq!(state[1], 0.0);
+            assert_eq!(state[2], 1.0);
+            assert_eq!(state[3], 2.0);
+            assert_eq!(state[4], 3.0);
+            assert_eq!(state[5], 4.0);
+        }
+
+        // Create Radians trajectory
+        let states = vec![
+            OrbitState::new(
+                Epoch::from_jd(2451545.0, TimeSystem::UTC),
+                Vector6::new(
+                    7000.0,
+                    0.0,
+                    1.0 * RAD2DEG,
+                    2.0 * RAD2DEG,
+                    3.0 * RAD2DEG,
+                    4.0 * RAD2DEG,
+                ),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Degrees,
+            ),
+            OrbitState::new(
+                Epoch::from_jd(2451545.1, TimeSystem::UTC),
+                Vector6::new(
+                    7000.0,
+                    0.0,
+                    1.0 * RAD2DEG,
+                    2.0 * RAD2DEG,
+                    3.0 * RAD2DEG,
+                    4.0 * RAD2DEG,
+                ),
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Degrees,
+            ),
+        ];
+
+        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+
+        // Convert to degrees
+        trajectory = trajectory.as_radians().unwrap();
+
+        // Verify all states are what we expect
+        for state in trajectory.iter() {
+            assert_eq!(state[0], 7000.0);
+            assert_eq!(state[1], 0.0);
+            assert_abs_diff_eq!(state[2], 1.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[3], 2.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[4], 3.0, epsilon = 1e-12);
+            assert_abs_diff_eq!(state[5], 4.0, epsilon = 1e-12);
+        }
     }
 }

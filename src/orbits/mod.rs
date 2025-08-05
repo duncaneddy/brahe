@@ -4,5 +4,6 @@
  */
 
 pub mod keplerian;
+mod traits;
 
 pub use keplerian::*;

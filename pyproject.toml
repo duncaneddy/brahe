@@ -54,11 +54,11 @@ dev = [
     "pytest-order>=1.3.0",
 ]
 
-#[tool.maturin]
-## We name the rust module with a leading underscore to avoid a name conflict with the python module
-## This is a workaround for IDEs to avoid confusion in function naming.
-##
-## See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
-#module-name = "brahe._brahe"
-## "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
-#features = ["pyo3/extension-module", "python"]
+[tool.maturin]
+# We name the rust module with a leading underscore to avoid a name conflict with the python module
+# This is a workaround for IDEs to avoid confusion in function naming.
+#
+# See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
+module-name = "brahe._brahe"
+# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["pyo3/extension-module", "python"]

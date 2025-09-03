@@ -7,7 +7,7 @@ use std::path::Path;
 
 use nalgebra as na;
 use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods};
+use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, IntoPyArray};
 
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
@@ -28,27 +28,15 @@ use crate::*;
 
 macro_rules! matrix_to_numpy {
     ($py:expr,$mat:expr,$r:expr,$c:expr,$typ:ty) => {{
-        let arr = numpy::PyArray2::<$typ>::new_bound($py, [$r, $c], false);
-
-        for i in 0..$r {
-            for j in 0..$c {
-                arr.uget_raw([i, j]).write($mat[(i, j)])
-            }
-        }
-
-        arr
+        let flat_vec: Vec<$typ> = (0..$r).flat_map(|i| (0..$c).map(move |j| $mat[(i, j)])).collect();
+        flat_vec.into_pyarray($py).reshape([$r, $c]).unwrap()
     }};
 }
 
 macro_rules! vector_to_numpy {
     ($py:expr,$vec:expr,$l:expr,$typ:ty) => {{
-        let arr = numpy::PyArray1::<$typ>::new_bound($py, [$l], false);
-
-        for i in 0..$l {
-            arr.uget_raw([i]).write($vec[i])
-        }
-
-        arr
+        let flat_vec: Vec<$typ> = (0..$l).map(|i| $vec[i]).collect();
+        flat_vec.into_pyarray($py)
     }};
 }
 
@@ -82,7 +70,7 @@ include!("attitude.rs");
 #[pymodule(
     name = "_brahe"
 )] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
-pub fn brahe_module(module: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Constants *//
     module.add("DEG2RAD", constants::DEG2RAD)?;
     module.add("RAD2DEG", constants::RAD2DEG)?;

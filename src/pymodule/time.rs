@@ -277,7 +277,7 @@ impl PyEpoch {
 
     #[classmethod]
     fn from_date(
-        _cls: &PyType,
+        _cls: &Bound<'_, PyType>,
         year: u32,
         month: u8,
         day: u8,
@@ -295,7 +295,7 @@ impl PyEpoch {
 
     #[classmethod]
     pub fn from_datetime(
-        _cls: &PyType,
+        _cls: &Bound<'_, PyType>,
         year: u32,
         month: u8,
         day: u8,
@@ -320,42 +320,42 @@ impl PyEpoch {
     }
 
     #[classmethod]
-    pub fn from_string(_cls: &PyType, datestr: &str) -> PyResult<PyEpoch> {
+    pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_string(datestr).unwrap(),
         })
     }
 
     #[classmethod]
-    pub fn from_jd(_cls: &PyType, jd: f64, time_system: &str) -> PyResult<PyEpoch> {
+    pub fn from_jd(_cls: &Bound<'_, PyType>, jd: f64, time_system: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_jd(jd, string_to_time_system(time_system).unwrap()),
         })
     }
 
     #[classmethod]
-    pub fn from_mjd(_cls: &PyType, mjd: f64, time_system: &str) -> PyResult<PyEpoch> {
+    pub fn from_mjd(_cls: &Bound<'_, PyType>, mjd: f64, time_system: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_mjd(mjd, string_to_time_system(time_system).unwrap()),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_date(_cls: &PyType, week: u32, seconds: f64) -> PyResult<PyEpoch> {
+    pub fn from_gps_date(_cls: &Bound<'_, PyType>, week: u32, seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_date(week, seconds),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_seconds(_cls: &PyType, gps_seconds: f64) -> PyResult<PyEpoch> {
+    pub fn from_gps_seconds(_cls: &Bound<'_, PyType>, gps_seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_seconds(gps_seconds),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_nanoseconds(_cls: &PyType, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
+    pub fn from_gps_nanoseconds(_cls: &Bound<'_, PyType>, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_nanoseconds(gps_nanoseconds),
         })

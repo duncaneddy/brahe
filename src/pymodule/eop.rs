@@ -106,13 +106,13 @@ impl PyStaticEOPProvider {
     }
 
     #[classmethod]
-    pub fn from_zero(_cls: &PyType) -> Self {
+    pub fn from_zero(_cls: &Bound<'_, PyType>) -> Self {
         PyStaticEOPProvider {
             obj: eop::StaticEOPProvider::from_zero(),
         }
     }
     #[classmethod]
-    pub fn from_values(_cls: &PyType, ut1_utc: f64, pm_x: f64, pm_y: f64, dx: f64, dy: f64, lod: f64) -> Self {
+    pub fn from_values(_cls: &Bound<'_, PyType>, ut1_utc: f64, pm_x: f64, pm_y: f64, dx: f64, dy: f64, lod: f64) -> Self {
         PyStaticEOPProvider {
             obj: eop::StaticEOPProvider::from_values((ut1_utc, pm_x, pm_y, dx, dy, lod))
         }
@@ -200,42 +200,42 @@ impl PyFileEOPProvider {
     }
 
     #[classmethod]
-    pub fn from_c04_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_c04_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_c04_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
     }
 
     #[classmethod]
-    pub fn from_standard_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_standard_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_standard_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
     }
 
     #[classmethod]
-    pub fn from_file(_cls: &PyType, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
     }
 
     #[classmethod]
-    pub fn from_default_c04(_cls: &PyType, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_c04(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_c04(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
     }
 
     #[classmethod]
-    pub fn from_default_standard(_cls: &PyType, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_standard(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_standard(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
     }
 
     #[classmethod]
-    pub fn from_default_file(_cls: &PyType, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_file(_cls: &Bound<'_, PyType>, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_file(string_to_eop_type(eop_type)?, interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })

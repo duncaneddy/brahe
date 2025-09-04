@@ -326,3 +326,239 @@ fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> PyResult<
         Err(exceptions::PyRuntimeError::new_err(res.err().unwrap()))
     }
 }
+
+// TLE (Two-Line Element) Support
+
+/// Python wrapper for TLE (Two-Line Element) object with SGP4 propagation capability
+#[pyclass]
+#[pyo3(name = "TLE")]
+pub struct PyTLE {
+    tle: crate::TLE,
+}
+
+#[pymethods]
+impl PyTLE {
+    /// Create a new TLE from 2-line format
+    ///
+    /// Arguments:
+    ///     line1 (str): First line of TLE data
+    ///     line2 (str): Second line of TLE data
+    ///
+    /// Returns:
+    ///     TLE: New TLE instance
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, line1, line2)")]
+    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String) -> PyResult<Self> {
+        match crate::TLE::from_lines(&line1, &line2) {
+            Ok(tle) => Ok(PyTLE { tle }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Create a new TLE from 3-line format (with satellite name)
+    ///
+    /// Arguments:
+    ///     name (str): Satellite name (line 0)
+    ///     line1 (str): First line of TLE data
+    ///     line2 (str): Second line of TLE data
+    ///
+    /// Returns:
+    ///     TLE: New TLE instance
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name, line1, line2)")]
+    pub fn from_3le(_cls: &Bound<'_, PyType>, name: String, line1: String, line2: String) -> PyResult<Self> {
+        match crate::TLE::from_3le(&name, &line1, &line2) {
+            Ok(tle) => Ok(PyTLE { tle }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Create TLE from raw TLE string (auto-detects format)
+    ///
+    /// Arguments:
+    ///     tle_string (str): Raw TLE data as string
+    ///
+    /// Returns:
+    ///     TLE: New TLE instance
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, tle_string)")]
+    pub fn from_tle_string(_cls: &Bound<'_, PyType>, tle_string: String) -> PyResult<Self> {
+        match crate::TLE::from_tle_string(&tle_string) {
+            Ok(tle) => Ok(PyTLE { tle }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Get satellite name (if available)
+    ///
+    /// Returns:
+    ///     Optional[str]: Satellite name or None if not set
+    #[getter]
+    pub fn satellite_name(&self) -> Option<String> {
+        self.tle.satellite_name().map(|s| s.to_string())
+    }
+
+    /// Get original NORAD ID string (may be Alpha-5 format)
+    ///
+    /// Returns:
+    ///     str: Original NORAD ID string
+    #[getter]
+    pub fn norad_id_string(&self) -> String {
+        self.tle.norad_id_string().to_string()
+    }
+
+    /// Get decoded numeric NORAD ID
+    ///
+    /// Returns:
+    ///     int: Numeric NORAD ID
+    #[getter]
+    pub fn norad_id(&self) -> u32 {
+        self.tle.norad_id()
+    }
+
+    /// Get international designator
+    ///
+    /// Returns:
+    ///     Optional[str]: International designator or None if not set
+    #[getter]
+    pub fn international_designator(&self) -> Option<String> {
+        self.tle.international_designator()
+    }
+
+    /// Get epoch of TLE
+    ///
+    /// Returns:
+    ///     Epoch: TLE epoch
+    #[getter]
+    pub fn epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.tle.epoch() }
+    }
+
+    /// Get mean motion (revolutions per day)
+    ///
+    /// Returns:
+    ///     float: Mean motion in rev/day
+    #[getter]
+    pub fn mean_motion(&self) -> f64 {
+        self.tle.mean_motion()
+    }
+
+    /// Get eccentricity
+    ///
+    /// Returns:
+    ///     float: Orbital eccentricity
+    #[getter]
+    pub fn eccentricity(&self) -> f64 {
+        self.tle.eccentricity()
+    }
+
+    /// Get inclination in radians or degrees
+    ///
+    /// Arguments:
+    ///     as_degrees (bool): Return in degrees if True, radians if False
+    ///
+    /// Returns:
+    ///     float: Orbital inclination
+    #[pyo3(text_signature = "(as_degrees)")]
+    pub fn inclination(&self, as_degrees: bool) -> f64 {
+        let inc_rad = self.tle.inclination();
+        if as_degrees {
+            inc_rad.to_degrees()
+        } else {
+            inc_rad
+        }
+    }
+
+    /// Get right ascension of ascending node in radians or degrees
+    ///
+    /// Arguments:
+    ///     as_degrees (bool): Return in degrees if True, radians if False
+    ///
+    /// Returns:
+    ///     float: Right ascension of ascending node
+    #[pyo3(text_signature = "(as_degrees)")]
+    pub fn raan(&self, as_degrees: bool) -> f64 {
+        let raan_rad = self.tle.raan();
+        if as_degrees {
+            raan_rad.to_degrees()
+        } else {
+            raan_rad
+        }
+    }
+
+    /// Get argument of perigee in radians or degrees
+    ///
+    /// Arguments:
+    ///     as_degrees (bool): Return in degrees if True, radians if False
+    ///
+    /// Returns:
+    ///     float: Argument of perigee
+    #[pyo3(text_signature = "(as_degrees)")]
+    pub fn argument_of_perigee(&self, as_degrees: bool) -> f64 {
+        let arg_per_rad = self.tle.argument_of_perigee();
+        if as_degrees {
+            arg_per_rad.to_degrees()
+        } else {
+            arg_per_rad
+        }
+    }
+
+    /// Get mean anomaly in radians or degrees
+    ///
+    /// Arguments:
+    ///     as_degrees (bool): Return in degrees if True, radians if False
+    ///
+    /// Returns:
+    ///     float: Mean anomaly
+    #[pyo3(text_signature = "(as_degrees)")]
+    pub fn mean_anomaly(&self, as_degrees: bool) -> f64 {
+        let mean_anom_rad = self.tle.mean_anomaly();
+        if as_degrees {
+            mean_anom_rad.to_degrees()
+        } else {
+            mean_anom_rad
+        }
+    }
+
+    /// Check if TLE uses Alpha-5 format
+    ///
+    /// Returns:
+    ///     bool: True if Alpha-5 format, False if classic format
+    #[getter]
+    pub fn is_alpha5(&self) -> bool {
+        self.tle.is_alpha5()
+    }
+
+    /// Propagate to specific time and return Cartesian state
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for propagation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Cartesian state vector [x, y, z, vx, vy, vz] in meters and m/s
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn propagate<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.tle.propagate(epoch.obj) {
+            Ok(orbit_state) => {
+                // Extract state vector (position and velocity)
+                let state_vec = orbit_state.state;
+                let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
+                Ok(flat_vec.into_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!("TLE(norad_id={}, name={:?}, epoch={:?})", 
+                self.tle.norad_id(), 
+                self.tle.satellite_name(), 
+                self.tle.epoch())
+    }
+
+    /// String conversion
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}

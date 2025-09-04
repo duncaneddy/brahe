@@ -218,6 +218,9 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
+    
+    // TLE Support
+    module.add_class::<PyTLE>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;

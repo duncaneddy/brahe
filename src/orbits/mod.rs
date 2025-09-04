@@ -10,3 +10,4 @@ mod traits;
 
 pub use keplerian::*;
 pub use propagation::*;
+pub use tle::*;

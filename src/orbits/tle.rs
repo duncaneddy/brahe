@@ -23,6 +23,395 @@ pub enum TleFormat {
     Alpha5,
 }
 
+/// Calculate TLE line checksum as an independent function
+/// 
+/// # Arguments
+/// * `line` - First 68 characters of TLE line (without checksum)
+/// 
+/// # Returns
+/// * `u8` - Calculated checksum digit
+pub fn calculate_tle_line_checksum(line: &str) -> u8 {
+    let mut sum = 0;
+    for c in line.chars() {
+        match c {
+            '0'..='9' => sum += c.to_digit(10).unwrap() as u8,
+            '-' => sum += 1,
+            _ => {} // Ignore other characters
+        }
+    }
+    sum % 10
+}
+
+/// Validate TLE line format as an independent function
+/// 
+/// # Arguments
+/// * `line1` - First line of TLE data
+/// * `line2` - Second line of TLE data
+/// 
+/// # Returns
+/// * `bool` - true if valid, false otherwise
+pub fn validate_tle_lines(line1: &str, line2: &str) -> bool {
+    // Validate individual lines
+    if !validate_tle_line(line1, 1) || !validate_tle_line(line2, 2) {
+        return false;
+    }
+    
+    // Validate NORAD IDs match between lines
+    let id1 = &line1[2..7];
+    let id2 = &line2[2..7];
+    id1 == id2
+}
+
+/// Internal function to validate TLE lines with detailed error messages
+/// Used by TLE struct creation for better error reporting
+fn validate_tle_lines_with_errors(line1: &str, line2: &str) -> Result<(), BraheError> {
+    // Basic length check
+    if line1.len() != 69 {
+        return Err(BraheError::Error(format!(
+            "TLE line 1 must be exactly 69 characters, got {}", 
+            line1.len()
+        )));
+    }
+    
+    if line2.len() != 69 {
+        return Err(BraheError::Error(format!(
+            "TLE line 2 must be exactly 69 characters, got {}", 
+            line2.len()
+        )));
+    }
+    
+    // Check line numbers
+    if !line1.starts_with('1') {
+        return Err(BraheError::Error("TLE line 1 must start with '1'".to_string()));
+    }
+    
+    if !line2.starts_with('2') {
+        return Err(BraheError::Error("TLE line 2 must start with '2'".to_string()));
+    }
+    
+    // Validate NORAD IDs match between lines
+    let id1 = &line1[2..7];
+    let id2 = &line2[2..7];
+    if id1 != id2 {
+        return Err(BraheError::Error(format!(
+            "NORAD IDs don't match: line1='{}', line2='{}'", 
+            id1, id2
+        )));
+    }
+    
+    // Validate checksums
+    let checksum1_expected = line1.chars().nth(68).unwrap().to_digit(10)
+        .ok_or_else(|| BraheError::Error("Line 1 checksum must be a digit".to_string()))? as u8;
+    let checksum1_calculated = calculate_tle_line_checksum(&line1[..68]);
+    if checksum1_expected != checksum1_calculated {
+        return Err(BraheError::Error(format!(
+            "Line 1 checksum mismatch: expected {}, calculated {}", 
+            checksum1_expected, checksum1_calculated
+        )));
+    }
+    
+    let checksum2_expected = line2.chars().nth(68).unwrap().to_digit(10)
+        .ok_or_else(|| BraheError::Error("Line 2 checksum must be a digit".to_string()))? as u8;
+    let checksum2_calculated = calculate_tle_line_checksum(&line2[..68]);
+    if checksum2_expected != checksum2_calculated {
+        return Err(BraheError::Error(format!(
+            "Line 2 checksum mismatch: expected {}, calculated {}", 
+            checksum2_expected, checksum2_calculated
+        )));
+    }
+    
+    Ok(())
+}
+
+/// Validate single TLE line format
+/// 
+/// # Arguments
+/// * `line` - TLE line to validate
+/// * `expected_line_number` - Expected line number (1 or 2)
+/// 
+/// # Returns
+/// * `bool` - true if valid, false otherwise
+pub fn validate_tle_line(line: &str, expected_line_number: u8) -> bool {
+    // Basic length check
+    if line.len() != 69 {
+        return false;
+    }
+    
+    // Check line number
+    let first_char = line.chars().next().unwrap_or(' ');
+    if first_char != (b'0' + expected_line_number) as char {
+        return false;
+    }
+    
+    // Validate checksum
+    let checksum_expected = line.chars().nth(68).and_then(|c| c.to_digit(10)).unwrap_or(10) as u8;
+    if checksum_expected > 9 {
+        return false; // Invalid checksum character
+    }
+    
+    let checksum_calculated = calculate_tle_line_checksum(&line[..68]);
+    checksum_expected == checksum_calculated
+}
+
+/// Extract NORAD ID from TLE string, handling both classic and Alpha-5 formats
+/// 
+/// Alpha-5 mapping: A=10, B=11, ..., H=17, J=19, K=20, ..., N=23, P=25, ..., Z=35
+/// (skipping I=18 and O=24 to avoid confusion with 1 and 0)
+/// 
+/// # Arguments
+/// * `id_str` - 5-character NORAD ID string (either numeric or Alpha-5)
+/// 
+/// # Returns
+/// * `Result<u32, BraheError>` - Decoded numeric NORAD ID
+pub fn extract_tle_norad_id(id_str: &str) -> Result<u32, BraheError> {
+    if id_str.len() != 5 {
+        return Err(BraheError::Error(format!(
+            "NORAD ID must be exactly 5 characters, got: '{}'", 
+            id_str
+        )));
+    }
+    
+    let first_char = id_str.chars().next().unwrap();
+    
+    if first_char.is_ascii_digit() {
+        // Classic format - all numeric
+        id_str.parse::<u32>()
+            .map_err(|_| BraheError::Error(format!("Invalid numeric NORAD ID: '{}'", id_str)))
+    } else if first_char.is_ascii_alphabetic() && first_char.is_ascii_uppercase() {
+        // Alpha-5 format - first character is letter
+        decode_alpha5_id(id_str)
+    } else {
+        Err(BraheError::Error(format!(
+            "Invalid NORAD ID format: '{}' (first character must be digit or uppercase letter)", 
+            id_str
+        )))
+    }
+}
+
+/// Internal function to decode Alpha-5 NORAD ID to numeric value
+fn decode_alpha5_id(id_str: &str) -> Result<u32, BraheError> {
+    let first_char = id_str.chars().next().unwrap();
+    let remaining = &id_str[1..];
+    
+    // Validate remaining 4 characters are numeric
+    let remaining_num = remaining.parse::<u32>()
+        .map_err(|_| BraheError::Error(format!(
+            "Invalid Alpha-5 ID: remaining digits '{}' must be numeric", 
+            remaining
+        )))?;
+    
+    // Convert letter to corresponding tens digit
+    // A=10, B=11, ..., H=17, J=18, K=19, ..., N=22, P=23, ..., Z=33
+    // (I and O are skipped)
+    let tens_digit = match first_char {
+        'A' => 10, 'B' => 11, 'C' => 12, 'D' => 13, 'E' => 14, 'F' => 15, 'G' => 16, 'H' => 17,
+        'J' => 18, 'K' => 19, 'L' => 20, 'M' => 21, 'N' => 22,
+        'P' => 23, 'Q' => 24, 'R' => 25, 'S' => 26, 'T' => 27, 'U' => 28, 'V' => 29, 
+        'W' => 30, 'X' => 31, 'Y' => 32, 'Z' => 33,
+        _ => return Err(BraheError::Error(format!(
+            "Invalid Alpha-5 letter: '{}' (I and O are not allowed)", 
+            first_char
+        ))),
+    };
+    
+    // Combine tens digit with remaining 4 digits
+    // For Alpha-5, we map to ranges starting at 100000
+    let numeric_id = (tens_digit - 10) * 10000 + 100000 + remaining_num;
+    
+    Ok(numeric_id)
+}
+
+/// Extract epoch from SGP4 elements as an independent function
+/// 
+/// # Arguments
+/// * `elements` - SGP4 elements structure
+/// 
+/// # Returns
+/// * `Result<Epoch, BraheError>` - Extracted epoch or error
+pub fn extract_epoch(elements: &sgp4::Elements) -> Result<Epoch, BraheError> {
+    // SGP4 elements contain a NaiveDateTime
+    // Convert to Julian Date for Brahe's Epoch using time::conversions
+    let dt = elements.datetime;
+    
+    // Use the time::conversions module for Julian date conversion
+    let jd = crate::time::conversions::datetime_to_jd(
+        dt.year() as u32,
+        dt.month() as u8,
+        dt.day() as u8,
+        dt.hour() as u8,
+        dt.minute() as u8,
+        dt.second() as f64,
+        dt.nanosecond() as f64,
+    );
+    
+    Ok(Epoch::from_jd(jd, crate::time::TimeSystem::UTC))
+}
+
+/// Decode NORAD ID from string, handling Alpha-5 format as an independent function
+/// 
+/// # Arguments
+/// * `id_str` - 5-character NORAD ID string
+/// 
+/// # Returns
+/// * `Result<(u32, TleFormat), BraheError>` - Decoded numeric ID and format type
+fn decode_norad_id(id_str: &str) -> Result<(u32, TleFormat), BraheError> {
+    if id_str.len() != 5 {
+        return Err(BraheError::Error(format!(
+            "NORAD ID must be exactly 5 characters, got: '{}'", 
+            id_str
+        )));
+    }
+    
+    let first_char = id_str.chars().next().unwrap();
+    
+    if first_char.is_ascii_digit() {
+        // Classic format - all numeric
+        let id = extract_tle_norad_id(id_str)?;
+        Ok((id, TleFormat::Classic))
+    } else if first_char.is_ascii_alphabetic() && first_char.is_ascii_uppercase() {
+        // Alpha-5 format - first character is letter
+        let alpha_5_id = extract_tle_norad_id(id_str)?;
+        Ok((alpha_5_id, TleFormat::Alpha5))
+    } else {
+        Err(BraheError::Error(format!(
+            "Invalid NORAD ID format: '{}' (first character must be digit or uppercase letter)", 
+            id_str
+        )))
+    }
+}
+
+/// Convert TLE line to use numeric NORAD ID for SGP4 compatibility as an independent function
+fn convert_to_numeric_line(line: &str, numeric_id: u32) -> Result<String, BraheError> {
+    if line.len() != 69 {
+        return Err(BraheError::Error(format!(
+            "TLE line must be 69 characters, got {}", 
+            line.len()
+        )));
+    }
+    
+    // Replace NORAD ID (positions 2-7, 0-indexed: 2-6) with numeric version
+    let mut modified_line = line.to_string();
+    
+    // For very large IDs, we'll use modulo to fit in 5 digits for SGP4 compatibility
+    let sgp4_id = if numeric_id > 99999 { numeric_id % 100000 } else { numeric_id };
+    let numeric_id_str = format!("{:05}", sgp4_id);
+    
+    modified_line.replace_range(2..7, &numeric_id_str);
+    
+    // Recalculate checksum for the modified line
+    let new_checksum = calculate_tle_line_checksum(&modified_line[..68]);
+    modified_line.replace_range(68..69, &new_checksum.to_string());
+    
+    Ok(modified_line)
+}
+
+/// Convert TLE lines to orbital elements as an independent function
+/// 
+/// # Arguments
+/// * `line1` - First line of TLE data
+/// * `line2` - Second line of TLE data
+/// 
+/// # Returns
+/// * `Result<Vector6<f64>, BraheError>` - Orbital elements [a, e, i, Ω, ω, M] in SI units
+pub fn lines_to_orbit_elements(line1: &str, line2: &str) -> Result<Vector6<f64>, BraheError> {
+    // Validate TLE format first
+    if !validate_tle_lines(line1, line2) {
+        return Err(BraheError::Error("Invalid TLE format".to_string()));
+    }
+    
+    // Extract and decode NORAD ID from line1 (positions 2-7, 0-indexed: 2-6)
+    let norad_id_str = &line1[2..7];
+    let (norad_id, format) = decode_norad_id(norad_id_str)?;
+    
+    // Create modified lines with numeric NORAD ID for SGP4 parsing
+    // Only convert if we actually need to (Alpha-5 format or large numeric IDs)
+    let numeric_line1 = if format == TleFormat::Alpha5 || norad_id > 99999 {
+        convert_to_numeric_line(line1, norad_id)?
+    } else {
+        line1.to_string()
+    };
+    let numeric_line2 = if format == TleFormat::Alpha5 || norad_id > 99999 {
+        convert_to_numeric_line(line2, norad_id)?
+    } else {
+        line2.to_string()
+    };
+    
+    // Parse using sgp4 crate with converted lines
+    let tle_string = format!("{}\n{}", numeric_line1, numeric_line2);
+    let elements = sgp4::parse_2les(&tle_string)
+        .map_err(|e| BraheError::Error(format!("Failed to parse 2-line TLE: {:?}", e)))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| BraheError::Error(format!("No elements parsed from 2-line TLE. Input was: '{}'", tle_string)))?;
+    
+    // Convert to orbital elements vector
+    // Calculate semi-major axis from mean motion using orbits module
+    let n_rad_s = elements.mean_motion * 2.0 * std::f64::consts::PI / 86400.0; // Convert rev/day to rad/s
+    let a = crate::orbits::semimajor_axis(n_rad_s, false); // Use orbits module function
+    
+    let e = elements.eccentricity;
+    let i = elements.inclination.to_radians();
+    let omega_cap = elements.right_ascension.to_radians();
+    let omega = elements.argument_of_perigee.to_radians();
+    let m = elements.mean_anomaly.to_radians();
+    
+    Ok(Vector6::new(a, e, i, omega_cap, omega, m))
+}
+
+/// Convert TLE lines to OrbitState as an independent function
+/// 
+/// # Arguments
+/// * `line1` - First line of TLE data  
+/// * `line2` - Second line of TLE data
+/// 
+/// # Returns
+/// * `Result<OrbitState, BraheError>` - OrbitState representing the mean orbital elements
+pub fn lines_to_orbit_state(line1: &str, line2: &str) -> Result<OrbitState, BraheError> {
+    // Validate TLE format first
+    if !validate_tle_lines(line1, line2) {
+        return Err(BraheError::Error("Invalid TLE format".to_string()));
+    }
+    
+    // Extract and decode NORAD ID from line1 (positions 2-7, 0-indexed: 2-6)
+    let norad_id_str = &line1[2..7];
+    let (norad_id, format) = decode_norad_id(norad_id_str)?;
+    
+    // Create modified lines with numeric NORAD ID for SGP4 parsing
+    // Only convert if we actually need to (Alpha-5 format or large numeric IDs)
+    let numeric_line1 = if format == TleFormat::Alpha5 || norad_id > 99999 {
+        convert_to_numeric_line(line1, norad_id)?
+    } else {
+        line1.to_string()
+    };
+    let numeric_line2 = if format == TleFormat::Alpha5 || norad_id > 99999 {
+        convert_to_numeric_line(line2, norad_id)?
+    } else {
+        line2.to_string()
+    };
+    
+    // Parse using sgp4 crate with converted lines
+    let tle_string = format!("{}\n{}", numeric_line1, numeric_line2);
+    let elements = sgp4::parse_2les(&tle_string)
+        .map_err(|e| BraheError::Error(format!("Failed to parse 2-line TLE: {:?}", e)))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| BraheError::Error(format!("No elements parsed from 2-line TLE. Input was: '{}'", tle_string)))?;
+    
+    // Extract epoch
+    let epoch = extract_epoch(&elements)?;
+    
+    // Get orbital elements
+    let state_vector = lines_to_orbit_elements(line1, line2)?;
+    
+    Ok(OrbitState::new(
+        epoch,
+        state_vector,
+        OrbitFrame::ECI,
+        OrbitStateType::TLEMean,
+        AngleFormat::Radians,
+    ))
+}
+
 /// Structure representing a Two-Line Element set with SGP4 propagation capability
 #[derive(Debug, Clone)]
 pub struct TLE {
@@ -128,21 +517,21 @@ impl TLE {
     /// Internal TLE parsing function
     fn parse_tle(name: Option<&str>, line1: &str, line2: &str) -> Result<Self, BraheError> {
         // Validate TLE format
-        Self::validate_tle_lines(line1, line2)?;
+        validate_tle_lines_with_errors(line1, line2)?;
         
         // Extract and decode NORAD ID from line1 (positions 2-7, 0-indexed: 2-6)
         let norad_id_str = &line1[2..7];
-        let (norad_id, format) = Self::decode_norad_id(norad_id_str)?;
+        let (norad_id, format) = decode_norad_id(norad_id_str)?;
         
         // Create modified lines with numeric NORAD ID for SGP4 parsing
         // Only convert if we actually need to (Alpha-5 format or large numeric IDs)
         let numeric_line1 = if format == TleFormat::Alpha5 || norad_id > 99999 {
-            Self::convert_to_numeric_line(line1, norad_id)?
+            convert_to_numeric_line(line1, norad_id)?
         } else {
             line1.to_string()
         };
         let numeric_line2 = if format == TleFormat::Alpha5 || norad_id > 99999 {
-            Self::convert_to_numeric_line(line2, norad_id)?
+            convert_to_numeric_line(line2, norad_id)?
         } else {
             line2.to_string()
         };
@@ -171,10 +560,10 @@ impl TLE {
             .map_err(|e| BraheError::Error(format!("Failed to create SGP4 constants: {:?}", e)))?;
         
         // Extract epoch from elements
-        let epoch = Self::extract_epoch(&elements)?;
+        let epoch = extract_epoch(&elements)?;
         
-        // Create initial orbital state from TLE mean elements
-        let initial_state = Self::elements_to_orbit_state(&elements, epoch)?;
+        // Create initial orbital state from TLE lines
+        let initial_state = lines_to_orbit_state(line1, line2)?;
         let current_state = initial_state.clone();
         
         // Initialize trajectory with initial state
@@ -196,213 +585,6 @@ impl TLE {
             max_trajectory_size: None,
             eviction_policy: TrajectoryEvictionPolicy::None,
         })
-    }
-    
-    /// Decode NORAD ID from string, handling Alpha-5 format
-    /// 
-    /// # Arguments
-    /// * `id_str` - 5-character NORAD ID string
-    /// 
-    /// # Returns
-    /// * `Result<(u32, TleFormat), BraheError>` - Decoded numeric ID and format type
-    fn decode_norad_id(id_str: &str) -> Result<(u32, TleFormat), BraheError> {
-        if id_str.len() != 5 {
-            return Err(BraheError::Error(format!(
-                "NORAD ID must be exactly 5 characters, got: '{}'", 
-                id_str
-            )));
-        }
-        
-        let first_char = id_str.chars().next().unwrap();
-        
-        if first_char.is_ascii_digit() {
-            // Classic format - all numeric
-            let id = id_str.parse::<u32>()
-                .map_err(|_| BraheError::Error(format!("Invalid numeric NORAD ID: '{}'", id_str)))?;
-            Ok((id, TleFormat::Classic))
-        } else if first_char.is_ascii_alphabetic() && first_char.is_ascii_uppercase() {
-            // Alpha-5 format - first character is letter
-            let alpha_5_id = Self::decode_alpha5_id(id_str)?;
-            Ok((alpha_5_id, TleFormat::Alpha5))
-        } else {
-            Err(BraheError::Error(format!(
-                "Invalid NORAD ID format: '{}' (first character must be digit or uppercase letter)", 
-                id_str
-            )))
-        }
-    }
-    
-    /// Decode Alpha-5 NORAD ID to numeric value
-    /// 
-    /// Alpha-5 mapping: A=10, B=11, ..., H=17, J=19, K=20, ..., N=23, P=25, ..., Z=35
-    /// (skipping I=18 and O=24 to avoid confusion with 1 and 0)
-    fn decode_alpha5_id(id_str: &str) -> Result<u32, BraheError> {
-        let first_char = id_str.chars().next().unwrap();
-        let remaining = &id_str[1..];
-        
-        // Validate remaining 4 characters are numeric
-        let remaining_num = remaining.parse::<u32>()
-            .map_err(|_| BraheError::Error(format!(
-                "Invalid Alpha-5 ID: remaining digits '{}' must be numeric", 
-                remaining
-            )))?;
-        
-        // Convert letter to corresponding tens digit
-        // A=10, B=11, ..., H=17, J=18, K=19, ..., N=22, P=23, ..., Z=33
-        // (I and O are skipped)
-        let tens_digit = match first_char {
-            'A' => 10, 'B' => 11, 'C' => 12, 'D' => 13, 'E' => 14, 'F' => 15, 'G' => 16, 'H' => 17,
-            'J' => 18, 'K' => 19, 'L' => 20, 'M' => 21, 'N' => 22,
-            'P' => 23, 'Q' => 24, 'R' => 25, 'S' => 26, 'T' => 27, 'U' => 28, 'V' => 29, 
-            'W' => 30, 'X' => 31, 'Y' => 32, 'Z' => 33,
-            _ => return Err(BraheError::Error(format!(
-                "Invalid Alpha-5 letter: '{}' (I and O are not allowed)", 
-                first_char
-            ))),
-        };
-        
-        // Combine tens digit with remaining 4 digits
-        // For Alpha-5, we map to ranges starting at 100000
-        let numeric_id = (tens_digit - 10) * 10000 + 100000 + remaining_num;
-        
-        Ok(numeric_id)
-    }
-    
-    /// Convert TLE line to use numeric NORAD ID for SGP4 compatibility
-    fn convert_to_numeric_line(line: &str, numeric_id: u32) -> Result<String, BraheError> {
-        if line.len() != 69 {
-            return Err(BraheError::Error(format!(
-                "TLE line must be 69 characters, got {}", 
-                line.len()
-            )));
-        }
-        
-        // Replace NORAD ID (positions 2-7, 0-indexed: 2-6) with numeric version
-        let mut modified_line = line.to_string();
-        
-        // For very large IDs, we'll use modulo to fit in 5 digits for SGP4 compatibility
-        let sgp4_id = if numeric_id > 99999 { numeric_id % 100000 } else { numeric_id };
-        let numeric_id_str = format!("{:05}", sgp4_id);
-        
-        modified_line.replace_range(2..7, &numeric_id_str);
-        
-        // Recalculate checksum for the modified line
-        let new_checksum = Self::calculate_tle_checksum(&modified_line[..68]);
-        modified_line.replace_range(68..69, &new_checksum.to_string());
-        
-        Ok(modified_line)
-    }
-    
-    /// Calculate TLE line checksum
-    fn calculate_tle_checksum(line: &str) -> u8 {
-        let mut sum = 0;
-        for c in line.chars() {
-            match c {
-                '0'..='9' => sum += c.to_digit(10).unwrap() as u8,
-                '-' => sum += 1,
-                _ => {} // Ignore other characters
-            }
-        }
-        sum % 10
-    }
-    
-    /// Validate TLE line format
-    fn validate_tle_lines(line1: &str, line2: &str) -> Result<(), BraheError> {
-        // Basic length check
-        if line1.len() != 69 {
-            return Err(BraheError::Error(format!(
-                "TLE line 1 must be exactly 69 characters, got {}", 
-                line1.len()
-            )));
-        }
-        
-        if line2.len() != 69 {
-            return Err(BraheError::Error(format!(
-                "TLE line 2 must be exactly 69 characters, got {}", 
-                line2.len()
-            )));
-        }
-        
-        // Check line numbers
-        if !line1.starts_with('1') {
-            return Err(BraheError::Error("TLE line 1 must start with '1'".to_string()));
-        }
-        
-        if !line2.starts_with('2') {
-            return Err(BraheError::Error("TLE line 2 must start with '2'".to_string()));
-        }
-        
-        // Validate NORAD IDs match between lines
-        let id1 = &line1[2..7];
-        let id2 = &line2[2..7];
-        if id1 != id2 {
-            return Err(BraheError::Error(format!(
-                "NORAD IDs don't match: line1='{}', line2='{}'", 
-                id1, id2
-            )));
-        }
-        
-        Ok(())
-    }
-    
-    /// Extract epoch from SGP4 elements
-    fn extract_epoch(elements: &sgp4::Elements) -> Result<Epoch, BraheError> {
-        // SGP4 elements contain a NaiveDateTime
-        // Convert to Julian Date for Brahe's Epoch
-        let dt = elements.datetime;
-        
-        // Convert NaiveDateTime to Julian Date
-        // Julian day number calculation from Gregorian calendar
-        let year = dt.year();
-        let month = dt.month();
-        let day = dt.day();
-        let hour = dt.hour();
-        let minute = dt.minute();
-        let second = dt.second();
-        let nanosecond = dt.nanosecond();
-        
-        // Calculate Julian Day Number
-        let a = (14 - month) / 12;
-        let y = year + 4800 - a as i32;
-        let m = month + 12 * a - 3;
-        
-        let jdn = day as f64 + (153 * m + 2) as f64 / 5.0 + 365.25 * y as f64 - 32045.0;
-        
-        // Convert time of day to fraction
-        let time_fraction = (hour as f64 * 3600.0 + minute as f64 * 60.0 + 
-                           second as f64 + nanosecond as f64 / 1e9) / 86400.0;
-        
-        let jd = jdn + time_fraction - 0.5; // JD starts at noon
-        
-        Ok(Epoch::from_jd(jd, crate::time::TimeSystem::UTC))
-    }
-    
-    /// Convert SGP4 elements to OrbitState
-    fn elements_to_orbit_state(elements: &sgp4::Elements, epoch: Epoch) -> Result<OrbitState, BraheError> {
-        // Create state vector from TLE mean elements
-        // [a, e, i, Ω, ω, M] in SI units (meters and radians)
-        
-        // Calculate semi-major axis from mean motion
-        // a = (μ/n²)^(1/3) where μ = GM_EARTH, n = mean_motion
-        use crate::constants::GM_EARTH;
-        let n = elements.mean_motion * 2.0 * std::f64::consts::PI / 86400.0; // Convert rev/day to rad/s
-        let a = (GM_EARTH / (n * n)).powf(1.0/3.0); // Semi-major axis in meters
-        
-        let e = elements.eccentricity;
-        let i = elements.inclination.to_radians();
-        let omega_cap = elements.right_ascension.to_radians();
-        let omega = elements.argument_of_perigee.to_radians();
-        let m = elements.mean_anomaly.to_radians();
-        
-        let state_vector = Vector6::new(a, e, i, omega_cap, omega, m);
-        
-        Ok(OrbitState::new(
-            epoch,
-            state_vector,
-            OrbitFrame::ECI,
-            OrbitStateType::TLEMean,
-            AngleFormat::Radians,
-        ))
     }
     
     /// Apply eviction policy to manage trajectory memory
@@ -672,20 +854,20 @@ mod tests {
     #[test]
     fn test_alpha5_decoding() {
         // Test Alpha-5 decoding: A0000 should decode to 100000
-        let (decoded_id, format) = TLE::decode_norad_id("A0000").unwrap();
+        let (decoded_id, format) = decode_norad_id("A0000").unwrap();
         assert_eq!(decoded_id, 100000);
         assert_eq!(format, TleFormat::Alpha5);
         
         // Test other Alpha-5 examples
-        let (decoded_id, _) = TLE::decode_norad_id("E8493").unwrap();
+        let (decoded_id, _) = decode_norad_id("E8493").unwrap();
         assert_eq!(decoded_id, 148493);
         
-        let (decoded_id, _) = TLE::decode_norad_id("Z9999").unwrap();
+        let (decoded_id, _) = decode_norad_id("Z9999").unwrap();
         assert_eq!(decoded_id, 339999);
         
         // Test skipped letters (I and O not allowed)
-        assert!(TLE::decode_norad_id("I0000").is_err());
-        assert!(TLE::decode_norad_id("O0000").is_err());
+        assert!(decode_norad_id("I0000").is_err());
+        assert!(decode_norad_id("O0000").is_err());
     }
     
     #[test]
@@ -850,12 +1032,12 @@ Line 3"#;
     fn test_checksum_calculation() {
         // Test TLE checksum calculation
         let line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  999";
-        let checksum = TLE::calculate_tle_checksum(line);
+        let checksum = calculate_tle_line_checksum(line);
         assert_eq!(checksum, 2); // Calculated checksum for this line
         
         // Test line with negative values
         let line_with_neg = "1 25544U 98067A   21001.00000000 -.00001764  00000-0 -40967-4 0  999";
-        let checksum_neg = TLE::calculate_tle_checksum(line_with_neg);
+        let checksum_neg = calculate_tle_line_checksum(line_with_neg);
         assert_eq!(checksum_neg, 4); // Should count minus signs as 1
     }
     
@@ -863,7 +1045,7 @@ Line 3"#;
     fn test_numeric_line_conversion() {
         // Test conversion of Alpha-5 line to numeric for SGP4 compatibility
         let alpha5_line = "1 A0000U 21001A   21001.00000000  .00000000  00000-0  00000-0 0  9991";
-        let numeric_line = TLE::convert_to_numeric_line(alpha5_line, 100000).unwrap();
+        let numeric_line = convert_to_numeric_line(alpha5_line, 100000).unwrap();
         
         // Should replace A0000 with 00000 (100000 mod 100000)
         assert!(numeric_line.contains("00000"));
@@ -873,7 +1055,7 @@ Line 3"#;
         assert_eq!(numeric_line.len(), 69);
         
         // Test with smaller ID that fits in 5 digits
-        let small_line = TLE::convert_to_numeric_line(alpha5_line, 12345).unwrap();
+        let small_line = convert_to_numeric_line(alpha5_line, 12345).unwrap();
         assert!(small_line.contains("12345"));
     }
     
@@ -912,5 +1094,212 @@ Line 3"#;
         
         // Basic sanity check that our epoch system works
         assert_abs_diff_eq!(epoch.jd(), jd_2021_jan_1, epsilon = 1e-10);
+    }
+
+    // Tests for independent functions
+    
+    #[test]
+    fn test_validate_tle_lines() {
+        // Test valid TLE lines
+        let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+        assert!(validate_tle_lines(line1, line2));
+        
+        // Test invalid length
+        let short_line1 = "1 25544U 98067A";
+        assert!(!validate_tle_lines(short_line1, line2));
+        
+        // Test mismatched NORAD IDs
+        let wrong_id_line2 = "2 25545  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+        assert!(!validate_tle_lines(line1, wrong_id_line2));
+        
+        // Test wrong line numbers
+        let wrong_line_num = "3 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+        assert!(!validate_tle_lines(wrong_line_num, line2));
+        
+        // Test invalid checksum
+        let bad_checksum_line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9990";
+        assert!(!validate_tle_lines(bad_checksum_line1, line2));
+    }
+    
+    #[test]
+    fn test_calculate_tle_line_checksum() {
+        // Test checksum calculation
+        let line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  999";
+        let checksum = calculate_tle_line_checksum(line);
+        assert_eq!(checksum, 2);
+        
+        // Test with negative values
+        let line_with_neg = "1 25544U 98067A   21001.00000000 -.00001764  00000-0 -40967-4 0  999";
+        let checksum_neg = calculate_tle_line_checksum(line_with_neg);
+        assert_eq!(checksum_neg, 4);
+        
+        // Test empty line
+        let empty_checksum = calculate_tle_line_checksum("");
+        assert_eq!(empty_checksum, 0);
+    }
+    
+    #[test]
+    fn test_decode_alpha5_id() {
+        // Test basic Alpha-5 decoding using internal function
+        assert_eq!(decode_alpha5_id("A0000").unwrap(), 100000);
+        assert_eq!(decode_alpha5_id("A0001").unwrap(), 100001);
+        assert_eq!(decode_alpha5_id("B0000").unwrap(), 110000);
+        assert_eq!(decode_alpha5_id("E8493").unwrap(), 148493);
+        assert_eq!(decode_alpha5_id("Z9999").unwrap(), 339999);
+        
+        // Test invalid letters
+        assert!(decode_alpha5_id("I0000").is_err());
+        assert!(decode_alpha5_id("O0000").is_err());
+        
+        // Test non-numeric remaining
+        assert!(decode_alpha5_id("AABCD").is_err());
+        
+        // Test wrong length (handled by caller but worth testing)
+        // Note: This function assumes 5 character input from caller
+    }
+    
+    #[test]
+    fn test_extract_tle_norad_id() {
+        // Test classic format (numeric NORAD IDs less than 100000)
+        assert_eq!(extract_tle_norad_id("25544").unwrap(), 25544);
+        assert_eq!(extract_tle_norad_id("00001").unwrap(), 1);
+        assert_eq!(extract_tle_norad_id("12345").unwrap(), 12345);
+        assert_eq!(extract_tle_norad_id("99999").unwrap(), 99999);
+        
+        // Test Alpha-5 format (NORAD IDs >= 100000)
+        assert_eq!(extract_tle_norad_id("A0000").unwrap(), 100000);
+        assert_eq!(extract_tle_norad_id("A0001").unwrap(), 100001);
+        assert_eq!(extract_tle_norad_id("B0000").unwrap(), 110000);
+        assert_eq!(extract_tle_norad_id("E8493").unwrap(), 148493);
+        assert_eq!(extract_tle_norad_id("Z9999").unwrap(), 339999);
+        
+        // Test invalid formats
+        assert!(extract_tle_norad_id("I0000").is_err()); // Invalid letter
+        assert!(extract_tle_norad_id("O0000").is_err()); // Invalid letter  
+        assert!(extract_tle_norad_id("AABCD").is_err()); // Non-numeric after letter
+        assert!(extract_tle_norad_id("1234").is_err()); // Wrong length
+        assert!(extract_tle_norad_id("123456").is_err()); // Wrong length
+    }
+    
+    #[test]
+    fn test_lines_to_orbit_elements() {
+        let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+        
+        let elements = lines_to_orbit_elements(line1, line2).unwrap();
+        
+        // Check that we get 6 elements: [a, e, i, Ω, ω, M]
+        assert_eq!(elements.len(), 6);
+        
+        // Verify semi-major axis is reasonable for ISS (around 6700-6800 km)
+        let a = elements[0];
+        assert!(a > 6_700_000.0 && a < 6_800_000.0); // meters
+        
+        // Verify eccentricity is small for LEO
+        let e = elements[1];
+        assert!(e < 0.01);
+        
+        // Verify inclination is close to expected (51.6461 degrees)
+        let i_rad = elements[2];
+        let i_deg = i_rad.to_degrees();
+        assert_abs_diff_eq!(i_deg, 51.6461, epsilon = 0.1);
+        
+        // Verify RAAN
+        let raan_rad = elements[3];
+        let raan_deg = raan_rad.to_degrees();
+        assert_abs_diff_eq!(raan_deg, 306.0234, epsilon = 0.1);
+        
+        // Verify argument of perigee
+        let argp_rad = elements[4];
+        let argp_deg = argp_rad.to_degrees();
+        assert_abs_diff_eq!(argp_deg, 88.1267, epsilon = 0.1);
+        
+        // Verify mean anomaly
+        let ma_rad = elements[5];
+        let ma_deg = ma_rad.to_degrees();
+        assert_abs_diff_eq!(ma_deg, 25.5695, epsilon = 0.1);
+        
+        // Test with invalid lines
+        let bad_line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9990";
+        assert!(lines_to_orbit_elements(bad_line1, line2).is_err());
+    }
+    
+    #[test]
+    fn test_lines_to_orbit_state() {
+        let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+        
+        let orbit_state = lines_to_orbit_state(line1, line2).unwrap();
+        
+        // Verify state properties
+        assert_eq!(orbit_state.frame, OrbitFrame::ECI);
+        assert_eq!(orbit_state.orbit_type, OrbitStateType::TLEMean);
+        assert_eq!(orbit_state.angle_format, AngleFormat::Radians);
+        
+        // Verify epoch exists
+        let epoch = orbit_state.epoch;
+        assert!(epoch.jd() > 0.0); // Just verify we have a valid epoch
+        
+        // Verify state vector
+        let state = orbit_state.state;
+        assert_eq!(state.len(), 6);
+        
+        // Semi-major axis should be reasonable for ISS
+        let a = state[0];
+        assert!(a > 6_700_000.0 && a < 6_800_000.0);
+        
+        // Verify inclination matches parsed value
+        let i_rad = state[2];
+        let i_deg = i_rad.to_degrees();
+        assert_abs_diff_eq!(i_deg, 51.6461, epsilon = 0.1);
+        
+        // Test with invalid lines
+        let bad_line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000009";
+        assert!(lines_to_orbit_state(line1, bad_line2).is_err());
+    }
+    
+    #[test]
+    fn test_alpha5_tle_lines_to_orbit_elements() {
+        // Test with Alpha-5 TLE (A0000 = 100000)
+        let line1_base = "1 A0000U 21001A   21001.00000000  .00000000  00000-0  00000-0 0  999";
+        let line2_base = "2 A0000  50.0000   0.0000 0001000   0.0000   0.0000 15.5000000000000";
+        
+        // Calculate correct checksums
+        let checksum1 = calculate_tle_line_checksum(line1_base);
+        let checksum2 = calculate_tle_line_checksum(line2_base);
+        
+        let alpha5_line1 = format!("{}{}",line1_base, checksum1);
+        let alpha5_line2 = format!("{}{}",line2_base, checksum2);
+        
+        let elements = lines_to_orbit_elements(&alpha5_line1, &alpha5_line2).unwrap();
+        
+        // Should successfully parse and return valid elements
+        assert_eq!(elements.len(), 6);
+        
+        // Semi-major axis should be reasonable
+        let a = elements[0];
+        assert!(a > 6_000_000.0 && a < 8_000_000.0);
+        
+        // Eccentricity should match
+        let e = elements[1];
+        assert_abs_diff_eq!(e, 0.0001, epsilon = 1e-6);
+        
+        // Inclination should match (50 degrees)
+        let i_rad = elements[2];
+        let i_deg = i_rad.to_degrees();
+        assert_abs_diff_eq!(i_deg, 50.0, epsilon = 0.1);
+        
+        // RAAN should be 0
+        let raan_rad = elements[3];
+        assert_abs_diff_eq!(raan_rad, 0.0, epsilon = 1e-6);
+        
+        // Argument of perigee should be 0
+        let argp_rad = elements[4];
+        assert_abs_diff_eq!(argp_rad, 0.0, epsilon = 1e-6);
+        
+        // Mean anomaly should be 0
+        let ma_rad = elements[5];
+        assert_abs_diff_eq!(ma_rad, 0.0, epsilon = 1e-6);
     }
 }

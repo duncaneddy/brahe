@@ -562,3 +562,157 @@ impl PyTLE {
         self.__repr__()
     }
 }
+
+// Independent TLE utility functions
+
+/// Validate TLE line format
+///
+/// Arguments:
+///     line1 (str): First line of TLE data
+///     line2 (str): Second line of TLE data
+///
+/// Returns:
+///     bool: True if validation passes, False otherwise
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "validate_tle_lines")]
+fn py_validate_tle_lines(line1: String, line2: String) -> bool {
+    crate::orbits::tle::validate_tle_lines(&line1, &line2)
+}
+
+/// Validate single TLE line format
+///
+/// Arguments:
+///     line (str): TLE line to validate
+///     expected_line_number (int): Expected line number (1 or 2)
+///
+/// Returns:
+///     bool: True if validation passes, False otherwise
+#[pyfunction]
+#[pyo3(text_signature = "(line, expected_line_number)")]
+#[pyo3(name = "validate_tle_line")]
+fn py_validate_tle_line(line: String, expected_line_number: u8) -> bool {
+    crate::orbits::tle::validate_tle_line(&line, expected_line_number)
+}
+
+/// Calculate TLE line checksum
+///
+/// Arguments:
+///     line (str): First 68 characters of TLE line (without checksum)
+///
+/// Returns:
+///     int: Calculated checksum digit (0-9)
+#[pyfunction]
+#[pyo3(text_signature = "(line)")]
+#[pyo3(name = "calculate_tle_line_checksum")]
+fn py_calculate_tle_line_checksum(line: String) -> PyResult<u8> {
+    Ok(crate::orbits::tle::calculate_tle_line_checksum(&line))
+}
+
+/// Extract NORAD ID from string, handling both classic and Alpha-5 formats
+///
+/// Arguments:
+///     id_str (str): 5-character NORAD ID string (numeric or Alpha-5)
+///
+/// Returns:
+///     int: Decoded numeric NORAD ID
+///
+/// Raises:
+///     RuntimeError: If decoding fails
+#[pyfunction]
+#[pyo3(text_signature = "(id_str)")]
+#[pyo3(name = "extract_tle_norad_id")]
+fn py_extract_tle_norad_id(id_str: String) -> PyResult<u32> {
+    match crate::orbits::tle::extract_tle_norad_id(&id_str) {
+        Ok(id) => Ok(id),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+    }
+}
+
+/// Extract epoch from SGP4 elements
+///
+/// Arguments:
+///     elements: SGP4 elements structure (internal use)
+///
+/// Returns:
+///     Epoch: Extracted epoch
+///
+/// Note: This function is primarily for internal use
+#[pyfunction]
+#[pyo3(text_signature = "(elements)")]
+#[pyo3(name = "extract_epoch")]
+fn py_extract_epoch(_elements: PyObject) -> PyResult<PyEpoch> {
+    // This function is mainly for internal use and would require
+    // exposing SGP4 elements to Python, which is complex.
+    // For now, we'll make it a placeholder that suggests using TLE.epoch() instead
+    Err(exceptions::PyNotImplementedError::new_err(
+        "Use TLE.epoch property instead for extracting epochs from TLE data"
+    ))
+}
+
+/// Convert TLE lines to orbital elements
+///
+/// Arguments:
+///     line1 (str): First line of TLE data
+///     line2 (str): Second line of TLE data
+///
+/// Returns:
+///     numpy.ndarray: Orbital elements [a, e, i, Ω, ω, M] in SI units (meters, radians)
+///
+/// Raises:
+///     RuntimeError: If parsing fails
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "lines_to_orbit_elements")]
+fn py_lines_to_orbit_elements<'a>(py: Python<'a>, line1: String, line2: String) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+    match crate::orbits::tle::lines_to_orbit_elements(&line1, &line2) {
+        Ok(elements) => {
+            let flat_vec: Vec<f64> = (0..6).map(|i| elements[i]).collect();
+            Ok(flat_vec.into_pyarray(py))
+        },
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+    }
+}
+
+/// Convert TLE lines to OrbitState
+///
+/// Arguments:
+///     line1 (str): First line of TLE data
+///     line2 (str): Second line of TLE data
+///
+/// Returns:
+///     dict: Dictionary containing orbit state information with keys:
+///           - epoch: Epoch object
+///           - elements: numpy array of orbital elements [a, e, i, Ω, ω, M]
+///           - frame: Orbital frame ('ECI')
+///           - orbit_type: Orbit state type ('TLEMean')
+///
+/// Raises:
+///     RuntimeError: If parsing fails
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "lines_to_orbit_state")]
+fn py_lines_to_orbit_state(py: Python, line1: String, line2: String) -> PyResult<PyObject> {
+    match crate::orbits::tle::lines_to_orbit_state(&line1, &line2) {
+        Ok(orbit_state) => {
+            use pyo3::types::PyDict;
+            let dict = PyDict::new(py);
+            
+            // Add epoch
+            let py_epoch = PyEpoch { obj: orbit_state.epoch };
+            dict.set_item("epoch", py_epoch)?;
+            
+            // Add elements as numpy array
+            let elements_vec: Vec<f64> = (0..6).map(|i| orbit_state.state[i]).collect();
+            let elements_array = elements_vec.into_pyarray(py);
+            dict.set_item("elements", elements_array)?;
+            
+            // Add frame and orbit type as strings
+            dict.set_item("frame", "ECI")?;
+            dict.set_item("orbit_type", "TLEMean")?;
+            
+            Ok(dict.into())
+        },
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+    }
+}

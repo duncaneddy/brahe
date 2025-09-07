@@ -5,12 +5,10 @@
 
 pub mod keplerian;
 pub mod keplerian_propagator;
-pub mod propagation;
 pub mod tle;
 pub mod traits;
 
 pub use keplerian::*;
 pub use keplerian_propagator::*;
-pub use propagation::*;
 pub use tle::*;
 pub use traits::*;

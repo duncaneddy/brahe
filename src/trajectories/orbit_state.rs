@@ -40,8 +40,6 @@ pub enum OrbitStateType {
     Cartesian,
     /// Keplerian elements (a, e, i, Ω, ω, M)
     Keplerian,
-    /// TLE mean elements (a, e, i, Ω, ω, M)
-    TLEMean,
 }
 
 /// Structure representing an orbital state
@@ -99,19 +97,23 @@ impl OrbitState {
         frame: OrbitFrame,
         orbit_type: OrbitStateType,
         angle_format: AngleFormat,
-    ) -> OrbitState {
+    ) -> Result<OrbitState, BraheError> {
         if orbit_type == OrbitStateType::Keplerian && angle_format == AngleFormat::None {
-            panic!("Angle format must be specified for Keplerian elements");
+            return Err(BraheError::Error("Angle format must be specified for Keplerian elements".to_string()));
+        }
+        
+        if orbit_type == OrbitStateType::Keplerian && frame == OrbitFrame::ECEF {
+            return Err(BraheError::Error("Keplerian elements cannot be expressed in ECEF frame".to_string()));
         }
 
-        Self {
+        Ok(Self {
             epoch,
             state,
             frame,
             orbit_type,
             angle_format,
             metadata: HashMap::new(),
-        }
+        })
     }
 
     /// Add metadata to the state
@@ -155,22 +157,23 @@ impl OrbitState {
                     false
                 };
                 let cart_state = coordinates::state_osculating_to_cartesian(self.state, as_degrees);
-                Ok(Self::new(
+                Self::new(
                     self.epoch,
                     cart_state,
                     self.frame,
                     OrbitStateType::Cartesian,
                     AngleFormat::None,
-                )) // We know this will succeed because we're converting to Cartesian
+                ) // We know this will succeed because we're converting to Cartesian
             }
-            OrbitStateType::TLEMean => Err(BraheError::Error(
-                "Conversion from TLE mean elements to Cartesian not yet implemented".to_string(),
-            )),
         }
     }
 
     /// Convert to Keplerian elements if not already
     pub fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> {
+        if angle_format == AngleFormat::None {
+            return Err(BraheError::Error("Angle format must be specified when converting to Keplerian elements".to_string()));
+        }
+
         match self.orbit_type {
             OrbitStateType::Keplerian => Ok(self.clone()),
             OrbitStateType::Cartesian => {
@@ -180,17 +183,14 @@ impl OrbitState {
                     false
                 };
                 let kep_state = coordinates::state_cartesian_to_osculating(self.state, as_degrees);
-                Ok(Self::new(
+                Self::new(
                     self.epoch,
                     kep_state,
                     self.frame,
                     OrbitStateType::Keplerian,
                     angle_format,
-                ))
+                )
             }
-            OrbitStateType::TLEMean => Err(BraheError::Error(
-                "Conversion from TLE mean elements to Keplerian not yet implemented".to_string(),
-            )),
         }
     }
 
@@ -284,24 +284,24 @@ impl State for OrbitState {
             (OrbitFrame::ECI, OrbitFrame::ECEF) => {
                 // Convert ECI to ECEF
                 let ecef_state = frames::state_eci_to_ecef(self.epoch, cart_state.state);
-                Ok(OrbitState::new(
+                OrbitState::new(
                     cart_state.epoch,
                     ecef_state,
                     OrbitFrame::ECEF,
                     OrbitStateType::Cartesian,
                     self.angle_format,
-                ))
+                )
             }
             (OrbitFrame::ECEF, OrbitFrame::ECI) => {
                 // Convert ECEF to ECI
                 let eci_state = frames::state_ecef_to_eci(self.epoch, cart_state.state);
-                Ok(OrbitState::new(
+                OrbitState::new(
                     cart_state.epoch,
                     eci_state,
                     OrbitFrame::ECI,
                     OrbitStateType::Cartesian,
                     self.angle_format,
-                ))
+                )
             }
             _ => Err(BraheError::Error(format!(
                 "Unsupported frame transformation: {:?} to {:?}",
@@ -389,13 +389,13 @@ impl State for OrbitState {
         }
 
         // Create a new state with the interpolated elements
-        Ok(OrbitState::new(
+        OrbitState::new(
             epoch.clone(),
             interpolated_state,
             self.frame,
             self.orbit_type,
             self.angle_format,
-        ))
+        )
     }
 }
 
@@ -416,7 +416,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        )
+        ).unwrap()
     }
 
     #[test]
@@ -495,7 +495,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
             AngleFormat::Radians,
-        );
+        ).unwrap();
 
         // By default, it should be in radians
         assert_eq!(kep_state_rad.angle_format, AngleFormat::Radians);
@@ -547,7 +547,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         // Should be None for Cartesian
         assert_eq!(cart_state.angle_format, AngleFormat::None);
@@ -568,7 +568,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         // Test direct indexing
         assert_eq!(cart_state[0], 7000e3);
@@ -585,7 +585,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
             AngleFormat::Degrees,
-        );
+        ).unwrap();
 
         // Test direct indexing
         assert_eq!(kep_state[0], 7000e3); // a
@@ -605,7 +605,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         let _value = state[6]; // This should panic
     }
@@ -619,7 +619,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         // Modify elements using mutable indexing
         cart_state[0] = 8000e3;
@@ -644,7 +644,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
             AngleFormat::Degrees,
-        );
+        ).unwrap();
 
         // Modify elements
         kep_state[0] = 7500e3; // Change semi-major axis

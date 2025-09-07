@@ -84,3 +84,85 @@ trait OrbitalStateInterpolator: OrbitalState {
         self.states().map(|state| state.ecef_state())
     }
 }
+
+/// Trait for analytic orbital propagators that can compute states directly at any epoch
+/// without requiring numerical integration. This trait is designed for propagators like
+/// SGP4/TLE that have closed-form solutions.
+pub trait AnalyticPropagator {
+    /// Returns the state at the given epoch in the propagator's default coordinate frame.
+    /// 
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// 
+    /// # Returns
+    /// A 6-element vector containing position (km) and velocity (km/s) components
+    /// in the propagator's default frame (typically TEME for SGP4).
+    fn state(&self, epoch: Epoch) -> na::Vector6<f64>;
+
+    /// Returns the state at the given epoch in Earth-Centered Inertial (ECI) coordinates.
+    /// 
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// 
+    /// # Returns
+    /// A 6-element vector containing position (km) and velocity (km/s) components
+    /// in the ECI frame.
+    fn state_eci(&self, epoch: Epoch) -> na::Vector6<f64>;
+
+    /// Returns the state at the given epoch in Earth-Centered Earth-Fixed (ECEF) coordinates.
+    /// 
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// 
+    /// # Returns
+    /// A 6-element vector containing position (km) and velocity (km/s) components
+    /// in the ECEF frame.
+    fn state_ecef(&self, epoch: Epoch) -> na::Vector6<f64>;
+
+    /// Returns the state at the given epoch as osculating orbital elements.
+    /// 
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// 
+    /// # Returns
+    /// A 6-element vector containing osculating Keplerian elements:
+    /// [semi-major axis (km), eccentricity, inclination (rad), RAAN (rad), 
+    ///  argument of perigee (rad), true anomaly (rad)]
+    fn state_osculating_elements(&self, epoch: Epoch) -> na::Vector6<f64>;
+
+    /// Returns states at multiple epochs in the propagator's default coordinate frame.
+    /// 
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// 
+    /// # Returns
+    /// Vector of 6-element state vectors in the propagator's default frame
+    fn states(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+
+    /// Returns states at multiple epochs in Earth-Centered Inertial (ECI) coordinates.
+    /// 
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// 
+    /// # Returns
+    /// Vector of 6-element state vectors in the ECI frame
+    fn states_eci(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+
+    /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF) coordinates.
+    /// 
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// 
+    /// # Returns
+    /// Vector of 6-element state vectors in the ECEF frame
+    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+
+    /// Returns states at multiple epochs as osculating orbital elements.
+    /// 
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// 
+    /// # Returns
+    /// Vector of 6-element vectors containing osculating Keplerian elements
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+}

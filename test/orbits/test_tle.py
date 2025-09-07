@@ -451,3 +451,217 @@ def test_alpha5_tle_lines_to_orbit_elements():
     # Mean anomaly should be 0
     ma_rad = elements[5]
     assert abs(ma_rad) < 1e-6
+
+
+# Tests for AnalyticPropagator interface
+
+def test_tle_analytic_propagator_state(iss_tle_object):
+    """Test AnalyticPropagator state method."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    future_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # Test single state computation
+    state = tle.state(future_epoch)
+    
+    # Verify return format
+    assert isinstance(state, np.ndarray)
+    assert state.shape == (6,)
+    
+    # Verify position is reasonable for LEO satellite
+    position_norm = np.linalg.norm(state[:3])
+    altitude_km = (position_norm - 6371000.0) / 1000.0  # Rough altitude
+    assert 200.0 < altitude_km < 800.0  # LEO altitude range
+    
+    # Verify velocity is reasonable for LEO
+    velocity_norm = np.linalg.norm(state[3:])
+    velocity_km_s = velocity_norm / 1000.0
+    assert 6.0 < velocity_km_s < 9.0  # LEO velocity range
+
+
+def test_tle_analytic_propagator_state_eci(iss_tle_object):
+    """Test AnalyticPropagator state_eci method."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    future_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # Test ECI state computation
+    state_eci = tle.state_eci(future_epoch)
+    
+    # Verify return format
+    assert isinstance(state_eci, np.ndarray)
+    assert state_eci.shape == (6,)
+    
+    # Verify position is reasonable for LEO satellite
+    position_norm = np.linalg.norm(state_eci[:3])
+    altitude_km = (position_norm - 6371000.0) / 1000.0
+    assert 200.0 < altitude_km < 800.0
+    
+    # Verify velocity is reasonable for LEO
+    velocity_norm = np.linalg.norm(state_eci[3:])
+    velocity_km_s = velocity_norm / 1000.0
+    assert 6.0 < velocity_km_s < 9.0
+
+
+def test_tle_analytic_propagator_state_ecef(iss_tle_object, eop):
+    """Test AnalyticPropagator state_ecef method."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    future_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # Test ECEF state computation
+    state_ecef = tle.state_ecef(future_epoch)
+    
+    # Verify return format
+    assert isinstance(state_ecef, np.ndarray)
+    assert state_ecef.shape == (6,)
+    
+    # Verify position is reasonable for LEO satellite
+    position_norm = np.linalg.norm(state_ecef[:3])
+    altitude_km = (position_norm - 6371000.0) / 1000.0
+    assert 200.0 < altitude_km < 800.0
+    
+    # Verify velocity is reasonable for LEO
+    velocity_norm = np.linalg.norm(state_ecef[3:])
+    velocity_km_s = velocity_norm / 1000.0
+    assert 6.0 < velocity_km_s < 9.0
+
+
+def test_tle_analytic_propagator_state_osculating_elements(iss_tle_object):
+    """Test AnalyticPropagator state_osculating_elements method."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    future_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # Test osculating elements computation
+    elements = tle.state_osculating_elements(future_epoch)
+    
+    # Verify return format
+    assert isinstance(elements, np.ndarray)
+    assert elements.shape == (6,)
+    
+    # Verify semi-major axis is reasonable for ISS (around 6700-6800 km)
+    a = elements[0]
+    assert 6_000_000.0 < a < 8_000_000.0  # meters
+    
+    # Verify eccentricity [0,1)
+    e = elements[1]
+    assert 0.0 <= e < 1.0
+    
+    # Verify inclination [0,π]
+    i = elements[2]
+    assert 0.0 <= i <= np.pi
+    
+    # Verify RAAN [0,2π]
+    raan = elements[3]
+    assert 0.0 <= raan <= 2 * np.pi
+    
+    # Verify argument of perigee [0,2π]
+    argp = elements[4]
+    assert 0.0 <= argp <= 2 * np.pi
+    
+    # Verify mean anomaly [0,2π]
+    ma = elements[5]
+    assert 0.0 <= ma <= 2 * np.pi
+
+
+def test_tle_analytic_propagator_batch_states(iss_tle_object, eop):
+    """Test AnalyticPropagator batch states methods."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    epochs = [
+        initial_epoch,
+        initial_epoch + 1800.0,  # 30 minutes
+        initial_epoch + 3600.0,  # 1 hour
+    ]
+    
+    # Test batch states computation
+    states = tle.states(epochs)
+    
+    # Verify return format
+    assert isinstance(states, np.ndarray)
+    assert states.shape == (3, 6)
+    
+    # Verify all states are reasonable
+    for i in range(3):
+        state = states[i, :]
+        position_norm = np.linalg.norm(state[:3])
+        altitude_km = (position_norm - 6371000.0) / 1000.0
+        assert 200.0 < altitude_km < 800.0
+        
+        velocity_norm = np.linalg.norm(state[3:])
+        velocity_km_s = velocity_norm / 1000.0
+        assert 6.0 < velocity_km_s < 9.0
+    
+    # Test batch ECI states
+    states_eci = tle.states_eci(epochs)
+    assert states_eci.shape == (3, 6)
+    
+    # Test batch ECEF states
+    states_ecef = tle.states_ecef(epochs)
+    assert states_ecef.shape == (3, 6)
+    
+    # Test batch osculating elements
+    states_elements = tle.states_osculating_elements(epochs)
+    assert states_elements.shape == (3, 6)
+    
+    # Verify all elements are in valid ranges
+    for i in range(3):
+        elements = states_elements[i, :]
+        
+        # Semi-major axis should be positive
+        assert elements[0] > 0
+        
+        # Eccentricity [0,1)
+        assert 0.0 <= elements[1] < 1.0
+        
+        # Inclination [0,π]
+        assert 0.0 <= elements[2] <= np.pi
+
+
+def test_tle_analytic_propagator_consistency(iss_tle_object, eop):
+    """Test consistency between single and batch AnalyticPropagator methods."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    test_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # Single calls
+    state_single = tle.state(test_epoch)
+    state_eci_single = tle.state_eci(test_epoch)
+    state_ecef_single = tle.state_ecef(test_epoch)
+    elements_single = tle.state_osculating_elements(test_epoch)
+    
+    # Batch calls with single epoch
+    states_batch = tle.states([test_epoch])
+    states_eci_batch = tle.states_eci([test_epoch])
+    states_ecef_batch = tle.states_ecef([test_epoch])
+    elements_batch = tle.states_osculating_elements([test_epoch])
+    
+    # Should be identical (within numerical precision)
+    np.testing.assert_allclose(state_single, states_batch[0, :], rtol=1e-12)
+    np.testing.assert_allclose(state_eci_single, states_eci_batch[0, :], rtol=1e-12)
+    np.testing.assert_allclose(state_ecef_single, states_ecef_batch[0, :], rtol=1e-12)
+    np.testing.assert_allclose(elements_single, elements_batch[0, :], rtol=1e-12)
+
+
+def test_tle_analytic_propagator_comparison_with_propagate(iss_tle_object):
+    """Test that AnalyticPropagator state method is consistent with propagate method."""
+    tle = iss_tle_object
+    
+    initial_epoch = tle.epoch
+    test_epoch = initial_epoch + 3600.0  # 1 hour later
+    
+    # AnalyticPropagator method
+    state_analytic = tle.state(test_epoch)
+    
+    # Traditional propagate method
+    state_propagate = tle.propagate(test_epoch)
+    
+    # Should be identical (both return the same state in default frame)
+    np.testing.assert_allclose(state_analytic, state_propagate, rtol=1e-12)

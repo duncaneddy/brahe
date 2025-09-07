@@ -8,8 +8,10 @@
 */
 
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitState, OrbitStateType, Trajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitState, OrbitStateType, Trajectory, TrajectoryEvictionPolicy};
+use crate::utils::BraheError;
 use nalgebra as na;
+use nalgebra::Vector6;
 
 trait OrbitalState {
     /// Returns the time of the orbital state.
@@ -166,4 +168,121 @@ pub trait AnalyticPropagator {
     /// # Returns
     /// Trajectory containing states as osculating Keplerian elements
     fn states_osculating_elements(&self, epochs: &[Epoch]) -> Trajectory<OrbitState>;
+}
+
+/// Core trait for orbit propagators providing unified interface
+pub trait OrbitPropagator {
+    /// Propagate to a specific target epoch
+    /// 
+    /// # Arguments
+    /// * `target_epoch` - The epoch to propagate to
+    /// 
+    /// # Returns
+    /// Reference to the propagated state at target epoch
+    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<&OrbitState, BraheError>;
+    
+    /// Reset propagator to initial conditions
+    fn reset(&mut self) -> Result<(), BraheError>;
+    
+    /// Get current epoch of the propagator
+    fn current_epoch(&self) -> Epoch;
+    
+    /// Get reference to current state
+    fn current_state(&self) -> &OrbitState;
+    
+    /// Get reference to initial state
+    fn initial_state(&self) -> &OrbitState;
+    
+    /// Set initial state and reset propagator
+    fn set_initial_state(&mut self, state: OrbitState) -> Result<(), BraheError>;
+    
+    /// Set initial conditions from components
+    /// 
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `state` - 6-element state vector
+    /// * `frame` - Reference frame
+    /// * `orbit_type` - Type of orbital representation
+    /// * `angle_format` - Format for angular elements
+    fn set_initial_conditions(
+        &mut self, 
+        epoch: Epoch, 
+        state: Vector6<f64>,
+        frame: crate::trajectories::OrbitFrame,
+        orbit_type: crate::trajectories::OrbitStateType,
+        angle_format: crate::trajectories::AngleFormat,
+    ) -> Result<(), BraheError>;
+    
+    /// Get step size in seconds
+    fn step_size(&self) -> f64;
+    
+    /// Set step size in seconds
+    fn set_step_size(&mut self, step_size: f64);
+    
+    /// Step forward by the default step size
+    /// 
+    /// # Returns
+    /// Reference to the updated state after stepping
+    fn step(&mut self) -> Result<&OrbitState, BraheError>;
+    
+    /// Step forward by a specified time duration
+    /// 
+    /// # Arguments
+    /// * `step_size` - Time step in seconds
+    /// 
+    /// # Returns
+    /// Reference to the updated state after stepping
+    fn step_by(&mut self, step_size: f64) -> Result<&OrbitState, BraheError>;
+    
+    /// Step forward by default step size for a specified number of steps
+    /// 
+    /// # Arguments
+    /// * `num_steps` - Number of steps to take
+    /// 
+    /// # Returns
+    /// Vector of states after each step
+    fn propagate_steps(&mut self, num_steps: usize) -> Result<Vec<OrbitState>, BraheError>;
+    
+    /// Step forward by default step size until current epoch is past target epoch
+    /// 
+    /// # Arguments
+    /// * `target_epoch` - The epoch to step past using default step size
+    /// 
+    /// # Returns
+    /// Reference to the final state (which will be past target_epoch)
+    /// 
+    /// # Note
+    /// Unlike `propagate_to()` which propagates to the exact epoch, this method
+    /// steps using the default step size until the target is exceeded.
+    fn step_to(&mut self, target_epoch: Epoch) -> Result<&OrbitState, BraheError>;
+    
+    /// Get reference to accumulated trajectory
+    fn trajectory(&self) -> &Trajectory<OrbitState>;
+    
+    /// Get mutable reference to accumulated trajectory
+    fn trajectory_mut(&mut self) -> &mut Trajectory<OrbitState>;
+    
+    /// Set maximum trajectory size for memory management
+    fn set_max_trajectory_size(&mut self, max_size: Option<usize>);
+    
+    /// Set maximum age of states to keep (in seconds) for time-based eviction
+    fn set_max_trajectory_age(&mut self, max_age: Option<f64>);
+    
+    /// Set eviction policy for trajectory memory management
+    fn set_eviction_policy(&mut self, policy: TrajectoryEvictionPolicy);
+}
+
+/// Trait for orbit interpolators providing trajectory-based state access
+pub trait OrbitInterpolator {
+    /// Get the number of states in the interpolator
+    fn num_states(&self) -> usize;
+    
+    /// Get state at a specific epoch using interpolation
+    fn state_at_epoch(&self, epoch: &Epoch) -> Result<OrbitState, BraheError>;
+    
+    /// Get the time span covered by the interpolator
+    fn time_span(&self) -> Result<(Epoch, Epoch), BraheError>;
+    
+    /// Check if an epoch is within the interpolation range
+    fn contains_epoch(&self, epoch: &Epoch) -> bool;
 }

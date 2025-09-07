@@ -5,6 +5,23 @@ use crate::time::Epoch;
 use crate::trajectories::state::State;
 use crate::utils::BraheError;
 
+/// Enumeration of trajectory eviction policies for memory management
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TrajectoryEvictionPolicy {
+    /// No eviction - trajectory grows unbounded
+    None,
+    /// Keep most recent states, evict oldest when limit reached
+    KeepCount,
+    /// Keep states within a time duration from current epoch
+    KeepWithinDuration,
+}
+
+impl Default for TrajectoryEvictionPolicy {
+    fn default() -> Self {
+        TrajectoryEvictionPolicy::None
+    }
+}
+
 /// Enumeration of interpolation methods for trajectory states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InterpolationMethod {
@@ -44,6 +61,15 @@ pub struct Trajectory<S: State> {
 
     /// Interpolation method to use when retrieving states
     pub interpolation_method: InterpolationMethod,
+
+    /// Maximum number of states to keep in trajectory
+    pub max_size: Option<usize>,
+
+    /// Maximum age of states to keep (in seconds) for time-based eviction
+    pub max_age: Option<f64>,
+
+    /// Eviction policy for trajectory memory management
+    pub eviction_policy: TrajectoryEvictionPolicy,
 }
 
 impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
@@ -53,6 +79,9 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: Vec::new(),
             propagator_type: None,
             interpolation_method,
+            max_size: None,
+            max_age: None,
+            eviction_policy: TrajectoryEvictionPolicy::None,
         }
     }
 
@@ -86,6 +115,9 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             states: sorted_states,
             propagator_type: None,
             interpolation_method,
+            max_size: None,
+            max_age: None,
+            eviction_policy: TrajectoryEvictionPolicy::None,
         })
     }
 
@@ -95,11 +127,27 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         self
     }
 
+    /// Set maximum trajectory size for memory management
+    pub fn set_max_size(&mut self, max_size: Option<usize>) {
+        self.max_size = max_size;
+    }
+
+    /// Set maximum age of states to keep (in seconds) for time-based eviction
+    pub fn set_max_age(&mut self, max_age: Option<f64>) {
+        self.max_age = max_age;
+    }
+
+    /// Set eviction policy for trajectory memory management
+    pub fn set_eviction_policy(&mut self, policy: TrajectoryEvictionPolicy) {
+        self.eviction_policy = policy;
+    }
+
     /// Add a state to the trajectory
     pub fn add_state(&mut self, state: S) -> Result<(), BraheError> {
         // If the trajectory is empty, just add the state
         if self.states.is_empty() {
             self.states.push(state);
+            self.apply_eviction_policy()?;
             return Ok(());
         }
 
@@ -119,12 +167,44 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             } else if state.epoch() == existing.epoch() {
                 // Replace state if epochs are equal
                 self.states[i] = state;
+                self.apply_eviction_policy()?;
                 return Ok(());
             }
         }
 
         // Insert at the correct position
         self.states.insert(insert_idx, state);
+        
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    /// Apply eviction policy to manage trajectory memory
+    fn apply_eviction_policy(&mut self) -> Result<(), BraheError> {
+        match self.eviction_policy {
+            TrajectoryEvictionPolicy::None => {
+                // No eviction
+            },
+            TrajectoryEvictionPolicy::KeepCount => {
+                if let Some(max_size) = self.max_size {
+                    if self.states.len() > max_size {
+                        let to_remove = self.states.len() - max_size;
+                        self.states.drain(0..to_remove);
+                    }
+                }
+            },
+            TrajectoryEvictionPolicy::KeepWithinDuration => {
+                if let Some(max_age) = self.max_age {
+                    if let Some(last_state) = self.states.last() {
+                        let current_epoch = *last_state.epoch();
+                        self.states.retain(|state| {
+                            (current_epoch - *state.epoch()).abs() <= max_age
+                        });
+                    }
+                }
+            },
+        }
         Ok(())
     }
 
@@ -424,10 +504,13 @@ impl<S: State + Serialize> Serialize for Trajectory<S> {
     {
         use serde::ser::SerializeStruct;
 
-        let mut s = serializer.serialize_struct("Trajectory", 3)?;
+        let mut s = serializer.serialize_struct("Trajectory", 5)?;
         s.serialize_field("states", &self.states)?;
         s.serialize_field("propagator_type", &self.propagator_type)?;
         s.serialize_field("interpolation_method", &self.interpolation_method)?;
+        s.serialize_field("max_size", &self.max_size)?;
+        s.serialize_field("max_age", &self.max_age)?;
+        s.serialize_field("eviction_policy", &self.eviction_policy)?;
         s.end()
     }
 }
@@ -443,6 +526,25 @@ impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
             states: Vec<S>,
             propagator_type: Option<PropagatorType>,
             interpolation_method: InterpolationMethod,
+            #[serde(default)]
+            max_size: Option<usize>,
+            #[serde(default)]
+            max_age: Option<f64>,
+            #[serde(default)]
+            eviction_policy: TrajectoryEvictionPolicy,
+        }
+
+        impl<S> Default for TrajectoryHelper<S> {
+            fn default() -> Self {
+                Self {
+                    states: Vec::new(),
+                    propagator_type: None,
+                    interpolation_method: InterpolationMethod::Linear,
+                    max_size: None,
+                    max_age: None,
+                    eviction_policy: TrajectoryEvictionPolicy::None,
+                }
+            }
         }
 
         let helper = TrajectoryHelper::deserialize(deserializer)?;
@@ -451,6 +553,9 @@ impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
             states: helper.states,
             propagator_type: helper.propagator_type,
             interpolation_method: helper.interpolation_method,
+            max_size: helper.max_size,
+            max_age: helper.max_age,
+            eviction_policy: helper.eviction_policy,
         })
     }
 }
@@ -550,7 +655,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        )
+        ).unwrap()
     }
 
     #[test]
@@ -773,7 +878,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         let state1 = OrbitState::new(
             epoch1.clone(),
@@ -781,7 +886,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Cartesian,
             AngleFormat::None,
-        );
+        ).unwrap();
 
         let trajectory =
             Trajectory::from_states(vec![state0, state1], InterpolationMethod::Linear).unwrap();
@@ -853,7 +958,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
             AngleFormat::Radians,
-        );
+        ).unwrap();
 
         let kep_state1 = OrbitState::new(
             epoch1.clone(),
@@ -861,7 +966,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitStateType::Keplerian,
             AngleFormat::Radians,
-        );
+        ).unwrap();
 
         let kep_trajectory =
             Trajectory::from_states(vec![kep_state0, kep_state1], InterpolationMethod::Linear)
@@ -918,14 +1023,14 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Degrees,
-            ),
+            ).unwrap(),
             OrbitState::new(
                 Epoch::from_jd(2451545.1, TimeSystem::UTC),
                 Vector6::new(7000.0, 0.0, 10.0, 20.0, 30.0, 40.0),
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Degrees,
-            ),
+            ).unwrap(),
         ];
 
         let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
@@ -958,7 +1063,7 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Radians,
-            ),
+            ).unwrap(),
             OrbitState::new(
                 Epoch::from_jd(2451545.1, TimeSystem::UTC),
                 Vector6::new(
@@ -972,7 +1077,7 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Radians,
-            ),
+            ).unwrap(),
         ];
 
         let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
@@ -1024,14 +1129,14 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Radians,
-            ),
+            ).unwrap(),
             OrbitState::new(
                 Epoch::from_jd(2451545.1, TimeSystem::UTC),
                 Vector6::new(7000.0, 0.0, 1.0, 2.0, 3.0, 4.0),
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Radians,
-            ),
+            ).unwrap(),
         ];
 
         let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
@@ -1064,7 +1169,7 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Degrees,
-            ),
+            ).unwrap(),
             OrbitState::new(
                 Epoch::from_jd(2451545.1, TimeSystem::UTC),
                 Vector6::new(
@@ -1078,7 +1183,7 @@ mod tests {
                 OrbitFrame::ECI,
                 OrbitStateType::Keplerian,
                 AngleFormat::Degrees,
-            ),
+            ).unwrap(),
         ];
 
         let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();

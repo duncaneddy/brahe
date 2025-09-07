@@ -343,13 +343,15 @@ impl PyTLE {
     /// Arguments:
     ///     line1 (str): First line of TLE data
     ///     line2 (str): Second line of TLE data
+    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     ///
     /// Returns:
     ///     TLE: New TLE instance
     #[classmethod]
-    #[pyo3(text_signature = "(cls, line1, line2)")]
-    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String) -> PyResult<Self> {
-        match crate::TLE::from_lines(&line1, &line2) {
+    #[pyo3(signature = (line1, line2, step_size=60.0))]
+    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
+        let step_size = step_size.unwrap_or(60.0);
+        match crate::TLE::from_tle_string(&format!("{}\n{}", line1, line2), step_size) {
             Ok(tle) => Ok(PyTLE { tle }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
         }
@@ -361,13 +363,15 @@ impl PyTLE {
     ///     name (str): Satellite name (line 0)
     ///     line1 (str): First line of TLE data
     ///     line2 (str): Second line of TLE data
+    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     ///
     /// Returns:
     ///     TLE: New TLE instance
     #[classmethod]
-    #[pyo3(text_signature = "(cls, name, line1, line2)")]
-    pub fn from_3le(_cls: &Bound<'_, PyType>, name: String, line1: String, line2: String) -> PyResult<Self> {
-        match crate::TLE::from_3le(&name, &line1, &line2) {
+    #[pyo3(signature = (name, line1, line2, step_size=60.0))]
+    pub fn from_3le(_cls: &Bound<'_, PyType>, name: String, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
+        let step_size = step_size.unwrap_or(60.0);
+        match crate::TLE::from_tle_string(&format!("{}\n{}\n{}", name, line1, line2), step_size) {
             Ok(tle) => Ok(PyTLE { tle }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
         }
@@ -377,13 +381,15 @@ impl PyTLE {
     ///
     /// Arguments:
     ///     tle_string (str): Raw TLE data as string
+    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     ///
     /// Returns:
     ///     TLE: New TLE instance
     #[classmethod]
-    #[pyo3(text_signature = "(cls, tle_string)")]
-    pub fn from_tle_string(_cls: &Bound<'_, PyType>, tle_string: String) -> PyResult<Self> {
-        match crate::TLE::from_tle_string(&tle_string) {
+    #[pyo3(signature = (tle_string, step_size=60.0))]
+    pub fn from_tle_string(_cls: &Bound<'_, PyType>, tle_string: String, step_size: Option<f64>) -> PyResult<Self> {
+        let step_size = step_size.unwrap_or(60.0);
+        match crate::TLE::from_tle_string(&tle_string, step_size) {
             Ok(tle) => Ok(PyTLE { tle }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
         }
@@ -725,6 +731,87 @@ impl PyTLE {
     fn __str__(&self) -> String {
         self.__repr__()
     }
+
+    /// Reset the TLE to its initial epoch
+    #[pyo3(text_signature = "(self)")]
+    pub fn reset(&mut self) -> PyResult<()> {
+        match self.tle.reset() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Get the current step size in seconds
+    #[pyo3(text_signature = "(self)")]
+    pub fn step_size(&self) -> f64 {
+        self.tle.step_size()
+    }
+
+    /// Set the step size in seconds
+    #[pyo3(text_signature = "(self, step_size)")]
+    pub fn set_step_size(&mut self, step_size: f64) {
+        self.tle.set_step_size(step_size);
+    }
+
+    /// Step forward by the default step size
+    #[pyo3(text_signature = "(self)")]
+    pub fn step<'a>(&mut self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.tle.step() {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward by a specified time duration
+    #[pyo3(text_signature = "(self, step_size)")]
+    pub fn step_by<'a>(&mut self, py: Python<'a>, step_size: f64) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.tle.step_by(step_size) {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward by default step size for a specified number of steps
+    #[pyo3(text_signature = "(self, num_steps)")]
+    pub fn propagate_steps<'a>(&mut self, py: Python<'a>, num_steps: usize) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        match self.tle.propagate_steps(num_steps) {
+            Ok(states) => {
+                let num_states = states.len();
+                let mut data = Vec::with_capacity(num_states * 6);
+                for state in states {
+                    data.extend_from_slice(&[
+                        state.state[0], state.state[1], state.state[2],
+                        state.state[3], state.state[4], state.state[5]
+                    ]);
+                }
+                let array = Array2::from_shape_vec((num_states, 6), data)
+                    .map_err(|e| exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+                Ok(array.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward until current epoch is past target epoch
+    #[pyo3(text_signature = "(self, target_epoch)")]
+    pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.tle.step_to(target_epoch.obj) {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
 }
 
 // Independent TLE utility functions
@@ -843,21 +930,35 @@ fn py_lines_to_orbit_elements<'a>(py: Python<'a>, line1: String, line2: String) 
 /// Arguments:
 ///     line1 (str): First line of TLE data
 ///     line2 (str): Second line of TLE data
+///     frame (str): Reference frame ('ECI' or 'ECEF', default: 'ECI')
+///     orbit_type (str): Orbit type ('Cartesian' or 'Keplerian', default: 'Keplerian')
 ///
 /// Returns:
 ///     dict: Dictionary containing orbit state information with keys:
 ///           - epoch: Epoch object
-///           - elements: numpy array of orbital elements [a, e, i, Ω, ω, M]
-///           - frame: Orbital frame ('ECI')
-///           - orbit_type: Orbit state type ('TLEMean')
+///           - elements: numpy array of orbital elements or state vector
+///           - frame: Orbital frame
+///           - orbit_type: Orbit state type
 ///
 /// Raises:
 ///     RuntimeError: If parsing fails
 #[pyfunction]
-#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(signature = (line1, line2, frame="ECI", orbit_type="Keplerian"))]
 #[pyo3(name = "lines_to_orbit_state")]
-fn py_lines_to_orbit_state(py: Python, line1: String, line2: String) -> PyResult<PyObject> {
-    match crate::orbits::tle::lines_to_orbit_state(&line1, &line2) {
+fn py_lines_to_orbit_state(py: Python, line1: String, line2: String, frame: Option<&str>, orbit_type: Option<&str>) -> PyResult<PyObject> {
+    let frame = match frame.unwrap_or("ECI") {
+        "ECI" => crate::trajectories::OrbitFrame::ECI,
+        "ECEF" => crate::trajectories::OrbitFrame::ECEF,
+        _ => return Err(exceptions::PyValueError::new_err("frame must be 'ECI' or 'ECEF'")),
+    };
+    
+    let orbit_type = match orbit_type.unwrap_or("Keplerian") {
+        "Keplerian" => crate::trajectories::OrbitStateType::Keplerian,
+        "Cartesian" => crate::trajectories::OrbitStateType::Cartesian,
+        _ => return Err(exceptions::PyValueError::new_err("orbit_type must be 'Keplerian' or 'Cartesian'")),
+    };
+    
+    match crate::orbits::tle::lines_to_orbit_state(&line1, &line2, frame, orbit_type) {
         Ok(orbit_state) => {
             use pyo3::types::PyDict;
             let dict = PyDict::new(py);
@@ -872,8 +973,16 @@ fn py_lines_to_orbit_state(py: Python, line1: String, line2: String) -> PyResult
             dict.set_item("elements", elements_array)?;
             
             // Add frame and orbit type as strings
-            dict.set_item("frame", "ECI")?;
-            dict.set_item("orbit_type", "TLEMean")?;
+            let frame_str = match orbit_state.frame {
+                crate::trajectories::OrbitFrame::ECI => "ECI",
+                crate::trajectories::OrbitFrame::ECEF => "ECEF",
+            };
+            let orbit_type_str = match orbit_state.orbit_type {
+                crate::trajectories::OrbitStateType::Keplerian => "Keplerian",
+                crate::trajectories::OrbitStateType::Cartesian => "Cartesian",
+            };
+            dict.set_item("frame", frame_str)?;
+            dict.set_item("orbit_type", orbit_type_str)?;
             
             Ok(dict.into())
         },
@@ -897,16 +1006,18 @@ impl PyKeplerianPropagator {
     ///     elements (numpy.ndarray): Keplerian elements [a, e, i, raan, argp, anomaly] (km, rad)
     ///     frame (str): Reference frame ("ECI" or "ECEF")
     ///     angle_format (str): Angular format ("radians" or "degrees")
+    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     /// 
     /// Returns:
     ///     KeplerianPropagator: New propagator instance
     #[new]
-    #[pyo3(text_signature = "(epoch, elements, frame='ECI', angle_format='radians')")]
+    #[pyo3(text_signature = "(epoch, elements, frame='ECI', angle_format='radians', step_size=60.0)")]
     pub fn new(
         epoch: PyRef<PyEpoch>,
         elements: PyReadonlyArray1<f64>,
         frame: Option<&str>,
         angle_format: Option<&str>,
+        step_size: Option<f64>,
     ) -> PyResult<Self> {
         use crate::trajectories::{AngleFormat, OrbitFrame};
         
@@ -935,11 +1046,14 @@ impl PyKeplerianPropagator {
             )),
         };
         
+        let step_size = step_size.unwrap_or(60.0);
+        
         let propagator = crate::orbits::KeplerianPropagator::new(
             epoch.obj,
             elements_vec,
             frame,
             angle_format,
+            step_size,
         ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         
         Ok(PyKeplerianPropagator { propagator })
@@ -951,15 +1065,17 @@ impl PyKeplerianPropagator {
     ///     epoch (Epoch): Initial epoch
     ///     cartesian_state (numpy.ndarray): Cartesian state [x, y, z, vx, vy, vz] (km, km/s)
     ///     frame (str): Reference frame ("ECI" or "ECEF")
+    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     /// 
     /// Returns:
     ///     KeplerianPropagator: New propagator instance
     #[staticmethod]
-    #[pyo3(text_signature = "(epoch, cartesian_state, frame='ECI')")]
+    #[pyo3(text_signature = "(epoch, cartesian_state, frame='ECI', step_size=60.0)")]
     pub fn from_cartesian(
         epoch: PyRef<PyEpoch>,
         cartesian_state: PyReadonlyArray1<f64>,
         frame: Option<&str>,
+        step_size: Option<f64>,
     ) -> PyResult<Self> {
         use crate::trajectories::OrbitFrame;
         
@@ -980,10 +1096,13 @@ impl PyKeplerianPropagator {
             )),
         };
         
+        let step_size = step_size.unwrap_or(60.0);
+        
         let propagator = crate::orbits::KeplerianPropagator::from_cartesian(
             epoch.obj,
             state_vec,
             frame,
+            step_size,
         ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         
         Ok(PyKeplerianPropagator { propagator })
@@ -1065,6 +1184,87 @@ impl PyKeplerianPropagator {
         }
         
         Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
+    /// Get the current step size in seconds
+    #[pyo3(text_signature = "(self)")]
+    pub fn step_size(&self) -> f64 {
+        self.propagator.step_size()
+    }
+
+    /// Set the step size in seconds
+    #[pyo3(text_signature = "(self, step_size)")]
+    pub fn set_step_size(&mut self, step_size: f64) {
+        self.propagator.set_step_size(step_size);
+    }
+
+    /// Step forward by the default step size
+    #[pyo3(text_signature = "(self)")]
+    pub fn step<'a>(&mut self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.propagator.step() {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward by a specified time duration
+    #[pyo3(text_signature = "(self, step_size)")]
+    pub fn step_by<'a>(&mut self, py: Python<'a>, step_size: f64) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.propagator.step_by(step_size) {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward by default step size for a specified number of steps
+    #[pyo3(text_signature = "(self, num_steps)")]
+    pub fn propagate_steps<'a>(&mut self, py: Python<'a>, num_steps: usize) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        match self.propagator.propagate_steps(num_steps) {
+            Ok(states) => {
+                let num_states = states.len();
+                let mut data = Vec::with_capacity(num_states * 6);
+                for state in states {
+                    data.extend_from_slice(&[
+                        state.state[0], state.state[1], state.state[2],
+                        state.state[3], state.state[4], state.state[5]
+                    ]);
+                }
+                let array = Array2::from_shape_vec((num_states, 6), data)
+                    .map_err(|e| exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+                Ok(array.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Step forward until current epoch is past target epoch
+    #[pyo3(text_signature = "(self, target_epoch)")]
+    pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.propagator.step_to(target_epoch.obj) {
+            Ok(state) => {
+                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                               state.state[3], state.state[4], state.state[5]];
+                Ok(state_vec.to_pyarray(py))
+            },
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
+    }
+
+    /// Reset the propagator to its initial epoch
+    #[pyo3(text_signature = "(self)")]
+    pub fn reset(&mut self) -> PyResult<()> {
+        match self.propagator.reset() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        }
     }
     
     /// String representation

@@ -384,7 +384,7 @@ def test_lines_to_orbit_state():
     
     # Verify state properties
     assert orbit_state["frame"] == "ECI"
-    assert orbit_state["orbit_type"] == "TLEMean"
+    assert orbit_state["orbit_type"] == "Keplerian"
     
     # Verify epoch
     epoch = orbit_state["epoch"]

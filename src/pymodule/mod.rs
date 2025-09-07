@@ -6,8 +6,9 @@
 use std::path::Path;
 
 use nalgebra as na;
+use numpy::ndarray::Array2;
 use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, IntoPyArray};
+use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, IntoPyArray, ToPyArray};
 
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;

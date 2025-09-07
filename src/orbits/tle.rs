@@ -7,14 +7,19 @@
 
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::trajectories::TrajectoryEvictionPolicy;
-use crate::time::Epoch;
+use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::{AngleFormat, InterpolationMethod, OrbitFrame, OrbitState, OrbitStateType, PropagatorType, State, Trajectory};
 use crate::utils::BraheError;
 use crate::coordinates::{state_cartesian_to_osculating};
+use crate::constants::{OMEGA_EARTH, RAD2DEG};
+use crate::frames::{polar_motion, state_ecef_to_eci};
+use crate::orbits::keplerian::semimajor_axis;
+use crate::attitude::RotationMatrix;
 use nalgebra::{Vector3, Vector6};
 use serde::{Deserialize, Serialize};
 use sgp4::chrono::{Datelike, Timelike};
 use std::str::FromStr;
+use std::f64::consts::PI;
 
 /// TLE format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,13 +33,16 @@ pub enum TleFormat {
 /// Calculate TLE line checksum as an independent function
 /// 
 /// # Arguments
-/// * `line` - First 68 characters of TLE line (without checksum)
+/// * `line` - Full TLE line (function automatically uses first 68 characters for checksum)
 /// 
 /// # Returns
 /// * `u8` - Calculated checksum digit
 pub fn calculate_tle_line_checksum(line: &str) -> u8 {
+    // Use only first 68 characters for checksum calculation (excluding the checksum digit)
+    let checksum_chars = if line.len() >= 68 { &line[..68] } else { line };
+    
     let mut sum = 0;
-    for c in line.chars() {
+    for c in checksum_chars.chars() {
         match c {
             '0'..='9' => sum += c.to_digit(10).unwrap() as u8,
             '-' => sum += 1,
@@ -42,6 +50,40 @@ pub fn calculate_tle_line_checksum(line: &str) -> u8 {
         }
     }
     sum % 10
+}
+
+/// Format a number in TLE exponential notation (±ddddd±d)
+/// TLE format: [sign][5-digit mantissa][sign][1-digit exponent] = 8 characters total
+/// Example: -11606-4 means -0.11606e-4
+/// 
+/// # Arguments
+/// * `value` - Number to format in TLE exponential notation
+/// 
+/// # Returns
+/// * `String` - Formatted 8-character string in TLE exponential notation
+fn tle_format_exp(value: f64) -> String {
+    if value == 0.0 {
+        return " 00000-0".to_string();
+    }
+    
+    let sign = if value >= 0.0 { " " } else { "-" };
+    let abs_val = value.abs();
+    
+    // Convert to scientific notation
+    let exponent = abs_val.log10().floor() as i32;
+    let mantissa = abs_val / 10.0f64.powi(exponent);
+    
+    // Scale mantissa to get 5 digits (move decimal point 4 places right)
+    let scaled_mantissa = (mantissa * 10000.0).round() as u32;
+    
+    // Format as 5 digits with leading zeros
+    let mantissa_str = format!("{:05}", scaled_mantissa);
+    
+    // Format exponent (single digit with sign)
+    let exp_sign = if exponent >= 0 { "+" } else { "-" };
+    let exp_abs = exponent.abs();
+    
+    format!("{}{}{}{}", sign, mantissa_str, exp_sign, exp_abs)
 }
 
 /// Validate TLE line format as an independent function
@@ -249,6 +291,35 @@ pub fn extract_epoch(elements: &sgp4::Elements) -> Result<Epoch, BraheError> {
     Ok(Epoch::from_jd(jd, crate::time::TimeSystem::UTC))
 }
 
+/// Compute Greenwich Mean Sidereal Time 1982 Model for TLE transformations
+/// 
+/// This implementation follows the TLE-specific GMST calculation used in SGP4
+/// transformations between TEME and PEF frames, as specified in Revisiting 
+/// Spacetrack Report No 3 by David Vallado.
+/// 
+/// # Arguments
+/// * `epoch` - Epoch for GMST computation
+/// 
+/// # Returns
+/// * `f64` - Greenwich mean sidereal time angle in radians [0, 2π)
+pub fn gmst82_tle(epoch: Epoch) -> f64 {
+    // Compute UT1 time as Julian date
+    let jd_ut1 = epoch.jd_as_time_system(TimeSystem::UT1);
+    
+    // Centuries since J2000.0
+    let t = (jd_ut1 - 2451545.0) / 36525.0;
+    
+    // Apply Formula from AIAA 2006-6753 Appendix C (modified for TLE compatibility)
+    // This matches the implementation in Brandon Rhodes' SGP4 code
+    let g = 67310.54841 + 8640184.812866 * t + 0.093104 * t * t - 6.2e-6 * t * t * t;
+    
+    // Compute GMST as angle
+    let theta = ((jd_ut1 % 1.0) + (g / 86400.0 % 1.0)) * 2.0 * PI;
+    
+    // Normalize to [0, 2π)
+    theta % (2.0 * PI)
+}
+
 /// Decode NORAD ID from string, handling Alpha-5 format as an independent function
 /// 
 /// # Arguments
@@ -429,6 +500,304 @@ pub fn lines_to_orbit_state(line1: &str, line2: &str, frame: OrbitFrame, orbit_t
             frame_converted.to_cartesian()
         }
     }
+}
+
+/// Encode numeric NORAD ID to Alpha-5 format if needed
+/// 
+/// # Arguments
+/// * `norad_id` - Numeric NORAD ID
+/// 
+/// # Returns
+/// * `Result<String, BraheError>` - 5-character NORAD ID string (numeric or Alpha-5)
+fn encode_norad_id_to_string(norad_id: u32) -> Result<String, BraheError> {
+    if norad_id < 100000 {
+        // Classic format - use numeric
+        Ok(format!("{:05}", norad_id))
+    } else if norad_id <= 339999 {
+        // Alpha-5 format needed
+        let base_id = norad_id - 100000;
+        let tens_digit = base_id / 10000;
+        let remaining = base_id % 10000;
+        
+        // Map tens digit to letter (A=0, B=1, ..., Z=23, skipping I and O)
+        let letter = match tens_digit {
+            0..=7 => (b'A' + tens_digit as u8) as char,   // A-H (0-7)
+            8..=13 => (b'J' + (tens_digit - 8) as u8) as char, // J-N (8-13, skip I)
+            14..=22 => (b'P' + (tens_digit - 14) as u8) as char, // P-X (14-22, skip O)
+            23 => 'Z', // Z (23)
+            _ => return Err(BraheError::Error(format!(
+                "Invalid tens digit {} for Alpha-5 encoding", tens_digit
+            ))),
+        };
+        
+        Ok(format!("{}{:04}", letter, remaining))
+    } else {
+        Err(BraheError::Error(format!(
+            "NORAD ID {} exceeds maximum Alpha-5 range (339999). Cannot encode in TLE format.",
+            norad_id
+        )))
+    }
+}
+
+/// Create TLE lines from orbital elements
+/// 
+/// # Arguments
+/// * `epoch` - Epoch of the TLE
+/// * `elements` - Orbital elements [n, e, i, raan, argp, anomaly]
+///   where n is mean motion (rev/day), angles in specified units
+/// * `norad_id` - NORAD catalog ID (supports Alpha-5 encoding for IDs >= 100000)
+/// * `designation` - International designator
+/// * `element_num` - Element set number
+/// * `orbit_num` - Revolution number at epoch
+/// * `as_degrees` - If true, angular elements are in degrees; if false, in radians
+/// * `ndt2` - Optional first derivative of mean motion divided by 2
+/// * `nddt6` - Optional second derivative of mean motion divided by 6
+/// * `bstar` - Optional B-star drag term
+/// 
+/// # Returns
+/// * `Result<(String, String), BraheError>` - TLE line1 and line2
+pub fn tle_lines_from_elements(
+    epoch: Epoch, 
+    elements: &[f64],  // [n, e, i, raan, argp, anomaly]
+    norad_id: u32,
+    designation: &str,
+    element_num: u32,
+    orbit_num: u32,
+    as_degrees: bool,
+    ndt2: Option<f64>,
+    nddt6: Option<f64>,
+    bstar: Option<f64>
+) -> Result<(String, String), BraheError> {
+    if elements.len() < 6 {
+        return Err(BraheError::Error("Elements array must have at least 6 elements".to_string()));
+    }
+    
+    // Extract elements
+    let n = elements[0];        // Mean motion (rev/day)
+    let e = elements[1];        // Eccentricity
+    let i_raw = elements[2];    // Inclination 
+    let raan_raw = elements[3]; // Right ascension
+    let argp_raw = elements[4]; // Argument of perigee
+    let anomaly_raw = elements[5]; // Mean anomaly
+    
+    // Convert angles to degrees if needed (TLE format uses degrees)
+    let i = if as_degrees { i_raw } else { i_raw * RAD2DEG };
+    let raan = if as_degrees { raan_raw } else { raan_raw * RAD2DEG };
+    let argp = if as_degrees { argp_raw } else { argp_raw * RAD2DEG };
+    let anomaly = if as_degrees { anomaly_raw } else { anomaly_raw * RAD2DEG };
+    
+    // Use provided drag terms or defaults
+    let ndt2 = ndt2.unwrap_or(0.0);
+    let nddt6 = nddt6.unwrap_or(0.0);
+    let bstar = bstar.unwrap_or(0.0);
+    
+    // Format epoch for TLE
+    let dt = epoch.to_datetime_as_time_system(TimeSystem::UTC);
+    let year = dt.0 % 100; // Year % 100 for 2-digit year
+    
+    // Calculate day of year manually from month/day
+    let days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut leap_year_extra = 0;
+    if (dt.0 % 4 == 0 && dt.0 % 100 != 0) || dt.0 % 400 == 0 {
+        leap_year_extra = 1; // Leap year
+    }
+    
+    let mut day_of_year = dt.2 as i32; // Start with current day
+    for month_idx in 0..(dt.1 as usize - 1) {
+        day_of_year += days_in_month[month_idx];
+        if month_idx == 1 { // February
+            day_of_year += leap_year_extra;
+        }
+    }
+    
+    let doy = day_of_year as f64 + dt.3 as f64 / 24.0 + dt.4 as f64 / 1440.0 + dt.5 / 86400.0; // Day of year + fractional day
+    
+    // Encode NORAD ID (with Alpha-5 support)
+    let norad_id_str = encode_norad_id_to_string(norad_id)?;
+    
+    // Format drag terms in TLE exponential notation - matching Python format
+    let ndt2_sign = if ndt2 < 0.0 { "-" } else { " " };
+    let ndt2_formatted = format!("{:9.8}", ndt2.abs()).trim_start_matches('0').to_string();
+    let ndt2_str = format!("{}{}", ndt2_sign, ndt2_formatted);
+    
+    let nddt6_str = if nddt6 == 0.0 {
+        " 00000-0".to_string()
+    } else {
+        tle_format_exp(nddt6)
+    };
+    
+    let bstar_str = if bstar == 0.0 {
+        " 00000-0".to_string()
+    } else {
+        tle_format_exp(bstar)
+    };
+    
+    // Build line 1 (without checksum) - matching Python format exactly
+    let line1_base = format!(
+        "1 {}U {:8} {:02}{:12.8} {} {:8} {:8} 0 {:4}",
+        norad_id_str, designation, year, doy, ndt2_str, nddt6_str, bstar_str, element_num
+    );
+    
+    // Build line 2 (without checksum) - matching Python format exactly
+    let ecc_str = format!("{:9.7}", e).trim_start_matches("0").trim_start_matches(".").to_string();
+    let line2_base = format!(
+        "2 {} {:8.4} {:8.4} {:7} {:8.4} {:8.4} {:11.8}{:5}",
+        norad_id_str, i, raan, ecc_str, argp, anomaly, n, orbit_num
+    );
+    
+    // Calculate and append checksums
+    let line1_checksum = calculate_tle_line_checksum(&line1_base);
+    let line2_checksum = calculate_tle_line_checksum(&line2_base);
+    
+    let line1_final = format!("{}{}", line1_base, line1_checksum);
+    let line2_final = format!("{}{}", line2_base, line2_checksum);
+    
+    Ok((line1_final, line2_final))
+}
+
+/// Create TLE lines from orbit state
+/// 
+/// # Arguments
+/// * `orbit_state` - Orbit state in any frame/representation
+/// * `norad_id` - NORAD catalog ID (supports Alpha-5 encoding)
+/// * `designation` - International designator
+/// * `element_num` - Element set number
+/// * `orbit_num` - Revolution number at epoch
+/// * `ndt2` - Optional first derivative of mean motion divided by 2
+/// * `nddt6` - Optional second derivative of mean motion divided by 6
+/// * `bstar` - Optional B-star drag term
+/// 
+/// # Returns
+/// * `Result<(String, String), BraheError>` - TLE line1 and line2
+pub fn tle_lines_from_orbit_state(
+    orbit_state: &OrbitState,
+    norad_id: u32,
+    designation: &str,
+    element_num: u32,
+    orbit_num: u32,
+    ndt2: Option<f64>,
+    nddt6: Option<f64>,
+    bstar: Option<f64>
+) -> Result<(String, String), BraheError> {
+    // Convert to ECI Cartesian state
+    let eci_cartesian = orbit_state.to_frame(&OrbitFrame::ECI)?.to_cartesian()?;
+    
+    // Convert to Keplerian elements
+    let kep_elements = state_cartesian_to_osculating(eci_cartesian.state, false);
+    
+    // Convert to TLE format: [n, e, i, raan, argp, anomaly] (angles in radians from conversion)
+    let a = kep_elements[0];
+    let e = kep_elements[1];
+    let i = kep_elements[2];    // Already in radians
+    let raan = kep_elements[3]; // Already in radians
+    let argp = kep_elements[4]; // Already in radians
+    let anomaly = kep_elements[5]; // Already in radians
+    
+    // Calculate mean motion from semi-major axis
+    let n = crate::orbits::mean_motion(a, false) / (2.0 * PI) * 86400.0; // Convert to rev/day
+    
+    let elements = [n, e, i, raan, argp, anomaly];
+    
+    tle_lines_from_elements(
+        orbit_state.epoch,
+        &elements,
+        norad_id,
+        designation,
+        element_num,
+        orbit_num,
+        false, // angles are in radians from state_cartesian_to_osculating
+        ndt2,
+        nddt6,
+        bstar
+    )
+}
+
+/// Create TLE from orbital elements
+/// 
+/// # Arguments
+/// * `epoch` - Epoch of the TLE
+/// * `elements` - Orbital elements [n, e, i, raan, argp, anomaly]
+/// * `norad_id` - NORAD catalog ID (supports Alpha-5 encoding)
+/// * `designation` - International designator
+/// * `element_num` - Element set number
+/// * `orbit_num` - Revolution number at epoch
+/// * `as_degrees` - If true, angular elements are in degrees; if false, in radians
+/// * `ndt2` - Optional first derivative of mean motion divided by 2
+/// * `nddt6` - Optional second derivative of mean motion divided by 6
+/// * `bstar` - Optional B-star drag term
+/// 
+/// # Returns
+/// * `Result<TLE, BraheError>` - Created TLE
+pub fn tle_from_elements(
+    epoch: Epoch, 
+    elements: &[f64],
+    norad_id: u32,
+    designation: &str,
+    element_num: u32,
+    orbit_num: u32,
+    as_degrees: bool,
+    ndt2: Option<f64>,
+    nddt6: Option<f64>,
+    bstar: Option<f64>
+) -> Result<TLE, BraheError> {
+    let (line1, line2) = tle_lines_from_elements(
+        epoch, elements, norad_id, designation, element_num, orbit_num, as_degrees, ndt2, nddt6, bstar
+    )?;
+    TLE::from_lines(&line1, &line2)
+}
+
+/// Create TLE from ECEF state vector
+/// 
+/// # Arguments
+/// * `epoch` - Epoch of the state
+/// * `ecef_state` - ECEF state vector [x, y, z, vx, vy, vz] in meters and m/s
+/// 
+/// # Returns
+/// * `Result<TLE, BraheError>` - Created TLE
+pub fn tle_from_ecef(epoch: Epoch, ecef_state: Vector6<f64>) -> Result<TLE, BraheError> {
+    // Convert ECEF to ECI
+    let eci_state = state_ecef_to_eci(epoch, ecef_state);
+    tle_from_eci(epoch, eci_state)
+}
+
+/// Create TLE from ECI state vector  
+/// 
+/// # Arguments
+/// * `epoch` - Epoch of the state
+/// * `eci_state` - ECI state vector [x, y, z, vx, vy, vz] in meters and m/s
+/// 
+/// # Returns  
+/// * `Result<TLE, BraheError>` - Created TLE
+pub fn tle_from_eci(epoch: Epoch, eci_state: Vector6<f64>) -> Result<TLE, BraheError> {
+    // Convert Cartesian to Keplerian elements
+    let kep_elements = state_cartesian_to_osculating(eci_state, false);
+    
+    // Convert to TLE format: [n, e, i, raan, argp, anomaly] (angles in radians from conversion)
+    let a = kep_elements[0];
+    let e = kep_elements[1];
+    let i = kep_elements[2];    // In radians
+    let raan = kep_elements[3]; // In radians
+    let argp = kep_elements[4]; // In radians
+    let anomaly = kep_elements[5]; // In radians
+    
+    // Calculate mean motion from semi-major axis
+    let n = crate::orbits::mean_motion(a, false) / (2.0 * PI) * 86400.0; // Convert to rev/day
+    
+    let elements = [n, e, i, raan, argp, anomaly];
+    
+    // Use default values for missing parameters
+    tle_from_elements(
+        epoch, 
+        &elements, 
+        99800, // Default NORAD ID
+        "        ", // Empty designation
+        0, // Element number
+        0, // Orbit number
+        false, // angles are in radians
+        None, // ndt2
+        None, // nddt6
+        None  // bstar
+    )
 }
 
 /// Structure representing a Two-Line Element set with SGP4 propagation capability
@@ -638,24 +1007,62 @@ impl TLE {
         self.elements.eccentricity
     }
     
-    /// Get inclination in radians
+    /// Get inclination in degrees
     pub fn inclination(&self) -> f64 {
-        self.elements.inclination.to_radians()
+        self.elements.inclination
     }
     
-    /// Get right ascension of ascending node in radians  
+    /// Get right ascension of ascending node in degrees  
     pub fn raan(&self) -> f64 {
-        self.elements.right_ascension.to_radians()
+        self.elements.right_ascension
     }
     
-    /// Get argument of perigee in radians
+    /// Get right ascension of ascending node (RAAN) in degrees (alias for compatibility)
+    pub fn right_ascension(&self) -> f64 {
+        self.elements.right_ascension
+    }
+    
+    /// Get argument of perigee in degrees
     pub fn argument_of_perigee(&self) -> f64 {
-        self.elements.argument_of_perigee.to_radians()
+        self.elements.argument_of_perigee
     }
     
-    /// Get mean anomaly in radians
+    /// Get B-star drag coefficient
+    pub fn bstar(&self) -> f64 {
+        self.elements.drag_term
+    }
+    
+    /// Get first derivative of mean motion (n_dot/2) in revolutions per day squared
+    pub fn first_derivative_mean_motion(&self) -> f64 {
+        self.elements.mean_motion_dot
+    }
+    
+    /// Get second derivative of mean motion (n_ddot/6) in revolutions per day cubed  
+    pub fn second_derivative_mean_motion(&self) -> f64 {
+        self.elements.mean_motion_ddot
+    }
+    
+    /// Get orbital elements as a vector [a, e, i, raan, argp, mean_anomaly]
+    /// Returns elements in meters and degrees
+    pub fn orbital_elements(&self) -> Result<Vector6<f64>, BraheError> {
+        // Convert mean motion (rev/day) to semi-major axis (meters)
+        // Mean motion is in rev/day, convert to rad/s for semimajor_axis function
+        let n_rad_per_sec = self.elements.mean_motion * 2.0 * PI / 86400.0;
+        let a = semimajor_axis(n_rad_per_sec, false);
+        
+        Ok(Vector6::new(
+            a,                                           // semi-major axis (m)
+            self.elements.eccentricity,                  // eccentricity
+            self.elements.inclination,                   // inclination (deg)
+            self.elements.right_ascension,               // RAAN (deg)
+            self.elements.argument_of_perigee,           // argument of perigee (deg)
+            self.elements.mean_anomaly                   // mean anomaly (deg)
+        ))
+    }
+    
+    /// Get mean anomaly in degrees
     pub fn mean_anomaly(&self) -> f64 {
-        self.elements.mean_anomaly.to_radians()
+        self.elements.mean_anomaly
     }
     
     /// Check if TLE uses Alpha-5 format
@@ -699,6 +1106,97 @@ impl TLE {
             OrbitStateType::Cartesian,
             AngleFormat::None,
         )
+    }
+
+    /// Get satellite state in TEME (True Equator Mean Equinox) frame
+    /// 
+    /// This is the raw output from SGP4 propagation without any frame transformations.
+    /// TEME is the native reference frame for TLE propagation.
+    /// 
+    /// # Arguments
+    /// * `epoch` - Time for state computation
+    /// 
+    /// # Returns
+    /// * `Result<Vector6<f64>, BraheError>` - Cartesian state in TEME frame [m; m/s]
+    pub fn state_teme(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Calculate minutes since TLE epoch
+        let time_diff = epoch - self.epoch();
+        let minutes_since_epoch = time_diff / 60.0;
+        
+        // Use SGP4 to propagate
+        let prediction = self.constants.propagate(sgp4::MinutesSinceEpoch(minutes_since_epoch))
+            .map_err(|e| BraheError::Error(format!("SGP4 propagation failed: {:?}", e)))?;
+        
+        // Convert SGP4 output to Vector6 (km to m, km/s to m/s)
+        Ok(Vector6::new(
+            prediction.position[0] * 1000.0,
+            prediction.position[1] * 1000.0,
+            prediction.position[2] * 1000.0,
+            prediction.velocity[0] * 1000.0,
+            prediction.velocity[1] * 1000.0,
+            prediction.velocity[2] * 1000.0,
+        ))
+    }
+    
+    /// Get satellite state in PEF (Pseudo-Earth-Fixed) frame
+    /// 
+    /// Transforms from TEME to PEF frame using GMST82 rotation. This accounts
+    /// for Earth's rotation but not polar motion.
+    /// 
+    /// # Arguments
+    /// * `epoch` - Time for state computation
+    /// 
+    /// # Returns
+    /// * `Result<Vector6<f64>, BraheError>` - Cartesian state in PEF frame [m; m/s]
+    pub fn state_pef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in TEME frame
+        let x_teme = self.state_teme(epoch)?;
+        
+        let r_teme = x_teme.fixed_rows::<3>(0).into_owned();
+        let v_teme = x_teme.fixed_rows::<3>(3).into_owned();
+        
+        // Compute TEME -> PEF transformation using GMST82
+        let theta = gmst82_tle(epoch);
+        let r_matrix = RotationMatrix::Rz(theta, false).to_matrix(); // angle in radians
+        let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH);
+        
+        // Transform position and velocity
+        let r_pef = r_matrix * r_teme;
+        let v_pef = r_matrix * v_teme - omega_earth.cross(&r_pef);
+        
+        Ok(Vector6::new(
+            r_pef[0], r_pef[1], r_pef[2],
+            v_pef[0], v_pef[1], v_pef[2]
+        ))
+    }
+    
+    /// Get satellite state in ITRF (International Terrestrial Reference Frame)
+    /// 
+    /// Transforms from PEF to ITRF frame using polar motion corrections.
+    /// This provides the most accurate Earth-fixed coordinates.
+    /// 
+    /// # Arguments
+    /// * `epoch` - Time for state computation
+    /// 
+    /// # Returns
+    /// * `Result<Vector6<f64>, BraheError>` - Cartesian state in ITRF frame [m; m/s]
+    pub fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in PEF frame
+        let x_pef = self.state_pef(epoch)?;
+        
+        let r_pef = x_pef.fixed_rows::<3>(0).into_owned();
+        let v_pef = x_pef.fixed_rows::<3>(3).into_owned();
+        
+        // Apply polar motion transformation
+        let pm = polar_motion(epoch);
+        
+        let r_itrf = pm * r_pef;
+        let v_itrf = pm * v_pef;
+        
+        Ok(Vector6::new(
+            r_itrf[0], r_itrf[1], r_itrf[2],
+            v_itrf[0], v_itrf[1], v_itrf[2]
+        ))
     }
 }
 
@@ -847,12 +1345,16 @@ impl FromStr for TLE {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
-    use crate::utils::testing::setup_global_test_eop;
+    use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use approx::assert_abs_diff_eq;
     
     // Example TLE for ISS (International Space Station) - Classic format
     const ISS_CLASSIC_TLE: &str = r#"1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992
 2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"#;
+
+    // ISS TLE from Python original reference tests - for exact validation
+    const ISS_TLE_LINE1: &str = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    const ISS_TLE_LINE2: &str = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
     
     // Example 3-line TLE with satellite name  
     const ISS_3LE: &str = r#"ISS (ZARYA)
@@ -935,14 +1437,14 @@ Line 3"#;
         
         // Test basic orbital elements access
         assert!(tle.eccentricity() < 0.01); // Low Earth orbit should have low eccentricity
-        assert_abs_diff_eq!(tle.inclination().to_degrees(), 51.6461, epsilon = 0.1);
+        assert_abs_diff_eq!(tle.inclination(), 51.6461, epsilon = 0.1);
         assert!(tle.mean_motion() > 15.0); // ISS orbits about 15.5 times per day
         assert_abs_diff_eq!(tle.mean_motion(), 15.48919103, epsilon = 0.1);
         
         // Test argument of perigee and RAAN
-        assert_abs_diff_eq!(tle.argument_of_perigee().to_degrees(), 88.1267, epsilon = 0.1);
-        assert_abs_diff_eq!(tle.raan().to_degrees(), 306.0234, epsilon = 0.1);
-        assert_abs_diff_eq!(tle.mean_anomaly().to_degrees(), 25.5695, epsilon = 0.1);
+        assert_abs_diff_eq!(tle.argument_of_perigee(), 88.1267, epsilon = 0.1);
+        assert_abs_diff_eq!(tle.raan(), 306.0234, epsilon = 0.1);
+        assert_abs_diff_eq!(tle.mean_anomaly(), 25.5695, epsilon = 0.1);
     }
     
     #[test]
@@ -1347,6 +1849,8 @@ Line 3"#;
 
     #[test]
     fn test_analytic_propagator_state_eci() {
+        setup_global_test_eop();
+        
         let tle = TLE::from_tle_string(ISS_CLASSIC_TLE, 60.0).unwrap();
         let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         
@@ -1428,6 +1932,234 @@ Line 3"#;
         assert_abs_diff_eq!(state_single[4], states_batch[0][4], epsilon = 1e-12);
         assert_abs_diff_eq!(state_single[5], states_batch[0][5], epsilon = 1e-12);
     }
+
+    // ========== Python Reference Tests ==========
+    // These tests match the exact Python reference implementation
+
+    #[test]
+    fn test_tle_checksum_reference() {
+        // Test TLE checksum calculation matches Python reference
+        let checksum1 = calculate_tle_line_checksum(ISS_TLE_LINE1);
+        assert_eq!(checksum1, 7);
+
+        let checksum2 = calculate_tle_line_checksum(ISS_TLE_LINE2);
+        assert_eq!(checksum2, 7);
+    }
+
+    #[test]
+    fn test_validate_tle_reference() {
+        // Test TLE validation matches Python reference
+        let invalid_tle_line = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2926";
+        assert!(!validate_tle_lines(invalid_tle_line, ISS_TLE_LINE2));
+
+        assert!(validate_tle_lines(ISS_TLE_LINE1, ISS_TLE_LINE2));
+    }
+
+    #[test]
+    fn test_tle_elements_reference() {
+        setup_global_test_eop();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+
+        // Test individual TLE elements match Python reference
+        assert_abs_diff_eq!(tle.mean_motion(), 15.72125391, epsilon = 1e-8);
+        assert_abs_diff_eq!(tle.eccentricity(), 0.0006703, epsilon = 1e-7);
+        assert_abs_diff_eq!(tle.inclination(), 51.6416, epsilon = 1e-4);
+        assert_abs_diff_eq!(tle.right_ascension(), 247.4627, epsilon = 1e-4);
+        assert_abs_diff_eq!(tle.argument_of_perigee(), 130.536, epsilon = 1e-3);
+        assert_abs_diff_eq!(tle.mean_anomaly(), 325.0288, epsilon = 1e-4);
+        
+        // Test drag terms  
+        assert_abs_diff_eq!(tle.first_derivative_mean_motion(), -2.182e-05, epsilon = 1e-8);
+        assert_abs_diff_eq!(tle.second_derivative_mean_motion(), 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(tle.bstar(), -1.1606e-05, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_tle_elements_computed() {
+        setup_global_test_eop();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+
+        // Test computed orbital elements (semi-major axis from mean motion)
+        let elements = tle.orbital_elements().unwrap();
+        
+        assert_eq!(elements.len(), 6);
+        assert_abs_diff_eq!(elements[0], 6730960.675248184, epsilon = 1.0); // Semi-major axis in meters
+        assert_abs_diff_eq!(elements[1], 0.0006703, epsilon = 1e-7);
+        assert_abs_diff_eq!(elements[2], 51.6416, epsilon = 1e-4);
+        assert_abs_diff_eq!(elements[3], 247.4627, epsilon = 1e-4);
+        assert_abs_diff_eq!(elements[4], 130.536, epsilon = 1e-3);
+        assert_abs_diff_eq!(elements[5], 325.0288, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_tle_state_teme_reference() {
+        setup_global_test_eop_original_brahe();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+        
+        let state = tle.state_teme(tle.epoch()).unwrap();
+        
+        // Test TEME state matches Python reference exactly
+        assert_eq!(state.len(), 6);
+        assert_abs_diff_eq!(state[0], 4083909.8260273533, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], -993636.8325621719, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[2], 5243614.536966579, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[3], 2512.831950943635, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[4], 7259.8698423432315, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[5], -583.775727402632, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_tle_state_pef_reference() {
+        setup_global_test_eop_original_brahe();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+        
+        let state = tle.state_pef(tle.epoch()).unwrap();
+        
+        // Test PEF state matches Python reference (relax tolerance for small EOP differences)
+        assert_eq!(state.len(), 6);
+        assert_abs_diff_eq!(state[0], -3953205.7105210484, epsilon = 1.0);
+        assert_abs_diff_eq!(state[1], 1427514.704810681, epsilon = 1.0);
+        assert_abs_diff_eq!(state[2], 5243614.536966579, epsilon = 1.0);
+        assert_abs_diff_eq!(state[3], -3175.692140186211, epsilon = 1.0);
+        assert_abs_diff_eq!(state[4], -6658.887120918979, epsilon = 1.0);
+        assert_abs_diff_eq!(state[5], -583.775727402632, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_tle_state_itrf_reference() {
+        setup_global_test_eop_original_brahe();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+        
+        let state = tle.state_itrf(tle.epoch()).unwrap();
+        
+        // Test ITRF state matches Python reference (relax tolerance for small EOP differences)
+        assert_eq!(state.len(), 6);
+        assert_abs_diff_eq!(state[0], -3953198.4858592334, epsilon = 1.0);
+        assert_abs_diff_eq!(state[1], 1427508.2304882656, epsilon = 1.0);
+        assert_abs_diff_eq!(state[2], 5243621.746247788, epsilon = 1.0);
+        assert_abs_diff_eq!(state[3], -3175.6929443809036, epsilon = 1.0);
+        assert_abs_diff_eq!(state[4], -6658.8864002006185, epsilon = 1.0);
+        assert_abs_diff_eq!(state[5], -583.7795735705351, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_tle_state_eci_reference() {
+        setup_global_test_eop_original_brahe();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+        
+        let state = tle.state_eci(tle.epoch());
+        
+        // Test ECI/GCRF state matches Python reference (relax tolerance for small EOP differences)
+        assert_eq!(state.len(), 6);
+        assert_abs_diff_eq!(state[0], 4086521.0432801973, epsilon = 1.0);
+        assert_abs_diff_eq!(state[1], -1001422.0546131282, epsilon = 1.0);
+        assert_abs_diff_eq!(state[2], 5240097.963377853, epsilon = 1.0);
+        assert_abs_diff_eq!(state[3], 2526.47546734367, epsilon = 1.0);
+        assert_abs_diff_eq!(state[4], 7254.93629077332, epsilon = 1.0);
+        assert_abs_diff_eq!(state[5], -586.2164882389718, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_tle_string_from_elements_reference() {
+        setup_global_test_eop();
+        
+        let epoch = Epoch::from_datetime(2019, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let norad_id = 99999;
+        
+        // Semi-major axis in meters, convert to mean motion
+        let sma = crate::constants::R_EARTH + 500e3;
+        let n = crate::orbits::mean_motion(sma, false) / (2.0 * PI) * 86400.0; // Convert to rev/day
+        
+        let elements = [n, 0.001, 97.7, 45.0, 30.0, 15.0]; // [n, e, i, raan, argp, anomaly]
+        
+        let (line1, line2) = tle_lines_from_elements(
+            epoch,
+            &elements,
+            norad_id,
+            "        ", // empty designation
+            0, // element number
+            0, // orbit number  
+            true, // angles in degrees
+            Some(0.0), // ndt2
+            Some(0.0), // nddt6
+            Some(0.0)  // bstar
+        ).unwrap();
+        
+        // Verify the lines are valid TLE format and match expected exact strings
+        assert!(validate_tle_lines(&line1, &line2));
+        assert_eq!(line1.len(), 69);
+        assert_eq!(line2.len(), 69);
+        
+        // Verify exact line content for zero drag terms case
+        let expected_line1 = "1 99999U          19  1.00000000  .00000000  00000-0  00000-0 0    09";
+        let expected_line2 = "2 99999  97.7000  45.0000 0010000  30.0000  15.0000 15.21936719    03";
+        assert_eq!(line1, expected_line1);
+        assert_eq!(line2, expected_line2);
+        
+        // Test variant with non-zero drag terms
+        let (line1_drag, line2_drag) = tle_lines_from_elements(
+            epoch,
+            &elements,
+            12345, // different NORAD ID
+            "21001A  ", // 8-char designation
+            123, // element number
+            456, // orbit number  
+            true, // angles in degrees
+            Some(-2.182e-5), // ndt2 - negative
+            Some(1.5e-9), // nddt6 - positive
+            Some(-1.1606e-4)  // bstar - negative
+        ).unwrap();
+        
+        assert!(validate_tle_lines(&line1_drag, &line2_drag));
+        assert_eq!(line1_drag.len(), 69);
+        assert_eq!(line2_drag.len(), 69);
+        
+        // Test variant with different eccentricity formatting
+        let high_ecc_elements = [n, 0.12345, 97.7, 45.0, 30.0, 15.0]; // higher eccentricity
+        let (line1_ecc, line2_ecc) = tle_lines_from_elements(
+            epoch,
+            &high_ecc_elements,
+            54321,
+            "        ", // empty designation
+            0, 0, true,
+            Some(0.0), Some(0.0), Some(0.0)
+        ).unwrap();
+        
+        assert!(validate_tle_lines(&line1_ecc, &line2_ecc));
+        assert!(line2_ecc.contains("1234500")); // Check eccentricity formatting (0.12345 -> 1234500)
+    }
+
+    #[test]
+    fn test_frame_conversion_reference_validation() {
+        setup_global_test_eop();
+        let tle = TLE::from_lines(ISS_TLE_LINE1, ISS_TLE_LINE2).unwrap();
+        
+        // Test that all frame conversions produce valid results
+        let state_teme = tle.state_teme(tle.epoch()).unwrap();
+        let state_pef = tle.state_pef(tle.epoch()).unwrap();
+        let state_itrf = tle.state_itrf(tle.epoch()).unwrap();
+        let state_ecef = tle.state_ecef(tle.epoch());
+        let state_eci = tle.state_eci(tle.epoch());
+        
+        // ECEF should equal ITRF exactly
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_ecef[i], state_itrf[i], epsilon = 1e-12);
+        }
+        
+        // All position magnitudes should be similar (just rotations)
+        let pos_mag_teme = (state_teme[0].powi(2) + state_teme[1].powi(2) + state_teme[2].powi(2)).sqrt();
+        let pos_mag_pef = (state_pef[0].powi(2) + state_pef[1].powi(2) + state_pef[2].powi(2)).sqrt();
+        let pos_mag_itrf = (state_itrf[0].powi(2) + state_itrf[1].powi(2) + state_itrf[2].powi(2)).sqrt();
+        let pos_mag_eci = (state_eci[0].powi(2) + state_eci[1].powi(2) + state_eci[2].powi(2)).sqrt();
+        
+        assert_abs_diff_eq!(pos_mag_teme, pos_mag_pef, epsilon = 1.0);
+        assert_abs_diff_eq!(pos_mag_pef, pos_mag_itrf, epsilon = 1.0);
+        assert_abs_diff_eq!(pos_mag_itrf, pos_mag_eci, epsilon = 1.0);
+        
+        // All should be reasonable orbital altitudes
+        assert!(pos_mag_teme > 6.5e6); // > 6500 km  
+        assert!(pos_mag_teme < 7.0e6); // < 7000 km (LEO)
+    }
 }
 
 /// Implement AnalyticPropagator trait for TLE
@@ -1438,15 +2170,14 @@ impl AnalyticPropagator for TLE {
     }
 
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
-        let orbit_state = self.propagate_to_state(epoch);
-        let eci_state = orbit_state.to_frame(&OrbitFrame::ECI).unwrap();
-        eci_state.state
+        // Transform ITRF -> GCRF using full frame transformation chain
+        let itrf_state = self.state_itrf(epoch).unwrap();
+        state_ecef_to_eci(epoch, itrf_state)
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
-        let orbit_state = self.propagate_to_state(epoch);
-        let ecef_state = orbit_state.to_frame(&OrbitFrame::ECEF).unwrap();
-        ecef_state.state
+        // Use ITRF state as ECEF (they are equivalent for TLE purposes)
+        self.state_itrf(epoch).unwrap()
     }
 
     fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
@@ -1468,8 +2199,15 @@ impl AnalyticPropagator for TLE {
     fn states_eci(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
         let mut states = Vec::new();
         for &epoch in epochs {
-            let orbit_state = self.propagate_to_state(epoch);
-            states.push(orbit_state.to_frame(&OrbitFrame::ECI).unwrap());
+            let eci_state = self.state_eci(epoch);
+            let orbit_state = OrbitState::new(
+                epoch,
+                eci_state,
+                OrbitFrame::ECI,
+                OrbitStateType::Cartesian,
+                AngleFormat::None,
+            ).unwrap();
+            states.push(orbit_state);
         }
         Trajectory::from_states(states, InterpolationMethod::Linear)
             .unwrap()
@@ -1479,8 +2217,15 @@ impl AnalyticPropagator for TLE {
     fn states_ecef(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
         let mut states = Vec::new();
         for &epoch in epochs {
-            let orbit_state = self.propagate_to_state(epoch);
-            states.push(orbit_state.to_frame(&OrbitFrame::ECEF).unwrap());
+            let ecef_state = self.state_ecef(epoch);
+            let orbit_state = OrbitState::new(
+                epoch,
+                ecef_state,
+                OrbitFrame::ECEF,
+                OrbitStateType::Cartesian,
+                AngleFormat::None,
+            ).unwrap();
+            states.push(orbit_state);
         }
         Trajectory::from_states(states, InterpolationMethod::Linear)
             .unwrap()

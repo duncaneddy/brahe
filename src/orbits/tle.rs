@@ -8,7 +8,7 @@
 use crate::orbits::propagation::{OrbitPropagator, TrajectoryEvictionPolicy};
 use crate::orbits::traits::AnalyticPropagator;
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, InterpolationMethod, OrbitFrame, OrbitState, OrbitStateType, Trajectory, State};
+use crate::trajectories::{AngleFormat, InterpolationMethod, OrbitFrame, OrbitState, OrbitStateType, PropagatorType, State, Trajectory};
 use crate::utils::BraheError;
 use crate::coordinates::{state_cartesian_to_osculating};
 use nalgebra::{Vector3, Vector6};
@@ -1422,20 +1422,58 @@ impl AnalyticPropagator for TLE {
         state_cartesian_to_osculating(cart_state.state, false)
     }
 
-    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state(epoch)).collect()
+    fn states(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            states.push(self.propagate_to_state(epoch));
+        }
+        Trajectory::from_states(states, InterpolationMethod::Linear)
+            .unwrap()
+            .with_propagator(PropagatorType::SGP4)
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
+    fn states_eci(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            let orbit_state = self.propagate_to_state(epoch);
+            states.push(orbit_state.to_frame(&OrbitFrame::ECI).unwrap());
+        }
+        Trajectory::from_states(states, InterpolationMethod::Linear)
+            .unwrap()
+            .with_propagator(PropagatorType::SGP4)
     }
 
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
+    fn states_ecef(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            let orbit_state = self.propagate_to_state(epoch);
+            states.push(orbit_state.to_frame(&OrbitFrame::ECEF).unwrap());
+        }
+        Trajectory::from_states(states, InterpolationMethod::Linear)
+            .unwrap()
+            .with_propagator(PropagatorType::SGP4)
     }
 
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_osculating_elements(epoch)).collect()
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Trajectory<OrbitState> {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            let orbit_state = self.propagate_to_state(epoch);
+            let cart_state = orbit_state.to_cartesian().unwrap();
+            let osculating_elements = state_cartesian_to_osculating(cart_state.state, false);
+            
+            let kep_state = OrbitState::new(
+                epoch,
+                osculating_elements,
+                OrbitFrame::ECI,
+                OrbitStateType::Keplerian,
+                AngleFormat::Radians,
+            );
+            
+            states.push(kep_state);
+        }
+        Trajectory::from_states(states, InterpolationMethod::Linear)
+            .unwrap()
+            .with_propagator(PropagatorType::SGP4)
     }
 }
 

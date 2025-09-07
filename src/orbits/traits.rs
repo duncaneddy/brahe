@@ -8,6 +8,7 @@
 */
 
 use crate::time::Epoch;
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitState, OrbitStateType, Trajectory};
 use nalgebra as na;
 
 trait OrbitalState {
@@ -130,39 +131,39 @@ pub trait AnalyticPropagator {
     ///  argument of perigee (rad), true anomaly (rad)]
     fn state_osculating_elements(&self, epoch: Epoch) -> na::Vector6<f64>;
 
-    /// Returns states at multiple epochs in the propagator's default coordinate frame.
+    /// Returns states at multiple epochs in the propagator's default coordinate frame as a Trajectory.
     /// 
     /// # Arguments
     /// * `epochs` - Slice of epochs at which to compute states
     /// 
     /// # Returns
-    /// Vector of 6-element state vectors in the propagator's default frame
-    fn states(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+    /// Trajectory containing states in the propagator's default frame
+    fn states(&self, epochs: &[Epoch]) -> Trajectory<OrbitState>;
 
-    /// Returns states at multiple epochs in Earth-Centered Inertial (ECI) coordinates.
+    /// Returns states at multiple epochs in Earth-Centered Inertial (ECI) coordinates as a Trajectory.
     /// 
     /// # Arguments
     /// * `epochs` - Slice of epochs at which to compute states
     /// 
     /// # Returns
-    /// Vector of 6-element state vectors in the ECI frame
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+    /// Trajectory containing states in the ECI frame
+    fn states_eci(&self, epochs: &[Epoch]) -> Trajectory<OrbitState>;
 
-    /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF) coordinates.
+    /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF) coordinates as a Trajectory.
     /// 
     /// # Arguments
     /// * `epochs` - Slice of epochs at which to compute states
     /// 
     /// # Returns
-    /// Vector of 6-element state vectors in the ECEF frame
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+    /// Trajectory containing states in the ECEF frame
+    fn states_ecef(&self, epochs: &[Epoch]) -> Trajectory<OrbitState>;
 
-    /// Returns states at multiple epochs as osculating orbital elements.
+    /// Returns states at multiple epochs as osculating orbital elements as a Trajectory.
     /// 
     /// # Arguments
     /// * `epochs` - Slice of epochs at which to compute states
     /// 
     /// # Returns
-    /// Vector of 6-element vectors containing osculating Keplerian elements
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Vec<na::Vector6<f64>>;
+    /// Trajectory containing states as osculating Keplerian elements
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Trajectory<OrbitState>;
 }

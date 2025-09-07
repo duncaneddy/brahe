@@ -7,7 +7,7 @@ use std::path::Path;
 
 use nalgebra as na;
 use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, IntoPyArray};
+use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, IntoPyArray};
 
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
@@ -221,6 +221,10 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // TLE Support
     module.add_class::<PyTLE>()?;
+    
+    // KeplerianPropagator Support
+    module.add_class::<PyKeplerianPropagator>()?;
+    
     module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
     module.add_function(wrap_pyfunction!(py_calculate_tle_line_checksum, module)?)?;

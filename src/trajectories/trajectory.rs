@@ -370,6 +370,30 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         Ok(new_trajectory)
     }
 
+    /// Convert the trajectory to a matrix representation
+    /// Returns a matrix where columns are time points and rows are state elements
+    /// The matrix has shape (6, n_epochs) for a 6-element state vector
+    pub fn to_matrix(&self) -> Result<nalgebra::DMatrix<f64>, BraheError> {
+        if self.states.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot convert empty trajectory to matrix".to_string(),
+            ));
+        }
+
+        let n_epochs = self.states.len();
+        let n_elements = 6; // All states should have 6 elements
+
+        let mut matrix = nalgebra::DMatrix::<f64>::zeros(n_elements, n_epochs);
+
+        for (col_idx, state) in self.states.iter().enumerate() {
+            for row_idx in 0..n_elements {
+                matrix[(row_idx, col_idx)] = state[row_idx];
+            }
+        }
+
+        Ok(matrix)
+    }
+
     /// Convert the trajectory to JSON format
     pub fn to_json(&self) -> Result<String, BraheError> {
         serde_json::to_string_pretty(self)
@@ -458,6 +482,16 @@ impl<S: State> Trajectory<S> {
             trajectory: self,
             current_index: 0,
         }
+    }
+
+    /// Returns the number of states in the trajectory
+    pub fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    /// Returns true if the trajectory is empty
+    pub fn is_empty(&self) -> bool {
+        self.states.is_empty()
     }
 }
 

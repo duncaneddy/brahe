@@ -514,12 +514,7 @@ mod tests {
         let period = orbital_period(a);
         let half_period_epoch = epoch + period / 2.0;
 
-        println!("Orbital period: {} seconds", period);
-        println!("Orbit state: {:?}", propagator.current_state());
-
         let propagated_state = propagator.propagate_to(half_period_epoch).unwrap();
-
-        println!("Propagated state: {:?}", propagated_state);
 
         // Confirm the current epoch is what is expected
         assert_eq!(*propagated_state.epoch(), epoch + period / 2.0);

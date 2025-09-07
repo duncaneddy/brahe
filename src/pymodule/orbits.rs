@@ -467,11 +467,11 @@ impl PyTLE {
     ///     float: Orbital inclination
     #[pyo3(text_signature = "(as_degrees)")]
     pub fn inclination(&self, as_degrees: bool) -> f64 {
-        let inc_rad = self.tle.inclination();
+        let inc_deg = self.tle.inclination();
         if as_degrees {
-            inc_rad.to_degrees()
+            inc_deg
         } else {
-            inc_rad
+            inc_deg.to_radians()
         }
     }
 
@@ -484,11 +484,11 @@ impl PyTLE {
     ///     float: Right ascension of ascending node
     #[pyo3(text_signature = "(as_degrees)")]
     pub fn raan(&self, as_degrees: bool) -> f64 {
-        let raan_rad = self.tle.raan();
+        let raan_deg = self.tle.raan();
         if as_degrees {
-            raan_rad.to_degrees()
+            raan_deg
         } else {
-            raan_rad
+            raan_deg.to_radians()
         }
     }
 
@@ -501,11 +501,11 @@ impl PyTLE {
     ///     float: Argument of perigee
     #[pyo3(text_signature = "(as_degrees)")]
     pub fn argument_of_perigee(&self, as_degrees: bool) -> f64 {
-        let arg_per_rad = self.tle.argument_of_perigee();
+        let arg_per_deg = self.tle.argument_of_perigee();
         if as_degrees {
-            arg_per_rad.to_degrees()
+            arg_per_deg
         } else {
-            arg_per_rad
+            arg_per_deg.to_radians()
         }
     }
 
@@ -518,11 +518,11 @@ impl PyTLE {
     ///     float: Mean anomaly
     #[pyo3(text_signature = "(as_degrees)")]
     pub fn mean_anomaly(&self, as_degrees: bool) -> f64 {
-        let mean_anom_rad = self.tle.mean_anomaly();
+        let mean_anom_deg = self.tle.mean_anomaly();
         if as_degrees {
-            mean_anom_rad.to_degrees()
+            mean_anom_deg
         } else {
-            mean_anom_rad
+            mean_anom_deg.to_radians()
         }
     }
 

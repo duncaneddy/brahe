@@ -258,3 +258,196 @@ def test_tle_international_designator(iss_tle_object):
     if intl_designator is not None:
         assert isinstance(intl_designator, str)
         assert len(intl_designator) > 0
+
+
+# Tests for independent TLE functions
+
+def test_validate_tle_lines():
+    """Test validate_tle_lines independent function."""
+    line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
+    line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+    
+    # Valid TLE lines should return True
+    assert brahe.validate_tle_lines(line1, line2) == True
+    
+    # Test invalid length
+    short_line1 = "1 25544U 98067A"
+    assert brahe.validate_tle_lines(short_line1, line2) == False
+    
+    # Test mismatched NORAD IDs
+    wrong_id_line2 = "2 25545  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+    assert brahe.validate_tle_lines(line1, wrong_id_line2) == False
+    
+    # Test invalid checksum
+    bad_checksum_line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9990"
+    assert brahe.validate_tle_lines(bad_checksum_line1, line2) == False
+
+
+def test_calculate_tle_checksum():
+    """Test calculate_tle_line_checksum independent function."""
+    line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  999"
+    checksum = brahe.calculate_tle_line_checksum(line)
+    assert checksum == 2
+    
+    # Test with negative values
+    line_with_neg = "1 25544U 98067A   21001.00000000 -.00001764  00000-0 -40967-4 0  999"
+    checksum_neg = brahe.calculate_tle_line_checksum(line_with_neg)
+    assert checksum_neg == 4
+    
+    # Test empty line
+    empty_checksum = brahe.calculate_tle_line_checksum("")
+    assert empty_checksum == 0
+
+
+def test_decode_alpha5_id():
+    """Test extract_tle_norad_id independent function."""
+    # Test classic format (numeric NORAD IDs)
+    assert brahe.extract_tle_norad_id("25544") == 25544
+    assert brahe.extract_tle_norad_id("00001") == 1
+    assert brahe.extract_tle_norad_id("99999") == 99999
+    
+    # Test Alpha-5 decoding
+    assert brahe.extract_tle_norad_id("A0000") == 100000
+    assert brahe.extract_tle_norad_id("A0001") == 100001
+    assert brahe.extract_tle_norad_id("B0000") == 110000
+    assert brahe.extract_tle_norad_id("E8493") == 148493
+    assert brahe.extract_tle_norad_id("Z9999") == 339999
+    
+    # Test invalid letters
+    with pytest.raises(RuntimeError):
+        brahe.extract_tle_norad_id("I0000")
+    with pytest.raises(RuntimeError):
+        brahe.extract_tle_norad_id("O0000")
+    
+    # Test non-numeric remaining
+    with pytest.raises(RuntimeError):
+        brahe.extract_tle_norad_id("AABCD")
+
+
+def test_lines_to_orbit_elements():
+    """Test lines_to_orbit_elements independent function."""
+    line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
+    line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+    
+    elements = brahe.lines_to_orbit_elements(line1, line2)
+    
+    # Check that we get 6 elements: [a, e, i, Ω, ω, M]
+    assert elements.shape == (6,)
+    
+    # Verify semi-major axis is reasonable for ISS (around 6700-6800 km)
+    a = elements[0]
+    assert 6_700_000.0 < a < 6_800_000.0  # meters
+    
+    # Verify eccentricity is small for LEO
+    e = elements[1]
+    assert e < 0.01
+    
+    # Verify inclination is close to expected (51.6461 degrees)
+    i_rad = elements[2]
+    i_deg = np.degrees(i_rad)
+    assert abs(i_deg - 51.6461) < 0.1
+    
+    # Verify RAAN
+    raan_rad = elements[3]
+    raan_deg = np.degrees(raan_rad)
+    assert abs(raan_deg - 306.0234) < 0.1
+    
+    # Verify argument of perigee
+    argp_rad = elements[4]
+    argp_deg = np.degrees(argp_rad)
+    assert abs(argp_deg - 88.1267) < 0.1
+    
+    # Verify mean anomaly
+    ma_rad = elements[5]
+    ma_deg = np.degrees(ma_rad)
+    assert abs(ma_deg - 25.5695) < 0.1
+    
+    # Test with invalid lines
+    bad_line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9990"
+    with pytest.raises(RuntimeError):
+        brahe.lines_to_orbit_elements(bad_line1, line2)
+
+
+def test_lines_to_orbit_state():
+    """Test lines_to_orbit_state independent function."""
+    line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
+    line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+    
+    orbit_state = brahe.lines_to_orbit_state(line1, line2)
+    
+    # Verify structure
+    assert isinstance(orbit_state, dict)
+    assert "epoch" in orbit_state
+    assert "elements" in orbit_state
+    assert "frame" in orbit_state
+    assert "orbit_type" in orbit_state
+    
+    # Verify state properties
+    assert orbit_state["frame"] == "ECI"
+    assert orbit_state["orbit_type"] == "TLEMean"
+    
+    # Verify epoch
+    epoch = orbit_state["epoch"]
+    assert isinstance(epoch, brahe.Epoch)
+    
+    # Verify elements
+    elements = orbit_state["elements"]
+    assert elements.shape == (6,)
+    
+    # Semi-major axis should be reasonable for ISS
+    a = elements[0]
+    assert 6_700_000.0 < a < 6_800_000.0
+    
+    # Verify inclination matches parsed value
+    i_rad = elements[2]
+    i_deg = np.degrees(i_rad)
+    assert abs(i_deg - 51.6461) < 0.1
+    
+    # Test with invalid lines
+    bad_line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000009"
+    with pytest.raises(RuntimeError):
+        brahe.lines_to_orbit_state(line1, bad_line2)
+
+
+def test_alpha5_tle_lines_to_orbit_elements():
+    """Test Alpha-5 TLE parsing with lines_to_orbit_elements."""
+    # Test with Alpha-5 TLE (A0000 = 100000)
+    line1_base = "1 A0000U 21001A   21001.00000000  .00000000  00000-0  00000-0 0  999"
+    line2_base = "2 A0000  50.0000   0.0000 0001000   0.0000   0.0000 15.5000000000000"
+    
+    # Calculate correct checksums
+    checksum1 = brahe.calculate_tle_line_checksum(line1_base)
+    checksum2 = brahe.calculate_tle_line_checksum(line2_base)
+    
+    alpha5_line1 = f"{line1_base}{checksum1}"
+    alpha5_line2 = f"{line2_base}{checksum2}"
+    
+    elements = brahe.lines_to_orbit_elements(alpha5_line1, alpha5_line2)
+    
+    # Should successfully parse and return valid elements
+    assert elements.shape == (6,)
+    
+    # Semi-major axis should be reasonable
+    a = elements[0]
+    assert 6_000_000.0 < a < 8_000_000.0
+    
+    # Eccentricity should match
+    e = elements[1]
+    assert abs(e - 0.0001) < 1e-6
+    
+    # Inclination should match (50 degrees)
+    i_rad = elements[2]
+    i_deg = np.degrees(i_rad)
+    assert abs(i_deg - 50.0) < 0.1
+    
+    # RAAN should be 0
+    raan_rad = elements[3]
+    assert abs(raan_rad) < 1e-6
+    
+    # Argument of perigee should be 0
+    argp_rad = elements[4]
+    assert abs(argp_rad) < 1e-6
+    
+    # Mean anomaly should be 0
+    ma_rad = elements[5]
+    assert abs(ma_rad) < 1e-6

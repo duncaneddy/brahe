@@ -6,8 +6,9 @@
 pub mod keplerian;
 pub mod propagation;
 pub mod tle;
-mod traits;
+pub mod traits;
 
 pub use keplerian::*;
 pub use propagation::*;
 pub use tle::*;
+pub use traits::*;

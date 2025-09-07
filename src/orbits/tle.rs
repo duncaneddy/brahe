@@ -6,9 +6,11 @@
  */
 
 use crate::orbits::propagation::{OrbitPropagator, TrajectoryEvictionPolicy};
+use crate::orbits::traits::AnalyticPropagator;
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, InterpolationMethod, OrbitFrame, OrbitState, OrbitStateType, Trajectory};
+use crate::trajectories::{AngleFormat, InterpolationMethod, OrbitFrame, OrbitState, OrbitStateType, Trajectory, State};
 use crate::utils::BraheError;
+use crate::coordinates::{state_cartesian_to_osculating};
 use nalgebra::{Vector3, Vector6};
 use serde::{Deserialize, Serialize};
 use sgp4::chrono::{Datelike, Timelike};
@@ -815,7 +817,6 @@ impl FromStr for TLE {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
-    use crate::State;
     use approx::assert_abs_diff_eq;
     
     // Example TLE for ISS (International Space Station) - Classic format
@@ -1301,5 +1302,146 @@ Line 3"#;
         // Mean anomaly should be 0
         let ma_rad = elements[5];
         assert_abs_diff_eq!(ma_rad, 0.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_analytic_propagator_state() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        
+        let state = tle.state(epoch);
+        
+        assert_eq!(state.len(), 6);
+        assert!(state[0].abs() > 1e6); // Position should be reasonable (>1000 km)
+        assert!(state[3].abs() > 1e3); // Velocity should be reasonable (>1 km/s)
+    }
+
+    #[test]
+    fn test_analytic_propagator_state_eci() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        
+        let state_eci = tle.state_eci(epoch);
+        
+        assert_eq!(state_eci.len(), 6);
+        assert!(state_eci[0].abs() > 1e6); // Position should be reasonable
+        assert!(state_eci[3].abs() > 1e3); // Velocity should be reasonable
+    }
+
+    #[test]
+    fn test_analytic_propagator_state_ecef() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        
+        let state_ecef = tle.state_ecef(epoch);
+        
+        assert_eq!(state_ecef.len(), 6);
+        assert!(state_ecef[0].abs() > 1e6); // Position should be reasonable
+        assert!(state_ecef[3].abs() > 1e3); // Velocity should be reasonable
+    }
+
+    #[test]
+    fn test_analytic_propagator_state_osculating_elements() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        
+        let elements = tle.state_osculating_elements(epoch);
+        
+        assert_eq!(elements.len(), 6);
+        assert!(elements[0] > 6e6); // Semi-major axis should be > 6000 km for ISS
+        assert!(elements[1] >= 0.0 && elements[1] < 1.0); // Eccentricity [0,1)
+        assert!(elements[2] >= 0.0 && elements[2] <= std::f64::consts::PI); // Inclination [0,π]
+    }
+
+    #[test]
+    fn test_analytic_propagator_batch_states() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch1 = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2021, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs = vec![epoch1, epoch2];
+        
+        let states = tle.states(&epochs);
+        
+        assert_eq!(states.len(), 2);
+        assert_eq!(states[0].len(), 6);
+        assert_eq!(states[1].len(), 6);
+        
+        let states_eci = tle.states_eci(&epochs);
+        assert_eq!(states_eci.len(), 2);
+        
+        let states_ecef = tle.states_ecef(&epochs);
+        assert_eq!(states_ecef.len(), 2);
+        
+        let states_elements = tle.states_osculating_elements(&epochs);
+        assert_eq!(states_elements.len(), 2);
+    }
+
+    #[test]
+    fn test_analytic_propagator_consistency() {
+        let tle = TLE::from_tle_string(ISS_CLASSIC_TLE).unwrap();
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        
+        // Single epoch call
+        let state_single = tle.state(epoch);
+        
+        // Batch call with single epoch
+        let states_batch = tle.states(&[epoch]);
+        
+        // Should be identical
+        assert_abs_diff_eq!(state_single[0], states_batch[0][0], epsilon = 1e-12);
+        assert_abs_diff_eq!(state_single[1], states_batch[0][1], epsilon = 1e-12);
+        assert_abs_diff_eq!(state_single[2], states_batch[0][2], epsilon = 1e-12);
+        assert_abs_diff_eq!(state_single[3], states_batch[0][3], epsilon = 1e-12);
+        assert_abs_diff_eq!(state_single[4], states_batch[0][4], epsilon = 1e-12);
+        assert_abs_diff_eq!(state_single[5], states_batch[0][5], epsilon = 1e-12);
+    }
+}
+
+/// Implement AnalyticPropagator trait for TLE
+impl AnalyticPropagator for TLE {
+    fn state(&self, epoch: Epoch) -> Vector6<f64> {
+        let orbit_state = self.propagate_to_state(epoch);
+        orbit_state.state
+    }
+
+    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+        let orbit_state = self.propagate_to_state(epoch);
+        let eci_state = orbit_state.to_frame(&OrbitFrame::ECI).unwrap();
+        eci_state.state
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        let orbit_state = self.propagate_to_state(epoch);
+        let ecef_state = orbit_state.to_frame(&OrbitFrame::ECEF).unwrap();
+        ecef_state.state
+    }
+
+    fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
+        let orbit_state = self.propagate_to_state(epoch);
+        let cart_state = orbit_state.to_cartesian().unwrap();
+        state_cartesian_to_osculating(cart_state.state, false)
+    }
+
+    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state(epoch)).collect()
+    }
+
+    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
+    }
+
+    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
+    }
+
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_osculating_elements(epoch)).collect()
+    }
+}
+
+impl TLE {
+    /// Internal helper method to propagate to a state without modifying the propagator
+    fn propagate_to_state(&self, epoch: Epoch) -> OrbitState {
+        self.propagate(epoch).unwrap()
     }
 }

@@ -549,6 +549,142 @@ impl PyTLE {
         }
     }
 
+    /// Get state at given epoch in propagator's default frame (analytical computation)
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in meters and m/s
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let state_vec = self.tle.state(epoch.obj);
+        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
+        Ok(flat_vec.into_pyarray(py))
+    }
+
+    /// Get state at given epoch in ECI coordinates (analytical computation)
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame in meters and m/s
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let state_vec = self.tle.state_eci(epoch.obj);
+        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
+        Ok(flat_vec.into_pyarray(py))
+    }
+
+    /// Get state at given epoch in ECEF coordinates (analytical computation)
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame in meters and m/s
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let state_vec = self.tle.state_ecef(epoch.obj);
+        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
+        Ok(flat_vec.into_pyarray(py))
+    }
+
+    /// Get state at given epoch as osculating orbital elements (analytical computation)
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Osculating elements [a, e, i, Ω, ω, M] where angles are in radians
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_osculating_elements<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let elements_vec = self.tle.state_osculating_elements(epoch.obj);
+        let flat_vec: Vec<f64> = (0..6).map(|i| elements_vec[i]).collect();
+        Ok(flat_vec.into_pyarray(py))
+    }
+
+    /// Get states at multiple epochs in propagator's default frame (analytical computation)
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of state vectors, shape (N, 6)
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.tle.states(&epoch_vec);
+        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
+            (0..6).map(move |i| state[i])
+        }).collect();
+        let n_epochs = epoch_vec.len();
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
+    /// Get states at multiple epochs in ECI coordinates (analytical computation)
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of state vectors in ECI frame, shape (N, 6)
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.tle.states_eci(&epoch_vec);
+        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
+            (0..6).map(move |i| state[i])
+        }).collect();
+        let n_epochs = epoch_vec.len();
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
+    /// Get states at multiple epochs in ECEF coordinates (analytical computation)
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of state vectors in ECEF frame, shape (N, 6)
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.tle.states_ecef(&epoch_vec);
+        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
+            (0..6).map(move |i| state[i])
+        }).collect();
+        let n_epochs = epoch_vec.len();
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
+    /// Get states at multiple epochs as osculating orbital elements (analytical computation)
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of osculating elements, shape (N, 6), angles in radians
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_osculating_elements<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.tle.states_osculating_elements(&epoch_vec);
+        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
+            (0..6).map(move |i| state[i])
+        }).collect();
+        let n_epochs = epoch_vec.len();
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
     /// String representation
     fn __repr__(&self) -> String {
         format!("TLE(norad_id={}, name={:?}, epoch={:?})", 

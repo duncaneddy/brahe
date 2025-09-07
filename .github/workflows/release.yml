@@ -6,8 +6,12 @@ on:
       - v[0-9].[0-9]+.[0-9]+
 
 jobs:
+  update-bundled-data:
+    uses: ./.github/workflows/update_bundled_data.yml
+  
   test-rust:
     uses: ./.github/workflows/test_rust.yml
+    needs: [update-bundled-data]
   test-python:
     uses: ./.github/workflows/test_python.yml
     needs: [ test-rust ]

@@ -620,11 +620,18 @@ impl PyTLE {
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
         use crate::orbits::traits::AnalyticPropagator;
         let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.tle.states(&epoch_vec);
-        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
-            (0..6).map(move |i| state[i])
-        }).collect();
+        let trajectory = self.tle.states(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
         let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
         Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
     }
 
@@ -639,11 +646,18 @@ impl PyTLE {
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
         use crate::orbits::traits::AnalyticPropagator;
         let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.tle.states_eci(&epoch_vec);
-        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
-            (0..6).map(move |i| state[i])
-        }).collect();
+        let trajectory = self.tle.states_eci(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
         let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
         Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
     }
 
@@ -658,11 +672,18 @@ impl PyTLE {
     pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
         use crate::orbits::traits::AnalyticPropagator;
         let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.tle.states_ecef(&epoch_vec);
-        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
-            (0..6).map(move |i| state[i])
-        }).collect();
+        let trajectory = self.tle.states_ecef(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
         let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
         Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
     }
 
@@ -677,11 +698,18 @@ impl PyTLE {
     pub fn states_osculating_elements<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
         use crate::orbits::traits::AnalyticPropagator;
         let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.tle.states_osculating_elements(&epoch_vec);
-        let flat_vec: Vec<f64> = states.into_iter().flat_map(|state| {
-            (0..6).map(move |i| state[i])
-        }).collect();
+        let trajectory = self.tle.states_osculating_elements(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
         let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
         Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
     }
 
@@ -850,5 +878,202 @@ fn py_lines_to_orbit_state(py: Python, line1: String, line2: String) -> PyResult
             Ok(dict.into())
         },
         Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+    }
+}
+
+/// Python wrapper for KeplerianPropagator
+#[pyclass]
+#[pyo3(name = "KeplerianPropagator")]
+pub struct PyKeplerianPropagator {
+    propagator: crate::orbits::KeplerianPropagator,
+}
+
+#[pymethods]
+impl PyKeplerianPropagator {
+    /// Create a new Keplerian propagator from orbital elements
+    /// 
+    /// Arguments:
+    ///     epoch (Epoch): Initial epoch
+    ///     elements (numpy.ndarray): Keplerian elements [a, e, i, raan, argp, anomaly] (km, rad)
+    ///     frame (str): Reference frame ("ECI" or "ECEF")
+    ///     angle_format (str): Angular format ("radians" or "degrees")
+    /// 
+    /// Returns:
+    ///     KeplerianPropagator: New propagator instance
+    #[new]
+    #[pyo3(text_signature = "(epoch, elements, frame='ECI', angle_format='radians')")]
+    pub fn new(
+        epoch: PyRef<PyEpoch>,
+        elements: PyReadonlyArray1<f64>,
+        frame: Option<&str>,
+        angle_format: Option<&str>,
+    ) -> PyResult<Self> {
+        use crate::trajectories::{AngleFormat, OrbitFrame};
+        
+        let elements_array = elements.as_array();
+        if elements_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "Elements array must have exactly 6 elements"
+            ));
+        }
+        
+        let elements_vec = nalgebra::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+        
+        let frame = match frame.unwrap_or("ECI") {
+            "ECI" => OrbitFrame::ECI,
+            "ECEF" => OrbitFrame::ECEF,
+            _ => return Err(exceptions::PyValueError::new_err(
+                "Frame must be 'ECI' or 'ECEF'"
+            )),
+        };
+        
+        let angle_format = match angle_format.unwrap_or("radians") {
+            "radians" => AngleFormat::Radians,
+            "degrees" => AngleFormat::Degrees,
+            _ => return Err(exceptions::PyValueError::new_err(
+                "Angle format must be 'radians' or 'degrees'"
+            )),
+        };
+        
+        let propagator = crate::orbits::KeplerianPropagator::new(
+            epoch.obj,
+            elements_vec,
+            frame,
+            angle_format,
+        ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        
+        Ok(PyKeplerianPropagator { propagator })
+    }
+    
+    /// Create a new Keplerian propagator from Cartesian state
+    /// 
+    /// Arguments:
+    ///     epoch (Epoch): Initial epoch
+    ///     cartesian_state (numpy.ndarray): Cartesian state [x, y, z, vx, vy, vz] (km, km/s)
+    ///     frame (str): Reference frame ("ECI" or "ECEF")
+    /// 
+    /// Returns:
+    ///     KeplerianPropagator: New propagator instance
+    #[staticmethod]
+    #[pyo3(text_signature = "(epoch, cartesian_state, frame='ECI')")]
+    pub fn from_cartesian(
+        epoch: PyRef<PyEpoch>,
+        cartesian_state: PyReadonlyArray1<f64>,
+        frame: Option<&str>,
+    ) -> PyResult<Self> {
+        use crate::trajectories::OrbitFrame;
+        
+        let state_array = cartesian_state.as_array();
+        if state_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "Cartesian state array must have exactly 6 elements"
+            ));
+        }
+        
+        let state_vec = nalgebra::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        
+        let frame = match frame.unwrap_or("ECI") {
+            "ECI" => OrbitFrame::ECI,
+            "ECEF" => OrbitFrame::ECEF,
+            _ => return Err(exceptions::PyValueError::new_err(
+                "Frame must be 'ECI' or 'ECEF'"
+            )),
+        };
+        
+        let propagator = crate::orbits::KeplerianPropagator::from_cartesian(
+            epoch.obj,
+            state_vec,
+            frame,
+        ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        
+        Ok(PyKeplerianPropagator { propagator })
+    }
+    
+    /// Get states at multiple epochs in ECI coordinates
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of state vectors in ECI frame, shape (N, 6)
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let trajectory = self.propagator.states_eci(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
+        let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+    
+    /// Get states at multiple epochs in ECEF coordinates
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of state vectors in ECEF frame, shape (N, 6)
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let trajectory = self.propagator.states_ecef(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
+        let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+    
+    /// Get states at multiple epochs as osculating elements
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of target epochs
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of osculating elements, shape (N, 6), angles in radians
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_osculating_elements<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        use crate::orbits::traits::AnalyticPropagator;
+        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
+        let trajectory = self.propagator.states_osculating_elements(&epoch_vec);
+        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        
+        // Convert matrix (6, N) to array (N, 6) for Python
+        let n_epochs = epoch_vec.len();
+        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
+        for col_idx in 0..n_epochs {
+            for row_idx in 0..6 {
+                flat_vec.push(matrix[(row_idx, col_idx)]);
+            }
+        }
+        
+        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+    
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!("KeplerianPropagator(epoch={:?})", self.propagator.current_epoch())
+    }
+
+    /// String conversion
+    fn __str__(&self) -> String {
+        self.__repr__()
     }
 }

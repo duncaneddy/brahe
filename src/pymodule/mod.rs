@@ -62,6 +62,7 @@ include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
 include!("attitude.rs");
+include!("trajectories.rs");
 
 // Define Module
 
@@ -233,6 +234,15 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_extract_epoch, module)?)?;
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_elements, module)?)?;
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_state, module)?)?;
+
+    //* Trajectories *//
+    module.add_class::<PyOrbitFrame>()?;
+    module.add_class::<PyOrbitStateType>()?;
+    module.add_class::<PyAngleFormat>()?;
+    module.add_class::<PyInterpolationMethod>()?;
+    module.add_class::<PyOrbitState>()?;
+    module.add_class::<PyTrajectory>()?;
+    module.add_class::<PyTrajectoryIterator>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;

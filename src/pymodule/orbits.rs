@@ -805,13 +805,14 @@ impl PyTLE {
     pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         match self.tle.step_to(target_epoch.obj) {
             Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                let state_vec = [state.state[0], state.state[1], state.state[2],
                                state.state[3], state.state[4], state.state[5]];
                 Ok(state_vec.to_pyarray(py))
             },
             Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
         }
     }
+
 }
 
 // Independent TLE utility functions
@@ -1250,13 +1251,14 @@ impl PyKeplerianPropagator {
     pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         match self.propagator.step_to(target_epoch.obj) {
             Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
+                let state_vec = [state.state[0], state.state[1], state.state[2],
                                state.state[3], state.state[4], state.state[5]];
                 Ok(state_vec.to_pyarray(py))
             },
             Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
         }
     }
+
 
     /// Reset the propagator to its initial epoch
     #[pyo3(text_signature = "(self)")]

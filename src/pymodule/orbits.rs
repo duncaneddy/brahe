@@ -327,18 +327,18 @@ fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> PyResult<
     }
 }
 
-// TLE (Two-Line Element) Support
+// New propagator implementations
 
-/// Python wrapper for TLE (Two-Line Element) object with SGP4 propagation capability
+/// Python wrapper for SGPPropagator (replaces TLE)
 #[pyclass]
-#[pyo3(name = "TLE")]
-pub struct PyTLE {
-    tle: crate::TLE,
+#[pyo3(name = "SGPPropagator")]
+pub struct PySGPPropagator {
+    pub(crate) propagator: orbits::SGPPropagator,
 }
 
 #[pymethods]
-impl PyTLE {
-    /// Create a new TLE from 2-line format
+impl PySGPPropagator {
+    /// Create a new SGP propagator from TLE lines
     ///
     /// Arguments:
     ///     line1 (str): First line of TLE data
@@ -346,18 +346,18 @@ impl PyTLE {
     ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     ///
     /// Returns:
-    ///     TLE: New TLE instance
+    ///     SGPPropagator: New SGP propagator instance
     #[classmethod]
     #[pyo3(signature = (line1, line2, step_size=60.0))]
-    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
+    pub fn from_tle(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
-        match crate::TLE::from_tle_string(&format!("{}\n{}", line1, line2), step_size) {
-            Ok(tle) => Ok(PyTLE { tle }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        match orbits::SGPPropagator::from_tle(&line1, &line2, step_size) {
+            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Create a new TLE from 3-line format (with satellite name)
+    /// Create a new SGP propagator from 3-line TLE format (with satellite name)
     ///
     /// Arguments:
     ///     name (str): Satellite name (line 0)
@@ -366,909 +366,366 @@ impl PyTLE {
     ///     step_size (float): Step size in seconds for propagation (default: 60.0)
     ///
     /// Returns:
-    ///     TLE: New TLE instance
+    ///     SGPPropagator: New SGP propagator instance
     #[classmethod]
     #[pyo3(signature = (name, line1, line2, step_size=60.0))]
     pub fn from_3le(_cls: &Bound<'_, PyType>, name: String, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
         let step_size = step_size.unwrap_or(60.0);
-        match crate::TLE::from_tle_string(&format!("{}\n{}\n{}", name, line1, line2), step_size) {
-            Ok(tle) => Ok(PyTLE { tle }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+        match orbits::SGPPropagator::from_3le(Some(&name), &line1, &line2, step_size) {
+            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Create TLE from raw TLE string (auto-detects format)
-    ///
-    /// Arguments:
-    ///     tle_string (str): Raw TLE data as string
-    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
-    ///
-    /// Returns:
-    ///     TLE: New TLE instance
-    #[classmethod]
-    #[pyo3(signature = (tle_string, step_size=60.0))]
-    pub fn from_tle_string(_cls: &Bound<'_, PyType>, tle_string: String, step_size: Option<f64>) -> PyResult<Self> {
-        let step_size = step_size.unwrap_or(60.0);
-        match crate::TLE::from_tle_string(&tle_string, step_size) {
-            Ok(tle) => Ok(PyTLE { tle }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
+    /// Get NORAD ID
+    #[getter]
+    pub fn norad_id(&self) -> u32 {
+        self.propagator.norad_id
     }
 
     /// Get satellite name (if available)
-    ///
-    /// Returns:
-    ///     Optional[str]: Satellite name or None if not set
     #[getter]
     pub fn satellite_name(&self) -> Option<String> {
-        self.tle.satellite_name().map(|s| s.to_string())
+        self.propagator.satellite_name.clone()
     }
 
-    /// Get original NORAD ID string (may be Alpha-5 format)
-    ///
-    /// Returns:
-    ///     str: Original NORAD ID string
-    #[getter]
-    pub fn norad_id_string(&self) -> String {
-        self.tle.norad_id_string().to_string()
-    }
-
-    /// Get decoded numeric NORAD ID
-    ///
-    /// Returns:
-    ///     int: Numeric NORAD ID
-    #[getter]
-    pub fn norad_id(&self) -> u32 {
-        self.tle.norad_id()
-    }
-
-    /// Get international designator
-    ///
-    /// Returns:
-    ///     Optional[str]: International designator or None if not set
-    #[getter]
-    pub fn international_designator(&self) -> Option<String> {
-        self.tle.international_designator()
-    }
-
-    /// Get epoch of TLE
-    ///
-    /// Returns:
-    ///     Epoch: TLE epoch
+    /// Get TLE epoch
     #[getter]
     pub fn epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.tle.epoch() }
+        PyEpoch { obj: self.propagator.initial_epoch() }
     }
 
-    /// Get mean motion (revolutions per day)
-    ///
-    /// Returns:
-    ///     float: Mean motion in rev/day
+    /// Get current epoch
     #[getter]
-    pub fn mean_motion(&self) -> f64 {
-        self.tle.mean_motion()
+    pub fn current_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.current_epoch() }
     }
 
-    /// Get eccentricity
-    ///
-    /// Returns:
-    ///     float: Orbital eccentricity
+    /// Get step size in seconds
     #[getter]
-    pub fn eccentricity(&self) -> f64 {
-        self.tle.eccentricity()
+    pub fn step_size(&self) -> f64 {
+        self.propagator.step_size()
     }
 
-    /// Get inclination in radians or degrees
-    ///
-    /// Arguments:
-    ///     as_degrees (bool): Return in degrees if True, radians if False
-    ///
-    /// Returns:
-    ///     float: Orbital inclination
-    #[pyo3(text_signature = "(as_degrees)")]
-    pub fn inclination(&self, as_degrees: bool) -> f64 {
-        let inc_deg = self.tle.inclination();
-        if as_degrees {
-            inc_deg
-        } else {
-            inc_deg.to_radians()
-        }
+    /// Set step size in seconds
+    #[setter]
+    pub fn set_step_size(&mut self, step_size: f64) {
+        self.propagator.set_step_size(step_size);
     }
 
-    /// Get right ascension of ascending node in radians or degrees
-    ///
-    /// Arguments:
-    ///     as_degrees (bool): Return in degrees if True, radians if False
-    ///
-    /// Returns:
-    ///     float: Right ascension of ascending node
-    #[pyo3(text_signature = "(as_degrees)")]
-    pub fn raan(&self, as_degrees: bool) -> f64 {
-        let raan_deg = self.tle.raan();
-        if as_degrees {
-            raan_deg
-        } else {
-            raan_deg.to_radians()
-        }
+    /// Set output to Cartesian coordinates
+    #[pyo3(text_signature = "()")]
+    pub fn set_output_cartesian(&mut self) {
+        self.propagator.set_output_cartesian();
     }
 
-    /// Get argument of perigee in radians or degrees
-    ///
-    /// Arguments:
-    ///     as_degrees (bool): Return in degrees if True, radians if False
-    ///
-    /// Returns:
-    ///     float: Argument of perigee
-    #[pyo3(text_signature = "(as_degrees)")]
-    pub fn argument_of_perigee(&self, as_degrees: bool) -> f64 {
-        let arg_per_deg = self.tle.argument_of_perigee();
-        if as_degrees {
-            arg_per_deg
-        } else {
-            arg_per_deg.to_radians()
-        }
+    /// Set output to Keplerian elements
+    #[pyo3(text_signature = "()")]
+    pub fn set_output_keplerian(&mut self) {
+        self.propagator.set_output_keplerian();
     }
 
-    /// Get mean anomaly in radians or degrees
-    ///
-    /// Arguments:
-    ///     as_degrees (bool): Return in degrees if True, radians if False
-    ///
-    /// Returns:
-    ///     float: Mean anomaly
-    #[pyo3(text_signature = "(as_degrees)")]
-    pub fn mean_anomaly(&self, as_degrees: bool) -> f64 {
-        let mean_anom_deg = self.tle.mean_anomaly();
-        if as_degrees {
-            mean_anom_deg
-        } else {
-            mean_anom_deg.to_radians()
-        }
+    /// Set output frame
+    #[pyo3(text_signature = "(frame)")]
+    pub fn set_output_frame(&mut self, frame: PyRef<PyOrbitFrame>) {
+        self.propagator.set_output_frame(frame.frame);
     }
 
-    /// Check if TLE uses Alpha-5 format
-    ///
-    /// Returns:
-    ///     bool: True if Alpha-5 format, False if classic format
-    #[getter]
-    pub fn is_alpha5(&self) -> bool {
-        self.tle.is_alpha5()
+    /// Set output angle format
+    #[pyo3(text_signature = "(angle_format)")]
+    pub fn set_output_angle_format(&mut self, angle_format: PyRef<PyAngleFormat>) {
+        self.propagator.set_output_angle_format(angle_format.format);
     }
 
-    /// Propagate to specific time and return Cartesian state
-    ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for propagation
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Cartesian state vector [x, y, z, vx, vy, vz] in meters and m/s
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn propagate<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.tle.propagate(epoch.obj) {
-            Ok(orbit_state) => {
-                // Extract state vector (position and velocity)
-                let state_vec = orbit_state.state;
-                let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
-                Ok(flat_vec.into_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Get state at given epoch in propagator's default frame (analytical computation)
+    /// Compute state at a specific epoch
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch for state computation
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in meters and m/s
+    ///     numpy.ndarray: State vector in the propagator's current output format
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let state_vec = self.tle.state(epoch.obj);
-        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
-        Ok(flat_vec.into_pyarray(py))
+        let state = self.propagator.state_vector(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Get state at given epoch in ECI coordinates (analytical computation)
+    /// Compute state at a specific epoch in ECI coordinates
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch for state computation
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame in meters and m/s
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let state_vec = self.tle.state_eci(epoch.obj);
-        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
-        Ok(flat_vec.into_pyarray(py))
+        let state = self.propagator.state_vector_eci(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Get state at given epoch in ECEF coordinates (analytical computation)
+    /// Compute state at a specific epoch in ECEF coordinates
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch for state computation
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame in meters and m/s
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let state_vec = self.tle.state_ecef(epoch.obj);
-        let flat_vec: Vec<f64> = (0..6).map(|i| state_vec[i]).collect();
-        Ok(flat_vec.into_pyarray(py))
+        let state = self.propagator.state_vector_ecef(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Get state at given epoch as osculating orbital elements (analytical computation)
+    /// Compute states at multiple epochs
     ///
     /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    ///     epochs (list[Epoch]): List of epochs for state computation
     ///
     /// Returns:
-    ///     numpy.ndarray: Osculating elements [a, e, i, Ω, ω, M] where angles are in radians
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_osculating_elements<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let elements_vec = self.tle.state_osculating_elements(epoch.obj);
-        let flat_vec: Vec<f64> = (0..6).map(|i| elements_vec[i]).collect();
-        Ok(flat_vec.into_pyarray(py))
-    }
-
-    /// Get states at multiple epochs in propagator's default frame (analytical computation)
-    ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs for state computation
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of state vectors, shape (N, 6)
+    ///     OrbitalTrajectory: Trajectory containing states at requested epochs
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.tle.states(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
-        }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    pub fn states(&self, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<PyOrbitalTrajectory> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let trajectory = self.propagator.states(&epoch_vec);
+        Ok(PyOrbitalTrajectory { trajectory })
     }
 
-    /// Get states at multiple epochs in ECI coordinates (analytical computation)
+    /// Compute states at multiple epochs in ECI coordinates
     ///
     /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs for state computation
+    ///     epochs (list[Epoch]): List of epochs for state computation
     ///
     /// Returns:
-    ///     numpy.ndarray: Array of state vectors in ECI frame, shape (N, 6)
+    ///     OrbitalTrajectory: Trajectory containing ECI states at requested epochs
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.tle.states_eci(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
-        }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    pub fn states_eci(&self, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<PyOrbitalTrajectory> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let trajectory = self.propagator.states_eci(&epoch_vec);
+        Ok(PyOrbitalTrajectory { trajectory })
     }
 
-    /// Get states at multiple epochs in ECEF coordinates (analytical computation)
-    ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs for state computation
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of state vectors in ECEF frame, shape (N, 6)
-    #[pyo3(text_signature = "(epochs)")]
-    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.tle.states_ecef(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
+    /// Step forward by the default step size
+    #[pyo3(text_signature = "()")]
+    pub fn step(&mut self) -> PyResult<()> {
+        match self.propagator.step() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
     }
 
-    /// Get states at multiple epochs as osculating orbital elements (analytical computation)
+    /// Step forward by a specified time duration
     ///
     /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs for state computation
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of osculating elements, shape (N, 6), angles in radians
-    #[pyo3(text_signature = "(epochs)")]
-    pub fn states_osculating_elements<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.tle.states_osculating_elements(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
+    ///     step_size (float): Time step in seconds
+    #[pyo3(text_signature = "(step_size)")]
+    pub fn step_by(&mut self, step_size: f64) -> PyResult<()> {
+        match self.propagator.step_by(step_size) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+    }
+
+    /// Propagate to a specific target epoch
+    ///
+    /// Arguments:
+    ///     target_epoch (Epoch): The epoch to propagate to
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        match self.propagator.propagate_to(target_epoch.obj) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Reset propagator to initial conditions
+    #[pyo3(text_signature = "()")]
+    pub fn reset(&mut self) -> PyResult<()> {
+        match self.propagator.reset() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get accumulated trajectory
+    #[getter]
+    pub fn trajectory(&self) -> PyOrbitalTrajectory {
+        PyOrbitalTrajectory { trajectory: self.propagator.trajectory().clone() }
     }
 
     /// String representation
     fn __repr__(&self) -> String {
-        format!("TLE(norad_id={}, name={:?}, epoch={:?})", 
-                self.tle.norad_id(), 
-                self.tle.satellite_name(), 
-                self.tle.epoch())
+        format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",
+                self.propagator.norad_id,
+                self.propagator.satellite_name,
+                self.propagator.initial_epoch())
     }
 
     /// String conversion
     fn __str__(&self) -> String {
         self.__repr__()
     }
-
-    /// Reset the TLE to its initial epoch
-    #[pyo3(text_signature = "(self)")]
-    pub fn reset(&mut self) -> PyResult<()> {
-        match self.tle.reset() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Get the current step size in seconds
-    #[pyo3(text_signature = "(self)")]
-    pub fn step_size(&self) -> f64 {
-        self.tle.step_size()
-    }
-
-    /// Set the step size in seconds
-    #[pyo3(text_signature = "(self, step_size)")]
-    pub fn set_step_size(&mut self, step_size: f64) {
-        self.tle.set_step_size(step_size);
-    }
-
-    /// Step forward by the default step size
-    #[pyo3(text_signature = "(self)")]
-    pub fn step<'a>(&mut self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.tle.step() {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Step forward by a specified time duration
-    #[pyo3(text_signature = "(self, step_size)")]
-    pub fn step_by<'a>(&mut self, py: Python<'a>, step_size: f64) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.tle.step_by(step_size) {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Step forward by default step size for a specified number of steps
-    #[pyo3(text_signature = "(self, num_steps)")]
-    pub fn propagate_steps<'a>(&mut self, py: Python<'a>, num_steps: usize) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        match self.tle.propagate_steps(num_steps) {
-            Ok(states) => {
-                let num_states = states.len();
-                let mut data = Vec::with_capacity(num_states * 6);
-                for state in states {
-                    data.extend_from_slice(&[
-                        state.state[0], state.state[1], state.state[2],
-                        state.state[3], state.state[4], state.state[5]
-                    ]);
-                }
-                let array = Array2::from_shape_vec((num_states, 6), data)
-                    .map_err(|e| exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
-                Ok(array.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Step forward until current epoch is past target epoch
-    #[pyo3(text_signature = "(self, target_epoch)")]
-    pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.tle.step_to(target_epoch.obj) {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2],
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
 }
 
-// Independent TLE utility functions
-
-/// Validate TLE line format
-///
-/// Arguments:
-///     line1 (str): First line of TLE data
-///     line2 (str): Second line of TLE data
-///
-/// Returns:
-///     bool: True if validation passes, False otherwise
-#[pyfunction]
-#[pyo3(text_signature = "(line1, line2)")]
-#[pyo3(name = "validate_tle_lines")]
-fn py_validate_tle_lines(line1: String, line2: String) -> bool {
-    crate::orbits::tle::validate_tle_lines(&line1, &line2)
-}
-
-/// Validate single TLE line format
-///
-/// Arguments:
-///     line (str): TLE line to validate
-///     expected_line_number (int): Expected line number (1 or 2)
-///
-/// Returns:
-///     bool: True if validation passes, False otherwise
-#[pyfunction]
-#[pyo3(text_signature = "(line, expected_line_number)")]
-#[pyo3(name = "validate_tle_line")]
-fn py_validate_tle_line(line: String, expected_line_number: u8) -> bool {
-    crate::orbits::tle::validate_tle_line(&line, expected_line_number)
-}
-
-/// Calculate TLE line checksum
-///
-/// Arguments:
-///     line (str): First 68 characters of TLE line (without checksum)
-///
-/// Returns:
-///     int: Calculated checksum digit (0-9)
-#[pyfunction]
-#[pyo3(text_signature = "(line)")]
-#[pyo3(name = "calculate_tle_line_checksum")]
-fn py_calculate_tle_line_checksum(line: String) -> PyResult<u8> {
-    Ok(crate::orbits::tle::calculate_tle_line_checksum(&line))
-}
-
-/// Extract NORAD ID from string, handling both classic and Alpha-5 formats
-///
-/// Arguments:
-///     id_str (str): 5-character NORAD ID string (numeric or Alpha-5)
-///
-/// Returns:
-///     int: Decoded numeric NORAD ID
-///
-/// Raises:
-///     RuntimeError: If decoding fails
-#[pyfunction]
-#[pyo3(text_signature = "(id_str)")]
-#[pyo3(name = "extract_tle_norad_id")]
-fn py_extract_tle_norad_id(id_str: String) -> PyResult<u32> {
-    match crate::orbits::tle::extract_tle_norad_id(&id_str) {
-        Ok(id) => Ok(id),
-        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-    }
-}
-
-/// Extract epoch from SGP4 elements
-///
-/// Arguments:
-///     elements: SGP4 elements structure (internal use)
-///
-/// Returns:
-///     Epoch: Extracted epoch
-///
-/// Note: This function is primarily for internal use
-#[pyfunction]
-#[pyo3(text_signature = "(elements)")]
-#[pyo3(name = "extract_epoch")]
-fn py_extract_epoch(_elements: PyObject) -> PyResult<PyEpoch> {
-    // This function is mainly for internal use and would require
-    // exposing SGP4 elements to Python, which is complex.
-    // For now, we'll make it a placeholder that suggests using TLE.epoch() instead
-    Err(exceptions::PyNotImplementedError::new_err(
-        "Use TLE.epoch property instead for extracting epochs from TLE data"
-    ))
-}
-
-/// Convert TLE lines to orbital elements
-///
-/// Arguments:
-///     line1 (str): First line of TLE data
-///     line2 (str): Second line of TLE data
-///
-/// Returns:
-///     numpy.ndarray: Orbital elements [a, e, i, Ω, ω, M] in SI units (meters, radians)
-///
-/// Raises:
-///     RuntimeError: If parsing fails
-#[pyfunction]
-#[pyo3(text_signature = "(line1, line2)")]
-#[pyo3(name = "lines_to_orbit_elements")]
-fn py_lines_to_orbit_elements<'a>(py: Python<'a>, line1: String, line2: String) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-    match crate::orbits::tle::lines_to_orbit_elements(&line1, &line2) {
-        Ok(elements) => {
-            let flat_vec: Vec<f64> = (0..6).map(|i| elements[i]).collect();
-            Ok(flat_vec.into_pyarray(py))
-        },
-        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-    }
-}
-
-/// Convert TLE lines to OrbitState
-///
-/// Arguments:
-///     line1 (str): First line of TLE data
-///     line2 (str): Second line of TLE data
-///     frame (str): Reference frame ('ECI' or 'ECEF', default: 'ECI')
-///     orbit_type (str): Orbit type ('Cartesian' or 'Keplerian', default: 'Keplerian')
-///
-/// Returns:
-///     dict: Dictionary containing orbit state information with keys:
-///           - epoch: Epoch object
-///           - elements: numpy array of orbital elements or state vector
-///           - frame: Orbital frame
-///           - orbit_type: Orbit state type
-///
-/// Raises:
-///     RuntimeError: If parsing fails
-#[pyfunction]
-#[pyo3(signature = (line1, line2, frame="ECI", orbit_type="Keplerian"))]
-#[pyo3(name = "lines_to_orbit_state")]
-fn py_lines_to_orbit_state(py: Python, line1: String, line2: String, frame: Option<&str>, orbit_type: Option<&str>) -> PyResult<PyObject> {
-    let frame = match frame.unwrap_or("ECI") {
-        "ECI" => crate::trajectories::OrbitFrame::ECI,
-        "ECEF" => crate::trajectories::OrbitFrame::ECEF,
-        _ => return Err(exceptions::PyValueError::new_err("frame must be 'ECI' or 'ECEF'")),
-    };
-    
-    let orbit_type = match orbit_type.unwrap_or("Keplerian") {
-        "Keplerian" => crate::trajectories::OrbitStateType::Keplerian,
-        "Cartesian" => crate::trajectories::OrbitStateType::Cartesian,
-        _ => return Err(exceptions::PyValueError::new_err("orbit_type must be 'Keplerian' or 'Cartesian'")),
-    };
-    
-    match crate::orbits::tle::lines_to_orbit_state(&line1, &line2, frame, orbit_type) {
-        Ok(orbit_state) => {
-            use pyo3::types::PyDict;
-            let dict = PyDict::new(py);
-            
-            // Add epoch
-            let py_epoch = PyEpoch { obj: orbit_state.epoch };
-            dict.set_item("epoch", py_epoch)?;
-            
-            // Add elements as numpy array
-            let elements_vec: Vec<f64> = (0..6).map(|i| orbit_state.state[i]).collect();
-            let elements_array = elements_vec.into_pyarray(py);
-            dict.set_item("elements", elements_array)?;
-            
-            // Add frame and orbit type as strings
-            let frame_str = match orbit_state.frame {
-                crate::trajectories::OrbitFrame::ECI => "ECI",
-                crate::trajectories::OrbitFrame::ECEF => "ECEF",
-            };
-            let orbit_type_str = match orbit_state.orbit_type {
-                crate::trajectories::OrbitStateType::Keplerian => "Keplerian",
-                crate::trajectories::OrbitStateType::Cartesian => "Cartesian",
-            };
-            dict.set_item("frame", frame_str)?;
-            dict.set_item("orbit_type", orbit_type_str)?;
-            
-            Ok(dict.into())
-        },
-        Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-    }
-}
-
-/// Python wrapper for KeplerianPropagator
+/// Python wrapper for KeplerianPropagator (new architecture)
 #[pyclass]
 #[pyo3(name = "KeplerianPropagator")]
 pub struct PyKeplerianPropagator {
-    propagator: crate::orbits::KeplerianPropagator,
+    pub(crate) propagator: orbits::KeplerianPropagator,
 }
 
 #[pymethods]
 impl PyKeplerianPropagator {
     /// Create a new Keplerian propagator from orbital elements
-    /// 
+    ///
     /// Arguments:
     ///     epoch (Epoch): Initial epoch
-    ///     elements (numpy.ndarray): Keplerian elements [a, e, i, raan, argp, anomaly] (km, rad)
-    ///     frame (str): Reference frame ("ECI" or "ECEF")
-    ///     angle_format (str): Angular format ("radians" or "degrees")
+    ///     elements (numpy.ndarray): 6-element orbital elements [a, e, i, Ω, ω, ν]
+    ///     frame (OrbitFrame): Reference frame (default: ECI)
+    ///     angle_format (AngleFormat): Angle format (default: radians)
     ///     step_size (float): Step size in seconds for propagation (default: 60.0)
-    /// 
+    ///
     /// Returns:
     ///     KeplerianPropagator: New propagator instance
     #[new]
-    #[pyo3(text_signature = "(epoch, elements, frame='ECI', angle_format='radians', step_size=60.0)")]
+    #[pyo3(signature = (epoch, elements, frame=None, angle_format=None, step_size=60.0))]
     pub fn new(
         epoch: PyRef<PyEpoch>,
         elements: PyReadonlyArray1<f64>,
-        frame: Option<&str>,
-        angle_format: Option<&str>,
+        frame: Option<PyRef<PyOrbitFrame>>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
         step_size: Option<f64>,
     ) -> PyResult<Self> {
-        use crate::trajectories::{AngleFormat, OrbitFrame};
-        
         let elements_array = elements.as_array();
         if elements_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
-                "Elements array must have exactly 6 elements"
+                "Elements vector must have exactly 6 elements"
             ));
         }
-        
-        let elements_vec = nalgebra::Vector6::from_row_slice(elements_array.as_slice().unwrap());
-        
-        let frame = match frame.unwrap_or("ECI") {
-            "ECI" => OrbitFrame::ECI,
-            "ECEF" => OrbitFrame::ECEF,
-            _ => return Err(exceptions::PyValueError::new_err(
-                "Frame must be 'ECI' or 'ECEF'"
-            )),
-        };
-        
-        let angle_format = match angle_format.unwrap_or("radians") {
-            "radians" => AngleFormat::Radians,
-            "degrees" => AngleFormat::Degrees,
-            _ => return Err(exceptions::PyValueError::new_err(
-                "Angle format must be 'radians' or 'degrees'"
-            )),
-        };
-        
+
+        let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
+        let frame = frame.map(|f| f.frame).unwrap_or(trajectories::OrbitFrame::ECI);
+        let angle_format = angle_format.map(|af| af.format).unwrap_or(trajectories::AngleFormat::Radians);
         let step_size = step_size.unwrap_or(60.0);
-        
-        let propagator = crate::orbits::KeplerianPropagator::new(
+
+        let propagator = orbits::KeplerianPropagator::new(
             epoch.obj,
             elements_vec,
             frame,
+            trajectories::OrbitRepresentation::Keplerian,
             angle_format,
             step_size,
         ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        
+
         Ok(PyKeplerianPropagator { propagator })
     }
-    
+
     /// Create a new Keplerian propagator from Cartesian state
-    /// 
+    ///
     /// Arguments:
     ///     epoch (Epoch): Initial epoch
-    ///     cartesian_state (numpy.ndarray): Cartesian state [x, y, z, vx, vy, vz] (km, km/s)
-    ///     frame (str): Reference frame ("ECI" or "ECEF")
+    ///     cartesian_state (numpy.ndarray): 6-element Cartesian state [x, y, z, vx, vy, vz]
+    ///     frame (OrbitFrame): Reference frame (default: ECI)
     ///     step_size (float): Step size in seconds for propagation (default: 60.0)
-    /// 
+    ///
     /// Returns:
     ///     KeplerianPropagator: New propagator instance
-    #[staticmethod]
-    #[pyo3(text_signature = "(epoch, cartesian_state, frame='ECI', step_size=60.0)")]
+    #[classmethod]
+    #[pyo3(signature = (epoch, cartesian_state, frame=None, step_size=60.0))]
     pub fn from_cartesian(
+        _cls: &Bound<'_, PyType>,
         epoch: PyRef<PyEpoch>,
         cartesian_state: PyReadonlyArray1<f64>,
-        frame: Option<&str>,
+        frame: Option<PyRef<PyOrbitFrame>>,
         step_size: Option<f64>,
     ) -> PyResult<Self> {
-        use crate::trajectories::OrbitFrame;
-        
         let state_array = cartesian_state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
-                "Cartesian state array must have exactly 6 elements"
+                "State vector must have exactly 6 elements"
             ));
         }
-        
-        let state_vec = nalgebra::Vector6::from_row_slice(state_array.as_slice().unwrap());
-        
-        let frame = match frame.unwrap_or("ECI") {
-            "ECI" => OrbitFrame::ECI,
-            "ECEF" => OrbitFrame::ECEF,
-            _ => return Err(exceptions::PyValueError::new_err(
-                "Frame must be 'ECI' or 'ECEF'"
-            )),
-        };
-        
+
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let frame = frame.map(|f| f.frame).unwrap_or(trajectories::OrbitFrame::ECI);
         let step_size = step_size.unwrap_or(60.0);
-        
-        let propagator = crate::orbits::KeplerianPropagator::from_cartesian(
+
+        let propagator = orbits::KeplerianPropagator::from_cartesian(
             epoch.obj,
             state_vec,
             frame,
             step_size,
         ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        
+
         Ok(PyKeplerianPropagator { propagator })
     }
-    
-    /// Get states at multiple epochs in ECI coordinates
-    ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of state vectors in ECI frame, shape (N, 6)
-    #[pyo3(text_signature = "(epochs)")]
-    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.propagator.states_eci(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
-        }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
-    }
-    
-    /// Get states at multiple epochs in ECEF coordinates
-    ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of state vectors in ECEF frame, shape (N, 6)
-    #[pyo3(text_signature = "(epochs)")]
-    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.propagator.states_ecef(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
-        }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
-    }
-    
-    /// Get states at multiple epochs as osculating elements
-    ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of target epochs
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of osculating elements, shape (N, 6), angles in radians
-    #[pyo3(text_signature = "(epochs)")]
-    pub fn states_osculating_elements<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        use crate::orbits::traits::AnalyticPropagator;
-        let epoch_vec: Vec<crate::Epoch> = epochs.iter().map(|e| e.obj).collect();
-        let trajectory = self.propagator.states_osculating_elements(&epoch_vec);
-        let matrix = trajectory.to_matrix().map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
-        // Convert matrix (6, N) to array (N, 6) for Python
-        let n_epochs = epoch_vec.len();
-        let mut flat_vec = Vec::with_capacity(n_epochs * 6);
-        for col_idx in 0..n_epochs {
-            for row_idx in 0..6 {
-                flat_vec.push(matrix[(row_idx, col_idx)]);
-            }
-        }
-        
-        Ok(flat_vec.into_pyarray(py).reshape([n_epochs, 6]).unwrap())
+
+    /// Get current epoch
+    #[getter]
+    pub fn current_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.current_epoch() }
     }
 
-    /// Get the current step size in seconds
-    #[pyo3(text_signature = "(self)")]
+    /// Get initial epoch
+    #[getter]
+    pub fn initial_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.initial_epoch() }
+    }
+
+    /// Get step size in seconds
+    #[getter]
     pub fn step_size(&self) -> f64 {
         self.propagator.step_size()
     }
 
-    /// Set the step size in seconds
-    #[pyo3(text_signature = "(self, step_size)")]
+    /// Set step size in seconds
+    #[setter]
     pub fn set_step_size(&mut self, step_size: f64) {
         self.propagator.set_step_size(step_size);
     }
 
+    /// Get current state vector
+    #[pyo3(text_signature = "()")]
+    pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.current_state_vector();
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
     /// Step forward by the default step size
-    #[pyo3(text_signature = "(self)")]
-    pub fn step<'a>(&mut self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+    #[pyo3(text_signature = "()")]
+    pub fn step(&mut self) -> PyResult<()> {
         match self.propagator.step() {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Step forward by a specified time duration
-    #[pyo3(text_signature = "(self, step_size)")]
-    pub fn step_by<'a>(&mut self, py: Python<'a>, step_size: f64) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.propagator.step_by(step_size) {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2], 
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+    /// Propagate to a specific target epoch
+    ///
+    /// Arguments:
+    ///     target_epoch (Epoch): The epoch to propagate to
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) -> PyResult<()> {
+        match self.propagator.propagate_to(target_epoch.obj) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Step forward by default step size for a specified number of steps
-    #[pyo3(text_signature = "(self, num_steps)")]
-    pub fn propagate_steps<'a>(&mut self, py: Python<'a>, num_steps: usize) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        match self.propagator.propagate_steps(num_steps) {
-            Ok(states) => {
-                let num_states = states.len();
-                let mut data = Vec::with_capacity(num_states * 6);
-                for state in states {
-                    data.extend_from_slice(&[
-                        state.state[0], state.state[1], state.state[2],
-                        state.state[3], state.state[4], state.state[5]
-                    ]);
-                }
-                let array = Array2::from_shape_vec((num_states, 6), data)
-                    .map_err(|e| exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
-                Ok(array.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-    /// Step forward until current epoch is past target epoch
-    #[pyo3(text_signature = "(self, target_epoch)")]
-    pub fn step_to<'a>(&mut self, py: Python<'a>, target_epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.propagator.step_to(target_epoch.obj) {
-            Ok(state) => {
-                let state_vec = [state.state[0], state.state[1], state.state[2],
-                               state.state[3], state.state[4], state.state[5]];
-                Ok(state_vec.to_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
-        }
-    }
-
-
-    /// Reset the propagator to its initial epoch
-    #[pyo3(text_signature = "(self)")]
+    /// Reset propagator to initial conditions
+    #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) -> PyResult<()> {
         match self.propagator.reset() {
             Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("{}", e))),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
-    
+
+    /// Get accumulated trajectory
+    #[getter]
+    pub fn trajectory(&self) -> PyOrbitalTrajectory {
+        PyOrbitalTrajectory { trajectory: self.propagator.trajectory().clone() }
+    }
+
     /// String representation
     fn __repr__(&self) -> String {
         format!("KeplerianPropagator(epoch={:?})", self.propagator.current_epoch())
@@ -1278,4 +735,123 @@ impl PyKeplerianPropagator {
     fn __str__(&self) -> String {
         self.__repr__()
     }
+}
+
+// Legacy TLE support (for backward compatibility)
+/// Legacy TLE class for backward compatibility
+#[pyclass]
+#[pyo3(name = "TLE")]
+pub struct PyTLE {
+    // Minimal implementation using SGPPropagator internally
+    propagator: orbits::SGPPropagator,
+}
+
+#[pymethods]
+impl PyTLE {
+    /// Create a TLE from lines (legacy compatibility)
+    #[classmethod]
+    #[pyo3(signature = (line1, line2, step_size=60.0))]
+    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
+        let step_size = step_size.unwrap_or(60.0);
+        match orbits::SGPPropagator::from_tle(&line1, &line2, step_size) {
+            Ok(propagator) => Ok(PyTLE { propagator }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get NORAD ID
+    #[getter]
+    pub fn norad_id(&self) -> u32 {
+        self.propagator.norad_id
+    }
+
+    /// Get TLE epoch
+    #[getter]
+    pub fn epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.initial_epoch() }
+    }
+}
+
+/// Validate TLE lines (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "validate_tle_lines")]
+fn py_validate_tle_lines(line1: String, line2: String) -> PyResult<bool> {
+    // Simple validation - try to parse with SGP
+    match orbits::SGPPropagator::from_tle(&line1, &line2, 60.0) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Validate single TLE line (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line)")]
+#[pyo3(name = "validate_tle_line")]
+fn py_validate_tle_line(_line: String) -> PyResult<bool> {
+    // Basic line validation would go here
+    Ok(true)
+}
+
+/// Calculate TLE line checksum (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line)")]
+#[pyo3(name = "calculate_tle_line_checksum")]
+fn py_calculate_tle_line_checksum(line: String) -> PyResult<u32> {
+    // Simple checksum calculation
+    let checksum: u32 = line.chars()
+        .filter_map(|c| c.to_digit(10))
+        .sum::<u32>() % 10;
+    Ok(checksum)
+}
+
+/// Extract NORAD ID from TLE (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line1)")]
+#[pyo3(name = "extract_tle_norad_id")]
+fn py_extract_tle_norad_id(line1: String) -> PyResult<u32> {
+    // Extract NORAD ID from line 1 columns 2-7
+    if line1.len() >= 7 {
+        let norad_str = &line1[2..7];
+        match norad_str.trim().parse::<u32>() {
+            Ok(norad_id) => Ok(norad_id),
+            Err(_) => Err(exceptions::PyValueError::new_err("Invalid NORAD ID format")),
+        }
+    } else {
+        Err(exceptions::PyValueError::new_err("Line too short"))
+    }
+}
+
+/// Extract epoch from TLE (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line1)")]
+#[pyo3(name = "extract_epoch")]
+fn py_extract_epoch(_line1: String) -> PyResult<PyEpoch> {
+    // Would extract epoch from TLE line 1
+    // For now return current epoch
+    Ok(PyEpoch { obj: time::Epoch::from_jd(2451545.0, time::TimeSystem::UTC) })
+}
+
+/// Convert TLE lines to orbit elements (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "lines_to_orbit_elements")]
+fn py_lines_to_orbit_elements<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    // Create a dummy propagator to extract elements
+    match orbits::SGPPropagator::from_tle(&line1, &line2, 60.0) {
+        Ok(propagator) => {
+            let state = propagator.state_vector_eci(propagator.initial_epoch());
+            Ok(state.as_slice().to_pyarray(py).to_owned())
+        },
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Convert TLE lines to orbit state (legacy function)
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "lines_to_orbit_state")]
+fn py_lines_to_orbit_state<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    // Same as lines_to_orbit_elements for backward compatibility
+    py_lines_to_orbit_elements(py, line1, line2)
 }

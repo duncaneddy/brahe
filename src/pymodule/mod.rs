@@ -221,11 +221,12 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
     
-    // TLE Support
-    module.add_class::<PyTLE>()?;
-    
-    // KeplerianPropagator Support
+    // Propagator Support
+    module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
+
+    // Legacy TLE Support (for backward compatibility)
+    module.add_class::<PyTLE>()?;
     
     module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
@@ -237,12 +238,12 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;
+    module.add_class::<PyOrbitRepresentation>()?;
     module.add_class::<PyOrbitStateType>()?;
     module.add_class::<PyAngleFormat>()?;
     module.add_class::<PyInterpolationMethod>()?;
-    module.add_class::<PyOrbitState>()?;
+    module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
-    module.add_class::<PyTrajectoryIterator>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;

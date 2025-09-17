@@ -3,10 +3,8 @@
  * of states (orbital, attitude, etc.) and trajectories over time.
  */
 
-mod orbit_state;
-mod state;
 mod trajectory;
+mod orbital_trajectory;
 
-pub use orbit_state::*;
-pub use state::*;
 pub use trajectory::*;
+pub use orbital_trajectory::*;

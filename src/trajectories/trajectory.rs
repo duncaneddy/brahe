@@ -1,9 +1,66 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+/*!
+ * Base trajectory implementation for storing and interpolating 6-dimensional state vectors over time.
+ *
+ * This module provides a frame-agnostic trajectory container that stores epochs and corresponding
+ * 6-dimensional state vectors. The trajectory supports various interpolation methods, memory management
+ * policies, and efficient access patterns for orbital mechanics applications.
+ *
+ * # Key Features
+ * - Frame-agnostic storage (no assumptions about coordinate frames)
+ * - Multiple interpolation methods (linear, cubic spline, Lagrange, etc.)
+ * - Memory management with configurable eviction policies
+ * - Efficient nearest-state and exact-epoch lookups
+ * - Serialization support for persistence
+ *
+ * # Examples
+ * ```rust
+ * use brahe::trajectories::{Trajectory, InterpolationMethod};
+ * use brahe::time::{Epoch, TimeSystem};
+ * use nalgebra::Vector6;
+ *
+ * let mut traj = Trajectory::new();
+ * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+ * let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+ * traj.add_state(epoch, state).unwrap();
+ * ```
+ */
+
+use nalgebra::Vector6;
+use serde::{Deserialize, Serialize};
 use std::ops::Index;
 
 use crate::time::Epoch;
-use crate::trajectories::state::State;
 use crate::utils::BraheError;
+
+/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
+///
+/// Different methods provide varying trade-offs between computational cost and accuracy.
+/// For most applications, linear interpolation provides sufficient accuracy with minimal
+/// computational overhead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InterpolationMethod {
+    /// No interpolation - returns the nearest state by time.
+    /// Fastest method but can introduce discontinuities.
+    None,
+    /// Linear interpolation between adjacent states.
+    /// Good balance of speed and accuracy for smooth trajectories.
+    Linear,
+    /// Cubic spline interpolation using natural boundary conditions.
+    /// Higher accuracy for smooth trajectories but requires more computation.
+    CubicSpline,
+    /// Lagrange polynomial interpolation using nearby points.
+    /// High accuracy but can exhibit oscillatory behavior with noisy data.
+    Lagrange,
+    /// Hermite interpolation preserving first derivatives.
+    /// Excellent for smooth trajectories with known velocity information.
+    Hermite,
+}
+
+impl Default for InterpolationMethod {
+    fn default() -> Self {
+        InterpolationMethod::Linear
+    }
+}
 
 /// Enumeration of trajectory eviction policies for memory management
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,62 +79,106 @@ impl Default for TrajectoryEvictionPolicy {
     }
 }
 
-/// Enumeration of interpolation methods for trajectory states
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum InterpolationMethod {
-    /// No interpolation, returns the nearest state
-    None,
-    /// Linear interpolation between states
-    Linear,
-    /// Cubic spline interpolation
-    CubicSpline,
-    /// Lagrange polynomial interpolation
-    Lagrange,
-    /// Hermite interpolation
-    Hermite,
-}
+/// Frame-agnostic trajectory container for 6-dimensional state vectors over time.
+///
+/// The trajectory maintains a chronologically sorted collection of epochs and corresponding
+/// state vectors. State vectors are typically either Cartesian position/velocity (x, y, z, vx, vy, vz)
+/// or orbital elements (a, e, i, Ω, ω, M), but the interpretation is left to higher-level containers
+/// like `OrbitalTrajectory`.
+///
+/// # Memory Management
+/// The trajectory supports automatic memory management through configurable policies:
+/// - Maximum state count (oldest states evicted first)
+/// - Maximum age (states older than threshold evicted)
+/// - Custom eviction policies for specialized use cases
+///
+/// # Performance Characteristics
+/// - State insertion: O(log n) due to maintaining sorted order
+/// - Nearest state lookup: O(log n) binary search
+/// - Interpolation: O(1) for linear, O(k) for polynomial methods
+///
+/// # Thread Safety
+/// This structure is not thread-safe. Use appropriate synchronization for concurrent access.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Trajectory {
+    /// Time epochs for each state, maintained in chronological order.
+    /// All epochs should use consistent time systems for meaningful interpolation.
+    pub epochs: Vec<Epoch>,
 
-/// Enumeration of propagator types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PropagatorType {
-    /// SGP4 propagator
-    SGP4,
-    /// Numerical propagator
-    Numerical,
-    /// Analytical propagator (e.g., J2)
-    Analytical,
-    /// Ephemeris (not propagated, loaded from file)
-    Ephemeris,
-}
+    /// 6-dimensional state vectors corresponding to epochs.
+    /// Units and interpretation depend on the specific use case:
+    /// - Cartesian: [m, m, m, m/s, m/s, m/s]
+    /// - Keplerian: [m, dimensionless, rad, rad, rad, rad]
+    pub states: Vec<Vector6<f64>>,
 
-/// Structure representing a collection of states over time
-#[derive(Debug, Clone, PartialEq)]
-pub struct Trajectory<S: State> {
-    /// Collection of states
-    pub states: Vec<S>,
-
-    /// Propagator that generated this trajectory (optional)
-    pub propagator_type: Option<PropagatorType>,
-
-    /// Interpolation method to use when retrieving states
+    /// Interpolation method for state retrieval at arbitrary epochs.
+    /// Default is linear interpolation for optimal performance/accuracy balance.
     pub interpolation_method: InterpolationMethod,
 
-    /// Maximum number of states to keep in trajectory
+    /// Maximum number of states to retain (None = unlimited).
+    /// When exceeded, oldest states are evicted according to the eviction policy.
     pub max_size: Option<usize>,
 
-    /// Maximum age of states to keep (in seconds) for time-based eviction
+    /// Maximum age of states to retain in seconds (None = unlimited).
+    /// States older than this duration from the latest epoch are evicted.
     pub max_age: Option<f64>,
 
-    /// Eviction policy for trajectory memory management
+    /// Memory management policy for automatic state eviction.
+    /// Controls how states are removed when limits are exceeded.
     pub eviction_policy: TrajectoryEvictionPolicy,
 }
 
-impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
-    /// Create a new empty trajectory
-    pub fn new(interpolation_method: InterpolationMethod) -> Self {
+impl Default for Trajectory {
+    /// Creates a trajectory with default settings (linear interpolation, no memory limits).
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Trajectory {
+    /// Creates a new empty trajectory with default linear interpolation.
+    ///
+    /// This is the most convenient method for creating trajectories. The interpolation
+    /// method can be changed later using `set_interpolation_method()`.
+    ///
+    /// # Returns
+    /// A new empty trajectory with linear interpolation
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::Trajectory;
+    /// let traj = Trajectory::new();
+    /// assert_eq!(traj.len(), 0);
+    /// ```
+    pub fn new() -> Self {
         Self {
+            epochs: Vec::new(),
             states: Vec::new(),
-            propagator_type: None,
+            interpolation_method: InterpolationMethod::Linear,
+            max_size: None,
+            max_age: None,
+            eviction_policy: TrajectoryEvictionPolicy::None,
+        }
+    }
+
+    /// Creates a new empty trajectory with the specified interpolation method.
+    ///
+    /// # Arguments
+    /// * `interpolation_method` - Method to use for state interpolation between epochs
+    ///
+    /// # Returns
+    /// A new empty trajectory ready for state addition
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{Trajectory, InterpolationMethod};
+    /// let traj = Trajectory::with_interpolation(InterpolationMethod::CubicSpline);
+    /// assert_eq!(traj.len(), 0);
+    /// ```
+    pub fn with_interpolation(interpolation_method: InterpolationMethod) -> Self {
+        Self {
+            epochs: Vec::new(),
+            states: Vec::new(),
             interpolation_method,
             max_size: None,
             max_age: None,
@@ -85,35 +186,60 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         }
     }
 
-    /// Create a trajectory from a vector of states
-    pub fn from_states(
-        states: Vec<S>,
+    /// Creates a trajectory from existing epoch and state data.
+    ///
+    /// The input data is validated and sorted chronologically. This method is efficient
+    /// for bulk trajectory construction from pre-existing datasets.
+    ///
+    /// # Arguments
+    /// * `epochs` - Vector of time epochs (must be non-empty and same length as states)
+    /// * `states` - Vector of 6D state vectors corresponding to epochs
+    /// * `interpolation_method` - Method to use for state interpolation
+    ///
+    /// # Returns
+    /// * `Ok(Trajectory)` - Successfully created trajectory with sorted data
+    /// * `Err(BraheError)` - If input validation fails
+    ///
+    /// # Errors
+    /// * `BraheError::Error` - If epochs and states have different lengths or are empty
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{Trajectory, InterpolationMethod};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::Vector6;
+    ///
+    /// let epochs = vec![Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC)];
+    /// let states = vec![Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0)];
+    /// let traj = Trajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap();
+    /// ```
+    pub fn from_data(
+        epochs: Vec<Epoch>,
+        states: Vec<Vector6<f64>>,
         interpolation_method: InterpolationMethod,
     ) -> Result<Self, BraheError> {
-        if states.is_empty() {
+        if epochs.len() != states.len() {
             return Err(BraheError::Error(
-                "Cannot create trajectory from empty states".to_string(),
+                "Epochs and states vectors must have the same length".to_string(),
             ));
         }
 
-        // Ensure all states have the same frame
-        let first_frame = states[0].frame();
-
-        for state in &states {
-            if state.frame() != first_frame {
-                return Err(BraheError::Error(
-                    "All states in a trajectory must have the same reference frame".to_string(),
-                ));
-            }
+        if epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot create trajectory from empty data".to_string(),
+            ));
         }
 
-        // Ensure states are sorted by epoch
-        let mut sorted_states = states;
-        sorted_states.sort_by(|a, b| a.epoch().partial_cmp(b.epoch()).unwrap());
+        // Ensure epochs are sorted
+        let mut indices: Vec<usize> = (0..epochs.len()).collect();
+        indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
+
+        let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
+        let sorted_states: Vec<Vector6<f64>> = indices.iter().map(|&i| states[i]).collect();
 
         Ok(Self {
+            epochs: sorted_epochs,
             states: sorted_states,
-            propagator_type: None,
             interpolation_method,
             max_size: None,
             max_age: None,
@@ -121,10 +247,22 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         })
     }
 
-    /// Set the propagator type
-    pub fn with_propagator(mut self, propagator_type: PropagatorType) -> Self {
-        self.propagator_type = Some(propagator_type);
-        self
+    /// Set the interpolation method for state retrieval.
+    ///
+    /// This allows changing the interpolation behavior after trajectory creation.
+    /// The change affects all future calls to `state_at_epoch()` and related methods.
+    ///
+    /// # Arguments
+    /// * `method` - New interpolation method to use
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{Trajectory, InterpolationMethod};
+    /// let mut traj = Trajectory::new(); // defaults to Linear
+    /// traj.set_interpolation_method(InterpolationMethod::CubicSpline);
+    /// ```
+    pub fn set_interpolation_method(&mut self, method: InterpolationMethod) {
+        self.interpolation_method = method;
     }
 
     /// Set maximum trajectory size for memory management
@@ -143,28 +281,14 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
     }
 
     /// Add a state to the trajectory
-    pub fn add_state(&mut self, state: S) -> Result<(), BraheError> {
-        // If the trajectory is empty, just add the state
-        if self.states.is_empty() {
-            self.states.push(state);
-            self.apply_eviction_policy()?;
-            return Ok(());
-        }
-
-        // Check if the state is compatible with existing states
-        if state.frame() != self.states[0].frame() {
-            return Err(BraheError::Error(
-                "Cannot add state with different frame to trajectory".to_string(),
-            ));
-        }
-
+    pub fn add_state(&mut self, epoch: Epoch, state: Vector6<f64>) -> Result<(), BraheError> {
         // Find the correct position to insert based on epoch
-        let mut insert_idx = self.states.len();
-        for (i, existing) in self.states.iter().enumerate() {
-            if state.epoch() < existing.epoch() {
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
                 insert_idx = i;
                 break;
-            } else if state.epoch() == existing.epoch() {
+            } else if epoch == *existing_epoch {
                 // Replace state if epochs are equal
                 self.states[i] = state;
                 self.apply_eviction_policy()?;
@@ -173,8 +297,9 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         }
 
         // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state);
-        
+
         // Apply eviction policy after adding state
         self.apply_eviction_policy()?;
         Ok(())
@@ -188,19 +313,28 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
             },
             TrajectoryEvictionPolicy::KeepCount => {
                 if let Some(max_size) = self.max_size {
-                    if self.states.len() > max_size {
-                        let to_remove = self.states.len() - max_size;
+                    if self.epochs.len() > max_size {
+                        let to_remove = self.epochs.len() - max_size;
+                        self.epochs.drain(0..to_remove);
                         self.states.drain(0..to_remove);
                     }
                 }
             },
             TrajectoryEvictionPolicy::KeepWithinDuration => {
                 if let Some(max_age) = self.max_age {
-                    if let Some(last_state) = self.states.last() {
-                        let current_epoch = *last_state.epoch();
-                        self.states.retain(|state| {
-                            (current_epoch - *state.epoch()).abs() <= max_age
-                        });
+                    if let Some(&last_epoch) = self.epochs.last() {
+                        let mut indices_to_keep = Vec::new();
+                        for (i, &epoch) in self.epochs.iter().enumerate() {
+                            if (last_epoch - epoch).abs() <= max_age {
+                                indices_to_keep.push(i);
+                            }
+                        }
+
+                        let new_epochs: Vec<Epoch> = indices_to_keep.iter().map(|&i| self.epochs[i]).collect();
+                        let new_states: Vec<Vector6<f64>> = indices_to_keep.iter().map(|&i| self.states[i]).collect();
+
+                        self.epochs = new_epochs;
+                        self.states = new_states;
                     }
                 }
             },
@@ -208,39 +342,44 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         Ok(())
     }
 
-    /// Get the state at a specific epoch using interpolation - primary API method
-    pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        self.interpolate_to(epoch)
-    }
-
     /// Get the state at a specific epoch using interpolation
-    pub fn interpolate_to(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        if self.states.is_empty() {
+    pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<Vector6<f64>, BraheError> {
+        if self.epochs.is_empty() {
             return Err(BraheError::Error(
                 "Cannot interpolate state from empty trajectory".to_string(),
             ));
         }
 
         // If only one state, return it
-        if self.states.len() == 1 {
-            return Ok(self.states[0].clone());
+        if self.epochs.len() == 1 {
+            return Ok(self.states[0]);
         }
 
         // If epoch is before the first state or after the last state
-        if epoch < self.states[0].epoch() {
+        if epoch < &self.epochs[0] {
             return Err(BraheError::Error(
                 "Requested epoch is before the first state in trajectory".to_string(),
             ));
         }
-        if epoch > self.states.last().unwrap().epoch() {
+        if epoch > self.epochs.last().unwrap() {
             return Err(BraheError::Error(
                 "Requested epoch is after the last state in trajectory".to_string(),
             ));
         }
 
-        // Find the closest state or states for interpolation
+        // Find the exact state if it exists
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch == existing_epoch {
+                return Ok(self.states[i]);
+            }
+        }
+
+        // Interpolate based on method
         match self.interpolation_method {
-            InterpolationMethod::None => self.nearest_state(epoch),
+            InterpolationMethod::None => {
+                let (_, state) = self.nearest_state(epoch)?;
+                Ok(state)
+            },
             InterpolationMethod::Linear => self.interpolate_linear(epoch),
             InterpolationMethod::CubicSpline => Err(BraheError::Error(
                 "Cubic spline interpolation not yet implemented".to_string(),
@@ -255,8 +394,9 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
     }
 
     /// Find the nearest state to the specified epoch
-    pub fn nearest_state(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        if self.states.is_empty() {
+    /// Returns (epoch, state) tuple
+    pub fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, Vector6<f64>), BraheError> {
+        if self.epochs.is_empty() {
             return Err(BraheError::Error(
                 "Cannot find nearest state in empty trajectory".to_string(),
             ));
@@ -265,132 +405,60 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         let mut nearest_idx = 0;
         let mut min_diff = f64::MAX;
 
-        for (i, state) in self.states.iter().enumerate() {
-            let diff = (*epoch - *state.epoch()).abs();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            let diff = (*epoch - *existing_epoch).abs();
             if diff < min_diff {
                 min_diff = diff;
                 nearest_idx = i;
             }
 
             // Optimization: if we're past the epoch and moving away, we can stop
-            if i > 0 && state.epoch() > epoch && diff > min_diff {
+            if i > 0 && existing_epoch > epoch && diff > min_diff {
                 break;
             }
         }
 
-        Ok(self.states[nearest_idx].clone())
-    }
-
-    /// Find the state occurring before the specified epoch
-    pub fn state_before(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        if self.states.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot find state in empty trajectory".to_string(),
-            ));
-        }
-
-        // If the epoch is before the first state
-        if epoch <= self.states[0].epoch() {
-            return Err(BraheError::Error(
-                "Requested epoch is before or equal to the first state in trajectory".to_string(),
-            ));
-        }
-
-        let mut before_idx = 0;
-        for (i, state) in self.states.iter().enumerate() {
-            if state.epoch() < epoch {
-                before_idx = i;
-            } else {
-                break;
-            }
-        }
-
-        Ok(self.states[before_idx].clone())
-    }
-
-    /// Find the state occurring after the specified epoch
-    pub fn state_after(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        if self.states.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot find state in empty trajectory".to_string(),
-            ));
-        }
-
-        // If the epoch is after the last state
-        if epoch >= self.states.last().unwrap().epoch() {
-            return Err(BraheError::Error(
-                "Requested epoch is after or equal to the last state in trajectory".to_string(),
-            ));
-        }
-
-        for state in self.states.iter() {
-            if state.epoch() > epoch {
-                return Ok(state.clone());
-            }
-        }
-
-        // This should never happen given the checks above
-        Err(BraheError::Error(
-            "Could not find state after the specified epoch".to_string(),
-        ))
-    }
-
-    /// Get the state at the specified index
-    pub fn state_at_index(&self, index: usize) -> Result<S, BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok(self.states[index].clone())
+        Ok((self.epochs[nearest_idx], self.states[nearest_idx]))
     }
 
     /// Interpolate between states using linear interpolation
-    fn interpolate_linear(&self, epoch: &Epoch) -> Result<S, BraheError> {
-        if self.states.is_empty() {
+    fn interpolate_linear(&self, epoch: &Epoch) -> Result<Vector6<f64>, BraheError> {
+        if self.epochs.is_empty() {
             return Err(BraheError::Error(
                 "Cannot interpolate state from empty trajectory".to_string(),
             ));
         }
 
         // If only one state, return it
-        if self.states.len() == 1 {
-            return Ok(self.states[0].clone());
-        }
-
-        // Handle boundary cases
-        if epoch < self.states[0].epoch() {
-            return Err(BraheError::Error(
-                "Requested epoch is before the first state in trajectory".to_string(),
-            ));
-        }
-
-        if epoch > self.states.last().unwrap().epoch() {
-            return Err(BraheError::Error(
-                "Requested epoch is after the last state in trajectory".to_string(),
-            ));
+        if self.epochs.len() == 1 {
+            return Ok(self.states[0]);
         }
 
         // Find the two states that bracket the requested epoch
-        for i in 0..self.states.len() - 1 {
-            let state1 = &self.states[i];
-            let state2 = &self.states[i + 1];
+        for i in 0..self.epochs.len() - 1 {
+            let epoch1 = self.epochs[i];
+            let epoch2 = self.epochs[i + 1];
 
             // Check if the requested epoch is between these two states
-            if epoch >= state1.epoch() && epoch <= state2.epoch() {
+            if epoch >= &epoch1 && epoch <= &epoch2 {
+                let state1 = self.states[i];
+                let state2 = self.states[i + 1];
+
                 // Calculate interpolation factor (t)
-                let t1 = *state1.epoch();
-                let t2 = *state2.epoch();
+                let t1 = epoch1;
+                let t2 = epoch2;
                 let t = *epoch;
 
                 // This computes the normalized interpolation factor (0 to 1)
                 let alpha = (t - t1) / (t2 - t1);
 
-                // Use the state's own interpolation method
-                return state1.interpolate_with(state2, alpha, epoch);
+                // Linear interpolation for each element
+                let mut interpolated_state = Vector6::zeros();
+                for j in 0..6 {
+                    interpolated_state[j] = state1[j] * (1.0 - alpha) + state2[j] * alpha;
+                }
+
+                return Ok(interpolated_state);
             }
         }
 
@@ -400,54 +468,59 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         ))
     }
 
-    /// Converts the trajectory to a different reference frame
-    pub fn to_frame(&self, frame: &S::Frame) -> Result<Self, BraheError> {
-        if self.states.is_empty() {
-            return Ok(self.clone());
+    /// Get the state at the specified index
+    pub fn state_at_index(&self, index: usize) -> Result<Vector6<f64>, BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
         }
 
-        if self.states[0].frame() == frame {
-            return Ok(self.clone());
-        }
-
-        let mut new_states = Vec::with_capacity(self.states.len());
-
-        for state in &self.states {
-            new_states.push(state.to_frame(frame)?);
-        }
-
-        Trajectory::from_states(new_states, self.interpolation_method).map(|mut traj| {
-            traj.propagator_type = self.propagator_type;
-            traj
-        })
+        Ok(self.states[index])
     }
 
-    /// Convert the trajectory to degrees representation
-    pub fn as_degrees(&self) -> Result<Self, BraheError> {
-        // Convert all states to degrees
-        let mut new_states = Vec::with_capacity(self.states.len());
-        for state in &self.states {
-            new_states.push(state.as_degrees());
+    /// Get the epoch at the specified index
+    pub fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
+        if index >= self.epochs.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} epochs",
+                index,
+                self.epochs.len()
+            )));
         }
 
-        let mut new_trajectory = self.clone();
-        new_trajectory.states = new_states;
-
-        Ok(new_trajectory)
+        Ok(self.epochs[index])
     }
 
-    /// Convert the trajectory to radians representation
-    pub fn as_radians(&self) -> Result<Self, BraheError> {
-        // Convert all states to radians
-        let mut new_states = Vec::with_capacity(self.states.len());
-        for state in &self.states {
-            new_states.push(state.as_radians());
+    /// Returns the number of states in the trajectory
+    pub fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    /// Returns true if the trajectory is empty
+    pub fn is_empty(&self) -> bool {
+        self.states.is_empty()
+    }
+
+    /// Get the first epoch in the trajectory
+    pub fn start_epoch(&self) -> Option<Epoch> {
+        self.epochs.first().copied()
+    }
+
+    /// Get the last epoch in the trajectory
+    pub fn end_epoch(&self) -> Option<Epoch> {
+        self.epochs.last().copied()
+    }
+
+    /// Get the time span covered by the trajectory
+    pub fn time_span(&self) -> Option<f64> {
+        if self.epochs.len() < 2 {
+            None
+        } else {
+            Some(*self.epochs.last().unwrap() - *self.epochs.first().unwrap())
         }
-
-        let mut new_trajectory = self.clone();
-        new_trajectory.states = new_states;
-
-        Ok(new_trajectory)
     }
 
     /// Convert the trajectory to a matrix representation
@@ -461,7 +534,7 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         }
 
         let n_epochs = self.states.len();
-        let n_elements = 6; // All states should have 6 elements
+        let n_elements = 6;
 
         let mut matrix = nalgebra::DMatrix::<f64>::zeros(n_elements, n_epochs);
 
@@ -474,731 +547,162 @@ impl<S: State + Serialize + DeserializeOwned> Trajectory<S> {
         Ok(matrix)
     }
 
-    /// Convert the trajectory to JSON format
-    pub fn to_json(&self) -> Result<String, BraheError> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| BraheError::Error(format!("Failed to serialize trajectory: {}", e)))
-    }
-
-    /// Load a trajectory from JSON format
-    pub fn from_json(json: &str) -> Result<Self, BraheError> {
-        serde_json::from_str(json)
-            .map_err(|e| BraheError::Error(format!("Failed to deserialize trajectory: {}", e)))
+    /// Clear all states from the trajectory
+    pub fn clear(&mut self) {
+        self.epochs.clear();
+        self.states.clear();
     }
 }
 
 // Allow indexing into the trajectory directly
-impl<S: State> Index<usize> for Trajectory<S> {
-    type Output = S;
+impl Index<usize> for Trajectory {
+    type Output = Vector6<f64>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
     }
 }
 
-// Implement serialization for Trajectory
-impl<S: State + Serialize> Serialize for Trajectory<S> {
-    fn serialize<Ser>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error>
-    where
-        Ser: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-
-        let mut s = serializer.serialize_struct("Trajectory", 5)?;
-        s.serialize_field("states", &self.states)?;
-        s.serialize_field("propagator_type", &self.propagator_type)?;
-        s.serialize_field("interpolation_method", &self.interpolation_method)?;
-        s.serialize_field("max_size", &self.max_size)?;
-        s.serialize_field("max_age", &self.max_age)?;
-        s.serialize_field("eviction_policy", &self.eviction_policy)?;
-        s.end()
-    }
-}
-
-// Implement deserialization for Trajectory
-impl<'de, S: State + Deserialize<'de>> Deserialize<'de> for Trajectory<S> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct TrajectoryHelper<S> {
-            states: Vec<S>,
-            propagator_type: Option<PropagatorType>,
-            interpolation_method: InterpolationMethod,
-            #[serde(default)]
-            max_size: Option<usize>,
-            #[serde(default)]
-            max_age: Option<f64>,
-            #[serde(default)]
-            eviction_policy: TrajectoryEvictionPolicy,
-        }
-
-        impl<S> Default for TrajectoryHelper<S> {
-            fn default() -> Self {
-                Self {
-                    states: Vec::new(),
-                    propagator_type: None,
-                    interpolation_method: InterpolationMethod::Linear,
-                    max_size: None,
-                    max_age: None,
-                    eviction_policy: TrajectoryEvictionPolicy::None,
-                }
-            }
-        }
-
-        let helper = TrajectoryHelper::deserialize(deserializer)?;
-
-        Ok(Trajectory {
-            states: helper.states,
-            propagator_type: helper.propagator_type,
-            interpolation_method: helper.interpolation_method,
-            max_size: helper.max_size,
-            max_age: helper.max_age,
-            eviction_policy: helper.eviction_policy,
-        })
-    }
-}
-
-/// Iterator for traversing trajectory states
-pub struct TrajectoryIter<'a, S: State> {
-    trajectory: &'a Trajectory<S>,
-    current_index: usize,
-}
-
-impl<'a, S: State> Iterator for TrajectoryIter<'a, S> {
-    type Item = &'a S;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.trajectory.states.len() {
-            let state = &self.trajectory.states[self.current_index];
-            self.current_index += 1;
-            Some(state)
-        } else {
-            None
-        }
-    }
-}
-
-impl<S: State> Trajectory<S> {
-    /// Returns an iterator over the states in the trajectory
-    pub fn iter(&self) -> TrajectoryIter<'_, S> {
-        TrajectoryIter {
-            trajectory: self,
-            current_index: 0,
-        }
-    }
-
-    /// Returns the number of states in the trajectory
-    pub fn len(&self) -> usize {
-        self.states.len()
-    }
-
-    /// Returns true if the trajectory is empty
-    pub fn is_empty(&self) -> bool {
-        self.states.is_empty()
-    }
-}
-
-/// Mutable iterator for traversing and modifying trajectory states
-pub struct TrajectoryIterMut<'a, S: State> {
-    states: &'a mut [S],
-    current_index: usize,
-}
-
-impl<'a, S: State> Iterator for TrajectoryIterMut<'a, S> {
-    type Item = &'a mut S;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.states.len() {
-            // Safety: We're ensuring the indexes are valid and non-overlapping
-            let state = unsafe {
-                let ptr = self.states.as_mut_ptr().add(self.current_index);
-                &mut *ptr
-            };
-            self.current_index += 1;
-            Some(state)
-        } else {
-            None
-        }
-    }
-}
-
-impl<S: State> Trajectory<S> {
-    /// Returns a mutable iterator over the states in the trajectory
-    pub fn iter_mut(&mut self) -> TrajectoryIterMut<'_, S> {
-        TrajectoryIterMut {
-            states: &mut self.states,
-            current_index: 0,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::DEG2RAD;
     use crate::time::{Epoch, TimeSystem};
-    use crate::trajectories::orbit_state::{OrbitFrame, OrbitState, OrbitStateType};
-    use nalgebra::Vector6;
-
-    use crate::{AngleFormat, RAD2DEG};
     use approx::assert_abs_diff_eq;
 
-    fn create_test_state(time_offset: f64) -> OrbitState {
-        // Create a test state at J2000 + time_offset
-        let epoch = Epoch::from_jd(2451545.0 + time_offset, TimeSystem::UTC);
-        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        OrbitState::new(
-            epoch,
-            state,
-            OrbitFrame::ECI,
-            OrbitStateType::Cartesian,
-            AngleFormat::None,
-        ).unwrap()
+    fn create_test_trajectory() -> Trajectory {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+
+        Trajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap()
     }
 
     #[test]
     fn test_trajectory_creation() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
+        let trajectory = create_test_trajectory();
 
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::Linear).unwrap();
-
-        assert_eq!(trajectory.states.len(), 3);
+        assert_eq!(trajectory.len(), 3);
         assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
-        assert_eq!(trajectory.propagator_type, None);
+        assert!(!trajectory.is_empty());
     }
 
     #[test]
     fn test_trajectory_add_state() {
-        let mut trajectory = Trajectory::new(InterpolationMethod::Linear);
+        let mut trajectory = Trajectory::new();
 
         // Add states in order
-        trajectory.add_state(create_test_state(0.0)).unwrap();
-        trajectory.add_state(create_test_state(0.2)).unwrap();
+        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        trajectory.add_state(epoch1, state1).unwrap();
+
+        let epoch3 = Epoch::from_jd(2451545.2, TimeSystem::UTC);
+        let state3 = Vector6::new(7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0);
+        trajectory.add_state(epoch3, state3).unwrap();
 
         // Add a state in between
-        trajectory.add_state(create_test_state(0.1)).unwrap();
+        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+        trajectory.add_state(epoch2, state2).unwrap();
 
-        assert_eq!(trajectory.states.len(), 3);
-        assert_eq!(trajectory.states[0].epoch().jd(), 2451545.0);
-        assert_eq!(trajectory.states[1].epoch().jd(), 2451545.1);
-        assert_eq!(trajectory.states[2].epoch().jd(), 2451545.2);
-    }
-
-    #[test]
-    fn test_trajectory_nearest_state() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(1.0),
-            create_test_state(2.0),
-        ];
-
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Request a time exactly at a state
-        let state_at_0 = trajectory
-            .nearest_state(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
-            .unwrap();
-        assert_eq!(state_at_0.epoch().jd(), 2451545.0);
-
-        // Request a time halfway between two states
-        let state_at_0_5 = trajectory
-            .nearest_state(&Epoch::from_jd(2451545.5, TimeSystem::UTC))
-            .unwrap();
-        // Should return the closest state (0.0)
-        assert_eq!(state_at_0_5.epoch().jd(), 2451545.0);
-
-        // Request a time nearer one state
-        let state_at_0_25 = trajectory
-            .nearest_state(&Epoch::from_jd(2451545.25, TimeSystem::UTC))
-            .unwrap();
-        // Should return the closest state (0.0)
-        assert_eq!(state_at_0_25.epoch().jd(), 2451545.0);
-
-        // Request a time nearer another state
-        let state_at_1_75 = trajectory
-            .nearest_state(&Epoch::from_jd(2451545.75, TimeSystem::UTC))
-            .unwrap();
-        // Should return the closest state (1.0)
-        assert_eq!(state_at_1_75.epoch().jd(), 2451546.0);
-    }
-
-    #[test]
-    fn test_trajectory_state_before_after() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
-
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Test state_before
-        let state_before = trajectory
-            .state_before(&Epoch::from_jd(2451545.15, TimeSystem::UTC))
-            .unwrap();
-        assert_eq!(state_before.epoch().jd(), 2451545.1);
-
-        // Test state_after
-        let state_after = trajectory
-            .state_after(&Epoch::from_jd(2451545.15, TimeSystem::UTC))
-            .unwrap();
-        assert_eq!(state_after.epoch().jd(), 2451545.2);
-
-        // Test out of bounds
-        assert!(
-            trajectory
-                .state_before(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
-                .is_err()
-        );
-        assert!(
-            trajectory
-                .state_after(&Epoch::from_jd(2451545.2, TimeSystem::UTC))
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn test_trajectory_state_at_index() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
-
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Test valid indices
-        let state_0 = trajectory.state_at_index(0).unwrap();
-        assert_eq!(state_0.epoch().jd(), 2451545.0);
-
-        let state_2 = trajectory.state_at_index(2).unwrap();
-        assert_eq!(state_2.epoch().jd(), 2451545.2);
-
-        // Test out of bounds
-        assert!(trajectory.state_at_index(3).is_err());
+        assert_eq!(trajectory.len(), 3);
+        assert_eq!(trajectory.epochs[0].jd(), 2451545.0);
+        assert_eq!(trajectory.epochs[1].jd(), 2451545.1);
+        assert_eq!(trajectory.epochs[2].jd(), 2451545.2);
     }
 
     #[test]
     fn test_trajectory_indexing() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
+        let trajectory = create_test_trajectory();
 
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        assert_eq!(trajectory[0].epoch().jd(), 2451545.0);
-        assert_eq!(trajectory[1].epoch().jd(), 2451545.1);
-        assert_eq!(trajectory[2].epoch().jd(), 2451545.2);
+        assert_eq!(trajectory[0][0], 7000e3);
+        assert_eq!(trajectory[1][0], 7100e3);
+        assert_eq!(trajectory[2][0], 7200e3);
     }
 
     #[test]
-    fn test_trajectory_iterator() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
+    fn test_trajectory_nearest_state() {
+        let trajectory = create_test_trajectory();
 
-        let trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
+        // Request a time exactly at a state
+        let (epoch, state) = trajectory
+            .nearest_state(&Epoch::from_jd(2451545.0, TimeSystem::UTC))
+            .unwrap();
+        assert_eq!(epoch.jd(), 2451545.0);
+        assert_eq!(state[0], 7000e3);
 
-        // Test iterator
-        let mut count = 0;
-        for state in trajectory.iter() {
-            assert_eq!(state.epoch().jd(), 2451545.0 + (count as f64) * 0.1);
-            count += 1;
-        }
-        assert_eq!(count, 3);
-
-        // Test that we can iterate multiple times (creating new iterators)
-        count = 0;
-        for _state in trajectory.iter() {
-            count += 1;
-        }
-        assert_eq!(count, 3);
-
-        // Test that we can have multiple independent iterators
-        let mut iter1 = trajectory.iter();
-        let mut iter2 = trajectory.iter();
-
-        // Advance the first iterator
-        let _ = iter1.next();
-        let _ = iter1.next();
-
-        // The second iterator should still be at the beginning
-        assert_eq!(iter2.next().unwrap().epoch().jd(), 2451545.0);
+        // Request a time halfway between two states
+        let (epoch, state) = trajectory
+            .nearest_state(&Epoch::from_jd(2451545.05, TimeSystem::UTC))
+            .unwrap();
+        // Should return the closest state (first one)
+        assert_eq!(epoch.jd(), 2451545.0);
+        assert_eq!(state[0], 7000e3);
     }
 
     #[test]
-    fn test_trajectory_mutable_iterator() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
+    fn test_trajectory_linear_interpolation() {
+        let trajectory = create_test_trajectory();
 
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Use mutable iterator to modify states
-        // For each state, modify the x position by adding 1000 km
-        for state in trajectory.iter_mut() {
-            if let OrbitStateType::Cartesian = state.orbit_type {
-                // Update x-position by adding 1000 km
-                state.state[0] += 1000e3;
-            }
-        }
-
-        // Verify modifications were applied
-        for state in trajectory.iter() {
-            let position = state.position().unwrap();
-            assert_eq!(position.x, 8000e3); // Original 7000e3 + 1000e3
-            // Other components should remain unchanged
-            assert_eq!(position.y, 0.0);
-            assert_eq!(position.z, 0.0);
-        }
-    }
-
-    #[test]
-    fn test_trajectory_linear_interpolation_cartesian() {
-        // Create a trajectory with states having different positions and velocities
-        let epoch0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epoch1 = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-
-        // Create state with increasing position and velocity
-        let state0 = OrbitState::new(
-            epoch0.clone(),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-            OrbitFrame::ECI,
-            OrbitStateType::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let state1 = OrbitState::new(
-            epoch1.clone(),
-            Vector6::new(8000e3, 1000e3, 500e3, 100.0, 8.5e3, 50.0),
-            OrbitFrame::ECI,
-            OrbitStateType::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let trajectory =
-            Trajectory::from_states(vec![state0, state1], InterpolationMethod::Linear).unwrap();
-
-        // Test interpolation at 25% between the two states
-        let epoch_25 = Epoch::from_jd(2451545.25, TimeSystem::UTC);
-        let state_at_25 = trajectory.state_at_epoch(&epoch_25).unwrap();
-
-        // Verify epoch
-        assert_eq!(state_at_25.epoch().jd(), 2451545.25);
-
-        // Get the position and velocity
-        let position = state_at_25.position().unwrap();
-        let velocity = state_at_25.velocity().unwrap();
-
-        // The interpolated values should be 25% between the original states
-        assert_abs_diff_eq!(position.x, 7250e3, epsilon = 1.0); // 7000 + 0.25*(8000-7000)
-        assert_abs_diff_eq!(position.y, 250e3, epsilon = 1.0); // 0 + 0.25*(1000-0)
-        assert_abs_diff_eq!(position.z, 125e3, epsilon = 1.0); // 0 + 0.25*(500-0)
-
-        assert_abs_diff_eq!(velocity.x, 25.0, epsilon = 0.1); // 0 + 0.25*(100-0)
-        assert_abs_diff_eq!(velocity.y, 7.75e3, epsilon = 1.0); // 7.5 + 0.25*(8.5-7.5)
-        assert_abs_diff_eq!(velocity.z, 12.5, epsilon = 0.1); // 0 + 0.25*(50-0)
-
-        // Test interpolation at 50% between the two states
-        let epoch_50 = Epoch::from_jd(2451545.5, TimeSystem::UTC);
+        // Test interpolation at 50% between first two states
+        let epoch_50 = Epoch::from_jd(2451545.05, TimeSystem::UTC);
         let state_at_50 = trajectory.state_at_epoch(&epoch_50).unwrap();
 
-        // Get the position and velocity
-        let position = state_at_50.position().unwrap();
-        let velocity = state_at_50.velocity().unwrap();
-
-        // The interpolated values should be 50% between the original states
-        assert_abs_diff_eq!(position.x, 7500e3, epsilon = 1.0); // 7000 + 0.5*(8000-7000)
-        assert_abs_diff_eq!(position.y, 500e3, epsilon = 1.0); // 0 + 0.5*(1000-0)
-        assert_abs_diff_eq!(position.z, 250e3, epsilon = 1.0); // 0 + 0.5*(500-0)
-
-        assert_abs_diff_eq!(velocity.x, 50.0, epsilon = 0.1); // 0 + 0.5*(100-0)
-        assert_abs_diff_eq!(velocity.y, 8.0e3, epsilon = 1.0); // 7.5 + 0.5*(8.5-7.5)
-        assert_abs_diff_eq!(velocity.z, 25.0, epsilon = 0.1); // 0 + 0.5*(50-0)
-
-        // Test interpolation at 75% between the two states
-        let epoch_75 = Epoch::from_jd(2451545.75, TimeSystem::UTC);
-        let state_at_75 = trajectory.state_at_epoch(&epoch_75).unwrap();
-
-        // Get the position and velocity
-        let position = state_at_75.position().unwrap();
-        let velocity = state_at_75.velocity().unwrap();
-
-        // The interpolated values should be 75% between the original states
-        assert_abs_diff_eq!(position.x, 7750e3, epsilon = 1.0); // 7000 + 0.75*(8000-7000)
-        assert_abs_diff_eq!(position.y, 750e3, epsilon = 1.0); // 0 + 0.75*(1000-0)
-        assert_abs_diff_eq!(position.z, 375e3, epsilon = 1.0); // 0 + 0.75*(500-0)
-
-        assert_abs_diff_eq!(velocity.x, 75.0, epsilon = 0.1); // 0 + 0.75*(100-0)
-        assert_abs_diff_eq!(velocity.y, 8.25e3, epsilon = 1.0); // 7.5 + 0.75*(8.5-7.5)
-        assert_abs_diff_eq!(velocity.z, 37.5, epsilon = 0.1); // 0 + 0.75*(50-0)
+        // The interpolated values should be 50% between the first two states
+        assert_abs_diff_eq!(state_at_50[0], 7050e3, epsilon = 1.0); // 7000 + 0.5*(7100-7000)
+        assert_abs_diff_eq!(state_at_50[1], 500e3, epsilon = 1.0); // 0 + 0.5*(1000-0)
+        assert_abs_diff_eq!(state_at_50[4], 7.55e3, epsilon = 0.01); // 7.5 + 0.5*(7.6-7.5)
     }
 
     #[test]
-    fn test_trajectory_linear_interpolation_keplerian() {
-        let epoch0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epoch1 = Epoch::from_jd(2451546.0, TimeSystem::UTC);
+    fn test_trajectory_to_matrix() {
+        let trajectory = create_test_trajectory();
 
-        // Test the method specifically handles Keplerian elements correctly
-        let kep_state0 = OrbitState::new(
-            epoch0.clone(),
-            Vector6::new(7000e3, 0.01, 0.0, 359.0 * DEG2RAD, 3.0 * DEG2RAD, 0.0),
-            OrbitFrame::ECI,
-            OrbitStateType::Keplerian,
-            AngleFormat::Radians,
+        let matrix = trajectory.to_matrix().unwrap();
+        assert_eq!(matrix.nrows(), 6);
+        assert_eq!(matrix.ncols(), 3);
+
+        // Check first column
+        assert_eq!(matrix[(0, 0)], 7000e3);
+        assert_eq!(matrix[(4, 0)], 7.5e3);
+
+        // Check second column
+        assert_eq!(matrix[(0, 1)], 7100e3);
+        assert_eq!(matrix[(1, 1)], 1000e3);
+    }
+
+    #[test]
+    fn test_trajectory_eviction_policy() {
+        let mut trajectory = Trajectory::new();
+        trajectory.set_max_size(Some(2));
+        trajectory.set_eviction_policy(TrajectoryEvictionPolicy::KeepCount);
+
+        // Add three states
+        trajectory.add_state(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         ).unwrap();
 
-        let kep_state1 = OrbitState::new(
-            epoch1.clone(),
-            Vector6::new(7200e3, 0.02, 0.1, 3.0 * DEG2RAD, 359.0 * DEG2RAD, 0.0),
-            OrbitFrame::ECI,
-            OrbitStateType::Keplerian,
-            AngleFormat::Radians,
+        trajectory.add_state(
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         ).unwrap();
 
-        let kep_trajectory =
-            Trajectory::from_states(vec![kep_state0, kep_state1], InterpolationMethod::Linear)
-                .unwrap();
+        trajectory.add_state(
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+            Vector6::new(3.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        ).unwrap();
 
-        // Test interpolation with Keplerian elements
-        let epoch_50 = Epoch::from_jd(2451545.5, TimeSystem::UTC);
-        let kep_state_at_50 = kep_trajectory.state_at_epoch(&epoch_50).unwrap();
-
-        // The semi-major axis and eccentricity should be linearly interpolated
-        assert_abs_diff_eq!(kep_state_at_50.state[0], 7100e3, epsilon = 1.0); // 7000 + 0.5*(7200-7000)
-        assert_abs_diff_eq!(kep_state_at_50.state[1], 0.015, epsilon = 0.0001); // 0.01 + 0.5*(0.02-0.01)
-
-        // The angular elements should be correctly interpolated, respecting angle wrapping
-        assert_abs_diff_eq!(kep_state_at_50.state[2], 0.05, epsilon = 0.0001); // 0.0 + 0.5*(0.1-0.0)
-
-        // Test angle wrap handling: mean anomaly wraps from 6.0 (close to 2π) back to 0
-        assert_abs_diff_eq!(kep_state_at_50.state[3], 1.0 * DEG2RAD, epsilon = 0.0001); // 359.0 + 0.5*(3.0-359.0) (wrapped)
-        assert_abs_diff_eq!(kep_state_at_50.state[4], 1.0 * DEG2RAD, epsilon = 0.0001); // 3.0 + 0.5*(359.0-3.0) (wrapped)
-
-        assert_abs_diff_eq!(kep_state_at_50.state[5], 0.0, epsilon = 0.0001);
-    }
-
-    #[test]
-    fn test_trajectory_as_degrees() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_degrees().unwrap();
-
-        // Verify all states are unchanged
-        for state in trajectory.iter() {
-            let position = state.position().unwrap();
-            assert_eq!(position.x, 7000.0e3);
-            assert_eq!(position.y, 0.0);
-            assert_eq!(position.z, 0.0);
-
-            let velocity = state.velocity().unwrap();
-            assert_eq!(velocity.x, 0.0);
-            assert_eq!(velocity.y, 7.5e3);
-            assert_eq!(velocity.z, 0.0);
-        }
-
-        let states = vec![
-            OrbitState::new(
-                Epoch::from_jd(2451545.0, TimeSystem::UTC),
-                Vector6::new(7000.0, 0.0, 10.0, 20.0, 30.0, 40.0),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Degrees,
-            ).unwrap(),
-            OrbitState::new(
-                Epoch::from_jd(2451545.1, TimeSystem::UTC),
-                Vector6::new(7000.0, 0.0, 10.0, 20.0, 30.0, 40.0),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Degrees,
-            ).unwrap(),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_degrees().unwrap();
-
-        // Verify all states are unchanged
-        for state in trajectory.iter() {
-            assert_eq!(state[0], 7000.0);
-            assert_eq!(state[1], 0.0);
-            assert_eq!(state[2], 10.0);
-            assert_eq!(state[3], 20.0);
-            assert_eq!(state[4], 30.0);
-            assert_eq!(state[5], 40.0);
-        }
-
-        // Create Radians trajectory
-        let states = vec![
-            OrbitState::new(
-                Epoch::from_jd(2451545.0, TimeSystem::UTC),
-                Vector6::new(
-                    7000.0,
-                    0.0,
-                    10.0 * DEG2RAD,
-                    20.0 * DEG2RAD,
-                    30.0 * DEG2RAD,
-                    40.0 * DEG2RAD,
-                ),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Radians,
-            ).unwrap(),
-            OrbitState::new(
-                Epoch::from_jd(2451545.1, TimeSystem::UTC),
-                Vector6::new(
-                    7000.0,
-                    0.0,
-                    10.0 * DEG2RAD,
-                    20.0 * DEG2RAD,
-                    30.0 * DEG2RAD,
-                    40.0 * DEG2RAD,
-                ),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Radians,
-            ).unwrap(),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_degrees().unwrap();
-
-        // Verify all states are what we expect
-        for state in trajectory.iter() {
-            assert_eq!(state[0], 7000.0);
-            assert_eq!(state[1], 0.0);
-            assert_abs_diff_eq!(state[2], 10.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[3], 20.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[4], 30.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[5], 40.0, epsilon = 1e-12);
-        }
-    }
-
-    #[test]
-    fn test_trajectory_as_radians() {
-        let states = vec![
-            create_test_state(0.0),
-            create_test_state(0.1),
-            create_test_state(0.2),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_radians().unwrap();
-
-        // Verify all states are unchanged
-        for state in trajectory.iter() {
-            let position = state.position().unwrap();
-            assert_eq!(position.x, 7000.0e3);
-            assert_eq!(position.y, 0.0);
-            assert_eq!(position.z, 0.0);
-
-            let velocity = state.velocity().unwrap();
-            assert_eq!(velocity.x, 0.0);
-            assert_eq!(velocity.y, 7.5e3);
-            assert_eq!(velocity.z, 0.0);
-        }
-
-        let states = vec![
-            OrbitState::new(
-                Epoch::from_jd(2451545.0, TimeSystem::UTC),
-                Vector6::new(7000.0, 0.0, 1.0, 2.0, 3.0, 4.0),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Radians,
-            ).unwrap(),
-            OrbitState::new(
-                Epoch::from_jd(2451545.1, TimeSystem::UTC),
-                Vector6::new(7000.0, 0.0, 1.0, 2.0, 3.0, 4.0),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Radians,
-            ).unwrap(),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_radians().unwrap();
-
-        // Verify all states are unchanged
-        for state in trajectory.iter() {
-            assert_eq!(state[0], 7000.0);
-            assert_eq!(state[1], 0.0);
-            assert_eq!(state[2], 1.0);
-            assert_eq!(state[3], 2.0);
-            assert_eq!(state[4], 3.0);
-            assert_eq!(state[5], 4.0);
-        }
-
-        // Create Radians trajectory
-        let states = vec![
-            OrbitState::new(
-                Epoch::from_jd(2451545.0, TimeSystem::UTC),
-                Vector6::new(
-                    7000.0,
-                    0.0,
-                    1.0 * RAD2DEG,
-                    2.0 * RAD2DEG,
-                    3.0 * RAD2DEG,
-                    4.0 * RAD2DEG,
-                ),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Degrees,
-            ).unwrap(),
-            OrbitState::new(
-                Epoch::from_jd(2451545.1, TimeSystem::UTC),
-                Vector6::new(
-                    7000.0,
-                    0.0,
-                    1.0 * RAD2DEG,
-                    2.0 * RAD2DEG,
-                    3.0 * RAD2DEG,
-                    4.0 * RAD2DEG,
-                ),
-                OrbitFrame::ECI,
-                OrbitStateType::Keplerian,
-                AngleFormat::Degrees,
-            ).unwrap(),
-        ];
-
-        let mut trajectory = Trajectory::from_states(states, InterpolationMethod::None).unwrap();
-
-        // Convert to degrees
-        trajectory = trajectory.as_radians().unwrap();
-
-        // Verify all states are what we expect
-        for state in trajectory.iter() {
-            assert_eq!(state[0], 7000.0);
-            assert_eq!(state[1], 0.0);
-            assert_abs_diff_eq!(state[2], 1.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[3], 2.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[4], 3.0, epsilon = 1e-12);
-            assert_abs_diff_eq!(state[5], 4.0, epsilon = 1e-12);
-        }
+        // Should only keep the last 2 states
+        assert_eq!(trajectory.len(), 2);
+        assert_eq!(trajectory.states[0][0], 2.0); // Second state
+        assert_eq!(trajectory.states[1][0], 3.0); // Third state
     }
 }

@@ -1,28 +1,30 @@
+/// Python bindings for the new trajectory architecture
+
 /// Python wrapper for OrbitFrame enum
 #[pyclass]
 #[pyo3(name = "OrbitFrame")]
 #[derive(Clone)]
 pub struct PyOrbitFrame {
-    frame: crate::trajectories::OrbitFrame,
+    pub(crate) frame: trajectories::OrbitFrame,
 }
 
 #[pymethods]
 impl PyOrbitFrame {
-    /// Create ECI frame
-    #[classmethod]
-    fn eci(_cls: &Bound<'_, PyType>) -> Self {
-        PyOrbitFrame { frame: crate::trajectories::OrbitFrame::ECI }
+    /// ECI frame
+    #[classattr]
+    fn eci() -> Self {
+        PyOrbitFrame { frame: trajectories::OrbitFrame::ECI }
     }
 
-    /// Create ECEF frame
-    #[classmethod]
-    fn ecef(_cls: &Bound<'_, PyType>) -> Self {
-        PyOrbitFrame { frame: crate::trajectories::OrbitFrame::ECEF }
+    /// ECEF frame
+    #[classattr]
+    fn ecef() -> Self {
+        PyOrbitFrame { frame: trajectories::OrbitFrame::ECEF }
     }
 
     /// Get frame name
     fn name(&self) -> &str {
-        use crate::ReferenceFrame;
+        use crate::trajectories::ReferenceFrame;
         self.frame.name()
     }
 
@@ -32,8 +34,8 @@ impl PyOrbitFrame {
 
     fn __repr__(&self) -> String {
         format!("OrbitFrame.{}", match self.frame {
-            crate::trajectories::OrbitFrame::ECI => "ECI",
-            crate::trajectories::OrbitFrame::ECEF => "ECEF",
+            trajectories::OrbitFrame::ECI => "ECI",
+            trajectories::OrbitFrame::ECEF => "ECEF",
         })
     }
 
@@ -46,42 +48,259 @@ impl PyOrbitFrame {
     }
 }
 
-/// Python wrapper for OrbitStateType enum
+/// Python wrapper for OrbitRepresentation enum
 #[pyclass]
-#[pyo3(name = "OrbitStateType")]
+#[pyo3(name = "OrbitRepresentation")]
 #[derive(Clone)]
-pub struct PyOrbitStateType {
-    state_type: crate::trajectories::OrbitStateType,
+pub struct PyOrbitRepresentation {
+    pub(crate) representation: trajectories::OrbitRepresentation,
 }
 
 #[pymethods]
-impl PyOrbitStateType {
-    /// Create Cartesian state type
-    #[classmethod]
-    fn cartesian(_cls: &Bound<'_, PyType>) -> Self {
-        PyOrbitStateType { state_type: crate::trajectories::OrbitStateType::Cartesian }
+impl PyOrbitRepresentation {
+    /// Cartesian representation
+    #[classattr]
+    fn cartesian() -> Self {
+        PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Cartesian }
     }
 
-    /// Create Keplerian state type
-    #[classmethod]
-    fn keplerian(_cls: &Bound<'_, PyType>) -> Self {
-        PyOrbitStateType { state_type: crate::trajectories::OrbitStateType::Keplerian }
+    /// Keplerian representation
+    #[classattr]
+    fn keplerian() -> Self {
+        PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Keplerian }
     }
 
     fn __str__(&self) -> String {
-        format!("{:?}", self.state_type)
+        format!("{:?}", self.representation)
     }
 
     fn __repr__(&self) -> String {
-        format!("OrbitStateType.{:?}", self.state_type)
+        format!("OrbitRepresentation.{:?}", self.representation)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(self.state_type == other.state_type),
-            CompareOp::Ne => Ok(self.state_type != other.state_type),
+            CompareOp::Eq => Ok(self.representation == other.representation),
+            CompareOp::Ne => Ok(self.representation != other.representation),
             _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
         }
+    }
+}
+
+/// Python wrapper for OrbitalTrajectory
+#[pyclass]
+#[pyo3(name = "OrbitalTrajectory")]
+pub struct PyOrbitalTrajectory {
+    pub(crate) trajectory: trajectories::OrbitalTrajectory,
+}
+
+#[pymethods]
+impl PyOrbitalTrajectory {
+    /// Create a new empty orbital trajectory
+    ///
+    /// Arguments:
+    ///     frame (OrbitFrame): Reference frame
+    ///     representation (OrbitRepresentation): Orbital representation
+    ///     angle_format (AngleFormat): Format for angular quantities
+    ///     interpolation_method (InterpolationMethod): Interpolation method
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: New trajectory instance
+    #[new]
+    #[pyo3(text_signature = "(frame, representation, angle_format, interpolation_method)")]
+    pub fn new(
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: PyRef<PyAngleFormat>,
+        interpolation_method: PyRef<PyInterpolationMethod>,
+    ) -> PyResult<Self> {
+        match trajectories::OrbitalTrajectory::new(
+            frame.frame,
+            representation.representation,
+            angle_format.format,
+            interpolation_method.method,
+        ) {
+            Ok(trajectory) => Ok(PyOrbitalTrajectory { trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Add a state to the trajectory
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Time of the state
+    ///     state (numpy.ndarray): 6-element state vector
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(epoch, state)")]
+    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
+        let state_array = state.as_array();
+        if state_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "State vector must have exactly 6 elements"
+            ));
+        }
+
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+
+        match self.trajectory.add_state(epoch.obj, state_vec) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get state at a specific epoch using interpolation
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.state_at_epoch(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the nearest state to a given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of nearest state
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn nearest_state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.nearest_state(&epoch.obj) {
+            Ok((nearest_epoch, nearest_state)) => {
+                Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the number of states in the trajectory
+    #[getter]
+    pub fn length(&self) -> usize {
+        self.trajectory.len()
+    }
+
+    /// Get trajectory frame
+    #[getter]
+    pub fn frame(&self) -> PyOrbitFrame {
+        PyOrbitFrame { frame: self.trajectory.frame }
+    }
+
+    /// Get trajectory representation
+    #[getter]
+    pub fn representation(&self) -> PyOrbitRepresentation {
+        PyOrbitRepresentation { representation: self.trajectory.representation }
+    }
+
+    /// Get trajectory angle format
+    #[getter]
+    pub fn angle_format(&self) -> PyAngleFormat {
+        PyAngleFormat { format: self.trajectory.angle_format }
+    }
+
+    /// Clear all states from the trajectory
+    #[pyo3(text_signature = "()")]
+    pub fn clear(&mut self) {
+        self.trajectory.clear();
+    }
+
+    /// Convert trajectory to different frame/representation
+    ///
+    /// Arguments:
+    ///     frame (OrbitFrame): Target reference frame
+    ///     representation (OrbitRepresentation): Target representation
+    ///     angle_format (AngleFormat): Target angle format
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Converted trajectory
+    #[pyo3(text_signature = "(frame, representation, angle_format)")]
+    pub fn convert_to(
+        &self,
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        match self.trajectory.convert_to(frame.frame, representation.representation, angle_format.format) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get all epochs as a numpy array
+    #[pyo3(text_signature = "()")]
+    pub fn epochs<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let epochs: Vec<f64> = self.trajectory.epochs().iter().map(|e| e.jd()).collect();
+        epochs.to_pyarray(py).to_owned()
+    }
+
+    /// Get all states as a numpy array
+    #[pyo3(text_signature = "()")]
+    pub fn states<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                let data: Vec<f64> = states_matrix.iter().cloned().collect();
+                let shape = (states_matrix.nrows(), states_matrix.ncols());
+                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Python length
+    fn __len__(&self) -> usize {
+        self.trajectory.len()
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!(
+            "OrbitalTrajectory(frame={:?}, representation={:?}, states={})",
+            self.trajectory.frame, self.trajectory.representation, self.trajectory.len()
+        )
+    }
+
+    /// String conversion
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}
+
+/// Legacy trajectory classes for backward compatibility
+
+/// Python wrapper for OrbitStateType enum (legacy)
+#[pyclass]
+#[pyo3(name = "OrbitStateType")]
+#[derive(Clone)]
+pub struct PyOrbitStateType {
+    state_type: String,
+}
+
+#[pymethods]
+impl PyOrbitStateType {
+    #[classattr]
+    fn cartesian() -> Self {
+        PyOrbitStateType { state_type: "Cartesian".to_string() }
+    }
+
+    #[classattr]
+    fn keplerian() -> Self {
+        PyOrbitStateType { state_type: "Keplerian".to_string() }
+    }
+
+    fn __str__(&self) -> String {
+        self.state_type.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OrbitStateType.{}", self.state_type)
     }
 }
 
@@ -90,27 +309,24 @@ impl PyOrbitStateType {
 #[pyo3(name = "AngleFormat")]
 #[derive(Clone)]
 pub struct PyAngleFormat {
-    format: crate::trajectories::AngleFormat,
+    pub(crate) format: trajectories::AngleFormat,
 }
 
 #[pymethods]
 impl PyAngleFormat {
-    /// Create radians angle format
-    #[classmethod]
-    fn radians(_cls: &Bound<'_, PyType>) -> Self {
-        PyAngleFormat { format: crate::trajectories::AngleFormat::Radians }
+    #[classattr]
+    fn radians() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::Radians }
     }
 
-    /// Create degrees angle format
-    #[classmethod]
-    fn degrees(_cls: &Bound<'_, PyType>) -> Self {
-        PyAngleFormat { format: crate::trajectories::AngleFormat::Degrees }
+    #[classattr]
+    fn degrees() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::Degrees }
     }
 
-    /// Create none angle format
-    #[classmethod]
-    fn none(_cls: &Bound<'_, PyType>) -> Self {
-        PyAngleFormat { format: crate::trajectories::AngleFormat::None }
+    #[classattr]
+    fn none() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::None }
     }
 
     fn __str__(&self) -> String {
@@ -135,39 +351,19 @@ impl PyAngleFormat {
 #[pyo3(name = "InterpolationMethod")]
 #[derive(Clone)]
 pub struct PyInterpolationMethod {
-    method: crate::trajectories::InterpolationMethod,
+    pub(crate) method: trajectories::InterpolationMethod,
 }
 
 #[pymethods]
 impl PyInterpolationMethod {
-    /// No interpolation
-    #[classmethod]
-    fn none(_cls: &Bound<'_, PyType>) -> Self {
-        PyInterpolationMethod { method: crate::trajectories::InterpolationMethod::None }
+    #[classattr]
+    fn linear() -> Self {
+        PyInterpolationMethod { method: trajectories::InterpolationMethod::Linear }
     }
 
-    /// Linear interpolation
-    #[classmethod]
-    fn linear(_cls: &Bound<'_, PyType>) -> Self {
-        PyInterpolationMethod { method: crate::trajectories::InterpolationMethod::Linear }
-    }
-
-    /// Cubic spline interpolation (not yet implemented)
-    #[classmethod]
-    fn cubic_spline(_cls: &Bound<'_, PyType>) -> Self {
-        PyInterpolationMethod { method: crate::trajectories::InterpolationMethod::CubicSpline }
-    }
-
-    /// Lagrange interpolation (not yet implemented)
-    #[classmethod]
-    fn lagrange(_cls: &Bound<'_, PyType>) -> Self {
-        PyInterpolationMethod { method: crate::trajectories::InterpolationMethod::Lagrange }
-    }
-
-    /// Hermite interpolation (not yet implemented)
-    #[classmethod]
-    fn hermite(_cls: &Bound<'_, PyType>) -> Self {
-        PyInterpolationMethod { method: crate::trajectories::InterpolationMethod::Hermite }
+    #[classattr]
+    fn lagrange() -> Self {
+        PyInterpolationMethod { method: trajectories::InterpolationMethod::Lagrange }
     }
 
     fn __str__(&self) -> String {
@@ -187,35 +383,93 @@ impl PyInterpolationMethod {
     }
 }
 
-/// Python wrapper for OrbitState
+/// Python wrapper for base Trajectory class
 #[pyclass]
-#[pyo3(name = "OrbitState")]
-pub struct PyOrbitState {
-    state: crate::trajectories::OrbitState,
+#[pyo3(name = "Trajectory")]
+pub struct PyTrajectory {
+    pub(crate) trajectory: trajectories::Trajectory,
 }
 
 #[pymethods]
-impl PyOrbitState {
-    /// Create a new OrbitState
+impl PyTrajectory {
+    /// Create a new empty trajectory
+    ///
+    /// Arguments:
+    ///     interpolation_method (InterpolationMethod): Interpolation method (default: Linear)
+    ///
+    /// Returns:
+    ///     Trajectory: New trajectory instance
+    #[new]
+    #[pyo3(signature = (interpolation_method=None))]
+    pub fn new(interpolation_method: Option<PyRef<PyInterpolationMethod>>) -> Self {
+        let trajectory = match interpolation_method {
+            Some(m) => trajectories::Trajectory::with_interpolation(m.method),
+            None => trajectories::Trajectory::new(),
+        };
+
+        PyTrajectory { trajectory }
+    }
+
+    /// Create a trajectory from vectors of epochs and states
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of time epochs
+    ///     states (numpy.ndarray): Array of 6D state vectors (Nx6)
+    ///     interpolation_method (InterpolationMethod): Interpolation method (default: Linear)
+    ///
+    /// Returns:
+    ///     Trajectory: New trajectory instance
+    #[classmethod]
+    #[pyo3(signature = (epochs, states, interpolation_method=None))]
+    pub fn from_data(
+        _cls: &Bound<'_, PyType>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        states: PyReadonlyArray1<f64>,
+        interpolation_method: Option<PyRef<PyInterpolationMethod>>,
+    ) -> PyResult<Self> {
+        let method = interpolation_method
+            .map(|m| m.method)
+            .unwrap_or(trajectories::InterpolationMethod::Linear);
+
+        let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+
+        let states_array = states.as_array();
+        if states_array.len() % 6 != 0 {
+            return Err(exceptions::PyValueError::new_err(
+                "States array length must be a multiple of 6"
+            ));
+        }
+
+        let num_states = states_array.len() / 6;
+        if num_states != epochs_vec.len() {
+            return Err(exceptions::PyValueError::new_err(
+                "Number of epochs must match number of state vectors"
+            ));
+        }
+
+        let mut states_vec = Vec::new();
+        for i in 0..num_states {
+            let start_idx = i * 6;
+            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
+            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        }
+
+        match trajectories::Trajectory::from_data(epochs_vec, states_vec, method) {
+            Ok(trajectory) => Ok(PyTrajectory { trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Add a state to the trajectory
     ///
     /// Arguments:
     ///     epoch (Epoch): Time of the state
     ///     state (numpy.ndarray): 6-element state vector
-    ///     frame (OrbitFrame): Reference frame
-    ///     orbit_type (OrbitStateType): Type of orbit representation
-    ///     angle_format (AngleFormat): Format for angular quantities
     ///
     /// Returns:
-    ///     OrbitState: New orbit state instance
-    #[new]
-    #[pyo3(text_signature = "(epoch, state, frame, orbit_type, angle_format)")]
-    pub fn new(
-        epoch: PyRef<PyEpoch>,
-        state: PyReadonlyArray1<f64>,
-        frame: PyRef<PyOrbitFrame>,
-        orbit_type: PyRef<PyOrbitStateType>,
-        angle_format: PyRef<PyAngleFormat>,
-    ) -> PyResult<Self> {
+    ///     None
+    #[pyo3(text_signature = "(epoch, state)")]
+    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -225,614 +479,157 @@ impl PyOrbitState {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        match crate::trajectories::OrbitState::new(
-            epoch.obj,
-            state_vec,
-            frame.frame,
-            orbit_type.state_type,
-            angle_format.format,
-        ) {
-            Ok(orbit_state) => Ok(PyOrbitState { state: orbit_state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the epoch of the state
-    fn epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.state.epoch }
-    }
-
-    /// Get the state vector as numpy array
-    fn state<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let flat_vec: Vec<f64> = (0..6).map(|i| self.state.state[i]).collect();
-        Ok(flat_vec.into_pyarray(py))
-    }
-
-    /// Get the reference frame
-    #[getter]
-    fn frame(&self) -> PyOrbitFrame {
-        PyOrbitFrame { frame: self.state.frame }
-    }
-
-    /// Get the orbit type
-    #[getter]
-    fn orbit_type(&self) -> PyOrbitStateType {
-        PyOrbitStateType { state_type: self.state.orbit_type }
-    }
-
-    /// Get the angle format
-    #[getter]
-    fn angle_format(&self) -> PyAngleFormat {
-        PyAngleFormat { format: self.state.angle_format }
-    }
-
-    /// Get metadata dictionary
-    #[getter]
-    fn metadata(&self, py: Python) -> PyResult<Py<pyo3::PyAny>> {
-        use pyo3::types::PyDict;
-        let dict = PyDict::new(py);
-        for (key, value) in &self.state.metadata {
-            dict.set_item(key, value)?;
-        }
-        Ok(dict.into())
-    }
-
-    /// Add metadata to the state
-    ///
-    /// Arguments:
-    ///     key (str): Metadata key
-    ///     value (str): Metadata value
-    ///
-    /// Returns:
-    ///     OrbitState: New state with added metadata
-    #[pyo3(text_signature = "(key, value)")]
-    fn with_metadata(&self, key: &str, value: &str) -> Self {
-        PyOrbitState {
-            state: self.state.clone().with_metadata(key, value)
-        }
-    }
-
-    /// Get position component (Cartesian only)
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Position vector [x, y, z] in meters
-    ///
-    /// Raises:
-    ///     RuntimeError: If not in Cartesian representation
-    #[pyo3(text_signature = "()")]
-    fn position<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.state.position() {
-            Ok(pos) => {
-                let pos_vec = vec![pos.x, pos.y, pos.z];
-                Ok(pos_vec.into_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get velocity component (Cartesian only)
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Velocity vector [vx, vy, vz] in m/s
-    ///
-    /// Raises:
-    ///     RuntimeError: If not in Cartesian representation
-    #[pyo3(text_signature = "()")]
-    fn velocity<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.state.velocity() {
-            Ok(vel) => {
-                let vel_vec = vec![vel.x, vel.y, vel.z];
-                Ok(vel_vec.into_pyarray(py))
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to Cartesian representation
-    ///
-    /// Returns:
-    ///     OrbitState: State in Cartesian representation
-    #[pyo3(text_signature = "()")]
-    fn to_cartesian(&self) -> PyResult<Self> {
-        match self.state.to_cartesian() {
-            Ok(cart_state) => Ok(PyOrbitState { state: cart_state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to Keplerian representation
-    ///
-    /// Arguments:
-    ///     angle_format (AngleFormat): Desired angle format
-    ///
-    /// Returns:
-    ///     OrbitState: State in Keplerian representation
-    #[pyo3(text_signature = "(angle_format)")]
-    fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
-        match self.state.to_keplerian(angle_format.format) {
-            Ok(kep_state) => Ok(PyOrbitState { state: kep_state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to degrees representation
-    ///
-    /// Returns:
-    ///     OrbitState: State with angles in degrees
-    #[pyo3(text_signature = "()")]
-    fn as_degrees(&self) -> Self {
-        use crate::State;
-        PyOrbitState { state: self.state.as_degrees() }
-    }
-
-    /// Convert to radians representation
-    ///
-    /// Returns:
-    ///     OrbitState: State with angles in radians
-    #[pyo3(text_signature = "()")]
-    fn as_radians(&self) -> Self {
-        use crate::State;
-        PyOrbitState { state: self.state.as_radians() }
-    }
-
-    /// Convert to different reference frame
-    ///
-    /// Arguments:
-    ///     frame (OrbitFrame): Target reference frame
-    ///
-    /// Returns:
-    ///     OrbitState: State in target frame
-    #[pyo3(text_signature = "(frame)")]
-    fn to_frame(&self, frame: PyRef<PyOrbitFrame>) -> PyResult<Self> {
-        use crate::State;
-        match self.state.to_frame(&frame.frame) {
-            Ok(new_state) => Ok(PyOrbitState { state: new_state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get element by index
-    ///
-    /// Arguments:
-    ///     index (int): Element index (0-5)
-    ///
-    /// Returns:
-    ///     float: Element value
-    #[pyo3(text_signature = "(index)")]
-    fn get_element(&self, index: usize) -> PyResult<f64> {
-        use crate::State;
-        match self.state.get_element(index) {
-            Ok(val) => Ok(val),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get number of elements
-    ///
-    /// Returns:
-    ///     int: Number of elements (always 6)
-    #[pyo3(text_signature = "()")]
-    fn len(&self) -> usize {
-        use crate::State;
-        self.state.len()
-    }
-
-    /// Check if empty
-    ///
-    /// Returns:
-    ///     bool: Always False for valid states
-    #[pyo3(text_signature = "()")]
-    fn is_empty(&self) -> bool {
-        use crate::State;
-        self.state.is_empty()
-    }
-
-    /// Linear interpolation with another state
-    ///
-    /// Arguments:
-    ///     other (OrbitState): Other state to interpolate with
-    ///     alpha (float): Interpolation factor (0.0 to 1.0)
-    ///     epoch (Epoch): Epoch for interpolated state
-    ///
-    /// Returns:
-    ///     OrbitState: Interpolated state
-    #[pyo3(text_signature = "(other, alpha, epoch)")]
-    fn interpolate_with(
-        &self,
-        other: PyRef<PyOrbitState>,
-        alpha: f64,
-        epoch: PyRef<PyEpoch>,
-    ) -> PyResult<Self> {
-        use crate::State;
-        match self.state.interpolate_with(&other.state, alpha, &epoch.obj) {
-            Ok(interp_state) => Ok(PyOrbitState { state: interp_state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to JSON string
-    ///
-    /// Returns:
-    ///     str: JSON representation
-    #[pyo3(text_signature = "()")]
-    fn to_json(&self) -> PyResult<String> {
-        match self.state.to_json() {
-            Ok(json) => Ok(json),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Create OrbitState from JSON string
-    ///
-    /// Arguments:
-    ///     json (str): JSON string
-    ///
-    /// Returns:
-    ///     OrbitState: Parsed state
-    #[classmethod]
-    #[pyo3(text_signature = "(json)")]
-    fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
-        match crate::trajectories::OrbitState::from_json(json) {
-            Ok(state) => Ok(PyOrbitState { state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    // Python special methods
-
-    /// Get item by index
-    fn __getitem__(&self, index: usize) -> PyResult<f64> {
-        if index >= 6 {
-            return Err(exceptions::PyIndexError::new_err("Index out of range"));
-        }
-        Ok(self.state[index])
-    }
-
-    /// Length
-    fn __len__(&self) -> usize {
-        6
-    }
-
-    /// String representation
-    fn __repr__(&self) -> String {
-        format!(
-            "OrbitState(epoch={:?}, frame={:?}, type={:?})",
-            self.state.epoch, self.state.frame, self.state.orbit_type
-        )
-    }
-
-    /// String conversion
-    fn __str__(&self) -> String {
-        self.__repr__()
-    }
-}
-
-/// Python wrapper for Trajectory
-#[pyclass]
-#[pyo3(name = "Trajectory")]
-pub struct PyTrajectory {
-    trajectory: crate::trajectories::Trajectory<crate::trajectories::OrbitState>,
-}
-
-#[pymethods]
-impl PyTrajectory {
-    /// Create a new empty trajectory
-    ///
-    /// Arguments:
-    ///     interpolation_method (InterpolationMethod): Interpolation method to use
-    ///
-    /// Returns:
-    ///     Trajectory: New empty trajectory
-    #[new]
-    #[pyo3(text_signature = "(interpolation_method)")]
-    pub fn new(interpolation_method: PyRef<PyInterpolationMethod>) -> Self {
-        PyTrajectory {
-            trajectory: crate::trajectories::Trajectory::new(interpolation_method.method)
-        }
-    }
-
-    /// Create trajectory from states
-    ///
-    /// Arguments:
-    ///     states (list[OrbitState]): List of orbit states
-    ///     interpolation_method (InterpolationMethod): Interpolation method to use
-    ///
-    /// Returns:
-    ///     Trajectory: New trajectory with states
-    #[classmethod]
-    #[pyo3(text_signature = "(states, interpolation_method)")]
-    fn from_states(
-        _cls: &Bound<'_, PyType>,
-        states: Vec<PyRef<PyOrbitState>>,
-        interpolation_method: PyRef<PyInterpolationMethod>,
-    ) -> PyResult<Self> {
-        let orbit_states: Vec<crate::trajectories::OrbitState> = states.iter().map(|s| s.state.clone()).collect();
-
-        match crate::trajectories::Trajectory::from_states(orbit_states, interpolation_method.method) {
-            Ok(trajectory) => Ok(PyTrajectory { trajectory }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Set propagator type
-    ///
-    /// Arguments:
-    ///     propagator_type (str): Propagator type ("SGP4", "Numerical", "Analytical", "Ephemeris")
-    ///
-    /// Returns:
-    ///     Trajectory: Trajectory with propagator type set
-    #[pyo3(text_signature = "(propagator_type)")]
-    fn with_propagator(&self, propagator_type: &str) -> PyResult<Self> {
-        let prop_type = match propagator_type {
-            "SGP4" => crate::trajectories::PropagatorType::SGP4,
-            "Numerical" => crate::trajectories::PropagatorType::Numerical,
-            "Analytical" => crate::trajectories::PropagatorType::Analytical,
-            "Ephemeris" => crate::trajectories::PropagatorType::Ephemeris,
-            _ => return Err(exceptions::PyValueError::new_err("Invalid propagator type")),
-        };
-
-        Ok(PyTrajectory {
-            trajectory: self.trajectory.clone().with_propagator(prop_type)
-        })
-    }
-
-    /// Set maximum trajectory size
-    ///
-    /// Arguments:
-    ///     max_size (Optional[int]): Maximum number of states (None for unlimited)
-    #[pyo3(text_signature = "(max_size)")]
-    fn set_max_size(&mut self, max_size: Option<usize>) {
-        self.trajectory.set_max_size(max_size);
-    }
-
-    /// Set maximum age of states
-    ///
-    /// Arguments:
-    ///     max_age (Optional[float]): Maximum age in seconds (None for unlimited)
-    #[pyo3(text_signature = "(max_age)")]
-    fn set_max_age(&mut self, max_age: Option<f64>) {
-        self.trajectory.set_max_age(max_age);
-    }
-
-    /// Set eviction policy
-    ///
-    /// Arguments:
-    ///     policy (str): Eviction policy ("None", "KeepCount", "KeepWithinDuration")
-    #[pyo3(text_signature = "(policy)")]
-    fn set_eviction_policy(&mut self, policy: &str) -> PyResult<()> {
-        let eviction_policy = match policy {
-            "None" => crate::trajectories::TrajectoryEvictionPolicy::None,
-            "KeepCount" => crate::trajectories::TrajectoryEvictionPolicy::KeepCount,
-            "KeepWithinDuration" => crate::trajectories::TrajectoryEvictionPolicy::KeepWithinDuration,
-            _ => return Err(exceptions::PyValueError::new_err("Invalid eviction policy")),
-        };
-
-        self.trajectory.set_eviction_policy(eviction_policy);
-        Ok(())
-    }
-
-    /// Add a state to the trajectory
-    ///
-    /// Arguments:
-    ///     state (OrbitState): State to add
-    #[pyo3(text_signature = "(state)")]
-    fn add_state(&mut self, state: PyRef<PyOrbitState>) -> PyResult<()> {
-        match self.trajectory.add_state(state.state.clone()) {
+        match self.trajectory.add_state(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Get state at specific epoch
+    /// Get state at a specific epoch using interpolation
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch
     ///
     /// Returns:
-    ///     OrbitState: Interpolated state at epoch
+    ///     numpy.ndarray: Interpolated state vector
     #[pyo3(text_signature = "(epoch)")]
-    fn state_at_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<PyOrbitState> {
+    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         match self.trajectory.state_at_epoch(&epoch.obj) {
-            Ok(state) => Ok(PyOrbitState { state }),
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Find nearest state to epoch
+    /// Get the nearest state to a given epoch
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch
     ///
     /// Returns:
-    ///     OrbitState: Nearest state
+    ///     tuple: (Epoch, numpy.ndarray) of nearest state
     #[pyo3(text_signature = "(epoch)")]
-    fn nearest_state(&self, epoch: PyRef<PyEpoch>) -> PyResult<PyOrbitState> {
+    pub fn nearest_state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
         match self.trajectory.nearest_state(&epoch.obj) {
-            Ok(state) => Ok(PyOrbitState { state }),
+            Ok((nearest_epoch, nearest_state)) => {
+                Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
+            }
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Get state before epoch
+    /// Get state at a specific index
     ///
     /// Arguments:
-    ///     epoch (Epoch): Target epoch
+    ///     index (int): Index of the state
     ///
     /// Returns:
-    ///     OrbitState: State before epoch
-    #[pyo3(text_signature = "(epoch)")]
-    fn state_before(&self, epoch: PyRef<PyEpoch>) -> PyResult<PyOrbitState> {
-        match self.trajectory.state_before(&epoch.obj) {
-            Ok(state) => Ok(PyOrbitState { state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get state after epoch
-    ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     OrbitState: State after epoch
-    #[pyo3(text_signature = "(epoch)")]
-    fn state_after(&self, epoch: PyRef<PyEpoch>) -> PyResult<PyOrbitState> {
-        match self.trajectory.state_after(&epoch.obj) {
-            Ok(state) => Ok(PyOrbitState { state }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get state at index
-    ///
-    /// Arguments:
-    ///     index (int): State index
-    ///
-    /// Returns:
-    ///     OrbitState: State at index
+    ///     numpy.ndarray: State vector at index
     #[pyo3(text_signature = "(index)")]
-    fn state_at_index(&self, index: usize) -> PyResult<PyOrbitState> {
+    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         match self.trajectory.state_at_index(index) {
-            Ok(state) => Ok(PyOrbitState { state }),
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Convert to different frame
+    /// Get epoch at a specific index
     ///
     /// Arguments:
-    ///     frame (OrbitFrame): Target frame
+    ///     index (int): Index of the epoch
     ///
     /// Returns:
-    ///     Trajectory: Trajectory in target frame
-    #[pyo3(text_signature = "(frame)")]
-    fn to_frame(&self, frame: PyRef<PyOrbitFrame>) -> PyResult<Self> {
-        match self.trajectory.to_frame(&frame.frame) {
-            Ok(traj) => Ok(PyTrajectory { trajectory: traj }),
+    ///     Epoch: Epoch at index
+    #[pyo3(text_signature = "(index)")]
+    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
+        match self.trajectory.epoch_at_index(index) {
+            Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
 
-    /// Convert to degrees representation
-    ///
-    /// Returns:
-    ///     Trajectory: Trajectory with angles in degrees
-    #[pyo3(text_signature = "()")]
-    fn as_degrees(&self) -> PyResult<Self> {
-        match self.trajectory.as_degrees() {
-            Ok(traj) => Ok(PyTrajectory { trajectory: traj }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to radians representation
-    ///
-    /// Returns:
-    ///     Trajectory: Trajectory with angles in radians
-    #[pyo3(text_signature = "()")]
-    fn as_radians(&self) -> PyResult<Self> {
-        match self.trajectory.as_radians() {
-            Ok(traj) => Ok(PyTrajectory { trajectory: traj }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to matrix representation
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Matrix (6, N) where columns are time points
-    #[pyo3(text_signature = "()")]
-    fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
-        match self.trajectory.to_matrix() {
-            Ok(matrix) => {
-                let (rows, cols) = matrix.shape();
-                let mut flat_vec = Vec::with_capacity(rows * cols);
-                for row_idx in 0..rows {
-                    for col_idx in 0..cols {
-                        flat_vec.push(matrix[(row_idx, col_idx)]);
-                    }
-                }
-                Ok(flat_vec.into_pyarray(py).reshape([rows, cols]).unwrap())
-            },
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Convert to JSON string
-    ///
-    /// Returns:
-    ///     str: JSON representation
-    #[pyo3(text_signature = "()")]
-    fn to_json(&self) -> PyResult<String> {
-        match self.trajectory.to_json() {
-            Ok(json) => Ok(json),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Create trajectory from JSON string
-    ///
-    /// Arguments:
-    ///     json (str): JSON string
-    ///
-    /// Returns:
-    ///     Trajectory: Parsed trajectory
-    #[classmethod]
-    #[pyo3(text_signature = "(json)")]
-    fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
-        match crate::trajectories::Trajectory::from_json(json) {
-            Ok(trajectory) => Ok(PyTrajectory { trajectory }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get trajectory length
-    ///
-    /// Returns:
-    ///     int: Number of states in trajectory
-    #[pyo3(text_signature = "()")]
-    fn len(&self) -> usize {
+    /// Get the number of states in the trajectory
+    #[getter]
+    pub fn length(&self) -> usize {
         self.trajectory.len()
     }
 
-    /// Check if trajectory is empty
+    /// Get interpolation method
+    #[getter]
+    pub fn interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.trajectory.interpolation_method }
+    }
+
+    /// Set interpolation method
+    ///
+    /// Arguments:
+    ///     method (InterpolationMethod): New interpolation method
     ///
     /// Returns:
-    ///     bool: True if empty
+    ///     None
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
+        self.trajectory.set_interpolation_method(method.method);
+    }
+
+    /// Set maximum trajectory size
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_max_size(&mut self, max_size: Option<usize>) {
+        self.trajectory.set_max_size(max_size);
+    }
+
+    /// Set maximum age for trajectory states (in seconds)
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_max_age(&mut self, max_age: Option<f64>) {
+        self.trajectory.set_max_age(max_age);
+    }
+
+    /// Get start epoch of trajectory
+    #[getter]
+    pub fn start_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.start_epoch().map(|epoch| PyEpoch { obj: epoch })
+    }
+
+    /// Get end epoch of trajectory
+    #[getter]
+    pub fn end_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.end_epoch().map(|epoch| PyEpoch { obj: epoch })
+    }
+
+    /// Get time span of trajectory in seconds
+    #[getter]
+    pub fn time_span(&self) -> Option<f64> {
+        self.trajectory.time_span()
+    }
+
+    /// Clear all states from the trajectory
     #[pyo3(text_signature = "()")]
-    fn is_empty(&self) -> bool {
-        self.trajectory.is_empty()
+    pub fn clear(&mut self) {
+        self.trajectory.clear();
     }
 
-    // Python special methods
-
-    /// Get item by index
-    fn __getitem__(&self, index: usize) -> PyResult<PyOrbitState> {
-        if index >= self.trajectory.len() {
-            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+    /// Get all states as a numpy array
+    #[pyo3(text_signature = "()")]
+    pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                let data: Vec<f64> = states_matrix.iter().cloned().collect();
+                let shape = (states_matrix.nrows(), states_matrix.ncols());
+                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
-        Ok(PyOrbitState { state: self.trajectory[index].clone() })
     }
 
-    /// Length
+    /// Python length
     fn __len__(&self) -> usize {
         self.trajectory.len()
-    }
-
-    /// Iterator support
-    fn __iter__(slf: PyRef<'_, Self>) -> PyTrajectoryIterator {
-        PyTrajectoryIterator {
-            trajectory: slf.trajectory.clone(),
-            index: 0,
-        }
     }
 
     /// String representation
     fn __repr__(&self) -> String {
         format!(
-            "Trajectory(len={}, interpolation={:?})",
-            self.trajectory.len(),
-            self.trajectory.interpolation_method
+            "Trajectory(interpolation_method={:?}, states={})",
+            self.trajectory.interpolation_method, self.trajectory.len()
         )
     }
 
@@ -842,26 +639,3 @@ impl PyTrajectory {
     }
 }
 
-/// Iterator for PyTrajectory
-#[pyclass]
-pub struct PyTrajectoryIterator {
-    trajectory: crate::trajectories::Trajectory<crate::trajectories::OrbitState>,
-    index: usize,
-}
-
-#[pymethods]
-impl PyTrajectoryIterator {
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyOrbitState> {
-        if slf.index < slf.trajectory.len() {
-            let state = slf.trajectory[slf.index].clone();
-            slf.index += 1;
-            Some(PyOrbitState { state })
-        } else {
-            None
-        }
-    }
-}

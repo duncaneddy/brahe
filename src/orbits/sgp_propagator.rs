@@ -68,6 +68,7 @@ pub fn calculate_tle_line_checksum(line: &str) -> u8 {
         } else if c == '-' {
             checksum += 1;
         }
+        // Letters and other characters are ignored for checksum calculation
     }
     (checksum % 10) as u8
 }
@@ -119,14 +120,14 @@ pub fn validate_tle_lines(line1: &str, line2: &str) -> bool {
     id1 == id2
 }
 
-/// Extract NORAD ID from TLE string, handling both classic and Alpha-5 formats
+/// Parse NORAD ID from TLE string, handling both classic and Alpha-5 formats
 ///
 /// # Arguments
 /// * `id_str` - NORAD ID string from TLE
 ///
 /// # Returns
 /// * `Result<u32, BraheError>` - Decoded numeric NORAD ID or error
-pub fn extract_tle_norad_id(id_str: &str) -> Result<u32, BraheError> {
+pub fn parse_norad_id(id_str: &str) -> Result<u32, BraheError> {
     let trimmed = id_str.trim();
 
     // Check if it's Alpha-5 format (first character is a letter)
@@ -137,12 +138,17 @@ pub fn extract_tle_norad_id(id_str: &str) -> Result<u32, BraheError> {
                 return Err(BraheError::Error(format!("Invalid Alpha-5 NORAD ID length: {}", trimmed)));
             }
 
-            // Convert letter to corresponding digit (A=1, B=2, ..., Z=26)
-            let letter_value = (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 1;
+            // Convert letter to Alpha-5 value (A=10, B=11, ..., Z=33, skipping I=18 and O=24)
+            let letter_value = match first_char.to_ascii_uppercase() {
+                'A'..='H' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 10, // A=10..H=17
+                'J'..='N' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 9,  // J=18..N=22 (skip I)
+                'P'..='Z' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 8,  // P=23..Z=33 (skip I,O)
+                _ => return Err(BraheError::Error(format!("Invalid Alpha-5 letter: {}", first_char))),
+            };
             let remaining_digits = &trimmed[1..];
 
             match remaining_digits.parse::<u32>() {
-                Ok(digits) => Ok(100000 + letter_value * 10000 + digits),
+                Ok(digits) => Ok(letter_value * 10000 + digits),
                 Err(_) => Err(BraheError::Error(format!("Invalid Alpha-5 NORAD ID digits: {}", remaining_digits))),
             }
         } else {
@@ -238,18 +244,49 @@ impl SGPPropagator {
 
         // Extract NORAD ID and determine format
         let norad_id_string = line1[2..7].trim().to_string();
-        let norad_id = extract_tle_norad_id(&norad_id_string)?;
+        let norad_id = parse_norad_id(&norad_id_string)?;
         let format = if norad_id_string.chars().next().unwrap_or('0').is_alphabetic() {
             TleFormat::Alpha5
         } else {
             TleFormat::Classic
         };
 
+        // For Alpha-5 format, zero out NORAD ID for SGP4 library compatibility
+        let (sgp4_line1, sgp4_line2) = if format == TleFormat::Alpha5 {
+            // Replace Alpha-5 NORAD ID with zeros for SGP4
+            let mut line1_chars: Vec<char> = line1.chars().collect();
+            let mut line2_chars: Vec<char> = line2.chars().collect();
+
+            // Zero out positions 2-6 (NORAD ID field)
+            for i in 2..7 {
+                if i < line1_chars.len() { line1_chars[i] = '0'; }
+                if i < line2_chars.len() { line2_chars[i] = '0'; }
+            }
+
+            // Recalculate checksums for modified lines
+            let mut modified_line1: String = line1_chars.into_iter().collect();
+            let mut modified_line2: String = line2_chars.into_iter().collect();
+
+            // Replace the last character (checksum) with recalculated value
+            if modified_line1.len() >= 69 {
+                let new_checksum1 = calculate_tle_line_checksum(&modified_line1);
+                modified_line1.replace_range(68..69, &new_checksum1.to_string());
+            }
+            if modified_line2.len() >= 69 {
+                let new_checksum2 = calculate_tle_line_checksum(&modified_line2);
+                modified_line2.replace_range(68..69, &new_checksum2.to_string());
+            }
+
+            (modified_line1, modified_line2)
+        } else {
+            (line1.to_string(), line2.to_string())
+        };
+
         // Parse TLE using sgp4 library
         let elements = sgp4::Elements::from_tle(
             Some(norad_id.to_string()),
-            line1.as_bytes(),
-            line2.as_bytes(),
+            sgp4_line1.as_bytes(),
+            sgp4_line2.as_bytes(),
         ).map_err(|e| BraheError::Error(format!("SGP4 parsing error: {:?}", e)))?;
 
         let constants = sgp4::Constants::from_elements(&elements)
@@ -595,12 +632,12 @@ mod tests {
 
     #[test]
     fn test_extract_classic_norad_id() {
-        assert_eq!(extract_tle_norad_id("25544").unwrap(), 25544);
+        assert_eq!(parse_norad_id("25544").unwrap(), 25544);
     }
 
     #[test]
     fn test_extract_alpha5_norad_id() {
-        assert_eq!(extract_tle_norad_id("A0001").unwrap(), 110001);
+        assert_eq!(parse_norad_id("A0001").unwrap(), 100001);
     }
 
     #[test]

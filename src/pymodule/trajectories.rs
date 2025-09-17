@@ -254,9 +254,188 @@ impl PyOrbitalTrajectory {
         }
     }
 
+    /// Check if trajectory is empty
+    #[pyo3(text_signature = "()")]
+    pub fn is_empty(&self) -> bool {
+        self.trajectory.len() == 0
+    }
+
+    /// Get state at specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at given index
+    #[pyo3(text_signature = "(index)")]
+    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        if index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                let state = states_matrix.column(index);
+                let state_vec: Vec<f64> = state.iter().cloned().collect();
+                Ok(state_vec.to_pyarray(py).to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get epoch at specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the epoch
+    ///
+    /// Returns:
+    ///     Epoch: Epoch at given index
+    #[pyo3(text_signature = "(index)")]
+    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
+        let epochs = self.trajectory.epochs();
+        if index >= epochs.len() {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+        Ok(PyEpoch { obj: epochs[index] })
+    }
+
+    /// Convert to Cartesian representation
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in Cartesian representation
+    #[pyo3(text_signature = "()")]
+    pub fn to_cartesian(&self) -> PyResult<Self> {
+        match self.trajectory.convert_to(
+            self.trajectory.frame,
+            trajectories::OrbitRepresentation::Cartesian,
+            self.trajectory.angle_format,
+        ) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to Keplerian representation
+    ///
+    /// Arguments:
+    ///     angle_format (AngleFormat): Angle format for the result
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in Keplerian representation
+    #[pyo3(text_signature = "(angle_format)")]
+    pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
+        match self.trajectory.convert_to(
+            self.trajectory.frame,
+            trajectories::OrbitRepresentation::Keplerian,
+            angle_format.format,
+        ) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to different reference frame
+    ///
+    /// Arguments:
+    ///     frame (OrbitFrame): Target reference frame
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in new reference frame
+    #[pyo3(text_signature = "(frame)")]
+    pub fn to_frame(&self, frame: PyRef<PyOrbitFrame>) -> PyResult<Self> {
+        match self.trajectory.convert_to(
+            frame.frame,
+            self.trajectory.representation,
+            self.trajectory.angle_format,
+        ) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to different angle format
+    ///
+    /// Arguments:
+    ///     angle_format (AngleFormat): Target angle format
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in new angle format
+    #[pyo3(text_signature = "(angle_format)")]
+    pub fn to_angle_format(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
+        match self.trajectory.convert_to(
+            self.trajectory.frame,
+            self.trajectory.representation,
+            angle_format.format,
+        ) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert trajectory to matrix representation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Matrix with states as rows
+    #[pyo3(text_signature = "()")]
+    pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                let data: Vec<f64> = states_matrix.iter().cloned().collect();
+                let shape = (states_matrix.nrows(), states_matrix.ncols());
+                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert trajectory to JSON representation
+    ///
+    /// Returns:
+    ///     str: JSON string representation
+    #[pyo3(text_signature = "()")]
+    pub fn to_json(&self) -> PyResult<String> {
+        // Create a simple JSON representation
+        let epochs: Vec<f64> = self.trajectory.epochs().iter().map(|e| e.jd()).collect();
+
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                let states: Vec<Vec<f64>> = (0..states_matrix.nrows())
+                    .map(|i| states_matrix.row(i).iter().cloned().collect())
+                    .collect();
+
+                let json_obj = serde_json::json!({
+                    "frame": format!("{:?}", self.trajectory.frame),
+                    "representation": format!("{:?}", self.trajectory.representation),
+                    "angle_format": format!("{:?}", self.trajectory.angle_format),
+                    "epochs": epochs,
+                    "states": states
+                });
+
+                match serde_json::to_string(&json_obj) {
+                    Ok(json_str) => Ok(json_str),
+                    Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("JSON serialization error: {}", e))),
+                }
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
     /// Python length
     fn __len__(&self) -> usize {
         self.trajectory.len()
+    }
+
+    /// Python indexing support
+    fn __getitem__(&self, index: isize) -> PyResult<PyEpoch> {
+        let len = self.trajectory.len() as isize;
+        let idx = if index < 0 { len + index } else { index };
+
+        if idx < 0 || idx >= len {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+
+        let epochs = self.trajectory.epochs();
+        Ok(PyEpoch { obj: epochs[idx as usize] })
     }
 
     /// String representation
@@ -364,6 +543,11 @@ impl PyInterpolationMethod {
     #[classattr]
     fn lagrange() -> Self {
         PyInterpolationMethod { method: trajectories::InterpolationMethod::Lagrange }
+    }
+
+    #[staticmethod]
+    fn none() -> Self {
+        PyInterpolationMethod { method: trajectories::InterpolationMethod::None }
     }
 
     fn __str__(&self) -> String {

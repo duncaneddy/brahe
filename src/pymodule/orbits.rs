@@ -777,20 +777,15 @@ impl PyTLE {
 #[pyo3(text_signature = "(line1, line2)")]
 #[pyo3(name = "validate_tle_lines")]
 fn py_validate_tle_lines(line1: String, line2: String) -> PyResult<bool> {
-    // Simple validation - try to parse with SGP
-    match orbits::SGPPropagator::from_tle(&line1, &line2, 60.0) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
+    Ok(orbits::validate_tle_lines(&line1, &line2))
 }
 
 /// Validate single TLE line (legacy function)
 #[pyfunction]
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "validate_tle_line")]
-fn py_validate_tle_line(_line: String) -> PyResult<bool> {
-    // Basic line validation would go here
-    Ok(true)
+fn py_validate_tle_line(line: String) -> PyResult<bool> {
+    Ok(orbits::validate_tle_line(&line))
 }
 
 /// Calculate TLE line checksum (legacy function)
@@ -798,27 +793,17 @@ fn py_validate_tle_line(_line: String) -> PyResult<bool> {
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "calculate_tle_line_checksum")]
 fn py_calculate_tle_line_checksum(line: String) -> PyResult<u32> {
-    // Simple checksum calculation
-    let checksum: u32 = line.chars()
-        .filter_map(|c| c.to_digit(10))
-        .sum::<u32>() % 10;
-    Ok(checksum)
+    Ok(orbits::calculate_tle_line_checksum(&line) as u32)
 }
 
 /// Extract NORAD ID from TLE (legacy function)
 #[pyfunction]
-#[pyo3(text_signature = "(line1)")]
+#[pyo3(text_signature = "(id_str)")]
 #[pyo3(name = "extract_tle_norad_id")]
-fn py_extract_tle_norad_id(line1: String) -> PyResult<u32> {
-    // Extract NORAD ID from line 1 columns 2-7
-    if line1.len() >= 7 {
-        let norad_str = &line1[2..7];
-        match norad_str.trim().parse::<u32>() {
-            Ok(norad_id) => Ok(norad_id),
-            Err(_) => Err(exceptions::PyValueError::new_err("Invalid NORAD ID format")),
-        }
-    } else {
-        Err(exceptions::PyValueError::new_err("Line too short"))
+fn py_extract_tle_norad_id(id_str: String) -> PyResult<u32> {
+    match orbits::parse_norad_id(&id_str) {
+        Ok(norad_id) => Ok(norad_id),
+        Err(e) => Err(exceptions::PyValueError::new_err(e.to_string())),
     }
 }
 

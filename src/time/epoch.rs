@@ -802,6 +802,10 @@ impl Epoch {
 
 
     /// Returns the year component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `year`: The year as a 4-digit integer
@@ -819,6 +823,10 @@ impl Epoch {
     }
 
     /// Returns the month component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `month`: The month as an integer from 1 to 12
@@ -836,6 +844,10 @@ impl Epoch {
     }
 
     /// Returns the day component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `day`: The day of the month as an integer from 1 to 31
@@ -853,6 +865,10 @@ impl Epoch {
     }
 
     /// Returns the hour component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `hour`: The hour as an integer from 0 to 23
@@ -870,6 +886,10 @@ impl Epoch {
     }
 
     /// Returns the minute component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `minute`: The minute as an integer from 0 to 59
@@ -887,6 +907,10 @@ impl Epoch {
     }
 
     /// Returns the second component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `second`: The second as a floating-point number from 0.0 to 59.999...
@@ -904,6 +928,10 @@ impl Epoch {
     }
 
     /// Returns the nanosecond component of the epoch in the epoch's time system.
+    /// 
+    /// If you need to extract more than one component of the date/time 
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
     ///
     /// # Returns
     /// - `nanosecond`: The nanosecond component as a floating-point number

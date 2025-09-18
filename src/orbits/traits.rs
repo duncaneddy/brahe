@@ -114,7 +114,7 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// A 6-element vector containing the state in the propagator's native format
-    fn state_vector(&self, epoch: Epoch) -> Vector6<f64>;
+    fn state(&self, epoch: Epoch) -> Vector6<f64>;
 
     /// Returns the state at the given epoch in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates.
@@ -125,7 +125,7 @@ pub trait AnalyticPropagator {
     /// # Returns
     /// A 6-element vector containing position (km) and velocity (km/s) components
     /// in the ECI frame.
-    fn state_vector_eci(&self, epoch: Epoch) -> Vector6<f64>;
+    fn state_eci(&self, epoch: Epoch) -> Vector6<f64>;
 
     /// Returns the state at the given epoch in Earth-Centered Earth-Fixed (ECEF)
     /// Cartesian coordinates.
@@ -136,7 +136,7 @@ pub trait AnalyticPropagator {
     /// # Returns
     /// A 6-element vector containing position (km) and velocity (km/s) components
     /// in the ECEF frame.
-    fn state_vector_ecef(&self, epoch: Epoch) -> Vector6<f64>;
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64>;
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
@@ -147,7 +147,7 @@ pub trait AnalyticPropagator {
     /// A 6-element vector containing osculating Keplerian elements:
     /// [semi-major axis (km), eccentricity, inclination (rad), RAAN (rad),
     ///  argument of perigee (rad), mean anomaly (rad)]
-    fn state_vector_osculating_elements(&self, epoch: Epoch) -> Vector6<f64>;
+    fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64>;
 
     /// Returns states at multiple epochs as an OrbitalTrajectory in the propagator's
     /// native coordinate frame and representation.

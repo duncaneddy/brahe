@@ -159,7 +159,7 @@ pub fn norad_id_numeric_to_alpha5(norad_id: u32) -> Result<String, BraheError> {
 ///
 /// # Returns
 /// * `Result<u32, BraheError>` - Converted numeric ID
-fn norad_id_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
+pub fn norad_id_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
     if alpha5_id.len() != 5 {
         return Err(BraheError::Error("Alpha-5 ID must be exactly 5 characters".to_string()));
     }
@@ -570,7 +570,7 @@ mod tests {
     #[case("00001", 1)]
     #[case("99999", 99999)]
     #[case("    1", 1)]
-    fn test_parse_norad_id_classic(#[case] id_str: &str, #[case] expected: u32) {
+    fn test_parse_norad_id(#[case] id_str: &str, #[case] expected: u32) {
         assert_eq!(parse_norad_id(id_str).unwrap(), expected);
     }
 
@@ -770,6 +770,32 @@ mod tests {
     }
 
     #[rstest]
+    #[case("A0000", 100000)]
+    #[case("A0001", 100001)]
+    #[case("A9999", 109999)]
+    #[case("B0000", 110000)]
+    #[case("B1234", 111234)]
+    #[case("C5678", 125678)]
+    #[case("J6789", 186789)]  // Skip I
+    #[case("P6789", 236789)]  // Skip O
+    #[case("Z9999", 339999)]
+    fn test_norad_id_alpha5_to_numeric_valid(#[case] alpha5_id: &str, #[case] expected: u32) {
+        assert_eq!(norad_id_alpha5_to_numeric(alpha5_id).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("I0001")]  // Invalid letter I
+    #[case("O0001")]  // Invalid letter O
+    #[case("@0001")]  // Invalid character
+    #[case("A00012")] // Too long
+    #[case("A00")]    // Too short
+    #[case("")]       // Empty
+    #[case("AAAAA")]  // All letters
+    fn test_norad_id_alpha5_to_numeric_invalid(#[case] alpha5_id: &str) {
+        assert!(norad_id_alpha5_to_numeric(alpha5_id).is_err());
+    }
+
+    #[rstest]
     #[case(100000)]
     #[case(100001)]
     #[case(109999)]
@@ -780,7 +806,7 @@ mod tests {
     #[case(339999)]
     fn test_norad_id_alpha5_numeric_round_trip(#[case] id: u32) {
         let alpha5 = norad_id_numeric_to_alpha5(id).unwrap();
-        let parsed_id = parse_norad_id(&alpha5).unwrap();
+        let parsed_id = norad_id_alpha5_to_numeric(&alpha5).unwrap();
         assert_eq!(id, parsed_id, "Round trip failed for ID {}: {} -> {}", id, alpha5, parsed_id);
     }
 

@@ -772,7 +772,7 @@ impl PyTLE {
     }
 }
 
-/// Validate TLE lines (legacy function)
+/// Validate TLE lines
 #[pyfunction]
 #[pyo3(text_signature = "(line1, line2)")]
 #[pyo3(name = "validate_tle_lines")]
@@ -780,7 +780,7 @@ fn py_validate_tle_lines(line1: String, line2: String) -> PyResult<bool> {
     Ok(orbits::validate_tle_lines(&line1, &line2))
 }
 
-/// Validate single TLE line (legacy function)
+/// Validate single TLE line
 #[pyfunction]
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "validate_tle_line")]
@@ -788,7 +788,7 @@ fn py_validate_tle_line(line: String) -> PyResult<bool> {
     Ok(orbits::validate_tle_line(&line))
 }
 
-/// Calculate TLE line checksum (legacy function)
+/// Calculate TLE line checksum
 #[pyfunction]
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "calculate_tle_line_checksum")]
@@ -796,50 +796,9 @@ fn py_calculate_tle_line_checksum(line: String) -> PyResult<u32> {
     Ok(orbits::calculate_tle_line_checksum(&line) as u32)
 }
 
-/// Extract NORAD ID from TLE (legacy function)
-#[pyfunction]
-#[pyo3(text_signature = "(id_str)")]
-#[pyo3(name = "extract_tle_norad_id")]
-fn py_extract_tle_norad_id(id_str: String) -> PyResult<u32> {
-    match orbits::parse_norad_id(&id_str) {
-        Ok(norad_id) => Ok(norad_id),
-        Err(e) => Err(exceptions::PyValueError::new_err(e.to_string())),
-    }
-}
 
-/// Extract epoch from TLE (legacy function)
-#[pyfunction]
-#[pyo3(text_signature = "(line1)")]
-#[pyo3(name = "extract_epoch")]
-fn py_extract_epoch(_line1: String) -> PyResult<PyEpoch> {
-    // Would extract epoch from TLE line 1
-    // For now return current epoch
-    Ok(PyEpoch { obj: time::Epoch::from_jd(2451545.0, time::TimeSystem::UTC) })
-}
 
-/// Convert TLE lines to orbit elements (legacy function)
-#[pyfunction]
-#[pyo3(text_signature = "(line1, line2)")]
-#[pyo3(name = "lines_to_orbit_elements")]
-fn py_lines_to_orbit_elements<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    // Create a dummy propagator to extract elements
-    match orbits::SGPPropagator::from_tle(&line1, &line2, 60.0) {
-        Ok(propagator) => {
-            let state = propagator.state_eci(propagator.initial_epoch());
-            Ok(state.as_slice().to_pyarray(py).to_owned())
-        },
-        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-    }
-}
 
-/// Convert TLE lines to orbit state (legacy function)
-#[pyfunction]
-#[pyo3(text_signature = "(line1, line2)")]
-#[pyo3(name = "lines_to_orbit_state")]
-fn py_lines_to_orbit_state<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    // Same as lines_to_orbit_elements for backward compatibility
-    py_lines_to_orbit_elements(py, line1, line2)
-}
 
 /// Extract Keplerian orbital elements from TLE lines
 ///
@@ -1007,6 +966,23 @@ fn py_parse_norad_id(norad_str: String) -> PyResult<u32> {
 fn py_norad_id_numeric_to_alpha5(norad_id: u32) -> PyResult<String> {
     match orbits::norad_id_numeric_to_alpha5(norad_id) {
         Ok(alpha5_id) => Ok(alpha5_id),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Convert Alpha-5 NORAD ID to numeric format
+///
+/// # Arguments
+/// * `alpha5_id` - Alpha-5 format ID (e.g., "A0001")
+///
+/// # Returns
+/// * `int` - Numeric NORAD ID
+#[pyfunction]
+#[pyo3(text_signature = "(alpha5_id)")]
+#[pyo3(name = "norad_id_alpha5_to_numeric")]
+fn py_norad_id_alpha5_to_numeric(alpha5_id: String) -> PyResult<u32> {
+    match orbits::norad_id_alpha5_to_numeric(&alpha5_id) {
+        Ok(numeric_id) => Ok(numeric_id),
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
     }
 }

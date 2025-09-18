@@ -116,10 +116,40 @@ pub fn parse_norad_id(norad_str: &str) -> Result<u32, BraheError> {
             .map_err(|_| BraheError::Error(format!("Invalid numeric NORAD ID: {}", trimmed)))
     } else if first_char.is_ascii_alphabetic() {
         // Alpha-5 format conversion
-        convert_alpha5_to_numeric(trimmed)
+        norad_id_alpha5_to_numeric(trimmed)
     } else {
         Err(BraheError::Error(format!("Invalid NORAD ID format: {}", trimmed)))
     }
+}
+
+/// Convert numeric NORAD ID to Alpha-5 format
+///
+/// # Arguments
+/// * `norad_id` - Numeric NORAD ID (100000-339999)
+///
+/// # Returns
+/// * `Result<String, BraheError>` - Alpha-5 format ID (e.g., "A0001")
+pub fn norad_id_numeric_to_alpha5(norad_id: u32) -> Result<String, BraheError> {
+    if norad_id < 100000 || norad_id > 339999 {
+        return Err(BraheError::Error(
+            format!("NORAD ID {} is out of Alpha-5 range (100000-339999)", norad_id)
+        ));
+    }
+
+    let first_value = norad_id / 10000;
+    let numeric_part = norad_id % 10000;
+
+    // Convert first value to character (10=A, 11=B, ..., 33=Z, skip I and O)
+    let first_char = match first_value {
+        10..=17 => char::from(b'A' + (first_value - 10) as u8),      // A-H
+        18..=22 => char::from(b'J' + (first_value - 18) as u8),      // J-N (skip I)
+        23..=33 => char::from(b'P' + (first_value - 23) as u8),      // P-Z (skip O)
+        _ => return Err(BraheError::Error(
+            format!("Invalid Alpha-5 first value: {}", first_value)
+        )),
+    };
+
+    Ok(format!("{}{:04}", first_char, numeric_part))
 }
 
 /// Convert Alpha-5 NORAD ID to numeric format
@@ -129,7 +159,7 @@ pub fn parse_norad_id(norad_str: &str) -> Result<u32, BraheError> {
 ///
 /// # Returns
 /// * `Result<u32, BraheError>` - Converted numeric ID
-fn convert_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
+fn norad_id_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
     if alpha5_id.len() != 5 {
         return Err(BraheError::Error("Alpha-5 ID must be exactly 5 characters".to_string()));
     }
@@ -231,14 +261,14 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, V
 /// # Arguments
 /// * `epoch` - Epoch of the elements
 /// * `elements` - Keplerian elements [a (m), e, i (deg), Ω (deg), ω (deg), M (deg)]
-/// * `norad_id` - NORAD catalog number (optional, defaults to 99999)
+/// * `norad_id` - NORAD catalog number as string (supports numeric and Alpha-5 format)
 ///
 /// # Returns
 /// * `Result<(String, String), BraheError>` - TLE line 1 and line 2
 pub fn keplerian_elements_to_tle(
     epoch: &Epoch,
     elements: &Vector6<f64>,
-    norad_id: Option<u32>,
+    norad_id: &str,
 ) -> Result<(String, String), BraheError> {
     // Convert semi-major axis to mean motion (rev/day)
     let semi_major_axis = elements[0]; // meters
@@ -247,8 +277,8 @@ pub fn keplerian_elements_to_tle(
 
     create_tle_lines(
         epoch,
-        norad_id.unwrap_or(99999),
-        ' ', // Classification: Unclassified
+        norad_id,
+        'U', // Classification: Unclassified
         "", // International designator: empty
         mean_motion_revs_per_day,
         elements[1], // eccentricity
@@ -269,7 +299,7 @@ pub fn keplerian_elements_to_tle(
 ///
 /// # Arguments
 /// * `epoch` - Epoch of the orbital elements
-/// * `norad_id` - NORAD catalog number (1-99999)
+/// * `norad_id` - NORAD catalog number as string (supports numeric and Alpha-5 format)
 /// * `classification` - Classification character ('U', 'C', or 'S')
 /// * `intl_designator` - International designator (e.g., "98067A")
 /// * `mean_motion` - Mean motion in revolutions per day
@@ -289,7 +319,7 @@ pub fn keplerian_elements_to_tle(
 /// * `Result<(String, String), BraheError>` - TLE line 1 and line 2
 pub fn create_tle_lines(
     epoch: &Epoch,
-    norad_id: u32,
+    norad_id: &str,
     classification: char,
     intl_designator: &str,
     mean_motion: f64,
@@ -306,15 +336,31 @@ pub fn create_tle_lines(
     revolution_number: u32,
 ) -> Result<(String, String), BraheError> {
 
-    // Validate inputs
-    if norad_id > 99999 {
-        return Err(BraheError::Error("NORAD ID cannot exceed 99999".to_string()));
+    // Validate and parse NORAD ID
+    let norad_id_trimmed = norad_id.trim();
+    if norad_id_trimmed.len() > 5 {
+        return Err(BraheError::Error(format!("NORAD ID too long: {}. Expected 5 characters max", norad_id_trimmed)));
     }
+
+    // Validate that it's a valid NORAD ID (numeric or Alpha-5)
+    parse_norad_id(norad_id_trimmed)?;
     if eccentricity < 0.0 || eccentricity >= 1.0 {
         return Err(BraheError::Error("Eccentricity must be in range [0, 1)".to_string()));
     }
     if mean_motion <= 0.0 {
         return Err(BraheError::Error("Mean motion must be positive".to_string()));
+    }
+    if eccentricity < 0.0 || eccentricity >= 1.0 {
+        return Err(BraheError::Error("Eccentricity must be in range [0, 1)".to_string()));
+    }
+    if inclination < 0.0 || inclination > 180.0 {
+        return Err(BraheError::Error("Inclination must be in range [0, 180] degrees".to_string()));
+    }
+    if arg_periapsis < 0.0 || arg_periapsis >= 360.0 {
+        return Err(BraheError::Error("Argument of periapsis must be in range [0, 360) degrees".to_string()));
+    }
+    if mean_anomaly < 0.0 || mean_anomaly >= 360.0 {
+        return Err(BraheError::Error("Mean anomaly must be in range [0, 360) degrees".to_string()));
     }
     if element_set_number > 9999 {
         return Err(BraheError::Error("Element set number cannot exceed 9999".to_string()));
@@ -323,33 +369,28 @@ pub fn create_tle_lines(
         return Err(BraheError::Error("Revolution number cannot exceed 99999".to_string()));
     }
     if !matches!(classification, 'U' | 'C' | 'S' | ' ') {
-        return Err(BraheError::Error("Classification must be 'U', 'C', or 'S'".to_string()));
+        return Err(BraheError::Error("Classification must be 'U', 'C', 'S', or ' '".to_string()));
     }
     if intl_designator.len() > 8 {
         return Err(BraheError::Error("International designator cannot exceed 8 characters".to_string()));
     }
 
-    // Format epoch
-    // Get the datetime in UTC
-    let (year, month, day, hour, minute, second, _nanosecond) = epoch.to_datetime_as_time_system(crate::time::TimeSystem::UTC);
-
+    // Get epoch components
+    let mut epoch = epoch.clone();
+    epoch.time_system = TimeSystem::UTC; // TLEs use UTC
+    let year = epoch.year();
+    let day_of_year = epoch.day_of_year();
     let year_2digit = (year % 100) as u32;
-
-    // Calculate day of year
-    let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-    let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-    let mut day_of_year = day as f64;
-    for i in 0..(month - 1) as usize {
-        day_of_year += days_in_month[i] as f64;
-    }
-
-    // Add fractional part for hour, minute, second
-    day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second) / 86400.0;
 
     // Format first derivative with sign
     let ndt2_sign = if first_derivative < 0.0 { "-" } else { " " };
-    let ndt2_formatted = format!("{}{:9.8}", ndt2_sign, first_derivative.abs()).replace("0.", ".");
+    let ndt2_abs_formatted = format!("{:9.8}", first_derivative.abs());
+    let ndt2_no_leading_zero = if ndt2_abs_formatted.starts_with("0.") {
+        &ndt2_abs_formatted[1..] // Remove leading zero, keep the dot
+    } else {
+        &ndt2_abs_formatted
+    };
+    let ndt2_formatted = format!("{}{}", ndt2_sign, ndt2_no_leading_zero);
     let ndt2_final = if ndt2_formatted.len() > 10 {
         &ndt2_formatted[..10]
     } else {
@@ -373,7 +414,7 @@ pub fn create_tle_lines(
     // Create line 1 (without checksum)
     let line1_base = format!(
         "1 {:5}{} {} {:02}{:012.8} {} {} {} {} {:04}",
-        norad_id,
+        norad_id_trimmed,
         classification,
         intl_des_final,
         year_2digit,
@@ -406,7 +447,7 @@ pub fn create_tle_lines(
     // Create line 2 (without checksum)
     let line2_base = format!(
         "2 {:5} {:8.4} {:8.4} {} {:8.4} {:8.4} {:11.8}{:05}",
-        norad_id,
+        norad_id_trimmed,
         incl_norm,
         raan_norm,
         ecc_final,
@@ -431,7 +472,7 @@ pub fn create_tle_lines(
 /// # Returns
 /// * `String` - Formatted exponential notation (8 characters)
 fn format_exponential(value: f64) -> String {
-    if value == 0.0 || value.abs() < 1e-6 {
+    if value == 0.0 {
         return " 00000+0".to_string();
     }
 
@@ -623,7 +664,29 @@ mod tests {
 
         let (line1, line2) = create_tle_lines(
             &epoch,
-            25544,
+            "25544",
+            'U',
+            "98067A",
+            mean_motion_revs_per_day,
+            eccentricity,
+            inclination,
+            raan,
+            arg_periapsis,
+            mean_anomaly,
+            -0.00001764,
+            -0.00000067899,
+            -0.00012345,
+            0,
+            999,
+            12345,
+        ).unwrap();
+
+        assert_eq!(line1, "1 25544U 98067A   21001.50000000 -.00001764 -67899-7 -12345-4 0 09995");
+        assert_eq!(line2, "2 25544  51.6461 306.0234 1234500  88.1267  25.5695 15.53037630123450");
+
+        let (line1, line2) = create_tle_lines(
+            &epoch,
+            "25544",
             'U',
             "98067A",
             mean_motion_revs_per_day,
@@ -633,20 +696,158 @@ mod tests {
             arg_periapsis,
             mean_anomaly,
             0.00001764,
-            0.00000040967,
-            0.00040967,
+            0.00000067899,
+            0.00012345,
             0,
             999,
-            0,
+            12345,
         ).unwrap();
 
-        assert_eq!(line1, "1 25544U 98067A   21001.50000000  .00001764  00000+0  40967-4 0 09996");
-        assert_eq!(line2, "2 25544  51.6461 306.0234 1234500  88.1267  25.5695 15.53037630000005");
+        assert_eq!(line1, "1 25544U 98067A   21001.50000000  .00001764  67899-7  12345-4 0 09992");
+        assert_eq!(line2, "2 25544  51.6461 306.0234 1234500  88.1267  25.5695 15.53037630123450");
     }
 
     #[test]
-    fn test_format_exponential() {
-        assert_eq!(format_exponential(0.0), " 00000+0");
-        // Test other values...
+    fn test_keplerian_elements_to_tle() {
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let semi_major_axis = 6786000.0; // meters
+        let eccentricity = 0.12345; // dimensionless
+        let inclination = 51.6461; // degrees
+        let raan = 306.0234; // degrees
+        let arg_periapsis = 88.1267; // degrees
+        let mean_anomaly = 25.5695; // degrees
+
+        let elements = Vector6::new(
+            semi_major_axis,
+            eccentricity,
+            inclination,
+            raan,
+            arg_periapsis,
+            mean_anomaly,
+        );
+
+        let (line1, line2) = keplerian_elements_to_tle(
+            &epoch,
+            &elements,
+            "25544",
+        ).unwrap();
+
+        assert_eq!(line1, "1 25544U          21001.50000000  .00000000  00000+0  00000+0 0 00000");
+        assert_eq!(line2, "2 25544  51.6461 306.0234 1234500  88.1267  25.5695 15.53037630000005");
     }
-}
+
+    #[rstest]
+    #[case(0.0, " 00000+0")]
+    #[case(0.00012345, " 12345-4")]
+    #[case(-0.00012345, "-12345-4")]
+    #[case(12345.0, " 12345+4")]
+    #[case(-12345.0, "-12345+4")]
+    fn test_format_exponential(#[case] value: f64, #[case] expected: &str) {
+        assert_eq!(format_exponential(value), expected);
+    }
+
+    #[rstest]
+    #[case(100000, "A0000")]
+    #[case(100001, "A0001")]
+    #[case(109999, "A9999")]
+    #[case(110000, "B0000")]
+    #[case(111234, "B1234")]
+    #[case(125678, "C5678")]
+    #[case(186789, "J6789")]  // Skip I
+    #[case(236789, "P6789")]  // Skip O
+    #[case(339999, "Z9999")]
+    fn test_norad_id_numeric_to_alpha5_valid(#[case] norad_id: u32, #[case] expected: &str) {
+        assert_eq!(norad_id_numeric_to_alpha5(norad_id).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case(99999)]    // Too low
+    #[case(340000)]   // Too high
+    #[case(0)]        // Way too low
+    #[case(999999)]   // Way too high
+    fn test_norad_id_numeric_to_alpha5_invalid(#[case] norad_id: u32) {
+        assert!(norad_id_numeric_to_alpha5(norad_id).is_err());
+    }
+
+    #[rstest]
+    #[case(100000)]
+    #[case(100001)]
+    #[case(109999)]
+    #[case(110000)]
+    #[case(125678)]
+    #[case(186789)]
+    #[case(236789)]
+    #[case(339999)]
+    fn test_norad_id_alpha5_numeric_round_trip(#[case] id: u32) {
+        let alpha5 = norad_id_numeric_to_alpha5(id).unwrap();
+        let parsed_id = parse_norad_id(&alpha5).unwrap();
+        assert_eq!(id, parsed_id, "Round trip failed for ID {}: {} -> {}", id, alpha5, parsed_id);
+    }
+
+    #[test]
+    fn test_keplerian_tle_circularity() {
+        // Test circularity: Keplerian elements -> TLE -> Keplerian elements
+        let original_epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let original_elements = Vector6::new(
+            6786000.0,  // Semi-major axis (m)
+            0.12345,    // Eccentricity
+            51.6461,    // Inclination (degrees)
+            306.0234,   // RAAN (degrees)
+            88.1267,    // Argument of periapsis (degrees)
+            25.5695,    // Mean anomaly (degrees)
+        );
+        let norad_id = "25544";
+
+        // Convert Keplerian elements to TLE
+        let (line1, line2) = keplerian_elements_to_tle(&original_epoch, &original_elements, norad_id).unwrap();
+
+        // Convert TLE back to Keplerian elements
+        let (recovered_epoch, recovered_elements) = keplerian_elements_from_tle(&line1, &line2).unwrap();
+
+        // Check that epoch matches (within reasonable precision)
+        assert_eq!(recovered_epoch.year(), original_epoch.year());
+        assert_eq!(recovered_epoch.month(), original_epoch.month());
+        assert_eq!(recovered_epoch.day(), original_epoch.day());
+        assert_eq!(recovered_epoch.hour(), original_epoch.hour());
+        assert_eq!(recovered_epoch.minute(), original_epoch.minute());
+        assert_abs_diff_eq!(recovered_epoch.second(), original_epoch.second(), epsilon = 1e-6);
+
+        // Check that elements match (within reasonable precision for TLE format limitations)
+        assert_abs_diff_eq!(recovered_elements[0], original_elements[0], epsilon = 1.0);     // Semi-major axis (m)
+        assert_abs_diff_eq!(recovered_elements[1], original_elements[1], epsilon = 1e-6);   // Eccentricity
+        assert_abs_diff_eq!(recovered_elements[2], original_elements[2], epsilon = 1e-3);   // Inclination (degrees)
+        assert_abs_diff_eq!(recovered_elements[3], original_elements[3], epsilon = 1e-3);   // RAAN (degrees)
+        assert_abs_diff_eq!(recovered_elements[4], original_elements[4], epsilon = 1e-3);   // Argument of periapsis (degrees)
+        assert_abs_diff_eq!(recovered_elements[5], original_elements[5], epsilon = 1e-3);   // Mean anomaly (degrees)
+    }
+
+    #[test]
+    fn test_tle_keplerian_circularity() {
+        // Test circularity: TLE -> Keplerian elements -> TLE
+        let original_line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
+        let original_line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+
+        // Convert TLE to Keplerian elements
+        let (epoch, elements) = keplerian_elements_from_tle(original_line1, original_line2).unwrap();
+
+        // Convert back to TLE
+        let (recovered_line1, recovered_line2) = keplerian_elements_to_tle(&epoch, &elements, "25544").unwrap();
+
+        // Extract NORAD ID from both TLEs to compare (columns 2-6 of line 1)
+        let original_norad_id = original_line1[2..7].trim();
+        let recovered_norad_id = recovered_line1[2..7].trim();
+        assert_eq!(original_norad_id, recovered_norad_id);
+
+        // Parse both TLEs and compare elements (since exact string match is not expected due to formatting differences)
+        let (_, original_elements) = keplerian_elements_from_tle(original_line1, original_line2).unwrap();
+        let (_, recovered_elements) = keplerian_elements_from_tle(&recovered_line1, &recovered_line2).unwrap();
+
+        // Elements should match within TLE precision limits
+        assert_abs_diff_eq!(recovered_elements[0], original_elements[0], epsilon = 1.0);     // Semi-major axis (m)
+        assert_abs_diff_eq!(recovered_elements[1], original_elements[1], epsilon = 1e-6);   // Eccentricity
+        assert_abs_diff_eq!(recovered_elements[2], original_elements[2], epsilon = 1e-3);   // Inclination (degrees)
+        assert_abs_diff_eq!(recovered_elements[3], original_elements[3], epsilon = 1e-3);   // RAAN (degrees)
+        assert_abs_diff_eq!(recovered_elements[4], original_elements[4], epsilon = 1e-3);   // Argument of periapsis (degrees)
+        assert_abs_diff_eq!(recovered_elements[5], original_elements[5], epsilon = 1e-3);   // Mean anomaly (degrees)
+    }
+}   

@@ -800,6 +800,127 @@ impl Epoch {
         self.to_datetime_as_time_system(self.time_system)
     }
 
+
+    /// Returns the year component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `year`: The year as a 4-digit integer
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.5, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.year(), 2023);
+    /// ```
+    pub fn year(&self) -> u32 {
+        let (y, _, _, _, _, _, _) = self.to_datetime();
+        y
+    }
+
+    /// Returns the month component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `month`: The month as an integer from 1 to 12
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.5, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.month(), 12);
+    /// ```
+    pub fn month(&self) -> u8 {
+        let (_, m, _, _, _, _, _) = self.to_datetime();
+        m
+    }
+
+    /// Returns the day component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `day`: The day of the month as an integer from 1 to 31
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.5, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.day(), 25);
+    /// ```
+    pub fn day(&self) -> u8 {
+        let (_, _, d, _, _, _, _) = self.to_datetime();
+        d
+    }
+
+    /// Returns the hour component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `hour`: The hour as an integer from 0 to 23
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.5, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.hour(), 14);
+    /// ```
+    pub fn hour(&self) -> u8 {
+        let (_, _, _, h, _, _, _) = self.to_datetime();
+        h
+    }
+
+    /// Returns the minute component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `minute`: The minute as an integer from 0 to 59
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.5, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.minute(), 30);
+    /// ```
+    pub fn minute(&self) -> u8 {
+        let (_, _, _, _, m, _, _) = self.to_datetime();
+        m
+    }
+
+    /// Returns the second component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `second`: The second as a floating-point number from 0.0 to 59.999...
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.0, 0.0, TimeSystem::UTC);
+    /// assert_eq!(epoch.second(), 45.0);
+    /// ```
+    pub fn second(&self) -> f64 {
+        let (_, _, _, _, _, s, _) = self.to_datetime();
+        s
+    }
+
+    /// Returns the nanosecond component of the epoch in the epoch's time system.
+    ///
+    /// # Returns
+    /// - `nanosecond`: The nanosecond component as a floating-point number
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    /// use approx::assert_abs_diff_eq;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.0, 500.0, TimeSystem::UTC);
+    /// assert_abs_diff_eq!(epoch.nanosecond(), 500.0, epsilon = 1.0);
+    /// ```
+    pub fn nanosecond(&self) -> f64 {
+        let (_, _, _, _, _, _, ns) = self.to_datetime();
+        ns
+    }
+
     /// Convert an `Epoch` into a Julian date representation of the same
     /// instant in a specific time system.
     ///
@@ -2429,5 +2550,90 @@ mod tests {
         assert_eq!(minute, 0);
         assert_eq!(second, 1.0);
         assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_datetime_accessors() {
+        setup_global_test_eop();
+
+        // Test with a specific date and time - use whole seconds for exact comparison
+        let epoch = Epoch::from_datetime(2023, 12, 25, 14, 30, 45.0, 123.0, TimeSystem::UTC);
+
+        assert_eq!(epoch.year(), 2023);
+        assert_eq!(epoch.month(), 12);
+        assert_eq!(epoch.day(), 25);
+        assert_eq!(epoch.hour(), 14);
+        assert_eq!(epoch.minute(), 30);
+        assert_eq!(epoch.second(), 45.0);
+        assert_abs_diff_eq!(epoch.nanosecond(), 123.0, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_epoch_datetime_accessors_edge_cases() {
+        setup_global_test_eop();
+
+        // Test with edge cases: start of year, end of day, etc.
+
+        // January 1st, start of day
+        let epoch_start = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        assert_eq!(epoch_start.year(), 2024);
+        assert_eq!(epoch_start.month(), 1);
+        assert_eq!(epoch_start.day(), 1);
+        assert_eq!(epoch_start.hour(), 0);
+        assert_eq!(epoch_start.minute(), 0);
+        assert_eq!(epoch_start.second(), 0.0);
+        assert_eq!(epoch_start.nanosecond(), 0.0);
+
+        // December 31st, end of day
+        let epoch_end = Epoch::from_datetime(2023, 12, 31, 23, 59, 59.0, 999999999.0, TimeSystem::GPS);
+        assert_eq!(epoch_end.year(), 2023);
+        assert_eq!(epoch_end.month(), 12);
+        assert_eq!(epoch_end.day(), 31);
+        assert_eq!(epoch_end.hour(), 23);
+        assert_eq!(epoch_end.minute(), 59);
+        assert_eq!(epoch_end.second(), 59.0);
+        assert_abs_diff_eq!(epoch_end.nanosecond(), 999999999.0, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_epoch_datetime_accessors_different_time_systems() {
+        setup_global_test_eop();
+
+        // Test that accessors work correctly for different time systems
+        let test_cases = [
+            TimeSystem::UTC,
+            TimeSystem::TAI,
+            TimeSystem::GPS,
+            TimeSystem::TT,
+        ];
+
+        for time_system in test_cases {
+            let epoch = Epoch::from_datetime(2020, 6, 15, 12, 0, 0.0, 0.0, time_system);
+
+            // The accessors should return the components in the epoch's time system
+            assert_eq!(epoch.year(), 2020);
+            assert_eq!(epoch.month(), 6);
+            assert_eq!(epoch.day(), 15);
+            assert_eq!(epoch.hour(), 12);
+            assert_eq!(epoch.minute(), 0);
+            assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+            assert_abs_diff_eq!(epoch.nanosecond(), 0.0, epsilon = 1.0);
+        }
+    }
+
+    #[test]
+    fn test_epoch_datetime_accessors_leap_year() {
+        setup_global_test_eop();
+
+        // Test leap year date (February 29, 2020)
+        let leap_epoch = Epoch::from_datetime(2020, 2, 29, 8, 45, 30.0, 456.0, TimeSystem::UTC);
+
+        assert_eq!(leap_epoch.year(), 2020);
+        assert_eq!(leap_epoch.month(), 2);
+        assert_eq!(leap_epoch.day(), 29);
+        assert_eq!(leap_epoch.hour(), 8);
+        assert_eq!(leap_epoch.minute(), 45);
+        assert_eq!(leap_epoch.second(), 30.0);
+        assert_abs_diff_eq!(leap_epoch.nanosecond(), 456.0, epsilon = 1.0);
     }
 }

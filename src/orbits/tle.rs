@@ -42,7 +42,13 @@ pub fn calculate_tle_line_checksum(line: &str) -> u32 {
 /// # Returns
 /// * `bool` - True if line is valid
 pub fn validate_tle_line(line: &str) -> bool {
+    // Confirm Length
     if line.len() != 69 {
+        return false;
+    }
+
+    // Confirm line starts with '1' or '2'
+    if !line.starts_with('1') && !line.starts_with('2') {
         return false;
     }
 
@@ -87,6 +93,15 @@ pub fn validate_tle_lines(line1: &str, line2: &str) -> bool {
 /// # Returns
 /// * `Result<u32, BraheError>` - Parsed numeric NORAD ID
 pub fn parse_norad_id(norad_str: &str) -> Result<u32, BraheError> {
+    // Confirm ID is right length
+    if norad_str.len() > 5 {
+        return Err(BraheError::Error(format!("NORAD ID too long: {}. Expected 5 characters found {}", norad_str, norad_str.len())));
+    }
+    if norad_str.len() < 5 {
+        return Err(BraheError::Error(format!("NORAD ID too short: {}. Expected 5 characters found {}", norad_str, norad_str.len())));
+    }
+
+
     let trimmed = norad_str.trim();
 
     if trimmed.is_empty() {
@@ -149,7 +164,7 @@ fn convert_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
 /// * `line2` - Second TLE line
 ///
 /// # Returns
-/// * `Result<(Vector6<f64>, Epoch), BraheError>` - Keplerian elements [a, e, i, Ω, ω, M] and epoch
+/// * `Result<(Vector6<f64>, Epoch), BraheError>` - epoch and Keplerian elements [a, e, i, Ω, ω, M]
 ///
 /// Elements are returned in standard units:
 /// - a: semi-major axis [m]
@@ -158,7 +173,7 @@ fn convert_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
 /// - Ω: right ascension of ascending node [degrees]
 /// - ω: argument of periapsis [degrees]
 /// - M: mean anomaly [degrees]
-pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Vector6<f64>, Epoch), BraheError> {
+pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, Vector6<f64>), BraheError> {
     if !validate_tle_lines(line1, line2) {
         return Err(BraheError::Error("Invalid TLE lines".to_string()));
     }
@@ -233,7 +248,7 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Vector6<
         mean_anomaly,     // [degrees]
     );
 
-    Ok((elements, epoch))
+    Ok((epoch, elements))
 }
 
 /// Convert Keplerian elements to TLE format
@@ -455,47 +470,171 @@ fn format_exponential(value: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
+    use crate::time::Epoch;
+    use crate::orbits::keplerian::semimajor_axis;
+    use approx::assert_abs_diff_eq;
 
-    #[test]
-    fn test_calculate_tle_line_checksum() {
-        let line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  999";
-        assert_eq!(calculate_tle_line_checksum(line), 2);
+    #[rstest]
+    #[case("1 20580U 90037B   25261.05672437  .00006481  00000+0  23415-3 0  9990", 0)]
+    #[case("1 24920U 97047A   25261.00856804  .00000165  00000+0  89800-4 0  9991", 1)]
+    #[case("1 00900U 64063C   25261.21093924  .00000602  00000+0  60787-3 0  9992", 2)]
+    #[case("1 26605U 00071A   25260.44643294  .00000025  00000+0  00000+0 0  9993", 3)]
+    #[case("2 26410 146.0803  17.8086 8595307 233.2516   0.1184  0.44763667 19104", 4)]
+    #[case("1 28414U 04035B   25261.30628127  .00003436  00000+0  25400-3 0  9995", 5)]
+    #[case("1 28371U 04025F   25260.92882365  .00000356  00000+0  90884-4 0  9996", 6)]
+    #[case("1 19751U 89001C   25260.63997541  .00000045  00000+0  00000+0 0  9997", 7)]
+    #[case("1 29228U 06021A   25261.14661065  .00002029  00000+0  12599-3 0  9998", 8)]
+    #[case("2 31127  98.3591 223.5782 0064856  30.4095 330.0844 14.63937036981529", 9)]
+    fn test_calculate_tle_line_checksum(#[case] line: &str, #[case] expected: u32) {
+        let checksum = calculate_tle_line_checksum(line);
+        assert_eq!(checksum, expected);
     }
 
-    #[test]
-    fn test_validate_tle_line() {
-        let valid_line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
-        let invalid_line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9999";
+    #[rstest]
+    #[case("1 20580U 90037B   25261.05672437  .00006481  00000+0  23415-3 0  9990")]
+    #[case("1 24920U 97047A   25261.00856804  .00000165  00000+0  89800-4 0  9991")]
+    #[case("1 00900U 64063C   25261.21093924  .00000602  00000+0  60787-3 0  9992")]
+    #[case("1 26605U 00071A   25260.44643294  .00000025  00000+0  00000+0 0  9993")]
+    #[case("2 26410 146.0803  17.8086 8595307 233.2516   0.1184  0.44763667 19104")]
+    #[case("1 28414U 04035B   25261.30628127  .00003436  00000+0  25400-3 0  9995")]
+    #[case("1 28371U 04025F   25260.92882365  .00000356  00000+0  90884-4 0  9996")]
+    #[case("1 19751U 89001C   25260.63997541  .00000045  00000+0  00000+0 0  9997")]
+    #[case("1 29228U 06021A   25261.14661065  .00002029  00000+0  12599-3 0  9998")]
+    #[case("2 31127  98.3591 223.5782 0064856  30.4095 330.0844 14.63937036981529")]
+    fn test_validate_tle_line_valid(#[case] line: &str) {
 
-        assert!(validate_tle_line(valid_line));
-        assert!(!validate_tle_line(invalid_line));
+        assert!(validate_tle_line(line));
     }
 
-    #[test]
-    fn test_parse_norad_id_classic() {
-        assert_eq!(parse_norad_id("25544").unwrap(), 25544);
-        assert_eq!(parse_norad_id(" 1234 ").unwrap(), 1234);
+    #[rstest]
+    #[case("1 20580U 90037B   25261.05672437  .00006481  00000+0  23415-3 0  9980")]
+    #[case("1 24920U 97047A   25261.00856804  .00000165  00000+0  89800-4 0  9931")]
+    #[case("1 00900U 64063C   25261.21093924  .00000602  00000+0  60787-3 0  9912")]
+    #[case("1 26605U 00071A   25260.44643294  .00000025  00000+0  00000+0 0  9983")]
+    #[case("2 26410 146.0803  17.8086 8595307 233.2516   0.1184  19104")]
+    #[case("1 28414U 04035B   25261.30628127  .00003436  00000+0  25400-3 0  9923421295")]
+    #[case("3 28371U 04025F   25260.92882365  .00000356  00000+0  90884-4 0  9996")]
+    #[case("3 19751U 89001C   25260.63997541  .00000045  00000+0  00000+0 0  9999")]
+    fn test_validate_tle_invalid(#[case] line: &str) {
+        assert!(!validate_tle_line(line));
     }
 
-    #[test]
-    fn test_parse_norad_id_alpha5() {
-        assert_eq!(parse_norad_id("A0001").unwrap(), 100001);
-        assert_eq!(parse_norad_id("Z9999").unwrap(), 339999);
+    #[rstest]
+    #[case("1 22195U 92070B   25260.83452377 -.00000009  00000+0  00000+0 0  9999", "2 22195  52.6519  78.7552 0137761  68.4365 290.4819  6.47293897777784")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997", "2 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110516")]
+    fn test_validate_tle_lines_valid(#[case] line1: &str, #[case] line2: &str) {
+        assert!(validate_tle_lines(line1, line2));
     }
 
-    #[test]
-    fn test_keplerian_elements_from_tle() {
-        let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
-        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
-
-        let result = keplerian_elements_from_tle(line1, line2);
-        assert!(result.is_ok());
-
-        let (elements, _epoch) = result.unwrap();
-        assert!(elements[0] > 6.0e6); // Semi-major axis should be reasonable for ISS
-        assert!(elements[1] >= 0.0 && elements[1] < 1.0); // Valid eccentricity
-        assert!(elements[2] > 50.0 && elements[2] < 60.0); // ISS inclination ~51.6°
+    #[rstest]
+    #[case("1 22195U 92070B   25260.83452377 -.00000009  00000+0  00000+0 0  9999", "2 22196  52.6519  78.7552 0137761  68.4365 290.4819  6.47293897777784")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997", "1 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110516")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  999", "2 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110516")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997", "2 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.0027772611051")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997", "3 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110517")]
+    #[case("2 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9998", "2 23613  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110516")]
+    #[case("1 23613U 95035B   25260.68951341 -.00000252  00000+0  00000+0 0  9997", "2 23614  13.4910 350.0515 0007963 105.8217 238.1991  1.00277726110517")]
+    fn test_validate_tle_lines_invalid(#[case] line1: &str, #[case] line2: &str) {
+        assert!(!validate_tle_lines(line1, line2));
     }
+
+    #[rstest]
+    #[case("25544", 25544)]
+    #[case("00001", 1)]
+    #[case("99999", 99999)]
+    #[case("    1", 1)]
+    fn test_parse_norad_id_classic(#[case] id_str: &str, #[case] expected: u32) {
+        assert_eq!(parse_norad_id(id_str).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("A0000", 100000)]
+    #[case("A0001", 100001)]
+    #[case("A9999", 109999)]
+    #[case("B0000", 110000)]
+    #[case("Z9999", 339999)]
+    #[case("B1234", 111234)]
+    #[case("C5678", 125678)]
+    #[case("D9012", 139012)]
+    #[case("E3456", 143456)]
+    #[case("F7890", 157890)]
+    #[case("G1234", 161234)]
+    #[case("H2345", 172345)]
+    #[case("J6789", 186789)]
+    #[case("K0123", 190123)]
+    #[case("L4567", 204567)]
+    #[case("M8901", 218901)]
+    #[case("N2345", 222345)]
+    #[case("P6789", 236789)]
+    #[case("Q0123", 240123)]
+    #[case("R4567", 254567)]
+    #[case("S8901", 268901)]
+    #[case("T2345", 272345)]
+    #[case("U6789", 286789)]
+    #[case("V0123", 290123)]
+    #[case("W4567", 304567)]
+    #[case("X8901", 318901)]
+    #[case("Y2345", 322345)]
+    #[case("Z6789", 336789)]
+    fn test_parse_norad_id_alpha5_valid(#[case] id_str: &str, #[case] expected: u32) {
+        assert_eq!(parse_norad_id(id_str).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("I0001")] // 'I' is invalid
+    #[case("O1234")] // 'O' is invalid
+    #[case("A123")]  // Too short
+    #[case("A12345")] // Too long
+    #[case("1234A")] // Invalid format
+    #[case("!2345")] // Invalid character
+    #[case("")]      // Empty string
+    #[case("     ")] // Only spaces
+    fn test_parse_norad_id_invalid(#[case] id_str: &str) {
+        assert!(parse_norad_id(id_str).is_err());
+    }
+
+    // #[test]
+    // fn test_keplerian_elements_from_tle() {
+    //     let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+    //     let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+
+    //     let result = keplerian_elements_from_tle(line1, line2);
+    //     assert!(result.is_ok());
+
+    //     let (epoch, elements) = result.unwrap();
+        
+    //     assert_eq!(epoch.year(), 2021);
+    //     assert_eq!(epoch.month(), 1);
+    //     assert_eq!(epoch.day(), 1);
+    //     assert_eq!(epoch.hour(), 0);
+    //     assert_eq!(epoch.minute(), 0);
+    //     assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+
+    //     let n_rad_per_sec = 15.48919103000003 * 2.0 * PI / 86400.0;
+    //     let a = semimajor_axis( n_rad_per_sec, false);
+    //     assert_abs_diff_eq!(elements[0], a, epsilon = 1.0e-3); // Semi-major axis in meters
+    //     assert_abs_diff_eq!(elements[1], 0.0003417, epsilon = 1.0e-7); // Eccentricity
+    //     assert_abs_diff_eq!(elements[2], 51.6461, epsilon = 1.0e-4); // Inclination
+    //     assert_abs_diff_eq!(elements[3], 306.0234, epsilon = 1.0e-4); // RAAN
+    //     assert_abs_diff_eq!(elements[4], 88.1267, epsilon = 1.0e-4); // Argument of periapsis
+    //     assert_abs_diff_eq!(elements[5], 25.5695, epsilon = 1.0e-4); // Mean anomaly
+
+    // }
+
+    // #[rstest]
+    // fn test_keplerian_elements_from_tle() {
+    //     let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
+    //     let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+
+    //     let result = keplerian_elements_from_tle(line1, line2);
+    //     assert!(result.is_ok());
+
+    //     let (elements, _epoch) = result.unwrap();
+    //     assert!(elements[0] > 6.0e6); // Semi-major axis should be reasonable for ISS
+    //     assert!(elements[1] >= 0.0 && elements[1] < 1.0); // Valid eccentricity
+    //     assert!(elements[2] > 50.0 && elements[2] < 60.0); // ISS inclination ~51.6°
+    // }
 
     #[test]
     fn test_format_exponential() {

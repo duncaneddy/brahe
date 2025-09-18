@@ -735,3 +735,91 @@ def test_addition_stability():
     assert minute == 0
     assert second == 0.0
     assert nanosecond == 0.0
+
+
+def test_epoch_datetime_accessors(eop):
+    """Test individual datetime accessor functions."""
+    # Test with a specific date and time - use whole seconds for exact comparison
+    epoch = brahe.Epoch.from_datetime(2023, 12, 25, 14, 30, 45.0, 123.0, "UTC")
+
+    assert epoch.year() == 2023
+    assert epoch.month() == 12
+    assert epoch.day() == 25
+    assert epoch.hour() == 14
+    assert epoch.minute() == 30
+    assert epoch.second() == 45.0
+    assert abs(epoch.nanosecond() - 123.0) < 1.0  # Allow for small precision differences
+
+
+def test_epoch_datetime_accessors_edge_cases(eop):
+    """Test datetime accessors with edge cases."""
+    # January 1st, start of day
+    epoch_start = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, "TAI")
+    assert epoch_start.year() == 2024
+    assert epoch_start.month() == 1
+    assert epoch_start.day() == 1
+    assert epoch_start.hour() == 0
+    assert epoch_start.minute() == 0
+    assert epoch_start.second() == 0.0
+    assert epoch_start.nanosecond() == 0.0
+
+    # December 31st, end of day
+    epoch_end = brahe.Epoch.from_datetime(2023, 12, 31, 23, 59, 59.0, 999999999.0, "GPS")
+    assert epoch_end.year() == 2023
+    assert epoch_end.month() == 12
+    assert epoch_end.day() == 31
+    assert epoch_end.hour() == 23
+    assert epoch_end.minute() == 59
+    assert epoch_end.second() == 59.0
+    assert abs(epoch_end.nanosecond() - 999999999.0) < 1.0
+
+
+def test_epoch_datetime_accessors_different_time_systems(eop):
+    """Test that accessors work correctly for different time systems."""
+    test_cases = ["UTC", "TAI", "GPS", "TT"]
+
+    for time_system in test_cases:
+        epoch = brahe.Epoch.from_datetime(2020, 6, 15, 12, 0, 0.0, 0.0, time_system)
+
+        # The accessors should return the components in the epoch's time system
+        assert epoch.year() == 2020
+        assert epoch.month() == 6
+        assert epoch.day() == 15
+        assert epoch.hour() == 12
+        assert epoch.minute() == 0
+        assert epoch.second() == 0.0
+        assert abs(epoch.nanosecond() - 0.0) < 1.0
+
+
+def test_epoch_datetime_accessors_leap_year(eop):
+    """Test datetime accessors with leap year date."""
+    # Test leap year date (February 29, 2020)
+    leap_epoch = brahe.Epoch.from_datetime(2020, 2, 29, 8, 45, 30.0, 456.0, "UTC")
+
+    assert leap_epoch.year() == 2020
+    assert leap_epoch.month() == 2
+    assert leap_epoch.day() == 29
+    assert leap_epoch.hour() == 8
+    assert leap_epoch.minute() == 45
+    assert leap_epoch.second() == 30.0
+    assert abs(leap_epoch.nanosecond() - 456.0) < 1.0
+
+
+def test_epoch_datetime_accessors_vs_to_datetime(eop):
+    """Test that individual accessors match to_datetime() results."""
+    epochs = [
+        brahe.Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, "UTC"),
+        brahe.Epoch.from_datetime(2024, 6, 15, 12, 30, 45.123, 456789.0, "TAI"),
+        brahe.Epoch.from_datetime(2000, 12, 31, 23, 59, 59.999, 999999999.0, "GPS")
+    ]
+
+    for epoch in epochs:
+        (year, month, day, hour, minute, second, nanosecond) = epoch.to_datetime()
+
+        assert epoch.year() == year
+        assert epoch.month() == month
+        assert epoch.day() == day
+        assert epoch.hour() == hour
+        assert epoch.minute() == minute
+        assert epoch.second() == second
+        assert epoch.nanosecond() == nanosecond

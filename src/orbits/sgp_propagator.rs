@@ -392,7 +392,7 @@ impl OrbitPropagator for SGPPropagator {
 
     fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         // Compute state at target epoch
-        let state = self.state_vector(target_epoch);
+        let state = self.state(target_epoch);
 
         // Convert to desired output format
         let output_state = self.trajectory.convert_state_to_format(
@@ -477,11 +477,11 @@ impl OrbitPropagator for SGPPropagator {
 }
 
 impl AnalyticPropagator for SGPPropagator {
-    fn state_vector(&self, epoch: Epoch) -> Vector6<f64> {
-        self.state_vector_eci(epoch)
+    fn state(&self, epoch: Epoch) -> Vector6<f64> {
+        self.state_eci(epoch)
     }
 
-    fn state_vector_eci(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
         // Calculate minutes since TLE epoch
         let time_diff = (epoch.jd() - self.initial_epoch.jd()) * 1440.0; // Convert days to minutes
 
@@ -505,13 +505,13 @@ impl AnalyticPropagator for SGPPropagator {
         )
     }
 
-    fn state_vector_ecef(&self, epoch: Epoch) -> Vector6<f64> {
-        let eci_state = self.state_vector_eci(epoch);
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        let eci_state = self.state_eci(epoch);
         state_eci_to_ecef(epoch, eci_state)
     }
 
-    fn state_vector_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
-        let eci_state = self.state_vector_eci(epoch);
+    fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
+        let eci_state = self.state_eci(epoch);
         state_cartesian_to_osculating(eci_state, false)
     }
 
@@ -524,7 +524,7 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap();
 
         for &epoch in epochs {
-            let state = self.state_vector(epoch);
+            let state = self.state(epoch);
             let _ = trajectory.add_state(epoch, state);
         }
 
@@ -540,7 +540,7 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap();
 
         for &epoch in epochs {
-            let state = self.state_vector_eci(epoch);
+            let state = self.state_eci(epoch);
             let _ = trajectory.add_state(epoch, state);
         }
 
@@ -556,7 +556,7 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap();
 
         for &epoch in epochs {
-            let state = self.state_vector_ecef(epoch);
+            let state = self.state_ecef(epoch);
             let _ = trajectory.add_state(epoch, state);
         }
 
@@ -572,7 +572,7 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap();
 
         for &epoch in epochs {
-            let state = self.state_vector_osculating_elements(epoch);
+            let state = self.state_osculating_elements(epoch);
             let _ = trajectory.add_state(epoch, state);
         }
 

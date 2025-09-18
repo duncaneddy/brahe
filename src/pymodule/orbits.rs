@@ -446,7 +446,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector in the propagator's current output format
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_vector(epoch.obj);
+        let state = self.propagator.state(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -459,7 +459,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_vector_eci(epoch.obj);
+        let state = self.propagator.state_eci(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -472,7 +472,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_vector_ecef(epoch.obj);
+        let state = self.propagator.state_ecef(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -825,7 +825,7 @@ fn py_lines_to_orbit_elements<'py>(py: Python<'py>, line1: String, line2: String
     // Create a dummy propagator to extract elements
     match orbits::SGPPropagator::from_tle(&line1, &line2, 60.0) {
         Ok(propagator) => {
-            let state = propagator.state_vector_eci(propagator.initial_epoch());
+            let state = propagator.state_eci(propagator.initial_epoch());
             Ok(state.as_slice().to_pyarray(py).to_owned())
         },
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),

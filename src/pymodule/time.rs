@@ -421,6 +421,62 @@ impl PyEpoch {
         self.obj.gmst(as_degrees)
     }
 
+    /// Returns the year component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The year as a 4-digit integer
+    pub fn year(&self) -> u32 {
+        self.obj.year()
+    }
+
+    /// Returns the month component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The month as an integer from 1 to 12
+    pub fn month(&self) -> u8 {
+        self.obj.month()
+    }
+
+    /// Returns the day component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The day of the month as an integer from 1 to 31
+    pub fn day(&self) -> u8 {
+        self.obj.day()
+    }
+
+    /// Returns the hour component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The hour as an integer from 0 to 23
+    pub fn hour(&self) -> u8 {
+        self.obj.hour()
+    }
+
+    /// Returns the minute component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The minute as an integer from 0 to 59
+    pub fn minute(&self) -> u8 {
+        self.obj.minute()
+    }
+
+    /// Returns the second component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: The second as a floating-point number from 0.0 to 59.999...
+    pub fn second(&self) -> f64 {
+        self.obj.second()
+    }
+
+    /// Returns the nanosecond component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: The nanosecond component as a floating-point number
+    pub fn nanosecond(&self) -> f64 {
+        self.obj.nanosecond()
+    }
+
     pub fn __add__(&self, other: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: self.obj + other,

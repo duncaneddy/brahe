@@ -864,7 +864,7 @@ fn py_lines_to_orbit_state<'py>(py: Python<'py>, line1: String, line2: String) -
 #[pyo3(name = "keplerian_elements_from_tle")]
 fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<(Bound<'py, PyArray<f64, Ix1>>, PyEpoch)> {
     match orbits::keplerian_elements_from_tle(&line1, &line2) {
-        Ok((elements, epoch)) => {
+        Ok((epoch, elements)) => {
             let elements_array = elements.as_slice().to_pyarray(py).to_owned();
             let py_epoch = PyEpoch { obj: epoch };
             Ok((elements_array, py_epoch))

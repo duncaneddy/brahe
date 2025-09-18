@@ -41,3 +41,8 @@ docs/site/*
 .DS_Store
 .idea/*
 .vscode/*
+
+# Markdown files in root (except README and CHANGELOG)
+/*.md
+!README.md
+!CHANGELOG.md

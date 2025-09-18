@@ -503,6 +503,43 @@ impl PyEpoch {
         self.obj.nanosecond()
     }
 
+    /// Returns the day of year as a floating-point number in the epoch's time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// Returns:
+    ///     float: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// Example:
+    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
+    ///     >>> doy = epoch.day_of_year()
+    ///     >>> print(f"Day of year: {doy}")
+    ///     Day of year: 100.5
+    pub fn day_of_year(&self) -> f64 {
+        self.obj.day_of_year()
+    }
+
+    /// Returns the day of year as a floating-point number in the specified time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// Args:
+    ///     time_system (str): The time system to use for the calculation
+    ///
+    /// Returns:
+    ///     float: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// Example:
+    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
+    ///     >>> doy_tai = epoch.day_of_year_as_time_system("TAI")
+    ///     >>> print(f"Day of year in TAI: {doy_tai}")
+    ///     Day of year in TAI: 100.50042824074075
+    pub fn day_of_year_as_time_system(&self, time_system: &str) -> f64 {
+        self.obj.day_of_year_as_time_system(string_to_time_system(time_system).unwrap())
+    }
+
     pub fn __add__(&self, other: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: self.obj + other,

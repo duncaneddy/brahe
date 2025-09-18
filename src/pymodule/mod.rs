@@ -232,6 +232,8 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
     module.add_function(wrap_pyfunction!(py_calculate_tle_line_checksum, module)?)?;
     module.add_function(wrap_pyfunction!(py_extract_tle_norad_id, module)?)?;
+    module.add_function(wrap_pyfunction!(py_parse_norad_id, module)?)?;
+    module.add_function(wrap_pyfunction!(py_norad_id_numeric_to_alpha5, module)?)?;
     module.add_function(wrap_pyfunction!(py_extract_epoch, module)?)?;
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_elements, module)?)?;
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_state, module)?)?;

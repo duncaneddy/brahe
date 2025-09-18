@@ -862,12 +862,12 @@ fn py_lines_to_orbit_state<'py>(py: Python<'py>, line1: String, line2: String) -
 #[pyfunction]
 #[pyo3(text_signature = "(line1, line2)")]
 #[pyo3(name = "keplerian_elements_from_tle")]
-fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<(Bound<'py, PyArray<f64, Ix1>>, PyEpoch)> {
+fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<(PyEpoch, Bound<'py, PyArray<f64, Ix1>>)> {
     match orbits::keplerian_elements_from_tle(&line1, &line2) {
         Ok((epoch, elements)) => {
             let elements_array = elements.as_slice().to_pyarray(py).to_owned();
             let py_epoch = PyEpoch { obj: epoch };
-            Ok((elements_array, py_epoch))
+            Ok((py_epoch, elements_array))
         },
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
     }
@@ -880,54 +880,25 @@ fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: St
 ///
 /// Arguments:
 ///     epoch (`Epoch`): Epoch of the elements
-///     semi_major_axis (`float`): Semi-major axis (m)
-///     eccentricity (`float`): Eccentricity (dimensionless)
-///     inclination (`float`): Inclination (degrees)
-///     raan (`float`): Right ascension of ascending node (degrees)
-///     arg_perigee (`float`): Argument of periapsis (degrees)
-///     mean_anomaly (`float`): Mean anomaly (degrees)
-///     norad_id (`int`, optional): NORAD catalog number (default: 99999)
-///     classification (`str`, optional): Security classification (default: 'U')
-///     intl_designator (`str`, optional): International designator (default: '')
-///     first_derivative (`float`, optional): First derivative of mean motion (default: 0.0)
-///     second_derivative (`float`, optional): Second derivative of mean motion (default: 0.0)
-///     bstar (`float`, optional): BSTAR drag term (default: 0.0)
+///     elements (`array`): Keplerian elements [a (m), e, i (deg), Ω (deg), ω (deg), M (deg)]
+///     norad_id (`str`): NORAD catalog number (supports numeric and Alpha-5 format)
 ///
 /// Returns:
 ///     tuple: (line1, line2) - The two TLE lines as strings
 #[pyfunction]
-#[pyo3(text_signature = "(epoch, semi_major_axis, eccentricity, inclination, raan, arg_perigee, mean_anomaly, norad_id=None, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
+#[pyo3(text_signature = "(epoch, elements, norad_id)")]
 #[pyo3(name = "keplerian_elements_to_tle")]
 fn py_keplerian_elements_to_tle(
     epoch: &PyEpoch,
-    semi_major_axis: f64,
-    eccentricity: f64,
-    inclination: f64,
-    raan: f64,
-    arg_perigee: f64,
-    mean_anomaly: f64,
-    norad_id: Option<u32>,
-    classification: Option<char>,
-    intl_designator: Option<String>,
-    first_derivative: Option<f64>,
-    second_derivative: Option<f64>,
-    bstar: Option<f64>,
+    elements: PyReadonlyArray1<f64>,
+    norad_id: &str,
 ) -> PyResult<(String, String)> {
-    let intl_designator_ref = intl_designator.as_deref();
-
-    // Create Vector6 from individual elements
-    let elements = na::Vector6::new(
-        semi_major_axis,
-        eccentricity,
-        inclination,
-        raan,
-        arg_perigee,
-        mean_anomaly,
-    );
+    let elements_array = elements.as_array();
+    let elements_vec = na::Vector6::from_row_slice(elements_array.as_slice().unwrap());
 
     match orbits::keplerian_elements_to_tle(
         &epoch.obj,
-        &elements,
+        &elements_vec,
         norad_id,
     ) {
         Ok((line1, line2)) => Ok((line1, line2)),
@@ -948,7 +919,7 @@ fn py_keplerian_elements_to_tle(
 ///     arg_perigee (`float`): Argument of periapsis (degrees)
 ///     mean_anomaly (`float`): Mean anomaly (degrees)
 ///     mean_motion (`float`): Mean motion (revolutions per day)
-///     norad_id (`int`): NORAD catalog number
+///     norad_id (`str`): NORAD catalog number (supports numeric and Alpha-5 format)
 ///     ephemeris_type (`int`): Ephemeris type (0-9)
 ///     element_set_number (`int`): Element set number
 ///     revolution_number (`int`): Revolution number at epoch
@@ -971,7 +942,7 @@ fn py_create_tle_lines(
     arg_perigee: f64,
     mean_anomaly: f64,
     mean_motion: f64,
-    norad_id: u32,
+    norad_id: &str,
     ephemeris_type: u8,
     element_set_number: u16,
     revolution_number: u32,
@@ -1002,6 +973,40 @@ fn py_create_tle_lines(
         revolution_number,
     ) {
         Ok((line1, line2)) => Ok((line1, line2)),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Parse NORAD ID from string, handling both classic and Alpha-5 formats
+///
+/// # Arguments
+/// * `norad_str` - NORAD ID string from TLE
+///
+/// # Returns
+/// * `u32` - Parsed numeric NORAD ID
+#[pyfunction]
+#[pyo3(text_signature = "(norad_str)")]
+#[pyo3(name = "parse_norad_id")]
+fn py_parse_norad_id(norad_str: String) -> PyResult<u32> {
+    match orbits::parse_norad_id(&norad_str) {
+        Ok(id) => Ok(id),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Convert numeric NORAD ID to Alpha-5 format
+///
+/// # Arguments
+/// * `norad_id` - Numeric NORAD ID (100000-339999)
+///
+/// # Returns
+/// * `str` - Alpha-5 format ID (e.g., "A0001")
+#[pyfunction]
+#[pyo3(text_signature = "(norad_id)")]
+#[pyo3(name = "norad_id_numeric_to_alpha5")]
+fn py_norad_id_numeric_to_alpha5(norad_id: u32) -> PyResult<String> {
+    match orbits::norad_id_numeric_to_alpha5(norad_id) {
+        Ok(alpha5_id) => Ok(alpha5_id),
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
     }
 }

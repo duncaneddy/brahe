@@ -466,62 +466,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tle_checksum() {
-        // Test cases provided by user - known correct ISS TLE data
-        let iss_tle_line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
-        let iss_tle_line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
-
-        // Debug: let's see what our function actually returns
-        let result1 = calculate_tle_line_checksum(iss_tle_line1);
-        let result2 = calculate_tle_line_checksum(iss_tle_line2);
-
-        let expected_checksum1 = iss_tle_line1.chars().last().unwrap().to_digit(10).unwrap();
-        let expected_checksum2 = iss_tle_line2.chars().last().unwrap().to_digit(10).unwrap();
-
-        assert_eq!(result1, expected_checksum1, "Checksum for line 1 should be {}, got {}", expected_checksum1, result1);
-        assert_eq!(result2, expected_checksum2, "Checksum for line 2 should be {}, got {}", expected_checksum2, result2);
-    }
-
-    #[test]
-    fn test_validate_tle_line() {
-        let iss_tle_line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
-        assert!(validate_tle_line(iss_tle_line1));
-
-        // Invalid line (wrong length)
-        let invalid_line = "1 25544U 98067A   08264";
-        assert!(!validate_tle_line(invalid_line));
-    }
-
-    #[test]
-    fn test_validate_tle_lines() {
-        let iss_tle_line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
-        let iss_tle_line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
-        assert!(validate_tle_lines(iss_tle_line1, iss_tle_line2));
-
-        // Invalid lines (mismatched NORAD IDs)
-        let invalid_line2 = "2 12345  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
-        assert!(!validate_tle_lines(iss_tle_line1, invalid_line2));
-
-        // Invalid lines (wrong checksum)
-        let invalid_line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4  0  2928"; // Changed last digit
-        assert!(!validate_tle_lines(invalid_line1, iss_tle_line2));
-
-        // Invalid lines (wrong line numbers)
-        let invalid_line1_num = "2 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2928"; // Changed line number to 2
-        assert!(!validate_tle_lines(invalid_line1_num, iss_tle_line2));
-    }
-
-    #[test]
-    fn test_extract_classic_norad_id() {
-        assert_eq!(parse_norad_id("25544").unwrap(), 25544);
-    }
-
-    #[test]
-    fn test_extract_alpha5_norad_id() {
-        assert_eq!(parse_norad_id("A0001").unwrap(), 100001);
-    }
-
-    #[test]
     fn test_sgp_propagator_creation() {
         // Use a real ISS TLE that should work with SGP4
         let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";

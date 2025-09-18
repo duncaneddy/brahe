@@ -929,11 +929,6 @@ fn py_keplerian_elements_to_tle(
         &epoch.obj,
         &elements,
         norad_id,
-        classification,
-        intl_designator_ref,
-        first_derivative,
-        second_derivative,
-        bstar,
     ) {
         Ok((line1, line2)) => Ok((line1, line2)),
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
@@ -953,8 +948,11 @@ fn py_keplerian_elements_to_tle(
 ///     arg_perigee (`float`): Argument of periapsis (degrees)
 ///     mean_anomaly (`float`): Mean anomaly (degrees)
 ///     mean_motion (`float`): Mean motion (revolutions per day)
-///     norad_id (`int`, optional): NORAD catalog number (default: 99999)
-///     classification (`str`, optional): Security classification (default: 'U')
+///     norad_id (`int`): NORAD catalog number
+///     ephemeris_type (`int`): Ephemeris type (0-9)
+///     element_set_number (`int`): Element set number
+///     revolution_number (`int`): Revolution number at epoch
+///     classification (`str`, optional): Security classification (default: ' ')
 ///     intl_designator (`str`, optional): International designator (default: '')
 ///     first_derivative (`float`, optional): First derivative of mean motion (default: 0.0)
 ///     second_derivative (`float`, optional): Second derivative of mean motion (default: 0.0)
@@ -963,7 +961,7 @@ fn py_keplerian_elements_to_tle(
 /// Returns:
 ///     tuple: (line1, line2) - The two TLE lines as strings
 #[pyfunction]
-#[pyo3(text_signature = "(epoch, inclination, raan, eccentricity, arg_perigee, mean_anomaly, mean_motion, norad_id=None, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
+#[pyo3(text_signature = "(epoch, inclination, raan, eccentricity, arg_perigee, mean_anomaly, mean_motion, norad_id, ephemeris_type, element_set_number, revolution_number, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
 #[pyo3(name = "create_tle_lines")]
 fn py_create_tle_lines(
     epoch: &PyEpoch,
@@ -973,7 +971,10 @@ fn py_create_tle_lines(
     arg_perigee: f64,
     mean_anomaly: f64,
     mean_motion: f64,
-    norad_id: Option<u32>,
+    norad_id: u32,
+    ephemeris_type: u8,
+    element_set_number: u16,
+    revolution_number: u32,
     classification: Option<char>,
     intl_designator: Option<String>,
     first_derivative: Option<f64>,
@@ -984,18 +985,21 @@ fn py_create_tle_lines(
 
     match orbits::create_tle_lines(
         &epoch.obj,
+        norad_id,
+        classification.unwrap_or(' '),
+        intl_designator_ref.unwrap_or(""),
+        mean_motion,
+        eccentricity,
         inclination,
         raan,
-        eccentricity,
         arg_perigee,
         mean_anomaly,
-        mean_motion,
-        norad_id,
-        classification,
-        intl_designator_ref,
-        first_derivative,
-        second_derivative,
-        bstar,
+        first_derivative.unwrap_or(0.0),
+        second_derivative.unwrap_or(0.0),
+        bstar.unwrap_or(0.0),
+        ephemeris_type,
+        element_set_number,
+        revolution_number,
     ) {
         Ok((line1, line2)) => Ok((line1, line2)),
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),

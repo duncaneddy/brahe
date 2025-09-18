@@ -245,7 +245,9 @@ impl Epoch {
     /// assert_eq!(epoch.hour(), 12);
     /// ```
     pub fn from_day_of_year(year: u32, day_of_year: f64, time_system: TimeSystem) -> Self {
-        assert!(day_of_year >= 1.0, "day_of_year must be >= 1.0, got {}", day_of_year);
+        if day_of_year < 1.0 {
+            panic!("day_of_year must be >= 1.0, got {}", day_of_year);
+        }
 
         // Create epoch for January 1st of the given year
         let jan1 = Epoch::from_date(year, 1, 1, time_system);
@@ -983,6 +985,80 @@ impl Epoch {
     pub fn nanosecond(&self) -> f64 {
         let (_, _, _, _, _, _, ns) = self.to_datetime();
         ns
+    }
+
+    /// Returns the day of year as a floating-point number in the epoch's time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// If you need to extract more than one component of the date/time
+    /// it is more efficient to use the `to_datetime` method which returns
+    /// all components at once.
+    ///
+    /// # Returns
+    /// - `day_of_year`: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// assert!((epoch.day_of_year() - 100.5).abs() < 1e-10);
+    /// ```
+    pub fn day_of_year(&self) -> f64 {
+        let (year, month, day, hour, minute, second, nanosecond) = self.to_datetime();
+
+        // Calculate day of year
+        let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        let mut day_of_year = day as f64;
+        for i in 0..(month - 1) as usize {
+            day_of_year += days_in_month[i] as f64;
+        }
+
+        // Add fractional part for hour, minute, second, nanosecond
+        day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
+
+        day_of_year
+    }
+
+    /// Returns the day of year as a floating-point number in the specified time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// # Arguments
+    /// - `time_system`: The time system to use for the calculation
+    ///
+    /// # Returns
+    /// - `day_of_year`: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::time::*;
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let doy_tai = epoch.day_of_year_as_time_system(TimeSystem::TAI);
+    /// assert!((doy_tai - 100.5).abs() < 1e-3);
+    /// ```
+    pub fn day_of_year_as_time_system(&self, time_system: TimeSystem) -> f64 {
+        let (year, month, day, hour, minute, second, nanosecond) = self.to_datetime_as_time_system(time_system);
+
+        // Calculate day of year
+        let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        let mut day_of_year = day as f64;
+        for i in 0..(month - 1) as usize {
+            day_of_year += days_in_month[i] as f64;
+        }
+
+        // Add fractional part for hour, minute, second, nanosecond
+        day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
+
+        day_of_year
     }
 
     /// Convert an `Epoch` into a Julian date representation of the same
@@ -2802,5 +2878,116 @@ mod tests {
 
         // Test that day_of_year < 1.0 panics
         Epoch::from_day_of_year(2023, 0.5, TimeSystem::UTC);
+    }
+
+    #[test]
+    fn test_epoch_day_of_year() {
+        setup_global_test_eop();
+
+        // Test January 1st at midnight (day 1.0)
+        let epoch1 = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch1.day_of_year(), 1.0, epsilon = 1e-10);
+
+        // Test January 1st at noon (day 1.5)
+        let epoch2 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch2.day_of_year(), 1.5, epsilon = 1e-10);
+
+        // Test April 10th at noon (day 100.5 in non-leap year)
+        let epoch3 = Epoch::from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch3.day_of_year(), 100.5, epsilon = 1e-10);
+
+        // Test December 31st at midnight (day 365.0 in non-leap year)
+        let epoch4 = Epoch::from_datetime(2023, 12, 31, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch4.day_of_year(), 365.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_epoch_day_of_year_leap_year() {
+        setup_global_test_eop();
+
+        // Test February 29th at midnight in leap year (day 60.0)
+        let epoch1 = Epoch::from_datetime(2020, 2, 29, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch1.day_of_year(), 60.0, epsilon = 1e-10);
+
+        // Test March 1st at midnight in leap year (day 61.0)
+        let epoch2 = Epoch::from_datetime(2020, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch2.day_of_year(), 61.0, epsilon = 1e-10);
+
+        // Test December 31st at midnight in leap year (day 366.0)
+        let epoch3 = Epoch::from_datetime(2020, 12, 31, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch3.day_of_year(), 366.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_epoch_day_of_year_fractional() {
+        setup_global_test_eop();
+
+        // Test January 1st at 6:00 AM (day 1.25)
+        let epoch1 = Epoch::from_datetime(2023, 1, 1, 6, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epoch1.day_of_year(), 1.25, epsilon = 1e-10);
+
+        // Test with seconds and nanoseconds
+        let epoch2 = Epoch::from_datetime(2023, 1, 1, 0, 30, 30.0, 500000000.0, TimeSystem::UTC);
+        let expected = 1.0 + (30.0 * 60.0 + 30.5) / 86400.0; // 30 min 30.5 sec
+        assert_abs_diff_eq!(epoch2.day_of_year(), expected, epsilon = 1e-9);
+
+        // Test end of year with fractional time
+        let epoch3 = Epoch::from_datetime(2023, 12, 31, 23, 59, 59.999, 0.0, TimeSystem::UTC);
+        let expected_seconds = 23.0 * 3600.0 + 59.0 * 60.0 + 59.999;
+        let expected_doy = 365.0 + expected_seconds / 86400.0;
+        assert_abs_diff_eq!(epoch3.day_of_year(), expected_doy, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_epoch_day_of_year_as_time_system() {
+        setup_global_test_eop();
+
+        // Create epoch in UTC
+        let epoch = Epoch::from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Test day of year in same time system (UTC)
+        let doy_utc = epoch.day_of_year_as_time_system(TimeSystem::UTC);
+        assert_abs_diff_eq!(doy_utc, 100.5, epsilon = 1e-10);
+
+        // Test day of year in different time systems
+        let doy_tai = epoch.day_of_year_as_time_system(TimeSystem::TAI);
+        let doy_gps = epoch.day_of_year_as_time_system(TimeSystem::GPS);
+        let doy_tt = epoch.day_of_year_as_time_system(TimeSystem::TT);
+
+        // The day of year should be close but will differ due to time system offsets
+        // TAI is ahead of UTC by ~37 seconds, GPS by ~19 seconds, etc.
+        assert_abs_diff_eq!(doy_tai, 100.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(doy_gps, 100.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(doy_tt, 100.5, epsilon = 1e-3);
+
+        // Test edge case where time system difference might cause day boundary crossing
+        let epoch_near_midnight = Epoch::from_datetime(2023, 4, 10, 0, 0, 1.0, 0.0, TimeSystem::UTC);
+        let doy_utc_midnight = epoch_near_midnight.day_of_year_as_time_system(TimeSystem::UTC);
+        let doy_tai_midnight = epoch_near_midnight.day_of_year_as_time_system(TimeSystem::TAI);
+
+        assert_abs_diff_eq!(doy_utc_midnight, 100.0 + 1.0/86400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(doy_tai_midnight, 100.0 + 1.0/86400.0, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_epoch_day_of_year_consistency() {
+        setup_global_test_eop();
+
+        // Test that day_of_year() and day_of_year_as_time_system() are consistent
+        // when using the epoch's own time system
+        let test_cases = [
+            (2023, 1, 1, 0, 0, 0.0, TimeSystem::UTC),
+            (2020, 2, 29, 12, 30, 45.5, TimeSystem::TAI),
+            (2023, 12, 31, 23, 59, 59.0, TimeSystem::GPS),
+            (2024, 6, 15, 6, 15, 30.123, TimeSystem::TT),
+        ];
+
+        for (year, month, day, hour, minute, second, time_system) in test_cases {
+            let epoch = Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system);
+            let doy1 = epoch.day_of_year();
+            let doy2 = epoch.day_of_year_as_time_system(time_system);
+
+            assert_abs_diff_eq!(doy1, doy2, epsilon = 1e-12);
+        }
     }
 }

@@ -180,6 +180,7 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, V
 
     // Parse epoch from line 1
     let epoch_str = &line1[18..32];
+
     let year_2digit: u32 = epoch_str[0..2].parse()
         .map_err(|_| BraheError::Error("Invalid year in TLE".to_string()))?;
     let year = if year_2digit < 57 { 2000 + year_2digit } else { 1900 + year_2digit };
@@ -225,17 +226,12 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, V
     Ok((epoch, elements))
 }
 
-/// Convert Keplerian elements to TLE format
+/// Convert Keplerian elements to TLE format (simplified interface)
 ///
 /// # Arguments
 /// * `epoch` - Epoch of the elements
-/// * `elements` - Keplerian elements [a, e, i, Ω, ω, M]
-/// * `norad_id` - NORAD catalog number (optional)
-/// * `classification` - Security classification ('U', 'C', or 'S')
-/// * `intl_designator` - International designator (optional)
-/// * `first_derivative` - First derivative of mean motion divided by 2 [rev/day²]
-/// * `second_derivative` - Second derivative of mean motion divided by 6 [rev/day³]
-/// * `bstar` - B* drag term [1/earth radii]
+/// * `elements` - Keplerian elements [a (m), e, i (deg), Ω (deg), ω (deg), M (deg)]
+/// * `norad_id` - NORAD catalog number (optional, defaults to 99999)
 ///
 /// # Returns
 /// * `Result<(String, String), BraheError>` - TLE line 1 and line 2
@@ -243,71 +239,72 @@ pub fn keplerian_elements_to_tle(
     epoch: &Epoch,
     elements: &Vector6<f64>,
     norad_id: Option<u32>,
-    classification: Option<char>,
-    intl_designator: Option<&str>,
-    first_derivative: Option<f64>,
-    second_derivative: Option<f64>,
-    bstar: Option<f64>,
 ) -> Result<(String, String), BraheError> {
+    // Convert semi-major axis to mean motion (rev/day)
+    let semi_major_axis = elements[0]; // meters
+    let mean_motion_rad_per_sec = (GM_EARTH / (semi_major_axis * semi_major_axis * semi_major_axis)).sqrt();
+    let mean_motion_revs_per_day = mean_motion_rad_per_sec * 86400.0 / (2.0 * PI);
 
     create_tle_lines(
         epoch,
-        elements[0], // semi-major axis
+        norad_id.unwrap_or(99999),
+        ' ', // Classification: Unclassified
+        "", // International designator: empty
+        mean_motion_revs_per_day,
         elements[1], // eccentricity
         elements[2], // inclination (degrees)
         elements[3], // RAAN (degrees)
         elements[4], // argument of periapsis (degrees)
         elements[5], // mean anomaly (degrees)
-        norad_id,
-        classification,
-        intl_designator,
-        first_derivative,
-        second_derivative,
-        bstar,
+        0.0, // first_derivative: 0.0
+        0.0, // second_derivative: 0.0
+        0.0, // bstar: 0.0
+        0, // ephemeris_type: 0
+        0, // element_set_number: 0
+        0, // revolution_number: 0
     )
 }
 
-/// Create complete TLE lines from all parameters
+/// Create TLE lines from orbital elements and all required TLE metadata
 ///
 /// # Arguments
-/// * `epoch` - Epoch of the elements
-/// * `semi_major_axis` - Semi-major axis [m]
-/// * `eccentricity` - Eccentricity [dimensionless]
-/// * `inclination` - Inclination [degrees]
-/// * `raan` - Right ascension of ascending node [degrees]
-/// * `arg_periapsis` - Argument of periapsis [degrees]
-/// * `mean_anomaly` - Mean anomaly [degrees]
-/// * `norad_id` - NORAD catalog number (optional, defaults to 99999)
-/// * `classification` - Security classification (optional, defaults to 'U')
-/// * `intl_designator` - International designator (optional, defaults to empty)
-/// * `first_derivative` - First derivative of mean motion divided by 2 (optional, defaults to 0.0)
-/// * `second_derivative` - Second derivative of mean motion divided by 6 (optional, defaults to 0.0)
-/// * `bstar` - B* drag term (optional, defaults to 0.0)
+/// * `epoch` - Epoch of the orbital elements
+/// * `norad_id` - NORAD catalog number (1-99999)
+/// * `classification` - Classification character ('U', 'C', or 'S')
+/// * `intl_designator` - International designator (e.g., "98067A")
+/// * `mean_motion` - Mean motion in revolutions per day
+/// * `eccentricity` - Eccentricity (0 <= e < 1)
+/// * `inclination` - Inclination in degrees
+/// * `raan` - Right ascension of ascending node in degrees
+/// * `arg_periapsis` - Argument of periapsis in degrees
+/// * `mean_anomaly` - Mean anomaly in degrees
+/// * `first_derivative` - First derivative of mean motion divided by 2
+/// * `second_derivative` - Second derivative of mean motion divided by 6
+/// * `bstar` - B* drag term
+/// * `ephemeris_type` - Ephemeris type (usually 0)
+/// * `element_set_number` - Element set number (0-9999)
+/// * `revolution_number` - Revolution number at epoch (0-99999)
 ///
 /// # Returns
 /// * `Result<(String, String), BraheError>` - TLE line 1 and line 2
 pub fn create_tle_lines(
     epoch: &Epoch,
-    semi_major_axis: f64,
+    norad_id: u32,
+    classification: char,
+    intl_designator: &str,
+    mean_motion: f64,
     eccentricity: f64,
     inclination: f64,
     raan: f64,
     arg_periapsis: f64,
     mean_anomaly: f64,
-    norad_id: Option<u32>,
-    classification: Option<char>,
-    intl_designator: Option<&str>,
-    first_derivative: Option<f64>,
-    second_derivative: Option<f64>,
-    bstar: Option<f64>,
+    first_derivative: f64,
+    second_derivative: f64,
+    bstar: f64,
+    ephemeris_type: u8,
+    element_set_number: u16,
+    revolution_number: u32,
 ) -> Result<(String, String), BraheError> {
-
-    let norad_id = norad_id.unwrap_or(99999);
-    let classification = classification.unwrap_or('U');
-    let intl_designator = intl_designator.unwrap_or("");
-    let ndt2 = first_derivative.unwrap_or(0.0);
-    let nddt6 = second_derivative.unwrap_or(0.0);
-    let bstar_val = bstar.unwrap_or(0.0);
 
     // Validate inputs
     if norad_id > 99999 {
@@ -316,13 +313,21 @@ pub fn create_tle_lines(
     if eccentricity < 0.0 || eccentricity >= 1.0 {
         return Err(BraheError::Error("Eccentricity must be in range [0, 1)".to_string()));
     }
-    if semi_major_axis <= 0.0 {
-        return Err(BraheError::Error("Semi-major axis must be positive".to_string()));
+    if mean_motion <= 0.0 {
+        return Err(BraheError::Error("Mean motion must be positive".to_string()));
     }
-
-    // Convert semi-major axis to mean motion (rev/day)
-    let mean_motion_rad_per_sec = (GM_EARTH / (semi_major_axis * semi_major_axis * semi_major_axis)).sqrt();
-    let mean_motion_revs_per_day = mean_motion_rad_per_sec * 86400.0 / (2.0 * PI);
+    if element_set_number > 9999 {
+        return Err(BraheError::Error("Element set number cannot exceed 9999".to_string()));
+    }
+    if revolution_number > 99999 {
+        return Err(BraheError::Error("Revolution number cannot exceed 99999".to_string()));
+    }
+    if !matches!(classification, 'U' | 'C' | 'S' | ' ') {
+        return Err(BraheError::Error("Classification must be 'U', 'C', or 'S'".to_string()));
+    }
+    if intl_designator.len() > 8 {
+        return Err(BraheError::Error("International designator cannot exceed 8 characters".to_string()));
+    }
 
     // Format epoch
     // Get the datetime in UTC
@@ -343,8 +348,8 @@ pub fn create_tle_lines(
     day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second) / 86400.0;
 
     // Format first derivative with sign
-    let ndt2_sign = if ndt2 < 0.0 { "-" } else { " " };
-    let ndt2_formatted = format!("{}{:9.8}", ndt2_sign, ndt2.abs()).replace("0.", ".");
+    let ndt2_sign = if first_derivative < 0.0 { "-" } else { " " };
+    let ndt2_formatted = format!("{}{:9.8}", ndt2_sign, first_derivative.abs()).replace("0.", ".");
     let ndt2_final = if ndt2_formatted.len() > 10 {
         &ndt2_formatted[..10]
     } else {
@@ -352,10 +357,10 @@ pub fn create_tle_lines(
     };
 
     // Format second derivative in exponential notation
-    let nddt6_formatted = format_exponential(nddt6);
+    let nddt6_formatted = format_exponential(second_derivative);
 
     // Format B* term in exponential notation
-    let bstar_formatted = format_exponential(bstar_val);
+    let bstar_formatted = format_exponential(bstar);
 
     // Ensure international designator is properly formatted (8 characters max)
     let intl_des_formatted = format!("{:8}", intl_designator);
@@ -367,7 +372,7 @@ pub fn create_tle_lines(
 
     // Create line 1 (without checksum)
     let line1_base = format!(
-        "1 {:5}{} {} {:02}{:12.8} {} {} {} 0    0",
+        "1 {:5}{} {} {:02}{:012.8} {} {} {} {} {:04}",
         norad_id,
         classification,
         intl_des_final,
@@ -375,7 +380,9 @@ pub fn create_tle_lines(
         day_of_year,
         ndt2_final,
         nddt6_formatted,
-        bstar_formatted
+        bstar_formatted,
+        ephemeris_type,
+        element_set_number
     );
 
     // Calculate checksum and complete line 1
@@ -398,14 +405,15 @@ pub fn create_tle_lines(
 
     // Create line 2 (without checksum)
     let line2_base = format!(
-        "2 {:5} {:8.4} {:8.4} {} {:8.4} {:8.4} {:11.8}    0",
+        "2 {:5} {:8.4} {:8.4} {} {:8.4} {:8.4} {:11.8}{:05}",
         norad_id,
         incl_norm,
         raan_norm,
         ecc_final,
         argp_norm,
         mean_anom_norm,
-        mean_motion_revs_per_day
+        mean_motion,
+        revolution_number
     );
 
     // Calculate checksum and complete line 2
@@ -423,29 +431,32 @@ pub fn create_tle_lines(
 /// # Returns
 /// * `String` - Formatted exponential notation (8 characters)
 fn format_exponential(value: f64) -> String {
-    if value == 0.0 {
-        return " 00000-0".to_string();
+    if value == 0.0 || value.abs() < 1e-6 {
+        return " 00000+0".to_string();
     }
 
     let abs_val = value.abs();
     let sign = if value >= 0.0 { " " } else { "-" };
 
     // Calculate exponent using TLE standard format
+    // TLE uses scientific notation where mantissa is between 0.1 and 1.0
     let log_val = abs_val.log10();
-    let exponent = log_val.floor() as i32 + 1;
+    let exponent = log_val.floor() as i32;
 
-    // Calculate mantissa body
-    let body = (abs_val * 10_f64.powi(-exponent + 5)) as u32;
+    // Calculate 5-digit mantissa
+    let mantissa = abs_val / 10_f64.powi(exponent);
+    let body = (mantissa * 10000.0).round() as u32;
 
-    // TLE format always uses "-" for exponent sign
-    format!("{}{:05}-{}", sign, body, exponent.abs())
+    // Format exponent sign
+    let exp_sign = if exponent >= 0 { "+" } else { "-" };
+
+    format!("{}{:05}{}{}", sign, body, exp_sign, exponent.abs())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rstest::rstest;
-    use crate::time::Epoch;
     use crate::orbits::keplerian::semimajor_axis;
     use approx::assert_abs_diff_eq;
 
@@ -568,51 +579,74 @@ mod tests {
         assert!(parse_norad_id(id_str).is_err());
     }
 
-    // #[test]
-    // fn test_keplerian_elements_from_tle() {
-    //     let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
-    //     let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+    #[test]
+    fn test_keplerian_elements_from_tle() {
+        let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
+        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
 
-    //     let result = keplerian_elements_from_tle(line1, line2);
-    //     assert!(result.is_ok());
+        let result = keplerian_elements_from_tle(line1, line2);
+        assert!(result.is_ok());
 
-    //     let (epoch, elements) = result.unwrap();
+        let (epoch, elements) = result.unwrap();
         
-    //     assert_eq!(epoch.year(), 2021);
-    //     assert_eq!(epoch.month(), 1);
-    //     assert_eq!(epoch.day(), 1);
-    //     assert_eq!(epoch.hour(), 0);
-    //     assert_eq!(epoch.minute(), 0);
-    //     assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+        assert_eq!(epoch.year(), 2021);
+        assert_eq!(epoch.month(), 1);
+        assert_eq!(epoch.day(), 1);
+        assert_eq!(epoch.hour(), 12);
+        assert_eq!(epoch.minute(), 0);
+        assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
 
-    //     let n_rad_per_sec = 15.48919103000003 * 2.0 * PI / 86400.0;
-    //     let a = semimajor_axis( n_rad_per_sec, false);
-    //     assert_abs_diff_eq!(elements[0], a, epsilon = 1.0e-3); // Semi-major axis in meters
-    //     assert_abs_diff_eq!(elements[1], 0.0003417, epsilon = 1.0e-7); // Eccentricity
-    //     assert_abs_diff_eq!(elements[2], 51.6461, epsilon = 1.0e-4); // Inclination
-    //     assert_abs_diff_eq!(elements[3], 306.0234, epsilon = 1.0e-4); // RAAN
-    //     assert_abs_diff_eq!(elements[4], 88.1267, epsilon = 1.0e-4); // Argument of periapsis
-    //     assert_abs_diff_eq!(elements[5], 25.5695, epsilon = 1.0e-4); // Mean anomaly
+        let n_rad_per_sec = 15.48919103 * 2.0 * PI / 86400.0;
+        let a = semimajor_axis( n_rad_per_sec, false);
+        assert_abs_diff_eq!(elements[0], a, epsilon = 1.0e-3); // Semi-major axis in meters
+        assert_abs_diff_eq!(elements[1], 0.0003417, epsilon = 1.0e-7); // Eccentricity
+        assert_abs_diff_eq!(elements[2], 51.6461, epsilon = 1.0e-4); // Inclination
+        assert_abs_diff_eq!(elements[3], 306.0234, epsilon = 1.0e-4); // RAAN
+        assert_abs_diff_eq!(elements[4], 88.1267, epsilon = 1.0e-4); // Argument of periapsis
+        assert_abs_diff_eq!(elements[5], 25.5695, epsilon = 1.0e-4); // Mean anomaly
 
-    // }
+    }
 
-    // #[rstest]
-    // fn test_keplerian_elements_from_tle() {
-    //     let line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992";
-    //     let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+    #[test]
+    fn test_create_tle_lines() {
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let semi_major_axis = 6786000.0; // meters
+        let eccentricity = 0.12345; // dimensionless
+        let inclination = 51.6461; // degrees
+        let raan = 306.0234; // degrees
+        let arg_periapsis = 88.1267; // degrees
+        let mean_anomaly = 25.5695; // degrees
 
-    //     let result = keplerian_elements_from_tle(line1, line2);
-    //     assert!(result.is_ok());
+        // Convert semi-major axis to mean motion (rev/day)
+        let mean_motion_rad_per_sec = (GM_EARTH / (semi_major_axis * semi_major_axis * semi_major_axis)).sqrt();
+        let mean_motion_revs_per_day = mean_motion_rad_per_sec * 86400.0 / (2.0 * PI);
 
-    //     let (elements, _epoch) = result.unwrap();
-    //     assert!(elements[0] > 6.0e6); // Semi-major axis should be reasonable for ISS
-    //     assert!(elements[1] >= 0.0 && elements[1] < 1.0); // Valid eccentricity
-    //     assert!(elements[2] > 50.0 && elements[2] < 60.0); // ISS inclination ~51.6°
-    // }
+        let (line1, line2) = create_tle_lines(
+            &epoch,
+            25544,
+            'U',
+            "98067A",
+            mean_motion_revs_per_day,
+            eccentricity,
+            inclination,
+            raan,
+            arg_periapsis,
+            mean_anomaly,
+            0.00001764,
+            0.00000040967,
+            0.00040967,
+            0,
+            999,
+            0,
+        ).unwrap();
+
+        assert_eq!(line1, "1 25544U 98067A   21001.50000000  .00001764  00000+0  40967-4 0 09996");
+        assert_eq!(line2, "2 25544  51.6461 306.0234 1234500  88.1267  25.5695 15.53037630000005");
+    }
 
     #[test]
     fn test_format_exponential() {
-        assert_eq!(format_exponential(0.0), " 00000-0");
+        assert_eq!(format_exponential(0.0), " 00000+0");
         // Test other values...
     }
 }

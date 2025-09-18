@@ -35,13 +35,13 @@ pub trait OrbitPropagator {
 
     // Getter methods for accessing state
     /// Get current state as a 6D vector
-    fn current_state_vector(&self) -> Vector6<f64>;
+    fn current_state(&self) -> Vector6<f64>;
 
     /// Get current epoch
     fn current_epoch(&self) -> Epoch;
 
     /// Get initial state as a 6D vector
-    fn initial_state_vector(&self) -> Vector6<f64>;
+    fn initial_state(&self) -> Vector6<f64>;
 
     /// Get initial epoch
     fn initial_epoch(&self) -> Epoch;

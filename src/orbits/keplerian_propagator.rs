@@ -256,7 +256,7 @@ impl OrbitPropagator for KeplerianPropagator {
         self.trajectory.add_state(target_epoch, new_state)
     }
 
-    fn current_state_vector(&self) -> Vector6<f64> {
+    fn current_state(&self) -> Vector6<f64> {
         // Return the most recent state from trajectory
         if let Some(last_epoch) = self.trajectory.end_epoch() {
             self.trajectory.state_at_epoch(&last_epoch).unwrap_or(Vector6::zeros())
@@ -270,7 +270,7 @@ impl OrbitPropagator for KeplerianPropagator {
         self.trajectory.end_epoch().unwrap_or(self.initial_epoch)
     }
 
-    fn initial_state_vector(&self) -> Vector6<f64> {
+    fn initial_state(&self) -> Vector6<f64> {
         self.initial_state
     }
 
@@ -511,8 +511,8 @@ mod tests {
 
         assert_eq!(propagator.initial_epoch(), epoch);
         assert_eq!(propagator.current_epoch(), epoch); // Should be same initially
-        assert_abs_diff_eq!(propagator.initial_state_vector()[0], 7000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(propagator.initial_state_vector()[1], 0.01, epsilon = 1e-10);
+        assert_abs_diff_eq!(propagator.initial_state()[0], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(propagator.initial_state()[1], 0.01, epsilon = 1e-10);
     }
 
     #[test]
@@ -535,7 +535,7 @@ mod tests {
         assert_eq!(new_epoch, epoch + 60.0);
 
         // Mean anomaly should have advanced
-        let new_state = propagator.current_state_vector();
+        let new_state = propagator.current_state();
         assert!(new_state[5] > 0.0); // Mean anomaly should be positive
 
         // Trajectory should have 2 states now
@@ -581,11 +581,11 @@ mod tests {
         ).unwrap();
 
         // Initial state should match
-        assert_eq!(propagator.current_state_vector(), elements);
+        assert_eq!(propagator.current_state(), elements);
 
         // Step and check that current state is now different
         propagator.step().unwrap();
-        let current_state = propagator.current_state_vector();
+        let current_state = propagator.current_state();
 
         // Current state should be different from initial
         assert_ne!(current_state, elements);

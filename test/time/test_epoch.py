@@ -823,3 +823,84 @@ def test_epoch_datetime_accessors_vs_to_datetime(eop):
         assert epoch.minute() == minute
         assert epoch.second() == second
         assert epoch.nanosecond() == nanosecond
+
+
+def test_epoch_from_day_of_year(eop):
+    """Test creating Epoch from day-of-year."""
+    # Test January 1st (day 1.0)
+    epoch_jan1 = brahe.Epoch.from_day_of_year(2023, 1.0, "UTC")
+    assert epoch_jan1.year() == 2023
+    assert epoch_jan1.month() == 1
+    assert epoch_jan1.day() == 1
+    assert epoch_jan1.hour() == 0
+    assert epoch_jan1.minute() == 0
+    assert epoch_jan1.second() == 0.0
+
+    # Test January 2nd (day 2.0)
+    epoch_jan2 = brahe.Epoch.from_day_of_year(2023, 2.0, "UTC")
+    assert epoch_jan2.year() == 2023
+    assert epoch_jan2.month() == 1
+    assert epoch_jan2.day() == 2
+    assert epoch_jan2.hour() == 0
+    assert epoch_jan2.minute() == 0
+    assert epoch_jan2.second() == 0.0
+
+    # Test day 100.5 (should be around April 10th, noon)
+    epoch_100_5 = brahe.Epoch.from_day_of_year(2023, 100.5, "UTC")
+    assert epoch_100_5.year() == 2023
+    assert epoch_100_5.month() == 4
+    assert epoch_100_5.day() == 10
+    assert epoch_100_5.hour() == 12
+    assert epoch_100_5.minute() == 0
+    assert epoch_100_5.second() == 0.0
+
+
+def test_epoch_from_day_of_year_leap_year(eop):
+    """Test day-of-year in leap years."""
+    # Test February 29th in a leap year (day 60.0)
+    epoch_feb29 = brahe.Epoch.from_day_of_year(2020, 60.0, "UTC")
+    assert epoch_feb29.year() == 2020
+    assert epoch_feb29.month() == 2
+    assert epoch_feb29.day() == 29
+    assert epoch_feb29.hour() == 0
+
+    # Test March 1st in a leap year (day 61.0)
+    epoch_mar1 = brahe.Epoch.from_day_of_year(2020, 61.0, "UTC")
+    assert epoch_mar1.year() == 2020
+    assert epoch_mar1.month() == 3
+    assert epoch_mar1.day() == 1
+
+
+def test_epoch_from_day_of_year_fractional(eop):
+    """Test fractional day-of-year values."""
+    # Test fractional day (day 1.25 = January 1st, 6:00 AM)
+    epoch_frac = brahe.Epoch.from_day_of_year(2023, 1.25, "UTC")
+    assert epoch_frac.year() == 2023
+    assert epoch_frac.month() == 1
+    assert epoch_frac.day() == 1
+    assert epoch_frac.hour() == 6
+    assert epoch_frac.minute() == 0
+    assert epoch_frac.second() == 0.0
+
+    # Test fractional day (day 1.75 = January 1st, 6:00 PM)
+    epoch_frac2 = brahe.Epoch.from_day_of_year(2023, 1.75, "UTC")
+    assert epoch_frac2.year() == 2023
+    assert epoch_frac2.month() == 1
+    assert epoch_frac2.day() == 1
+    assert epoch_frac2.hour() == 18
+    assert epoch_frac2.minute() == 0
+    assert epoch_frac2.second() == 0.0
+
+
+def test_epoch_from_day_of_year_time_systems(eop):
+    """Test day-of-year with different time systems."""
+    test_cases = ["UTC", "TAI", "GPS", "TT"]
+
+    for time_system in test_cases:
+        epoch = brahe.Epoch.from_day_of_year(2023, 100.0, time_system)
+        assert epoch.year() == 2023
+        assert epoch.month() == 4
+        assert epoch.day() == 10
+        assert epoch.time_system == time_system
+
+

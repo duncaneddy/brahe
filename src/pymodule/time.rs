@@ -293,6 +293,32 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from a year and floating-point day-of-year.
+    ///
+    /// Args:
+    ///     year (int): Gregorian calendar year
+    ///     day_of_year (float): Day of year as a floating-point number
+    ///         (1.0 = January 1st, 1.5 = January 1st noon, etc.)
+    ///     time_system (str): Time system ("UTC", "TAI", "GPS", "TT", "UT1")
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the specified day of year
+    #[classmethod]
+    fn from_day_of_year(
+        _cls: &Bound<'_, PyType>,
+        year: u32,
+        day_of_year: f64,
+        time_system: &str,
+    ) -> PyResult<PyEpoch> {
+        Ok(PyEpoch {
+            obj: time::Epoch::from_day_of_year(
+                year,
+                day_of_year,
+                string_to_time_system(time_system).unwrap(),
+            ),
+        })
+    }
+
     #[classmethod]
     pub fn from_datetime(
         _cls: &Bound<'_, PyType>,

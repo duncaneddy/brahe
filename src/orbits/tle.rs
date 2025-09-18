@@ -1,4 +1,4 @@
-use crate::time::Epoch;
+use crate::time::{Epoch, TimeSystem};
 use crate::constants::GM_EARTH;
 use crate::utils::BraheError;
 use nalgebra::Vector6;
@@ -186,33 +186,7 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, V
     let day_of_year: f64 = epoch_str[2..].parse()
         .map_err(|_| BraheError::Error("Invalid day of year in TLE".to_string()))?;
 
-    // Convert day of year to month and day
-    let day_of_year_int = day_of_year.floor() as u32;
-    let fractional_day = day_of_year - day_of_year_int as f64;
-
-    // Simple algorithm to convert day of year to month/day
-    let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-    let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-    let mut month = 1;
-    let mut remaining_days = day_of_year_int;
-
-    for (i, &days) in days_in_month.iter().enumerate() {
-        if remaining_days <= days {
-            month = (i + 1) as u8;
-            break;
-        }
-        remaining_days -= days;
-    }
-
-    let day = remaining_days.max(1) as u8;
-    let hours = fractional_day * 24.0;
-    let hour = hours.floor() as u8;
-    let minutes = (hours - hour as f64) * 60.0;
-    let minute = minutes.floor() as u8;
-    let seconds = (minutes - minute as f64) * 60.0;
-
-    let epoch = Epoch::from_datetime(year, month, day, hour, minute, seconds, 0.0, crate::time::TimeSystem::UTC);
+    let epoch = Epoch::from_day_of_year(year, day_of_year, TimeSystem::UTC);
 
     // Parse orbital elements from line 2
     let inclination: f64 = line2[8..16].trim().parse()

@@ -61,19 +61,60 @@ class TestTLEUtilities:
         assert brahe.validate_tle_lines(line1_valid, line2_valid) == True
         assert brahe.validate_tle_lines(line1_invalid, line2_valid) == False
 
-    def test_extract_tle_norad_id_classic(self):
-        """Test classic NORAD ID extraction."""
+    def test_parse_norad_id_classic(self):
+        """Test classic NORAD ID parsing."""
         classic_id = "25544"
         expected_id = 25544
-        actual_id = brahe.extract_tle_norad_id(classic_id)
+        actual_id = brahe.parse_norad_id(classic_id)
         assert actual_id == expected_id
 
-    def test_extract_tle_norad_id_alpha5(self):
-        """Test Alpha-5 NORAD ID extraction."""
+    def test_parse_norad_id_alpha5(self):
+        """Test Alpha-5 NORAD ID parsing."""
         alpha5_id = "A0001"
         expected_id = 100001  # A=10, 0001=1 -> 10*10000 + 1
-        actual_id = brahe.extract_tle_norad_id(alpha5_id)
+        actual_id = brahe.parse_norad_id(alpha5_id)
         assert actual_id == expected_id
+
+    def test_norad_id_alpha5_to_numeric_valid(self):
+        """Test Alpha-5 to numeric NORAD ID conversion with valid inputs."""
+        test_cases = [
+            ("A0000", 100000),
+            ("A0001", 100001),
+            ("A9999", 109999),
+            ("B0000", 110000),
+            ("Z9999", 339999),
+        ]
+
+        for alpha5_id, expected_numeric in test_cases:
+            actual_numeric = brahe.norad_id_alpha5_to_numeric(alpha5_id)
+            assert actual_numeric == expected_numeric
+
+    def test_norad_id_alpha5_to_numeric_invalid(self):
+        """Test Alpha-5 to numeric NORAD ID conversion with invalid inputs."""
+        invalid_cases = [
+            "12345",     # All numeric
+            "ABCDE",     # Too many letters
+            "A",         # Too short
+            "A123",      # Too short
+            "A12345",    # Too long
+            "a0001",     # Lowercase
+            "10001",     # Numeric in range
+            "",          # Empty string
+        ]
+
+        for invalid_input in invalid_cases:
+            with pytest.raises(RuntimeError):
+                brahe.norad_id_alpha5_to_numeric(invalid_input)
+
+    def test_norad_id_conversion_round_trip(self):
+        """Test round-trip conversion between numeric and Alpha-5 formats."""
+        test_ids = [100000, 100001, 109999, 110000, 339999]
+
+        for numeric_id in test_ids:
+            # Convert to Alpha-5 and back
+            alpha5_id = brahe.norad_id_numeric_to_alpha5(numeric_id)
+            converted_back = brahe.norad_id_alpha5_to_numeric(alpha5_id)
+            assert converted_back == numeric_id
 
 
 class TestSGPPropagatorCreation:

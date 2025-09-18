@@ -686,7 +686,7 @@ impl PyKeplerianPropagator {
     /// Get current state vector
     #[pyo3(text_signature = "()")]
     pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.current_state_vector();
+        let state = self.propagator.current_state();
         state.as_slice().to_pyarray(py).to_owned()
     }
 

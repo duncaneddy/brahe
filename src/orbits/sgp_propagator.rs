@@ -411,7 +411,7 @@ impl OrbitPropagator for SGPPropagator {
         Ok(())
     }
 
-    fn current_state_vector(&self) -> Vector6<f64> {
+    fn current_state(&self) -> Vector6<f64> {
         self.trajectory.current_state_vector()
     }
 
@@ -419,7 +419,7 @@ impl OrbitPropagator for SGPPropagator {
         self.trajectory.current_epoch()
     }
 
-    fn initial_state_vector(&self) -> Vector6<f64> {
+    fn initial_state(&self) -> Vector6<f64> {
         self.initial_state
     }
 

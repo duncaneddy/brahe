@@ -36,130 +36,11 @@ use sgp4::chrono::{Datelike, Timelike};
 use crate::coordinates::state_cartesian_to_osculating;
 use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
 use crate::trajectories::{TrajectoryEvictionPolicy, AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, InterpolationMethod};
 use crate::utils::BraheError;
 
-/// TLE format type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TleFormat {
-    /// Classic 2-line TLE format with numeric NORAD ID
-    Classic,
-    /// Alpha-5 TLE format with alphanumeric NORAD ID (first digit replaced with letter for IDs >= 100000)
-    Alpha5,
-}
-
-/// Calculate TLE line checksum as an independent function
-///
-/// # Arguments
-/// * `line` - Full TLE line (function automatically uses first 68 characters for checksum)
-///
-/// # Returns
-/// * `u8` - Calculated checksum digit
-pub fn calculate_tle_line_checksum(line: &str) -> u8 {
-    // Use only first 68 characters for checksum calculation (excluding the checksum digit)
-    let checksum_chars = if line.len() >= 68 { &line[..68] } else { line };
-
-
-    let mut checksum = 0u32;
-    for c in checksum_chars.chars() {
-        if c.is_ascii_digit() {
-            checksum += c.to_digit(10).unwrap();
-        } else if c == '-' {
-            checksum += 1;
-        }
-        // Letters and other characters are ignored for checksum calculation
-    }
-    (checksum % 10) as u8
-}
-
-/// Validate TLE line format as an independent function
-///
-/// # Arguments
-/// * `line` - TLE line to validate
-///
-/// # Returns
-/// * `bool` - true if valid, false otherwise
-pub fn validate_tle_line(line: &str) -> bool {
-    // Check line length
-    if line.len() != 69 {
-        return false;
-    }
-
-    // Check checksum
-    let expected_checksum = calculate_tle_line_checksum(line);
-    let actual_checksum = line.chars().nth(68).unwrap().to_digit(10).unwrap_or(99) as u8;
-
-    expected_checksum == actual_checksum
-}
-
-/// Validate TLE line format as an independent function
-///
-/// # Arguments
-/// * `line1` - First line of TLE data
-/// * `line2` - Second line of TLE data
-///
-/// # Returns
-/// * `bool` - true if valid, false otherwise
-pub fn validate_tle_lines(line1: &str, line2: &str) -> bool {
-    // Validate individual lines
-    if !validate_tle_line(line1) || !validate_tle_line(line2) {
-        return false;
-    }
-
-    // Confirm that line numbers are correct
-    if !line1.starts_with('1') || !line2.starts_with('2') {
-        return false;
-    }
-
-    // Extract NORAD IDs from both lines
-    let id1 = &line1[2..7].trim();
-    let id2 = &line2[2..7].trim();
-
-    // NORAD IDs must match
-    id1 == id2
-}
-
-/// Parse NORAD ID from TLE string, handling both classic and Alpha-5 formats
-///
-/// # Arguments
-/// * `id_str` - NORAD ID string from TLE
-///
-/// # Returns
-/// * `Result<u32, BraheError>` - Decoded numeric NORAD ID or error
-pub fn parse_norad_id(id_str: &str) -> Result<u32, BraheError> {
-    let trimmed = id_str.trim();
-
-    // Check if it's Alpha-5 format (first character is a letter)
-    if let Some(first_char) = trimmed.chars().next() {
-        if first_char.is_alphabetic() {
-            // Alpha-5 format: letter + 4 digits
-            if trimmed.len() != 5 {
-                return Err(BraheError::Error(format!("Invalid Alpha-5 NORAD ID length: {}", trimmed)));
-            }
-
-            // Convert letter to Alpha-5 value (A=10, B=11, ..., Z=33, skipping I=18 and O=24)
-            let letter_value = match first_char.to_ascii_uppercase() {
-                'A'..='H' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 10, // A=10..H=17
-                'J'..='N' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 9,  // J=18..N=22 (skip I)
-                'P'..='Z' => (first_char.to_ascii_uppercase() as u32) - ('A' as u32) + 8,  // P=23..Z=33 (skip I,O)
-                _ => return Err(BraheError::Error(format!("Invalid Alpha-5 letter: {}", first_char))),
-            };
-            let remaining_digits = &trimmed[1..];
-
-            match remaining_digits.parse::<u32>() {
-                Ok(digits) => Ok(letter_value * 10000 + digits),
-                Err(_) => Err(BraheError::Error(format!("Invalid Alpha-5 NORAD ID digits: {}", remaining_digits))),
-            }
-        } else {
-            // Classic format: all digits
-            trimmed.parse::<u32>()
-                .map_err(|_| BraheError::Error(format!("Invalid classic NORAD ID: {}", trimmed)))
-        }
-    } else {
-        Err(BraheError::Error("Empty NORAD ID string".to_string()))
-    }
-}
 
 /// SGP4 propagator using TLE data with the new architecture
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -594,10 +475,10 @@ mod tests {
         let result1 = calculate_tle_line_checksum(iss_tle_line1);
         let result2 = calculate_tle_line_checksum(iss_tle_line2);
 
-        let expected_checksum1 = iss_tle_line1.chars().last().unwrap().to_digit(10).unwrap() as u8;
-        let expected_checksum2 = iss_tle_line2.chars().last().unwrap().to_digit(10).unwrap() as u8;
+        let expected_checksum1 = iss_tle_line1.chars().last().unwrap().to_digit(10).unwrap();
+        let expected_checksum2 = iss_tle_line2.chars().last().unwrap().to_digit(10).unwrap();
 
-        assert_eq!(result1, expected_checksum1, "Checksum for line 1 should be {}, got {}", expected_checksum1, result2);
+        assert_eq!(result1, expected_checksum1, "Checksum for line 1 should be {}, got {}", expected_checksum1, result1);
         assert_eq!(result2, expected_checksum2, "Checksum for line 2 should be {}, got {}", expected_checksum2, result2);
     }
 

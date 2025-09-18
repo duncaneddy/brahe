@@ -840,3 +840,164 @@ fn py_lines_to_orbit_state<'py>(py: Python<'py>, line1: String, line2: String) -
     // Same as lines_to_orbit_elements for backward compatibility
     py_lines_to_orbit_elements(py, line1, line2)
 }
+
+/// Extract Keplerian orbital elements from TLE lines
+///
+/// Extracts the standard six Keplerian orbital elements from Two-Line Element (TLE) data.
+/// Returns elements in standard order: [a, e, i, raan, argp, M] where angles are in radians.
+///
+/// Arguments:
+///     line1 (`str`): First line of TLE data
+///     line2 (`str`): Second line of TLE data
+///
+/// Returns:
+///     elements (`numpy.ndarray`): Six Keplerian elements [a, e, i, raan, argp, M]
+///         - a: Semi-major axis (m)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (rad)
+///         - raan: Right ascension of ascending node (rad)
+///         - argp: Argument of periapsis (rad)
+///         - M: Mean anomaly (rad)
+///     epoch (`Epoch`): Epoch of the TLE data
+#[pyfunction]
+#[pyo3(text_signature = "(line1, line2)")]
+#[pyo3(name = "keplerian_elements_from_tle")]
+fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: String) -> PyResult<(Bound<'py, PyArray<f64, Ix1>>, PyEpoch)> {
+    match orbits::keplerian_elements_from_tle(&line1, &line2) {
+        Ok((elements, epoch)) => {
+            let elements_array = elements.as_slice().to_pyarray(py).to_owned();
+            let py_epoch = PyEpoch { obj: epoch };
+            Ok((elements_array, py_epoch))
+        },
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Convert Keplerian elements to TLE lines
+///
+/// Converts standard Keplerian orbital elements to Two-Line Element (TLE) format.
+/// Input angles should be in degrees for compatibility with TLE format.
+///
+/// Arguments:
+///     epoch (`Epoch`): Epoch of the elements
+///     semi_major_axis (`float`): Semi-major axis (m)
+///     eccentricity (`float`): Eccentricity (dimensionless)
+///     inclination (`float`): Inclination (degrees)
+///     raan (`float`): Right ascension of ascending node (degrees)
+///     arg_perigee (`float`): Argument of periapsis (degrees)
+///     mean_anomaly (`float`): Mean anomaly (degrees)
+///     norad_id (`int`, optional): NORAD catalog number (default: 99999)
+///     classification (`str`, optional): Security classification (default: 'U')
+///     intl_designator (`str`, optional): International designator (default: '')
+///     first_derivative (`float`, optional): First derivative of mean motion (default: 0.0)
+///     second_derivative (`float`, optional): Second derivative of mean motion (default: 0.0)
+///     bstar (`float`, optional): BSTAR drag term (default: 0.0)
+///
+/// Returns:
+///     tuple: (line1, line2) - The two TLE lines as strings
+#[pyfunction]
+#[pyo3(text_signature = "(epoch, semi_major_axis, eccentricity, inclination, raan, arg_perigee, mean_anomaly, norad_id=None, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
+#[pyo3(name = "keplerian_elements_to_tle")]
+fn py_keplerian_elements_to_tle(
+    epoch: &PyEpoch,
+    semi_major_axis: f64,
+    eccentricity: f64,
+    inclination: f64,
+    raan: f64,
+    arg_perigee: f64,
+    mean_anomaly: f64,
+    norad_id: Option<u32>,
+    classification: Option<char>,
+    intl_designator: Option<String>,
+    first_derivative: Option<f64>,
+    second_derivative: Option<f64>,
+    bstar: Option<f64>,
+) -> PyResult<(String, String)> {
+    let intl_designator_ref = intl_designator.as_deref();
+
+    // Create Vector6 from individual elements
+    let elements = na::Vector6::new(
+        semi_major_axis,
+        eccentricity,
+        inclination,
+        raan,
+        arg_perigee,
+        mean_anomaly,
+    );
+
+    match orbits::keplerian_elements_to_tle(
+        &epoch.obj,
+        &elements,
+        norad_id,
+        classification,
+        intl_designator_ref,
+        first_derivative,
+        second_derivative,
+        bstar,
+    ) {
+        Ok((line1, line2)) => Ok((line1, line2)),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}
+
+/// Create complete TLE lines from all parameters
+///
+/// Creates Two-Line Element (TLE) lines from complete set of orbital and administrative parameters.
+/// Provides full control over all TLE fields including derivatives and drag terms.
+///
+/// Arguments:
+///     epoch (`Epoch`): Epoch of the elements
+///     inclination (`float`): Inclination (degrees)
+///     raan (`float`): Right ascension of ascending node (degrees)
+///     eccentricity (`float`): Eccentricity (dimensionless)
+///     arg_perigee (`float`): Argument of periapsis (degrees)
+///     mean_anomaly (`float`): Mean anomaly (degrees)
+///     mean_motion (`float`): Mean motion (revolutions per day)
+///     norad_id (`int`, optional): NORAD catalog number (default: 99999)
+///     classification (`str`, optional): Security classification (default: 'U')
+///     intl_designator (`str`, optional): International designator (default: '')
+///     first_derivative (`float`, optional): First derivative of mean motion (default: 0.0)
+///     second_derivative (`float`, optional): Second derivative of mean motion (default: 0.0)
+///     bstar (`float`, optional): BSTAR drag term (default: 0.0)
+///
+/// Returns:
+///     tuple: (line1, line2) - The two TLE lines as strings
+#[pyfunction]
+#[pyo3(text_signature = "(epoch, inclination, raan, eccentricity, arg_perigee, mean_anomaly, mean_motion, norad_id=None, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
+#[pyo3(name = "create_tle_lines")]
+fn py_create_tle_lines(
+    epoch: &PyEpoch,
+    inclination: f64,
+    raan: f64,
+    eccentricity: f64,
+    arg_perigee: f64,
+    mean_anomaly: f64,
+    mean_motion: f64,
+    norad_id: Option<u32>,
+    classification: Option<char>,
+    intl_designator: Option<String>,
+    first_derivative: Option<f64>,
+    second_derivative: Option<f64>,
+    bstar: Option<f64>,
+) -> PyResult<(String, String)> {
+    let intl_designator_ref = intl_designator.as_deref();
+
+    match orbits::create_tle_lines(
+        &epoch.obj,
+        inclination,
+        raan,
+        eccentricity,
+        arg_perigee,
+        mean_anomaly,
+        mean_motion,
+        norad_id,
+        classification,
+        intl_designator_ref,
+        first_derivative,
+        second_derivative,
+        bstar,
+    ) {
+        Ok((line1, line2)) => Ok((line1, line2)),
+        Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+    }
+}

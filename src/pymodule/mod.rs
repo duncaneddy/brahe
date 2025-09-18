@@ -236,6 +236,11 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_elements, module)?)?;
     module.add_function(wrap_pyfunction!(py_lines_to_orbit_state, module)?)?;
 
+    // New TLE conversion functions
+    module.add_function(wrap_pyfunction!(py_keplerian_elements_from_tle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_keplerian_elements_to_tle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
+
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;
     module.add_class::<PyOrbitRepresentation>()?;

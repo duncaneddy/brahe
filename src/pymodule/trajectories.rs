@@ -757,14 +757,16 @@ impl PyTrajectory {
 
     /// Set maximum trajectory size
     #[pyo3(text_signature = "(max_size)")]
-    pub fn set_max_size(&mut self, max_size: Option<usize>) {
-        self.trajectory.set_max_size(max_size);
+    pub fn set_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        self.trajectory.set_eviction_policy_max_size(max_size)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max size: {}", e)))
     }
 
     /// Set maximum age for trajectory states (in seconds)
     #[pyo3(text_signature = "(max_age)")]
-    pub fn set_max_age(&mut self, max_age: Option<f64>) {
-        self.trajectory.set_max_age(max_age);
+    pub fn set_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        self.trajectory.set_eviction_policy_max_age(max_age)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max age: {}", e)))
     }
 
     /// Get start epoch of trajectory
@@ -782,7 +784,7 @@ impl PyTrajectory {
     /// Get time span of trajectory in seconds
     #[getter]
     pub fn time_span(&self) -> Option<f64> {
-        self.trajectory.time_span()
+        self.trajectory.timespan()
     }
 
     /// Clear all states from the trajectory

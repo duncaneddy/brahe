@@ -4,7 +4,6 @@
  */
 
 use nalgebra::Vector6;
-use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
 use crate::constants::DEG2RAD;
@@ -13,12 +12,12 @@ use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
-use crate::trajectories::{InterpolationMethod, TrajectoryEvictionPolicy};
+use crate::trajectories::InterpolationMethod;
 use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
 use crate::utils::BraheError;
 
 /// Keplerian propagator for analytical two-body orbital motion
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct KeplerianPropagator {
     /// Initial epoch
     initial_epoch: Epoch,
@@ -362,18 +361,12 @@ impl OrbitPropagator for KeplerianPropagator {
         &mut self.trajectory
     }
 
-    fn set_max_trajectory_size(&mut self, max_size: Option<usize>) {
-        // Ensure max_size is at least 1 if specified
-        let validated_max_size = max_size.map(|size| size.max(1));
-        self.trajectory.set_max_size(validated_max_size);
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_size(max_size)
     }
 
-    fn set_max_trajectory_age(&mut self, max_age: Option<f64>) {
-        self.trajectory.set_max_age(max_age);
-    }
-
-    fn set_eviction_policy(&mut self, policy: TrajectoryEvictionPolicy) {
-        self.trajectory.set_eviction_policy(policy);
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_age(max_age)
     }
 }
 
@@ -556,7 +549,7 @@ mod tests {
         ).unwrap();
 
         // Setting max_size to 0 should be corrected to 1
-        propagator.set_max_trajectory_size(Some(0));
+        assert!(propagator.set_eviction_policy_max_size(1).is_ok());
 
         // Step several times
         propagator.step().unwrap();

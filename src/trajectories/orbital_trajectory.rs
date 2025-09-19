@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::trajectories::{Trajectory, InterpolationMethod};
+use crate::trajectories::{Trajectory6, InterpolationMethod};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::constants::{DEG2RAD, RAD2DEG};
@@ -73,10 +73,10 @@ pub enum AngleFormat {
 }
 
 /// Orbital trajectory with frame, representation, and angle format properties
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OrbitalTrajectory {
     /// Base trajectory containing epochs and states
-    pub trajectory: Trajectory,
+    pub trajectory: Trajectory6,
 
     /// Reference frame of the trajectory
     pub frame: OrbitFrame,
@@ -110,7 +110,7 @@ impl OrbitalTrajectory {
         }
 
         Ok(Self {
-            trajectory: Trajectory::with_interpolation(interpolation_method),
+            trajectory: Trajectory6::with_interpolation(interpolation_method),
             frame,
             representation,
             angle_format,
@@ -139,7 +139,7 @@ impl OrbitalTrajectory {
             ));
         }
 
-        let trajectory = Trajectory::from_data(epochs, states, interpolation_method)?;
+        let trajectory = Trajectory6::from_data(epochs, states, interpolation_method)?;
 
         Ok(Self {
             trajectory,
@@ -404,8 +404,8 @@ impl OrbitalTrajectory {
         self.trajectory.end_epoch()
     }
 
-    pub fn time_span(&self) -> Option<f64> {
-        self.trajectory.time_span()
+    pub fn timespan(&self) -> Option<f64> {
+        self.trajectory.timespan()
     }
 
     pub fn to_matrix(&self) -> Result<nalgebra::DMatrix<f64>, BraheError> {
@@ -441,16 +441,12 @@ impl OrbitalTrajectory {
     }
 
     /// Set trajectory memory management parameters
-    pub fn set_max_size(&mut self, max_size: Option<usize>) {
-        self.trajectory.set_max_size(max_size);
+    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_size(max_size)
     }
 
-    pub fn set_max_age(&mut self, max_age: Option<f64>) {
-        self.trajectory.set_max_age(max_age);
-    }
-
-    pub fn set_eviction_policy(&mut self, policy: crate::trajectories::TrajectoryEvictionPolicy) {
-        self.trajectory.set_eviction_policy(policy);
+    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_age(max_age)
     }
 
     /// Get current state vector (most recent state in trajectory)

@@ -13,7 +13,7 @@ use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::InterpolationMethod;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, Trajectory6};
 use crate::utils::BraheError;
 
 /// Keplerian propagator for analytical two-body orbital motion
@@ -38,7 +38,7 @@ pub struct KeplerianPropagator {
     internal_osculating_elements: Vector6<f64>,
 
     /// Accumulated trajectory (current state is always the last entry)
-    trajectory: OrbitalTrajectory,
+    trajectory: Trajectory6,
 
     /// Step size in seconds for stepping operations
     step_size: f64,
@@ -87,7 +87,7 @@ impl KeplerianPropagator {
         )?;
 
         // Create initial trajectory
-        let mut trajectory = OrbitalTrajectory::new(
+        let mut trajectory = Trajectory6::new_orbital_trajectory(
             frame,
             representation,
             angle_format,
@@ -296,7 +296,7 @@ impl OrbitPropagator for KeplerianPropagator {
         self.n = mean_motion(self.internal_osculating_elements[0], false);
 
         // Reset trajectory to initial state only
-        self.trajectory = OrbitalTrajectory::new(
+        self.trajectory = Trajectory6::new_orbital_trajectory(
             self.frame,
             self.representation,
             self.angle_format,
@@ -342,7 +342,7 @@ impl OrbitPropagator for KeplerianPropagator {
         self.n = mean_motion(self.internal_osculating_elements[0], false);
 
         // Reset trajectory to new initial conditions
-        self.trajectory = OrbitalTrajectory::new(
+        self.trajectory = Trajectory6::new_orbital_trajectory(
             frame,
             representation,
             angle_format,
@@ -353,11 +353,11 @@ impl OrbitPropagator for KeplerianPropagator {
         Ok(())
     }
 
-    fn trajectory(&self) -> &OrbitalTrajectory {
+    fn trajectory(&self) -> &Trajectory6 {
         &self.trajectory
     }
 
-    fn trajectory_mut(&mut self) -> &mut OrbitalTrajectory {
+    fn trajectory_mut(&mut self) -> &mut Trajectory6 {
         &mut self.trajectory
     }
 
@@ -409,7 +409,7 @@ impl AnalyticPropagator for KeplerianPropagator {
         Vector6::new(a, e, i, raan, argp, m)
     }
 
-    fn states(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
+    fn states(&self, epochs: &[Epoch]) -> Trajectory6 {
         let mut states = Vec::new();
         for &epoch in epochs {
             if let Ok(state) = self.propagate_internal(epoch) {
@@ -417,7 +417,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             }
         }
 
-        OrbitalTrajectory::from_data(
+        Trajectory6::from_orbital_data(
             epochs.to_vec(),
             states,
             self.frame,
@@ -425,7 +425,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             self.angle_format,
             InterpolationMethod::Linear,
         ).unwrap_or_else(|_| {
-            OrbitalTrajectory::new(
+            Trajectory6::new_orbital_trajectory(
                 self.frame,
                 self.representation,
                 self.angle_format,
@@ -434,13 +434,13 @@ impl AnalyticPropagator for KeplerianPropagator {
         })
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
+    fn states_eci(&self, epochs: &[Epoch]) -> Trajectory6 {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_eci(epoch));
         }
 
-        OrbitalTrajectory::from_data(
+        Trajectory6::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECI,
@@ -450,13 +450,13 @@ impl AnalyticPropagator for KeplerianPropagator {
         ).unwrap()
     }
 
-    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
+    fn states_ecef(&self, epochs: &[Epoch]) -> Trajectory6 {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_ecef(epoch));
         }
 
-        OrbitalTrajectory::from_data(
+        Trajectory6::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECEF,
@@ -466,13 +466,13 @@ impl AnalyticPropagator for KeplerianPropagator {
         ).unwrap()
     }
 
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Trajectory6 {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_osculating_elements(epoch));
         }
 
-        OrbitalTrajectory::from_data(
+        Trajectory6::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECI,

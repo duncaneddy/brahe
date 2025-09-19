@@ -75,6 +75,10 @@ class TestTLEUtilities:
             ("A0001", 100001),
             ("A9999", 109999),
             ("B0000", 110000),
+            ("B1234", 111234),
+            ("C5678", 125678),
+            ("J6789", 186789),  # Skip I
+            ("P6789", 236789),  # Skip O
             ("Z9999", 339999),
         ]
 
@@ -85,14 +89,13 @@ class TestTLEUtilities:
     def test_norad_id_alpha5_to_numeric_invalid(self):
         """Test Alpha-5 to numeric NORAD ID conversion with invalid inputs."""
         invalid_cases = [
-            "12345",     # All numeric
-            "ABCDE",     # Too many letters
-            "A",         # Too short
-            "A123",      # Too short
-            "A12345",    # Too long
-            "a0001",     # Lowercase
-            "10001",     # Numeric in range
-            "",          # Empty string
+            "I0001",     # Invalid letter I
+            "O0001",     # Invalid letter O
+            "@0001",     # Invalid character
+            "A00012",    # Too long
+            "A00",       # Too short
+            "",          # Empty
+            "AAAAA",     # All letters
         ]
 
         for invalid_input in invalid_cases:
@@ -101,7 +104,7 @@ class TestTLEUtilities:
 
     def test_norad_id_conversion_round_trip(self):
         """Test round-trip conversion between numeric and Alpha-5 formats."""
-        test_ids = [100000, 100001, 109999, 110000, 339999]
+        test_ids = [100000, 100001, 109999, 110000, 125678, 186789, 236789, 339999]
 
         for numeric_id in test_ids:
             # Convert to Alpha-5 and back

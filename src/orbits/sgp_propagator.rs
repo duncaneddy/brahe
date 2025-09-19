@@ -37,7 +37,7 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, InterpolationMethod};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, InterpolationMethod, Trajectory6};
 use crate::utils::BraheError;
 
 
@@ -76,7 +76,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    trajectory: OrbitalTrajectory,
+    trajectory: Trajectory6,
 
     /// Step size in seconds for stepping operations
     step_size: f64,
@@ -189,7 +189,7 @@ impl SGPPropagator {
         );
 
         // Create trajectory with initial state
-        let mut trajectory = OrbitalTrajectory::new(
+        let mut trajectory = Trajectory6::new_orbital_trajectory(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,  // Cartesian representation should use None for angle format
@@ -335,11 +335,11 @@ impl OrbitPropagator for SGPPropagator {
         ))
     }
 
-    fn trajectory(&self) -> &OrbitalTrajectory {
+    fn trajectory(&self) -> &Trajectory6 {
         &self.trajectory
     }
 
-    fn trajectory_mut(&mut self) -> &mut OrbitalTrajectory {
+    fn trajectory_mut(&mut self) -> &mut Trajectory6 {
         &mut self.trajectory
     }
 
@@ -391,68 +391,68 @@ impl AnalyticPropagator for SGPPropagator {
         state_cartesian_to_osculating(eci_state, false)
     }
 
-    fn states(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
-        let mut trajectory = OrbitalTrajectory::new(
+    fn states(&self, epochs: &[Epoch]) -> Trajectory6 {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            states.push(self.state(epoch));
+        }
+
+        Trajectory6::from_orbital_data(
+            epochs.to_vec(),
+            states,
             self.output_frame,
             self.output_representation,
             self.output_angle_format,
             InterpolationMethod::Linear,
-        ).unwrap();
-
-        for &epoch in epochs {
-            let state = self.state(epoch);
-            let _ = trajectory.add_state(epoch, state);
-        }
-
-        trajectory
+        ).unwrap()
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
-        let mut trajectory = OrbitalTrajectory::new(
+    fn states_eci(&self, epochs: &[Epoch]) -> Trajectory6 {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            states.push(self.state_eci(epoch));
+        }
+
+        Trajectory6::from_orbital_data(
+            epochs.to_vec(),
+            states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Radians,
+            AngleFormat::None,
             InterpolationMethod::Linear,
-        ).unwrap();
-
-        for &epoch in epochs {
-            let state = self.state_eci(epoch);
-            let _ = trajectory.add_state(epoch, state);
-        }
-
-        trajectory
+        ).unwrap()
     }
 
-    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
-        let mut trajectory = OrbitalTrajectory::new(
+    fn states_ecef(&self, epochs: &[Epoch]) -> Trajectory6 {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            states.push(self.state_ecef(epoch));
+        }
+
+        Trajectory6::from_orbital_data(
+            epochs.to_vec(),
+            states,
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Radians,
+            AngleFormat::None,
             InterpolationMethod::Linear,
-        ).unwrap();
-
-        for &epoch in epochs {
-            let state = self.state_ecef(epoch);
-            let _ = trajectory.add_state(epoch, state);
-        }
-
-        trajectory
+        ).unwrap()
     }
 
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitalTrajectory {
-        let mut trajectory = OrbitalTrajectory::new(
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> Trajectory6 {
+        let mut states = Vec::new();
+        for &epoch in epochs {
+            states.push(self.state_osculating_elements(epoch));
+        }
+
+        Trajectory6::from_orbital_data(
+            epochs.to_vec(),
+            states,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
             InterpolationMethod::Linear,
-        ).unwrap();
-
-        for &epoch in epochs {
-            let state = self.state_osculating_elements(epoch);
-            let _ = trajectory.add_state(epoch, state);
-        }
-
-        trajectory
+        ).unwrap()
     }
 }
 

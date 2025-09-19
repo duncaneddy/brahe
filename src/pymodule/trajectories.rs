@@ -87,11 +87,11 @@ impl PyOrbitRepresentation {
     }
 }
 
-/// Python wrapper for OrbitalTrajectory
+/// Python wrapper for OrbitalTrajectory (unified design)
 #[pyclass]
 #[pyo3(name = "OrbitalTrajectory")]
 pub struct PyOrbitalTrajectory {
-    pub(crate) trajectory: trajectories::OrbitalTrajectory,
+    pub(crate) trajectory: trajectories::Trajectory6,
 }
 
 #[pymethods]
@@ -114,7 +114,66 @@ impl PyOrbitalTrajectory {
         angle_format: PyRef<PyAngleFormat>,
         interpolation_method: PyRef<PyInterpolationMethod>,
     ) -> PyResult<Self> {
-        match trajectories::OrbitalTrajectory::new(
+        match trajectories::Trajectory6::new_orbital_trajectory(
+            frame.frame,
+            representation.representation,
+            angle_format.format,
+            interpolation_method.method,
+        ) {
+            Ok(trajectory) => Ok(PyOrbitalTrajectory { trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Create orbital trajectory from data
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of epochs
+    ///     states: Flattened array of 6-element state vectors (Nx6 total elements)
+    ///     frame (OrbitFrame): Reference frame
+    ///     representation (OrbitRepresentation): Orbital representation
+    ///     angle_format (AngleFormat): Format for angular quantities
+    ///     interpolation_method (InterpolationMethod): Interpolation method
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: New trajectory instance with data
+    #[classmethod]
+    #[pyo3(text_signature = "(epochs, states, frame, representation, angle_format, interpolation_method)")]
+    pub fn from_orbital_data(
+        _cls: &Bound<'_, PyType>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        states: PyReadonlyArray1<f64>,
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: PyRef<PyAngleFormat>,
+        interpolation_method: PyRef<PyInterpolationMethod>,
+    ) -> PyResult<Self> {
+        let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states_array = states.as_array();
+
+        if states_array.len() % 6 != 0 {
+            return Err(exceptions::PyValueError::new_err(
+                "States array length must be a multiple of 6"
+            ));
+        }
+
+        let num_states = states_array.len() / 6;
+        if num_states != epochs_vec.len() {
+            return Err(exceptions::PyValueError::new_err(
+                "Number of epochs must match number of states"
+            ));
+        }
+
+        let mut states_vec = Vec::new();
+        for i in 0..num_states {
+            let start_idx = i * 6;
+            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
+            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        }
+
+        match trajectories::Trajectory6::from_orbital_data(
+            epochs_vec,
+            states_vec,
             frame.frame,
             representation.representation,
             angle_format.format,
@@ -191,19 +250,22 @@ impl PyOrbitalTrajectory {
     /// Get trajectory frame
     #[getter]
     pub fn frame(&self) -> PyOrbitFrame {
-        PyOrbitFrame { frame: self.trajectory.frame }
+        use crate::trajectories::OrbitalTrajectory;
+        PyOrbitFrame { frame: self.trajectory.orbital_frame() }
     }
 
     /// Get trajectory representation
     #[getter]
     pub fn representation(&self) -> PyOrbitRepresentation {
-        PyOrbitRepresentation { representation: self.trajectory.representation }
+        use crate::trajectories::OrbitalTrajectory;
+        PyOrbitRepresentation { representation: self.trajectory.orbital_representation() }
     }
 
     /// Get trajectory angle format
     #[getter]
     pub fn angle_format(&self) -> PyAngleFormat {
-        PyAngleFormat { format: self.trajectory.angle_format }
+        use crate::trajectories::OrbitalTrajectory;
+        PyAngleFormat { format: self.trajectory.angle_format() }
     }
 
     /// Clear all states from the trajectory
@@ -228,6 +290,7 @@ impl PyOrbitalTrajectory {
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
         match self.trajectory.convert_to(frame.frame, representation.representation, angle_format.format) {
             Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
@@ -305,11 +368,8 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in Cartesian representation
     #[pyo3(text_signature = "()")]
     pub fn to_cartesian(&self) -> PyResult<Self> {
-        match self.trajectory.convert_to(
-            self.trajectory.frame,
-            trajectories::OrbitRepresentation::Cartesian,
-            self.trajectory.angle_format,
-        ) {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_cartesian() {
             Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -324,11 +384,8 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in Keplerian representation
     #[pyo3(text_signature = "(angle_format)")]
     pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
-        match self.trajectory.convert_to(
-            self.trajectory.frame,
-            trajectories::OrbitRepresentation::Keplerian,
-            angle_format.format,
-        ) {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_keplerian(angle_format.format) {
             Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -343,11 +400,8 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in new reference frame
     #[pyo3(text_signature = "(frame)")]
     pub fn to_frame(&self, frame: PyRef<PyOrbitFrame>) -> PyResult<Self> {
-        match self.trajectory.convert_to(
-            frame.frame,
-            self.trajectory.representation,
-            self.trajectory.angle_format,
-        ) {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_frame(frame.frame) {
             Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -362,12 +416,110 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in new angle format
     #[pyo3(text_signature = "(angle_format)")]
     pub fn to_angle_format(&self, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
-        match self.trajectory.convert_to(
-            self.trajectory.frame,
-            self.trajectory.representation,
-            angle_format.format,
-        ) {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_angle_format(angle_format.format) {
             Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to ECI (Earth-Centered Inertial) frame
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in ECI frame
+    #[pyo3(text_signature = "()")]
+    pub fn to_eci(&self) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_eci() {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to ECEF (Earth-Centered Earth-Fixed) frame
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in ECEF frame
+    #[pyo3(text_signature = "()")]
+    pub fn to_ecef(&self) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_ecef() {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert to specific representation
+    ///
+    /// Arguments:
+    ///     representation (OrbitRepresentation): Target representation
+    ///     angle_format (AngleFormat): Target angle format
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory in new representation
+    #[pyo3(text_signature = "(representation, angle_format)")]
+    pub fn to_representation(&self, representation: PyRef<PyOrbitRepresentation>, angle_format: PyRef<PyAngleFormat>) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_representation(representation.representation, angle_format.format) {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert angles to degrees
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory with angles in degrees
+    #[pyo3(text_signature = "()")]
+    pub fn to_degrees(&self) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_degrees() {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Convert angles to radians
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: Trajectory with angles in radians
+    #[pyo3(text_signature = "()")]
+    pub fn to_radians(&self) -> PyResult<Self> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.to_radians() {
+            Ok(new_trajectory) => Ok(PyOrbitalTrajectory { trajectory: new_trajectory }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get position component at specific epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Epoch at which to get position
+    ///
+    /// Returns:
+    ///     numpy.ndarray: 3-element position vector [x, y, z] in km
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn position_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.position_at_epoch(&epoch.obj) {
+            Ok(position) => Ok(position.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get velocity component at specific epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Epoch at which to get velocity
+    ///
+    /// Returns:
+    ///     numpy.ndarray: 3-element velocity vector [vx, vy, vz] in km/s
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn velocity_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        use crate::trajectories::OrbitalTrajectory;
+        match self.trajectory.velocity_at_epoch(&epoch.obj) {
+            Ok(velocity) => Ok(velocity.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -403,10 +555,11 @@ impl PyOrbitalTrajectory {
                     .map(|i| states_matrix.row(i).iter().cloned().collect())
                     .collect();
 
+                use crate::trajectories::OrbitalTrajectory;
                 let json_obj = serde_json::json!({
-                    "frame": format!("{:?}", self.trajectory.frame),
-                    "representation": format!("{:?}", self.trajectory.representation),
-                    "angle_format": format!("{:?}", self.trajectory.angle_format),
+                    "frame": format!("{:?}", self.trajectory.orbital_frame()),
+                    "representation": format!("{:?}", self.trajectory.orbital_representation()),
+                    "angle_format": format!("{:?}", self.trajectory.angle_format()),
                     "epochs": epochs,
                     "states": states
                 });
@@ -416,6 +569,68 @@ impl PyOrbitalTrajectory {
                     Err(e) => Err(exceptions::PyRuntimeError::new_err(format!("JSON serialization error: {}", e))),
                 }
             }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get current state vector (most recent state in trajectory)
+    #[pyo3(text_signature = "()")]
+    pub fn current_state_vector<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let current_state = self.trajectory.current_state_vector();
+        Ok(current_state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get current epoch (most recent epoch in trajectory)
+    #[pyo3(text_signature = "()")]
+    pub fn current_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.trajectory.current_epoch() }
+    }
+
+    /// Convert state between different coordinate frames and representations
+    ///
+    /// Arguments:
+    ///     state: State vector to convert
+    ///     epoch: Epoch of the state
+    ///     from_frame: Source reference frame
+    ///     from_representation: Source representation
+    ///     from_angle_format: Source angle format
+    ///     to_frame: Target reference frame
+    ///     to_representation: Target representation
+    ///     to_angle_format: Target angle format
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Converted state vector
+    #[pyo3(text_signature = "(state, epoch, from_frame, from_representation, from_angle_format, to_frame, to_representation, to_angle_format)")]
+    pub fn convert_state_to_format<'a>(
+        &self,
+        py: Python<'a>,
+        state: PyReadonlyArray1<f64>,
+        epoch: PyRef<PyEpoch>,
+        from_frame: PyRef<PyOrbitFrame>,
+        from_representation: PyRef<PyOrbitRepresentation>,
+        from_angle_format: PyRef<PyAngleFormat>,
+        to_frame: PyRef<PyOrbitFrame>,
+        to_representation: PyRef<PyOrbitRepresentation>,
+        to_angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state_slice = state.as_slice()?;
+        if state_slice.len() != 6 {
+            return Err(exceptions::PyValueError::new_err("State vector must have 6 elements"));
+        }
+
+        let state_vector = na::SVector::<f64, 6>::from_column_slice(state_slice);
+
+        match self.trajectory.convert_state_to_format(
+            state_vector,
+            epoch.obj,
+            from_frame.frame,
+            from_representation.representation,
+            from_angle_format.format,
+            to_frame.frame,
+            to_representation.representation,
+            to_angle_format.format,
+        ) {
+            Ok(converted_state) => Ok(converted_state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -440,9 +655,10 @@ impl PyOrbitalTrajectory {
 
     /// String representation
     fn __repr__(&self) -> String {
+        use crate::trajectories::OrbitalTrajectory;
         format!(
             "OrbitalTrajectory(frame={:?}, representation={:?}, states={})",
-            self.trajectory.frame, self.trajectory.representation, self.trajectory.len()
+            self.trajectory.orbital_frame(), self.trajectory.orbital_representation(), self.trajectory.len()
         )
     }
 
@@ -566,7 +782,7 @@ impl PyInterpolationMethod {
 #[pyclass]
 #[pyo3(name = "Trajectory")]
 pub struct PyTrajectory {
-    pub(crate) trajectory: trajectories::Trajectory,
+    pub(crate) trajectory: trajectories::Trajectory6,
 }
 
 #[pymethods]
@@ -582,8 +798,8 @@ impl PyTrajectory {
     #[pyo3(signature = (interpolation_method=None))]
     pub fn new(interpolation_method: Option<PyRef<PyInterpolationMethod>>) -> Self {
         let trajectory = match interpolation_method {
-            Some(m) => trajectories::Trajectory::with_interpolation(m.method),
-            None => trajectories::Trajectory::new(),
+            Some(m) => trajectories::Trajectory6::with_interpolation(m.method),
+            None => trajectories::Trajectory6::new(),
         };
 
         PyTrajectory { trajectory }
@@ -633,7 +849,7 @@ impl PyTrajectory {
             states_vec.push(na::Vector6::from_row_slice(state_slice));
         }
 
-        match trajectories::Trajectory::from_data(epochs_vec, states_vec, method) {
+        match trajectories::Trajectory6::from_data(epochs_vec, states_vec, method) {
             Ok(trajectory) => Ok(PyTrajectory { trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }

@@ -4,7 +4,5 @@
  */
 
 mod trajectory;
-mod orbital_trajectory;
 
 pub use trajectory::*;
-pub use orbital_trajectory::*;

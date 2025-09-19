@@ -25,12 +25,15 @@
  * ```
  */
 
-use nalgebra::SVector;
+use nalgebra::{SVector, Vector3};
 use serde::{Deserialize, Serialize};
 use std::ops::Index;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
+use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
+use crate::constants::{DEG2RAD, RAD2DEG};
 
 /// Type alias for a 3-dimensional trajectory (e.g., position only)
 pub type Trajectory3 = Trajectory<3>;
@@ -40,6 +43,61 @@ pub type Trajectory4 = Trajectory<4>;
 
 /// Type alias for a 6-dimensional trajectory (commonly used for orbital mechanics)
 pub type Trajectory6 = Trajectory<6>;
+
+/// Trait representing a generic reference frame
+pub trait ReferenceFrame: std::fmt::Debug + Clone + PartialEq {
+    /// Get the name of the reference frame
+    fn name(&self) -> &str;
+}
+
+/// Enumeration of orbit reference frames
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OrbitFrame {
+    /// Earth-Centered Inertial frame (J2000)
+    ECI,
+    /// Earth-Centered Earth-Fixed frame
+    ECEF,
+}
+
+impl ReferenceFrame for OrbitFrame {
+    fn name(&self) -> &str {
+        match self {
+            OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
+            OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
+        }
+    }
+}
+
+/// Enumeration of orbit state representations
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OrbitRepresentation {
+    /// Cartesian position and velocity (x, y, z, vx, vy, vz)
+    Cartesian,
+    /// Keplerian elements (a, e, i, Ω, ω, M)
+    Keplerian,
+}
+
+/// Enumeration of angle formats for orbital elements
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AngleFormat {
+    /// Angles represented in radians
+    Radians,
+    /// Angles represented in degrees
+    Degrees,
+    /// No angle representation or not applicable
+    None,
+}
+
+/// Orbital-specific metadata for trajectories
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OrbitalMetadata {
+    /// Reference frame of the trajectory
+    pub frame: OrbitFrame,
+    /// Representation type of the states
+    pub representation: OrbitRepresentation,
+    /// Format for angular quantities (only relevant for Keplerian)
+    pub angle_format: AngleFormat,
+}
 
 /// Interpolation methods for retrieving trajectory states at arbitrary epochs.
 ///
@@ -131,6 +189,9 @@ pub struct Trajectory<const R: usize = 6>
 
     /// Maximum age of states to retain in seconds (for KeepWithinDuration policy).
     max_age: Option<f64>,
+
+    /// Optional orbital metadata (None for non-orbital trajectories)
+    pub orbital_metadata: Option<OrbitalMetadata>,
 }
 
 impl<const R: usize> Default for Trajectory<R>
@@ -169,6 +230,7 @@ impl<const R: usize> Trajectory<R>
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
+            orbital_metadata: None,
         }
     }
 
@@ -194,6 +256,7 @@ impl<const R: usize> Trajectory<R>
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
+            orbital_metadata: None,
         }
     }
 
@@ -255,6 +318,55 @@ impl<const R: usize> Trajectory<R>
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
+            orbital_metadata: None,
+        })
+    }
+
+    /// Creates a new orbital trajectory with the specified orbital properties.
+    ///
+    /// # Arguments
+    /// * `frame` - Reference frame for the orbital data
+    /// * `representation` - Type of state representation
+    /// * `angle_format` - Format for angular quantities (required for Keplerian)
+    /// * `interpolation_method` - Method to use for state interpolation
+    ///
+    /// # Returns
+    /// * `Ok(Trajectory)` - Successfully created orbital trajectory
+    /// * `Err(BraheError)` - If validation fails
+    ///
+    /// # Errors
+    /// * `BraheError::Error` - If angle format validation fails
+    pub fn new_orbital_trajectory(
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: AngleFormat,
+        interpolation_method: InterpolationMethod,
+    ) -> Result<Self, BraheError> {
+        // Validate angle format for representation
+        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            epochs: Vec::new(),
+            states: Vec::new(),
+            interpolation_method,
+            eviction_policy: TrajectoryEvictionPolicy::None,
+            max_size: None,
+            max_age: None,
+            orbital_metadata: Some(OrbitalMetadata {
+                frame,
+                representation,
+                angle_format,
+            }),
         })
     }
 
@@ -704,6 +816,446 @@ impl<const R: usize> Index<usize> for Trajectory<R>
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
+    }
+}
+
+/// Trait for orbital-specific functionality on trajectories
+pub trait OrbitalTrajectory {
+    /// Convert the trajectory to a different reference frame
+    fn to_frame(&self, target_frame: OrbitFrame) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to Earth-Centered Inertial (ECI) frame
+    fn to_eci(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_frame(OrbitFrame::ECI)
+    }
+
+    /// Convert to Earth-Centered Earth-Fixed (ECEF) frame
+    fn to_ecef(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_frame(OrbitFrame::ECEF)
+    }
+
+    /// Convert the trajectory to a different representation
+    fn to_representation(&self, target_representation: OrbitRepresentation,
+                        target_angle_format: AngleFormat) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to Cartesian representation
+    fn to_cartesian(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_representation(OrbitRepresentation::Cartesian, AngleFormat::None)
+    }
+
+    /// Convert to Keplerian elements
+    fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> where Self: Sized {
+        if angle_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified when converting to Keplerian elements".to_string(),
+            ));
+        }
+        self.to_representation(OrbitRepresentation::Keplerian, angle_format)
+    }
+
+    /// Convert the trajectory to a different angle format (only for Keplerian)
+    fn to_angle_format(&self, target_format: AngleFormat) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to degrees representation (only for Keplerian)
+    fn to_degrees(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_angle_format(AngleFormat::Degrees)
+    }
+
+    /// Convert to radians representation (only for Keplerian)
+    fn to_radians(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_angle_format(AngleFormat::Radians)
+    }
+
+    /// Get position component of the state if it's in Cartesian form
+    fn position_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError>;
+
+    /// Get velocity component of the state if it's in Cartesian form
+    fn velocity_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError>;
+
+    /// Get the orbital frame
+    fn orbital_frame(&self) -> OrbitFrame;
+
+    /// Get the orbital representation
+    fn orbital_representation(&self) -> OrbitRepresentation;
+
+    /// Get the angle format
+    fn angle_format(&self) -> AngleFormat;
+
+    /// Convert trajectory to different frame, representation, and angle format in one operation
+    fn convert_to(
+        &self,
+        target_frame: OrbitFrame,
+        target_representation: OrbitRepresentation,
+        target_angle_format: AngleFormat,
+    ) -> Result<Self, BraheError>
+    where Self: Sized;
+}
+
+/// Implementation of OrbitalTrajectory for 6-dimensional trajectories with orbital metadata
+impl OrbitalTrajectory for Trajectory<6> {
+    fn to_frame(&self, target_frame: OrbitFrame) -> Result<Self, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        if metadata.frame == target_frame {
+            return Ok(self.clone());
+        }
+
+        // Ensure we're working with Cartesian coordinates for frame transformations
+        let cartesian_traj = if metadata.representation != OrbitRepresentation::Cartesian {
+            self.to_cartesian()?
+        } else {
+            self.clone()
+        };
+
+        let mut new_trajectory = Self::new_orbital_trajectory(
+            target_frame,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            self.interpolation_method,
+        )?;
+
+        for (epoch, state) in cartesian_traj.epochs.iter().zip(cartesian_traj.states.iter()) {
+            let cartesian_metadata = cartesian_traj.orbital_metadata.as_ref().unwrap();
+            let transformed_state = match (cartesian_metadata.frame, target_frame) {
+                (OrbitFrame::ECI, OrbitFrame::ECEF) => {
+                    state_eci_to_ecef(*epoch, *state)
+                }
+                (OrbitFrame::ECEF, OrbitFrame::ECI) => {
+                    state_ecef_to_eci(*epoch, *state)
+                }
+                _ => {
+                    return Err(BraheError::Error(format!(
+                        "Unsupported frame transformation: {:?} to {:?}",
+                        cartesian_metadata.frame, target_frame
+                    )));
+                }
+            };
+
+            new_trajectory.add_state(*epoch, transformed_state)?;
+        }
+
+        Ok(new_trajectory)
+    }
+
+    fn to_representation(&self, target_representation: OrbitRepresentation,
+                        target_angle_format: AngleFormat) -> Result<Self, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        if metadata.representation == target_representation {
+            // If same representation but different angle format, convert angles
+            if target_representation == OrbitRepresentation::Keplerian && metadata.angle_format != target_angle_format {
+                return self.to_angle_format(target_angle_format);
+            }
+            return Ok(self.clone());
+        }
+
+        // Validate target parameters
+        if target_representation == OrbitRepresentation::Keplerian && target_angle_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
+        }
+
+        if target_representation == OrbitRepresentation::Cartesian && target_angle_format != AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        match (metadata.representation, target_representation) {
+            (OrbitRepresentation::Cartesian, OrbitRepresentation::Keplerian) => {
+                // For Cartesian to Keplerian conversion, we need to be in ECI frame
+                let eci_traj = if metadata.frame != OrbitFrame::ECI {
+                    self.to_eci()?
+                } else {
+                    self.clone()
+                };
+
+                let mut new_trajectory = Self::new_orbital_trajectory(
+                    OrbitFrame::ECI, // Keplerian elements are always in ECI
+                    OrbitRepresentation::Keplerian,
+                    target_angle_format,
+                    self.interpolation_method,
+                )?;
+
+                for (epoch, state) in eci_traj.epochs.iter().zip(eci_traj.states.iter()) {
+                    let as_degrees = target_angle_format == AngleFormat::Degrees;
+                    let keplerian_state = state_cartesian_to_osculating(*state, as_degrees);
+                    new_trajectory.add_state(*epoch, keplerian_state)?;
+                }
+
+                Ok(new_trajectory)
+            }
+            (OrbitRepresentation::Keplerian, OrbitRepresentation::Cartesian) => {
+                // Keplerian should already be in ECI frame
+                if metadata.frame != OrbitFrame::ECI {
+                    return Err(BraheError::Error(
+                        "Keplerian elements should be in ECI frame".to_string(),
+                    ));
+                }
+
+                let mut new_trajectory = Self::new_orbital_trajectory(
+                    OrbitFrame::ECI, // Convert to ECI, user can then convert to ECEF if needed
+                    OrbitRepresentation::Cartesian,
+                    AngleFormat::None,
+                    self.interpolation_method,
+                )?;
+
+                for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
+                    let as_degrees = metadata.angle_format == AngleFormat::Degrees;
+                    let cartesian_state = state_osculating_to_cartesian(*state, as_degrees);
+                    new_trajectory.add_state(*epoch, cartesian_state)?;
+                }
+
+                Ok(new_trajectory)
+            }
+            _ => {
+                Err(BraheError::Error(format!(
+                    "Unsupported representation conversion: {:?} to {:?}",
+                    metadata.representation, target_representation
+                )))
+            }
+        }
+    }
+
+    fn to_angle_format(&self, target_format: AngleFormat) -> Result<Self, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        if metadata.representation != OrbitRepresentation::Keplerian {
+            return Err(BraheError::Error(
+                "Angle format conversion only applies to Keplerian elements".to_string(),
+            ));
+        }
+
+        if metadata.angle_format == target_format {
+            return Ok(self.clone());
+        }
+
+        if target_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Cannot convert Keplerian elements to None angle format".to_string(),
+            ));
+        }
+
+        let conversion_factor = match (metadata.angle_format, target_format) {
+            (AngleFormat::Radians, AngleFormat::Degrees) => RAD2DEG,
+            (AngleFormat::Degrees, AngleFormat::Radians) => DEG2RAD,
+            _ => {
+                return Err(BraheError::Error(format!(
+                    "Unsupported angle format conversion: {:?} to {:?}",
+                    metadata.angle_format, target_format
+                )));
+            }
+        };
+
+        let mut new_trajectory = Self::new_orbital_trajectory(
+            metadata.frame,
+            metadata.representation,
+            target_format,
+            self.interpolation_method,
+        )?;
+
+        for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
+            let mut converted_state = *state;
+
+            // Convert angular elements (i, Ω, ω, M) - elements 2-5
+            for i in 2..6 {
+                converted_state[i] = converted_state[i] * conversion_factor;
+            }
+
+            new_trajectory.add_state(*epoch, converted_state)?;
+        }
+
+        Ok(new_trajectory)
+    }
+
+    fn position_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        if metadata.representation != OrbitRepresentation::Cartesian {
+            return Err(BraheError::Error(
+                "Cannot extract position from non-Cartesian representation".to_string(),
+            ));
+        }
+
+        let state = self.state_at_epoch(epoch)?;
+        Ok(Vector3::new(state[0], state[1], state[2]))
+    }
+
+    fn velocity_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        if metadata.representation != OrbitRepresentation::Cartesian {
+            return Err(BraheError::Error(
+                "Cannot extract velocity from non-Cartesian representation".to_string(),
+            ));
+        }
+
+        let state = self.state_at_epoch(epoch)?;
+        Ok(Vector3::new(state[3], state[4], state[5]))
+    }
+
+    fn orbital_frame(&self) -> OrbitFrame {
+        self.orbital_metadata.as_ref()
+            .map(|m| m.frame)
+            .unwrap_or(OrbitFrame::ECI)
+    }
+
+    fn orbital_representation(&self) -> OrbitRepresentation {
+        self.orbital_metadata.as_ref()
+            .map(|m| m.representation)
+            .unwrap_or(OrbitRepresentation::Cartesian)
+    }
+
+    fn angle_format(&self) -> AngleFormat {
+        self.orbital_metadata.as_ref()
+            .map(|m| m.angle_format)
+            .unwrap_or(AngleFormat::None)
+    }
+
+    fn convert_to(
+        &self,
+        target_frame: OrbitFrame,
+        target_representation: OrbitRepresentation,
+        target_angle_format: AngleFormat,
+    ) -> Result<Self, BraheError> {
+        let metadata = self.orbital_metadata.as_ref()
+            .ok_or_else(|| BraheError::Error("Not an orbital trajectory".to_string()))?;
+
+        // Create new trajectory with target properties
+        let mut new_trajectory = Self::new_orbital_trajectory(
+            target_frame,
+            target_representation,
+            target_angle_format,
+            self.interpolation_method,
+        )?;
+
+        // Convert all states to the new format
+        for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
+            let converted_state = self.convert_state_to_format(
+                *state,
+                *epoch,
+                metadata.frame,
+                metadata.representation,
+                metadata.angle_format,
+                target_frame,
+                target_representation,
+                target_angle_format,
+            )?;
+            new_trajectory.add_state(*epoch, converted_state)?;
+        }
+
+        Ok(new_trajectory)
+    }
+}
+
+impl Trajectory<6> {
+    /// Convert state between different coordinate frames and representations
+    pub fn convert_state_to_format(
+        &self,
+        state: SVector<f64, 6>,
+        epoch: Epoch,
+        from_frame: OrbitFrame,
+        from_representation: OrbitRepresentation,
+        from_angle_format: AngleFormat,
+        to_frame: OrbitFrame,
+        to_representation: OrbitRepresentation,
+        to_angle_format: AngleFormat,
+    ) -> Result<SVector<f64, 6>, BraheError> {
+        let mut converted_state = state;
+
+        // Step 1: Convert to ECI Cartesian as intermediate format
+        if from_frame != OrbitFrame::ECI || from_representation != OrbitRepresentation::Cartesian {
+            // Convert representation first (if needed)
+            if from_representation == OrbitRepresentation::Keplerian {
+                let degrees = from_angle_format == AngleFormat::Degrees;
+                converted_state = state_osculating_to_cartesian(converted_state, degrees);
+            }
+
+            // Convert frame (if needed)
+            if from_frame == OrbitFrame::ECEF {
+                converted_state = state_ecef_to_eci(epoch, converted_state);
+            }
+        }
+
+        // Step 2: Convert from ECI Cartesian to target format
+        if to_frame != OrbitFrame::ECI || to_representation != OrbitRepresentation::Cartesian {
+            // Convert frame first (if needed)
+            if to_frame == OrbitFrame::ECEF {
+                converted_state = state_eci_to_ecef(epoch, converted_state);
+            }
+
+            // Convert representation (if needed)
+            if to_representation == OrbitRepresentation::Keplerian {
+                let degrees = to_angle_format == AngleFormat::Degrees;
+                converted_state = state_cartesian_to_osculating(converted_state, degrees);
+            }
+        }
+
+        Ok(converted_state)
+    }
+
+    /// Get current state vector (most recent state in trajectory)
+    pub fn current_state_vector(&self) -> SVector<f64, 6> {
+        if let Some(last_state) = self.states.last() {
+            *last_state
+        } else {
+            SVector::zeros()
+        }
+    }
+
+    /// Get current epoch (most recent epoch in trajectory)
+    pub fn current_epoch(&self) -> Epoch {
+        if let Some(last_epoch) = self.epochs.last() {
+            *last_epoch
+        } else {
+            Epoch::from_jd(0.0, crate::time::TimeSystem::UTC)
+        }
+    }
+
+    /// Create orbital trajectory from data
+    pub fn from_orbital_data(
+        epochs: Vec<Epoch>,
+        states: Vec<SVector<f64, 6>>,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: AngleFormat,
+        interpolation_method: InterpolationMethod,
+    ) -> Result<Self, BraheError> {
+        // Validate inputs
+        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        let mut trajectory = Self::from_data(epochs, states, interpolation_method)?;
+        trajectory.orbital_metadata = Some(OrbitalMetadata {
+            frame,
+            representation,
+            angle_format,
+        });
+
+        Ok(trajectory)
+    }
+
+    /// Get all epochs in the trajectory
+    pub fn epochs(&self) -> &[Epoch] {
+        &self.epochs
     }
 }
 

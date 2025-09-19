@@ -248,6 +248,10 @@ pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
 
+    // Type aliases for convenience and compatibility
+    module.add("Trajectory6", module.getattr("Trajectory")?)?;  // 6D alias
+    module.add("OrbitalTrajectory", module.getattr("OrbitalTrajectory")?)?;  // Keep orbital-specific version
+
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;
     module.add_class::<PyEulerAxis>()?;

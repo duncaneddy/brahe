@@ -91,7 +91,7 @@ impl PyOrbitRepresentation {
 #[pyclass]
 #[pyo3(name = "OrbitalTrajectory")]
 pub struct PyOrbitalTrajectory {
-    pub(crate) trajectory: trajectories::Trajectory6,
+    pub(crate) trajectory: trajectories::STrajectory6,
 }
 
 #[pymethods]
@@ -114,7 +114,7 @@ impl PyOrbitalTrajectory {
         angle_format: PyRef<PyAngleFormat>,
         interpolation_method: PyRef<PyInterpolationMethod>,
     ) -> PyResult<Self> {
-        match trajectories::Trajectory6::new_orbital_trajectory(
+        match trajectories::STrajectory6::new_orbital_trajectory(
             frame.frame,
             representation.representation,
             angle_format.format,
@@ -171,7 +171,7 @@ impl PyOrbitalTrajectory {
             states_vec.push(na::Vector6::from_row_slice(state_slice));
         }
 
-        match trajectories::Trajectory6::from_orbital_data(
+        match trajectories::STrajectory6::from_orbital_data(
             epochs_vec,
             states_vec,
             frame.frame,
@@ -778,11 +778,12 @@ impl PyInterpolationMethod {
     }
 }
 
-/// Python wrapper for base Trajectory class
+
+/// Python wrapper for dynamic Trajectory class
 #[pyclass]
 #[pyo3(name = "Trajectory")]
 pub struct PyTrajectory {
-    pub(crate) trajectory: trajectories::Trajectory6,
+    pub(crate) trajectory: trajectories::Trajectory,
 }
 
 #[pymethods]
@@ -790,19 +791,74 @@ impl PyTrajectory {
     /// Create a new empty trajectory
     ///
     /// Arguments:
+    ///     dimension (int): Trajectory dimension (default: 6)
+    ///         OR interpolation_method (InterpolationMethod): For backward compatibility
     ///     interpolation_method (InterpolationMethod): Interpolation method (default: Linear)
     ///
     /// Returns:
     ///     Trajectory: New trajectory instance
+    ///
+    /// Examples:
+    ///     Trajectory()                           # 6D, Linear
+    ///     Trajectory(7)                         # 7D, Linear
+    ///     Trajectory(12)                        # 12D, Linear
+    ///     Trajectory(InterpolationMethod.lagrange)  # 6D, Lagrange (backward compatibility)
     #[new]
-    #[pyo3(signature = (interpolation_method=None))]
-    pub fn new(interpolation_method: Option<PyRef<PyInterpolationMethod>>) -> Self {
-        let trajectory = match interpolation_method {
-            Some(m) => trajectories::Trajectory6::with_interpolation(m.method),
-            None => trajectories::Trajectory6::new(),
+    #[pyo3(signature = (*args, **kwargs))]
+    pub fn new(args: &Bound<'_, pyo3::types::PyTuple>, kwargs: Option<&Bound<'_, pyo3::types::PyDict>>) -> PyResult<Self> {
+        // Handle different calling patterns for backward compatibility
+        let (dimension, method) = if args.len() == 0 {
+            // Default case: Trajectory()
+            (6, trajectories::InterpolationMethod::Linear)
+        } else if args.len() == 1 {
+            // Check if first argument is dimension (int) or interpolation_method
+            let first_arg = args.get_item(0)?;
+            if let Ok(dim) = first_arg.extract::<usize>() {
+                // New API: Trajectory(dimension)
+                if dim == 0 {
+                    return Err(exceptions::PyValueError::new_err(
+                        "Trajectory dimension must be greater than 0"
+                    ));
+                }
+                (dim, trajectories::InterpolationMethod::Linear)
+            } else if let Ok(interp_method) = first_arg.extract::<PyRef<PyInterpolationMethod>>() {
+                // Old API: Trajectory(interpolation_method) - backward compatibility
+                (6, interp_method.method)
+            } else {
+                return Err(exceptions::PyTypeError::new_err(
+                    "First argument must be either dimension (int) or interpolation_method"
+                ));
+            }
+        } else if args.len() == 2 {
+            // New API: Trajectory(dimension, interpolation_method)
+            let dimension = args.get_item(0)?.extract::<usize>()?;
+            if dimension == 0 {
+                return Err(exceptions::PyValueError::new_err(
+                    "Trajectory dimension must be greater than 0"
+                ));
+            }
+            let interp_method = args.get_item(1)?.extract::<PyRef<PyInterpolationMethod>>()?;
+            (dimension, interp_method.method)
+        } else {
+            return Err(exceptions::PyTypeError::new_err(
+                "Too many positional arguments"
+            ));
         };
 
-        PyTrajectory { trajectory }
+        // Handle keyword arguments
+        let final_method = if let Some(kwargs) = kwargs {
+            if let Some(interp_arg) = kwargs.get_item("interpolation_method")? {
+                interp_arg.extract::<PyRef<PyInterpolationMethod>>()?.method
+            } else {
+                method
+            }
+        } else {
+            method
+        };
+
+        let trajectory = trajectories::Trajectory::with_interpolation(dimension, final_method);
+
+        Ok(PyTrajectory { trajectory })
     }
 
     /// Create a trajectory from vectors of epochs and states
@@ -827,53 +883,63 @@ impl PyTrajectory {
             .unwrap_or(trajectories::InterpolationMethod::Linear);
 
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-
         let states_array = states.as_array();
-        if states_array.len() % 6 != 0 {
+
+        // Auto-detect dimension from data
+        let num_epochs = epochs_vec.len();
+        if num_epochs == 0 {
             return Err(exceptions::PyValueError::new_err(
-                "States array length must be a multiple of 6"
+                "At least one epoch is required"
             ));
         }
 
-        let num_states = states_array.len() / 6;
-        if num_states != epochs_vec.len() {
+        let dimension = states_array.len() / num_epochs;
+        if states_array.len() % num_epochs != 0 {
             return Err(exceptions::PyValueError::new_err(
-                "Number of epochs must match number of state vectors"
+                "States array length must be evenly divisible by number of epochs"
             ));
         }
 
-        let mut states_vec = Vec::new();
-        for i in 0..num_states {
-            let start_idx = i * 6;
-            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
-            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        let mut trajectory = trajectories::Trajectory::with_interpolation(dimension, method);
+
+        for i in 0..num_epochs {
+            let start_idx = i * dimension;
+            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + dimension];
+            let state_vec = na::DVector::from_column_slice(state_slice);
+
+            if let Err(e) = trajectory.add_state(epochs_vec[i], state_vec) {
+                return Err(exceptions::PyRuntimeError::new_err(e.to_string()));
+            }
         }
 
-        match trajectories::Trajectory6::from_data(epochs_vec, states_vec, method) {
-            Ok(trajectory) => Ok(PyTrajectory { trajectory }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
+        Ok(PyTrajectory { trajectory })
+    }
+
+    /// Get the trajectory dimension
+    #[getter]
+    pub fn dimension(&self) -> usize {
+        self.trajectory.dimension
     }
 
     /// Add a state to the trajectory
     ///
     /// Arguments:
     ///     epoch (Epoch): Time of the state
-    ///     state (numpy.ndarray): 6-element state vector
+    ///     state (numpy.ndarray): N-element state vector (where N is the trajectory dimension)
     ///
     /// Returns:
     ///     None
     #[pyo3(text_signature = "(epoch, state)")]
     pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
-        if state_array.len() != 6 {
+        if state_array.len() != self.trajectory.dimension {
             return Err(exceptions::PyValueError::new_err(
-                "State vector must have exactly 6 elements"
+                format!("State vector must have exactly {} elements for {}D trajectory",
+                    self.trajectory.dimension, self.trajectory.dimension)
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
-
+        let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
         match self.trajectory.add_state(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
@@ -969,15 +1035,19 @@ impl PyTrajectory {
     /// Set maximum trajectory size
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_max_size(&mut self, max_size: usize) -> PyResult<()> {
-        self.trajectory.set_eviction_policy_max_size(max_size)
-            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max size: {}", e)))
+        match self.trajectory.set_eviction_policy_max_size(max_size) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
     }
 
     /// Set maximum age for trajectory states (in seconds)
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_max_age(&mut self, max_age: f64) -> PyResult<()> {
-        self.trajectory.set_eviction_policy_max_age(max_age)
-            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max age: {}", e)))
+        match self.trajectory.set_eviction_policy_max_age(max_age) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
     }
 
     /// Get start epoch of trajectory
@@ -1047,8 +1117,10 @@ impl PyTrajectory {
     /// String representation
     fn __repr__(&self) -> String {
         format!(
-            "Trajectory(interpolation_method={:?}, states={})",
-            self.trajectory.interpolation_method, self.trajectory.len()
+            "Trajectory(dimension={}, interpolation_method={:?}, states={})",
+            self.trajectory.dimension,
+            self.trajectory.interpolation_method,
+            self.trajectory.len()
         )
     }
 

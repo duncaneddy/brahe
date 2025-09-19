@@ -30,7 +30,6 @@
  */
 
 use nalgebra::Vector6;
-use serde::{Deserialize, Serialize};
 use sgp4::chrono::{Datelike, Timelike};
 
 use crate::coordinates::state_cartesian_to_osculating;
@@ -38,12 +37,12 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{TrajectoryEvictionPolicy, AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, InterpolationMethod};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, InterpolationMethod};
 use crate::utils::BraheError;
 
 
 /// SGP4 propagator using TLE data with the new architecture
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub struct SGPPropagator {
     /// Raw first line of TLE
@@ -344,16 +343,12 @@ impl OrbitPropagator for SGPPropagator {
         &mut self.trajectory
     }
 
-    fn set_max_trajectory_size(&mut self, max_size: Option<usize>) {
-        self.trajectory.set_max_size(max_size);
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_size(max_size)
     }
 
-    fn set_max_trajectory_age(&mut self, max_age: Option<f64>) {
-        self.trajectory.set_max_age(max_age);
-    }
-
-    fn set_eviction_policy(&mut self, policy: TrajectoryEvictionPolicy) {
-        self.trajectory.set_eviction_policy(policy);
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_age(max_age)
     }
 }
 

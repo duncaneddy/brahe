@@ -7,7 +7,6 @@ use nalgebra::Vector6;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::trajectories::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
-use crate::trajectories::TrajectoryEvictionPolicy;
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
@@ -92,14 +91,11 @@ pub trait OrbitPropagator {
     }
 
     // Memory management for trajectory
-    /// Set maximum trajectory size for memory management
-    fn set_max_trajectory_size(&mut self, max_size: Option<usize>);
+    /// Set eviction policy to keep a maximum number of states
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError>;
 
-    /// Set maximum age of states to keep (in seconds) for time-based eviction
-    fn set_max_trajectory_age(&mut self, max_age: Option<f64>);
-
-    /// Set eviction policy for trajectory memory management
-    fn set_eviction_policy(&mut self, policy: TrajectoryEvictionPolicy);
+    /// Set eviction policy to keep states within a maximum age
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
 }
 
 /// Trait for analytic orbital propagators that can compute states directly at any epoch

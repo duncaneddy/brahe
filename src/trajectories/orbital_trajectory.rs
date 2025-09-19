@@ -684,6 +684,10 @@ mod tests {
 
     #[test]
     fn test_ecef_to_keplerian_conversion() {
+        // Initialize EOP provider for frame conversions
+        let provider = crate::eop::StaticEOPProvider::from_zero();
+        crate::eop::set_global_eop_provider(provider);
+
         // Test that we can convert ECEF Cartesian to Keplerian via ECI
         let epochs = vec![Epoch::from_jd(2451545.0, TimeSystem::UTC)];
         let states = vec![Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)];

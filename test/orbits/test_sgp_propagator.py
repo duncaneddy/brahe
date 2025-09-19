@@ -9,13 +9,6 @@ import numpy as np
 import brahe
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_eop_provider():
-    """Set up EOP provider for tests that require ECEF frame conversions."""
-    provider = brahe.StaticEOPProvider.from_zero()
-    brahe.set_global_eop_provider_from_static_provider(provider)
-
-
 @pytest.fixture
 def iss_classic_tle():
     """ISS TLE in classic format for testing."""

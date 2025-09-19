@@ -545,11 +545,6 @@ impl PyInterpolationMethod {
         PyInterpolationMethod { method: trajectories::InterpolationMethod::Lagrange }
     }
 
-    #[staticmethod]
-    fn none() -> Self {
-        PyInterpolationMethod { method: trajectories::InterpolationMethod::None }
-    }
-
     fn __str__(&self) -> String {
         format!("{:?}", self.method)
     }
@@ -791,6 +786,28 @@ impl PyTrajectory {
     #[pyo3(text_signature = "()")]
     pub fn clear(&mut self) {
         self.trajectory.clear();
+    }
+
+    /// Get the first (epoch, state) tuple in the trajectory, if any exists
+    ///
+    /// Returns:
+    ///     tuple or None: (Epoch, numpy.ndarray) of first state, or None if empty
+    #[pyo3(text_signature = "()")]
+    pub fn first<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        self.trajectory.first().map(|(epoch, state)| {
+            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
+        })
+    }
+
+    /// Get the last (epoch, state) tuple in the trajectory, if any exists
+    ///
+    /// Returns:
+    ///     tuple or None: (Epoch, numpy.ndarray) of last state, or None if empty
+    #[pyo3(text_signature = "()")]
+    pub fn last<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        self.trajectory.last().map(|(epoch, state)| {
+            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
+        })
     }
 
     /// Get all states as a numpy array

@@ -71,10 +71,10 @@ class TestInterpolationMethod:
     def test_interpolation_methods(self):
         """Test interpolation method creation."""
         linear = brahe.InterpolationMethod.linear
-        none_interp = brahe.InterpolationMethod.none()
+        lagrange_interp = brahe.InterpolationMethod.lagrange
 
         assert "Linear" in str(linear)
-        assert "None" in str(none_interp)
+        assert "Lagrange" in str(lagrange_interp)
 
 
 class TestOrbitalTrajectoryCreation:

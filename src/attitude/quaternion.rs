@@ -2,7 +2,9 @@
 The `quaternion` module provides the implementation of the `Quaternion` struct, associated methods, and traits.
 */
 
-use nalgebra::{Matrix3, Vector3, Vector4};
+use nalgebra::{Vector3, Vector4};
+
+use crate::coordinates::SMatrix3;
 use std::{fmt, ops};
 
 use crate::attitude::attitude_representation::ToAttitude;
@@ -504,7 +506,7 @@ impl FromAttitude for Quaternion {
     ///
     /// ```
     /// use brahe::attitude::{Quaternion, RotationMatrix};
-    /// use nalgebra::Matrix3;
+    /// use nalgebra::SMatrix;
     /// use brahe::attitude::FromAttitude;
     ///
     /// let rot = RotationMatrix::new(
@@ -670,12 +672,12 @@ impl ToAttitude for Quaternion {
     /// ```
     /// use brahe::attitude::Quaternion;
     /// use brahe::attitude::ToAttitude;
-    /// use nalgebra::Matrix3;
+    /// use brahe::coordinates::SMatrix3;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let r = q.to_rotation_matrix();
     ///
-    /// assert_eq!(r.to_matrix(), Matrix3::identity());
+    /// assert_eq!(r.to_matrix(), SMatrix3::identity());
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {
         // Extract components of the quaternion for easier-to-read correspondence to Diebel's equations
@@ -686,7 +688,7 @@ impl ToAttitude for Quaternion {
 
         // Algorithm
         RotationMatrix {
-            data: Matrix3::new(
+            data: SMatrix3::new(
                 qs * qs + q1 * q1 - q2 * q2 - q3 * q3,
                 2.0 * q1 * q2 + 2.0 * qs * q3,
                 2.0 * q1 * q3 - 2.0 * qs * q2,
@@ -1024,7 +1026,7 @@ mod tests {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let r = q.to_rotation_matrix();
 
-        assert_eq!(r.to_matrix(), Matrix3::identity());
+        assert_eq!(r.to_matrix(), SMatrix3::identity());
     }
 
     #[test]

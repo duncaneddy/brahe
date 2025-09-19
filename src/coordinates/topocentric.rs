@@ -4,7 +4,9 @@
 
 use std::f64::consts::PI;
 
-use nalgebra::{Matrix3, Vector3};
+use nalgebra::Vector3;
+
+use super::SMatrix3;
 
 use crate::coordinates::coordinate_types::EllipsoidalConversionType;
 use crate::coordinates::geocentric::position_ecef_to_geocentric;
@@ -30,12 +32,12 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
 /// let rot = rotation_ellipsoid_to_enz(x_geo, true);
 /// ```
-pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> Matrix3<f64> {
+pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
     let lon = from_degrees(x_ellipsoid[0], as_degrees);
     let lat = from_degrees(x_ellipsoid[1], as_degrees);
 
     // Construct Rotation matrix
-    Matrix3::new(
+    SMatrix3::new(
         -lon.sin(),
         lon.cos(),
         0.0, // E-base vector
@@ -67,7 +69,7 @@ pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
 /// let rot = rotation_enz_to_ellipsoid(x_geo, true);
 /// ```
-pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> Matrix3<f64> {
+pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
     rotation_ellipsoid_to_enz(x_ellipsoid, as_degrees).transpose()
 }
 
@@ -182,12 +184,12 @@ pub fn relative_position_enz_to_ecef(
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
 /// let rot = rotation_sez_to_ellipsoid(x_geo, true);
 /// ```
-pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> Matrix3<f64> {
+pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
     let lon = from_degrees(x_ellipsoid[0], as_degrees);
     let lat = from_degrees(x_ellipsoid[1], as_degrees);
 
     // Construct Rotation matrix
-    Matrix3::new(
+    SMatrix3::new(
         lat.sin() * lon.cos(),
         lat.sin() * lon.sin(),
         -lat.cos(), // S-base vector
@@ -219,7 +221,7 @@ pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
 /// let rot = rotation_sez_to_ellipsoid(x_geo, true);
 /// ```
-pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> Matrix3<f64> {
+pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
     rotation_ellipsoid_to_sez(x_ellipsoid, as_degrees).transpose()
 }
 

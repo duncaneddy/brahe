@@ -5,8 +5,9 @@
 use std::f64::consts::PI;
 
 use is_close::is_close;
-use nalgebra as na;
-use nalgebra::{Vector3, Vector6};
+use nalgebra::Vector3;
+
+use super::SVector6;
 
 use crate::constants;
 use crate::constants::GM_EARTH;
@@ -45,7 +46,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 /// # Reference
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
-pub fn state_osculating_to_cartesian(x_oe: Vector6<f64>, as_degrees: bool) -> na::Vector6<f64> {
+pub fn state_osculating_to_cartesian(x_oe: SVector6, as_degrees: bool) -> SVector6 {
     // Unpack input
     let a = x_oe[0];
     let e = x_oe[1];
@@ -71,7 +72,7 @@ pub fn state_osculating_to_cartesian(x_oe: Vector6<f64>, as_degrees: bool) -> na
     let p = a * (E.cos() - e) * P + a * (1.0 - e * e).sqrt() * E.sin() * Q;
     let v = (constants::GM_EARTH * a).sqrt() / p.norm()
         * (-E.sin() * P + (1.0 - e * e).sqrt() * E.cos() * Q);
-    Vector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 /// Convert a Cartesian (position and velocity) inertial state into the equivalent
@@ -108,9 +109,9 @@ pub fn state_osculating_to_cartesian(x_oe: Vector6<f64>, as_degrees: bool) -> na
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
 #[allow(non_snake_case)]
 pub fn state_cartesian_to_osculating(
-    x_cart: Vector6<f64>,
+    x_cart: SVector6,
     as_degrees: bool,
-) -> Vector6<f64> {
+) -> SVector6 {
     // # Initialize Cartesian Polistion and Velocity
     let r: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(0));
     let v: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(3));
@@ -148,7 +149,7 @@ pub fn state_cartesian_to_osculating(
     let omega = omega % (2.0 * PI);
     let M = M % (2.0 * PI);
 
-    Vector6::new(
+    SVector6::new(
         a,
         e,
         to_degrees(i, as_degrees),

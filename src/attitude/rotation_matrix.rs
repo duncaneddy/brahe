@@ -3,7 +3,9 @@ The `rotation_matrix` module provides the `RotationMatrix` struct, which represe
 3x3 rotation matrix.
 */
 
-use nalgebra::{Matrix3, Vector3};
+use nalgebra::Vector3;
+
+use crate::coordinates::SMatrix3;
 use std::{fmt, ops};
 
 use crate::attitude::attitude_types::{
@@ -14,7 +16,7 @@ use crate::constants::DEG2RAD;
 use crate::utils::BraheError;
 use crate::FromAttitude;
 
-fn is_so3_or_error(matrix: &Matrix3<f64>, tol: f64) -> Result<(), BraheError> {
+fn is_so3_or_error(matrix: &SMatrix3, tol: f64) -> Result<(), BraheError> {
     let det = matrix.determinant();
     let is_orthogonal = matrix.is_orthogonal(tol);
     let is_square = matrix.is_square();
@@ -75,7 +77,7 @@ impl RotationMatrix {
         r32: f64,
         r33: f64,
     ) -> Result<Self, BraheError> {
-        let data = Matrix3::new(r11, r12, r13, r21, r22, r23, r31, r32, r33);
+        let data = SMatrix3::new(r11, r12, r13, r21, r22, r23, r31, r32, r33);
 
         // If the matrix is not a proper rotation matrix, return an error
         if let Err(e) = is_so3_or_error(&data, 1e-7) {
@@ -85,13 +87,13 @@ impl RotationMatrix {
         Ok(Self { data })
     }
 
-    /// Create a new `RotationMatrix` from a `nalgebra::Matrix3<f64>`. The resulting
+    /// Create a new `RotationMatrix` from a `nalgebra::SMatrix<f64, 3, 3>`. The resulting
     /// matrix is checked to ensure it is a proper rotation matrix. That is, it must be a square,
     /// orthogonal matrix with a determinant of 1.
     ///
     /// # Arguments
     ///
-    /// - `matrix` - A `nalgebra::Matrix3<f64>` representing the rotation matrix
+    /// - `matrix` - A `nalgebra::SMatrix<f64, 3, 3>` representing the rotation matrix
     ///
     /// # Returns
     ///
@@ -112,7 +114,7 @@ impl RotationMatrix {
     ///
     /// let r = RotationMatrix::from_matrix(matrix).unwrap();
     /// ```
-    pub fn from_matrix(matrix: Matrix3<f64>) -> Result<Self, BraheError> {
+    pub fn from_matrix(matrix: SMatrix3) -> Result<Self, BraheError> {
         let data = matrix.clone();
 
         // If the matrix is not a proper rotation matrix, return an error
@@ -123,11 +125,11 @@ impl RotationMatrix {
         Ok(Self { data: data })
     }
 
-    /// Converts the `RotationMatrix` to a `nalgebra::Matrix3<f64>`.
+    /// Converts the `RotationMatrix` to a `nalgebra::SMatrix<f64, 3, 3>`.
     ///
     /// # Returns
     ///
-    /// - A `nalgebra::Matrix3<f64>` representing the rotation matrix
+    /// - A `nalgebra::SMatrix<f64, 3, 3>` representing the rotation matrix
     ///
     /// # Example
     ///
@@ -143,7 +145,7 @@ impl RotationMatrix {
     ///
     /// let matrix = r.to_matrix();
     /// ```
-    pub fn to_matrix(&self) -> Matrix3<f64> {
+    pub fn to_matrix(&self) -> SMatrix3 {
         self.data.clone()
     }
 
@@ -168,7 +170,7 @@ impl RotationMatrix {
     #[allow(non_snake_case)]
     pub fn Rx(angle: f64, as_degrees: bool) -> Self {
         let angle = if as_degrees { angle * DEG2RAD } else { angle };
-        let data = Matrix3::new(
+        let data = SMatrix3::new(
             1.0,
             0.0,
             0.0,
@@ -203,7 +205,7 @@ impl RotationMatrix {
     #[allow(non_snake_case)]
     pub fn Ry(angle: f64, as_degrees: bool) -> Self {
         let angle = if as_degrees { angle * DEG2RAD } else { angle };
-        let data = Matrix3::new(
+        let data = SMatrix3::new(
             angle.cos(),
             0.0,
             -angle.sin(),
@@ -238,7 +240,7 @@ impl RotationMatrix {
     #[allow(non_snake_case)]
     pub fn Rz(angle: f64, as_degrees: bool) -> Self {
         let angle = if as_degrees { angle * DEG2RAD } else { angle };
-        let data = Matrix3::new(
+        let data = SMatrix3::new(
             angle.cos(),
             angle.sin(),
             0.0,

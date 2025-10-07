@@ -783,7 +783,7 @@ impl PyInterpolationMethod {
 #[pyclass]
 #[pyo3(name = "Trajectory")]
 pub struct PyTrajectory {
-    pub(crate) trajectory: trajectories::Trajectory,
+    pub(crate) trajectory: trajectories::DynamicTrajectory,
 }
 
 #[pymethods]
@@ -856,7 +856,7 @@ impl PyTrajectory {
             method
         };
 
-        let trajectory = trajectories::Trajectory::with_interpolation(dimension, final_method);
+        let trajectory = trajectories::DynamicTrajectory::with_interpolation(dimension, final_method);
 
         Ok(PyTrajectory { trajectory })
     }
@@ -900,7 +900,7 @@ impl PyTrajectory {
             ));
         }
 
-        let mut trajectory = trajectories::Trajectory::with_interpolation(dimension, method);
+        let mut trajectory = trajectories::DynamicTrajectory::with_interpolation(dimension, method);
 
         for i in 0..num_epochs {
             let start_idx = i * dimension;

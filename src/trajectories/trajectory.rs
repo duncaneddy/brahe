@@ -16,11 +16,11 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{Trajectory, InterpolationMethod, TrajectoryCore};
+ * use brahe::trajectories::{DynamicTrajectory, InterpolationMethod, Trajectory};
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::DVector;
  *
- * let mut traj = Trajectory::new(7); // 7-dimensional trajectory
+ * let mut traj = DynamicTrajectory::new(7); // 7-dimensional trajectory
  * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
  * let state = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
  * traj.add_state(epoch, state).unwrap();
@@ -28,15 +28,17 @@
  */
 
 use nalgebra::{DVector, DMatrix};
+use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{TrajectoryCore, TrajectoryExtended};
+use super::traits::Trajectory;
 
 /// Import types from strajectory for consistency
 pub use super::strajectory::{
-    InterpolationMethod, TrajectoryEvictionPolicy, OrbitalMetadata
+    InterpolationMethod, TrajectoryEvictionPolicy
 };
 
 /// Dynamic trajectory container for N-dimensional state vectors over time.
@@ -61,7 +63,7 @@ pub use super::strajectory::{
 /// # Thread Safety
 /// This structure is not thread-safe. Use appropriate synchronization for concurrent access.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Trajectory {
+pub struct DynamicTrajectory {
     /// Time epochs for each state, maintained in chronological order.
     /// All epochs should use consistent time systems for meaningful interpolation.
     pub epochs: Vec<Epoch>,
@@ -91,18 +93,20 @@ pub struct Trajectory {
     /// Maximum age of states to retain in seconds (for KeepWithinDuration policy).
     max_age: Option<f64>,
 
-    /// Optional orbital metadata (None for non-orbital trajectories)
-    pub orbital_metadata: Option<OrbitalMetadata>,
+    /// Generic metadata storage supporting arbitrary key-value pairs.
+    /// Can store any JSON-serializable data including strings, numbers, booleans,
+    /// arrays, and nested objects. For orbital trajectories, use ORBITAL_*_KEY constants.
+    pub metadata: HashMap<String, Value>,
 }
 
-impl Default for Trajectory {
+impl Default for DynamicTrajectory {
     /// Creates a trajectory with default settings (6D, linear interpolation, no memory limits).
     fn default() -> Self {
         Self::new(6) // Default to 6D for backward compatibility
     }
 }
 
-impl TrajectoryCore for Trajectory {
+impl Trajectory for DynamicTrajectory {
     type StateVector = DVector<f64>;
 
     fn new() -> Self {
@@ -279,9 +283,7 @@ impl TrajectoryCore for Trajectory {
         self.epochs.clear();
         self.states.clear();
     }
-}
 
-impl TrajectoryExtended for Trajectory {
     fn remove_state(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
@@ -321,7 +323,7 @@ impl TrajectoryExtended for Trajectory {
     }
 }
 
-impl Trajectory {
+impl DynamicTrajectory {
     /// Creates a new empty trajectory with the specified dimension.
     ///
     /// # Arguments
@@ -332,8 +334,8 @@ impl Trajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{Trajectory, TrajectoryCore};
-    /// let traj = Trajectory::new(7); // 7-dimensional trajectory
+    /// use brahe::trajectories::{DynamicTrajectory, Trajectory};
+    /// let traj = DynamicTrajectory::new(7); // 7-dimensional trajectory
     /// assert_eq!(traj.len(), 0);
     /// assert_eq!(traj.dimension, 7);
     /// ```
@@ -350,7 +352,7 @@ impl Trajectory {
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
-            orbital_metadata: None,
+            metadata: HashMap::new(),
         }
     }
 
@@ -365,8 +367,8 @@ impl Trajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{Trajectory, InterpolationMethod, TrajectoryCore};
-    /// let traj = Trajectory::with_interpolation(12, InterpolationMethod::CubicSpline);
+    /// use brahe::trajectories::{DynamicTrajectory, InterpolationMethod, Trajectory};
+    /// let traj = DynamicTrajectory::with_interpolation(12, InterpolationMethod::CubicSpline);
     /// assert_eq!(traj.len(), 0);
     /// assert_eq!(traj.dimension, 12);
     /// ```
@@ -383,7 +385,7 @@ impl Trajectory {
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
-            orbital_metadata: None,
+            metadata: HashMap::new(),
         }
     }
 
@@ -454,7 +456,7 @@ impl Trajectory {
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
-            orbital_metadata: None,
+            metadata: HashMap::new(),
         })
     }
 
@@ -625,7 +627,7 @@ impl Trajectory {
 
 // Allow indexing into the trajectory directly - returns state vector only
 // For (epoch, state) tuples, use the get() method instead
-impl std::ops::Index<usize> for Trajectory {
+impl std::ops::Index<usize> for DynamicTrajectory {
     type Output = DVector<f64>;
 
     fn index(&self, index: usize) -> &Self::Output {

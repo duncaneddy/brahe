@@ -10,10 +10,14 @@ use crate::utils::BraheError;
 
 /// Core trajectory functionality that all trajectory implementations must provide.
 ///
-/// This trait defines the essential operations for storing, retrieving, and managing
+/// This trait defines the complete interface for storing, retrieving, and managing
 /// trajectory state data over time, regardless of the underlying storage mechanism
 /// (compile-time vs runtime sized vectors).
-pub trait TrajectoryCore {
+///
+/// # Implementations
+/// - [`STrajectory<N>`](super::strajectory::STrajectory) - Compile-time sized trajectories
+/// - [`DynamicTrajectory`](super::trajectory::DynamicTrajectory) - Runtime-sized trajectories
+pub trait Trajectory {
     /// The type used to represent state vectors
     type StateVector;
 
@@ -96,13 +100,7 @@ pub trait TrajectoryCore {
 
     /// Clear all states from the trajectory
     fn clear(&mut self);
-}
 
-/// Extended trajectory functionality for more advanced operations.
-///
-/// This trait provides additional methods that may not be implemented by all
-/// trajectory types, such as removal operations and bulk data operations.
-pub trait TrajectoryExtended: TrajectoryCore {
     /// Remove a state at a specific epoch
     ///
     /// # Arguments
@@ -132,4 +130,198 @@ pub trait TrajectoryExtended: TrajectoryCore {
     /// * `Ok((epoch, state))` - Epoch and state at the index
     /// * `Err(BraheError)` - If index is out of bounds
     fn get(&self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError>;
+}
+
+/// Trait for orbital-specific functionality on 6-dimensional trajectories.
+///
+/// This trait provides methods for working with orbital state trajectories, including
+/// conversions between reference frames (ECI/ECEF), state representations (Cartesian/Keplerian),
+/// and angle formats (radians/degrees). It also provides convenient accessors for position
+/// and velocity components.
+///
+/// # Reference Frames
+/// - **ECI (Earth-Centered Inertial)**: J2000 inertial reference frame
+/// - **ECEF (Earth-Centered Earth-Fixed)**: Earth-fixed rotating frame
+///
+/// # State Representations
+/// - **Cartesian**: Position and velocity vectors [x, y, z, vx, vy, vz] in meters and m/s
+/// - **Keplerian**: Classical orbital elements [a, e, i, Ω, ω, M] where angles use specified format
+///
+/// # Angle Formats
+/// - **Radians**: Angular elements in radians (i, Ω, ω, M)
+/// - **Degrees**: Angular elements in degrees (i, Ω, ω, M)
+/// - **None**: No angular representation (for Cartesian states)
+///
+/// # Examples
+/// ```rust
+/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector6;
+///
+/// // Create orbital trajectory in ECI Cartesian coordinates
+/// let mut traj = STrajectory6::new_orbital_trajectory(
+///     OrbitFrame::ECI,
+///     OrbitRepresentation::Cartesian,
+///     AngleFormat::None,
+///     InterpolationMethod::Linear,
+/// ).unwrap();
+///
+/// // Add state
+/// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+/// traj.add_state(epoch, state).unwrap();
+///
+/// // Convert to Keplerian in degrees
+/// let kep_traj = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+/// ```
+pub trait OrbitalTrajectory {
+    /// Convert the trajectory to a different reference frame.
+    ///
+    /// # Arguments
+    /// * `target_frame` - Target reference frame (ECI or ECEF)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New trajectory in target frame
+    /// * `Err(BraheError)` - If conversion fails
+    ///
+    /// # Note
+    /// If the trajectory is in Keplerian representation, it will first be converted to
+    /// Cartesian for the frame transformation, then converted back to Keplerian.
+    fn to_frame(&self, target_frame: super::strajectory::OrbitFrame) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to Earth-Centered Inertial (ECI) frame.
+    ///
+    /// Convenience method equivalent to `to_frame(OrbitFrame::ECI)`.
+    fn to_eci(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_frame(super::strajectory::OrbitFrame::ECI)
+    }
+
+    /// Convert to Earth-Centered Earth-Fixed (ECEF) frame.
+    ///
+    /// Convenience method equivalent to `to_frame(OrbitFrame::ECEF)`.
+    fn to_ecef(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_frame(super::strajectory::OrbitFrame::ECEF)
+    }
+
+    /// Convert the trajectory to a different state representation.
+    ///
+    /// # Arguments
+    /// * `target_representation` - Target representation (Cartesian or Keplerian)
+    /// * `target_angle_format` - Angle format for Keplerian (None for Cartesian)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New trajectory in target representation
+    /// * `Err(BraheError)` - If conversion fails or parameters are invalid
+    fn to_representation(&self, target_representation: super::strajectory::OrbitRepresentation,
+                        target_angle_format: super::strajectory::AngleFormat) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to Cartesian representation.
+    ///
+    /// Convenience method equivalent to `to_representation(OrbitRepresentation::Cartesian, AngleFormat::None)`.
+    fn to_cartesian(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_representation(super::strajectory::OrbitRepresentation::Cartesian, super::strajectory::AngleFormat::None)
+    }
+
+    /// Convert to Keplerian elements with specified angle format.
+    ///
+    /// # Arguments
+    /// * `angle_format` - Format for angular elements (Radians or Degrees, cannot be None)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New trajectory in Keplerian representation
+    /// * `Err(BraheError)` - If angle_format is None or conversion fails
+    fn to_keplerian(&self, angle_format: super::strajectory::AngleFormat) -> Result<Self, BraheError> where Self: Sized {
+        if angle_format == super::strajectory::AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified when converting to Keplerian elements".to_string(),
+            ));
+        }
+        self.to_representation(super::strajectory::OrbitRepresentation::Keplerian, angle_format)
+    }
+
+    /// Convert the trajectory to a different angle format (only for Keplerian).
+    ///
+    /// # Arguments
+    /// * `target_format` - Target angle format (Radians or Degrees)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New trajectory with converted angles
+    /// * `Err(BraheError)` - If trajectory is not Keplerian or format is invalid
+    fn to_angle_format(&self, target_format: super::strajectory::AngleFormat) -> Result<Self, BraheError>
+    where Self: Sized;
+
+    /// Convert to degrees representation (only for Keplerian).
+    ///
+    /// Convenience method equivalent to `to_angle_format(AngleFormat::Degrees)`.
+    fn to_degrees(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_angle_format(super::strajectory::AngleFormat::Degrees)
+    }
+
+    /// Convert to radians representation (only for Keplerian).
+    ///
+    /// Convenience method equivalent to `to_angle_format(AngleFormat::Radians)`.
+    fn to_radians(&self) -> Result<Self, BraheError> where Self: Sized {
+        self.to_angle_format(super::strajectory::AngleFormat::Radians)
+    }
+
+    /// Get position component of the state at a specific epoch (Cartesian only).
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for position extraction
+    ///
+    /// # Returns
+    /// * `Ok(Vector3<f64>)` - Position vector [x, y, z] in meters
+    /// * `Err(BraheError)` - If trajectory is not Cartesian or interpolation fails
+    fn position_at_epoch(&self, epoch: &Epoch) -> Result<nalgebra::Vector3<f64>, BraheError>;
+
+    /// Get velocity component of the state at a specific epoch (Cartesian only).
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for velocity extraction
+    ///
+    /// # Returns
+    /// * `Ok(Vector3<f64>)` - Velocity vector [vx, vy, vz] in m/s
+    /// * `Err(BraheError)` - If trajectory is not Cartesian or interpolation fails
+    fn velocity_at_epoch(&self, epoch: &Epoch) -> Result<nalgebra::Vector3<f64>, BraheError>;
+
+    /// Get the current orbital reference frame.
+    ///
+    /// # Returns
+    /// Current reference frame (ECI or ECEF)
+    fn orbital_frame(&self) -> super::strajectory::OrbitFrame;
+
+    /// Get the current orbital state representation.
+    ///
+    /// # Returns
+    /// Current representation (Cartesian or Keplerian)
+    fn orbital_representation(&self) -> super::strajectory::OrbitRepresentation;
+
+    /// Get the current angle format.
+    ///
+    /// # Returns
+    /// Current angle format (Radians, Degrees, or None for Cartesian)
+    fn angle_format(&self) -> super::strajectory::AngleFormat;
+
+    /// Convert trajectory to different frame, representation, and angle format in one operation.
+    ///
+    /// This is more efficient than chaining multiple conversions as it minimizes
+    /// intermediate transformations.
+    ///
+    /// # Arguments
+    /// * `target_frame` - Target reference frame
+    /// * `target_representation` - Target state representation
+    /// * `target_angle_format` - Target angle format
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - New trajectory with all conversions applied
+    /// * `Err(BraheError)` - If any conversion fails or parameters are invalid
+    fn convert_to(
+        &self,
+        target_frame: super::strajectory::OrbitFrame,
+        target_representation: super::strajectory::OrbitRepresentation,
+        target_angle_format: super::strajectory::AngleFormat,
+    ) -> Result<Self, BraheError>
+    where Self: Sized;
 }

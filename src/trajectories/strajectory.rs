@@ -26,19 +26,15 @@
  * ```
  */
 
-use nalgebra::{SVector, Vector3};
-use serde::{Deserialize, Serialize};
+use nalgebra::SVector;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Index;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
-use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
-use crate::constants::{DEG2RAD, RAD2DEG};
 
-use super::traits::{Trajectory, Interpolatable, OrbitalTrajectory, InterpolationMethod, TrajectoryEvictionPolicy};
+use super::traits::{Trajectory, Interpolatable, InterpolationMethod, TrajectoryEvictionPolicy};
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
 pub type STrajectory3 = STrajectory<3>;
@@ -48,69 +44,6 @@ pub type STrajectory4 = STrajectory<4>;
 
 /// Type alias for a 6-dimensional static trajectory (commonly used for orbital mechanics)
 pub type STrajectory6 = STrajectory<6>;
-
-/// Trait representing a generic reference frame
-pub trait ReferenceFrame: std::fmt::Debug + Clone + PartialEq {
-    /// Get the name of the reference frame
-    fn name(&self) -> &str;
-}
-
-/// Enumeration of orbit reference frames
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrbitFrame {
-    /// Earth-Centered Inertial frame (J2000)
-    ECI,
-    /// Earth-Centered Earth-Fixed frame
-    ECEF,
-}
-
-impl ReferenceFrame for OrbitFrame {
-    fn name(&self) -> &str {
-        match self {
-            OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
-            OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
-        }
-    }
-}
-
-/// Enumeration of orbit state representations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrbitRepresentation {
-    /// Cartesian position and velocity (x, y, z, vx, vy, vz)
-    Cartesian,
-    /// Keplerian elements (a, e, i, Ω, ω, M)
-    Keplerian,
-}
-
-/// Enumeration of angle formats for orbital elements
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AngleFormat {
-    /// Angles represented in radians
-    Radians,
-    /// Angles represented in degrees
-    Degrees,
-    /// No angle representation or not applicable
-    None,
-}
-
-/// Orbital-specific metadata for trajectories
-///
-/// This struct is now deprecated in favor of storing orbital properties directly in the
-/// generic metadata HashMap. It is kept for backward compatibility.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OrbitalMetadata {
-    /// Reference frame of the trajectory
-    pub frame: OrbitFrame,
-    /// Representation type of the states
-    pub representation: OrbitRepresentation,
-    /// Format for angular quantities (only relevant for Keplerian)
-    pub angle_format: AngleFormat,
-}
-
-/// Metadata keys for orbital trajectories stored in the generic metadata HashMap
-pub const ORBITAL_FRAME_KEY: &str = "orbital_frame";
-pub const ORBITAL_REPRESENTATION_KEY: &str = "orbital_representation";
-pub const ORBITAL_ANGLE_FORMAT_KEY: &str = "orbital_angle_format";
 
 /// Frame-agnostic trajectory container for N-dimensional state vectors over time.
 ///
@@ -229,55 +162,6 @@ impl<const R: usize> STrajectory<R>
             max_age: None,
             metadata: HashMap::new(),
         }
-    }
-
-    /// Creates a new orbital trajectory with the specified orbital properties.
-    ///
-    /// Interpolation method defaults to Linear. Use `set_interpolation_method` to change.
-    ///
-    /// # Arguments
-    /// * `frame` - Reference frame for the orbital data
-    /// * `representation` - Type of state representation
-    /// * `angle_format` - Format for angular quantities (required for Keplerian)
-    ///
-    /// # Returns
-    /// * `Ok(Trajectory)` - Successfully created orbital trajectory
-    /// * `Err(BraheError)` - If validation fails
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If angle format validation fails
-    pub fn new_orbital_trajectory(
-        frame: OrbitFrame,
-        representation: OrbitRepresentation,
-        angle_format: AngleFormat,
-    ) -> Result<Self, BraheError> {
-        // Validate angle format for representation
-        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format must be specified for Keplerian elements".to_string(),
-            ));
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format should be None for Cartesian representation".to_string(),
-            ));
-        }
-
-        let mut metadata = HashMap::new();
-        metadata.insert(ORBITAL_FRAME_KEY.to_string(), serde_json::to_value(frame).unwrap());
-        metadata.insert(ORBITAL_REPRESENTATION_KEY.to_string(), serde_json::to_value(representation).unwrap());
-        metadata.insert(ORBITAL_ANGLE_FORMAT_KEY.to_string(), serde_json::to_value(angle_format).unwrap());
-
-        Ok(Self {
-            epochs: Vec::new(),
-            states: Vec::new(),
-            interpolation_method: InterpolationMethod::Linear,
-            eviction_policy: TrajectoryEvictionPolicy::None,
-            max_size: None,
-            max_age: None,
-            metadata,
-        })
     }
 
     /// Set the interpolation method for state retrieval.
@@ -489,29 +373,6 @@ impl<const R: usize> Index<usize> for STrajectory<R>
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
-    }
-}
-
-impl STrajectory<6> {
-    /// Helper to get orbital frame from metadata
-    fn get_orbital_frame(&self) -> Result<OrbitFrame, BraheError> {
-        self.metadata.get(ORBITAL_FRAME_KEY)
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
-            .ok_or_else(|| BraheError::Error("Not an orbital trajectory - missing frame metadata".to_string()))
-    }
-
-    /// Helper to get orbital representation from metadata
-    fn get_orbital_representation(&self) -> Result<OrbitRepresentation, BraheError> {
-        self.metadata.get(ORBITAL_REPRESENTATION_KEY)
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
-            .ok_or_else(|| BraheError::Error("Not an orbital trajectory - missing representation metadata".to_string()))
-    }
-
-    /// Helper to get angle format from metadata
-    fn get_angle_format(&self) -> Result<AngleFormat, BraheError> {
-        self.metadata.get(ORBITAL_ANGLE_FORMAT_KEY)
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
-            .ok_or_else(|| BraheError::Error("Not an orbital trajectory - missing angle format metadata".to_string()))
     }
 }
 
@@ -805,363 +666,10 @@ impl<const R: usize> Interpolatable for STrajectory<R> {
     }
 }
 
-/// Implementation of OrbitalTrajectory for 6-dimensional static trajectories with orbital metadata
-impl OrbitalTrajectory for STrajectory<6> {
-    fn to_frame(&self, target_frame: OrbitFrame) -> Result<Self, BraheError> {
-        let frame = self.get_orbital_frame()?;
-        let representation = self.get_orbital_representation()?;
-
-        if frame == target_frame {
-            return Ok(self.clone());
-        }
-
-        // Ensure we're working with Cartesian coordinates for frame transformations
-        let cartesian_traj = if representation != OrbitRepresentation::Cartesian {
-            self.to_cartesian()?
-        } else {
-            self.clone()
-        };
-
-        let mut new_trajectory = Self::new_orbital_trajectory(
-            target_frame,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        )?;
-        new_trajectory.set_interpolation_method(self.interpolation_method);
-
-        for (epoch, state) in cartesian_traj.epochs.iter().zip(cartesian_traj.states.iter()) {
-            let cartesian_frame = cartesian_traj.get_orbital_frame()?;
-
-            let transformed_state = match (cartesian_frame, target_frame) {
-                (OrbitFrame::ECI, OrbitFrame::ECEF) => {
-                    state_eci_to_ecef(*epoch, *state)
-                }
-                (OrbitFrame::ECEF, OrbitFrame::ECI) => {
-                    state_ecef_to_eci(*epoch, *state)
-                }
-                _ => {
-                    return Err(BraheError::Error(format!(
-                        "Unsupported frame transformation: {:?} to {:?}",
-                        cartesian_frame, target_frame
-                    )));
-                }
-            };
-
-            new_trajectory.add_state(*epoch, transformed_state)?;
-        }
-
-        Ok(new_trajectory)
-    }
-
-    fn to_representation(&self, target_representation: OrbitRepresentation,
-                        target_angle_format: AngleFormat) -> Result<Self, BraheError> {
-        let frame = self.get_orbital_frame()?;
-        let representation = self.get_orbital_representation()?;
-        let angle_format = self.get_angle_format()?;
-
-        if representation == target_representation {
-            // If same representation but different angle format, convert angles
-            if target_representation == OrbitRepresentation::Keplerian && angle_format != target_angle_format {
-                return self.to_angle_format(target_angle_format);
-            }
-            return Ok(self.clone());
-        }
-
-        // Validate target parameters
-        if target_representation == OrbitRepresentation::Keplerian && target_angle_format == AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format must be specified for Keplerian elements".to_string(),
-            ));
-        }
-
-        if target_representation == OrbitRepresentation::Cartesian && target_angle_format != AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format should be None for Cartesian representation".to_string(),
-            ));
-        }
-
-        match (representation, target_representation) {
-            (OrbitRepresentation::Cartesian, OrbitRepresentation::Keplerian) => {
-                // For Cartesian to Keplerian conversion, we need to be in ECI frame
-                let eci_traj = if frame != OrbitFrame::ECI {
-                    self.to_eci()?
-                } else {
-                    self.clone()
-                };
-
-                let mut new_trajectory = Self::new_orbital_trajectory(
-                    OrbitFrame::ECI, // Keplerian elements are always in ECI
-                    OrbitRepresentation::Keplerian,
-                    target_angle_format,
-                )?;
-                new_trajectory.set_interpolation_method(self.interpolation_method);
-
-                for (epoch, state) in eci_traj.epochs.iter().zip(eci_traj.states.iter()) {
-                    let as_degrees = target_angle_format == AngleFormat::Degrees;
-                    let keplerian_state = state_cartesian_to_osculating(*state, as_degrees);
-                    new_trajectory.add_state(*epoch, keplerian_state)?;
-                }
-
-                Ok(new_trajectory)
-            }
-            (OrbitRepresentation::Keplerian, OrbitRepresentation::Cartesian) => {
-                // Keplerian should already be in ECI frame
-                if frame != OrbitFrame::ECI {
-                    return Err(BraheError::Error(
-                        "Keplerian elements should be in ECI frame".to_string(),
-                    ));
-                }
-
-                let mut new_trajectory = Self::new_orbital_trajectory(
-                    OrbitFrame::ECI, // Convert to ECI, user can then convert to ECEF if needed
-                    OrbitRepresentation::Cartesian,
-                    AngleFormat::None,
-                )?;
-                new_trajectory.set_interpolation_method(self.interpolation_method);
-
-                for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
-                    let as_degrees = angle_format == AngleFormat::Degrees;
-                    let cartesian_state = state_osculating_to_cartesian(*state, as_degrees);
-                    new_trajectory.add_state(*epoch, cartesian_state)?;
-                }
-
-                Ok(new_trajectory)
-            }
-            _ => {
-                Err(BraheError::Error(format!(
-                    "Unsupported representation conversion: {:?} to {:?}",
-                    representation, target_representation
-                )))
-            }
-        }
-    }
-
-    fn to_angle_format(&self, target_format: AngleFormat) -> Result<Self, BraheError> {
-        let frame = self.get_orbital_frame()?;
-        let representation = self.get_orbital_representation()?;
-        let angle_format = self.get_angle_format()?;
-
-        if representation != OrbitRepresentation::Keplerian {
-            return Err(BraheError::Error(
-                "Angle format conversion only applies to Keplerian elements".to_string(),
-            ));
-        }
-
-        if angle_format == target_format {
-            return Ok(self.clone());
-        }
-
-        if target_format == AngleFormat::None {
-            return Err(BraheError::Error(
-                "Cannot convert Keplerian elements to None angle format".to_string(),
-            ));
-        }
-
-        let conversion_factor = match (angle_format, target_format) {
-            (AngleFormat::Radians, AngleFormat::Degrees) => RAD2DEG,
-            (AngleFormat::Degrees, AngleFormat::Radians) => DEG2RAD,
-            _ => {
-                return Err(BraheError::Error(format!(
-                    "Unsupported angle format conversion: {:?} to {:?}",
-                    angle_format, target_format
-                )));
-            }
-        };
-
-        let mut new_trajectory = Self::new_orbital_trajectory(
-            frame,
-            representation,
-            target_format,
-        )?;
-        new_trajectory.set_interpolation_method(self.interpolation_method);
-
-        for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
-            let mut converted_state = *state;
-
-            // Convert angular elements (i, Ω, ω, M) - elements 2-5
-            for i in 2..6 {
-                converted_state[i] = converted_state[i] * conversion_factor;
-            }
-
-            new_trajectory.add_state(*epoch, converted_state)?;
-        }
-
-        Ok(new_trajectory)
-    }
-
-    fn position_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError> {
-        let representation = self.get_orbital_representation()?;
-
-        if representation != OrbitRepresentation::Cartesian {
-            return Err(BraheError::Error(
-                "Cannot extract position from non-Cartesian representation".to_string(),
-            ));
-        }
-
-        let state = self.interpolate(epoch)?;
-        Ok(Vector3::new(state[0], state[1], state[2]))
-    }
-
-    fn velocity_at_epoch(&self, epoch: &Epoch) -> Result<Vector3<f64>, BraheError> {
-        let representation = self.get_orbital_representation()?;
-
-        if representation != OrbitRepresentation::Cartesian {
-            return Err(BraheError::Error(
-                "Cannot extract velocity from non-Cartesian representation".to_string(),
-            ));
-        }
-
-        let state = self.interpolate(epoch)?;
-        Ok(Vector3::new(state[3], state[4], state[5]))
-    }
-
-    fn orbital_frame(&self) -> OrbitFrame {
-        self.get_orbital_frame().unwrap_or(OrbitFrame::ECI)
-    }
-
-    fn orbital_representation(&self) -> OrbitRepresentation {
-        self.get_orbital_representation().unwrap_or(OrbitRepresentation::Cartesian)
-    }
-
-    fn angle_format(&self) -> AngleFormat {
-        self.get_angle_format().unwrap_or(AngleFormat::None)
-    }
-
-    fn convert_to(
-        &self,
-        target_frame: OrbitFrame,
-        target_representation: OrbitRepresentation,
-        target_angle_format: AngleFormat,
-    ) -> Result<Self, BraheError> {
-        let frame = self.get_orbital_frame()?;
-        let representation = self.get_orbital_representation()?;
-        let angle_format = self.get_angle_format()?;
-
-        // Create new trajectory with target properties
-        let mut new_trajectory = Self::new_orbital_trajectory(
-            target_frame,
-            target_representation,
-            target_angle_format,
-        )?;
-        new_trajectory.set_interpolation_method(self.interpolation_method);
-
-        // Convert all states to the new format
-        for (epoch, state) in self.epochs.iter().zip(self.states.iter()) {
-            let converted_state = self.convert_state_to_format(
-                *state,
-                *epoch,
-                frame,
-                representation,
-                angle_format,
-                target_frame,
-                target_representation,
-                target_angle_format,
-            )?;
-            new_trajectory.add_state(*epoch, converted_state)?;
-        }
-
-        Ok(new_trajectory)
-    }
-}
-
-impl STrajectory<6> {
-    /// Convert state between different coordinate frames and representations
-    pub fn convert_state_to_format(
-        &self,
-        state: SVector<f64, 6>,
-        epoch: Epoch,
-        from_frame: OrbitFrame,
-        from_representation: OrbitRepresentation,
-        from_angle_format: AngleFormat,
-        to_frame: OrbitFrame,
-        to_representation: OrbitRepresentation,
-        to_angle_format: AngleFormat,
-    ) -> Result<SVector<f64, 6>, BraheError> {
-        let mut converted_state = state;
-
-        // Step 1: Convert to ECI Cartesian as intermediate format
-        if from_frame != OrbitFrame::ECI || from_representation != OrbitRepresentation::Cartesian {
-            // Convert representation first (if needed)
-            if from_representation == OrbitRepresentation::Keplerian {
-                let degrees = from_angle_format == AngleFormat::Degrees;
-                converted_state = state_osculating_to_cartesian(converted_state, degrees);
-            }
-
-            // Convert frame (if needed)
-            if from_frame == OrbitFrame::ECEF {
-                converted_state = state_ecef_to_eci(epoch, converted_state);
-            }
-        }
-
-        // Step 2: Convert from ECI Cartesian to target format
-        if to_frame != OrbitFrame::ECI || to_representation != OrbitRepresentation::Cartesian {
-            // Convert frame first (if needed)
-            if to_frame == OrbitFrame::ECEF {
-                converted_state = state_eci_to_ecef(epoch, converted_state);
-            }
-
-            // Convert representation (if needed)
-            if to_representation == OrbitRepresentation::Keplerian {
-                let degrees = to_angle_format == AngleFormat::Degrees;
-                converted_state = state_cartesian_to_osculating(converted_state, degrees);
-            }
-        }
-
-        Ok(converted_state)
-    }
-
-    /// Get current state vector (most recent state in trajectory)
-    pub fn current_state_vector(&self) -> SVector<f64, 6> {
-        if let Some(last_state) = self.states.last() {
-            *last_state
-        } else {
-            SVector::zeros()
-        }
-    }
-
-    /// Get current epoch (most recent epoch in trajectory)
-    pub fn current_epoch(&self) -> Epoch {
-        if let Some(last_epoch) = self.epochs.last() {
-            *last_epoch
-        } else {
-            Epoch::from_jd(0.0, crate::time::TimeSystem::UTC)
-        }
-    }
-
-    /// Create orbital trajectory from data
-    pub fn from_orbital_data(
-        epochs: Vec<Epoch>,
-        states: Vec<SVector<f64, 6>>,
-        frame: OrbitFrame,
-        representation: OrbitRepresentation,
-        angle_format: AngleFormat,
-    ) -> Result<Self, BraheError> {
-        // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format must be specified for Keplerian elements".to_string(),
-            ));
-        }
-
-        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
-            return Err(BraheError::Error(
-                "Angle format should be None for Cartesian representation".to_string(),
-            ));
-        }
-
-        let mut trajectory = Self::from_data(epochs, states)?;
-        trajectory.metadata.insert(ORBITAL_FRAME_KEY.to_string(), serde_json::to_value(frame).unwrap());
-        trajectory.metadata.insert(ORBITAL_REPRESENTATION_KEY.to_string(), serde_json::to_value(representation).unwrap());
-        trajectory.metadata.insert(ORBITAL_ANGLE_FORMAT_KEY.to_string(), serde_json::to_value(angle_format).unwrap());
-
-        Ok(trajectory)
-    }
-
-    /// Get all epochs in the trajectory
-    pub fn epochs(&self) -> &[Epoch] {
-        &self.epochs
-    }
-}
+// Note: OrbitalTrajectory implementation moved to orbit_trajectory.rs module
+//
+// The generic STrajectory<6> no longer implements OrbitalTrajectory directly.
+// Use the OrbitTrajectory newtype wrapper for orbital-specific functionality.
 
 // Iterator implementation will be added later once trait bounds are resolved
 
@@ -1482,678 +990,6 @@ mod tests {
 
         // Test bounds checking
         assert!(trajectory.get(10).is_err());
-    }
-
-    // OrbitalTrajectory Trait Tests (STrajectory<6> only)
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_frame() {
-        setup_global_test_eop();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create ECI Cartesian trajectory
-        let mut eci_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        eci_traj.add_state(epoch, state).unwrap();
-
-        // Convert to ECEF
-        let ecef_traj = eci_traj.to_frame(OrbitFrame::ECEF).unwrap();
-        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
-        assert_eq!(ecef_traj.len(), 1);
-
-        // Convert back to ECI
-        let eci_traj2 = ecef_traj.to_frame(OrbitFrame::ECI).unwrap();
-        assert_eq!(eci_traj2.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(eci_traj2.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_eci() {
-        setup_global_test_eop();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create ECEF trajectory
-        let mut ecef_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECEF,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        ecef_traj.add_state(epoch, state).unwrap();
-
-        // Convert to ECI using convenience method
-        let eci_traj = ecef_traj.to_eci().unwrap();
-        assert_eq!(eci_traj.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(eci_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_ecef() {
-        setup_global_test_eop();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create ECI trajectory
-        let mut eci_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        eci_traj.add_state(epoch, state).unwrap();
-
-        // Convert to ECEF using convenience method
-        let ecef_traj = eci_traj.to_ecef().unwrap();
-        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
-        assert_eq!(ecef_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_representation() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Cartesian trajectory
-        let mut cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        cart_traj.add_state(epoch, cart_state).unwrap();
-
-        // Convert to Keplerian
-        let kep_traj = cart_traj.to_representation(OrbitRepresentation::Keplerian, AngleFormat::Radians).unwrap();
-        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
-        assert_eq!(kep_traj.angle_format(), AngleFormat::Radians);
-        assert_eq!(kep_traj.len(), 1);
-
-        // Convert back to Cartesian
-        let cart_traj2 = kep_traj.to_representation(OrbitRepresentation::Cartesian, AngleFormat::None).unwrap();
-        assert_eq!(cart_traj2.orbital_representation(), OrbitRepresentation::Cartesian);
-        assert_eq!(cart_traj2.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_cartesian() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Keplerian trajectory
-        let mut kep_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        ).unwrap();
-
-        // Semi-major axis, eccentricity, inclination, RAAN, arg perigee, mean anomaly
-        let kep_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 0.0, 0.0);
-        kep_traj.add_state(epoch, kep_state).unwrap();
-
-        // Convert to Cartesian using convenience method
-        let cart_traj = kep_traj.to_cartesian().unwrap();
-        assert_eq!(cart_traj.orbital_representation(), OrbitRepresentation::Cartesian);
-        assert_eq!(cart_traj.angle_format(), AngleFormat::None);
-        assert_eq!(cart_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_keplerian() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Cartesian trajectory
-        let mut cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        cart_traj.add_state(epoch, cart_state).unwrap();
-
-        // Convert to Keplerian using convenience method
-        let kep_traj = cart_traj.to_keplerian(AngleFormat::Degrees).unwrap();
-        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
-        assert_eq!(kep_traj.angle_format(), AngleFormat::Degrees);
-        assert_eq!(kep_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_angle_format() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Keplerian trajectory in radians
-        let mut rad_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        ).unwrap();
-
-        let kep_state = Vector6::new(6.678e6, 0.0, 0.5, 1.0, 0.5, 0.0);
-        rad_traj.add_state(epoch, kep_state).unwrap();
-
-        // Convert to degrees
-        let deg_traj = rad_traj.to_angle_format(AngleFormat::Degrees).unwrap();
-        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
-        assert_eq!(deg_traj.len(), 1);
-
-        // Convert back to radians
-        let rad_traj2 = deg_traj.to_angle_format(AngleFormat::Radians).unwrap();
-        assert_eq!(rad_traj2.angle_format(), AngleFormat::Radians);
-        assert_eq!(rad_traj2.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_degrees() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Keplerian trajectory in radians
-        let mut rad_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        ).unwrap();
-
-        let kep_state = Vector6::new(6.678e6, 0.0, 0.5, 1.0, 0.5, 0.0);
-        rad_traj.add_state(epoch, kep_state).unwrap();
-
-        // Convert to degrees using convenience method
-        let deg_traj = rad_traj.to_degrees().unwrap();
-        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
-        assert_eq!(deg_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_to_radians() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Keplerian trajectory in degrees
-        let mut deg_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
-        ).unwrap();
-
-        let kep_state = Vector6::new(6.678e6, 0.0, 28.5, 45.0, 30.0, 0.0);
-        deg_traj.add_state(epoch, kep_state).unwrap();
-
-        // Convert to radians using convenience method
-        let rad_traj = deg_traj.to_radians().unwrap();
-        assert_eq!(rad_traj.angle_format(), AngleFormat::Radians);
-        assert_eq!(rad_traj.len(), 1);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_position_at_epoch() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Cartesian trajectory
-        let mut cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 1.0e6, 2.0e6, 3.0e3, 4.0e3, 5.0e3);
-        cart_traj.add_state(epoch, cart_state).unwrap();
-
-        // Extract position
-        let position = cart_traj.position_at_epoch(&epoch).unwrap();
-        assert_eq!(position[0], 6.678e6);
-        assert_eq!(position[1], 1.0e6);
-        assert_eq!(position[2], 2.0e6);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_velocity_at_epoch() {
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create Cartesian trajectory
-        let mut cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 1.0e6, 2.0e6, 3.0e3, 4.0e3, 5.0e3);
-        cart_traj.add_state(epoch, cart_state).unwrap();
-
-        // Extract velocity
-        let velocity = cart_traj.velocity_at_epoch(&epoch).unwrap();
-        assert_eq!(velocity[0], 3.0e3);
-        assert_eq!(velocity[1], 4.0e3);
-        assert_eq!(velocity[2], 5.0e3);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_orbital_frame() {
-        // Test ECI frame
-        let eci_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-        assert_eq!(eci_traj.orbital_frame(), OrbitFrame::ECI);
-
-        // Test ECEF frame
-        let ecef_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECEF,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_orbital_representation() {
-        // Test Cartesian representation
-        let cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-        assert_eq!(cart_traj.orbital_representation(), OrbitRepresentation::Cartesian);
-
-        // Test Keplerian representation
-        let kep_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        ).unwrap();
-        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_angle_format() {
-        // Test None format (Cartesian)
-        let cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-        assert_eq!(cart_traj.angle_format(), AngleFormat::None);
-
-        // Test Radians format
-        let rad_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        ).unwrap();
-        assert_eq!(rad_traj.angle_format(), AngleFormat::Radians);
-
-        // Test Degrees format
-        let deg_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
-        ).unwrap();
-        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
-    }
-
-    #[test]
-    fn test_strajectory_orbitaltrajectory_convert_to() {
-        setup_global_test_eop();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Create ECI Cartesian trajectory
-        let mut eci_cart_traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        eci_cart_traj.add_state(epoch, cart_state).unwrap();
-
-        // Convert to ECEF Keplerian with degrees in one operation
-        let ecef_kep_deg_traj = eci_cart_traj.convert_to(
-            OrbitFrame::ECEF,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees
-        ).unwrap();
-
-        assert_eq!(ecef_kep_deg_traj.orbital_frame(), OrbitFrame::ECEF);
-        assert_eq!(ecef_kep_deg_traj.orbital_representation(), OrbitRepresentation::Keplerian);
-        assert_eq!(ecef_kep_deg_traj.angle_format(), AngleFormat::Degrees);
-        assert_eq!(ecef_kep_deg_traj.len(), 1);
-    }
-
-    // Additional STrajectory Methods (Non-Trait)
-
-    #[test]
-    fn test_strajectory_to_matrix() {
-        let trajectory = create_test_trajectory();
-
-        let matrix = trajectory.to_matrix().unwrap();
-        assert_eq!(matrix.nrows(), 6);
-        assert_eq!(matrix.ncols(), 3);
-
-        // Check first column
-        assert_eq!(matrix[(0, 0)], 7000e3);
-        assert_eq!(matrix[(1, 0)], 0.0);
-        assert_eq!(matrix[(2, 0)], 0.0);
-        assert_eq!(matrix[(3, 0)], 0.0);
-        assert_eq!(matrix[(4, 0)], 7.5e3);
-        assert_eq!(matrix[(5, 0)], 0.0);
-        assert_eq!(matrix[(0, 1)], 7100e3);
-
-        // Check second column
-        assert_eq!(matrix[(0, 1)], 7100e3);
-        assert_eq!(matrix[(1, 1)], 1000e3);
-        assert_eq!(matrix[(2, 1)], 500e3);
-        assert_eq!(matrix[(3, 1)], 100.0);
-        assert_eq!(matrix[(4, 1)], 7.6e3);
-        assert_eq!(matrix[(5, 1)], 50.0);
-
-        // Check third column
-        assert_eq!(matrix[(0, 2)], 7200e3);
-        assert_eq!(matrix[(1, 2)], 2000e3);
-        assert_eq!(matrix[(2, 2)], 1000e3);
-        assert_eq!(matrix[(3, 2)], 200.0);
-        assert_eq!(matrix[(4, 2)], 7.7e3);
-        assert_eq!(matrix[(5, 2)], 100.0);
-    }
-
-    #[test]
-    fn test_strajectory_set_eviction_policy_max_size() {
-        let mut trajectory = STrajectory6::new();
-        trajectory.set_eviction_policy_max_size(2).unwrap();
-
-        // Add three states
-        trajectory.add_state(
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap();
-
-        trajectory.add_state(
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-            Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap();
-
-        trajectory.add_state(
-            Epoch::from_jd(2451545.2, TimeSystem::UTC),
-            Vector6::new(3.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap();
-
-        // Should only keep the last 2 states
-        assert_eq!(trajectory.len(), 2);
-        assert_eq!(trajectory.states[0][0], 2.0); // Second state
-        assert_eq!(trajectory.states[1][0], 3.0); // Third state
-    }
-
-    #[test]
-    fn test_strajectory_set_eviction_policy_max_age() {
-        let mut trajectory = STrajectory6::new();
-        trajectory.set_eviction_policy_max_age(86400.0).unwrap(); // 1 day in seconds
-        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-
-        // Add states at 0, 0.5, 0.99
-        trajectory.add_state(
-            base_epoch,
-            Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap(); // Day 0
-
-        trajectory.add_state(
-            base_epoch + 0.5 * 86400.0,
-            Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap(); // Day 0.5
-
-        trajectory.add_state(
-            base_epoch + 0.99 * 86400.0,
-            Vector6::new(3.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap(); // Day 0.99
-
-        // Confirm all three states are present
-        assert_eq!(trajectory.len(), 3);
-        assert_eq!(trajectory.states[0][0], 1.0);
-        assert_eq!(trajectory.states[1][0], 2.0);
-        assert_eq!(trajectory.states[2][0], 3.0);
-
-        // Add a state at day 2.0, which should evict the first three states
-        trajectory.add_state(
-            base_epoch + 2.0 * 86400.0,
-            Vector6::new(4.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        ).unwrap(); // Day 2.0
-
-        // Should only keep the last state
-        assert_eq!(trajectory.len(), 1);
-        assert_eq!(trajectory.states[0][0], 4.0);
-    }
-
-    #[test]
-    fn test_strajectory_eviction_validation() {
-        let mut trajectory = STrajectory6::new();
-
-        // Test validation for max_size
-        assert!(trajectory.set_eviction_policy_max_size(0).is_err());
-        assert!(trajectory.set_eviction_policy_max_size(1).is_ok());
-
-        // Test validation for max_age
-        assert!(trajectory.set_eviction_policy_max_age(0.0).is_err());
-        assert!(trajectory.set_eviction_policy_max_age(-1.0).is_err());
-        assert!(trajectory.set_eviction_policy_max_age(60.0).is_ok());
-    }
-
-    #[test]
-    fn test_strajectory_indexing_operator() {
-        let trajectory = create_test_trajectory();
-
-        // Test manual iteration using get method
-        for i in 0..trajectory.len() {
-            let (epoch, state) = trajectory.get(i).unwrap();
-            match i {
-                0 => {
-                    assert_eq!(epoch.jd(), 2451545.0);
-                    assert_eq!(state[0], 7000e3);
-                }
-                1 => {
-                    assert_eq!(epoch.jd(), 2451545.1);
-                    assert_eq!(state[0], 7100e3);
-                }
-                2 => {
-                    assert_eq!(epoch.jd(), 2451545.2);
-                    assert_eq!(state[0], 7200e3);
-                }
-                _ => panic!("Unexpected iteration"),
-            }
-        }
-        assert_eq!(trajectory.len(), 3);
-    }
-
-    #[test]
-    fn test_strajectory_interpolatable_set_interpolation_method() {
-        let mut trajectory = STrajectory6::new();
-        assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
-
-        trajectory.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert_eq!(trajectory.interpolation_method, InterpolationMethod::CubicSpline);
-
-        trajectory.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(trajectory.interpolation_method, InterpolationMethod::Lagrange);
-    }
-
-    #[test]
-    fn test_strajectory_from_data_errors() {
-        let epochs = vec![
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-        ];
-
-        let states = vec![
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-        ];
-
-        // Test mismatched lengths
-        let result = STrajectory6::from_data(epochs, states);
-        assert!(result.is_err());
-
-        // Test empty data
-        let empty_epochs = vec![];
-        let empty_states = vec![];
-        let result = STrajectory6::from_data(empty_epochs, empty_states);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_strajectory_with_interpolation() {
-        let traj = STrajectory6::with_interpolation(InterpolationMethod::CubicSpline);
-        assert_eq!(traj.len(), 0);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::CubicSpline);
-    }
-
-    #[test]
-    fn test_strajectory_from_data() {
-        let epochs = vec![
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-            Epoch::from_jd(2451545.2, TimeSystem::UTC),
-        ];
-        let states = vec![
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
-            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
-        ];
-
-        let traj = STrajectory6::from_data(epochs, states).unwrap();
-        assert_eq!(traj.len(), 3);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
-    }
-
-    // Orbital-Specific STrajectory Methods (STrajectory<6>)
-
-    #[test]
-    fn test_strajectory_new_orbital_trajectory() {
-        let traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        assert_eq!(traj.len(), 0);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
-        assert_eq!(traj.angle_format(), AngleFormat::None);
-    }
-
-    #[test]
-    fn test_strajectory_convert_state_to_format() {
-        let traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Convert from ECI Cartesian to Keplerian radians
-        let kep_state = traj.convert_state_to_format(
-            cart_state,
-            epoch,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians
-        ).unwrap();
-
-        // First element should be semi-major axis (approximately same as radius for circular orbit)
-        assert_abs_diff_eq!(kep_state[0], 6.678e6, epsilon = 1000.0);
-    }
-
-    #[test]
-    fn test_strajectory_current_state_vector() {
-        let mut traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        // Empty trajectory should return zeros
-        let empty_state = traj.current_state_vector();
-        assert_eq!(empty_state[0], 0.0);
-
-        // Add states
-        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add_state(epoch1, state1).unwrap();
-
-        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
-        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
-        traj.add_state(epoch2, state2).unwrap();
-
-        // Should return most recent state
-        let current = traj.current_state_vector();
-        assert_eq!(current[0], 7100e3);
-    }
-
-    #[test]
-    fn test_strajectory_current_epoch() {
-        let mut traj = STrajectory6::new_orbital_trajectory(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        // Add states
-        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add_state(epoch1, state1).unwrap();
-
-        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
-        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
-        traj.add_state(epoch2, state2).unwrap();
-
-        // Should return most recent epoch
-        let current = traj.current_epoch();
-        assert_eq!(current.jd(), 2451545.1);
-    }
-
-    #[test]
-    fn test_strajectory_from_orbital_data() {
-        let epochs = vec![
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-        ];
-        let states = vec![
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
-            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0),
-        ];
-
-        let traj = STrajectory6::from_orbital_data(
-            epochs,
-            states,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        ).unwrap();
-
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
-    }
-
-    #[test]
-    fn test_strajectory_epochs() {
-        let mut traj = STrajectory6::new();
-
-        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
-        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-
-        traj.add_state(epoch1, state).unwrap();
-        traj.add_state(epoch2, state).unwrap();
-
-        let epochs = traj.epochs();
-        assert_eq!(epochs.len(), 2);
-        assert_eq!(epochs[0].jd(), 2451545.0);
-        assert_eq!(epochs[1].jd(), 2451545.1);
     }
 
     // Error and Edge Case Tests
@@ -2605,5 +1441,121 @@ mod tests {
         }
 
         // This verifies the dispatch logic works correctly
+    }
+
+    // Eviction Policy Tests
+
+    #[test]
+    fn test_strajectory_set_eviction_policy_max_size() {
+        let mut traj = STrajectory6::new();
+
+        // Add 5 states
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        assert_eq!(traj.len(), 5);
+
+        // Set max size to 3
+        traj.set_eviction_policy_max_size(3).unwrap();
+
+        // Should only have 3 most recent states
+        assert_eq!(traj.len(), 3);
+
+        // First state should be the 3rd original state (oldest 2 evicted)
+        let first_state = traj.state_at_index(0).unwrap();
+        assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
+
+        // Add another state - should still maintain max size
+        let new_epoch = t0 + 5.0 * 60.0;
+        let new_state = Vector6::new(7000e3 + 5000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add_state(new_epoch, new_state).unwrap();
+
+        assert_eq!(traj.len(), 3);
+
+        // Test error case
+        assert!(traj.set_eviction_policy_max_size(0).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_set_eviction_policy_max_age() {
+        let mut traj = STrajectory6::new();
+
+        // Add states spanning 5 minutes
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..6 {
+            let epoch = t0 + (i as f64 * 60.0); // 0, 60, 120, 180, 240, 300 seconds
+            let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        assert_eq!(traj.len(), 6);
+
+        // Set max age to 150 seconds - should keep states within 150s of the last epoch
+        traj.set_eviction_policy_max_age(150.0).unwrap();
+
+        // Should keep states at 180s, 240s, and 300s (within 150s of 300s)
+        assert_eq!(traj.len(), 3);
+
+        let first_state = traj.state_at_index(0).unwrap();
+        assert_abs_diff_eq!(first_state[0], 7000e3 + 3000.0, epsilon = 1.0);
+
+        // Test error case
+        assert!(traj.set_eviction_policy_max_age(0.0).is_err());
+        assert!(traj.set_eviction_policy_max_age(-10.0).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_to_matrix() {
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let epochs = vec![
+            t0,
+            t0 + 60.0,
+            t0 + 120.0,
+        ];
+        let states = vec![
+            Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
+            Vector6::new(11.0, 12.0, 13.0, 14.0, 15.0, 16.0),
+            Vector6::new(21.0, 22.0, 23.0, 24.0, 25.0, 26.0),
+        ];
+
+        let traj = STrajectory6::from_data(epochs, states).unwrap();
+
+        let matrix = traj.to_matrix().unwrap();
+
+        // Matrix should be 6 rows (state elements) x 3 columns (time points)
+        assert_eq!(matrix.nrows(), 6);
+        assert_eq!(matrix.ncols(), 3);
+
+        // Check first column (first state)
+        assert_abs_diff_eq!(matrix[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(matrix[(1, 0)], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(matrix[(5, 0)], 6.0, epsilon = 1e-10);
+
+        // Check last column (last state)
+        assert_abs_diff_eq!(matrix[(0, 2)], 21.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(matrix[(5, 2)], 26.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_strajectory_with_interpolation() {
+        // Test creating trajectory with specific interpolation method
+        let traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        assert_eq!(traj.len(), 0);
+
+        let traj_lagrange = STrajectory6::with_interpolation(InterpolationMethod::Lagrange);
+        assert_eq!(traj_lagrange.get_interpolation_method(), InterpolationMethod::Lagrange);
+
+        // Verify it works with adding states
+        let mut traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
+        traj.add_state(t0, state).unwrap();
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
     }
 }

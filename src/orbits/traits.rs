@@ -6,7 +6,7 @@ use nalgebra::Vector6;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat, STrajectory6};
+use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat, OrbitTrajectory};
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
@@ -74,10 +74,10 @@ pub trait OrbitPropagator {
 
     // Trajectory access
     /// Get reference to accumulated trajectory
-    fn trajectory(&self) -> &STrajectory6;
+    fn trajectory(&self) -> &OrbitTrajectory;
 
     /// Get mutable reference to accumulated trajectory
-    fn trajectory_mut(&mut self) -> &mut STrajectory6;
+    fn trajectory_mut(&mut self) -> &mut OrbitTrajectory;
 
     /// Propagate and populate trajectory at multiple epochs
     ///
@@ -152,8 +152,8 @@ pub trait AnalyticPropagator {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// STrajectory6 containing states in the propagator's native format
-    fn states(&self, epochs: &[Epoch]) -> STrajectory6;
+    /// OrbitTrajectory containing states in the propagator's native format
+    fn states(&self, epochs: &[Epoch]) -> OrbitTrajectory;
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates as a STrajectory6.
@@ -162,8 +162,8 @@ pub trait AnalyticPropagator {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// STrajectory6 containing states in the ECI frame
-    fn states_eci(&self, epochs: &[Epoch]) -> STrajectory6;
+    /// OrbitTrajectory containing states in the ECI frame
+    fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory;
 
     /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF)
     /// Cartesian coordinates as a STrajectory6.
@@ -172,8 +172,8 @@ pub trait AnalyticPropagator {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// STrajectory6 containing states in the ECEF frame
-    fn states_ecef(&self, epochs: &[Epoch]) -> STrajectory6;
+    /// OrbitTrajectory containing states in the ECEF frame
+    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory;
 
     /// Returns states at multiple epochs as osculating orbital elements as a STrajectory6.
     ///
@@ -181,6 +181,6 @@ pub trait AnalyticPropagator {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// STrajectory6 containing states as osculating Keplerian elements
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> STrajectory6;
+    /// OrbitTrajectory containing states as osculating Keplerian elements
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory;
 }

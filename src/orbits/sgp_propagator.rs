@@ -37,7 +37,7 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, STrajectory6, Trajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory};
 use crate::utils::BraheError;
 
 
@@ -77,7 +77,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    trajectory: STrajectory6,
+    trajectory: OrbitTrajectory,
 
     /// Step size in seconds for stepping operations
     step_size: f64,
@@ -191,7 +191,7 @@ impl SGPPropagator {
         );
 
         // Create trajectory with initial state
-        let mut trajectory = STrajectory6::new_orbital_trajectory(
+        let mut trajectory = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,  // Cartesian representation should use None for angle format
@@ -336,11 +336,11 @@ impl OrbitPropagator for SGPPropagator {
         ))
     }
 
-    fn trajectory(&self) -> &STrajectory6 {
+    fn trajectory(&self) -> &OrbitTrajectory {
         &self.trajectory
     }
 
-    fn trajectory_mut(&mut self) -> &mut STrajectory6 {
+    fn trajectory_mut(&mut self) -> &mut OrbitTrajectory {
         &mut self.trajectory
     }
 
@@ -393,13 +393,13 @@ impl AnalyticPropagator for SGPPropagator {
         state_cartesian_to_osculating(eci_state, false)
     }
 
-    fn states(&self, epochs: &[Epoch]) -> STrajectory6 {
+    fn states(&self, epochs: &[Epoch]) -> OrbitTrajectory {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state(epoch));
         }
 
-        STrajectory6::from_orbital_data(
+        OrbitTrajectory::from_orbital_data(
             epochs.to_vec(),
             states,
             self.output_frame,
@@ -408,13 +408,13 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap()
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> STrajectory6 {
+    fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_eci(epoch));
         }
 
-        STrajectory6::from_orbital_data(
+        OrbitTrajectory::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECI,
@@ -423,13 +423,13 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap()
     }
 
-    fn states_ecef(&self, epochs: &[Epoch]) -> STrajectory6 {
+    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_ecef(epoch));
         }
 
-        STrajectory6::from_orbital_data(
+        OrbitTrajectory::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECEF,
@@ -438,13 +438,13 @@ impl AnalyticPropagator for SGPPropagator {
         ).unwrap()
     }
 
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> STrajectory6 {
+    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_osculating_elements(epoch));
         }
 
-        STrajectory6::from_orbital_data(
+        OrbitTrajectory::from_orbital_data(
             epochs.to_vec(),
             states,
             OrbitFrame::ECI,

@@ -75,7 +75,7 @@ class TestOrbitalTrajectoryCreation:
 
     def test_orbital_trajectory_creation(self):
         """Test basic orbital trajectory creation."""
-        orbital_traj = brahe.OrbitalTrajectory(
+        orbital_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -87,7 +87,7 @@ class TestOrbitalTrajectoryCreation:
         """Test orbital trajectory with invalid arguments."""
         # This test would check validation if implemented in Python bindings
         # For now, just test that creation works with valid arguments
-        orbital_traj = brahe.OrbitalTrajectory(
+        orbital_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.keplerian,
             brahe.AngleFormat.degrees
@@ -102,7 +102,7 @@ class TestOrbitalTrajectoryStateManagement:
         """Test orbital trajectory with state data."""
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        orbital_traj = brahe.OrbitalTrajectory(
+        orbital_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -132,7 +132,7 @@ class TestOrbitalTrajectoryStateManagement:
         """Test position and velocity extraction from orbital trajectory."""
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        orbital_traj = brahe.OrbitalTrajectory(
+        orbital_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -157,7 +157,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create trajectory in radians
-        rad_traj = brahe.OrbitalTrajectory(
+        rad_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.keplerian,
             brahe.AngleFormat.radians
@@ -186,7 +186,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create ECI trajectory
-        eci_traj = brahe.OrbitalTrajectory(
+        eci_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -206,7 +206,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create Cartesian trajectory
-        cart_traj = brahe.OrbitalTrajectory(
+        cart_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -234,7 +234,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create ECI Cartesian trajectory
-        eci_cart_traj = brahe.OrbitalTrajectory(
+        eci_cart_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -258,7 +258,7 @@ class TestOrbitalTrajectoryConversions:
     def test_orbital_trajectory_properties(self):
         """Test orbital trajectory property access methods."""
         # Test Cartesian trajectory properties
-        cart_traj = brahe.OrbitalTrajectory(
+        cart_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -269,7 +269,7 @@ class TestOrbitalTrajectoryConversions:
         assert cart_traj.angle_format == brahe.AngleFormat.none
 
         # Test Keplerian trajectory properties
-        kep_traj = brahe.OrbitalTrajectory(
+        kep_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.ecef,
             brahe.OrbitRepresentation.keplerian,
             brahe.AngleFormat.degrees
@@ -284,7 +284,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create ECI Cartesian trajectory
-        eci_traj = brahe.OrbitalTrajectory(
+        eci_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -308,7 +308,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create Keplerian trajectory in radians
-        kep_rad_traj = brahe.OrbitalTrajectory(
+        kep_rad_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.keplerian,
             brahe.AngleFormat.radians
@@ -333,7 +333,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create Cartesian trajectory
-        cart_traj = brahe.OrbitalTrajectory(
+        cart_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -367,7 +367,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create Cartesian trajectory with known position and velocity
-        cart_traj = brahe.OrbitalTrajectory(
+        cart_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -396,7 +396,7 @@ class TestOrbitalTrajectoryConversions:
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
         # Create Keplerian trajectory
-        kep_traj = brahe.OrbitalTrajectory(
+        kep_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.keplerian,
             brahe.AngleFormat.radians
@@ -434,7 +434,7 @@ class TestOrbitalTrajectoryConversions:
         future_epoch = brahe.Epoch.from_datetime(2023, 1, 2, 12, 0, 0.0, 0.0, "UTC")
 
         # Create empty trajectory
-        empty_traj = brahe.OrbitalTrajectory(
+        empty_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -448,7 +448,7 @@ class TestOrbitalTrajectoryConversions:
             empty_traj.velocity_at_epoch(epoch)
 
         # Create trajectory with one state
-        single_state_traj = brahe.OrbitalTrajectory(
+        single_state_traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -469,7 +469,7 @@ class TestOrbitalTrajectoryConversions:
     def test_orbital_trajectory_current_state_epoch(self):
         """Test current state and epoch access methods."""
         # Create trajectory
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -517,7 +517,7 @@ class TestOrbitalTrajectoryConversions:
         ])
 
         # Create trajectory from data
-        traj = brahe.OrbitalTrajectory.from_orbital_data(
+        traj = brahe.OrbitTrajectory.from_orbital_data(
             epochs,
             states,
             brahe.OrbitFrame.eci,
@@ -548,7 +548,7 @@ class TestOrbitalTrajectoryConversions:
 
         # Test wrong states array length (not multiple of 6)
         with pytest.raises((ValueError, TypeError)):
-            brahe.OrbitalTrajectory.from_orbital_data(
+            brahe.OrbitTrajectory.from_orbital_data(
                 epochs,
                 np.array([1, 2, 3, 4, 5]),  # 5 elements, not multiple of 6
                 brahe.OrbitFrame.eci,
@@ -558,7 +558,7 @@ class TestOrbitalTrajectoryConversions:
 
         # Test mismatched epochs and states count
         with pytest.raises((ValueError, TypeError)):
-            brahe.OrbitalTrajectory.from_orbital_data(
+            brahe.OrbitTrajectory.from_orbital_data(
                 epochs,  # 2 epochs
                 np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]),  # 3 states
                 brahe.OrbitFrame.eci,
@@ -569,7 +569,7 @@ class TestOrbitalTrajectoryConversions:
     def test_orbital_trajectory_convert_state_to_format(self):
         """Test state format conversion method."""
         # Create trajectory
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -595,7 +595,7 @@ class TestOrbitalTrajectoryConversions:
 
     def test_orbital_trajectory_convert_state_to_format_validation(self):
         """Test validation errors in convert_state_to_format."""
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -621,7 +621,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory with states at t0, t0+60s, t0+120s
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -662,7 +662,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory with states at t0, t0+60s, t0+120s
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -707,7 +707,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory with distinguishable states
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -753,7 +753,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory with distinguishable states
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -796,7 +796,7 @@ class TestOrbitalTrajectoryConversions:
 
     def test_orbital_trajectory_set_interpolation_method(self):
         """Test set_interpolation_method method."""
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -816,7 +816,7 @@ class TestOrbitalTrajectoryConversions:
 
     def test_orbital_trajectory_get_interpolation_method(self):
         """Test get_interpolation_method method."""
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -838,7 +838,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory with simple values for easy verification
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -879,7 +879,7 @@ class TestOrbitalTrajectoryConversions:
         # Create trajectory
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.OrbitalTrajectory(
+        traj = brahe.OrbitTrajectory(
             brahe.OrbitFrame.eci,
             brahe.OrbitRepresentation.cartesian,
             brahe.AngleFormat.none
@@ -904,3 +904,108 @@ class TestOrbitalTrajectoryConversions:
         traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
         with pytest.raises(RuntimeError, match="not yet implemented"):
             traj.interpolate(t_test)
+
+
+def test_orbittrajectory_set_max_size():
+    """Test set_max_size eviction policy"""
+    traj = brahe.OrbitTrajectory(
+        brahe.OrbitFrame.eci,
+        brahe.OrbitRepresentation.cartesian,
+        brahe.AngleFormat.none
+    )
+
+    # Add 5 states
+    t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    for i in range(5):
+        epoch = t0 + (i * 60.0)
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
+
+    assert len(traj) == 5
+
+    # Set max size to 3 - should keep the 3 most recent states
+    traj.set_max_size(3)
+
+    assert len(traj) == 3
+
+    # Verify the oldest states were evicted
+    first_state = traj.state_at_index(0)
+    assert abs(first_state[0] - (7000e3 + 2000.0)) < 1.0  # Should be 3rd state
+
+    # Test error cases
+    with pytest.raises(RuntimeError):
+        traj.set_max_size(0)
+
+
+def test_orbittrajectory_set_max_age():
+    """Test set_max_age eviction policy"""
+    traj = brahe.OrbitTrajectory(
+        brahe.OrbitFrame.eci,
+        brahe.OrbitRepresentation.cartesian,
+        brahe.AngleFormat.none
+    )
+
+    # Add states spanning 5 minutes
+    t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    for i in range(6):
+        epoch = t0 + (i * 60.0)  # 0, 60, 120, 180, 240, 300 seconds
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
+
+    assert len(traj) == 6
+
+    # Set max age to 150 seconds - should keep states within 150s of the last epoch
+    traj.set_max_age(150.0)
+
+    # Should keep states at 180s, 240s, and 300s (within 150s of 300s)
+    assert len(traj) == 3
+
+    first_state = traj.state_at_index(0)
+    assert abs(first_state[0] - (7000e3 + 3000.0)) < 1.0
+
+    # Test error cases
+    with pytest.raises(RuntimeError):
+        traj.set_max_age(0.0)
+    with pytest.raises(RuntimeError):
+        traj.set_max_age(-10.0)
+
+
+def test_orbittrajectory_to_matrix():
+    """Test conversion to matrix representation"""
+    epochs = [
+        brahe.Epoch.from_jd(2451545.0, "UTC"),
+        brahe.Epoch.from_jd(2451545.1, "UTC"),
+        brahe.Epoch.from_jd(2451545.2, "UTC"),
+    ]
+    states = np.array([
+        7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
+        7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
+        7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
+    ])
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        epochs, states,
+        brahe.OrbitFrame.eci,
+        brahe.OrbitRepresentation.cartesian,
+        brahe.AngleFormat.none
+    )
+
+    # Convert to matrix
+    matrix = traj.to_matrix()
+
+    # Verify dimensions: 6 rows (state elements) x 3 columns (time points)
+    assert matrix.shape == (6, 3)
+
+    # Verify first column matches first state
+    np.testing.assert_almost_equal(matrix[0, 0], 7000e3, decimal=6)
+    np.testing.assert_almost_equal(matrix[1, 0], 0.0, decimal=6)
+    np.testing.assert_almost_equal(matrix[2, 0], 0.0, decimal=6)
+
+    # Verify second column matches second state
+    np.testing.assert_almost_equal(matrix[0, 1], 7100e3, decimal=6)
+    np.testing.assert_almost_equal(matrix[1, 1], 1000e3, decimal=6)
+    np.testing.assert_almost_equal(matrix[2, 1], 500e3, decimal=6)
+
+    # Verify third column matches third state
+    np.testing.assert_almost_equal(matrix[0, 2], 7200e3, decimal=6)
+    np.testing.assert_almost_equal(matrix[1, 2], 2000e3, decimal=6)
+    np.testing.assert_almost_equal(matrix[2, 2], 1000e3, decimal=6)

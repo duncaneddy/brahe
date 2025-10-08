@@ -1,7 +1,7 @@
 """
-Tests for the base Trajectory class in brahe.
+Tests for the DTrajectory class in brahe.
 
-These tests mirror the Rust test suite to ensure Python bindings work correctly.
+These tests mirror the Rust DTrajectory test suite to ensure Python bindings work correctly.
 """
 
 import pytest
@@ -35,13 +35,13 @@ class TestTrajectoryCreation:
 
     def test_trajectory_creation(self):
         """Test basic trajectory creation."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         assert len(trajectory) == 0
 
     def test_trajectory_with_interpolation(self):
         """Test trajectory creation with specific interpolation."""
         linear_interp = brahe.InterpolationMethod.linear
-        trajectory = brahe.Trajectory(linear_interp)
+        trajectory = brahe.DTrajectory(linear_interp)
         assert len(trajectory) == 0
 
 
@@ -50,7 +50,7 @@ class TestTrajectoryStateManagement:
 
     def test_trajectory_add_state(self, sample_epochs, sample_states):
         """Test adding states to trajectory."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -59,7 +59,7 @@ class TestTrajectoryStateManagement:
 
     def test_trajectory_indexing(self, sample_epochs, sample_states):
         """Test trajectory indexing."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -70,7 +70,7 @@ class TestTrajectoryStateManagement:
 
     def test_trajectory_nearest_state(self, sample_epochs, sample_states):
         """Test finding nearest state."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -86,7 +86,7 @@ class TestTrajectoryInterpolation:
 
     def test_trajectory_linear_interpolation(self, sample_epochs, sample_states):
         """Test linear interpolation."""
-        trajectory = brahe.Trajectory(brahe.InterpolationMethod.linear)
+        trajectory = brahe.DTrajectory(brahe.InterpolationMethod.linear)
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -106,7 +106,7 @@ class TestTrajectoryProperties:
 
     def test_trajectory_to_matrix(self, sample_epochs, sample_states):
         """Test converting trajectory to matrix."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -123,17 +123,17 @@ class TestTrajectoryFirstLast:
 
     def test_trajectory_first_empty(self):
         """Test first() method on empty trajectory."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         assert trajectory.first() is None
 
     def test_trajectory_last_empty(self):
         """Test last() method on empty trajectory."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         assert trajectory.last() is None
 
     def test_trajectory_first_single_state(self, sample_epochs, sample_states):
         """Test first() method with single state."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         trajectory.add_state(sample_epochs[0], sample_states[0])
 
         first_result = trajectory.first()
@@ -145,7 +145,7 @@ class TestTrajectoryFirstLast:
 
     def test_trajectory_last_single_state(self, sample_epochs, sample_states):
         """Test last() method with single state."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         trajectory.add_state(sample_epochs[0], sample_states[0])
 
         last_result = trajectory.last()
@@ -157,7 +157,7 @@ class TestTrajectoryFirstLast:
 
     def test_trajectory_first_multiple_states(self, sample_epochs, sample_states):
         """Test first() method with multiple states."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -171,7 +171,7 @@ class TestTrajectoryFirstLast:
 
     def test_trajectory_last_multiple_states(self, sample_epochs, sample_states):
         """Test last() method with multiple states."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -185,7 +185,7 @@ class TestTrajectoryFirstLast:
 
     def test_trajectory_first_last_ordering(self, sample_epochs, sample_states):
         """Test that first() and last() respect chronological ordering."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Add states in reverse order
         for epoch, state in zip(reversed(sample_epochs), reversed(sample_states)):
@@ -211,7 +211,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_set_interpolation_method(self):
         """Test setting interpolation method."""
-        trajectory = brahe.Trajectory(brahe.InterpolationMethod.linear)
+        trajectory = brahe.DTrajectory(brahe.InterpolationMethod.linear)
 
         # Test initial method
         assert trajectory.interpolation_method == brahe.InterpolationMethod.linear
@@ -222,7 +222,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_state_at_index(self, sample_epochs, sample_states):
         """Test state_at_index method."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -243,7 +243,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_epoch_at_index(self, sample_epochs, sample_states):
         """Test epoch_at_index method."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         for epoch, state in zip(sample_epochs, sample_states):
             trajectory.add_state(epoch, state)
@@ -264,7 +264,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_start_end_epoch(self, sample_epochs, sample_states):
         """Test start_epoch and end_epoch properties."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Test empty trajectory
         assert trajectory.start_epoch is None
@@ -285,7 +285,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_clear(self, sample_epochs, sample_states):
         """Test clear method."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Add states
         for epoch, state in zip(sample_epochs, sample_states):
@@ -303,7 +303,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_eviction_policies(self):
         """Test trajectory eviction policies."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Test max size policy
         trajectory.set_max_size(2)
@@ -327,7 +327,7 @@ class TestTrajectoryAdditionalMethods:
         assert len(trajectory) == 2
 
         # Test max age policy (1 hour = 3600 seconds)
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         trajectory.set_max_age(3600.0)
 
         # Add states with larger time gaps
@@ -339,7 +339,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_time_span(self, sample_epochs, sample_states):
         """Test time_span property."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Test empty trajectory
         assert trajectory.time_span is None
@@ -357,7 +357,7 @@ class TestTrajectoryAdditionalMethods:
     def test_trajectory_validation_errors(self):
         """Test trajectory validation error conditions."""
         # Test adding state to empty trajectory and accessing invalid indices
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Test invalid index access
         with pytest.raises(RuntimeError):
@@ -368,7 +368,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_state_at_epoch_errors(self):
         """Test state_at_epoch error conditions."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
 
         # Empty trajectory
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
@@ -377,7 +377,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_iterator(self):
         """Test trajectory iteration functionality."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         epochs = [
             brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC"),
             brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
@@ -398,7 +398,7 @@ class TestTrajectoryAdditionalMethods:
 
     def test_trajectory_remove_state_methods(self):
         """Test state removal functionality."""
-        trajectory = brahe.Trajectory()
+        trajectory = brahe.DTrajectory()
         epochs = [
             brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC"),
             brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
@@ -424,7 +424,7 @@ class TestTrajectoryAdditionalMethods:
     def test_trajectory_edge_cases(self):
         """Test trajectory edge cases."""
         # Test single state trajectory timespan
-        single_trajectory = brahe.Trajectory()
+        single_trajectory = brahe.DTrajectory()
         epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
         state = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
         single_trajectory.add_state(epoch, state)
@@ -434,7 +434,7 @@ class TestTrajectoryAdditionalMethods:
         assert time_span is None or time_span == 0.0
 
         # Test empty trajectory timespan
-        empty_trajectory = brahe.Trajectory()
+        empty_trajectory = brahe.DTrajectory()
         assert empty_trajectory.time_span is None
 
 
@@ -446,7 +446,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory with states at t0, t0+60s, t0+120s
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states with distinguishable values
         traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
@@ -483,7 +483,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory with states at t0, t0+60s, t0+120s
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states with distinguishable values
         traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
@@ -524,7 +524,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory with distinguishable states
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states with distinguishable values
         state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
@@ -566,7 +566,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory with distinguishable states
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states with distinguishable values
         state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
@@ -605,7 +605,7 @@ class TestTrajectoryNewMethods:
 
     def test_trajectory_get_interpolation_method(self):
         """Test get_interpolation_method property."""
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Verify default is Linear
         assert traj.interpolation_method == brahe.InterpolationMethod.linear
@@ -623,7 +623,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory with simple values for easy verification
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states with linearly varying position for simple interpolation verification
         # At t0: x=7000km, At t0+60s: x=7060km, At t0+120s: x=7120km (1 km/s change)
@@ -660,7 +660,7 @@ class TestTrajectoryNewMethods:
         # Create trajectory
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
 
-        traj = brahe.Trajectory()
+        traj = brahe.DTrajectory()
 
         # Add states
         traj.add_state(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))

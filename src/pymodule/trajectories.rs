@@ -24,8 +24,10 @@ impl PyOrbitFrame {
 
     /// Get frame name
     fn name(&self) -> &str {
-        use crate::trajectories::ReferenceFrame;
-        self.frame.name()
+        match self.frame {
+            trajectories::OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
+            trajectories::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
+        }
     }
 
     fn __str__(&self) -> String {
@@ -87,11 +89,11 @@ impl PyOrbitRepresentation {
     }
 }
 
-/// Python wrapper for OrbitalTrajectory (unified design)
+/// Python wrapper for OrbitTrajectory (unified design)
 #[pyclass]
-#[pyo3(name = "OrbitalTrajectory")]
+#[pyo3(name = "OrbitTrajectory")]
 pub struct PyOrbitalTrajectory {
-    pub(crate) trajectory: trajectories::STrajectory6,
+    pub(crate) trajectory: trajectories::OrbitTrajectory,
 }
 
 #[pymethods]
@@ -113,7 +115,7 @@ impl PyOrbitalTrajectory {
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
-        match trajectories::STrajectory6::new_orbital_trajectory(
+        match trajectories::OrbitTrajectory::new(
             frame.frame,
             representation.representation,
             angle_format.format,
@@ -167,7 +169,7 @@ impl PyOrbitalTrajectory {
             states_vec.push(na::Vector6::from_row_slice(state_slice));
         }
 
-        match trajectories::STrajectory6::from_orbital_data(
+        match trajectories::OrbitTrajectory::from_orbital_data(
             epochs_vec,
             states_vec,
             frame.frame,
@@ -637,14 +639,72 @@ impl PyOrbitalTrajectory {
     /// Convert trajectory to matrix representation
     ///
     /// Returns:
-    ///     numpy.ndarray: Matrix with states as rows
+    ///     numpy.ndarray: Matrix with shape (6, N) where N is number of states.
+    ///                   Each column represents a state at a specific time.
     #[pyo3(text_signature = "()")]
     pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
         match self.trajectory.to_matrix() {
             Ok(states_matrix) => {
-                let data: Vec<f64> = states_matrix.iter().cloned().collect();
-                let shape = (states_matrix.nrows(), states_matrix.ncols());
-                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+                // Nalgebra uses column-major storage, but numpy expects row-major
+                // Iterate explicitly by row then column to build row-major data
+                let nrows = states_matrix.nrows();
+                let ncols = states_matrix.ncols();
+                let mut data = Vec::with_capacity(nrows * ncols);
+                for i in 0..nrows {
+                    for j in 0..ncols {
+                        data.push(states_matrix[(i, j)]);
+                    }
+                }
+                Ok(numpy::PyArray::from_vec(py, data).reshape((nrows, ncols)).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Epoch of the state to remove
+    ///
+    /// Returns:
+    ///     numpy.ndarray: The removed state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_state(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state to remove
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
+    #[pyo3(text_signature = "(index)")]
+    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove_state_at_index(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get both epoch and state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index to retrieve
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of epoch and state at the index
+    #[pyo3(text_signature = "(index)")]
+    pub fn get<'a>(&self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.get(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
             }
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -776,6 +836,36 @@ impl PyOrbitalTrajectory {
     fn __str__(&self) -> String {
         self.__repr__()
     }
+
+    /// Set maximum number of states to keep in trajectory
+    ///
+    /// Arguments:
+    ///     max_size (int): Maximum number of states to retain
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        match self.trajectory.set_eviction_policy_max_size(max_size) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Set maximum age of states to keep in trajectory
+    ///
+    /// Arguments:
+    ///     max_age (float): Maximum age in seconds relative to most recent state
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        match self.trajectory.set_eviction_policy_max_age(max_age) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
 }
 
 /// Legacy trajectory classes for backward compatibility
@@ -891,9 +981,9 @@ impl PyInterpolationMethod {
 
 /// Python wrapper for dynamic Trajectory class
 #[pyclass]
-#[pyo3(name = "Trajectory")]
+#[pyo3(name = "DTrajectory")]
 pub struct PyTrajectory {
-    pub(crate) trajectory: trajectories::DynamicTrajectory,
+    pub(crate) trajectory: trajectories::DTrajectory,
 }
 
 #[pymethods]
@@ -966,7 +1056,7 @@ impl PyTrajectory {
             method
         };
 
-        let trajectory = trajectories::DynamicTrajectory::with_interpolation(dimension, final_method);
+        let trajectory = trajectories::DTrajectory::with_interpolation(dimension, final_method);
 
         Ok(PyTrajectory { trajectory })
     }
@@ -1010,7 +1100,7 @@ impl PyTrajectory {
             ));
         }
 
-        let mut trajectory = trajectories::DynamicTrajectory::with_interpolation(dimension, method);
+        let mut trajectory = trajectories::DTrajectory::with_interpolation(dimension, method);
 
         for i in 0..num_epochs {
             let start_idx = i * dimension;
@@ -1305,9 +1395,66 @@ impl PyTrajectory {
     pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
         match self.trajectory.to_matrix() {
             Ok(states_matrix) => {
-                let data: Vec<f64> = states_matrix.iter().cloned().collect();
-                let shape = (states_matrix.nrows(), states_matrix.ncols());
-                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+                // Nalgebra uses column-major storage, but numpy expects row-major
+                // Iterate explicitly by row then column to build row-major data
+                let nrows = states_matrix.nrows();
+                let ncols = states_matrix.ncols();
+                let mut data = Vec::with_capacity(nrows * ncols);
+                for i in 0..nrows {
+                    for j in 0..ncols {
+                        data.push(states_matrix[(i, j)]);
+                    }
+                }
+                Ok(numpy::PyArray::from_vec(py, data).reshape((nrows, ncols)).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Epoch of the state to remove
+    ///
+    /// Returns:
+    ///     numpy.ndarray: The removed state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_state(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state to remove
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
+    #[pyo3(text_signature = "(index)")]
+    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove_state_at_index(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get both epoch and state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index to retrieve
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of epoch and state at the index
+    #[pyo3(text_signature = "(index)")]
+    pub fn get<'a>(&self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.get(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
             }
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1334,3 +1481,445 @@ impl PyTrajectory {
     }
 }
 
+
+/// Python wrapper for STrajectory<6> - compile-time sized 6D trajectory
+#[pyclass]
+#[pyo3(name = "STrajectory6")]
+pub struct PySTrajectory6 {
+    pub(crate) trajectory: trajectories::STrajectory6,
+}
+
+#[pymethods]
+impl PySTrajectory6 {
+    /// Create a new empty 6D static trajectory
+    ///
+    /// Returns:
+    ///     STrajectory6: New trajectory instance
+    #[new]
+    #[pyo3(signature = (interpolation_method=None))]
+    pub fn new(
+        interpolation_method: Option<PyRef<PyInterpolationMethod>>,
+    ) -> Self {
+        let method = interpolation_method
+            .map(|m| m.method)
+            .unwrap_or(trajectories::InterpolationMethod::Linear);
+
+        let trajectory = trajectories::STrajectory6::with_interpolation(method);
+
+        PySTrajectory6 { trajectory }
+    }
+
+    /// Create a trajectory from vectors of epochs and states
+    ///
+    /// Arguments:
+    ///     epochs (list[Epoch]): List of time epochs
+    ///     states (numpy.ndarray): Flattened array of 6D state vectors (Nx6 total elements)
+    ///     interpolation_method (InterpolationMethod): Interpolation method (default: Linear)
+    ///
+    /// Returns:
+    ///     STrajectory6: New trajectory instance
+    #[classmethod]
+    #[pyo3(signature = (epochs, states, interpolation_method=None))]
+    pub fn from_data(
+        _cls: &Bound<'_, PyType>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        states: PyReadonlyArray1<f64>,
+        interpolation_method: Option<PyRef<PyInterpolationMethod>>,
+    ) -> PyResult<Self> {
+        let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states_array = states.as_array();
+
+        if states_array.len() % 6 != 0 {
+            return Err(exceptions::PyValueError::new_err(
+                "States array length must be a multiple of 6"
+            ));
+        }
+
+        let num_states = states_array.len() / 6;
+        if num_states != epochs_vec.len() {
+            return Err(exceptions::PyValueError::new_err(
+                "Number of epochs must match number of states"
+            ));
+        }
+
+        let mut states_vec = Vec::new();
+        for i in 0..num_states {
+            let start_idx = i * 6;
+            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
+            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        }
+
+        let mut trajectory = trajectories::STrajectory6::from_data(epochs_vec, states_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        if let Some(method) = interpolation_method {
+            trajectory.set_interpolation_method(method.method);
+        }
+
+        Ok(PySTrajectory6 { trajectory })
+    }
+
+    /// Add a state to the trajectory
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Time of the state
+    ///     state (numpy.ndarray): 6-element state vector
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(epoch, state)")]
+    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
+        let state_array = state.as_array();
+        if state_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "State vector must have exactly 6 elements"
+            ));
+        }
+
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+
+        match self.trajectory.add_state(epoch.obj, state_vec) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get state at a specific epoch using interpolation
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the nearest state to a given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of nearest state
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn nearest_state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.nearest_state(&epoch.obj) {
+            Ok((nearest_epoch, nearest_state)) => {
+                Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_before_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_before_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_after_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_after_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_before_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_before_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_after_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_after_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Set the interpolation method for the trajectory
+    ///
+    /// Arguments:
+    ///     method (InterpolationMethod): New interpolation method
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
+        self.trajectory.set_interpolation_method(method.method);
+    }
+
+    /// Interpolate state at a given epoch using linear interpolation
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Linearly interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate_linear<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate_linear(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Interpolate state at a given epoch using the configured interpolation method
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at index
+    #[pyo3(text_signature = "(index)")]
+    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.state_at_index(index) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get epoch at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the epoch
+    ///
+    /// Returns:
+    ///     Epoch: Epoch at index
+    #[pyo3(text_signature = "(index)")]
+    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
+        match self.trajectory.epoch_at_index(index) {
+            Ok(epoch) => Ok(PyEpoch { obj: epoch }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the number of states in the trajectory
+    #[getter]
+    pub fn length(&self) -> usize {
+        self.trajectory.len()
+    }
+
+    /// Get interpolation method
+    #[getter]
+    pub fn interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.trajectory.get_interpolation_method() }
+    }
+
+    /// Set maximum trajectory size
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        match self.trajectory.set_eviction_policy_max_size(max_size) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Set maximum age for trajectory states (in seconds)
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        match self.trajectory.set_eviction_policy_max_age(max_age) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get start epoch of trajectory
+    #[getter]
+    pub fn start_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.start_epoch().map(|epoch| PyEpoch { obj: epoch })
+    }
+
+    /// Get end epoch of trajectory
+    #[getter]
+    pub fn end_epoch(&self) -> Option<PyEpoch> {
+        self.trajectory.end_epoch().map(|epoch| PyEpoch { obj: epoch })
+    }
+
+    /// Get time span of trajectory in seconds
+    #[getter]
+    pub fn time_span(&self) -> Option<f64> {
+        self.trajectory.timespan()
+    }
+
+    /// Clear all states from the trajectory
+    #[pyo3(text_signature = "()")]
+    pub fn clear(&mut self) {
+        self.trajectory.clear();
+    }
+
+    /// Get the first (epoch, state) tuple in the trajectory, if any exists
+    ///
+    /// Returns:
+    ///     tuple or None: (Epoch, numpy.ndarray) of first state, or None if empty
+    #[pyo3(text_signature = "()")]
+    pub fn first<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        self.trajectory.first().map(|(epoch, state)| {
+            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
+        })
+    }
+
+    /// Get the last (epoch, state) tuple in the trajectory, if any exists
+    ///
+    /// Returns:
+    ///     tuple or None: (Epoch, numpy.ndarray) of last state, or None if empty
+    #[pyo3(text_signature = "()")]
+    pub fn last<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        self.trajectory.last().map(|(epoch, state)| {
+            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
+        })
+    }
+
+    /// Get all states as a numpy array
+    #[pyo3(text_signature = "()")]
+    pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
+        match self.trajectory.to_matrix() {
+            Ok(states_matrix) => {
+                // Nalgebra uses column-major storage, but numpy expects row-major
+                // Iterate explicitly by row then column to build row-major data
+                let nrows = states_matrix.nrows();
+                let ncols = states_matrix.ncols();
+                let mut data = Vec::with_capacity(nrows * ncols);
+                for i in 0..nrows {
+                    for j in 0..ncols {
+                        data.push(states_matrix[(i, j)]);
+                    }
+                }
+                Ok(numpy::PyArray::from_vec(py, data).reshape((nrows, ncols)).unwrap().to_owned())
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Epoch of the state to remove
+    ///
+    /// Returns:
+    ///     numpy.ndarray: The removed state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_state(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Remove a state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state to remove
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
+    #[pyo3(text_signature = "(index)")]
+    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove_state_at_index(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get both epoch and state at a specific index
+    ///
+    /// Arguments:
+    ///     index (int): Index to retrieve
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of epoch and state at the index
+    #[pyo3(text_signature = "(index)")]
+    pub fn get<'a>(&self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.get(index) {
+            Ok((epoch, state)) => {
+                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Check if trajectory is empty
+    #[pyo3(text_signature = "()")]
+    pub fn is_empty(&self) -> bool {
+        self.trajectory.is_empty()
+    }
+
+    /// Python length
+    fn __len__(&self) -> usize {
+        self.trajectory.len()
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!(
+            "STrajectory6(interpolation_method={:?}, states={})",
+            self.trajectory.get_interpolation_method(),
+            self.trajectory.len()
+        )
+    }
+
+    /// String conversion
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}

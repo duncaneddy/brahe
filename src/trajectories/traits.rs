@@ -375,12 +375,12 @@ pub trait Interpolatable: Trajectory {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
+/// use brahe::trajectories::{OrbitTrajectory, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
 /// // Create orbital trajectory in ECI Cartesian coordinates
-/// let mut traj = STrajectory6::new_orbital_trajectory(
+/// let mut traj = OrbitTrajectory::new(
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     AngleFormat::None,
@@ -407,21 +407,21 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Note
     /// If the trajectory is in Keplerian representation, it will first be converted to
     /// Cartesian for the frame transformation, then converted back to Keplerian.
-    fn to_frame(&self, target_frame: super::strajectory::OrbitFrame) -> Result<Self, BraheError>
+    fn to_frame(&self, target_frame: super::orbit_trajectory::OrbitFrame) -> Result<Self, BraheError>
     where Self: Sized;
 
     /// Convert to Earth-Centered Inertial (ECI) frame.
     ///
     /// Convenience method equivalent to `to_frame(OrbitFrame::ECI)`.
     fn to_eci(&self) -> Result<Self, BraheError> where Self: Sized {
-        self.to_frame(super::strajectory::OrbitFrame::ECI)
+        self.to_frame(super::orbit_trajectory::OrbitFrame::ECI)
     }
 
     /// Convert to Earth-Centered Earth-Fixed (ECEF) frame.
     ///
     /// Convenience method equivalent to `to_frame(OrbitFrame::ECEF)`.
     fn to_ecef(&self) -> Result<Self, BraheError> where Self: Sized {
-        self.to_frame(super::strajectory::OrbitFrame::ECEF)
+        self.to_frame(super::orbit_trajectory::OrbitFrame::ECEF)
     }
 
     /// Convert the trajectory to a different state representation.
@@ -433,15 +433,15 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in target representation
     /// * `Err(BraheError)` - If conversion fails or parameters are invalid
-    fn to_representation(&self, target_representation: super::strajectory::OrbitRepresentation,
-                        target_angle_format: super::strajectory::AngleFormat) -> Result<Self, BraheError>
+    fn to_representation(&self, target_representation: super::orbit_trajectory::OrbitRepresentation,
+                        target_angle_format: super::orbit_trajectory::AngleFormat) -> Result<Self, BraheError>
     where Self: Sized;
 
     /// Convert to Cartesian representation.
     ///
     /// Convenience method equivalent to `to_representation(OrbitRepresentation::Cartesian, AngleFormat::None)`.
     fn to_cartesian(&self) -> Result<Self, BraheError> where Self: Sized {
-        self.to_representation(super::strajectory::OrbitRepresentation::Cartesian, super::strajectory::AngleFormat::None)
+        self.to_representation(super::orbit_trajectory::OrbitRepresentation::Cartesian, super::orbit_trajectory::AngleFormat::None)
     }
 
     /// Convert to Keplerian elements with specified angle format.
@@ -452,13 +452,13 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in Keplerian representation
     /// * `Err(BraheError)` - If angle_format is None or conversion fails
-    fn to_keplerian(&self, angle_format: super::strajectory::AngleFormat) -> Result<Self, BraheError> where Self: Sized {
-        if angle_format == super::strajectory::AngleFormat::None {
+    fn to_keplerian(&self, angle_format: super::orbit_trajectory::AngleFormat) -> Result<Self, BraheError> where Self: Sized {
+        if angle_format == super::orbit_trajectory::AngleFormat::None {
             return Err(BraheError::Error(
                 "Angle format must be specified when converting to Keplerian elements".to_string(),
             ));
         }
-        self.to_representation(super::strajectory::OrbitRepresentation::Keplerian, angle_format)
+        self.to_representation(super::orbit_trajectory::OrbitRepresentation::Keplerian, angle_format)
     }
 
     /// Convert the trajectory to a different angle format (only for Keplerian).
@@ -469,21 +469,21 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory with converted angles
     /// * `Err(BraheError)` - If trajectory is not Keplerian or format is invalid
-    fn to_angle_format(&self, target_format: super::strajectory::AngleFormat) -> Result<Self, BraheError>
+    fn to_angle_format(&self, target_format: super::orbit_trajectory::AngleFormat) -> Result<Self, BraheError>
     where Self: Sized;
 
     /// Convert to degrees representation (only for Keplerian).
     ///
     /// Convenience method equivalent to `to_angle_format(AngleFormat::Degrees)`.
     fn to_degrees(&self) -> Result<Self, BraheError> where Self: Sized {
-        self.to_angle_format(super::strajectory::AngleFormat::Degrees)
+        self.to_angle_format(super::orbit_trajectory::AngleFormat::Degrees)
     }
 
     /// Convert to radians representation (only for Keplerian).
     ///
     /// Convenience method equivalent to `to_angle_format(AngleFormat::Radians)`.
     fn to_radians(&self) -> Result<Self, BraheError> where Self: Sized {
-        self.to_angle_format(super::strajectory::AngleFormat::Radians)
+        self.to_angle_format(super::orbit_trajectory::AngleFormat::Radians)
     }
 
     /// Get position component of the state at a specific epoch (Cartesian only).
@@ -510,19 +510,19 @@ pub trait OrbitalTrajectory: Interpolatable {
     ///
     /// # Returns
     /// Current reference frame (ECI or ECEF)
-    fn orbital_frame(&self) -> super::strajectory::OrbitFrame;
+    fn orbital_frame(&self) -> super::orbit_trajectory::OrbitFrame;
 
     /// Get the current orbital state representation.
     ///
     /// # Returns
     /// Current representation (Cartesian or Keplerian)
-    fn orbital_representation(&self) -> super::strajectory::OrbitRepresentation;
+    fn orbital_representation(&self) -> super::orbit_trajectory::OrbitRepresentation;
 
     /// Get the current angle format.
     ///
     /// # Returns
     /// Current angle format (Radians, Degrees, or None for Cartesian)
-    fn angle_format(&self) -> super::strajectory::AngleFormat;
+    fn angle_format(&self) -> super::orbit_trajectory::AngleFormat;
 
     /// Convert trajectory to different frame, representation, and angle format in one operation.
     ///
@@ -539,9 +539,9 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// * `Err(BraheError)` - If any conversion fails or parameters are invalid
     fn convert_to(
         &self,
-        target_frame: super::strajectory::OrbitFrame,
-        target_representation: super::strajectory::OrbitRepresentation,
-        target_angle_format: super::strajectory::AngleFormat,
+        target_frame: super::orbit_trajectory::OrbitFrame,
+        target_representation: super::orbit_trajectory::OrbitRepresentation,
+        target_angle_format: super::orbit_trajectory::AngleFormat,
     ) -> Result<Self, BraheError>
     where Self: Sized;
 }

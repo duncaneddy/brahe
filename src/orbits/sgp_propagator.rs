@@ -37,7 +37,7 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, InterpolationMethod, STrajectory6};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, InterpolationMethod, STrajectory6, Trajectory};
 use crate::utils::BraheError;
 
 
@@ -180,13 +180,14 @@ impl SGPPropagator {
         let prediction = constants.propagate(sgp4::MinutesSinceEpoch(0.0))
             .map_err(|e| BraheError::Error(format!("SGP4 propagation error: {:?}", e)))?;
 
+        // Convert from km to m and km/s to m/s
         let initial_state = Vector6::new(
-            prediction.position[0],
-            prediction.position[1],
-            prediction.position[2],
-            prediction.velocity[0],
-            prediction.velocity[1],
-            prediction.velocity[2],
+            prediction.position[0] * 1000.0,
+            prediction.position[1] * 1000.0,
+            prediction.position[2] * 1000.0,
+            prediction.velocity[0] * 1000.0,
+            prediction.velocity[1] * 1000.0,
+            prediction.velocity[2] * 1000.0,
         );
 
         // Create trajectory with initial state
@@ -260,7 +261,7 @@ impl OrbitPropagator for SGPPropagator {
 
     fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let current_epoch = self.current_epoch();
-        let target_epoch = current_epoch + step_size / 86400.0; // Convert seconds to days
+        let target_epoch = current_epoch + step_size; // step_size is in seconds
         self.propagate_to(target_epoch)
     }
 
@@ -372,13 +373,14 @@ impl AnalyticPropagator for SGPPropagator {
                 }
             });
 
+        // Convert from km to m and km/s to m/s
         Vector6::new(
-            prediction.position[0],
-            prediction.position[1],
-            prediction.position[2],
-            prediction.velocity[0],
-            prediction.velocity[1],
-            prediction.velocity[2],
+            prediction.position[0] * 1000.0,
+            prediction.position[1] * 1000.0,
+            prediction.position[2] * 1000.0,
+            prediction.velocity[0] * 1000.0,
+            prediction.velocity[1] * 1000.0,
+            prediction.velocity[2] * 1000.0,
         )
     }
 
@@ -460,17 +462,362 @@ impl AnalyticPropagator for SGPPropagator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time::{Epoch, TimeSystem};
+    use crate::trajectories::OrbitalTrajectory;
+    use crate::utils::testing::setup_global_test_eop;
+    use approx::assert_abs_diff_eq;
+
+    // Test TLE data
+    const ISS_LINE1: &str = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    const ISS_LINE2: &str = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+
+    // SGPPropagator Method Tests
 
     #[test]
-    fn test_sgp_propagator_creation() {
-        // Use a real ISS TLE that should work with SGP4
-        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
-        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
-
-        let propagator = SGPPropagator::from_tle(line1, line2, 60.0);
-        if let Err(ref err) = propagator {
-            println!("Error creating propagator: {:?}", err);
-        }
+    fn test_sgppropagator_from_tle() {
+        let propagator = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0);
         assert!(propagator.is_ok());
+
+        let prop = propagator.unwrap();
+        assert_eq!(prop.step_size, 60.0);
+        assert_eq!(prop.line1, ISS_LINE1);
+        assert_eq!(prop.line2, ISS_LINE2);
+    }
+
+    #[test]
+    fn test_sgppropagator_from_3le() {
+        let name = "ISS (ZARYA)";
+        let propagator = SGPPropagator::from_3le(Some(name), ISS_LINE1, ISS_LINE2, 60.0);
+        assert!(propagator.is_ok());
+
+        let prop = propagator.unwrap();
+        assert_eq!(prop.satellite_name, Some(name.to_string()));
+    }
+
+    #[test]
+    fn test_sgppropagator_set_output_cartesian() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_output_keplerian();
+        assert_eq!(prop.output_representation, OrbitRepresentation::Keplerian);
+
+        prop.set_output_cartesian();
+        assert_eq!(prop.output_representation, OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_sgppropagator_set_output_keplerian() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        assert_eq!(prop.output_representation, OrbitRepresentation::Cartesian);
+
+        prop.set_output_keplerian();
+        assert_eq!(prop.output_representation, OrbitRepresentation::Keplerian);
+    }
+
+    #[test]
+    fn test_sgppropagator_set_output_frame() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        assert_eq!(prop.output_frame, OrbitFrame::ECI);
+
+        prop.set_output_frame(OrbitFrame::ECEF);
+        assert_eq!(prop.output_frame, OrbitFrame::ECEF);
+    }
+
+    #[test]
+    fn test_sgppropagator_set_output_angle_format() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        assert_eq!(prop.output_angle_format, AngleFormat::None);
+
+        prop.set_output_angle_format(AngleFormat::Degrees);
+        assert_eq!(prop.output_angle_format, AngleFormat::Degrees);
+    }
+
+    // OrbitPropagator Trait Tests
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_step() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.current_epoch();
+
+        prop.step().unwrap();
+        let new_epoch = prop.current_epoch();
+
+        assert_abs_diff_eq!(new_epoch - initial_epoch, 60.0, epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_step_by() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.current_epoch();
+
+        prop.step_by(120.0).unwrap();
+        let new_epoch = prop.current_epoch();
+
+        assert_abs_diff_eq!(new_epoch - initial_epoch, 120.0, epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_propagate_steps() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.current_epoch();
+
+        prop.propagate_steps(5).unwrap();
+        let new_epoch = prop.current_epoch();
+
+        assert_abs_diff_eq!(new_epoch - initial_epoch, 300.0, epsilon = 0.1);
+        assert_eq!(prop.trajectory().len(), 6); // Initial + 5 steps
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_propagate_to() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+        let target_epoch = initial_epoch + 86400.0; // 1 day forward (in seconds)
+
+        prop.propagate_to(target_epoch).unwrap();
+        let current_epoch = prop.current_epoch();
+
+        assert_abs_diff_eq!(current_epoch.jd(), target_epoch.jd(), epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_current_state() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let state = prop.current_state();
+
+        // State should be non-zero for valid TLE
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_current_epoch() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.current_epoch();
+
+        // Epoch should match TLE epoch
+        assert_eq!(epoch, prop.initial_epoch());
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_initial_state() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let state = prop.initial_state();
+
+        // State should be non-zero
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_initial_epoch() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // Should be around 2008-09-20 based on TLE epoch
+        assert!(epoch.jd() > 2454700.0 && epoch.jd() < 2454800.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_step_size() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        assert_eq!(prop.step_size(), 60.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_set_step_size() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_step_size(120.0);
+        assert_eq!(prop.step_size(), 120.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_reset() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        // Propagate forward
+        prop.propagate_steps(5).unwrap();
+        assert_eq!(prop.trajectory().len(), 6);
+
+        // Reset
+        prop.reset().unwrap();
+        assert_eq!(prop.trajectory().len(), 1);
+        assert_eq!(prop.current_epoch(), prop.initial_epoch());
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_set_initial_conditions() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        // Should return error - SGP propagator doesn't allow changing initial conditions
+        let result = prop.set_initial_conditions(
+            epoch,
+            state,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_trajectory() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let traj = prop.trajectory();
+
+        assert_eq!(traj.len(), 1); // Should have initial state
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_trajectory_mut() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let traj = prop.trajectory_mut();
+
+        assert_eq!(traj.len(), 1);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_set_eviction_policy_max_size() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        prop.set_eviction_policy_max_size(5).unwrap();
+
+        // Propagate 10 steps
+        prop.propagate_steps(10).unwrap();
+
+        // Should only keep 5 states
+        assert_eq!(prop.trajectory().len(), 5);
+    }
+
+    #[test]
+    fn test_sgppropagator_orbitpropagator_set_eviction_policy_max_age() {
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        // Set eviction policy - should succeed
+        let result = prop.set_eviction_policy_max_age(120.0);
+        assert!(result.is_ok());
+
+        // Propagate several steps
+        prop.propagate_steps(10).unwrap();
+
+        // Verify trajectory has states (eviction policy is applied)
+        assert!(prop.trajectory().len() > 0);
+    }
+
+    // AnalyticPropagator Trait Tests
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_state() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch() + 0.01; // 0.01 days forward
+
+        let state = prop.state(epoch);
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_state_eci() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let state = prop.state_eci(epoch);
+
+        // Should be close to initial state
+        assert_abs_diff_eq!(state[0], prop.initial_state()[0], epsilon = 100.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_state_ecef() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let state = prop.state_ecef(epoch);
+
+        // ECEF state should be different from ECI due to frame rotation
+        let eci_state = prop.state_eci(epoch);
+        assert!((state - eci_state).norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_state_osculating_elements() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let elements = prop.state_osculating_elements(epoch);
+
+        // Verify we got keplerian elements (all finite)
+        assert!(elements.iter().all(|&x| x.is_finite()));
+
+        // Semi-major axis should be positive
+        assert!(elements[0] > 0.0);
+
+        // Eccentricity should be non-negative
+        assert!(elements[1] >= 0.0);
+
+        // Inclination should be around 51.6 degrees (in radians)
+        assert_abs_diff_eq!(elements[2], 51.6_f64.to_radians(), epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_states() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let epochs = vec![
+            initial_epoch,
+            initial_epoch + 0.01,
+            initial_epoch + 0.02,
+        ];
+
+        let traj = prop.states(&epochs);
+        assert_eq!(traj.len(), 3);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_states_eci() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let epochs = vec![
+            initial_epoch,
+            initial_epoch + 0.01,
+        ];
+
+        let traj = prop.states_eci(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_states_ecef() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let epochs = vec![
+            initial_epoch,
+            initial_epoch + 0.01,
+        ];
+
+        let traj = prop.states_ecef(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECEF);
+    }
+
+    #[test]
+    fn test_sgppropagator_analyticpropagator_states_osculating_elements() {
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let epochs = vec![
+            initial_epoch,
+            initial_epoch + 0.01,
+        ];
+
+        let traj = prop.states_osculating_elements(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Keplerian);
+        assert_eq!(traj.angle_format(), AngleFormat::Radians);
     }
 }

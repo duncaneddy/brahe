@@ -7,6 +7,51 @@
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use serde::{Deserialize, Serialize};
+
+/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
+///
+/// Different methods provide varying trade-offs between computational cost and accuracy.
+/// For most applications, linear interpolation provides sufficient accuracy with minimal
+/// computational overhead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InterpolationMethod {
+    /// Linear interpolation between adjacent states.
+    /// Good balance of speed and accuracy for smooth trajectories.
+    Linear,
+    /// Cubic spline interpolation using natural boundary conditions.
+    /// Higher accuracy for smooth trajectories but requires more computation.
+    CubicSpline,
+    /// Lagrange polynomial interpolation using nearby points.
+    /// High accuracy but can exhibit oscillatory behavior with noisy data.
+    Lagrange,
+    /// Hermite interpolation preserving first derivatives.
+    /// Excellent for smooth trajectories with known velocity information.
+    Hermite,
+}
+
+impl Default for InterpolationMethod {
+    fn default() -> Self {
+        InterpolationMethod::Linear
+    }
+}
+
+/// Enumeration of trajectory eviction policies for memory management
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TrajectoryEvictionPolicy {
+    /// No eviction - trajectory grows unbounded
+    None,
+    /// Keep most recent states, evict oldest when limit reached
+    KeepCount,
+    /// Keep states within a time duration from current epoch
+    KeepWithinDuration,
+}
+
+impl Default for TrajectoryEvictionPolicy {
+    fn default() -> Self {
+        TrajectoryEvictionPolicy::None
+    }
+}
 
 /// Core trajectory functionality that all trajectory implementations must provide.
 ///
@@ -20,9 +65,6 @@ use crate::utils::BraheError;
 pub trait Trajectory {
     /// The type used to represent state vectors
     type StateVector;
-
-    /// Create a new empty trajectory with default settings
-    fn new() -> Self;
 
     /// Add a state vector at a specific epoch
     ///
@@ -154,7 +196,7 @@ pub trait Trajectory {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
+/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod, Trajectory};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///

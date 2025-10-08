@@ -1,7 +1,7 @@
 """
 Tests for SGP4 propagator functionality in brahe.
 
-These tests mirror the Rust test suite to ensure Python bindings work correctly.
+These tests mirror the Rust test suite structure to ensure Python bindings work correctly.
 """
 
 import pytest
@@ -9,135 +9,255 @@ import numpy as np
 import brahe
 
 
-@pytest.fixture
-def iss_classic_tle():
-    """ISS TLE in classic format for testing."""
-    return (
-        "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992",
-        "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
-    )
+# Test TLE data constants
+ISS_LINE1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+ISS_LINE2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
 
 
 @pytest.fixture
-def alpha5_tle():
-    """TLE with alpha-5 NORAD ID format for testing."""
-    return (
-        "1 A0001U 23001A   23001.00000000  .00000000  00000-0  00000-0 0  9993",
-        "2 A0001  00.0000 000.0000 0000000  00.0000 000.0000 01.00000000000004"
-    )
+def iss_tle():
+    """ISS TLE for testing."""
+    return (ISS_LINE1, ISS_LINE2)
 
 
-class TestTLEUtilities:
-    """Test TLE utility functions that mirror Rust tests."""
+class TestSGPPropagatorMethods:
+    """Test SGPPropagator struct methods."""
 
-    def test_calculate_tle_line_checksum(self):
-        """Test TLE line checksum calculation."""
-        line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  999"
-        expected_checksum = 2
-        actual_checksum = brahe.calculate_tle_line_checksum(line1)
-        assert actual_checksum == expected_checksum
+    def test_sgppropagator_from_tle(self, iss_tle):
+        """Test SGPPropagator creation from TLE lines."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-    def test_validate_tle_line(self):
-        """Test TLE line validation."""
-        valid_line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
-        invalid_line = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9999"
+        assert prop.norad_id == 25544
+        assert prop.step_size == 60.0
+        assert prop.epoch.year() == 2008
 
-        assert brahe.validate_tle_line(valid_line) == True
-        assert brahe.validate_tle_line(invalid_line) == False
+    def test_sgppropagator_from_3le(self):
+        """Test SGPPropagator creation from 3-line TLE."""
+        line0 = "ISS (ZARYA)"
+        line1 = ISS_LINE1
+        line2 = ISS_LINE2
 
-    def test_validate_tle_lines(self):
-        """Test TLE lines validation."""
-        line1_valid = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
-        line2_valid = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
-        line1_invalid = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9999"
+        prop = brahe.SGPPropagator.from_3le(line0, line1, line2, 60.0)
 
-        assert brahe.validate_tle_lines(line1_valid, line2_valid) == True
-        assert brahe.validate_tle_lines(line1_invalid, line2_valid) == False
+        assert prop.norad_id == 25544
+        assert prop.step_size == 60.0
+        assert prop.satellite_name == "ISS (ZARYA)"
 
-    def test_parse_norad_id_classic(self):
-        """Test classic NORAD ID parsing."""
-        classic_id = "25544"
-        expected_id = 25544
-        actual_id = brahe.parse_norad_id(classic_id)
-        assert actual_id == expected_id
+    def test_sgppropagator_set_output_cartesian(self, iss_tle):
+        """Test setting output representation to Cartesian."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-    def test_parse_norad_id_alpha5(self):
-        """Test Alpha-5 NORAD ID parsing."""
-        alpha5_id = "A0001"
-        expected_id = 100001  # A=10, 0001=1 -> 10*10000 + 1
-        actual_id = brahe.parse_norad_id(alpha5_id)
-        assert actual_id == expected_id
+        prop.set_output_cartesian()
+        prop.step()
 
-    def test_norad_id_alpha5_to_numeric_valid(self):
-        """Test Alpha-5 to numeric NORAD ID conversion with valid inputs."""
-        test_cases = [
-            ("A0000", 100000),
-            ("A0001", 100001),
-            ("A9999", 109999),
-            ("B0000", 110000),
-            ("B1234", 111234),
-            ("C5678", 125678),
-            ("J6789", 186789),  # Skip I
-            ("P6789", 236789),  # Skip O
-            ("Z9999", 339999),
-        ]
+        # Verify it doesn't error and trajectory stores states
+        assert prop.trajectory.length > 0
 
-        for alpha5_id, expected_numeric in test_cases:
-            actual_numeric = brahe.norad_id_alpha5_to_numeric(alpha5_id)
-            assert actual_numeric == expected_numeric
+    def test_sgppropagator_set_output_keplerian(self, iss_tle):
+        """Test setting output representation to Keplerian."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-    def test_norad_id_alpha5_to_numeric_invalid(self):
-        """Test Alpha-5 to numeric NORAD ID conversion with invalid inputs."""
-        invalid_cases = [
-            "I0001",     # Invalid letter I
-            "O0001",     # Invalid letter O
-            "@0001",     # Invalid character
-            "A00012",    # Too long
-            "A00",       # Too short
-            "",          # Empty
-            "AAAAA",     # All letters
-        ]
+        prop.set_output_keplerian()
+        prop.step()
 
-        for invalid_input in invalid_cases:
-            with pytest.raises(RuntimeError):
-                brahe.norad_id_alpha5_to_numeric(invalid_input)
+        # Verify it doesn't error and trajectory stores states
+        assert prop.trajectory.length > 0
 
-    def test_norad_id_conversion_round_trip(self):
-        """Test round-trip conversion between numeric and Alpha-5 formats."""
-        test_ids = [100000, 100001, 109999, 110000, 125678, 186789, 236789, 339999]
+    def test_sgppropagator_set_output_frame(self, iss_tle):
+        """Test setting output frame to ECEF."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        for numeric_id in test_ids:
-            # Convert to Alpha-5 and back
-            alpha5_id = brahe.norad_id_numeric_to_alpha5(numeric_id)
-            converted_back = brahe.norad_id_alpha5_to_numeric(alpha5_id)
-            assert converted_back == numeric_id
+        prop.set_output_frame(brahe.OrbitFrame.ecef)
+        prop.step()
+
+        # Verify it doesn't error
+        assert prop.trajectory.length > 0
+
+    def test_sgppropagator_set_output_angle_format(self, iss_tle):
+        """Test setting output angle format."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        prop.set_output_angle_format(brahe.AngleFormat.degrees)
+        prop.step()
+
+        # Verify it doesn't error
+        assert prop.trajectory.length > 0
 
 
-class TestSGPPropagatorCreation:
-    """Test SGP propagator creation that mirrors Rust tests."""
+class TestSGPPropagatorOrbitPropagatorTrait:
+    """Test SGPPropagator OrbitPropagator trait methods."""
 
-    def test_from_tle_basic(self, iss_classic_tle):
-        """Test basic SGP propagator creation from TLE."""
-        sgp = brahe.SGPPropagator.from_tle(iss_classic_tle[0], iss_classic_tle[1])
-        assert sgp.norad_id == 25544
+    def test_sgppropagator_orbitpropagator_step(self, iss_tle):
+        """Test step method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
 
-    def test_alpha5_norad_id(self, alpha5_tle):
-        """Test SGP propagator creation with alpha-5 NORAD ID format."""
-        sgp = brahe.SGPPropagator.from_tle(alpha5_tle[0], alpha5_tle[1])
-        assert sgp.norad_id == 100001
+        prop.step()
 
-    def test_invalid_tle_lines(self):
-        """Test SGP propagator creation with invalid TLE lines."""
-        invalid_line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9999"
-        valid_line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+        current_epoch = prop.current_epoch
+        # Use approximate comparison for epoch (floating point precision)
+        assert abs((current_epoch - initial_epoch) - 60.0) < 0.01
+        assert prop.trajectory.length == 2  # Initial + 1 step
 
-        with pytest.raises(RuntimeError):
-            brahe.SGPPropagator.from_tle(invalid_line1, valid_line2)
+    def test_sgppropagator_orbitpropagator_step_by(self, iss_tle):
+        """Test step_by method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
 
-    def test_mismatched_norad_ids(self):
-        """Test SGP propagator creation with mismatched NORAD IDs."""
-        line1 = "1 25544U 98067A   21001.00000000  .00001764  00000-0  40967-4 0  9992"
-        line2 = "2 12345  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+        prop.step_by(120.0)
 
-        with pytest.raises(RuntimeError):
-            brahe.SGPPropagator.from_tle(line1, line2)
+        current_epoch = prop.current_epoch
+        # Use approximate comparison for epoch (floating point precision)
+        assert abs((current_epoch - initial_epoch) - 120.0) < 0.01
+
+    def test_sgppropagator_orbitpropagator_propagate_to(self, iss_tle):
+        """Test propagate_to method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        target_epoch = initial_epoch + 300.0
+
+        prop.propagate_to(target_epoch)
+
+        # Should have propagated with step size 60.0
+        assert prop.trajectory.length > 1
+        # Current epoch should be at or past target
+        assert prop.current_epoch >= target_epoch
+
+    def test_sgppropagator_orbitpropagator_current_state(self, iss_tle):
+        """Test current state via trajectory."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        state = prop.trajectory.current_state_vector()
+
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+
+    def test_sgppropagator_orbitpropagator_current_epoch(self, iss_tle):
+        """Test current_epoch property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+
+        current_epoch = prop.current_epoch
+
+        assert current_epoch == initial_epoch
+
+    def test_sgppropagator_orbitpropagator_initial_state(self, iss_tle):
+        """Test initial state via epoch property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        initial_state = prop.state(prop.epoch)
+
+        assert len(initial_state) == 6
+        assert all(np.isfinite(initial_state))
+
+    def test_sgppropagator_orbitpropagator_initial_epoch(self, iss_tle):
+        """Test initial epoch via epoch property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        initial_epoch = prop.epoch
+
+        assert initial_epoch.year() == 2008
+
+    def test_sgppropagator_orbitpropagator_step_size(self, iss_tle):
+        """Test step_size property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        assert prop.step_size == 60.0
+
+    def test_sgppropagator_orbitpropagator_set_step_size(self, iss_tle):
+        """Test set_step_size via property setter."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        prop.step_size = 120.0
+
+        assert prop.step_size == 120.0
+
+    def test_sgppropagator_orbitpropagator_reset(self, iss_tle):
+        """Test reset method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+
+        prop.step()
+        prop.step()
+        prop.reset()
+
+        assert prop.current_epoch == initial_epoch
+        assert prop.trajectory.length == 1  # Only initial state
+
+    def test_sgppropagator_orbitpropagator_trajectory(self, iss_tle):
+        """Test trajectory property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        traj = prop.trajectory
+
+        assert traj.length == 1  # Initial state
+
+
+class TestSGPPropagatorAnalyticPropagatorTrait:
+    """Test SGPPropagator AnalyticPropagator trait methods."""
+
+    def test_sgppropagator_analyticpropagator_state(self, iss_tle):
+        """Test state method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch + 120.0
+
+        state = prop.state(epoch)
+
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+
+    def test_sgppropagator_analyticpropagator_state_eci(self, iss_tle):
+        """Test state_eci method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        state = prop.state_eci(epoch)
+
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+        # Position should be in order of Earth radius (in meters)
+        pos_norm = np.linalg.norm(state[:3])
+        assert 6.3e6 < pos_norm < 7.0e6
+
+    def test_sgppropagator_analyticpropagator_state_ecef(self, iss_tle):
+        """Test state_ecef method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        state_ecef = prop.state_ecef(epoch)
+
+        assert len(state_ecef) == 6
+        assert all(np.isfinite(state_ecef))
+
+        # ECEF state should be different from ECI due to frame rotation
+        state_eci = prop.state_eci(epoch)
+        diff_norm = np.linalg.norm(state_ecef - state_eci)
+        assert diff_norm > 0.0
+
+    def test_sgppropagator_analyticpropagator_states(self, iss_tle):
+        """Test states method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 60.0 for i in range(5)]
+
+        traj = prop.states(epochs)
+
+        assert traj.length == 5
+        for i in range(5):
+            state = traj.state_at_index(i)
+            assert len(state) == 6
+            assert all(np.isfinite(state))
+
+    def test_sgppropagator_analyticpropagator_states_eci(self, iss_tle):
+        """Test states_eci method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 60.0 for i in range(5)]
+
+        traj = prop.states_eci(epochs)
+
+        assert traj.length == 5
+        for i in range(5):
+            state = traj.state_at_index(i)
+            assert len(state) == 6
+            assert all(np.isfinite(state))

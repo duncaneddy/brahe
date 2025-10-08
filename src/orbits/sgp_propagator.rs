@@ -37,7 +37,7 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, InterpolationMethod, STrajectory6, Trajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, STrajectory6, Trajectory};
 use crate::utils::BraheError;
 
 
@@ -195,7 +195,6 @@ impl SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,  // Cartesian representation should use None for angle format
-            InterpolationMethod::Linear,
         )?;
         trajectory.add_state(initial_epoch, initial_state)?;
 
@@ -406,7 +405,6 @@ impl AnalyticPropagator for SGPPropagator {
             self.output_frame,
             self.output_representation,
             self.output_angle_format,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 
@@ -422,7 +420,6 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 
@@ -438,7 +435,6 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 
@@ -454,7 +450,6 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 }

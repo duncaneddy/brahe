@@ -107,18 +107,16 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     OrbitalTrajectory: New trajectory instance
     #[new]
-    #[pyo3(text_signature = "(frame, representation, angle_format, interpolation_method)")]
+    #[pyo3(text_signature = "(frame, representation, angle_format)")]
     pub fn new(
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
-        interpolation_method: PyRef<PyInterpolationMethod>,
     ) -> PyResult<Self> {
         match trajectories::STrajectory6::new_orbital_trajectory(
             frame.frame,
             representation.representation,
             angle_format.format,
-            interpolation_method.method,
         ) {
             Ok(trajectory) => Ok(PyOrbitalTrajectory { trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
@@ -133,12 +131,11 @@ impl PyOrbitalTrajectory {
     ///     frame (OrbitFrame): Reference frame
     ///     representation (OrbitRepresentation): Orbital representation
     ///     angle_format (AngleFormat): Format for angular quantities
-    ///     interpolation_method (InterpolationMethod): Interpolation method
     ///
     /// Returns:
     ///     OrbitalTrajectory: New trajectory instance with data
     #[classmethod]
-    #[pyo3(text_signature = "(epochs, states, frame, representation, angle_format, interpolation_method)")]
+    #[pyo3(text_signature = "(epochs, states, frame, representation, angle_format)")]
     pub fn from_orbital_data(
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
@@ -146,7 +143,6 @@ impl PyOrbitalTrajectory {
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
-        interpolation_method: PyRef<PyInterpolationMethod>,
     ) -> PyResult<Self> {
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
@@ -177,7 +173,6 @@ impl PyOrbitalTrajectory {
             frame.frame,
             representation.representation,
             angle_format.format,
-            interpolation_method.method,
         ) {
             Ok(trajectory) => Ok(PyOrbitalTrajectory { trajectory }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
@@ -237,6 +232,121 @@ impl PyOrbitalTrajectory {
             Ok((nearest_epoch, nearest_state)) => {
                 Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
             }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_before_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_before_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_after_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_after_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_before_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_before_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_after_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_after_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Set the interpolation method for the trajectory
+    ///
+    /// Arguments:
+    ///     method (InterpolationMethod): New interpolation method
+    ///
+    /// Returns:
+    ///     None
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
+        self.trajectory.set_interpolation_method(method.method);
+    }
+
+    /// Get the current interpolation method
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Current interpolation method
+    #[pyo3(text_signature = "()")]
+    pub fn get_interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.trajectory.get_interpolation_method() }
+    }
+
+    /// Interpolate state at a given epoch using linear interpolation
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Linearly interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate_linear<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate_linear(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Interpolate state at a given epoch using the configured interpolation method
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -955,7 +1065,7 @@ impl PyTrajectory {
     ///     numpy.ndarray: Interpolated state vector
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.state_at_epoch(&epoch.obj) {
+        match self.trajectory.interpolate(&epoch.obj) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -974,6 +1084,100 @@ impl PyTrajectory {
             Ok((nearest_epoch, nearest_state)) => {
                 Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
             }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_before_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_before_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the index of the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn index_after_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
+        match self.trajectory.index_after_epoch(&epoch.obj) {
+            Ok(index) => Ok(index),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or before the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or before the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_before_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_before_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Get the state at or after the given epoch
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple: (Epoch, numpy.ndarray) of state at or after the target epoch
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_after_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.state_after_epoch(&epoch.obj) {
+            Ok((ret_epoch, ret_state)) => {
+                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
+            }
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Interpolate state at a given epoch using linear interpolation
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Linearly interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate_linear<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate_linear(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Interpolate state at a given epoch using the configured interpolation method
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Interpolated state vector
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn interpolate<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.interpolate(&epoch.obj) {
+            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }

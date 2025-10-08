@@ -1008,7 +1008,7 @@ class TestOrbitTrajectoryIndex:
     """Tests for Index trait implementation on OrbitTrajectory."""
 
     def test_orbittrajectory_index(self):
-        """Test indexing into trajectory."""
+        """Test positive indexing into trajectory."""
         epochs = [
             brahe.Epoch.from_jd(2451545.0, "UTC"),
             brahe.Epoch.from_jd(2451545.1, "UTC"),
@@ -1036,6 +1036,32 @@ class TestOrbitTrajectoryIndex:
         state2 = traj[2]
         assert abs(state2[0] - 7200e3) < 1.0
 
+    def test_orbittrajectory_index_negative(self):
+        """Test negative indexing into trajectory."""
+        epochs = [
+            brahe.Epoch.from_jd(2451545.0, "UTC"),
+            brahe.Epoch.from_jd(2451545.1, "UTC"),
+            brahe.Epoch.from_jd(2451545.2, "UTC"),
+        ]
+        states = np.array([
+            7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
+            7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
+            7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
+        ])
+        traj = brahe.OrbitTrajectory.from_orbital_data(
+            epochs, states,
+            brahe.OrbitFrame.eci,
+            brahe.OrbitRepresentation.cartesian,
+            brahe.AngleFormat.none
+        )
+
+        # Test negative indexing
+        state_last = traj[-1]
+        assert abs(state_last[0] - 7200e3) < 1.0
+
+        state_second_last = traj[-2]
+        assert abs(state_second_last[0] - 7100e3) < 1.0
+
     def test_orbittrajectory_index_out_of_bounds(self):
         """Test indexing out of bounds raises IndexError."""
         epoch = brahe.Epoch.from_jd(2451545.0, "UTC")
@@ -1049,6 +1075,9 @@ class TestOrbitTrajectoryIndex:
 
         with pytest.raises(IndexError):
             _ = traj[10]
+
+        with pytest.raises(IndexError):
+            _ = traj[-10]
 
 
 class TestOrbitTrajectoryIterator:

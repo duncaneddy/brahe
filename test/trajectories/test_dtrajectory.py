@@ -676,3 +676,78 @@ class TestTrajectoryNewMethods:
         result_linear = traj.interpolate_linear(t_test)
 
         np.testing.assert_array_almost_equal(result_interpolate, result_linear, decimal=6)
+
+
+class TestDTrajectoryIndex:
+    """Test Index trait implementation for DTrajectory."""
+
+    def test_dtrajectory_index(self, sample_epochs, sample_states):
+        """Test positive indexing."""
+        trajectory = brahe.DTrajectory()
+        for epoch, state in zip(sample_epochs, sample_states):
+            trajectory.add_state(epoch, state)
+
+        # Test positive indices
+        state0 = trajectory[0]
+        np.testing.assert_array_almost_equal(state0, sample_states[0])
+
+        state1 = trajectory[1]
+        np.testing.assert_array_almost_equal(state1, sample_states[1])
+
+        state2 = trajectory[2]
+        np.testing.assert_array_almost_equal(state2, sample_states[2])
+
+    def test_dtrajectory_index_negative(self, sample_epochs, sample_states):
+        """Test negative indexing."""
+        trajectory = brahe.DTrajectory()
+        for epoch, state in zip(sample_epochs, sample_states):
+            trajectory.add_state(epoch, state)
+
+        # Test negative indices
+        state_minus1 = trajectory[-1]
+        np.testing.assert_array_almost_equal(state_minus1, sample_states[-1])
+
+        state_minus2 = trajectory[-2]
+        np.testing.assert_array_almost_equal(state_minus2, sample_states[-2])
+
+    def test_dtrajectory_index_out_of_bounds(self, sample_epochs, sample_states):
+        """Test out of bounds indexing."""
+        trajectory = brahe.DTrajectory()
+        for epoch, state in zip(sample_epochs, sample_states):
+            trajectory.add_state(epoch, state)
+
+        # Test out of bounds
+        with pytest.raises(IndexError):
+            _ = trajectory[10]
+
+        with pytest.raises(IndexError):
+            _ = trajectory[-10]
+
+
+class TestDTrajectoryIterator:
+    """Test Iterator trait implementation for DTrajectory."""
+
+    def test_dtrajectory_iterator(self, sample_epochs, sample_states):
+        """Test iteration over trajectory."""
+        trajectory = brahe.DTrajectory()
+        for epoch, state in zip(sample_epochs, sample_states):
+            trajectory.add_state(epoch, state)
+
+        # Test iteration
+        count = 0
+        for epoch, state in trajectory:
+            assert epoch.jd() == sample_epochs[count].jd()
+            np.testing.assert_array_almost_equal(state, sample_states[count])
+            count += 1
+
+        assert count == 3
+
+    def test_dtrajectory_iterator_empty(self):
+        """Test iteration over empty trajectory."""
+        trajectory = brahe.DTrajectory()
+
+        count = 0
+        for _ in trajectory:
+            count += 1
+
+        assert count == 0

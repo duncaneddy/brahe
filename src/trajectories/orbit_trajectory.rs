@@ -1804,7 +1804,7 @@ mod tests {
     // Index Trait Tests
 
     #[test]
-    fn test_orbittrajectory_index() {
+    fn test_orbittrajectory_index_index() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1836,7 +1836,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_orbittrajectory_index_out_of_bounds() {
+    fn test_orbittrajectory_index_index_out_of_bounds() {
         let epochs = vec![Epoch::from_jd(2451545.0, TimeSystem::UTC)];
         let states = vec![Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)];
         let traj = OrbitTrajectory::from_orbital_data(
@@ -1850,10 +1850,10 @@ mod tests {
         let _ = &traj[10]; // Should panic
     }
 
-    // Iterator Trait Tests
+    // IntoIterator Trait Tests
 
     #[test]
-    fn test_orbittrajectory_iterator() {
+    fn test_orbittrajectory_intoiterator_into_iter() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1895,7 +1895,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_iterator_empty() {
+    fn test_orbittrajectory_intoiterator_into_iter_empty() {
         let traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
@@ -1910,7 +1910,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_iterator_size_hint() {
+    fn test_orbittrajectory_iterator_iterator_size_hint() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1936,7 +1936,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_iterator_exact_size() {
+    fn test_orbittrajectory_iterator_iterator_len() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),

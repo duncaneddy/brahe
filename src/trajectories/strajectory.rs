@@ -1520,7 +1520,7 @@ mod tests {
     // Index Trait Tests
 
     #[test]
-    fn test_strajectory_index() {
+    fn test_strajectory_index_index() {
         let trajectory = create_test_trajectory();
 
         // Test indexing returns state vectors
@@ -1536,15 +1536,15 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_strajectory_index_out_of_bounds() {
+    fn test_strajectory_index_index_out_of_bounds() {
         let trajectory = create_test_trajectory();
         let _ = &trajectory[10]; // Should panic
     }
 
-    // Iterator Trait Tests
+    // IntoIterator Trait Tests
 
     #[test]
-    fn test_strajectory_iterator() {
+    fn test_strajectory_intoiterator_into_iter() {
         let trajectory = create_test_trajectory();
 
         let mut count = 0;
@@ -1570,7 +1570,7 @@ mod tests {
     }
 
     #[test]
-    fn test_strajectory_iterator_empty() {
+    fn test_strajectory_intoiterator_into_iter_empty() {
         let trajectory = STrajectory6::new();
 
         let mut count = 0;
@@ -1581,7 +1581,7 @@ mod tests {
     }
 
     #[test]
-    fn test_strajectory_iterator_size_hint() {
+    fn test_strajectory_iterator_iterator_size_hint() {
         let trajectory = create_test_trajectory();
 
         let iter = trajectory.into_iter();
@@ -1591,7 +1591,7 @@ mod tests {
     }
 
     #[test]
-    fn test_strajectory_iterator_exact_size() {
+    fn test_strajectory_iterator_iterator_len() {
         let trajectory = create_test_trajectory();
 
         let iter = trajectory.into_iter();

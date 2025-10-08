@@ -1273,7 +1273,7 @@ mod tests {
     // Index Trait Tests
 
     #[test]
-    fn test_dynamictrajectory_index() {
+    fn test_dtrajectory_index_index() {
         let traj = create_test_trajectory();
 
         // Test indexing returns state vectors
@@ -1289,15 +1289,15 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_dynamictrajectory_index_out_of_bounds() {
+    fn test_dtrajectory_index_index_out_of_bounds() {
         let traj = create_test_trajectory();
         let _ = &traj[10]; // Should panic
     }
 
-    // Iterator Trait Tests
+    // IntoIterator Trait Tests
 
     #[test]
-    fn test_dynamictrajectory_iterator() {
+    fn test_dtrajectory_intoiterator_into_iter() {
         let traj = create_test_trajectory();
 
         let mut count = 0;
@@ -1323,7 +1323,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_iterator_empty() {
+    fn test_dtrajectory_intoiterator_into_iter_empty() {
         let traj = DTrajectory::new(6);
 
         let mut count = 0;
@@ -1334,7 +1334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_iterator_size_hint() {
+    fn test_dtrajectory_iterator_iterator_size_hint() {
         let traj = create_test_trajectory();
 
         let iter = traj.into_iter();
@@ -1344,7 +1344,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_iterator_exact_size() {
+    fn test_dtrajectory_iterator_iterator_len() {
         let traj = create_test_trajectory();
 
         let iter = traj.into_iter();

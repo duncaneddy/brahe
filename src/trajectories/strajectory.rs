@@ -15,7 +15,7 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{STrajectory6, InterpolationMethod};
+ * use brahe::trajectories::{STrajectory6, InterpolationMethod, Trajectory};
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::Vector6;
  *
@@ -38,8 +38,7 @@ use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cart
 use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::constants::{DEG2RAD, RAD2DEG};
 
-use super::traits::Trajectory;
-use super::traits::OrbitalTrajectory;
+use super::traits::{Trajectory, OrbitalTrajectory, InterpolationMethod, TrajectoryEvictionPolicy};
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
 pub type STrajectory3 = STrajectory<3>;
@@ -112,50 +111,6 @@ pub struct OrbitalMetadata {
 pub const ORBITAL_FRAME_KEY: &str = "orbital_frame";
 pub const ORBITAL_REPRESENTATION_KEY: &str = "orbital_representation";
 pub const ORBITAL_ANGLE_FORMAT_KEY: &str = "orbital_angle_format";
-
-/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
-///
-/// Different methods provide varying trade-offs between computational cost and accuracy.
-/// For most applications, linear interpolation provides sufficient accuracy with minimal
-/// computational overhead.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum InterpolationMethod {
-    /// Linear interpolation between adjacent states.
-    /// Good balance of speed and accuracy for smooth trajectories.
-    Linear,
-    /// Cubic spline interpolation using natural boundary conditions.
-    /// Higher accuracy for smooth trajectories but requires more computation.
-    CubicSpline,
-    /// Lagrange polynomial interpolation using nearby points.
-    /// High accuracy but can exhibit oscillatory behavior with noisy data.
-    Lagrange,
-    /// Hermite interpolation preserving first derivatives.
-    /// Excellent for smooth trajectories with known velocity information.
-    Hermite,
-}
-
-impl Default for InterpolationMethod {
-    fn default() -> Self {
-        InterpolationMethod::Linear
-    }
-}
-
-/// Enumeration of trajectory eviction policies for memory management
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TrajectoryEvictionPolicy {
-    /// No eviction - trajectory grows unbounded
-    None,
-    /// Keep most recent states, evict oldest when limit reached
-    KeepCount,
-    /// Keep states within a time duration from current epoch
-    KeepWithinDuration,
-}
-
-impl Default for TrajectoryEvictionPolicy {
-    fn default() -> Self {
-        TrajectoryEvictionPolicy::None
-    }
-}
 
 /// Frame-agnostic trajectory container for N-dimensional state vectors over time.
 ///
@@ -230,7 +185,7 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory, STrajectory6};
+    /// use brahe::trajectories::{STrajectory, STrajectory6, Trajectory};
     /// let traj = STrajectory6::new(); // 6-dimensional static trajectory
     /// assert_eq!(traj.len(), 0);
     ///
@@ -260,7 +215,7 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
+    /// use brahe::trajectories::{STrajectory6, InterpolationMethod, Trajectory};
     /// let traj = STrajectory6::with_interpolation(InterpolationMethod::CubicSpline);
     /// assert_eq!(traj.len(), 0);
     /// ```
@@ -445,31 +400,6 @@ impl<const R: usize> STrajectory<R>
         Ok(())
     }
 
-    /// Add a state to the trajectory
-    pub fn add_state(&mut self, epoch: Epoch, state: SVector<f64, R>) -> Result<(), BraheError> {
-        // Find the correct position to insert based on epoch
-        let mut insert_idx = self.epochs.len();
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            if epoch < *existing_epoch {
-                insert_idx = i;
-                break;
-            } else if epoch == *existing_epoch {
-                // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy()?;
-                return Ok(());
-            }
-        }
-
-        // Insert at the correct position
-        self.epochs.insert(insert_idx, epoch);
-        self.states.insert(insert_idx, state);
-
-        // Apply eviction policy after adding state
-        self.apply_eviction_policy()?;
-        Ok(())
-    }
-
     /// Apply eviction policy to manage trajectory memory
     fn apply_eviction_policy(&mut self) -> Result<(), BraheError> {
         match self.eviction_policy {
@@ -507,56 +437,9 @@ impl<const R: usize> STrajectory<R>
         Ok(())
     }
 
-    /// Get the state at a specific epoch using interpolation
-    pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<SVector<f64, R>, BraheError> {
-        if self.epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot interpolate state from empty trajectory".to_string(),
-            ));
-        }
-
-        // If only one state, return it
-        if self.epochs.len() == 1 {
-            return Ok(self.states[0].clone());
-        }
-
-        // If epoch is before the first state or after the last state
-        if epoch < &self.epochs[0] {
-            return Err(BraheError::Error(
-                "Requested epoch is before the first state in trajectory".to_string(),
-            ));
-        }
-        if epoch > self.epochs.last().unwrap() {
-            return Err(BraheError::Error(
-                "Requested epoch is after the last state in trajectory".to_string(),
-            ));
-        }
-
-        // Find the exact state if it exists
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            if epoch == existing_epoch {
-                return Ok(self.states[i].clone());
-            }
-        }
-
-        // Interpolate based on method
-        match self.interpolation_method {
-            InterpolationMethod::Linear => self.interpolate_linear(epoch),
-            InterpolationMethod::CubicSpline => Err(BraheError::Error(
-                "Cubic spline interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Lagrange => Err(BraheError::Error(
-                "Lagrange interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Hermite => Err(BraheError::Error(
-                "Hermite interpolation not yet implemented".to_string(),
-            )),
-        }
-    }
-
     /// Find the nearest state to the specified epoch
     /// Returns (epoch, state) tuple
-    pub fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, SVector<f64, R>), BraheError> {
+    fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, SVector<f64, R>), BraheError> {
         if self.epochs.is_empty() {
             return Err(BraheError::Error(
                 "Cannot find nearest state in empty trajectory".to_string(),
@@ -629,102 +512,9 @@ impl<const R: usize> STrajectory<R>
         ))
     }
 
-    /// Get the state at the specified index
-    pub fn state_at_index(&self, index: usize) -> Result<SVector<f64, R>, BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok(self.states[index].clone())
-    }
-
-    /// Get the epoch at the specified index
-    pub fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
-        if index >= self.epochs.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} epochs",
-                index,
-                self.epochs.len()
-            )));
-        }
-
-        Ok(self.epochs[index])
-    }
-
-    /// Remove a state at the specified epoch
-    /// Returns the removed state if found
-    pub fn remove_state(&mut self, epoch: &Epoch) -> Result<SVector<f64, R>, BraheError> {
-        if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
-            let removed_state = self.states.remove(index);
-            self.epochs.remove(index);
-            Ok(removed_state)
-        } else {
-            Err(BraheError::Error(
-                "Epoch not found in trajectory".to_string(),
-            ))
-        }
-    }
-
-    /// Remove a state at the specified index
-    /// Returns (epoch, state) tuple of the removed entry
-    pub fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, SVector<f64, R>), BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        let removed_epoch = self.epochs.remove(index);
-        let removed_state = self.states.remove(index);
-        Ok((removed_epoch, removed_state))
-    }
-
-    /// Returns the number of states in the trajectory
-    pub fn len(&self) -> usize {
-        self.states.len()
-    }
-
     /// Returns true if the trajectory is empty
     pub fn is_empty(&self) -> bool {
         self.states.is_empty()
-    }
-
-    /// Get the first epoch in the trajectory
-    pub fn start_epoch(&self) -> Option<Epoch> {
-        self.epochs.first().copied()
-    }
-
-    /// Get the last epoch in the trajectory
-    pub fn end_epoch(&self) -> Option<Epoch> {
-        self.epochs.last().copied()
-    }
-
-    /// Get the time span covered by the trajectory
-    pub fn timespan(&self) -> Option<f64> {
-        if self.epochs.len() < 2 {
-            None
-        } else {
-            Some(*self.epochs.last().unwrap() - *self.epochs.first().unwrap())
-        }
-    }
-
-    /// Get both epoch and state at the specified index as a tuple
-    pub fn get(&self, index: usize) -> Result<(Epoch, SVector<f64, R>), BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok((self.epochs[index], self.states[index].clone()))
     }
 
     /// Convert the trajectory to a matrix representation
@@ -751,78 +541,6 @@ impl<const R: usize> STrajectory<R>
         Ok(matrix)
     }
 
-    /// Clear all states from the trajectory
-    pub fn clear(&mut self) {
-        self.epochs.clear();
-        self.states.clear();
-    }
-
-    /// Get the first (epoch, state) tuple in the trajectory, if any exists.
-    ///
-    /// # Returns
-    /// * `Some((epoch, state))` - If the trajectory contains at least one state
-    /// * `None` - If the trajectory is empty
-    ///
-    /// # Examples
-    /// ```rust
-    /// use brahe::trajectories::STrajectory6;
-    /// use brahe::time::{Epoch, TimeSystem};
-    /// use nalgebra::Vector6;
-    ///
-    /// let mut traj = STrajectory6::new();
-    /// assert!(traj.first().is_none());
-    ///
-    /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-    /// traj.add_state(epoch, state).unwrap();
-    ///
-    /// let (first_epoch, first_state) = traj.first().unwrap();
-    /// assert_eq!(first_epoch, epoch);
-    /// assert_eq!(first_state, state);
-    /// ```
-    pub fn first(&self) -> Option<(Epoch, SVector<f64, R>)> {
-        if self.epochs.is_empty() {
-            None
-        } else {
-            Some((self.epochs[0], self.states[0].clone()))
-        }
-    }
-
-    /// Get the last (epoch, state) tuple in the trajectory, if any exists.
-    ///
-    /// # Returns
-    /// * `Some((epoch, state))` - If the trajectory contains at least one state
-    /// * `None` - If the trajectory is empty
-    ///
-    /// # Examples
-    /// ```rust
-    /// use brahe::trajectories::STrajectory6;
-    /// use brahe::time::{Epoch, TimeSystem};
-    /// use nalgebra::Vector6;
-    ///
-    /// let mut traj = STrajectory6::new();
-    /// assert!(traj.last().is_none());
-    ///
-    /// let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let state1 = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-    /// traj.add_state(epoch1, state1).unwrap();
-    ///
-    /// let epoch2 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let state2 = Vector6::new(6.778e6, 0.0, 0.0, 0.0, 7.626e3, 0.0);
-    /// traj.add_state(epoch2, state2).unwrap();
-    ///
-    /// let (last_epoch, last_state) = traj.last().unwrap();
-    /// assert_eq!(last_epoch, epoch2);
-    /// assert_eq!(last_state, state2);
-    /// ```
-    pub fn last(&self) -> Option<(Epoch, SVector<f64, R>)> {
-        if self.epochs.is_empty() {
-            None
-        } else {
-            let last_index = self.epochs.len() - 1;
-            Some((self.epochs[last_index], self.states[last_index].clone()))
-        }
-    }
 }
 
 // Allow indexing into the trajectory directly - returns state vector only
@@ -862,24 +580,98 @@ impl STrajectory<6> {
 impl<const R: usize> Trajectory for STrajectory<R> {
     type StateVector = SVector<f64, R>;
 
-    fn new() -> Self {
-        Self::new()
-    }
-
     fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
-        self.add_state(epoch, state)
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            } else if epoch == *existing_epoch {
+                // Replace state if epochs are equal
+                self.states[i] = state;
+                self.apply_eviction_policy()?;
+                return Ok(());
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy()?;
+        Ok(())
     }
 
     fn state_at_epoch(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
-        self.state_at_epoch(epoch)
+        if self.epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot interpolate state from empty trajectory".to_string(),
+            ));
+        }
+
+        // If only one state, return it
+        if self.epochs.len() == 1 {
+            return Ok(self.states[0].clone());
+        }
+
+        // If epoch is before the first state or after the last state
+        if epoch < &self.epochs[0] {
+            return Err(BraheError::Error(
+                "Requested epoch is before the first state in trajectory".to_string(),
+            ));
+        }
+        if epoch > self.epochs.last().unwrap() {
+            return Err(BraheError::Error(
+                "Requested epoch is after the last state in trajectory".to_string(),
+            ));
+        }
+
+        // Find the exact state if it exists
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch == existing_epoch {
+                return Ok(self.states[i].clone());
+            }
+        }
+
+        // Interpolate based on method
+        match self.interpolation_method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+            InterpolationMethod::CubicSpline => Err(BraheError::Error(
+                "Cubic spline interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Lagrange => Err(BraheError::Error(
+                "Lagrange interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Hermite => Err(BraheError::Error(
+                "Hermite interpolation not yet implemented".to_string(),
+            )),
+        }
     }
 
     fn state_at_index(&self, index: usize) -> Result<Self::StateVector, BraheError> {
-        self.state_at_index(index)
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok(self.states[index].clone())
     }
 
     fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
-        self.epoch_at_index(index)
+        if index >= self.epochs.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} epochs",
+                index,
+                self.epochs.len()
+            )));
+        }
+
+        Ok(self.epochs[index])
     }
 
     fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, Self::StateVector), BraheError> {
@@ -887,43 +679,83 @@ impl<const R: usize> Trajectory for STrajectory<R> {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        self.states.len()
     }
 
     fn start_epoch(&self) -> Option<Epoch> {
-        self.start_epoch()
+        self.epochs.first().copied()
     }
 
     fn end_epoch(&self) -> Option<Epoch> {
-        self.end_epoch()
+        self.epochs.last().copied()
     }
 
     fn timespan(&self) -> Option<f64> {
-        self.timespan()
+        if self.epochs.len() < 2 {
+            None
+        } else {
+            Some(*self.epochs.last().unwrap() - *self.epochs.first().unwrap())
+        }
     }
 
     fn first(&self) -> Option<(Epoch, Self::StateVector)> {
-        self.first()
+        if self.epochs.is_empty() {
+            None
+        } else {
+            Some((self.epochs[0], self.states[0].clone()))
+        }
     }
 
     fn last(&self) -> Option<(Epoch, Self::StateVector)> {
-        self.last()
+        if self.epochs.is_empty() {
+            None
+        } else {
+            let last_index = self.epochs.len() - 1;
+            Some((self.epochs[last_index], self.states[last_index].clone()))
+        }
     }
 
     fn clear(&mut self) {
-        self.clear()
+        self.epochs.clear();
+        self.states.clear();
     }
 
     fn remove_state(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
-        self.remove_state(epoch)
+        if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
+            let removed_state = self.states.remove(index);
+            self.epochs.remove(index);
+            Ok(removed_state)
+        } else {
+            Err(BraheError::Error(
+                "Epoch not found in trajectory".to_string(),
+            ))
+        }
     }
 
     fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError> {
-        self.remove_state_at_index(index)
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        let removed_epoch = self.epochs.remove(index);
+        let removed_state = self.states.remove(index);
+        Ok((removed_epoch, removed_state))
     }
 
     fn get(&self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError> {
-        self.get(index)
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok((self.epochs[index], self.states[index].clone()))
     }
 }
 
@@ -1292,6 +1124,7 @@ impl STrajectory<6> {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector6;
 
@@ -1311,17 +1144,19 @@ mod tests {
         STrajectory6::from_data(epochs, states, InterpolationMethod::Linear).unwrap()
     }
 
-    #[test]
-    fn test_trajectory_creation() {
-        let trajectory = create_test_trajectory();
+    // Trajectory Trait Tests
 
-        assert_eq!(trajectory.len(), 3);
+    #[test]
+    fn test_strajectory_trajectory_new() {
+        let trajectory = STrajectory6::new();
+
+        assert_eq!(trajectory.len(), 0);
         assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
-        assert!(!trajectory.is_empty());
+        assert!(trajectory.is_empty());
     }
 
     #[test]
-    fn test_trajectory_add_state() {
+    fn test_strajectory_trajectory_add_state() {
         let mut trajectory = STrajectory6::new();
 
         // Add states in order
@@ -1345,16 +1180,57 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_indexing() {
+    fn test_strajectory_trajectory_state_at_epoch() {
         let trajectory = create_test_trajectory();
 
-        assert_eq!(trajectory[0][0], 7000e3);
-        assert_eq!(trajectory[1][0], 7100e3);
-        assert_eq!(trajectory[2][0], 7200e3);
+        // Test interpolation at 50% between first two states
+        let epoch_50 = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        let state_at_50 = trajectory.state_at_epoch(&epoch_50).unwrap();
+
+        // The interpolated values should be 50% between the first two states
+        assert_abs_diff_eq!(state_at_50[0], 7050e3, epsilon = 1.0); // 7000 + 0.5*(7100-7000)
+        assert_abs_diff_eq!(state_at_50[1], 500e3, epsilon = 1.0); // 0 + 0.5*(1000-0)
+        assert_abs_diff_eq!(state_at_50[4], 7.55e3, epsilon = 0.01); // 7.5 + 0.5*(7.6-7.5)
     }
 
     #[test]
-    fn test_trajectory_nearest_state() {
+    fn test_strajectory_trajectory_state_at_index() {
+        let trajectory = create_test_trajectory();
+
+        // Test valid indices
+        let state0 = trajectory.state_at_index(0).unwrap();
+        assert_eq!(state0[0], 7000e3);
+
+        let state1 = trajectory.state_at_index(1).unwrap();
+        assert_eq!(state1[0], 7100e3);
+
+        let state2 = trajectory.state_at_index(2).unwrap();
+        assert_eq!(state2[0], 7200e3);
+
+        // Test invalid index
+        assert!(trajectory.state_at_index(10).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_epoch_at_index() {
+        let trajectory = create_test_trajectory();
+
+        // Test valid indices
+        let epoch0 = trajectory.epoch_at_index(0).unwrap();
+        assert_eq!(epoch0.jd(), 2451545.0);
+
+        let epoch1 = trajectory.epoch_at_index(1).unwrap();
+        assert_eq!(epoch1.jd(), 2451545.1);
+
+        let epoch2 = trajectory.epoch_at_index(2).unwrap();
+        assert_eq!(epoch2.jd(), 2451545.2);
+
+        // Test invalid index
+        assert!(trajectory.epoch_at_index(10).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_nearest_state() {
         let trajectory = create_test_trajectory();
 
         // Request a time exactly at a state
@@ -1389,21 +1265,542 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_linear_interpolation() {
-        let trajectory = create_test_trajectory();
+    fn test_strajectory_trajectory_len() {
+        let mut trajectory = STrajectory6::new();
+        assert_eq!(trajectory.len(), 0);
 
-        // Test interpolation at 50% between first two states
-        let epoch_50 = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-        let state_at_50 = trajectory.state_at_epoch(&epoch_50).unwrap();
+        trajectory.add_state(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+        ).unwrap();
+        assert_eq!(trajectory.len(), 1);
 
-        // The interpolated values should be 50% between the first two states
-        assert_abs_diff_eq!(state_at_50[0], 7050e3, epsilon = 1.0); // 7000 + 0.5*(7100-7000)
-        assert_abs_diff_eq!(state_at_50[1], 500e3, epsilon = 1.0); // 0 + 0.5*(1000-0)
-        assert_abs_diff_eq!(state_at_50[4], 7.55e3, epsilon = 0.01); // 7.5 + 0.5*(7.6-7.5)
+        trajectory.add_state(
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0)
+        ).unwrap();
+        assert_eq!(trajectory.len(), 2);
     }
 
     #[test]
-    fn test_trajectory_to_matrix() {
+    fn test_strajectory_trajectory_is_empty() {
+        let mut trajectory = STrajectory6::new();
+        assert!(trajectory.is_empty());
+
+        trajectory.add_state(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+        ).unwrap();
+        assert!(!trajectory.is_empty());
+
+        trajectory.clear();
+        assert!(trajectory.is_empty());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_start_epoch() {
+        let trajectory = create_test_trajectory();
+
+        let start = trajectory.start_epoch().unwrap();
+        assert_eq!(start.jd(), 2451545.0);
+
+        // Test empty trajectory
+        let empty_trajectory = STrajectory6::new();
+        assert!(empty_trajectory.start_epoch().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_end_epoch() {
+        let trajectory = create_test_trajectory();
+
+        let end = trajectory.end_epoch().unwrap();
+        assert_eq!(end.jd(), 2451545.2);
+
+        // Test empty trajectory
+        let empty_trajectory = STrajectory6::new();
+        assert!(empty_trajectory.end_epoch().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_timespan() {
+        let trajectory = create_test_trajectory();
+
+        let span = trajectory.timespan().unwrap();
+        assert_abs_diff_eq!(span, 0.2 * 86400.0, epsilon = 1.0); // 0.2 days in seconds
+
+        // Test single state trajectory
+        let mut single_trajectory = STrajectory6::new();
+        single_trajectory.add_state(
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+        ).unwrap();
+        assert!(single_trajectory.timespan().is_none());
+
+        // Test empty trajectory
+        let empty_trajectory = STrajectory6::new();
+        assert!(empty_trajectory.timespan().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_first() {
+        // Test empty trajectory
+        let empty_trajectory = STrajectory6::new();
+        assert!(empty_trajectory.first().is_none());
+
+        // Test single state trajectory
+        let mut single_trajectory = STrajectory6::new();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        single_trajectory.add_state(epoch, state).unwrap();
+
+        let (first_epoch, first_state) = single_trajectory.first().unwrap();
+        assert_eq!(first_epoch.jd(), 2451545.0);
+        assert_eq!(first_state[0], 7000e3);
+
+        // Test multi-state trajectory
+        let trajectory = create_test_trajectory();
+        let (first_epoch, first_state) = trajectory.first().unwrap();
+        assert_eq!(first_epoch.jd(), 2451545.0);
+        assert_eq!(first_state[0], 7000e3);
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_last() {
+        // Test empty trajectory
+        let empty_trajectory = STrajectory6::new();
+        assert!(empty_trajectory.last().is_none());
+
+        // Test single state trajectory
+        let mut single_trajectory = STrajectory6::new();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        single_trajectory.add_state(epoch, state).unwrap();
+
+        let (last_epoch, last_state) = single_trajectory.last().unwrap();
+        assert_eq!(last_epoch.jd(), 2451545.0);
+        assert_eq!(last_state[0], 7000e3);
+
+        // Test multi-state trajectory
+        let trajectory = create_test_trajectory();
+        let (last_epoch, last_state) = trajectory.last().unwrap();
+        assert_eq!(last_epoch.jd(), 2451545.2);
+        assert_eq!(last_state[0], 7200e3);
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_clear() {
+        let mut trajectory = create_test_trajectory();
+        assert_eq!(trajectory.len(), 3);
+        assert!(!trajectory.is_empty());
+
+        trajectory.clear();
+        assert_eq!(trajectory.len(), 0);
+        assert!(trajectory.is_empty());
+        assert!(trajectory.start_epoch().is_none());
+        assert!(trajectory.end_epoch().is_none());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_remove_state() {
+        let mut trajectory = create_test_trajectory();
+
+        let epoch_to_remove = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+        let removed_state = trajectory.remove_state(&epoch_to_remove).unwrap();
+        assert_eq!(removed_state[0], 7100e3);
+        assert_eq!(trajectory.len(), 2);
+
+        // Test error case
+        let non_existent_epoch = Epoch::from_jd(2451546.0, TimeSystem::UTC);
+        assert!(trajectory.remove_state(&non_existent_epoch).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_remove_state_at_index() {
+        let mut trajectory = create_test_trajectory();
+
+        let (removed_epoch, removed_state) = trajectory.remove_state_at_index(1).unwrap();
+        assert_eq!(removed_epoch.jd(), 2451545.1);
+        assert_eq!(removed_state[0], 7100e3);
+        assert_eq!(trajectory.len(), 2);
+
+        // Test error case
+        assert!(trajectory.remove_state_at_index(10).is_err());
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_get() {
+        let trajectory = create_test_trajectory();
+
+        let (epoch, state) = trajectory.get(0).unwrap();
+        assert_eq!(epoch.jd(), 2451545.0);
+        assert_eq!(state[0], 7000e3);
+
+        // Test bounds checking
+        assert!(trajectory.get(10).is_err());
+    }
+
+    // OrbitalTrajectory Trait Tests (STrajectory<6> only)
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_frame() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create ECI Cartesian trajectory
+        let mut eci_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        eci_traj.add_state(epoch, state).unwrap();
+
+        // Convert to ECEF
+        let ecef_traj = eci_traj.to_frame(OrbitFrame::ECEF).unwrap();
+        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
+        assert_eq!(ecef_traj.len(), 1);
+
+        // Convert back to ECI
+        let eci_traj2 = ecef_traj.to_frame(OrbitFrame::ECI).unwrap();
+        assert_eq!(eci_traj2.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(eci_traj2.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_eci() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create ECEF trajectory
+        let mut ecef_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        ecef_traj.add_state(epoch, state).unwrap();
+
+        // Convert to ECI using convenience method
+        let eci_traj = ecef_traj.to_eci().unwrap();
+        assert_eq!(eci_traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(eci_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_ecef() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create ECI trajectory
+        let mut eci_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        eci_traj.add_state(epoch, state).unwrap();
+
+        // Convert to ECEF using convenience method
+        let ecef_traj = eci_traj.to_ecef().unwrap();
+        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
+        assert_eq!(ecef_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_representation() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Cartesian trajectory
+        let mut cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        cart_traj.add_state(epoch, cart_state).unwrap();
+
+        // Convert to Keplerian
+        let kep_traj = cart_traj.to_representation(OrbitRepresentation::Keplerian, AngleFormat::Radians).unwrap();
+        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
+        assert_eq!(kep_traj.angle_format(), AngleFormat::Radians);
+        assert_eq!(kep_traj.len(), 1);
+
+        // Convert back to Cartesian
+        let cart_traj2 = kep_traj.to_representation(OrbitRepresentation::Cartesian, AngleFormat::None).unwrap();
+        assert_eq!(cart_traj2.orbital_representation(), OrbitRepresentation::Cartesian);
+        assert_eq!(cart_traj2.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_cartesian() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Keplerian trajectory
+        let mut kep_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        // Semi-major axis, eccentricity, inclination, RAAN, arg perigee, mean anomaly
+        let kep_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 0.0, 0.0);
+        kep_traj.add_state(epoch, kep_state).unwrap();
+
+        // Convert to Cartesian using convenience method
+        let cart_traj = kep_traj.to_cartesian().unwrap();
+        assert_eq!(cart_traj.orbital_representation(), OrbitRepresentation::Cartesian);
+        assert_eq!(cart_traj.angle_format(), AngleFormat::None);
+        assert_eq!(cart_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_keplerian() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Cartesian trajectory
+        let mut cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        cart_traj.add_state(epoch, cart_state).unwrap();
+
+        // Convert to Keplerian using convenience method
+        let kep_traj = cart_traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
+        assert_eq!(kep_traj.angle_format(), AngleFormat::Degrees);
+        assert_eq!(kep_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_angle_format() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Keplerian trajectory in radians
+        let mut rad_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let kep_state = Vector6::new(6.678e6, 0.0, 0.5, 1.0, 0.5, 0.0);
+        rad_traj.add_state(epoch, kep_state).unwrap();
+
+        // Convert to degrees
+        let deg_traj = rad_traj.to_angle_format(AngleFormat::Degrees).unwrap();
+        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
+        assert_eq!(deg_traj.len(), 1);
+
+        // Convert back to radians
+        let rad_traj2 = deg_traj.to_angle_format(AngleFormat::Radians).unwrap();
+        assert_eq!(rad_traj2.angle_format(), AngleFormat::Radians);
+        assert_eq!(rad_traj2.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_degrees() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Keplerian trajectory in radians
+        let mut rad_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let kep_state = Vector6::new(6.678e6, 0.0, 0.5, 1.0, 0.5, 0.0);
+        rad_traj.add_state(epoch, kep_state).unwrap();
+
+        // Convert to degrees using convenience method
+        let deg_traj = rad_traj.to_degrees().unwrap();
+        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
+        assert_eq!(deg_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_to_radians() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Keplerian trajectory in degrees
+        let mut deg_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Degrees,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let kep_state = Vector6::new(6.678e6, 0.0, 28.5, 45.0, 30.0, 0.0);
+        deg_traj.add_state(epoch, kep_state).unwrap();
+
+        // Convert to radians using convenience method
+        let rad_traj = deg_traj.to_radians().unwrap();
+        assert_eq!(rad_traj.angle_format(), AngleFormat::Radians);
+        assert_eq!(rad_traj.len(), 1);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_position_at_epoch() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Cartesian trajectory
+        let mut cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 1.0e6, 2.0e6, 3.0e3, 4.0e3, 5.0e3);
+        cart_traj.add_state(epoch, cart_state).unwrap();
+
+        // Extract position
+        let position = cart_traj.position_at_epoch(&epoch).unwrap();
+        assert_eq!(position[0], 6.678e6);
+        assert_eq!(position[1], 1.0e6);
+        assert_eq!(position[2], 2.0e6);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_velocity_at_epoch() {
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create Cartesian trajectory
+        let mut cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 1.0e6, 2.0e6, 3.0e3, 4.0e3, 5.0e3);
+        cart_traj.add_state(epoch, cart_state).unwrap();
+
+        // Extract velocity
+        let velocity = cart_traj.velocity_at_epoch(&epoch).unwrap();
+        assert_eq!(velocity[0], 3.0e3);
+        assert_eq!(velocity[1], 4.0e3);
+        assert_eq!(velocity[2], 5.0e3);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_orbital_frame() {
+        // Test ECI frame
+        let eci_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(eci_traj.orbital_frame(), OrbitFrame::ECI);
+
+        // Test ECEF frame
+        let ecef_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(ecef_traj.orbital_frame(), OrbitFrame::ECEF);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_orbital_representation() {
+        // Test Cartesian representation
+        let cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(cart_traj.orbital_representation(), OrbitRepresentation::Cartesian);
+
+        // Test Keplerian representation
+        let kep_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(kep_traj.orbital_representation(), OrbitRepresentation::Keplerian);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_angle_format() {
+        // Test None format (Cartesian)
+        let cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(cart_traj.angle_format(), AngleFormat::None);
+
+        // Test Radians format
+        let rad_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(rad_traj.angle_format(), AngleFormat::Radians);
+
+        // Test Degrees format
+        let deg_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Degrees,
+            InterpolationMethod::Linear
+        ).unwrap();
+        assert_eq!(deg_traj.angle_format(), AngleFormat::Degrees);
+    }
+
+    #[test]
+    fn test_strajectory_orbitaltrajectory_convert_to() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create ECI Cartesian trajectory
+        let mut eci_cart_traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        eci_cart_traj.add_state(epoch, cart_state).unwrap();
+
+        // Convert to ECEF Keplerian with degrees in one operation
+        let ecef_kep_deg_traj = eci_cart_traj.convert_to(
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Degrees
+        ).unwrap();
+
+        assert_eq!(ecef_kep_deg_traj.orbital_frame(), OrbitFrame::ECEF);
+        assert_eq!(ecef_kep_deg_traj.orbital_representation(), OrbitRepresentation::Keplerian);
+        assert_eq!(ecef_kep_deg_traj.angle_format(), AngleFormat::Degrees);
+        assert_eq!(ecef_kep_deg_traj.len(), 1);
+    }
+
+    // Additional STrajectory Methods (Non-Trait)
+
+    #[test]
+    fn test_strajectory_to_matrix() {
         let trajectory = create_test_trajectory();
 
         let matrix = trajectory.to_matrix().unwrap();
@@ -1437,7 +1834,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_eviction_policy_max_size() {
+    fn test_strajectory_set_eviction_policy_max_size() {
         let mut trajectory = STrajectory6::new();
         trajectory.set_eviction_policy_max_size(2).unwrap();
 
@@ -1464,7 +1861,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_eviction_policy_max_age() {
+    fn test_strajectory_set_eviction_policy_max_age() {
         let mut trajectory = STrajectory6::new();
         trajectory.set_eviction_policy_max_age(86400.0).unwrap(); // 1 day in seconds
         let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1503,7 +1900,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_new_eviction_methods() {
+    fn test_strajectory_eviction_validation() {
         let mut trajectory = STrajectory6::new();
 
         // Test validation for max_size
@@ -1517,51 +1914,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_remove_state_at_index() {
-        let mut trajectory = create_test_trajectory();
-
-        // Test remove_state_at_index
-        let (removed_epoch, removed_state) = trajectory.remove_state_at_index(1).unwrap();
-        assert_eq!(removed_epoch.jd(), 2451545.1);
-        assert_eq!(removed_state[0], 7100e3);
-        assert_eq!(trajectory.len(), 2);
-
-        // Test error cases
-        assert!(trajectory.remove_state_at_index(10).is_err());
-        let non_existent_epoch = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-        assert!(trajectory.remove_state(&non_existent_epoch).is_err());
-    }
-
-    #[test]
-    fn test_trajectory_remove_state() {
-        let mut trajectory = create_test_trajectory();
-
-        // Test remove_state
-        let epoch_to_remove = Epoch::from_jd(2451545.1, TimeSystem::UTC);
-        let removed_state = trajectory.remove_state(&epoch_to_remove).unwrap();
-        assert_eq!(removed_state[0], 7100e3);
-        assert_eq!(trajectory.len(), 2);
-
-        // Test error case
-        let non_existent_epoch = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-        assert!(trajectory.remove_state(&non_existent_epoch).is_err());
-    }
-
-    #[test]
-    fn test_trajectory_get_method() {
-        let trajectory = create_test_trajectory();
-
-        // Test get method
-        let (epoch, state) = trajectory.get(0).unwrap();
-        assert_eq!(epoch.jd(), 2451545.0);
-        assert_eq!(state[0], 7000e3);
-
-        // Test bounds checking
-        assert!(trajectory.get(10).is_err());
-    }
-
-    #[test]
-    fn test_trajectory_iterator() {
+    fn test_strajectory_indexing_operator() {
         let trajectory = create_test_trajectory();
 
         // Test manual iteration using get method
@@ -1587,16 +1940,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_timespan_rename() {
-        let trajectory = create_test_trajectory();
-
-        // Test renamed method
-        let span = trajectory.timespan().unwrap();
-        assert_abs_diff_eq!(span, 0.2 * 86400.0, epsilon = 1.0); // 0.2 days in seconds
-    }
-
-    #[test]
-    fn test_trajectory_set_interpolation_method() {
+    fn test_strajectory_set_interpolation_method() {
         let mut trajectory = STrajectory6::new();
         assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
 
@@ -1608,107 +1952,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_state_at_index() {
-        let trajectory = create_test_trajectory();
-
-        // Test valid indices
-        let state0 = trajectory.state_at_index(0).unwrap();
-        assert_eq!(state0[0], 7000e3);
-
-        let state1 = trajectory.state_at_index(1).unwrap();
-        assert_eq!(state1[0], 7100e3);
-
-        let state2 = trajectory.state_at_index(2).unwrap();
-        assert_eq!(state2[0], 7200e3);
-
-        // Test invalid index
-        assert!(trajectory.state_at_index(10).is_err());
-    }
-
-    #[test]
-    fn test_trajectory_epoch_at_index() {
-        let trajectory = create_test_trajectory();
-
-        // Test valid indices
-        let epoch0 = trajectory.epoch_at_index(0).unwrap();
-        assert_eq!(epoch0.jd(), 2451545.0);
-
-        let epoch1 = trajectory.epoch_at_index(1).unwrap();
-        assert_eq!(epoch1.jd(), 2451545.1);
-
-        let epoch2 = trajectory.epoch_at_index(2).unwrap();
-        assert_eq!(epoch2.jd(), 2451545.2);
-
-        // Test invalid index
-        assert!(trajectory.epoch_at_index(10).is_err());
-    }
-
-    #[test]
-    fn test_trajectory_start_and_end_epoch() {
-        let trajectory = create_test_trajectory();
-
-        // Test start_epoch
-        let start = trajectory.start_epoch().unwrap();
-        assert_eq!(start.jd(), 2451545.0);
-
-        // Test end_epoch
-        let end = trajectory.end_epoch().unwrap();
-        assert_eq!(end.jd(), 2451545.2);
-
-        // Test empty trajectory
-        let empty_trajectory = STrajectory6::new();
-        assert!(empty_trajectory.start_epoch().is_none());
-        assert!(empty_trajectory.end_epoch().is_none());
-    }
-
-    #[test]
-    fn test_trajectory_clear() {
-        let mut trajectory = create_test_trajectory();
-        assert_eq!(trajectory.len(), 3);
-        assert!(!trajectory.is_empty());
-
-        trajectory.clear();
-        assert_eq!(trajectory.len(), 0);
-        assert!(trajectory.is_empty());
-        assert!(trajectory.start_epoch().is_none());
-        assert!(trajectory.end_epoch().is_none());
-    }
-
-    #[test]
-    fn test_trajectory_first_and_last() {
-        // Test empty trajectory
-        let empty_trajectory = STrajectory6::new();
-        assert!(empty_trajectory.first().is_none());
-        assert!(empty_trajectory.last().is_none());
-
-        // Test single state trajectory
-        let mut single_trajectory = STrajectory6::new();
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        single_trajectory.add_state(epoch, state).unwrap();
-
-        let (first_epoch, first_state) = single_trajectory.first().unwrap();
-        assert_eq!(first_epoch.jd(), 2451545.0);
-        assert_eq!(first_state[0], 7000e3);
-
-        let (last_epoch, last_state) = single_trajectory.last().unwrap();
-        assert_eq!(last_epoch.jd(), 2451545.0);
-        assert_eq!(last_state[0], 7000e3);
-
-        // Test multi-state trajectory
-        let trajectory = create_test_trajectory();
-
-        let (first_epoch, first_state) = trajectory.first().unwrap();
-        assert_eq!(first_epoch.jd(), 2451545.0);
-        assert_eq!(first_state[0], 7000e3);
-
-        let (last_epoch, last_state) = trajectory.last().unwrap();
-        assert_eq!(last_epoch.jd(), 2451545.2);
-        assert_eq!(last_state[0], 7200e3);
-    }
-
-    #[test]
-    fn test_trajectory_from_data_errors() {
+    fn test_strajectory_from_data_errors() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1730,7 +1974,171 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_state_at_epoch_errors() {
+    fn test_strajectory_with_interpolation() {
+        let traj = STrajectory6::with_interpolation(InterpolationMethod::CubicSpline);
+        assert_eq!(traj.len(), 0);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::CubicSpline);
+    }
+
+    #[test]
+    fn test_strajectory_from_data() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+
+        let traj = STrajectory6::from_data(epochs, states, InterpolationMethod::Linear).unwrap();
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    // Orbital-Specific STrajectory Methods (STrajectory<6>)
+
+    #[test]
+    fn test_strajectory_new_orbital_trajectory() {
+        let traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        assert_eq!(traj.len(), 0);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+        assert_eq!(traj.angle_format(), AngleFormat::None);
+    }
+
+    #[test]
+    fn test_strajectory_convert_state_to_format() {
+        let traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        let cart_state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Convert from ECI Cartesian to Keplerian radians
+        let kep_state = traj.convert_state_to_format(
+            cart_state,
+            epoch,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians
+        ).unwrap();
+
+        // First element should be semi-major axis (approximately same as radius for circular orbit)
+        assert_abs_diff_eq!(kep_state[0], 6.678e6, epsilon = 1000.0);
+    }
+
+    #[test]
+    fn test_strajectory_current_state_vector() {
+        let mut traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        // Empty trajectory should return zeros
+        let empty_state = traj.current_state_vector();
+        assert_eq!(empty_state[0], 0.0);
+
+        // Add states
+        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add_state(epoch1, state1).unwrap();
+
+        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+        traj.add_state(epoch2, state2).unwrap();
+
+        // Should return most recent state
+        let current = traj.current_state_vector();
+        assert_eq!(current[0], 7100e3);
+    }
+
+    #[test]
+    fn test_strajectory_current_epoch() {
+        let mut traj = STrajectory6::new_orbital_trajectory(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        // Add states
+        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add_state(epoch1, state1).unwrap();
+
+        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+        traj.add_state(epoch2, state2).unwrap();
+
+        // Should return most recent epoch
+        let current = traj.current_epoch();
+        assert_eq!(current.jd(), 2451545.1);
+    }
+
+    #[test]
+    fn test_strajectory_from_orbital_data() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0),
+        ];
+
+        let traj = STrajectory6::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+            InterpolationMethod::Linear
+        ).unwrap();
+
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_strajectory_epochs() {
+        let mut traj = STrajectory6::new();
+
+        let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        traj.add_state(epoch1, state).unwrap();
+        traj.add_state(epoch2, state).unwrap();
+
+        let epochs = traj.epochs();
+        assert_eq!(epochs.len(), 2);
+        assert_eq!(epochs[0].jd(), 2451545.0);
+        assert_eq!(epochs[1].jd(), 2451545.1);
+    }
+
+    // Error and Edge Case Tests
+
+    #[test]
+    fn test_strajectory_state_at_epoch_errors() {
         let trajectory = create_test_trajectory();
 
         // Test epoch before first state
@@ -1748,7 +2156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_unimplemented_interpolation_methods() {
+    fn test_strajectory_unimplemented_interpolation() {
         let mut trajectory = create_test_trajectory();
         let mid_epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
 
@@ -1766,7 +2174,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trajectory_timespan_edge_cases() {
+    fn test_strajectory_timespan_edge_cases() {
         // Test single state trajectory
         let mut single_trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);

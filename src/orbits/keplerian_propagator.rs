@@ -13,7 +13,7 @@ use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::InterpolationMethod;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, STrajectory6};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, STrajectory6, Trajectory};
 use crate::utils::BraheError;
 
 /// Keplerian propagator for analytical two-body orbital motion
@@ -487,58 +487,82 @@ impl AnalyticPropagator for KeplerianPropagator {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
+    use crate::trajectories::OrbitalTrajectory;
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
 
+    // Test data constants
+    const TEST_EPOCH_JD: f64 = 2451545.0;
+
+    fn create_test_elements() -> Vector6<f64> {
+        Vector6::new(7000e3, 0.01, 0.1, 0.0, 0.0, 0.0)
+    }
+
+    fn create_circular_elements() -> Vector6<f64> {
+        Vector6::new(7000e3, 0.0, 0.0, 0.0, 0.0, 0.0)
+    }
+
+    // KeplerianPropagator Method Tests
+
     #[test]
-    fn test_keplerian_propagator_creation() {
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let elements = Vector6::new(7000e3, 0.01, 0.1, 0.0, 0.0, 0.0);
+    fn test_keplerianpropagator_new() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        assert_eq!(propagator.initial_epoch(), epoch);
+        assert_eq!(propagator.current_epoch(), epoch);
+        assert_abs_diff_eq!(propagator.initial_state()[0], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(propagator.initial_state()[1], 0.01, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_from_keplerian() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
 
         let propagator = KeplerianPropagator::from_keplerian(
             epoch,
             elements,
             OrbitFrame::ECI,
             AngleFormat::Radians,
-            60.0, // 60 second step size
+            60.0,
         ).unwrap();
 
         assert_eq!(propagator.initial_epoch(), epoch);
-        assert_eq!(propagator.current_epoch(), epoch); // Should be same initially
-        assert_abs_diff_eq!(propagator.initial_state()[0], 7000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(propagator.initial_state()[1], 0.01, epsilon = 1e-10);
+        assert_eq!(propagator.step_size(), 60.0);
     }
 
     #[test]
-    fn test_keplerian_propagator_step() {
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let elements = Vector6::new(7000e3, 0.0, 0.0, 0.0, 0.0, 0.0); // Circular equatorial orbit
+    fn test_keplerianpropagator_from_cartesian() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let cartesian = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
 
-        let mut propagator = KeplerianPropagator::from_keplerian(
+        let propagator = KeplerianPropagator::from_cartesian(
             epoch,
-            elements,
+            cartesian,
             OrbitFrame::ECI,
-            AngleFormat::Radians,
-            60.0, // 60 second step size
+            60.0,
         ).unwrap();
 
-        // Step forward
-        propagator.step().unwrap();
-
-        let new_epoch = propagator.current_epoch();
-        assert_eq!(new_epoch, epoch + 60.0);
-
-        // Mean anomaly should have advanced
-        let new_state = propagator.current_state();
-        assert!(new_state[5] > 0.0); // Mean anomaly should be positive
-
-        // Trajectory should have 2 states now
-        assert_eq!(propagator.trajectory().len(), 2);
+        assert_eq!(propagator.initial_epoch(), epoch);
+        assert_eq!(propagator.step_size(), 60.0);
     }
 
+    // OrbitPropagator Trait Tests
+
     #[test]
-    fn test_trajectory_max_size_validation() {
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let elements = Vector6::new(7000e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+    fn test_keplerianpropagator_orbitpropagator_step() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
 
         let mut propagator = KeplerianPropagator::from_keplerian(
             epoch,
@@ -548,22 +572,76 @@ mod tests {
             60.0,
         ).unwrap();
 
-        // Setting max_size to 0 should be corrected to 1
-        assert!(propagator.set_eviction_policy_max_size(1).is_ok());
-
-        // Step several times
-        propagator.step().unwrap();
-        propagator.step().unwrap();
         propagator.step().unwrap();
 
-        // Should still have at least 1 state (the current one)
-        assert!(propagator.trajectory().len() >= 1);
+        let new_epoch = propagator.current_epoch();
+        assert_eq!(new_epoch, epoch + 60.0);
+        assert_eq!(propagator.trajectory().len(), 2);
     }
 
     #[test]
-    fn test_current_state_from_trajectory() {
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let elements = Vector6::new(7000e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+    fn test_keplerianpropagator_orbitpropagator_step_by() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        propagator.step_by(120.0).unwrap();
+
+        let new_epoch = propagator.current_epoch();
+        assert_eq!(new_epoch, epoch + 120.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_propagate_steps() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        propagator.propagate_steps(5).unwrap();
+
+        assert_eq!(propagator.trajectory().len(), 6); // Initial + 5 steps
+        let new_epoch = propagator.current_epoch();
+        assert_eq!(new_epoch, epoch + 300.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_propagate_to() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let target_epoch = epoch + 1.0; // 1 day forward
+        propagator.propagate_to(target_epoch).unwrap();
+
+        let current_epoch = propagator.current_epoch();
+        assert_eq!(current_epoch, target_epoch);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_current_state() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
 
         let mut propagator = KeplerianPropagator::from_keplerian(
             epoch,
@@ -576,16 +654,395 @@ mod tests {
         // Initial state should match
         assert_eq!(propagator.current_state(), elements);
 
-        // Step and check that current state is now different
+        // After step, should be different
         propagator.step().unwrap();
         let current_state = propagator.current_state();
-
-        // Current state should be different from initial
         assert_ne!(current_state, elements);
 
-        // Should match the last state in trajectory
+        // Should match last state in trajectory
         let last_epoch = propagator.trajectory().end_epoch().unwrap();
         let trajectory_state = propagator.trajectory().state_at_epoch(&last_epoch).unwrap();
         assert_eq!(current_state, trajectory_state);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_current_epoch() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        assert_eq!(propagator.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_initial_state() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        assert_eq!(propagator.initial_state(), elements);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_initial_epoch() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        assert_eq!(propagator.initial_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_step_size() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        assert_eq!(propagator.step_size(), 60.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_set_step_size() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        propagator.set_step_size(120.0);
+        assert_eq!(propagator.step_size(), 120.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_reset() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        // Propagate forward
+        propagator.propagate_steps(5).unwrap();
+        assert_eq!(propagator.trajectory().len(), 6);
+
+        // Reset
+        propagator.reset().unwrap();
+        assert_eq!(propagator.trajectory().len(), 1);
+        assert_eq!(propagator.current_epoch(), epoch);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_set_initial_conditions() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        // Set new initial conditions
+        let new_epoch = Epoch::from_jd(TEST_EPOCH_JD + 1.0, TimeSystem::UTC);
+        let new_elements = create_test_elements();
+
+        propagator.set_initial_conditions(
+            new_epoch,
+            new_elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            AngleFormat::Radians,
+        ).unwrap();
+
+        assert_eq!(propagator.initial_epoch(), new_epoch);
+        assert_eq!(propagator.initial_state(), new_elements);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_trajectory() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let traj = propagator.trajectory();
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_trajectory_mut() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let traj = propagator.trajectory_mut();
+        assert_eq!(traj.len(), 1);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_size() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        propagator.set_eviction_policy_max_size(5).unwrap();
+
+        // Propagate 10 steps
+        propagator.propagate_steps(10).unwrap();
+
+        // Should only keep 5 states
+        assert_eq!(propagator.trajectory().len(), 5);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_age() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let mut propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let result = propagator.set_eviction_policy_max_age(120.0);
+        assert!(result.is_ok());
+
+        propagator.propagate_steps(10).unwrap();
+        assert!(propagator.trajectory().len() > 0);
+    }
+
+    // AnalyticPropagator Trait Tests
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let target_epoch = epoch + 0.01; // 0.01 days forward
+        let state = propagator.state(target_epoch);
+
+        // State should be valid
+        assert!(state.iter().all(|&x| x.is_finite()));
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_eci() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let state = propagator.state_eci(epoch);
+
+        // Should be Cartesian state in ECI
+        assert!(state.norm() > 0.0);
+        // Semi-major axis of 7000km should give radius ~7000km
+        assert_abs_diff_eq!(state.fixed_rows::<3>(0).norm(), 7000e3, epsilon = 1000.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_ecef() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let state = propagator.state_ecef(epoch);
+
+        // ECEF state should be different from ECI due to frame rotation
+        let eci_state = propagator.state_eci(epoch);
+        assert!((state - eci_state).norm() > 0.0);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_osculating_elements() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let osc_elements = propagator.state_osculating_elements(epoch);
+
+        // Should match initial elements at initial epoch
+        assert_abs_diff_eq!(osc_elements[0], elements[0], epsilon = 1.0);
+        assert_abs_diff_eq!(osc_elements[1], elements[1], epsilon = 1e-10);
+        assert_abs_diff_eq!(osc_elements[2], elements[2], epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let epochs = vec![
+            epoch,
+            epoch + 0.01,
+            epoch + 0.02,
+        ];
+
+        let traj = propagator.states(&epochs);
+        assert_eq!(traj.len(), 3);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_eci() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let epochs = vec![epoch, epoch + 0.01];
+
+        let traj = propagator.states_eci(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_ecef() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let epochs = vec![epoch, epoch + 0.01];
+
+        let traj = propagator.states_ecef(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_frame(), OrbitFrame::ECEF);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_osculating_elements() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_circular_elements();
+
+        let propagator = KeplerianPropagator::from_keplerian(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            AngleFormat::Radians,
+            60.0,
+        ).unwrap();
+
+        let epochs = vec![epoch, epoch + 0.01];
+
+        let traj = propagator.states_osculating_elements(&epochs);
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Keplerian);
+        assert_eq!(traj.angle_format(), AngleFormat::Radians);
     }
 }

@@ -34,12 +34,7 @@ use std::collections::HashMap;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::Trajectory;
-
-/// Import types from strajectory for consistency
-pub use super::strajectory::{
-    InterpolationMethod, TrajectoryEvictionPolicy
-};
+use super::traits::{Trajectory, InterpolationMethod, TrajectoryEvictionPolicy};
 
 /// Dynamic trajectory container for N-dimensional state vectors over time.
 ///
@@ -99,229 +94,6 @@ pub struct DynamicTrajectory {
     pub metadata: HashMap<String, Value>,
 }
 
-impl Default for DynamicTrajectory {
-    /// Creates a trajectory with default settings (6D, linear interpolation, no memory limits).
-    fn default() -> Self {
-        Self::new(6) // Default to 6D for backward compatibility
-    }
-}
-
-impl Trajectory for DynamicTrajectory {
-    type StateVector = DVector<f64>;
-
-    fn new() -> Self {
-        Self::new(6) // Default to 6D for backward compatibility
-    }
-
-    fn add_state(&mut self, epoch: Epoch, state: DVector<f64>) -> Result<(), BraheError> {
-        // Validate state dimension
-        if state.len() != self.dimension {
-            return Err(BraheError::Error(format!(
-                "State vector dimension {} does not match trajectory dimension {}",
-                state.len(),
-                self.dimension
-            )));
-        }
-
-        // Find the correct position to insert based on epoch
-        let mut insert_idx = self.epochs.len();
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            if epoch < *existing_epoch {
-                insert_idx = i;
-                break;
-            } else if epoch == *existing_epoch {
-                // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy()?;
-                return Ok(());
-            }
-        }
-
-        // Insert at the correct position
-        self.epochs.insert(insert_idx, epoch);
-        self.states.insert(insert_idx, state);
-
-        // Apply eviction policy after adding state
-        self.apply_eviction_policy()?;
-        Ok(())
-    }
-
-    fn state_at_epoch(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
-        if self.epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot interpolate state from empty trajectory".to_string(),
-            ));
-        }
-
-        // If only one state, return it
-        if self.epochs.len() == 1 {
-            return Ok(self.states[0].clone());
-        }
-
-        // If epoch is before the first state or after the last state
-        if epoch < &self.epochs[0] {
-            return Err(BraheError::Error(
-                "Requested epoch is before the first state in trajectory".to_string(),
-            ));
-        }
-        if epoch > self.epochs.last().unwrap() {
-            return Err(BraheError::Error(
-                "Requested epoch is after the last state in trajectory".to_string(),
-            ));
-        }
-
-        // Find the exact state if it exists
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            if epoch == existing_epoch {
-                return Ok(self.states[i].clone());
-            }
-        }
-
-        // Interpolate based on method
-        match self.interpolation_method {
-            InterpolationMethod::Linear => self.interpolate_linear(epoch),
-            InterpolationMethod::CubicSpline => Err(BraheError::Error(
-                "Cubic spline interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Lagrange => Err(BraheError::Error(
-                "Lagrange interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Hermite => Err(BraheError::Error(
-                "Hermite interpolation not yet implemented".to_string(),
-            )),
-        }
-    }
-
-    fn state_at_index(&self, index: usize) -> Result<DVector<f64>, BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok(self.states[index].clone())
-    }
-
-    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
-        if index >= self.epochs.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} epochs",
-                index,
-                self.epochs.len()
-            )));
-        }
-
-        Ok(self.epochs[index])
-    }
-
-    fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, DVector<f64>), BraheError> {
-        if self.epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot find nearest state in empty trajectory".to_string(),
-            ));
-        }
-
-        let mut nearest_idx = 0;
-        let mut min_diff = f64::MAX;
-
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            let diff = (*epoch - *existing_epoch).abs();
-            if diff < min_diff {
-                min_diff = diff;
-                nearest_idx = i;
-            }
-
-            // Optimization: if we're past the epoch and moving away, we can stop
-            if i > 0 && existing_epoch > epoch && diff > min_diff {
-                break;
-            }
-        }
-
-        Ok((self.epochs[nearest_idx], self.states[nearest_idx].clone()))
-    }
-
-    fn len(&self) -> usize {
-        self.states.len()
-    }
-
-    fn start_epoch(&self) -> Option<Epoch> {
-        self.epochs.first().copied()
-    }
-
-    fn end_epoch(&self) -> Option<Epoch> {
-        self.epochs.last().copied()
-    }
-
-    fn timespan(&self) -> Option<f64> {
-        if self.epochs.len() < 2 {
-            None
-        } else {
-            Some(*self.epochs.last().unwrap() - *self.epochs.first().unwrap())
-        }
-    }
-
-    fn first(&self) -> Option<(Epoch, DVector<f64>)> {
-        if self.epochs.is_empty() {
-            None
-        } else {
-            Some((self.epochs[0], self.states[0].clone()))
-        }
-    }
-
-    fn last(&self) -> Option<(Epoch, DVector<f64>)> {
-        if self.epochs.is_empty() {
-            None
-        } else {
-            let last_index = self.epochs.len() - 1;
-            Some((self.epochs[last_index], self.states[last_index].clone()))
-        }
-    }
-
-    fn clear(&mut self) {
-        self.epochs.clear();
-        self.states.clear();
-    }
-
-    fn remove_state(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
-        if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
-            let removed_state = self.states.remove(index);
-            self.epochs.remove(index);
-            Ok(removed_state)
-        } else {
-            Err(BraheError::Error(
-                "Epoch not found in trajectory".to_string(),
-            ))
-        }
-    }
-
-    fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        let removed_epoch = self.epochs.remove(index);
-        let removed_state = self.states.remove(index);
-        Ok((removed_epoch, removed_state))
-    }
-
-    fn get(&self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok((self.epochs[index], self.states[index].clone()))
-    }
-}
 
 impl DynamicTrajectory {
     /// Creates a new empty trajectory with the specified dimension.
@@ -625,6 +397,12 @@ impl DynamicTrajectory {
     }
 }
 
+impl Default for DynamicTrajectory {
+    fn default() -> Self {
+        Self::new(6)
+    }
+}
+
 // Allow indexing into the trajectory directly - returns state vector only
 // For (epoch, state) tuples, use the get() method instead
 impl std::ops::Index<usize> for DynamicTrajectory {
@@ -632,5 +410,568 @@ impl std::ops::Index<usize> for DynamicTrajectory {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
+    }
+}
+
+impl Trajectory for DynamicTrajectory {
+    type StateVector = DVector<f64>;
+
+    fn add_state(&mut self, epoch: Epoch, state: DVector<f64>) -> Result<(), BraheError> {
+        // Validate state dimension
+        if state.len() != self.dimension {
+            return Err(BraheError::Error(format!(
+                "State vector dimension {} does not match trajectory dimension {}",
+                state.len(),
+                self.dimension
+            )));
+        }
+
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            } else if epoch == *existing_epoch {
+                // Replace state if epochs are equal
+                self.states[i] = state;
+                self.apply_eviction_policy()?;
+                return Ok(());
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    fn state_at_epoch(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        if self.epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot interpolate state from empty trajectory".to_string(),
+            ));
+        }
+
+        // If only one state, return it
+        if self.epochs.len() == 1 {
+            return Ok(self.states[0].clone());
+        }
+
+        // If epoch is before the first state or after the last state
+        if epoch < &self.epochs[0] {
+            return Err(BraheError::Error(
+                "Requested epoch is before the first state in trajectory".to_string(),
+            ));
+        }
+        if epoch > self.epochs.last().unwrap() {
+            return Err(BraheError::Error(
+                "Requested epoch is after the last state in trajectory".to_string(),
+            ));
+        }
+
+        // Find the exact state if it exists
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch == existing_epoch {
+                return Ok(self.states[i].clone());
+            }
+        }
+
+        // Interpolate based on method
+        match self.interpolation_method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+            InterpolationMethod::CubicSpline => Err(BraheError::Error(
+                "Cubic spline interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Lagrange => Err(BraheError::Error(
+                "Lagrange interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Hermite => Err(BraheError::Error(
+                "Hermite interpolation not yet implemented".to_string(),
+            )),
+        }
+    }
+
+    fn state_at_index(&self, index: usize) -> Result<DVector<f64>, BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok(self.states[index].clone())
+    }
+
+    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
+        if index >= self.epochs.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} epochs",
+                index,
+                self.epochs.len()
+            )));
+        }
+
+        Ok(self.epochs[index])
+    }
+
+    fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, DVector<f64>), BraheError> {
+        if self.epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot find nearest state in empty trajectory".to_string(),
+            ));
+        }
+
+        let mut nearest_idx = 0;
+        let mut min_diff = f64::MAX;
+
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            let diff = (*epoch - *existing_epoch).abs();
+            if diff < min_diff {
+                min_diff = diff;
+                nearest_idx = i;
+            }
+
+            // Optimization: if we're past the epoch and moving away, we can stop
+            if i > 0 && existing_epoch > epoch && diff > min_diff {
+                break;
+            }
+        }
+
+        Ok((self.epochs[nearest_idx], self.states[nearest_idx].clone()))
+    }
+
+    fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    fn start_epoch(&self) -> Option<Epoch> {
+        self.epochs.first().copied()
+    }
+
+    fn end_epoch(&self) -> Option<Epoch> {
+        self.epochs.last().copied()
+    }
+
+    fn timespan(&self) -> Option<f64> {
+        if self.epochs.len() < 2 {
+            None
+        } else {
+            Some(*self.epochs.last().unwrap() - *self.epochs.first().unwrap())
+        }
+    }
+
+    fn first(&self) -> Option<(Epoch, DVector<f64>)> {
+        if self.epochs.is_empty() {
+            None
+        } else {
+            Some((self.epochs[0], self.states[0].clone()))
+        }
+    }
+
+    fn last(&self) -> Option<(Epoch, DVector<f64>)> {
+        if self.epochs.is_empty() {
+            None
+        } else {
+            let last_index = self.epochs.len() - 1;
+            Some((self.epochs[last_index], self.states[last_index].clone()))
+        }
+    }
+
+    fn clear(&mut self) {
+        self.epochs.clear();
+        self.states.clear();
+    }
+
+    fn remove_state(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
+            let removed_state = self.states.remove(index);
+            self.epochs.remove(index);
+            Ok(removed_state)
+        } else {
+            Err(BraheError::Error(
+                "Epoch not found in trajectory".to_string(),
+            ))
+        }
+    }
+
+    fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        let removed_epoch = self.epochs.remove(index);
+        let removed_state = self.states.remove(index);
+        Ok((removed_epoch, removed_state))
+    }
+
+    fn get(&self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok((self.epochs[index], self.states[index].clone()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::time::{Epoch, TimeSystem};
+    use approx::assert_abs_diff_eq;
+
+    fn create_test_trajectory() -> DynamicTrajectory {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+            DVector::from_vec(vec![7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+        ];
+
+        DynamicTrajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap()
+    }
+
+    // Trajectory Trait Tests
+
+    #[test]
+    fn test_dynamictrajectory_new_default_dimension() {
+        let trajectory = DynamicTrajectory::new(6);
+
+        assert_eq!(trajectory.len(), 0);
+        assert_eq!(trajectory.dimension, 6);
+        assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
+        assert!(trajectory.is_empty());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_add_state() {
+        let mut trajectory = DynamicTrajectory::new(6);
+
+        let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        trajectory.add_state(epoch1, state1.clone()).unwrap();
+        assert_eq!(trajectory.len(), 1);
+
+        let epoch2 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state2 = DVector::from_vec(vec![7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0]);
+
+        trajectory.add_state(epoch2, state2.clone()).unwrap();
+        assert_eq!(trajectory.len(), 2);
+
+        assert_eq!(trajectory.states[0], state1);
+        assert_eq!(trajectory.states[1], state2);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_state_at_epoch() {
+        let traj = create_test_trajectory();
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = traj.state_at_epoch(&epoch).unwrap();
+        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+
+        let epoch_interp = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        let state_interp = traj.state_at_epoch(&epoch_interp).unwrap();
+        assert_abs_diff_eq!(state_interp[0], 7050e3, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_state_at_index() {
+        let traj = create_test_trajectory();
+
+        let state = traj.state_at_index(0).unwrap();
+        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+
+        let state = traj.state_at_index(1).unwrap();
+        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_epoch_at_index() {
+        let traj = create_test_trajectory();
+
+        let epoch = traj.epoch_at_index(0).unwrap();
+        assert_eq!(epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
+
+        let epoch = traj.epoch_at_index(1).unwrap();
+        assert_eq!(epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_nearest_state() {
+        let traj = create_test_trajectory();
+
+        let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
+        assert_eq!(nearest_epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
+
+        let epoch = Epoch::from_jd(2451545.11, TimeSystem::UTC);
+        let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
+        assert_eq!(nearest_epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_len() {
+        let traj = create_test_trajectory();
+        assert_eq!(traj.len(), 3);
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert_eq!(empty_traj.len(), 0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_is_empty() {
+        let traj = create_test_trajectory();
+        assert!(!traj.is_empty());
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.is_empty());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_start_epoch() {
+        let traj = create_test_trajectory();
+        let start = traj.start_epoch().unwrap();
+        assert_eq!(start, Epoch::from_jd(2451545.0, TimeSystem::UTC));
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.start_epoch().is_none());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_end_epoch() {
+        let traj = create_test_trajectory();
+        let end = traj.end_epoch().unwrap();
+        assert_eq!(end, Epoch::from_jd(2451545.2, TimeSystem::UTC));
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.end_epoch().is_none());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_timespan() {
+        let traj = create_test_trajectory();
+        let timespan = traj.timespan().unwrap();
+        assert_abs_diff_eq!(timespan, 0.2 * 86400.0, epsilon = 1.0);
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.timespan().is_none());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_first() {
+        let traj = create_test_trajectory();
+        let (epoch, state) = traj.first().unwrap();
+        assert_eq!(epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
+        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.first().is_none());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_last() {
+        let traj = create_test_trajectory();
+        let (epoch, state) = traj.last().unwrap();
+        assert_eq!(epoch, Epoch::from_jd(2451545.2, TimeSystem::UTC));
+        assert_abs_diff_eq!(state[0], 7200e3, epsilon = 1.0);
+
+        let empty_traj = DynamicTrajectory::new(6);
+        assert!(empty_traj.last().is_none());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_clear() {
+        let mut traj = create_test_trajectory();
+        assert_eq!(traj.len(), 3);
+
+        traj.clear();
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_remove_state() {
+        let mut traj = create_test_trajectory();
+        let epoch = Epoch::from_jd(2451545.1, TimeSystem::UTC);
+
+        let removed_state = traj.remove_state(&epoch).unwrap();
+        assert_abs_diff_eq!(removed_state[0], 7100e3, epsilon = 1.0);
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_remove_state_at_index() {
+        let mut traj = create_test_trajectory();
+
+        let (removed_epoch, removed_state) = traj.remove_state_at_index(1).unwrap();
+        assert_eq!(removed_epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+        assert_abs_diff_eq!(removed_state[0], 7100e3, epsilon = 1.0);
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_get() {
+        let traj = create_test_trajectory();
+
+        let (epoch, state) = traj.get(1).unwrap();
+        assert_eq!(epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+    }
+
+    // DynamicTrajectory Method Tests
+
+    #[test]
+    fn test_dynamictrajectory_new_with_dimension() {
+        let traj = DynamicTrajectory::new(7);
+        assert_eq!(traj.dimension, 7);
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_with_interpolation() {
+        let traj = DynamicTrajectory::with_interpolation(12, InterpolationMethod::CubicSpline);
+        assert_eq!(traj.dimension, 12);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::CubicSpline);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_from_data() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0]),
+            DVector::from_vec(vec![4.0, 5.0, 6.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap();
+        assert_eq!(traj.dimension, 3);
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_from_data_errors() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0]),
+        ];
+
+        let result = DynamicTrajectory::from_data(epochs.clone(), states, InterpolationMethod::Linear);
+        assert!(result.is_err());
+
+        let empty_epochs: Vec<Epoch> = vec![];
+        let empty_states: Vec<DVector<f64>> = vec![];
+        let result = DynamicTrajectory::from_data(empty_epochs, empty_states, InterpolationMethod::Linear);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_dimension() {
+        let traj = DynamicTrajectory::new(9);
+        assert_eq!(traj.dimension(), 9);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_set_interpolation_method() {
+        let mut traj = DynamicTrajectory::new(6);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+
+        traj.set_interpolation_method(InterpolationMethod::Lagrange);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Lagrange);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_set_eviction_policy_max_size() {
+        let mut traj = create_test_trajectory();
+        assert_eq!(traj.len(), 3);
+
+        traj.set_eviction_policy_max_size(2).unwrap();
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_set_eviction_policy_max_age() {
+        let mut traj = create_test_trajectory();
+
+        // Max age slightly larger than 0.1 days to account for floating point precision
+        traj.set_eviction_policy_max_age(0.15 * 86400.0).unwrap();
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepWithinDuration);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_to_matrix() {
+        let traj = create_test_trajectory();
+        let matrix = traj.to_matrix().unwrap();
+
+        assert_eq!(matrix.nrows(), 6);
+        assert_eq!(matrix.ncols(), 3);
+        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 1)], 7100e3, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_indexing_operator() {
+        let traj = create_test_trajectory();
+        let state = &traj[1];
+        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_dimension_validation() {
+        let mut traj = DynamicTrajectory::new(6);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let wrong_dim_state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let result = traj.add_state(epoch, wrong_dim_state);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_state_at_epoch_errors() {
+        let traj = create_test_trajectory();
+
+        let too_early = Epoch::from_jd(2451544.0, TimeSystem::UTC);
+        let result = traj.state_at_epoch(&too_early);
+        assert!(result.is_err());
+
+        let too_late = Epoch::from_jd(2451546.0, TimeSystem::UTC);
+        let result = traj.state_at_epoch(&too_late);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_unimplemented_interpolation() {
+        let mut traj = create_test_trajectory();
+        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
+
+        let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
+        let result = traj.state_at_epoch(&epoch);
+        assert!(result.is_err());
     }
 }

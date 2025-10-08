@@ -149,7 +149,7 @@ impl<const R: usize> STrajectory<R>
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::{STrajectory6, InterpolationMethod, Trajectory};
-    /// let traj = STrajectory6::with_interpolation(InterpolationMethod::CubicSpline);
+    /// let traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
     /// assert_eq!(traj.len(), 0);
     /// ```
     pub fn with_interpolation(interpolation_method: InterpolationMethod) -> Self {
@@ -176,7 +176,6 @@ impl<const R: usize> STrajectory<R>
     /// ```rust
     /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
     /// let mut traj = STrajectory6::new(); // defaults to Linear
-    /// traj.set_interpolation_method(InterpolationMethod::CubicSpline);
     /// ```
     pub fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
@@ -365,14 +364,63 @@ impl<const R: usize> STrajectory<R>
 
 }
 
-// Allow indexing into the trajectory directly - returns state vector only
-// For (epoch, state) tuples, use the get() method instead
+/// Index implementation returns state vector at given index
+///
+/// This provides array-like access: `traj[i]` returns the state at index i.
+/// For accessing both epoch and state together, use `.get(i)` method instead.
+///
+/// # Panics
+/// Panics if index is out of bounds
 impl<const R: usize> Index<usize> for STrajectory<R>
 {
     type Output = SVector<f64, R>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
+    }
+}
+
+/// Iterator over trajectory (epoch, state) pairs
+pub struct STrajectoryIterator<'a, const R: usize> {
+    trajectory: &'a STrajectory<R>,
+    index: usize,
+}
+
+impl<'a, const R: usize> Iterator for STrajectoryIterator<'a, R> {
+    type Item = (Epoch, SVector<f64, R>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.trajectory.len() {
+            let result = self.trajectory.get(self.index).ok();
+            self.index += 1;
+            result
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.trajectory.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, const R: usize> ExactSizeIterator for STrajectoryIterator<'a, R> {
+    fn len(&self) -> usize {
+        self.trajectory.len() - self.index
+    }
+}
+
+/// IntoIterator implementation for iterating over (epoch, state) pairs
+impl<'a, const R: usize> IntoIterator for &'a STrajectory<R> {
+    type Item = (Epoch, SVector<f64, R>);
+    type IntoIter = STrajectoryIterator<'a, R>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        STrajectoryIterator {
+            trajectory: self,
+            index: 0,
+        }
     }
 }
 
@@ -437,7 +485,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         Ok(())
     }
 
-    fn state_at_index(&self, index: usize) -> Result<Self::StateVector, BraheError> {
+    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -449,7 +497,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         Ok(self.states[index].clone())
     }
 
-    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
+    fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
         if index >= self.epochs.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} epochs",
@@ -640,19 +688,8 @@ impl<const R: usize> STrajectory<R> {
             }
         }
 
-        // Interpolate based on method
-        match self.interpolation_method {
-            InterpolationMethod::Linear => self.interpolate_linear(epoch),
-            InterpolationMethod::CubicSpline => Err(BraheError::Error(
-                "Cubic spline interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Lagrange => Err(BraheError::Error(
-                "Lagrange interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Hermite => Err(BraheError::Error(
-                "Hermite interpolation not yet implemented".to_string(),
-            )),
-        }
+        // Interpolate using linear method
+        self.interpolate_linear(epoch)
     }
 }
 
@@ -751,17 +788,17 @@ mod tests {
         let trajectory = create_test_trajectory();
 
         // Test valid indices
-        let state0 = trajectory.state_at_index(0).unwrap();
+        let state0 = trajectory.state(0).unwrap();
         assert_eq!(state0[0], 7000e3);
 
-        let state1 = trajectory.state_at_index(1).unwrap();
+        let state1 = trajectory.state(1).unwrap();
         assert_eq!(state1[0], 7100e3);
 
-        let state2 = trajectory.state_at_index(2).unwrap();
+        let state2 = trajectory.state(2).unwrap();
         assert_eq!(state2[0], 7200e3);
 
         // Test invalid index
-        assert!(trajectory.state_at_index(10).is_err());
+        assert!(trajectory.state(10).is_err());
     }
 
     #[test]
@@ -769,17 +806,17 @@ mod tests {
         let trajectory = create_test_trajectory();
 
         // Test valid indices
-        let epoch0 = trajectory.epoch_at_index(0).unwrap();
+        let epoch0 = trajectory.epoch(0).unwrap();
         assert_eq!(epoch0.jd(), 2451545.0);
 
-        let epoch1 = trajectory.epoch_at_index(1).unwrap();
+        let epoch1 = trajectory.epoch(1).unwrap();
         assert_eq!(epoch1.jd(), 2451545.1);
 
-        let epoch2 = trajectory.epoch_at_index(2).unwrap();
+        let epoch2 = trajectory.epoch(2).unwrap();
         assert_eq!(epoch2.jd(), 2451545.2);
 
         // Test invalid index
-        assert!(trajectory.epoch_at_index(10).is_err());
+        assert!(trajectory.epoch(10).is_err());
     }
 
     #[test]
@@ -1012,23 +1049,6 @@ mod tests {
         assert!(empty_trajectory.state_at_epoch(&any_epoch).is_err());
     }
 
-    #[test]
-    fn test_strajectory_unimplemented_interpolation() {
-        let mut trajectory = create_test_trajectory();
-        let mid_epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-
-        // Test CubicSpline (not implemented)
-        trajectory.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert!(trajectory.state_at_epoch(&mid_epoch).is_err());
-
-        // Test Lagrange (not implemented)
-        trajectory.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert!(trajectory.state_at_epoch(&mid_epoch).is_err());
-
-        // Test Hermite (not implemented)
-        trajectory.set_interpolation_method(InterpolationMethod::Hermite);
-        assert!(trajectory.state_at_epoch(&mid_epoch).is_err());
-    }
 
     #[test]
     fn test_strajectory_timespan_edge_cases() {
@@ -1276,21 +1296,6 @@ mod tests {
         // Test setting to Linear explicitly
         traj.set_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
-
-        // Test setting to CubicSpline
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::CubicSpline);
-
-        // Test setting to Lagrange
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Lagrange);
-
-        // Test setting to Hermite
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Hermite);
-
-        // Test that changes persist
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Hermite);
     }
 
     #[test]
@@ -1381,10 +1386,7 @@ mod tests {
             Vector6::new(7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
             Vector6::new(7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
         ];
-        let mut traj = STrajectory6::from_data(epochs, states).unwrap();
-
-        // Set interpolation method to Linear
-        traj.set_interpolation_method(InterpolationMethod::Linear);
+        let traj = STrajectory6::from_data(epochs, states).unwrap();
 
         // Test that interpolate() returns same result as interpolate_linear() for the same epoch
         let t_test = t0 + 30.0;
@@ -1400,47 +1402,6 @@ mod tests {
 
         // Verify the actual values for completeness
         assert_abs_diff_eq!(result_interpolate[0], 7030e3, epsilon = 1e-6);
-
-        // Set interpolation method to CubicSpline and verify error (not yet implemented)
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        let result_cubic = traj.interpolate(&t_test);
-        assert!(result_cubic.is_err());
-        if let Err(e) = result_cubic {
-            match e {
-                BraheError::Error(msg) => {
-                    assert!(msg.contains("Cubic spline interpolation not yet implemented"));
-                }
-                _ => panic!("Expected BraheError::Error"),
-            }
-        }
-
-        // Set to Lagrange and verify error
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        let result_lagrange = traj.interpolate(&t_test);
-        assert!(result_lagrange.is_err());
-        if let Err(e) = result_lagrange {
-            match e {
-                BraheError::Error(msg) => {
-                    assert!(msg.contains("Lagrange interpolation not yet implemented"));
-                }
-                _ => panic!("Expected BraheError::Error"),
-            }
-        }
-
-        // Set to Hermite and verify error
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        let result_hermite = traj.interpolate(&t_test);
-        assert!(result_hermite.is_err());
-        if let Err(e) = result_hermite {
-            match e {
-                BraheError::Error(msg) => {
-                    assert!(msg.contains("Hermite interpolation not yet implemented"));
-                }
-                _ => panic!("Expected BraheError::Error"),
-            }
-        }
-
-        // This verifies the dispatch logic works correctly
     }
 
     // Eviction Policy Tests
@@ -1466,7 +1427,7 @@ mod tests {
         assert_eq!(traj.len(), 3);
 
         // First state should be the 3rd original state (oldest 2 evicted)
-        let first_state = traj.state_at_index(0).unwrap();
+        let first_state = traj.state(0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
 
         // Add another state - should still maintain max size
@@ -1500,7 +1461,7 @@ mod tests {
         // Should keep states at 180s, 240s, and 300s (within 150s of 300s)
         assert_eq!(traj.len(), 3);
 
-        let first_state = traj.state_at_index(0).unwrap();
+        let first_state = traj.state(0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 3000.0, epsilon = 1.0);
 
         // Test error case
@@ -1547,9 +1508,6 @@ mod tests {
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
         assert_eq!(traj.len(), 0);
 
-        let traj_lagrange = STrajectory6::with_interpolation(InterpolationMethod::Lagrange);
-        assert_eq!(traj_lagrange.get_interpolation_method(), InterpolationMethod::Lagrange);
-
         // Verify it works with adding states
         let mut traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1557,5 +1515,86 @@ mod tests {
         traj.add_state(t0, state).unwrap();
         assert_eq!(traj.len(), 1);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+    }
+
+    // Index Trait Tests
+
+    #[test]
+    fn test_strajectory_index() {
+        let trajectory = create_test_trajectory();
+
+        // Test indexing returns state vectors
+        let state0 = &trajectory[0];
+        assert_abs_diff_eq!(state0[0], 7000e3, epsilon = 1.0);
+
+        let state1 = &trajectory[1];
+        assert_abs_diff_eq!(state1[0], 7100e3, epsilon = 1.0);
+
+        let state2 = &trajectory[2];
+        assert_abs_diff_eq!(state2[0], 7200e3, epsilon = 1.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_strajectory_index_out_of_bounds() {
+        let trajectory = create_test_trajectory();
+        let _ = &trajectory[10]; // Should panic
+    }
+
+    // Iterator Trait Tests
+
+    #[test]
+    fn test_strajectory_iterator() {
+        let trajectory = create_test_trajectory();
+
+        let mut count = 0;
+        for (epoch, state) in &trajectory {
+            match count {
+                0 => {
+                    assert_eq!(epoch.jd(), 2451545.0);
+                    assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+                }
+                1 => {
+                    assert_eq!(epoch.jd(), 2451545.1);
+                    assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+                }
+                2 => {
+                    assert_eq!(epoch.jd(), 2451545.2);
+                    assert_abs_diff_eq!(state[0], 7200e3, epsilon = 1.0);
+                }
+                _ => panic!("Too many iterations"),
+            }
+            count += 1;
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_strajectory_iterator_empty() {
+        let trajectory = STrajectory6::new();
+
+        let mut count = 0;
+        for _ in &trajectory {
+            count += 1;
+        }
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_strajectory_iterator_size_hint() {
+        let trajectory = create_test_trajectory();
+
+        let iter = trajectory.into_iter();
+        let (lower, upper) = iter.size_hint();
+        assert_eq!(lower, 3);
+        assert_eq!(upper, Some(3));
+    }
+
+    #[test]
+    fn test_strajectory_iterator_exact_size() {
+        let trajectory = create_test_trajectory();
+
+        let iter = trajectory.into_iter();
+        assert_eq!(iter.len(), 3);
     }
 }

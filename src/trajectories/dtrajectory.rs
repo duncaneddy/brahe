@@ -140,7 +140,7 @@ impl DTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::{DTrajectory, InterpolationMethod, Trajectory};
-    /// let traj = DTrajectory::with_interpolation(12, InterpolationMethod::CubicSpline);
+    /// let traj = DTrajectory::with_interpolation(12, InterpolationMethod::Linear);
     /// assert_eq!(traj.len(), 0);
     /// assert_eq!(traj.dimension, 12);
     /// ```
@@ -335,11 +335,59 @@ impl Default for DTrajectory {
 
 // Allow indexing into the trajectory directly - returns state vector only
 // For (epoch, state) tuples, use the get() method instead
+/// Index implementation returns state vector at given index
+///
+/// # Panics
+/// Panics if index is out of bounds
 impl std::ops::Index<usize> for DTrajectory {
     type Output = DVector<f64>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.states[index]
+    }
+}
+
+/// Iterator over trajectory (epoch, state) pairs
+pub struct DTrajectoryIterator<'a> {
+    trajectory: &'a DTrajectory,
+    index: usize,
+}
+
+impl<'a> Iterator for DTrajectoryIterator<'a> {
+    type Item = (Epoch, DVector<f64>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.trajectory.len() {
+            let result = self.trajectory.get(self.index).ok();
+            self.index += 1;
+            result
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.trajectory.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a> ExactSizeIterator for DTrajectoryIterator<'a> {
+    fn len(&self) -> usize {
+        self.trajectory.len() - self.index
+    }
+}
+
+/// IntoIterator implementation for iterating over (epoch, state) pairs
+impl<'a> IntoIterator for &'a DTrajectory {
+    type Item = (Epoch, DVector<f64>);
+    type IntoIter = DTrajectoryIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DTrajectoryIterator {
+            trajectory: self,
+            index: 0,
+        }
     }
 }
 
@@ -433,7 +481,7 @@ impl Trajectory for DTrajectory {
         Ok(())
     }
 
-    fn state_at_index(&self, index: usize) -> Result<DVector<f64>, BraheError> {
+    fn state(&self, index: usize) -> Result<DVector<f64>, BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -445,7 +493,7 @@ impl Trajectory for DTrajectory {
         Ok(self.states[index].clone())
     }
 
-    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
+    fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
         if index >= self.epochs.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} epochs",
@@ -699,10 +747,10 @@ mod tests {
     fn test_dynamictrajectory_trajectory_state_at_index() {
         let traj = create_test_trajectory();
 
-        let state = traj.state_at_index(0).unwrap();
+        let state = traj.state(0).unwrap();
         assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
 
-        let state = traj.state_at_index(1).unwrap();
+        let state = traj.state(1).unwrap();
         assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
     }
 
@@ -710,10 +758,10 @@ mod tests {
     fn test_dynamictrajectory_trajectory_epoch_at_index() {
         let traj = create_test_trajectory();
 
-        let epoch = traj.epoch_at_index(0).unwrap();
+        let epoch = traj.epoch(0).unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
 
-        let epoch = traj.epoch_at_index(1).unwrap();
+        let epoch = traj.epoch(1).unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
     }
 
@@ -851,9 +899,9 @@ mod tests {
 
     #[test]
     fn test_dynamictrajectory_with_interpolation() {
-        let traj = DTrajectory::with_interpolation(12, InterpolationMethod::CubicSpline);
+        let traj = DTrajectory::with_interpolation(12, InterpolationMethod::Linear);
         assert_eq!(traj.dimension, 12);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::CubicSpline);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
     }
 
     #[test]
@@ -902,8 +950,8 @@ mod tests {
         let mut traj = DTrajectory::new(6);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
 
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::Lagrange);
+        traj.set_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
     }
 
     #[test]
@@ -967,15 +1015,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_dynamictrajectory_unimplemented_interpolation() {
-        let mut traj = create_test_trajectory();
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-
-        let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-        let result = traj.interpolate(&epoch);
-        assert!(result.is_err());
-    }
 
     // Additional Trajectory Trait Tests
 
@@ -1145,14 +1184,8 @@ mod tests {
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
 
         // Set it to different methods and verify get_interpolation_method returns the correct value
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::CubicSpline);
 
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Lagrange);
 
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Hermite);
 
         traj.set_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
@@ -1235,15 +1268,86 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(state_interpolate[i], state_interpolate_linear[i], epsilon = 1e-10);
         }
+    }
 
-        // Test that unimplemented methods (CubicSpline, Lagrange, Hermite) return errors
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
+    // Index Trait Tests
 
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
+    #[test]
+    fn test_dynamictrajectory_index() {
+        let traj = create_test_trajectory();
 
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
+        // Test indexing returns state vectors
+        let state0 = &traj[0];
+        assert_abs_diff_eq!(state0[0], 7000e3, epsilon = 1.0);
+
+        let state1 = &traj[1];
+        assert_abs_diff_eq!(state1[0], 7100e3, epsilon = 1.0);
+
+        let state2 = &traj[2];
+        assert_abs_diff_eq!(state2[0], 7200e3, epsilon = 1.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_dynamictrajectory_index_out_of_bounds() {
+        let traj = create_test_trajectory();
+        let _ = &traj[10]; // Should panic
+    }
+
+    // Iterator Trait Tests
+
+    #[test]
+    fn test_dynamictrajectory_iterator() {
+        let traj = create_test_trajectory();
+
+        let mut count = 0;
+        for (epoch, state) in &traj {
+            match count {
+                0 => {
+                    assert_eq!(epoch.jd(), 2451545.0);
+                    assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+                }
+                1 => {
+                    assert_eq!(epoch.jd(), 2451545.1);
+                    assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+                }
+                2 => {
+                    assert_eq!(epoch.jd(), 2451545.2);
+                    assert_abs_diff_eq!(state[0], 7200e3, epsilon = 1.0);
+                }
+                _ => panic!("Too many iterations"),
+            }
+            count += 1;
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_iterator_empty() {
+        let traj = DTrajectory::new(6);
+
+        let mut count = 0;
+        for _ in &traj {
+            count += 1;
+        }
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_iterator_size_hint() {
+        let traj = create_test_trajectory();
+
+        let iter = traj.into_iter();
+        let (lower, upper) = iter.size_hint();
+        assert_eq!(lower, 3);
+        assert_eq!(upper, Some(3));
+    }
+
+    #[test]
+    fn test_dynamictrajectory_iterator_exact_size() {
+        let traj = create_test_trajectory();
+
+        let iter = traj.into_iter();
+        assert_eq!(iter.len(), 3);
     }
 }

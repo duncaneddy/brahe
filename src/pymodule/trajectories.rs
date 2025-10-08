@@ -443,7 +443,7 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     numpy.ndarray: State vector at given index
     #[pyo3(text_signature = "(index)")]
-    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn state<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         if index >= self.trajectory.len() {
             return Err(exceptions::PyIndexError::new_err("Index out of range"));
         }
@@ -466,7 +466,7 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     Epoch: Epoch at given index
     #[pyo3(text_signature = "(index)")]
-    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
+    pub fn epoch(&self, index: usize) -> PyResult<PyEpoch> {
         let epochs = self.trajectory.epochs();
         if index >= epochs.len() {
             return Err(exceptions::PyIndexError::new_err("Index out of range"));
@@ -810,19 +810,6 @@ impl PyOrbitalTrajectory {
         self.trajectory.len()
     }
 
-    /// Python indexing support
-    fn __getitem__(&self, index: isize) -> PyResult<PyEpoch> {
-        let len = self.trajectory.len() as isize;
-        let idx = if index < 0 { len + index } else { index };
-
-        if idx < 0 || idx >= len {
-            return Err(exceptions::PyIndexError::new_err("Index out of range"));
-        }
-
-        let epochs = self.trajectory.epochs();
-        Ok(PyEpoch { obj: epochs[idx as usize] })
-    }
-
     /// String representation
     fn __repr__(&self) -> String {
         use crate::trajectories::OrbitalTrajectory;
@@ -864,6 +851,68 @@ impl PyOrbitalTrajectory {
         match self.trajectory.set_eviction_policy_max_age(max_age) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    /// Index access returns state vector at given index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at index
+    fn __getitem__<'a>(&self, py: Python<'a>, index: isize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let len = self.trajectory.len() as isize;
+        let actual_index = if index < 0 {
+            (len + index) as usize
+        } else {
+            index as usize
+        };
+
+        if actual_index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+
+        let state = &self.trajectory[actual_index];
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Iterator over (epoch, state) pairs
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyOrbitalTrajectoryIterator>> {
+        let py = slf.py();
+        let iter = PyOrbitalTrajectoryIterator {
+            trajectory: slf.into(),
+            index: 0,
+        };
+        Py::new(py, iter)
+    }
+}
+
+/// Iterator for OrbitTrajectory
+#[pyclass]
+struct PyOrbitalTrajectoryIterator {
+    trajectory: Py<PyOrbitalTrajectory>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyOrbitalTrajectoryIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__<'a>(&mut self, py: Python<'a>) -> PyResult<Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)>> {
+        let traj = self.trajectory.borrow(py);
+        if self.index < traj.trajectory.len() {
+            let (epoch, state) = traj.trajectory.get(self.index)
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            self.index += 1;
+            Ok(Some((
+                PyEpoch { obj: epoch },
+                state.as_slice().to_pyarray(py).to_owned()
+            )))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -954,11 +1003,6 @@ impl PyInterpolationMethod {
     #[classattr]
     fn linear() -> Self {
         PyInterpolationMethod { method: trajectories::InterpolationMethod::Linear }
-    }
-
-    #[classattr]
-    fn lagrange() -> Self {
-        PyInterpolationMethod { method: trajectories::InterpolationMethod::Lagrange }
     }
 
     fn __str__(&self) -> String {
@@ -1280,8 +1324,8 @@ impl PyTrajectory {
     /// Returns:
     ///     numpy.ndarray: State vector at index
     #[pyo3(text_signature = "(index)")]
-    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.state_at_index(index) {
+    pub fn state<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.state(index) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1295,8 +1339,8 @@ impl PyTrajectory {
     /// Returns:
     ///     Epoch: Epoch at index
     #[pyo3(text_signature = "(index)")]
-    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
-        match self.trajectory.epoch_at_index(index) {
+    pub fn epoch(&self, index: usize) -> PyResult<PyEpoch> {
+        match self.trajectory.epoch(index) {
             Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1478,6 +1522,68 @@ impl PyTrajectory {
     /// String conversion
     fn __str__(&self) -> String {
         self.__repr__()
+    }
+
+    /// Index access returns state vector at given index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at index
+    fn __getitem__<'a>(&self, py: Python<'a>, index: isize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let len = self.trajectory.len() as isize;
+        let actual_index = if index < 0 {
+            (len + index) as usize
+        } else {
+            index as usize
+        };
+
+        if actual_index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+
+        let state = &self.trajectory[actual_index];
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Iterator over (epoch, state) pairs
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyTrajectoryIterator>> {
+        let py = slf.py();
+        let iter = PyTrajectoryIterator {
+            trajectory: slf.into(),
+            index: 0,
+        };
+        Py::new(py, iter)
+    }
+}
+
+/// Iterator for DTrajectory
+#[pyclass]
+struct PyTrajectoryIterator {
+    trajectory: Py<PyTrajectory>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyTrajectoryIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__<'a>(&mut self, py: Python<'a>) -> PyResult<Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)>> {
+        let traj = self.trajectory.borrow(py);
+        if self.index < traj.trajectory.len() {
+            let (epoch, state) = traj.trajectory.get(self.index)
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            self.index += 1;
+            Ok(Some((
+                PyEpoch { obj: epoch },
+                state.as_slice().to_pyarray(py).to_owned()
+            )))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -1730,8 +1836,8 @@ impl PySTrajectory6 {
     /// Returns:
     ///     numpy.ndarray: State vector at index
     #[pyo3(text_signature = "(index)")]
-    pub fn state_at_index<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.state_at_index(index) {
+    pub fn state<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.state(index) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1745,8 +1851,8 @@ impl PySTrajectory6 {
     /// Returns:
     ///     Epoch: Epoch at index
     #[pyo3(text_signature = "(index)")]
-    pub fn epoch_at_index(&self, index: usize) -> PyResult<PyEpoch> {
-        match self.trajectory.epoch_at_index(index) {
+    pub fn epoch(&self, index: usize) -> PyResult<PyEpoch> {
+        match self.trajectory.epoch(index) {
             Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1921,5 +2027,67 @@ impl PySTrajectory6 {
     /// String conversion
     fn __str__(&self) -> String {
         self.__repr__()
+    }
+
+    /// Index access returns state vector at given index
+    ///
+    /// Arguments:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at index
+    fn __getitem__<'a>(&self, py: Python<'a>, index: isize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let len = self.trajectory.len() as isize;
+        let actual_index = if index < 0 {
+            (len + index) as usize
+        } else {
+            index as usize
+        };
+
+        if actual_index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err("Index out of range"));
+        }
+
+        let state = &self.trajectory[actual_index];
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Iterator over (epoch, state) pairs
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PySTrajectory6Iterator>> {
+        let py = slf.py();
+        let iter = PySTrajectory6Iterator {
+            trajectory: slf.into(),
+            index: 0,
+        };
+        Py::new(py, iter)
+    }
+}
+
+/// Iterator for STrajectory6
+#[pyclass]
+struct PySTrajectory6Iterator {
+    trajectory: Py<PySTrajectory6>,
+    index: usize,
+}
+
+#[pymethods]
+impl PySTrajectory6Iterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__<'a>(&mut self, py: Python<'a>) -> PyResult<Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)>> {
+        let traj = self.trajectory.borrow(py);
+        if self.index < traj.trajectory.len() {
+            let (epoch, state) = traj.trajectory.get(self.index)
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            self.index += 1;
+            Ok(Some((
+                PyEpoch { obj: epoch },
+                state.as_slice().to_pyarray(py).to_owned()
+            )))
+        } else {
+            Ok(None)
+        }
     }
 }

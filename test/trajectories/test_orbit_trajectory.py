@@ -64,10 +64,8 @@ class TestInterpolationMethod:
     def test_interpolation_methods(self):
         """Test interpolation method creation."""
         linear = brahe.InterpolationMethod.linear
-        lagrange_interp = brahe.InterpolationMethod.lagrange
 
         assert "Linear" in str(linear)
-        assert "Lagrange" in str(lagrange_interp)
 
 
 class TestOrbitalTrajectoryCreation:
@@ -124,7 +122,7 @@ class TestOrbitalTrajectoryStateManagement:
         assert not orbital_traj.is_empty()
 
         # Test state access
-        state = orbital_traj.state_at_index(0)
+        state = orbital_traj.state(0)
         assert len(state) == 6
         np.testing.assert_array_almost_equal(state, state_vector)
 
@@ -141,7 +139,7 @@ class TestOrbitalTrajectoryStateManagement:
         state_vector = np.array([1000.0, 2000.0, 3000.0, 1.0, 2.0, 3.0])
         orbital_traj.add_state(epoch, state_vector)
 
-        retrieved_state = orbital_traj.state_at_index(0)
+        retrieved_state = orbital_traj.state(0)
         position = retrieved_state[:3]
         velocity = retrieved_state[3:]
 
@@ -531,9 +529,9 @@ class TestOrbitalTrajectoryConversions:
         assert traj.representation == brahe.OrbitRepresentation.cartesian
 
         # Verify states were added correctly
-        state0 = traj.state_at_index(0)
-        state1 = traj.state_at_index(1)
-        state2 = traj.state_at_index(2)
+        state0 = traj.state(0)
+        state1 = traj.state(1)
+        state2 = traj.state(2)
 
         np.testing.assert_array_almost_equal(state0, states[0:6])
         np.testing.assert_array_almost_equal(state1, states[6:12])
@@ -807,8 +805,8 @@ class TestOrbitalTrajectoryConversions:
         traj.set_interpolation_method(brahe.InterpolationMethod.linear)
         assert traj.get_interpolation_method() == brahe.InterpolationMethod.linear
 
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        assert traj.get_interpolation_method() == brahe.InterpolationMethod.lagrange
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert traj.get_interpolation_method() == brahe.InterpolationMethod.linear
 
         # Set back to linear
         traj.set_interpolation_method(brahe.InterpolationMethod.linear)
@@ -826,8 +824,8 @@ class TestOrbitalTrajectoryConversions:
         assert traj.get_interpolation_method() == brahe.InterpolationMethod.linear
 
         # Change method and verify getter returns correct value
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        assert traj.get_interpolation_method() == brahe.InterpolationMethod.lagrange
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert traj.get_interpolation_method() == brahe.InterpolationMethod.linear
 
         # Change back to linear
         traj.set_interpolation_method(brahe.InterpolationMethod.linear)
@@ -900,11 +898,6 @@ class TestOrbitalTrajectoryConversions:
 
         np.testing.assert_array_almost_equal(result_interpolate, result_linear, decimal=6)
 
-        # Test unimplemented method (Lagrange is not yet implemented)
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        with pytest.raises(RuntimeError, match="not yet implemented"):
-            traj.interpolate(t_test)
-
 
 def test_orbittrajectory_set_max_size():
     """Test set_max_size eviction policy"""
@@ -929,7 +922,7 @@ def test_orbittrajectory_set_max_size():
     assert len(traj) == 3
 
     # Verify the oldest states were evicted
-    first_state = traj.state_at_index(0)
+    first_state = traj.state(0)
     assert abs(first_state[0] - (7000e3 + 2000.0)) < 1.0  # Should be 3rd state
 
     # Test error cases
@@ -960,7 +953,7 @@ def test_orbittrajectory_set_max_age():
     # Should keep states at 180s, 240s, and 300s (within 150s of 300s)
     assert len(traj) == 3
 
-    first_state = traj.state_at_index(0)
+    first_state = traj.state(0)
     assert abs(first_state[0] - (7000e3 + 3000.0)) < 1.0
 
     # Test error cases
@@ -1009,3 +1002,103 @@ def test_orbittrajectory_to_matrix():
     np.testing.assert_almost_equal(matrix[0, 2], 7200e3, decimal=6)
     np.testing.assert_almost_equal(matrix[1, 2], 2000e3, decimal=6)
     np.testing.assert_almost_equal(matrix[2, 2], 1000e3, decimal=6)
+
+
+class TestOrbitTrajectoryIndex:
+    """Tests for Index trait implementation on OrbitTrajectory."""
+
+    def test_orbittrajectory_index(self):
+        """Test indexing into trajectory."""
+        epochs = [
+            brahe.Epoch.from_jd(2451545.0, "UTC"),
+            brahe.Epoch.from_jd(2451545.1, "UTC"),
+            brahe.Epoch.from_jd(2451545.2, "UTC"),
+        ]
+        states = np.array([
+            7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
+            7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
+            7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
+        ])
+        traj = brahe.OrbitTrajectory.from_orbital_data(
+            epochs, states,
+            brahe.OrbitFrame.eci,
+            brahe.OrbitRepresentation.cartesian,
+            brahe.AngleFormat.none
+        )
+
+        # Test positive indexing
+        state0 = traj[0]
+        assert abs(state0[0] - 7000e3) < 1.0
+
+        state1 = traj[1]
+        assert abs(state1[0] - 7100e3) < 1.0
+
+        state2 = traj[2]
+        assert abs(state2[0] - 7200e3) < 1.0
+
+    def test_orbittrajectory_index_out_of_bounds(self):
+        """Test indexing out of bounds raises IndexError."""
+        epoch = brahe.Epoch.from_jd(2451545.0, "UTC")
+        state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj = brahe.OrbitTrajectory.from_orbital_data(
+            [epoch], state,
+            brahe.OrbitFrame.eci,
+            brahe.OrbitRepresentation.cartesian,
+            brahe.AngleFormat.none
+        )
+
+        with pytest.raises(IndexError):
+            _ = traj[10]
+
+
+class TestOrbitTrajectoryIterator:
+    """Tests for Iterator trait implementation on OrbitTrajectory."""
+
+    def test_orbittrajectory_iterator(self):
+        """Test iterating over trajectory yields (epoch, state) pairs."""
+        epochs = [
+            brahe.Epoch.from_jd(2451545.0, "UTC"),
+            brahe.Epoch.from_jd(2451545.1, "UTC"),
+            brahe.Epoch.from_jd(2451545.2, "UTC"),
+        ]
+        states = np.array([
+            7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
+            7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
+            7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
+        ])
+        traj = brahe.OrbitTrajectory.from_orbital_data(
+            epochs, states,
+            brahe.OrbitFrame.eci,
+            brahe.OrbitRepresentation.cartesian,
+            brahe.AngleFormat.none
+        )
+
+        count = 0
+        for epoch, state in traj:
+            if count == 0:
+                assert epoch.jd() == 2451545.0
+                assert abs(state[0] - 7000e3) < 1.0
+            elif count == 1:
+                assert epoch.jd() == 2451545.1
+                assert abs(state[0] - 7100e3) < 1.0
+            elif count == 2:
+                assert epoch.jd() == 2451545.2
+                assert abs(state[0] - 7200e3) < 1.0
+            count += 1
+
+        assert count == 3
+
+    def test_orbittrajectory_iterator_empty(self):
+        """Test iterating over empty trajectory."""
+        traj = brahe.OrbitTrajectory(
+            brahe.OrbitFrame.eci,
+            brahe.OrbitRepresentation.cartesian,
+            brahe.AngleFormat.none
+        )
+
+        count = 0
+        for _ in traj:
+            count += 1
+
+        assert count == 0
+

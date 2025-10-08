@@ -49,9 +49,9 @@ class TestSTrajectoryTrajectory:
         traj.add_state(epochs[1], states[1])
 
         assert len(traj) == 3
-        assert traj.epoch_at_index(0).jd() == 2451545.0
-        assert traj.epoch_at_index(1).jd() == 2451545.1
-        assert traj.epoch_at_index(2).jd() == 2451545.2
+        assert traj.epoch(0).jd() == 2451545.0
+        assert traj.epoch(1).jd() == 2451545.1
+        assert traj.epoch(2).jd() == 2451545.2
 
     def test_strajectory_trajectory_state_at_epoch(self):
         """Test state interpolation at specific epoch."""
@@ -75,18 +75,18 @@ class TestSTrajectoryTrajectory:
             traj.add_state(epoch, state)
 
         # Test valid indices
-        state0 = traj.state_at_index(0)
+        state0 = traj.state(0)
         assert state0[0] == 7000e3
 
-        state1 = traj.state_at_index(1)
+        state1 = traj.state(1)
         assert state1[0] == 7100e3
 
-        state2 = traj.state_at_index(2)
+        state2 = traj.state(2)
         assert state2[0] == 7200e3
 
         # Test invalid index
         with pytest.raises(Exception):
-            traj.state_at_index(10)
+            traj.state(10)
 
     def test_strajectory_trajectory_epoch_at_index(self):
         """Test retrieving epoch by index."""
@@ -95,18 +95,18 @@ class TestSTrajectoryTrajectory:
             traj.add_state(epoch, state)
 
         # Test valid indices
-        epoch0 = traj.epoch_at_index(0)
+        epoch0 = traj.epoch(0)
         assert epoch0.jd() == 2451545.0
 
-        epoch1 = traj.epoch_at_index(1)
+        epoch1 = traj.epoch(1)
         assert epoch1.jd() == 2451545.1
 
-        epoch2 = traj.epoch_at_index(2)
+        epoch2 = traj.epoch(2)
         assert epoch2.jd() == 2451545.2
 
         # Test invalid index
         with pytest.raises(Exception):
-            traj.epoch_at_index(10)
+            traj.epoch(10)
 
     def test_strajectory_trajectory_nearest_state(self):
         """Test finding nearest state to query epoch."""
@@ -261,19 +261,6 @@ class TestSTrajectoryTrajectory:
         with pytest.raises(Exception):
             traj.state_at_epoch(too_late)
 
-    def test_strajectory_unimplemented_interpolation(self):
-        """Test that unimplemented interpolation methods raise errors."""
-        traj, epochs, states = create_test_trajectory()
-        for epoch, state in zip(epochs, states):
-            traj.add_state(epoch, state)
-
-        # Lagrange is not yet fully implemented
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-
-        epoch = brahe.Epoch.from_jd(2451545.05, "UTC")
-        with pytest.raises(Exception):
-            traj.state_at_epoch(epoch)
-
     def test_strajectory_timespan_edge_cases(self):
         """Test timespan edge cases."""
         traj = brahe.STrajectory6()
@@ -403,8 +390,8 @@ class TestSTrajectoryInterpolatable:
         assert traj.interpolation_method == brahe.InterpolationMethod.linear
 
         # Set it to different methods and verify
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        assert traj.interpolation_method == brahe.InterpolationMethod.lagrange
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert traj.interpolation_method == brahe.InterpolationMethod.linear
 
         traj.set_interpolation_method(brahe.InterpolationMethod.linear)
         assert traj.interpolation_method == brahe.InterpolationMethod.linear
@@ -456,7 +443,89 @@ class TestSTrajectoryInterpolatable:
 
         assert abs(state_interpolate[0] - 30.0) < 1e-10
 
-        # Test that unimplemented methods return errors
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        with pytest.raises(Exception):
-            traj.state_at_epoch(t0_plus_30)
+        # Test linear interpolation works
+        assert abs(state_interpolate[0] - 30.0) < 1e-10
+
+
+class TestSTrajectoryIndex:
+    """Tests for Index trait implementation (Python __getitem__)."""
+
+    def test_strajectory_index(self):
+        """Test indexing into trajectory."""
+        traj, epochs, states = create_test_trajectory()
+
+        for epoch, state in zip(epochs, states):
+            traj.add_state(epoch, state)
+
+        # Test positive indexing
+        state0 = traj[0]
+        assert abs(state0[0] - 7000e3) < 1.0
+
+        state1 = traj[1]
+        assert abs(state1[0] - 7100e3) < 1.0
+
+        state2 = traj[2]
+        assert abs(state2[0] - 7200e3) < 1.0
+
+    def test_strajectory_index_negative(self):
+        """Test negative indexing into trajectory."""
+        traj, epochs, states = create_test_trajectory()
+
+        for epoch, state in zip(epochs, states):
+            traj.add_state(epoch, state)
+
+        # Test negative indexing
+        state_last = traj[-1]
+        assert abs(state_last[0] - 7200e3) < 1.0
+
+        state_second_last = traj[-2]
+        assert abs(state_second_last[0] - 7100e3) < 1.0
+
+    def test_strajectory_index_out_of_bounds(self):
+        """Test indexing out of bounds raises IndexError."""
+        traj, epochs, states = create_test_trajectory()
+
+        for epoch, state in zip(epochs, states):
+            traj.add_state(epoch, state)
+
+        with pytest.raises(IndexError):
+            _ = traj[10]
+
+        with pytest.raises(IndexError):
+            _ = traj[-10]
+
+
+class TestSTrajectoryIterator:
+    """Tests for Iterator trait implementation (Python __iter__)."""
+
+    def test_strajectory_iterator(self):
+        """Test iterating over trajectory yields (epoch, state) pairs."""
+        traj, epochs, states = create_test_trajectory()
+
+        for epoch, state in zip(epochs, states):
+            traj.add_state(epoch, state)
+
+        count = 0
+        for epoch, state in traj:
+            if count == 0:
+                assert epoch.jd() == 2451545.0
+                assert abs(state[0] - 7000e3) < 1.0
+            elif count == 1:
+                assert epoch.jd() == 2451545.1
+                assert abs(state[0] - 7100e3) < 1.0
+            elif count == 2:
+                assert epoch.jd() == 2451545.2
+                assert abs(state[0] - 7200e3) < 1.0
+            count += 1
+
+        assert count == 3
+
+    def test_strajectory_iterator_empty(self):
+        """Test iterating over empty trajectory."""
+        traj = brahe.STrajectory6()
+
+        count = 0
+        for _ in traj:
+            count += 1
+
+        assert count == 0

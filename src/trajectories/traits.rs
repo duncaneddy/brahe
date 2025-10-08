@@ -19,15 +19,6 @@ pub enum InterpolationMethod {
     /// Linear interpolation between adjacent states.
     /// Good balance of speed and accuracy for smooth trajectories.
     Linear,
-    /// Cubic spline interpolation using natural boundary conditions.
-    /// Higher accuracy for smooth trajectories but requires more computation.
-    CubicSpline,
-    /// Lagrange polynomial interpolation using nearby points.
-    /// High accuracy but can exhibit oscillatory behavior with noisy data.
-    Lagrange,
-    /// Hermite interpolation preserving first derivatives.
-    /// Excellent for smooth trajectories with known velocity information.
-    Hermite,
 }
 
 impl Default for InterpolationMethod {
@@ -98,7 +89,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(state)` - State vector at the index
     /// * `Err(BraheError)` - If index is out of bounds
-    fn state_at_index(&self, index: usize) -> Result<Self::StateVector, BraheError>;
+    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError>;
 
     /// Get the epoch at a specific index
     ///
@@ -108,7 +99,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(epoch)` - Epoch at the index
     /// * `Err(BraheError)` - If index is out of bounds
-    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError>;
+    fn epoch(&self, index: usize) -> Result<Epoch, BraheError>;
 
     /// Find the nearest state to a given epoch
     ///
@@ -296,7 +287,7 @@ pub trait Interpolatable: Trajectory {
 
         // If only one state, return it
         if self.len() == 1 {
-            return self.state_at_index(0);
+            return self.state(0);
         }
 
         // Get indices before and after the target epoch (single search operation each)
@@ -305,7 +296,7 @@ pub trait Interpolatable: Trajectory {
 
         // If indices are the same, we have an exact match
         if idx1 == idx2 {
-            return self.state_at_index(idx1);
+            return self.state(idx1);
         }
 
         // Get the bracketing epochs and states
@@ -335,18 +326,7 @@ pub trait Interpolatable: Trajectory {
     where
         Self::StateVector: Clone + std::ops::Mul<f64, Output = Self::StateVector> + std::ops::Add<Output = Self::StateVector>,
     {
-        match self.get_interpolation_method() {
-            InterpolationMethod::Linear => self.interpolate_linear(epoch),
-            InterpolationMethod::CubicSpline => Err(BraheError::Error(
-                "Cubic spline interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Lagrange => Err(BraheError::Error(
-                "Lagrange interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Hermite => Err(BraheError::Error(
-                "Hermite interpolation not yet implemented".to_string(),
-            )),
-        }
+        self.interpolate_linear(epoch)
     }
 }
 

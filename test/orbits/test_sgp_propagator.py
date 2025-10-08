@@ -244,7 +244,7 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
 
         assert traj.length == 5
         for i in range(5):
-            state = traj.state_at_index(i)
+            state = traj.state(i)
             assert len(state) == 6
             assert all(np.isfinite(state))
 
@@ -258,6 +258,6 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
 
         assert traj.length == 5
         for i in range(5):
-            state = traj.state_at_index(i)
+            state = traj.state(i)
             assert len(state) == 6
             assert all(np.isfinite(state))

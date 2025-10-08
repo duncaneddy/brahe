@@ -65,7 +65,7 @@ class TestTrajectoryStateManagement:
             trajectory.add_state(epoch, state)
 
         # Test indexing
-        first_epoch = trajectory.epoch_at_index(0)
+        first_epoch = trajectory.epoch(0)
         assert first_epoch.jd() == sample_epochs[0].jd()
 
     def test_trajectory_nearest_state(self, sample_epochs, sample_states):
@@ -217,8 +217,8 @@ class TestTrajectoryAdditionalMethods:
         assert trajectory.interpolation_method == brahe.InterpolationMethod.linear
 
         # Test changing method
-        trajectory.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        assert trajectory.interpolation_method == brahe.InterpolationMethod.lagrange
+        trajectory.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert trajectory.interpolation_method == brahe.InterpolationMethod.linear
 
     def test_trajectory_state_at_index(self, sample_epochs, sample_states):
         """Test state_at_index method."""
@@ -228,18 +228,18 @@ class TestTrajectoryAdditionalMethods:
             trajectory.add_state(epoch, state)
 
         # Test valid indices
-        state0 = trajectory.state_at_index(0)
+        state0 = trajectory.state(0)
         np.testing.assert_array_almost_equal(state0, sample_states[0])
 
-        state1 = trajectory.state_at_index(1)
+        state1 = trajectory.state(1)
         np.testing.assert_array_almost_equal(state1, sample_states[1])
 
-        state2 = trajectory.state_at_index(2)
+        state2 = trajectory.state(2)
         np.testing.assert_array_almost_equal(state2, sample_states[2])
 
         # Test invalid index
         with pytest.raises(Exception):  # Should raise IndexError or similar
-            trajectory.state_at_index(10)
+            trajectory.state(10)
 
     def test_trajectory_epoch_at_index(self, sample_epochs, sample_states):
         """Test epoch_at_index method."""
@@ -249,18 +249,18 @@ class TestTrajectoryAdditionalMethods:
             trajectory.add_state(epoch, state)
 
         # Test valid indices
-        epoch0 = trajectory.epoch_at_index(0)
+        epoch0 = trajectory.epoch(0)
         assert epoch0.jd() == sample_epochs[0].jd()
 
-        epoch1 = trajectory.epoch_at_index(1)
+        epoch1 = trajectory.epoch(1)
         assert epoch1.jd() == sample_epochs[1].jd()
 
-        epoch2 = trajectory.epoch_at_index(2)
+        epoch2 = trajectory.epoch(2)
         assert epoch2.jd() == sample_epochs[2].jd()
 
         # Test invalid index
         with pytest.raises(Exception):  # Should raise IndexError or similar
-            trajectory.epoch_at_index(10)
+            trajectory.epoch(10)
 
     def test_trajectory_start_end_epoch(self, sample_epochs, sample_states):
         """Test start_epoch and end_epoch properties."""
@@ -361,10 +361,10 @@ class TestTrajectoryAdditionalMethods:
 
         # Test invalid index access
         with pytest.raises(RuntimeError):
-            trajectory.state_at_index(0)
+            trajectory.state(0)
 
         with pytest.raises(RuntimeError):
-            trajectory.epoch_at_index(0)
+            trajectory.epoch(0)
 
     def test_trajectory_state_at_epoch_errors(self):
         """Test state_at_epoch error conditions."""
@@ -393,7 +393,7 @@ class TestTrajectoryAdditionalMethods:
         # Test that we can access via indexing (iterator-like behavior)
         assert len(trajectory) == 2
         for i in range(len(trajectory)):
-            state = trajectory.state_at_index(i)
+            state = trajectory.state(i)
             assert state is not None
 
     def test_trajectory_remove_state_methods(self):
@@ -611,8 +611,8 @@ class TestTrajectoryNewMethods:
         assert traj.interpolation_method == brahe.InterpolationMethod.linear
 
         # Change method using set_interpolation_method() and verify property returns correct value
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        assert traj.interpolation_method == brahe.InterpolationMethod.lagrange
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert traj.interpolation_method == brahe.InterpolationMethod.linear
 
         # Change back to linear
         traj.set_interpolation_method(brahe.InterpolationMethod.linear)
@@ -676,8 +676,3 @@ class TestTrajectoryNewMethods:
         result_linear = traj.interpolate_linear(t_test)
 
         np.testing.assert_array_almost_equal(result_interpolate, result_linear, decimal=6)
-
-        # Test unimplemented method (Lagrange is not yet implemented)
-        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
-        with pytest.raises(RuntimeError, match="not yet implemented"):
-            traj.interpolate(t_test)

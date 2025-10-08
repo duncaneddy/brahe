@@ -296,6 +296,62 @@ impl OrbitTrajectory {
     }
 }
 
+/// Index implementation returns state vector at given index
+///
+/// # Panics
+/// Panics if index is out of bounds
+impl std::ops::Index<usize> for OrbitTrajectory {
+    type Output = Vector6<f64>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+/// Iterator over trajectory (epoch, state) pairs
+pub struct OrbitTrajectoryIterator<'a> {
+    trajectory: &'a OrbitTrajectory,
+    index: usize,
+}
+
+impl<'a> Iterator for OrbitTrajectoryIterator<'a> {
+    type Item = (Epoch, Vector6<f64>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.trajectory.len() {
+            let result = self.trajectory.get(self.index).ok();
+            self.index += 1;
+            result
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.trajectory.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a> ExactSizeIterator for OrbitTrajectoryIterator<'a> {
+    fn len(&self) -> usize {
+        self.trajectory.len() - self.index
+    }
+}
+
+/// IntoIterator implementation for iterating over (epoch, state) pairs
+impl<'a> IntoIterator for &'a OrbitTrajectory {
+    type Item = (Epoch, Vector6<f64>);
+    type IntoIter = OrbitTrajectoryIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        OrbitTrajectoryIterator {
+            trajectory: self,
+            index: 0,
+        }
+    }
+}
+
 // Passthrough implementations for Trajectory trait
 impl Trajectory for OrbitTrajectory {
     type StateVector = Vector6<f64>;
@@ -310,12 +366,12 @@ impl Trajectory for OrbitTrajectory {
         self.0.add_state(epoch, state)
     }
 
-    fn state_at_index(&self, index: usize) -> Result<Self::StateVector, BraheError> {
-        self.0.state_at_index(index)
+    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError> {
+        self.0.state(index)
     }
 
-    fn epoch_at_index(&self, index: usize) -> Result<Epoch, BraheError> {
-        self.0.epoch_at_index(index)
+    fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
+        self.0.epoch(index)
     }
 
     fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, Self::StateVector), BraheError> {
@@ -818,17 +874,17 @@ mod tests {
         ).unwrap();
 
         // Test valid indices
-        let state0 = traj.state_at_index(0).unwrap();
+        let state0 = traj.state(0).unwrap();
         assert_eq!(state0[0], 7000e3);
 
-        let state1 = traj.state_at_index(1).unwrap();
+        let state1 = traj.state(1).unwrap();
         assert_eq!(state1[0], 7100e3);
 
-        let state2 = traj.state_at_index(2).unwrap();
+        let state2 = traj.state(2).unwrap();
         assert_eq!(state2[0], 7200e3);
 
         // Test invalid index
-        assert!(traj.state_at_index(10).is_err());
+        assert!(traj.state(10).is_err());
     }
 
     #[test]
@@ -852,17 +908,17 @@ mod tests {
         ).unwrap();
 
         // Test valid indices
-        let epoch0 = traj.epoch_at_index(0).unwrap();
+        let epoch0 = traj.epoch(0).unwrap();
         assert_eq!(epoch0.jd(), 2451545.0);
 
-        let epoch1 = traj.epoch_at_index(1).unwrap();
+        let epoch1 = traj.epoch(1).unwrap();
         assert_eq!(epoch1.jd(), 2451545.1);
 
-        let epoch2 = traj.epoch_at_index(2).unwrap();
+        let epoch2 = traj.epoch(2).unwrap();
         assert_eq!(epoch2.jd(), 2451545.2);
 
         // Test invalid index
-        assert!(traj.epoch_at_index(10).is_err());
+        assert!(traj.epoch(10).is_err());
     }
 
     #[test]
@@ -1311,8 +1367,8 @@ mod tests {
 
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
 
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Lagrange);
+        traj.set_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
     }
 
     #[test]
@@ -1327,14 +1383,8 @@ mod tests {
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
 
         // Set it to different methods and verify get_interpolation_method returns the correct value
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::CubicSpline);
 
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Lagrange);
 
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Hermite);
 
         traj.set_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
@@ -1433,16 +1483,6 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(state_interpolate[i], state_interpolate_linear[i], epsilon = 1e-10);
         }
-
-        // Test that unimplemented methods (CubicSpline, Lagrange, Hermite) return errors
-        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
-
-        traj.set_interpolation_method(InterpolationMethod::Lagrange);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
-
-        traj.set_interpolation_method(InterpolationMethod::Hermite);
-        assert!(traj.interpolate(&t0_plus_30).is_err());
     }
 
     // OrbitalTrajectory Trait Tests - Angle Format Conversions
@@ -1465,7 +1505,7 @@ mod tests {
         let kep_deg_traj = kep_rad_traj.to_angle_format(AngleFormat::Degrees).unwrap();
         assert_eq!(kep_deg_traj.angle_format(), AngleFormat::Degrees);
 
-        let state_deg = kep_deg_traj.state_at_index(0).unwrap();
+        let state_deg = kep_deg_traj.state(0).unwrap();
         assert_abs_diff_eq!(state_deg[0], 7000e3, epsilon = 1.0); // a unchanged
         assert_abs_diff_eq!(state_deg[1], 0.0, epsilon = 1e-10); // e unchanged
         assert_abs_diff_eq!(state_deg[2], 0.5 * RAD2DEG, epsilon = 1e-8); // i converted
@@ -1477,7 +1517,7 @@ mod tests {
         let kep_rad_traj2 = kep_deg_traj.to_angle_format(AngleFormat::Radians).unwrap();
         assert_eq!(kep_rad_traj2.angle_format(), AngleFormat::Radians);
 
-        let state_rad2 = kep_rad_traj2.state_at_index(0).unwrap();
+        let state_rad2 = kep_rad_traj2.state(0).unwrap();
         assert_abs_diff_eq!(state_rad2[2], 0.5, epsilon = 1e-8);
         assert_abs_diff_eq!(state_rad2[3], 1.0, epsilon = 1e-8);
         assert_abs_diff_eq!(state_rad2[4], 1.5, epsilon = 1e-8);
@@ -1513,7 +1553,7 @@ mod tests {
         let kep_deg_traj = kep_rad_traj.to_degrees().unwrap();
         assert_eq!(kep_deg_traj.angle_format(), AngleFormat::Degrees);
 
-        let state_deg = kep_deg_traj.state_at_index(0).unwrap();
+        let state_deg = kep_deg_traj.state(0).unwrap();
         assert_abs_diff_eq!(state_deg[2], 1.0 * RAD2DEG, epsilon = 1e-8);
         assert_abs_diff_eq!(state_deg[3], 2.0 * RAD2DEG, epsilon = 1e-8);
         assert_abs_diff_eq!(state_deg[4], 3.0 * RAD2DEG, epsilon = 1e-8);
@@ -1537,7 +1577,7 @@ mod tests {
         let kep_rad_traj = kep_deg_traj.to_radians().unwrap();
         assert_eq!(kep_rad_traj.angle_format(), AngleFormat::Radians);
 
-        let state_rad = kep_rad_traj.state_at_index(0).unwrap();
+        let state_rad = kep_rad_traj.state(0).unwrap();
         assert_abs_diff_eq!(state_rad[2], 45.0 * DEG2RAD, epsilon = 1e-8);
         assert_abs_diff_eq!(state_rad[3], 90.0 * DEG2RAD, epsilon = 1e-8);
         assert_abs_diff_eq!(state_rad[4], 180.0 * DEG2RAD, epsilon = 1e-8);
@@ -1584,8 +1624,8 @@ mod tests {
         assert_eq!(eci_cart_traj2.angle_format(), AngleFormat::None);
 
         // States should be approximately the same after round-trip
-        let original_state = eci_cart_traj.state_at_index(0).unwrap();
-        let final_state = eci_cart_traj2.state_at_index(0).unwrap();
+        let original_state = eci_cart_traj.state(0).unwrap();
+        let final_state = eci_cart_traj2.state(0).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(original_state[i], final_state[i], epsilon = 1e-3);
         }
@@ -1618,7 +1658,7 @@ mod tests {
         assert_eq!(traj.len(), 3);
 
         // First state should be the 3rd original state (oldest 2 evicted)
-        let first_state = traj.state_at_index(0).unwrap();
+        let first_state = traj.state(0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
 
         // Add another state - should still maintain max size
@@ -1656,7 +1696,7 @@ mod tests {
         // Should keep states at 180s, 240s, and 300s (within 150s of 300s)
         assert_eq!(traj.len(), 3);
 
-        let first_state = traj.state_at_index(0).unwrap();
+        let first_state = traj.state(0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 3000.0, epsilon = 1.0);
 
         // Test error case
@@ -1759,5 +1799,163 @@ mod tests {
         assert_abs_diff_eq!(matrix[(0, 2)], states[2][0], epsilon = 1e-6);
         assert_abs_diff_eq!(matrix[(1, 2)], states[2][1], epsilon = 1e-6);
         assert_abs_diff_eq!(matrix[(2, 2)], states[2][2], epsilon = 1e-6);
+    }
+
+    // Index Trait Tests
+
+    #[test]
+    fn test_orbittrajectory_index() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+        let traj = OrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        // Test indexing returns state vectors
+        let state0 = &traj[0];
+        assert_eq!(state0[0], 7000e3);
+
+        let state1 = &traj[1];
+        assert_eq!(state1[0], 7100e3);
+
+        let state2 = &traj[2];
+        assert_eq!(state2[0], 7200e3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_orbittrajectory_index_out_of_bounds() {
+        let epochs = vec![Epoch::from_jd(2451545.0, TimeSystem::UTC)];
+        let states = vec![Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)];
+        let traj = OrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        let _ = &traj[10]; // Should panic
+    }
+
+    // Iterator Trait Tests
+
+    #[test]
+    fn test_orbittrajectory_iterator() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+        let traj = OrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        let mut count = 0;
+        for (epoch, state) in &traj {
+            match count {
+                0 => {
+                    assert_eq!(epoch.jd(), 2451545.0);
+                    assert_eq!(state[0], 7000e3);
+                }
+                1 => {
+                    assert_eq!(epoch.jd(), 2451545.1);
+                    assert_eq!(state[0], 7100e3);
+                }
+                2 => {
+                    assert_eq!(epoch.jd(), 2451545.2);
+                    assert_eq!(state[0], 7200e3);
+                }
+                _ => panic!("Too many iterations"),
+            }
+            count += 1;
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_orbittrajectory_iterator_empty() {
+        let traj = OrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        let mut count = 0;
+        for _ in &traj {
+            count += 1;
+        }
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_orbittrajectory_iterator_size_hint() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+        let traj = OrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        let iter = traj.into_iter();
+        let (lower, upper) = iter.size_hint();
+        assert_eq!(lower, 3);
+        assert_eq!(upper, Some(3));
+    }
+
+    #[test]
+    fn test_orbittrajectory_iterator_exact_size() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+            Epoch::from_jd(2451545.2, TimeSystem::UTC),
+        ];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+            Vector6::new(7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0),
+        ];
+        let traj = OrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            AngleFormat::None,
+        ).unwrap();
+
+        let iter = traj.into_iter();
+        assert_eq!(iter.len(), 3);
     }
 }

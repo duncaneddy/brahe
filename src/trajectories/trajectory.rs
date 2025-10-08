@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Trajectory, InterpolationMethod, TrajectoryEvictionPolicy};
+use super::traits::{Trajectory, Interpolatable, InterpolationMethod, TrajectoryEvictionPolicy};
 
 /// Dynamic trajectory container for N-dimensional state vectors over time.
 ///
@@ -161,76 +161,6 @@ impl DynamicTrajectory {
         }
     }
 
-    /// Creates a trajectory from existing epoch and state data.
-    ///
-    /// The input data is validated and sorted chronologically. This method is efficient
-    /// for bulk trajectory construction from pre-existing datasets.
-    ///
-    /// # Arguments
-    /// * `epochs` - Vector of time epochs (must be non-empty and same length as states)
-    /// * `states` - Vector of state vectors corresponding to epochs (all must have same dimension)
-    /// * `interpolation_method` - Method to use for state interpolation
-    ///
-    /// # Returns
-    /// * `Ok(Trajectory)` - Successfully created trajectory with sorted data
-    /// * `Err(BraheError)` - If input validation fails
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If epochs and states have different lengths, are empty, or states have inconsistent dimensions
-    pub fn from_data(
-        epochs: Vec<Epoch>,
-        states: Vec<DVector<f64>>,
-        interpolation_method: InterpolationMethod,
-    ) -> Result<Self, BraheError> {
-        if epochs.len() != states.len() {
-            return Err(BraheError::Error(
-                "Epochs and states vectors must have the same length".to_string(),
-            ));
-        }
-
-        if epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot create trajectory from empty data".to_string(),
-            ));
-        }
-
-        // Validate all states have the same dimension
-        let dimension = states[0].len();
-        if dimension == 0 {
-            return Err(BraheError::Error(
-                "State vectors cannot be empty".to_string(),
-            ));
-        }
-
-        for (i, state) in states.iter().enumerate() {
-            if state.len() != dimension {
-                return Err(BraheError::Error(format!(
-                    "State {} has dimension {} but expected {}",
-                    i,
-                    state.len(),
-                    dimension
-                )));
-            }
-        }
-
-        // Ensure epochs are sorted
-        let mut indices: Vec<usize> = (0..epochs.len()).collect();
-        indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
-
-        let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
-        let sorted_states: Vec<DVector<f64>> = indices.iter().map(|&i| states[i].clone()).collect();
-
-        Ok(Self {
-            epochs: sorted_epochs,
-            states: sorted_states,
-            dimension,
-            interpolation_method,
-            eviction_policy: TrajectoryEvictionPolicy::None,
-            max_size: None,
-            max_age: None,
-            metadata: HashMap::new(),
-        })
-    }
 
     /// Get the dimension of state vectors in this trajectory
     pub fn dimension(&self) -> usize {
@@ -416,6 +346,60 @@ impl std::ops::Index<usize> for DynamicTrajectory {
 impl Trajectory for DynamicTrajectory {
     type StateVector = DVector<f64>;
 
+    fn from_data(
+        epochs: Vec<Epoch>,
+        states: Vec<Self::StateVector>,
+    ) -> Result<Self, BraheError> {
+        if epochs.len() != states.len() {
+            return Err(BraheError::Error(
+                "Epochs and states vectors must have the same length".to_string(),
+            ));
+        }
+
+        if epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot create trajectory from empty data".to_string(),
+            ));
+        }
+
+        // Validate all states have the same dimension
+        let dimension = states[0].len();
+        if dimension == 0 {
+            return Err(BraheError::Error(
+                "State vectors cannot be empty".to_string(),
+            ));
+        }
+
+        for (i, state) in states.iter().enumerate() {
+            if state.len() != dimension {
+                return Err(BraheError::Error(format!(
+                    "State {} has dimension {} but expected {}",
+                    i,
+                    state.len(),
+                    dimension
+                )));
+            }
+        }
+
+        // Ensure epochs are sorted
+        let mut indices: Vec<usize> = (0..epochs.len()).collect();
+        indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
+
+        let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
+        let sorted_states: Vec<DVector<f64>> = indices.iter().map(|&i| states[i].clone()).collect();
+
+        Ok(Self {
+            epochs: sorted_epochs,
+            states: sorted_states,
+            dimension,
+            interpolation_method: InterpolationMethod::Linear,
+            eviction_policy: TrajectoryEvictionPolicy::None,
+            max_size: None,
+            max_age: None,
+            metadata: HashMap::new(),
+        })
+    }
+
     fn add_state(&mut self, epoch: Epoch, state: DVector<f64>) -> Result<(), BraheError> {
         // Validate state dimension
         if state.len() != self.dimension {
@@ -447,52 +431,6 @@ impl Trajectory for DynamicTrajectory {
         // Apply eviction policy after adding state
         self.apply_eviction_policy()?;
         Ok(())
-    }
-
-    fn state_at_epoch(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
-        if self.epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot interpolate state from empty trajectory".to_string(),
-            ));
-        }
-
-        // If only one state, return it
-        if self.epochs.len() == 1 {
-            return Ok(self.states[0].clone());
-        }
-
-        // If epoch is before the first state or after the last state
-        if epoch < &self.epochs[0] {
-            return Err(BraheError::Error(
-                "Requested epoch is before the first state in trajectory".to_string(),
-            ));
-        }
-        if epoch > self.epochs.last().unwrap() {
-            return Err(BraheError::Error(
-                "Requested epoch is after the last state in trajectory".to_string(),
-            ));
-        }
-
-        // Find the exact state if it exists
-        for (i, existing_epoch) in self.epochs.iter().enumerate() {
-            if epoch == existing_epoch {
-                return Ok(self.states[i].clone());
-            }
-        }
-
-        // Interpolate based on method
-        match self.interpolation_method {
-            InterpolationMethod::Linear => self.interpolate_linear(epoch),
-            InterpolationMethod::CubicSpline => Err(BraheError::Error(
-                "Cubic spline interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Lagrange => Err(BraheError::Error(
-                "Lagrange interpolation not yet implemented".to_string(),
-            )),
-            InterpolationMethod::Hermite => Err(BraheError::Error(
-                "Hermite interpolation not yet implemented".to_string(),
-            )),
-        }
     }
 
     fn state_at_index(&self, index: usize) -> Result<DVector<f64>, BraheError> {
@@ -624,6 +562,70 @@ impl Trajectory for DynamicTrajectory {
 
         Ok((self.epochs[index], self.states[index].clone()))
     }
+
+    fn index_before_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError> {
+        if self.epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot get index from empty trajectory".to_string(),
+            ));
+        }
+
+        // If epoch is before the first state, error
+        if epoch < &self.epochs[0] {
+            return Err(BraheError::Error(
+                "Epoch is before all states in trajectory".to_string(),
+            ));
+        }
+
+        // Find the index at or before the epoch
+        for i in (0..self.epochs.len()).rev() {
+            if &self.epochs[i] <= epoch {
+                return Ok(i);
+            }
+        }
+
+        // Should never reach here given the checks above
+        Err(BraheError::Error(
+            "Failed to find index before epoch".to_string(),
+        ))
+    }
+
+    fn index_after_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError> {
+        if self.epochs.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot get index from empty trajectory".to_string(),
+            ));
+        }
+
+        // If epoch is after the last state, error
+        if epoch > self.epochs.last().unwrap() {
+            return Err(BraheError::Error(
+                "Epoch is after all states in trajectory".to_string(),
+            ));
+        }
+
+        // Find the index at or after the epoch
+        for i in 0..self.epochs.len() {
+            if &self.epochs[i] >= epoch {
+                return Ok(i);
+            }
+        }
+
+        // Should never reach here given the checks above
+        Err(BraheError::Error(
+            "Failed to find index after epoch".to_string(),
+        ))
+    }
+}
+
+impl Interpolatable for DynamicTrajectory {
+    fn set_interpolation_method(&mut self, method: InterpolationMethod) {
+        self.interpolation_method = method;
+    }
+
+    fn get_interpolation_method(&self) -> InterpolationMethod {
+        self.interpolation_method
+    }
 }
 
 #[cfg(test)]
@@ -645,7 +647,7 @@ mod tests {
             DVector::from_vec(vec![7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
         ];
 
-        DynamicTrajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap()
+        DynamicTrajectory::from_data(epochs, states).unwrap()
     }
 
     // Trajectory Trait Tests
@@ -685,11 +687,11 @@ mod tests {
         let traj = create_test_trajectory();
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let state = traj.state_at_epoch(&epoch).unwrap();
+        let state = traj.interpolate(&epoch).unwrap();
         assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
 
         let epoch_interp = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-        let state_interp = traj.state_at_epoch(&epoch_interp).unwrap();
+        let state_interp = traj.interpolate(&epoch_interp).unwrap();
         assert_abs_diff_eq!(state_interp[0], 7050e3, epsilon = 1.0);
     }
 
@@ -865,7 +867,7 @@ mod tests {
             DVector::from_vec(vec![4.0, 5.0, 6.0]),
         ];
 
-        let traj = DynamicTrajectory::from_data(epochs, states, InterpolationMethod::Linear).unwrap();
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
         assert_eq!(traj.dimension, 3);
         assert_eq!(traj.len(), 2);
     }
@@ -880,12 +882,12 @@ mod tests {
             DVector::from_vec(vec![1.0, 2.0, 3.0]),
         ];
 
-        let result = DynamicTrajectory::from_data(epochs.clone(), states, InterpolationMethod::Linear);
+        let result = DynamicTrajectory::from_data(epochs.clone(), states);
         assert!(result.is_err());
 
         let empty_epochs: Vec<Epoch> = vec![];
         let empty_states: Vec<DVector<f64>> = vec![];
-        let result = DynamicTrajectory::from_data(empty_epochs, empty_states, InterpolationMethod::Linear);
+        let result = DynamicTrajectory::from_data(empty_epochs, empty_states);
         assert!(result.is_err());
     }
 
@@ -896,7 +898,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_set_interpolation_method() {
+    fn test_dynamictrajectory_interpolatable_set_interpolation_method() {
         let mut traj = DynamicTrajectory::new(6);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
 
@@ -957,11 +959,11 @@ mod tests {
         let traj = create_test_trajectory();
 
         let too_early = Epoch::from_jd(2451544.0, TimeSystem::UTC);
-        let result = traj.state_at_epoch(&too_early);
+        let result = traj.interpolate(&too_early);
         assert!(result.is_err());
 
         let too_late = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-        let result = traj.state_at_epoch(&too_late);
+        let result = traj.interpolate(&too_late);
         assert!(result.is_err());
     }
 
@@ -971,7 +973,277 @@ mod tests {
         traj.set_interpolation_method(InterpolationMethod::CubicSpline);
 
         let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-        let result = traj.state_at_epoch(&epoch);
+        let result = traj.interpolate(&epoch);
         assert!(result.is_err());
+    }
+
+    // Additional Trajectory Trait Tests
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_index_before_epoch() {
+        // Create a 6-dimensional DynamicTrajectory with states at epochs: t0, t0+60s, t0+120s
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            DVector::from_vec(vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]),
+            DVector::from_vec(vec![21.0, 22.0, 23.0, 24.0, 25.0, 26.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test finding index before t0 (should error - before all states)
+        let before_t0 = t0 - 10.0;
+        assert!(traj.index_before_epoch(&before_t0).is_err());
+
+        // Test finding index before t0+30s (should return index 0)
+        let t0_plus_30 = t0 + 30.0;
+        assert_eq!(traj.index_before_epoch(&t0_plus_30).unwrap(), 0);
+
+        // Test finding index before t0+60s (should return index 1 - exact match)
+        assert_eq!(traj.index_before_epoch(&t1).unwrap(), 1);
+
+        // Test finding index before t0+90s (should return index 1)
+        let t0_plus_90 = t0 + 90.0;
+        assert_eq!(traj.index_before_epoch(&t0_plus_90).unwrap(), 1);
+
+        // Test finding index before t0+120s (should return index 2 - exact match)
+        assert_eq!(traj.index_before_epoch(&t2).unwrap(), 2);
+
+        // Test finding index before t0+150s (should return index 2)
+        let t0_plus_150 = t0 + 150.0;
+        assert_eq!(traj.index_before_epoch(&t0_plus_150).unwrap(), 2);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_index_after_epoch() {
+        // Create a 6-dimensional DynamicTrajectory with states at epochs: t0, t0+60s, t0+120s
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            DVector::from_vec(vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]),
+            DVector::from_vec(vec![21.0, 22.0, 23.0, 24.0, 25.0, 26.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test finding index after t0-30s (should return index 0)
+        let t0_minus_30 = t0 - 30.0;
+        assert_eq!(traj.index_after_epoch(&t0_minus_30).unwrap(), 0);
+
+        // Test finding index after t0 (should return index 0 - exact match)
+        assert_eq!(traj.index_after_epoch(&t0).unwrap(), 0);
+
+        // Test finding index after t0+30s (should return index 1)
+        let t0_plus_30 = t0 + 30.0;
+        assert_eq!(traj.index_after_epoch(&t0_plus_30).unwrap(), 1);
+
+        // Test finding index after t0+60s (should return index 1 - exact match)
+        assert_eq!(traj.index_after_epoch(&t1).unwrap(), 1);
+
+        // Test finding index after t0+90s (should return index 2)
+        let t0_plus_90 = t0 + 90.0;
+        assert_eq!(traj.index_after_epoch(&t0_plus_90).unwrap(), 2);
+
+        // Test finding index after t0+120s (should return index 2 - exact match)
+        assert_eq!(traj.index_after_epoch(&t2).unwrap(), 2);
+
+        // Test finding index after t0+150s (should error - after all states)
+        let t0_plus_150 = t0 + 150.0;
+        assert!(traj.index_after_epoch(&t0_plus_150).is_err());
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_state_before_epoch() {
+        // Create a DynamicTrajectory with distinguishable states at 3 epochs
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            DVector::from_vec(vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]),
+            DVector::from_vec(vec![21.0, 22.0, 23.0, 24.0, 25.0, 26.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test that state_before_epoch returns correct (epoch, state) tuples
+        let t0_plus_30 = t0 + 30.0;
+        let (epoch, state) = traj.state_before_epoch(&t0_plus_30).unwrap();
+        assert_eq!(epoch, t0);
+        assert_abs_diff_eq!(state[0], 1.0, epsilon = 1e-10);
+
+        let t0_plus_90 = t0 + 90.0;
+        let (epoch, state) = traj.state_before_epoch(&t0_plus_90).unwrap();
+        assert_eq!(epoch, t1);
+        assert_abs_diff_eq!(state[0], 11.0, epsilon = 1e-10);
+
+        // Test error case for epoch before all states
+        let before_t0 = t0 - 10.0;
+        assert!(traj.state_before_epoch(&before_t0).is_err());
+
+        // Verify it uses the default trait implementation correctly
+        let (epoch, state) = traj.state_before_epoch(&t2).unwrap();
+        assert_eq!(epoch, t2);
+        assert_abs_diff_eq!(state[0], 21.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_trajectory_state_after_epoch() {
+        // Create a DynamicTrajectory with distinguishable states at 3 epochs
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            DVector::from_vec(vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]),
+            DVector::from_vec(vec![21.0, 22.0, 23.0, 24.0, 25.0, 26.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test that state_after_epoch returns correct (epoch, state) tuples
+        let t0_plus_30 = t0 + 30.0;
+        let (epoch, state) = traj.state_after_epoch(&t0_plus_30).unwrap();
+        assert_eq!(epoch, t1);
+        assert_abs_diff_eq!(state[0], 11.0, epsilon = 1e-10);
+
+        let t0_plus_90 = t0 + 90.0;
+        let (epoch, state) = traj.state_after_epoch(&t0_plus_90).unwrap();
+        assert_eq!(epoch, t2);
+        assert_abs_diff_eq!(state[0], 21.0, epsilon = 1e-10);
+
+        // Test error case for epoch after all states
+        let after_t2 = t2 + 10.0;
+        assert!(traj.state_after_epoch(&after_t2).is_err());
+
+        // Verify it uses the default trait implementation correctly
+        let (epoch, state) = traj.state_after_epoch(&t0).unwrap();
+        assert_eq!(epoch, t0);
+        assert_abs_diff_eq!(state[0], 1.0, epsilon = 1e-10);
+    }
+
+    // Interpolatable Trait Tests
+
+    #[test]
+    fn test_dynamictrajectory_interpolatable_get_interpolation_method() {
+        // Create a trajectory with default Linear interpolation
+        let mut traj = DynamicTrajectory::new(6);
+
+        // Test that get_interpolation_method returns Linear
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+
+        // Set it to different methods and verify get_interpolation_method returns the correct value
+        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::CubicSpline);
+
+        traj.set_interpolation_method(InterpolationMethod::Lagrange);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Lagrange);
+
+        traj.set_interpolation_method(InterpolationMethod::Hermite);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Hermite);
+
+        traj.set_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_interpolatable_interpolate_linear() {
+        // Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            DVector::from_vec(vec![60.0, 120.0, 180.0, 240.0, 300.0, 360.0]),
+            DVector::from_vec(vec![120.0, 240.0, 360.0, 480.0, 600.0, 720.0]),
+        ];
+
+        let traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test interpolate_linear at midpoints and exact epochs
+        let state_at_t0 = traj.interpolate_linear(&t0).unwrap();
+        assert_abs_diff_eq!(state_at_t0[0], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_t0[1], 0.0, epsilon = 1e-10);
+
+        let state_at_t1 = traj.interpolate_linear(&t1).unwrap();
+        assert_abs_diff_eq!(state_at_t1[0], 60.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_t1[1], 120.0, epsilon = 1e-10);
+
+        let state_at_t2 = traj.interpolate_linear(&t2).unwrap();
+        assert_abs_diff_eq!(state_at_t2[0], 120.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_t2[1], 240.0, epsilon = 1e-10);
+
+        // Test interpolation at midpoint between t0 and t1
+        let t0_plus_30 = t0 + 30.0;
+        let state_at_midpoint = traj.interpolate_linear(&t0_plus_30).unwrap();
+        assert_abs_diff_eq!(state_at_midpoint[0], 30.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint[1], 60.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint[2], 90.0, epsilon = 1e-10);
+
+        // Test interpolation at midpoint between t1 and t2
+        let t1_plus_30 = t1 + 30.0;
+        let state_at_midpoint2 = traj.interpolate_linear(&t1_plus_30).unwrap();
+        assert_abs_diff_eq!(state_at_midpoint2[0], 90.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint2[1], 180.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint2[2], 270.0, epsilon = 1e-10);
+
+        // Test edge case: single state trajectory
+        let single_epoch = vec![t0];
+        let single_state = vec![DVector::from_vec(vec![100.0, 200.0, 300.0, 400.0, 500.0, 600.0])];
+        let single_traj = DynamicTrajectory::from_data(single_epoch, single_state).unwrap();
+
+        let state_single = single_traj.interpolate_linear(&t0).unwrap();
+        assert_abs_diff_eq!(state_single[0], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_single[1], 200.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dynamictrajectory_interpolatable_interpolate() {
+        // Create a trajectory for testing
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            DVector::from_vec(vec![60.0, 120.0, 180.0, 240.0, 300.0, 360.0]),
+            DVector::from_vec(vec![120.0, 240.0, 360.0, 480.0, 600.0, 720.0]),
+        ];
+
+        let mut traj = DynamicTrajectory::from_data(epochs, states).unwrap();
+
+        // Test that interpolate() with Linear method returns same result as interpolate_linear()
+        let t0_plus_30 = t0 + 30.0;
+        let state_interpolate = traj.interpolate(&t0_plus_30).unwrap();
+        let state_interpolate_linear = traj.interpolate_linear(&t0_plus_30).unwrap();
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_interpolate[i], state_interpolate_linear[i], epsilon = 1e-10);
+        }
+
+        // Test that unimplemented methods (CubicSpline, Lagrange, Hermite) return errors
+        traj.set_interpolation_method(InterpolationMethod::CubicSpline);
+        assert!(traj.interpolate(&t0_plus_30).is_err());
+
+        traj.set_interpolation_method(InterpolationMethod::Lagrange);
+        assert!(traj.interpolate(&t0_plus_30).is_err());
+
+        traj.set_interpolation_method(InterpolationMethod::Hermite);
+        assert!(traj.interpolate(&t0_plus_30).is_err());
     }
 }

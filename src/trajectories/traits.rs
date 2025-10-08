@@ -66,6 +66,19 @@ pub trait Trajectory {
     /// The type used to represent state vectors
     type StateVector;
 
+    /// Create a trajectory from vectors of epochs and states
+    ///
+    /// Interpolation method defaults to Linear. Use `set_interpolation_method` to change.
+    ///
+    /// # Arguments
+    /// * `epochs` - Vector of epochs (must be non-empty and same length as states)
+    /// * `states` - Vector of state vectors (all must have consistent dimension)
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - Trajectory successfully created with sorted data
+    /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, inconsistent dimensions)
+    fn from_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>) -> Result<Self, BraheError> where Self: Sized;
+
     /// Add a state vector at a specific epoch
     ///
     /// # Arguments
@@ -76,16 +89,6 @@ pub trait Trajectory {
     /// * `Ok(())` - State successfully added
     /// * `Err(BraheError)` - If addition fails (e.g., dimension mismatch)
     fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
-
-    /// Get the state vector at a specific epoch using interpolation
-    ///
-    /// # Arguments
-    /// * `epoch` - Target epoch for state retrieval
-    ///
-    /// # Returns
-    /// * `Ok(state)` - Interpolated state vector at the epoch
-    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
-    fn state_at_epoch(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>;
 
     /// Get the state vector at a specific index
     ///
@@ -172,6 +175,179 @@ pub trait Trajectory {
     /// * `Ok((epoch, state))` - Epoch and state at the index
     /// * `Err(BraheError)` - If index is out of bounds
     fn get(&self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError>;
+
+    /// Get the index of the state at or before the given epoch
+    ///
+    /// Returns the index of the state at the exact epoch if it exists, otherwise the index of the closest state before it.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch
+    ///
+    /// # Returns
+    /// * `Ok(index)` - Index of the state at or before the target epoch
+    /// * `Err(BraheError)` - If trajectory is empty or epoch is before all states
+    fn index_before_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError>;
+
+    /// Get the index of the state at or after the given epoch
+    ///
+    /// Returns the index of the state at the exact epoch if it exists, otherwise the index of the closest state after it.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch
+    ///
+    /// # Returns
+    /// * `Ok(index)` - Index of the state at or after the target epoch
+    /// * `Err(BraheError)` - If trajectory is empty or epoch is after all states
+    fn index_after_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError>;
+
+    /// Get the state at or before the given epoch
+    ///
+    /// Returns the state at the exact epoch if it exists, otherwise the closest state before it.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch
+    ///
+    /// # Returns
+    /// * `Ok((epoch, state))` - The epoch and state at or before the target epoch
+    /// * `Err(BraheError)` - If trajectory is empty or epoch is before all states
+    fn state_before_epoch(&self, epoch: &Epoch) -> Result<(Epoch, Self::StateVector), BraheError> {
+        let index = self.index_before_epoch(epoch)?;
+        self.get(index)
+    }
+
+    /// Get the state at or after the given epoch
+    ///
+    /// Returns the state at the exact epoch if it exists, otherwise the closest state after it.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch
+    ///
+    /// # Returns
+    /// * `Ok((epoch, state))` - The epoch and state at or after the target epoch
+    /// * `Err(BraheError)` - If trajectory is empty or epoch is after all states
+    fn state_after_epoch(&self, epoch: &Epoch) -> Result<(Epoch, Self::StateVector), BraheError> {
+        let index = self.index_after_epoch(epoch)?;
+        self.get(index)
+    }
+}
+
+/// Trait for trajectory interpolation functionality.
+///
+/// This trait provides interpolation methods for retrieving trajectory states at arbitrary epochs.
+/// It requires the implementing type to also implement `Trajectory` to access the underlying state data.
+///
+/// # Default Implementations
+/// The trait provides default implementations for `interpolate_linear` and `interpolate` methods
+/// that use the `Trajectory` trait methods to perform interpolation.
+///
+/// # Examples
+/// ```rust
+/// use brahe::trajectories::{STrajectory6, Trajectory, Interpolatable, InterpolationMethod};
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::Vector6;
+///
+/// let epochs = vec![
+///     Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+///     Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC),
+/// ];
+/// let states = vec![
+///     Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+///     Vector6::new(7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0),
+/// ];
+/// let traj = STrajectory6::from_data(epochs, states).unwrap();
+///
+/// // Interpolate at an intermediate epoch
+/// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 30, 0.0, 0.0, TimeSystem::UTC);
+/// let state = traj.interpolate(&epoch).unwrap();
+/// ```
+pub trait Interpolatable: Trajectory {
+    /// Set the interpolation method for the trajectory
+    ///
+    /// # Arguments
+    /// * `method` - The interpolation method to use
+    fn set_interpolation_method(&mut self, method: InterpolationMethod);
+
+    /// Get the current interpolation method
+    ///
+    /// # Returns
+    /// The current interpolation method (defaults to Linear if not set)
+    fn get_interpolation_method(&self) -> InterpolationMethod;
+
+    /// Interpolate state at a given epoch using linear interpolation
+    ///
+    /// This is a default implementation that uses the `Trajectory` methods to
+    /// perform linear interpolation between bracketing states.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    fn interpolate_linear(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>
+    where
+        Self::StateVector: Clone + std::ops::Mul<f64, Output = Self::StateVector> + std::ops::Add<Output = Self::StateVector>,
+    {
+        if self.is_empty() {
+            return Err(BraheError::Error(
+                "Cannot interpolate state from empty trajectory".to_string(),
+            ));
+        }
+
+        // If only one state, return it
+        if self.len() == 1 {
+            return self.state_at_index(0);
+        }
+
+        // Get indices before and after the target epoch (single search operation each)
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_index(idx1);
+        }
+
+        // Get the bracketing epochs and states
+        let (epoch1, state1) = self.get(idx1)?;
+        let (epoch2, state2) = self.get(idx2)?;
+
+        // Linear interpolation: state = state1 * (1 - t) + state2 * t
+        // where t = (epoch - epoch1) / (epoch2 - epoch1)
+        let t = (*epoch - epoch1) / (epoch2 - epoch1);
+        let interpolated = state1.clone() * (1.0 - t) + state2 * t;
+
+        Ok(interpolated)
+    }
+
+    /// Interpolate state at a given epoch using the configured interpolation method
+    ///
+    /// This is a default implementation that dispatches to the appropriate interpolation
+    /// method based on the current `interpolation_method` setting.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    fn interpolate(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>
+    where
+        Self::StateVector: Clone + std::ops::Mul<f64, Output = Self::StateVector> + std::ops::Add<Output = Self::StateVector>,
+    {
+        match self.get_interpolation_method() {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+            InterpolationMethod::CubicSpline => Err(BraheError::Error(
+                "Cubic spline interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Lagrange => Err(BraheError::Error(
+                "Lagrange interpolation not yet implemented".to_string(),
+            )),
+            InterpolationMethod::Hermite => Err(BraheError::Error(
+                "Hermite interpolation not yet implemented".to_string(),
+            )),
+        }
+    }
 }
 
 /// Trait for orbital-specific functionality on 6-dimensional trajectories.
@@ -181,8 +357,11 @@ pub trait Trajectory {
 /// and angle formats (radians/degrees). It also provides convenient accessors for position
 /// and velocity components.
 ///
+/// This trait requires both `Trajectory` and `Interpolatable` to be implemented, enabling
+/// both basic trajectory operations and state interpolation.
+///
 /// # Reference Frames
-/// - **ECI (Earth-Centered Inertial)**: J2000 inertial reference frame
+/// - **ECI (Earth-Centered Inertial)**: GCRF inertial reference frame
 /// - **ECEF (Earth-Centered Earth-Fixed)**: Earth-fixed rotating frame
 ///
 /// # State Representations
@@ -196,7 +375,7 @@ pub trait Trajectory {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod, Trajectory};
+/// use brahe::trajectories::{STrajectory6, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
@@ -205,7 +384,6 @@ pub trait Trajectory {
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     AngleFormat::None,
-///     InterpolationMethod::Linear,
 /// ).unwrap();
 ///
 /// // Add state
@@ -216,7 +394,7 @@ pub trait Trajectory {
 /// // Convert to Keplerian in degrees
 /// let kep_traj = traj.to_keplerian(AngleFormat::Degrees).unwrap();
 /// ```
-pub trait OrbitalTrajectory {
+pub trait OrbitalTrajectory: Interpolatable {
     /// Convert the trajectory to a different reference frame.
     ///
     /// # Arguments

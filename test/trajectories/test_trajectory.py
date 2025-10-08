@@ -436,3 +436,248 @@ class TestTrajectoryAdditionalMethods:
         # Test empty trajectory timespan
         empty_trajectory = brahe.Trajectory()
         assert empty_trajectory.time_span is None
+
+
+class TestTrajectoryNewMethods:
+    """Test new Trajectory methods that mirror OrbitalTrajectory tests."""
+
+    def test_trajectory_index_before_epoch(self):
+        """Test index_before_epoch method."""
+        # Create trajectory with states at t0, t0+60s, t0+120s
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states with distinguishable values
+        traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        traj.add_state(t0 + 60.0, np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        traj.add_state(t0 + 120.0, np.array([3.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+
+        # Test error case - epoch before all states
+        before_t0 = t0 + (-10.0)
+        with pytest.raises(RuntimeError):
+            traj.index_before_epoch(before_t0)
+
+        # Test finding index before t0+30s (should return index 0)
+        t0_plus_30 = t0 + 30.0
+        idx = traj.index_before_epoch(t0_plus_30)
+        assert idx == 0
+
+        # Test finding index before t0+60s (should return index 1 - exact match)
+        t0_plus_60 = t0 + 60.0
+        idx = traj.index_before_epoch(t0_plus_60)
+        assert idx == 1
+
+        # Test finding index before t0+90s (should return index 1)
+        t0_plus_90 = t0 + 90.0
+        idx = traj.index_before_epoch(t0_plus_90)
+        assert idx == 1
+
+        # Test finding index before t0+120s (should return index 2 - exact match)
+        t0_plus_120 = t0 + 120.0
+        idx = traj.index_before_epoch(t0_plus_120)
+        assert idx == 2
+
+    def test_trajectory_index_after_epoch(self):
+        """Test index_after_epoch method."""
+        # Create trajectory with states at t0, t0+60s, t0+120s
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states with distinguishable values
+        traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        traj.add_state(t0 + 60.0, np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        traj.add_state(t0 + 120.0, np.array([3.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+
+        # Test error case - epoch after all states
+        after_t0_120 = t0 + 150.0
+        with pytest.raises(RuntimeError):
+            traj.index_after_epoch(after_t0_120)
+
+        # Test finding index after t0-30s (should return index 0)
+        before_t0 = t0 + (-30.0)
+        idx = traj.index_after_epoch(before_t0)
+        assert idx == 0
+
+        # Test finding index after t0 (should return index 0 - exact match)
+        idx = traj.index_after_epoch(t0)
+        assert idx == 0
+
+        # Test finding index after t0+30s (should return index 1)
+        t0_plus_30 = t0 + 30.0
+        idx = traj.index_after_epoch(t0_plus_30)
+        assert idx == 1
+
+        # Test finding index after t0+60s (should return index 1 - exact match)
+        t0_plus_60 = t0 + 60.0
+        idx = traj.index_after_epoch(t0_plus_60)
+        assert idx == 1
+
+        # Test finding index after t0+90s (should return index 2)
+        t0_plus_90 = t0 + 90.0
+        idx = traj.index_after_epoch(t0_plus_90)
+        assert idx == 2
+
+    def test_trajectory_state_before_epoch(self):
+        """Test state_before_epoch method."""
+        # Create trajectory with distinguishable states
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states with distinguishable values
+        state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
+        state2 = np.array([2000.0, 200.0, 20.0, 2.0, 0.2, 0.02])
+        state3 = np.array([3000.0, 300.0, 30.0, 3.0, 0.3, 0.03])
+
+        traj.add_state(t0, state1)
+        traj.add_state(t0 + 60.0, state2)
+        traj.add_state(t0 + 120.0, state3)
+
+        # Test error case - epoch before all states
+        before_t0 = t0 + (-10.0)
+        with pytest.raises(RuntimeError):
+            traj.state_before_epoch(before_t0)
+
+        # Test at t0+30s (should return first state)
+        t0_plus_30 = t0 + 30.0
+        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_30)
+        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
+
+        # Test at exact match t0+60s (should return second state)
+        t0_plus_60 = t0 + 60.0
+        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_60)
+        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
+
+        # Test at t0+90s (should return second state)
+        t0_plus_90 = t0 + 90.0
+        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_90)
+        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
+
+    def test_trajectory_state_after_epoch(self):
+        """Test state_after_epoch method."""
+        # Create trajectory with distinguishable states
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states with distinguishable values
+        state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
+        state2 = np.array([2000.0, 200.0, 20.0, 2.0, 0.2, 0.02])
+        state3 = np.array([3000.0, 300.0, 30.0, 3.0, 0.3, 0.03])
+
+        traj.add_state(t0, state1)
+        traj.add_state(t0 + 60.0, state2)
+        traj.add_state(t0 + 120.0, state3)
+
+        # Test error case - epoch after all states
+        after_t0_120 = t0 + 150.0
+        with pytest.raises(RuntimeError):
+            traj.state_after_epoch(after_t0_120)
+
+        # Test at t0-30s (should return first state)
+        before_t0 = t0 + (-30.0)
+        ret_epoch, ret_state = traj.state_after_epoch(before_t0)
+        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
+
+        # Test at exact match t0 (should return first state)
+        ret_epoch, ret_state = traj.state_after_epoch(t0)
+        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
+
+        # Test at t0+30s (should return second state)
+        t0_plus_30 = t0 + 30.0
+        t0_plus_60 = t0 + 60.0
+        ret_epoch, ret_state = traj.state_after_epoch(t0_plus_30)
+        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
+        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
+        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
+
+    def test_trajectory_get_interpolation_method(self):
+        """Test get_interpolation_method property."""
+        traj = brahe.Trajectory()
+
+        # Verify default is Linear
+        assert traj.interpolation_method == brahe.InterpolationMethod.linear
+
+        # Change method using set_interpolation_method() and verify property returns correct value
+        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
+        assert traj.interpolation_method == brahe.InterpolationMethod.lagrange
+
+        # Change back to linear
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+        assert traj.interpolation_method == brahe.InterpolationMethod.linear
+
+    def test_trajectory_interpolate_linear(self):
+        """Test interpolate_linear method."""
+        # Create trajectory with simple values for easy verification
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states with linearly varying position for simple interpolation verification
+        # At t0: x=7000km, At t0+60s: x=7060km, At t0+120s: x=7120km (1 km/s change)
+        traj.add_state(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+        traj.add_state(t0 + 60.0, np.array([7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+        traj.add_state(t0 + 120.0, np.array([7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+
+        # Test linear interpolation at t0+30s (midpoint between first two states)
+        # Should be halfway between [7000e3, ...] and [7060e3, ...]
+        t_mid = t0 + 30.0
+        state_mid = traj.interpolate_linear(t_mid)
+        assert state_mid[0] == pytest.approx(7030e3, rel=1e-6)
+        assert state_mid[1] == pytest.approx(0.0, abs=1e-6)
+        assert state_mid[2] == pytest.approx(0.0, abs=1e-6)
+        assert state_mid[3] == pytest.approx(0.0, abs=1e-6)
+        assert state_mid[4] == pytest.approx(7.5e3, rel=1e-6)
+        assert state_mid[5] == pytest.approx(0.0, abs=1e-6)
+
+        # Test at exact epochs - should return exact states
+        state_0 = traj.interpolate_linear(t0)
+        assert state_0[0] == pytest.approx(7000e3, rel=1e-6)
+
+        state_60 = traj.interpolate_linear(t0 + 60.0)
+        assert state_60[0] == pytest.approx(7060e3, rel=1e-6)
+
+        # Test at t0+90s (1/2 of the way between t0+60s and t0+120s)
+        # Should be 1/2 of the way: 7060e3 + 0.5 * (7120e3 - 7060e3) = 7090e3
+        t_90 = t0 + 90.0
+        state_90 = traj.interpolate_linear(t_90)
+        assert state_90[0] == pytest.approx(7090e3, rel=1e-6)
+
+    def test_trajectory_interpolate(self):
+        """Test interpolate method."""
+        # Create trajectory
+        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+
+        traj = brahe.Trajectory()
+
+        # Add states
+        traj.add_state(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+        traj.add_state(t0 + 60.0, np.array([7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+        traj.add_state(t0 + 120.0, np.array([7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+
+        # Set interpolation method to Linear
+        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
+
+        # Test that interpolate() matches interpolate_linear() for Linear method
+        t_test = t0 + 30.0
+        result_interpolate = traj.interpolate(t_test)
+        result_linear = traj.interpolate_linear(t_test)
+
+        np.testing.assert_array_almost_equal(result_interpolate, result_linear, decimal=6)
+
+        # Test unimplemented method (Lagrange is not yet implemented)
+        traj.set_interpolation_method(brahe.InterpolationMethod.lagrange)
+        with pytest.raises(RuntimeError, match="not yet implemented"):
+            traj.interpolate(t_test)

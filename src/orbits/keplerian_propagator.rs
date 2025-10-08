@@ -12,7 +12,6 @@ use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
-use crate::trajectories::InterpolationMethod;
 use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, STrajectory6, Trajectory};
 use crate::utils::BraheError;
 
@@ -91,7 +90,6 @@ impl KeplerianPropagator {
             frame,
             representation,
             angle_format,
-            InterpolationMethod::Linear,
         )?;
         trajectory.add_state(epoch, state)?;
 
@@ -300,7 +298,6 @@ impl OrbitPropagator for KeplerianPropagator {
             self.frame,
             self.representation,
             self.angle_format,
-            InterpolationMethod::Linear,
         )?;
         self.trajectory.add_state(self.initial_epoch, self.initial_state)?;
 
@@ -346,7 +343,6 @@ impl OrbitPropagator for KeplerianPropagator {
             frame,
             representation,
             angle_format,
-            InterpolationMethod::Linear,
         )?;
         self.trajectory.add_state(epoch, state)?;
 
@@ -423,13 +419,11 @@ impl AnalyticPropagator for KeplerianPropagator {
             self.frame,
             self.representation,
             self.angle_format,
-            InterpolationMethod::Linear,
         ).unwrap_or_else(|_| {
             STrajectory6::new_orbital_trajectory(
                 self.frame,
                 self.representation,
                 self.angle_format,
-                InterpolationMethod::Linear,
             ).unwrap()
         })
     }
@@ -446,7 +440,6 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 
@@ -462,7 +455,6 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 
@@ -478,7 +470,6 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
-            InterpolationMethod::Linear,
         ).unwrap()
     }
 }

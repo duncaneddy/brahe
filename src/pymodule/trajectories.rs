@@ -854,6 +854,16 @@ impl PyOrbitalTrajectory {
         }
     }
 
+    /// Get current eviction policy
+    ///
+    /// Returns:
+    ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
+    #[pyo3(text_signature = "()")]
+    pub fn get_eviction_policy(&self) -> String {
+        use crate::trajectories::Trajectory;
+        format!("{:?}", self.trajectory.get_eviction_policy())
+    }
+
     /// Index access returns state vector at given index
     ///
     /// Arguments:
@@ -1100,7 +1110,8 @@ impl PyTrajectory {
             method
         };
 
-        let trajectory = trajectories::DTrajectory::with_interpolation(dimension, final_method);
+        let trajectory = trajectories::DTrajectory::new(dimension)
+            .with_interpolation_method(final_method);
 
         Ok(PyTrajectory { trajectory })
     }
@@ -1144,7 +1155,8 @@ impl PyTrajectory {
             ));
         }
 
-        let mut trajectory = trajectories::DTrajectory::with_interpolation(dimension, method);
+        let mut trajectory = trajectories::DTrajectory::new(dimension)
+            .with_interpolation_method(method);
 
         for i in 0..num_epochs {
             let start_idx = i * dimension;
@@ -1388,6 +1400,16 @@ impl PyTrajectory {
         }
     }
 
+    /// Get current eviction policy
+    ///
+    /// Returns:
+    ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
+    #[pyo3(text_signature = "()")]
+    pub fn get_eviction_policy(&self) -> String {
+        use crate::trajectories::Trajectory;
+        format!("{:?}", self.trajectory.get_eviction_policy())
+    }
+
     /// Get start epoch of trajectory
     #[getter]
     pub fn start_epoch(&self) -> Option<PyEpoch> {
@@ -1610,7 +1632,8 @@ impl PySTrajectory6 {
             .map(|m| m.method)
             .unwrap_or(trajectories::InterpolationMethod::Linear);
 
-        let trajectory = trajectories::STrajectory6::with_interpolation(method);
+        let trajectory = trajectories::STrajectory6::new()
+            .with_interpolation_method(method);
 
         PySTrajectory6 { trajectory }
     }
@@ -1886,6 +1909,16 @@ impl PySTrajectory6 {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
+    }
+
+    /// Get current eviction policy
+    ///
+    /// Returns:
+    ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
+    #[pyo3(text_signature = "()")]
+    pub fn get_eviction_policy(&self) -> String {
+        use crate::trajectories::Trajectory;
+        format!("{:?}", self.trajectory.get_eviction_policy())
     }
 
     /// Get start epoch of trajectory

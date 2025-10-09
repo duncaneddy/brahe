@@ -220,6 +220,36 @@ pub trait Trajectory {
         let index = self.index_after_epoch(epoch)?;
         self.get(index)
     }
+
+    /// Set eviction policy to keep a maximum number of states.
+    ///
+    /// When the number of states exceeds `max_size`, the oldest states are evicted first.
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of states to retain (must be >= 1)
+    ///
+    /// # Returns
+    /// * `Ok(())` - Policy successfully set and applied
+    /// * `Err(BraheError)` - If max_size is less than 1
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError>;
+
+    /// Set eviction policy to keep states within a maximum age from the most recent state.
+    ///
+    /// States older than `max_age` seconds from the most recent state are evicted.
+    ///
+    /// # Arguments
+    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
+    ///
+    /// # Returns
+    /// * `Ok(())` - Policy successfully set and applied
+    /// * `Err(BraheError)` - If max_age is not positive
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
+
+    /// Get the current eviction policy
+    ///
+    /// # Returns
+    /// The current eviction policy (None, KeepCount, or KeepWithinDuration)
+    fn get_eviction_policy(&self) -> TrajectoryEvictionPolicy;
 }
 
 /// Trait for trajectory interpolation functionality.

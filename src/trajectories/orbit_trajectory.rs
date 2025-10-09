@@ -47,7 +47,7 @@ use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::constants::{DEG2RAD, RAD2DEG};
 
 use super::strajectory::STrajectory;
-use super::traits::{Trajectory, Interpolatable, OrbitalTrajectory, InterpolationMethod};
+use super::traits::{Trajectory, Interpolatable, OrbitalTrajectory, InterpolationMethod, TrajectoryEvictionPolicy};
 
 /// Enumeration of orbit reference frames
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,6 +209,82 @@ impl OrbitTrajectory {
     /// Get the state vector at a specific epoch using interpolation
     pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<Vector6<f64>, BraheError> {
         self.0.state_at_epoch(epoch)
+    }
+
+    /// Sets the interpolation method using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// interpolation method, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `interpolation_method` - Method to use for state interpolation between epochs
+    ///
+    /// # Returns
+    /// Self with updated interpolation method
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None).unwrap()
+    ///     .with_interpolation_method(InterpolationMethod::Linear);
+    /// ```
+    pub fn with_interpolation_method(mut self, interpolation_method: InterpolationMethod) -> Self {
+        self.0.interpolation_method = interpolation_method;
+        self
+    }
+
+    /// Sets the eviction policy to keep a maximum number of states using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of states to retain (must be >= 1)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_size is less than 1
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None).unwrap()
+    ///     .with_eviction_policy_max_size(100);
+    /// ```
+    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
+        // Use the setter method which handles validation and applies eviction
+        self.0.set_eviction_policy_max_size(max_size)
+            .expect("Failed to set eviction policy");
+        self
+    }
+
+    /// Sets the eviction policy to keep states within a maximum age using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_age is not positive
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None).unwrap()
+    ///     .with_eviction_policy_max_age(3600.0);
+    /// ```
+    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
+        // Use the setter method which handles validation and applies eviction
+        self.0.set_eviction_policy_max_age(max_age)
+            .expect("Failed to set eviction policy");
+        self
     }
 
     /// Set eviction policy to keep a maximum number of states
@@ -424,6 +500,18 @@ impl Trajectory for OrbitTrajectory {
 
     fn index_after_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError> {
         self.0.index_after_epoch(epoch)
+    }
+
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        self.0.set_eviction_policy_max_size(max_size)
+    }
+
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        self.0.set_eviction_policy_max_age(max_age)
+    }
+
+    fn get_eviction_policy(&self) -> TrajectoryEvictionPolicy {
+        self.0.get_eviction_policy()
     }
 }
 
@@ -1467,7 +1555,7 @@ mod tests {
             Vector6::new(120.0, 240.0, 360.0, 480.0, 600.0, 720.0),
         ];
 
-        let mut traj = OrbitTrajectory::from_orbital_data(
+        let traj = OrbitTrajectory::from_orbital_data(
             epochs,
             states,
             OrbitFrame::ECI,

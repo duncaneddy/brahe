@@ -692,7 +692,7 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
-    fn test_dynamictrajectory_new_default_dimension() {
+    fn test_dtrajectory_new_default_dimension() {
         let trajectory = DTrajectory::new(6);
 
         assert_eq!(trajectory.len(), 0);
@@ -702,7 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_add_state() {
+    fn test_dtrajectory_trajectory_add_state() {
         let mut trajectory = DTrajectory::new(6);
 
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -722,7 +722,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_state_at_epoch() {
+    fn test_dtrajectory_trajectory_state_at_epoch() {
         let traj = create_test_trajectory();
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -735,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_state_at_index() {
+    fn test_dtrajectory_trajectory_state_at_index() {
         let traj = create_test_trajectory();
 
         let state = traj.state(0).unwrap();
@@ -746,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_epoch_at_index() {
+    fn test_dtrajectory_trajectory_epoch_at_index() {
         let traj = create_test_trajectory();
 
         let epoch = traj.epoch(0).unwrap();
@@ -757,7 +757,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_nearest_state() {
+    fn test_dtrajectory_trajectory_nearest_state() {
         let traj = create_test_trajectory();
 
         let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
@@ -770,7 +770,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_len() {
+    fn test_dtrajectory_trajectory_len() {
         let traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
 
@@ -779,7 +779,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_is_empty() {
+    fn test_dtrajectory_trajectory_is_empty() {
         let traj = create_test_trajectory();
         assert!(!traj.is_empty());
 
@@ -788,7 +788,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_start_epoch() {
+    fn test_dtrajectory_trajectory_start_epoch() {
         let traj = create_test_trajectory();
         let start = traj.start_epoch().unwrap();
         assert_eq!(start, Epoch::from_jd(2451545.0, TimeSystem::UTC));
@@ -798,7 +798,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_end_epoch() {
+    fn test_dtrajectory_trajectory_end_epoch() {
         let traj = create_test_trajectory();
         let end = traj.end_epoch().unwrap();
         assert_eq!(end, Epoch::from_jd(2451545.2, TimeSystem::UTC));
@@ -808,7 +808,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_timespan() {
+    fn test_dtrajectory_trajectory_timespan() {
         let traj = create_test_trajectory();
         let timespan = traj.timespan().unwrap();
         assert_abs_diff_eq!(timespan, 0.2 * 86400.0, epsilon = 1.0);
@@ -818,7 +818,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_first() {
+    fn test_dtrajectory_trajectory_first() {
         let traj = create_test_trajectory();
         let (epoch, state) = traj.first().unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
@@ -829,7 +829,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_last() {
+    fn test_dtrajectory_trajectory_last() {
         let traj = create_test_trajectory();
         let (epoch, state) = traj.last().unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.2, TimeSystem::UTC));
@@ -840,7 +840,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_clear() {
+    fn test_dtrajectory_trajectory_clear() {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
 
@@ -850,7 +850,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_remove_state() {
+    fn test_dtrajectory_trajectory_remove_state() {
         let mut traj = create_test_trajectory();
         let epoch = Epoch::from_jd(2451545.1, TimeSystem::UTC);
 
@@ -860,7 +860,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_remove_state_at_index() {
+    fn test_dtrajectory_trajectory_remove_state_at_index() {
         let mut traj = create_test_trajectory();
 
         let (removed_epoch, removed_state) = traj.remove_state_at_index(1).unwrap();
@@ -870,7 +870,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_get() {
+    fn test_dtrajectory_trajectory_get() {
         let traj = create_test_trajectory();
 
         let (epoch, state) = traj.get(1).unwrap();
@@ -881,7 +881,7 @@ mod tests {
     // DTrajectory Method Tests
 
     #[test]
-    fn test_dynamictrajectory_new_with_dimension() {
+    fn test_dtrajectory_new_with_dimension() {
         let traj = DTrajectory::new(7);
         assert_eq!(traj.dimension, 7);
         assert_eq!(traj.len(), 0);
@@ -889,7 +889,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_with_interpolation_method() {
+    fn test_dtrajectory_with_interpolation_method() {
         let traj = DTrajectory::new(12)
             .with_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.dimension, 12);
@@ -897,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_from_data() {
+    fn test_dtrajectory_from_data() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -913,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_from_data_errors() {
+    fn test_dtrajectory_from_data_errors() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -932,13 +932,13 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_dimension() {
+    fn test_dtrajectory_dimension() {
         let traj = DTrajectory::new(9);
         assert_eq!(traj.dimension(), 9);
     }
 
     #[test]
-    fn test_dynamictrajectory_interpolatable_set_interpolation_method() {
+    fn test_dtrajectory_interpolatable_set_interpolation_method() {
         let mut traj = DTrajectory::new(6);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
 
@@ -1005,7 +1005,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_set_eviction_policy_max_size() {
+    fn test_dtrajectory_set_eviction_policy_max_size() {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
 
@@ -1015,7 +1015,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_set_eviction_policy_max_age() {
+    fn test_dtrajectory_set_eviction_policy_max_age() {
         let mut traj = create_test_trajectory();
 
         // Max age slightly larger than 0.1 days to account for floating point precision
@@ -1025,7 +1025,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_to_matrix() {
+    fn test_dtrajectory_to_matrix() {
         let traj = create_test_trajectory();
         let matrix = traj.to_matrix().unwrap();
 
@@ -1036,14 +1036,14 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_indexing_operator() {
+    fn test_dtrajectory_indexing_operator() {
         let traj = create_test_trajectory();
         let state = &traj[1];
         assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
     }
 
     #[test]
-    fn test_dynamictrajectory_dimension_validation() {
+    fn test_dtrajectory_dimension_validation() {
         let mut traj = DTrajectory::new(6);
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -1053,7 +1053,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_state_at_epoch_errors() {
+    fn test_dtrajectory_state_at_epoch_errors() {
         let traj = create_test_trajectory();
 
         let too_early = Epoch::from_jd(2451544.0, TimeSystem::UTC);
@@ -1069,7 +1069,7 @@ mod tests {
     // Additional Trajectory Trait Tests
 
     #[test]
-    fn test_dynamictrajectory_trajectory_index_before_epoch() {
+    fn test_dtrajectory_trajectory_index_before_epoch() {
         // Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -1108,7 +1108,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_index_after_epoch() {
+    fn test_dtrajectory_trajectory_index_after_epoch() {
         // Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -1150,7 +1150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_state_before_epoch() {
+    fn test_dtrajectory_trajectory_state_before_epoch() {
         // Create a DTrajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -1187,7 +1187,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_trajectory_state_after_epoch() {
+    fn test_dtrajectory_trajectory_state_after_epoch() {
         // Create a DTrajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -1226,7 +1226,7 @@ mod tests {
     // Interpolatable Trait Tests
 
     #[test]
-    fn test_dynamictrajectory_interpolatable_get_interpolation_method() {
+    fn test_dtrajectory_interpolatable_get_interpolation_method() {
         // Create a trajectory with default Linear interpolation
         let mut traj = DTrajectory::new(6);
 
@@ -1242,7 +1242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_interpolatable_interpolate_linear() {
+    fn test_dtrajectory_interpolatable_interpolate_linear() {
         // Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
@@ -1295,7 +1295,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_interpolatable_interpolate() {
+    fn test_dtrajectory_interpolatable_interpolate() {
         // Create a trajectory for testing
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;

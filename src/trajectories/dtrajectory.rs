@@ -128,39 +128,87 @@ impl DTrajectory {
         }
     }
 
-    /// Creates a new empty trajectory with the specified dimension and interpolation method.
+    /// Sets the interpolation method using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// interpolation method, allowing for method chaining.
     ///
     /// # Arguments
-    /// * `dimension` - Number of elements in each state vector
     /// * `interpolation_method` - Method to use for state interpolation between epochs
     ///
     /// # Returns
-    /// A new empty trajectory ready for state addition
+    /// Self with updated interpolation method
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{DTrajectory, InterpolationMethod, Trajectory};
-    /// let traj = DTrajectory::with_interpolation(12, InterpolationMethod::Linear);
-    /// assert_eq!(traj.len(), 0);
-    /// assert_eq!(traj.dimension, 12);
+    /// use brahe::trajectories::{DTrajectory, InterpolationMethod};
+    /// let traj = DTrajectory::new(6)
+    ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
-    pub fn with_interpolation(dimension: usize, interpolation_method: InterpolationMethod) -> Self {
-        if dimension == 0 {
-            panic!("Trajectory dimension must be greater than 0");
-        }
-
-        Self {
-            epochs: Vec::new(),
-            states: Vec::new(),
-            dimension,
-            interpolation_method,
-            eviction_policy: TrajectoryEvictionPolicy::None,
-            max_size: None,
-            max_age: None,
-            metadata: HashMap::new(),
-        }
+    pub fn with_interpolation_method(mut self, interpolation_method: InterpolationMethod) -> Self {
+        self.interpolation_method = interpolation_method;
+        self
     }
 
+    /// Sets the eviction policy to keep a maximum number of states using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of states to retain (must be >= 1)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_size is less than 1
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::DTrajectory;
+    /// let traj = DTrajectory::new(6)
+    ///     .with_eviction_policy_max_size(100);
+    /// ```
+    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
+        if max_size < 1 {
+            panic!("Maximum size must be >= 1");
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
+        self.max_size = Some(max_size);
+        self.max_age = None;
+        self
+    }
+
+    /// Sets the eviction policy to keep states within a maximum age using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_age is not positive
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::DTrajectory;
+    /// let traj = DTrajectory::new(6)
+    ///     .with_eviction_policy_max_age(3600.0);
+    /// ```
+    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
+        if max_age <= 0.0 {
+            panic!("Maximum age must be > 0.0");
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
+        self.max_age = Some(max_age);
+        self.max_size = None;
+        self
+    }
 
     /// Get the dimension of state vectors in this trajectory
     pub fn dimension(&self) -> usize {
@@ -176,46 +224,6 @@ impl DTrajectory {
     /// * `method` - New interpolation method to use
     pub fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
-    }
-
-    /// Set eviction policy to keep a maximum number of states.
-    ///
-    /// # Arguments
-    /// * `max_size` - Maximum number of states to retain (must be >= 1)
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If max_size is less than 1
-    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
-        if max_size < 1 {
-            return Err(BraheError::Error(
-                "Maximum size must be >= 1".to_string(),
-            ));
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
-        self.max_size = Some(max_size);
-        self.max_age = None;
-        self.apply_eviction_policy()?;
-        Ok(())
-    }
-
-    /// Set eviction policy to keep states within a maximum age.
-    ///
-    /// # Arguments
-    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If max_age is not positive
-    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
-        if max_age <= 0.0 {
-            return Err(BraheError::Error(
-                "Maximum age must be > 0.0".to_string(),
-            ));
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
-        self.max_age = Some(max_age);
-        self.max_size = None;
-        self.apply_eviction_policy()?;
-        Ok(())
     }
 
     /// Convert the trajectory to a matrix representation
@@ -277,53 +285,6 @@ impl DTrajectory {
             },
         }
         Ok(())
-    }
-
-    /// Interpolate between states using linear interpolation
-    fn interpolate_linear(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
-        if self.epochs.is_empty() {
-            return Err(BraheError::Error(
-                "Cannot interpolate state from empty trajectory".to_string(),
-            ));
-        }
-
-        // If only one state, return it
-        if self.epochs.len() == 1 {
-            return Ok(self.states[0].clone());
-        }
-
-        // Find the two states that bracket the requested epoch
-        for i in 0..self.epochs.len() - 1 {
-            let epoch1 = self.epochs[i];
-            let epoch2 = self.epochs[i + 1];
-
-            // Check if the requested epoch is between these two states
-            if epoch >= &epoch1 && epoch <= &epoch2 {
-                let state1 = &self.states[i];
-                let state2 = &self.states[i + 1];
-
-                // Calculate interpolation factor (t)
-                let t1 = epoch1;
-                let t2 = epoch2;
-                let t = *epoch;
-
-                // This computes the normalized interpolation factor (0 to 1)
-                let alpha = (t - t1) / (t2 - t1);
-
-                // Linear interpolation for each element
-                let mut interpolated_state = DVector::<f64>::zeros(self.dimension);
-                for j in 0..self.dimension {
-                    interpolated_state[j] = state1[j] * (1.0 - alpha) + state2[j] * alpha;
-                }
-
-                return Ok(interpolated_state);
-            }
-        }
-
-        // If we reach here, something went wrong with our epoch comparison logic
-        Err(BraheError::Error(
-            "Failed to find bracketing states for interpolation".to_string(),
-        ))
     }
 }
 
@@ -664,6 +625,36 @@ impl Trajectory for DTrajectory {
             "Failed to find index after epoch".to_string(),
         ))
     }
+
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        if max_size < 1 {
+            return Err(BraheError::Error(
+                "Maximum size must be >= 1".to_string(),
+            ));
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
+        self.max_size = Some(max_size);
+        self.max_age = None;
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        if max_age <= 0.0 {
+            return Err(BraheError::Error(
+                "Maximum age must be > 0.0".to_string(),
+            ));
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
+        self.max_age = Some(max_age);
+        self.max_size = None;
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    fn get_eviction_policy(&self) -> TrajectoryEvictionPolicy {
+        self.eviction_policy
+    }
 }
 
 impl Interpolatable for DTrajectory {
@@ -898,8 +889,9 @@ mod tests {
     }
 
     #[test]
-    fn test_dynamictrajectory_with_interpolation() {
-        let traj = DTrajectory::with_interpolation(12, InterpolationMethod::Linear);
+    fn test_dynamictrajectory_with_interpolation_method() {
+        let traj = DTrajectory::new(12)
+            .with_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.dimension, 12);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
     }
@@ -952,6 +944,64 @@ mod tests {
 
         traj.set_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dtrajectory_trajectory_get_eviction_policy() {
+        let mut traj = DTrajectory::new(6);
+
+        // Default is None
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+
+        // Set to KeepCount
+        traj.set_eviction_policy_max_size(10).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Set to KeepWithinDuration
+        traj.set_eviction_policy_max_age(100.0).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_eviction_policy_max_size_builder() {
+        // Test builder pattern for max size eviction policy
+        let traj = DTrajectory::new(6)
+            .with_eviction_policy_max_size(5);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_eviction_policy_max_age_builder() {
+        // Test builder pattern for max age eviction policy
+        let traj = DTrajectory::new(6)
+            .with_eviction_policy_max_age(300.0);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_dtrajectory_builder_pattern_chaining() {
+        // Test chaining multiple builder methods
+        let mut traj = DTrajectory::new(6)
+            .with_interpolation_method(InterpolationMethod::Linear)
+            .with_eviction_policy_max_size(10);
+
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Add states and verify eviction policy works
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..15 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should only have 10 states due to eviction policy
+        assert_eq!(traj.len(), 10);
     }
 
     #[test]
@@ -1258,7 +1308,7 @@ mod tests {
             DVector::from_vec(vec![120.0, 240.0, 360.0, 480.0, 600.0, 720.0]),
         ];
 
-        let mut traj = DTrajectory::from_data(epochs, states).unwrap();
+        let traj = DTrajectory::from_data(epochs, states).unwrap();
 
         // Test that interpolate() with Linear method returns same result as interpolate_linear()
         let t0_plus_30 = t0 + 30.0;

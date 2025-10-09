@@ -83,7 +83,7 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
 
 #[pyclass]
 #[pyo3(name = "StaticEOPProvider")]
-struct PyStaticEOPProvider {
+pub(crate) struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
 }
 
@@ -177,7 +177,7 @@ impl PyStaticEOPProvider {
 
 #[pyclass]
 #[pyo3(name = "FileEOPProvider")]
-struct PyFileEOPProvider {
+pub(crate) struct PyFileEOPProvider {
     obj: eop::FileEOPProvider,
 }
 

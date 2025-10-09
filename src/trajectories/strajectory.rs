@@ -138,30 +138,86 @@ impl<const R: usize> STrajectory<R>
         }
     }
 
-    /// Creates a new empty trajectory with the specified interpolation method.
+    /// Sets the interpolation method using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// interpolation method, allowing for method chaining.
     ///
     /// # Arguments
     /// * `interpolation_method` - Method to use for state interpolation between epochs
     ///
     /// # Returns
-    /// A new empty trajectory ready for state addition
+    /// Self with updated interpolation method
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory6, InterpolationMethod, Trajectory};
-    /// let traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
-    /// assert_eq!(traj.len(), 0);
+    /// use brahe::trajectories::{STrajectory6, InterpolationMethod, TrajectoryEvictionPolicy};
+    /// let traj = STrajectory6::new()
+    ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
-    pub fn with_interpolation(interpolation_method: InterpolationMethod) -> Self {
-        Self {
-            epochs: Vec::new(),
-            states: Vec::new(),
-            interpolation_method,
-            eviction_policy: TrajectoryEvictionPolicy::None,
-            max_size: None,
-            max_age: None,
-            metadata: HashMap::new(),
+    pub fn with_interpolation_method(mut self, interpolation_method: InterpolationMethod) -> Self {
+        self.interpolation_method = interpolation_method;
+        self
+    }
+
+    /// Sets the eviction policy to keep a maximum number of states using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of states to retain (must be >= 1)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_size is less than 1
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
+    /// let traj = STrajectory6::new()
+    ///     .with_eviction_policy_max_size(100);
+    /// ```
+    pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
+        if max_size < 1 {
+            panic!("Maximum size must be >= 1");
         }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
+        self.max_size = Some(max_size);
+        self.max_age = None;
+        self
+    }
+
+    /// Sets the eviction policy to keep states within a maximum age using builder pattern.
+    ///
+    /// This method consumes self and returns a new trajectory with the specified
+    /// eviction policy, allowing for method chaining.
+    ///
+    /// # Arguments
+    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
+    ///
+    /// # Returns
+    /// Self with updated eviction policy
+    ///
+    /// # Panics
+    /// Panics if max_age is not positive
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
+    /// let traj = STrajectory6::new()
+    ///     .with_eviction_policy_max_age(3600.0);
+    /// ```
+    pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
+        if max_age <= 0.0 {
+            panic!("Maximum age must be > 0.0");
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
+        self.max_age = Some(max_age);
+        self.max_size = None;
+        self
     }
 
     /// Set the interpolation method for state retrieval.
@@ -179,46 +235,6 @@ impl<const R: usize> STrajectory<R>
     /// ```
     pub fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
-    }
-
-    /// Set eviction policy to keep a maximum number of states.
-    ///
-    /// # Arguments
-    /// * `max_size` - Maximum number of states to retain (must be >= 1)
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If max_size is less than 1
-    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
-        if max_size < 1 {
-            return Err(BraheError::Error(
-                "Maximum size must be >= 1".to_string(),
-            ));
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
-        self.max_size = Some(max_size);
-        self.max_age = None;
-        self.apply_eviction_policy()?;
-        Ok(())
-    }
-
-    /// Set eviction policy to keep states within a maximum age.
-    ///
-    /// # Arguments
-    /// * `max_age` - Maximum age of states to retain in seconds (must be > 0.0)
-    ///
-    /// # Errors
-    /// * `BraheError::Error` - If max_age is not positive
-    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
-        if max_age <= 0.0 {
-            return Err(BraheError::Error(
-                "Maximum age must be > 0.0".to_string(),
-            ));
-        }
-        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
-        self.max_age = Some(max_age);
-        self.max_size = None;
-        self.apply_eviction_policy()?;
-        Ok(())
     }
 
     /// Apply eviction policy to manage trajectory memory
@@ -459,6 +475,36 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             max_age: None,
             metadata: HashMap::new(),
         })
+    }
+
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        if max_size < 1 {
+            return Err(BraheError::Error(
+                "Maximum size must be >= 1".to_string(),
+            ));
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
+        self.max_size = Some(max_size);
+        self.max_age = None;
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        if max_age <= 0.0 {
+            return Err(BraheError::Error(
+                "Maximum age must be > 0.0".to_string(),
+            ));
+        }
+        self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
+        self.max_age = Some(max_age);
+        self.max_size = None;
+        self.apply_eviction_policy()?;
+        Ok(())
+    }
+
+    fn get_eviction_policy(&self) -> TrajectoryEvictionPolicy {
+        self.eviction_policy
     }
 
     fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
@@ -1407,6 +1453,64 @@ mod tests {
     // Eviction Policy Tests
 
     #[test]
+    fn test_strajectory_trajectory_get_eviction_policy() {
+        let mut traj = STrajectory6::new();
+
+        // Default is None
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+
+        // Set to KeepCount
+        traj.set_eviction_policy_max_size(10).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Set to KeepWithinDuration
+        traj.set_eviction_policy_max_age(100.0).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+    }
+
+    #[test]
+    fn test_strajectory_with_eviction_policy_max_size_builder() {
+        // Test builder pattern for max size eviction policy
+        let traj = STrajectory6::new()
+            .with_eviction_policy_max_size(5);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_strajectory_with_eviction_policy_max_age_builder() {
+        // Test builder pattern for max age eviction policy
+        let traj = STrajectory6::new()
+            .with_eviction_policy_max_age(300.0);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_strajectory_builder_pattern_chaining() {
+        // Test chaining multiple builder methods
+        let mut traj = STrajectory6::new()
+            .with_interpolation_method(InterpolationMethod::Linear)
+            .with_eviction_policy_max_size(10);
+
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Add states and verify eviction policy works
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..15 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should only have 10 states due to eviction policy
+        assert_eq!(traj.len(), 10);
+    }
+
+    #[test]
     fn test_strajectory_set_eviction_policy_max_size() {
         let mut traj = STrajectory6::new();
 
@@ -1502,14 +1606,16 @@ mod tests {
     }
 
     #[test]
-    fn test_strajectory_with_interpolation() {
-        // Test creating trajectory with specific interpolation method
-        let traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
+    fn test_strajectory_with_interpolation_method() {
+        // Test creating trajectory with specific interpolation method using builder pattern
+        let traj = STrajectory6::new()
+            .with_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
         assert_eq!(traj.len(), 0);
 
         // Verify it works with adding states
-        let mut traj = STrajectory6::with_interpolation(InterpolationMethod::Linear);
+        let mut traj = STrajectory6::new()
+            .with_interpolation_method(InterpolationMethod::Linear);
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
         traj.add_state(t0, state).unwrap();

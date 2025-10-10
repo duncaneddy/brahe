@@ -73,9 +73,6 @@ pub struct STrajectory<const R: usize>
     pub epochs: Vec<Epoch>,
 
     /// R-dimensional state vectors corresponding to epochs.
-    /// Units and interpretation depend on the specific use case:
-    /// - Cartesian: [m, m, m, m/s, m/s, m/s]
-    /// - Keplerian: [m, dimensionless, rad, rad, rad, rad]
     pub states: Vec<SVector<f64, R>>,
 
     /// Interpolation method for state retrieval at arbitrary epochs.
@@ -506,6 +503,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
     }
 
     fn remove_state(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
+        // This could be improved with binary search since epochs are sorted
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
             self.epochs.remove(index);

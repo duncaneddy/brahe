@@ -12,7 +12,7 @@ use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, OrbitalTrajectory, Trajectory};
 use crate::utils::BraheError;
 
 /// Keplerian propagator for analytical two-body orbital motion
@@ -90,7 +90,7 @@ impl KeplerianPropagator {
             frame,
             representation,
             angle_format,
-        )?;
+        );
         trajectory.add_state(epoch, state)?;
 
         let n = mean_motion(internal_elements[0], false);
@@ -298,7 +298,7 @@ impl OrbitPropagator for KeplerianPropagator {
             self.frame,
             self.representation,
             self.angle_format,
-        )?;
+        );
         self.trajectory.add_state(self.initial_epoch, self.initial_state)?;
 
         Ok(())
@@ -343,7 +343,7 @@ impl OrbitPropagator for KeplerianPropagator {
             frame,
             representation,
             angle_format,
-        )?;
+        );
         self.trajectory.add_state(epoch, state)?;
 
         Ok(())
@@ -419,13 +419,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             self.frame,
             self.representation,
             self.angle_format,
-        ).unwrap_or_else(|_| {
-            OrbitTrajectory::new(
-                self.frame,
-                self.representation,
-                self.angle_format,
-            ).unwrap()
-        })
+        )
     }
 
     fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -440,7 +434,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-        ).unwrap()
+        )
     }
 
     fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -455,7 +449,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-        ).unwrap()
+        )
     }
 
     fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -470,7 +464,7 @@ impl AnalyticPropagator for KeplerianPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
-        ).unwrap()
+        )
     }
 }
 
@@ -799,7 +793,7 @@ mod tests {
 
         let traj = propagator.trajectory();
         assert_eq!(traj.len(), 1);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.frame, OrbitFrame::ECI);
     }
 
     #[test]
@@ -986,8 +980,8 @@ mod tests {
 
         let traj = propagator.states_eci(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+        assert_eq!(traj.frame, OrbitFrame::ECI);
+        assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
     }
 
     #[test]
@@ -1008,7 +1002,7 @@ mod tests {
 
         let traj = propagator.states_ecef(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECEF);
+        assert_eq!(traj.frame, OrbitFrame::ECEF);
     }
 
     #[test]
@@ -1028,7 +1022,7 @@ mod tests {
 
         let traj = propagator.states_osculating_elements(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Keplerian);
-        assert_eq!(traj.angle_format(), AngleFormat::Radians);
+        assert_eq!(traj.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(traj.angle_format, AngleFormat::Radians);
     }
 }

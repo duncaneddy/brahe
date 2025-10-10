@@ -37,7 +37,7 @@ use crate::frames::state_eci_to_ecef;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory};
+use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory, OrbitalTrajectory};
 use crate::utils::BraheError;
 
 
@@ -195,7 +195,7 @@ impl SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,  // Cartesian representation should use None for angle format
-        )?;
+        );
         trajectory.add_state(initial_epoch, initial_state)?;
 
         Ok(SGPPropagator {
@@ -277,11 +277,11 @@ impl OrbitPropagator for SGPPropagator {
 
         // Convert to desired output format
         let output_state = self.trajectory.convert_state_to_format(
-            state,
             target_epoch,
+            state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Radians,
+            AngleFormat::None,
             self.output_frame,
             self.output_representation,
             self.output_angle_format,
@@ -292,13 +292,14 @@ impl OrbitPropagator for SGPPropagator {
         Ok(())
     }
 
-    fn current_state(&self) -> Vector6<f64> {
-        self.trajectory.current_state_vector()
+    fn current_epoch(&self) -> Epoch {
+        self.trajectory.epoch(self.trajectory.len() - 1).unwrap_or(self.initial_epoch)
     }
 
-    fn current_epoch(&self) -> Epoch {
-        self.trajectory.current_epoch()
+    fn current_state(&self) -> Vector6<f64> {
+        self.trajectory.state(self.trajectory.len() - 1).unwrap_or(self.initial_state)
     }
+
 
     fn initial_state(&self) -> Vector6<f64> {
         self.initial_state
@@ -405,7 +406,7 @@ impl AnalyticPropagator for SGPPropagator {
             self.output_frame,
             self.output_representation,
             self.output_angle_format,
-        ).unwrap()
+        )
     }
 
     fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -420,7 +421,7 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-        ).unwrap()
+        )
     }
 
     fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -435,7 +436,7 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
-        ).unwrap()
+        )
     }
 
     fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory {
@@ -450,7 +451,7 @@ impl AnalyticPropagator for SGPPropagator {
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
-        ).unwrap()
+        )
     }
 }
 
@@ -660,7 +661,7 @@ mod tests {
         let traj = prop.trajectory();
 
         assert_eq!(traj.len(), 1); // Should have initial state
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
+        assert_eq!(traj.frame, OrbitFrame::ECI);
     }
 
     #[test]
@@ -780,8 +781,8 @@ mod tests {
 
         let traj = prop.states_eci(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECI);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Cartesian);
+        assert_eq!(traj.frame, OrbitFrame::ECI);
+        assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
     }
 
     #[test]
@@ -797,7 +798,7 @@ mod tests {
 
         let traj = prop.states_ecef(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_frame(), OrbitFrame::ECEF);
+        assert_eq!(traj.frame, OrbitFrame::ECEF);
     }
 
     #[test]
@@ -812,7 +813,7 @@ mod tests {
 
         let traj = prop.states_osculating_elements(&epochs);
         assert_eq!(traj.len(), 2);
-        assert_eq!(traj.orbital_representation(), OrbitRepresentation::Keplerian);
-        assert_eq!(traj.angle_format(), AngleFormat::Radians);
+        assert_eq!(traj.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(traj.angle_format, AngleFormat::Radians);
     }
 }

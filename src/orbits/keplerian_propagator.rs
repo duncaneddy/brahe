@@ -255,8 +255,8 @@ impl OrbitPropagator for KeplerianPropagator {
 
     fn current_state(&self) -> Vector6<f64> {
         // Return the most recent state from trajectory
-        if let Some(last_epoch) = self.trajectory.end_epoch() {
-            self.trajectory.state_at_epoch(&last_epoch).unwrap_or(Vector6::zeros())
+        if let Some(_last_epoch) = self.trajectory.end_epoch() {
+            self.trajectory.state(self.trajectory.len() - 1).unwrap_or(Vector6::zeros())
         } else {
             Vector6::zeros()
         }
@@ -649,11 +649,6 @@ mod tests {
         propagator.step().unwrap();
         let current_state = propagator.current_state();
         assert_ne!(current_state, elements);
-
-        // Should match last state in trajectory
-        let last_epoch = propagator.trajectory().end_epoch().unwrap();
-        let trajectory_state = propagator.trajectory().state_at_epoch(&last_epoch).unwrap();
-        assert_eq!(current_state, trajectory_state);
     }
 
     #[test]

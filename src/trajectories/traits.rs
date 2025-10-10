@@ -465,7 +465,7 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECI frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_eci(&self) -> Result<Self, BraheError> where Self: Sized;
+    fn to_eci(&self) -> Self where Self: Sized;
 
     /// Convert to Earth-Centered Earth-Fixed (ECEF) frame.
     ///
@@ -474,7 +474,7 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECEF frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_ecef(&self) -> Result<Self, BraheError> where Self: Sized;
+    fn to_ecef(&self) -> Self where Self: Sized;
 
     /// Convert to Keplerian elements with specified angle format.
     /// 
@@ -486,5 +486,5 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in Keplerian representation
     /// * `Err(BraheError)` - If angle_format is None or conversion fails
-    fn to_keplerian(&self, angle_format: AngleFormat) -> Result<Self, BraheError> where Self: Sized;
+    fn to_keplerian(&self, angle_format: AngleFormat) -> Self where Self: Sized;
 }

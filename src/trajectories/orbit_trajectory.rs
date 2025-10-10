@@ -206,11 +206,6 @@ impl OrbitTrajectory {
             .ok_or_else(|| BraheError::Error("Not an orbital trajectory - missing angle format metadata".to_string()))
     }
 
-    /// Get the state vector at a specific epoch using interpolation
-    pub fn state_at_epoch(&self, epoch: &Epoch) -> Result<Vector6<f64>, BraheError> {
-        self.0.state_at_epoch(epoch)
-    }
-
     /// Sets the interpolation method using builder pattern.
     ///
     /// This method consumes self and returns a new trajectory with the specified

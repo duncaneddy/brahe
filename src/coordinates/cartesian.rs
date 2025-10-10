@@ -123,7 +123,7 @@ pub fn state_cartesian_to_osculating(
     let RAAN = (W[0]).atan2(-W[1]); // Right ascension of ascending node
     let p = h.norm() * h.norm() / GM_EARTH; // Semi-latus rectum
     let a = 1.0 / (2.0 / r.norm() - v.norm() * v.norm() / GM_EARTH); // Semi-major axis
-    let n = GM_EARTH / a.powi(3); // Mean motion
+    let n = (GM_EARTH / a.powi(3)).sqrt(); // Mean motion
 
     // Numerical stability hack for circular and near-circular orbits
     // to ensures that (1-p/a) is always positive
@@ -162,8 +162,9 @@ pub fn state_cartesian_to_osculating(
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use rstest::rstest;
 
-    use crate::constants::R_EARTH;
+    use crate::constants::{R_EARTH, DEG2RAD};
     use crate::coordinates::*;
     use crate::orbits::*;
     use crate::utils::math::*;
@@ -231,5 +232,43 @@ mod tests {
         assert_eq!(osc[3], 0.0);
         assert_eq!(osc[4], 0.0);
         assert_eq!(osc[5], 0.0);
+    }
+
+    #[rstest]
+    #[case(7000e3, 0.001, 98.0, 15.0, 30.0, 45.0)]
+    #[case(26560e3, 0.74, 63.4, 250.0, 90.0, 180.0)]
+    #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
+    #[case(7000e3, 0.5, 45.0, 120.0, 270.0, 300.0)]
+    fn test_round_trip_conversion_deg(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
+
+        let osc = vector6_from_array([a, e, i, raan, omega, m]);
+        let cart = state_osculating_to_cartesian(osc, true);
+        let osc_back = state_cartesian_to_osculating(cart, true);
+
+        assert_abs_diff_eq!(osc[0], osc_back[0], epsilon = 1e-8);
+        assert_abs_diff_eq!(osc[1], osc_back[1], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[2], osc_back[2], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[3], osc_back[3], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[4], osc_back[4], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[5], osc_back[5], epsilon = 1e-9);
+    }
+
+    #[rstest]
+    #[case(7000e3, 0.001, 98.0 * DEG2RAD, 15.0 * DEG2RAD, 30.0 * DEG2RAD, 45.0 * DEG2RAD)]
+    #[case(26560e3, 0.74, 63.4 * DEG2RAD, 250.0 * DEG2RAD, 90.0 * DEG2RAD, 180.0 * DEG2RAD)]
+    #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
+    #[case(7000e3, 0.5, 45.0 * DEG2RAD, 120.0 * DEG2RAD, 270.0 * DEG2RAD, 300.0 * DEG2RAD)]
+    fn test_round_trip_conversion_rad(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
+
+        let osc = vector6_from_array([a, e, i, raan, omega, m]);
+        let cart = state_osculating_to_cartesian(osc, false);
+        let osc_back = state_cartesian_to_osculating(cart, false);
+
+        assert_abs_diff_eq!(osc[0], osc_back[0], epsilon = 1e-8);
+        assert_abs_diff_eq!(osc[1], osc_back[1], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[2], osc_back[2], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[3], osc_back[3], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[4], osc_back[4], epsilon = 1e-9);
+        assert_abs_diff_eq!(osc[5], osc_back[5], epsilon = 1e-9);
     }
 }

@@ -81,16 +81,6 @@ pub trait Trajectory {
     /// * `Err(BraheError)` - If addition fails (e.g., dimension mismatch)
     fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
 
-    /// Get the state vector at a specific index
-    ///
-    /// # Arguments
-    /// * `index` - Index of the state to retrieve
-    ///
-    /// # Returns
-    /// * `Ok(state)` - State vector at the index
-    /// * `Err(BraheError)` - If index is out of bounds
-    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError>;
-
     /// Get the epoch at a specific index
     ///
     /// # Arguments
@@ -100,6 +90,16 @@ pub trait Trajectory {
     /// * `Ok(epoch)` - Epoch at the index
     /// * `Err(BraheError)` - If index is out of bounds
     fn epoch(&self, index: usize) -> Result<Epoch, BraheError>;
+
+    /// Get the state vector at a specific index
+    ///
+    /// # Arguments
+    /// * `index` - Index of the state to retrieve
+    ///
+    /// # Returns
+    /// * `Ok(state)` - State vector at the index
+    /// * `Err(BraheError)` - If index is out of bounds
+    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError>;
 
     /// Find the nearest state to a given epoch
     ///
@@ -315,9 +315,15 @@ pub trait Interpolatable: Trajectory {
             ));
         }
 
-        // If only one state, return it
+        // If only one state, also error if epoch does not match
         if self.len() == 1 {
-            return self.state(0);
+            let (only_epoch, only_state) = self.first().unwrap();
+            if *epoch != only_epoch {
+                return Err(BraheError::Error(
+                    "Cannot interpolate state: single state trajectory and epoch does not match".to_string(),
+                ));
+            }
+            return Ok(only_state);
         }
 
         // Get indices before and after the target epoch (single search operation each)

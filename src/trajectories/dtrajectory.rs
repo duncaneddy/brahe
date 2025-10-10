@@ -215,16 +215,6 @@ impl DTrajectory {
         self.dimension
     }
 
-    /// Set the interpolation method for state retrieval.
-    ///
-    /// This allows changing the interpolation behavior after trajectory creation.
-    /// The change affects all future calls to `state_at_epoch()` and related methods.
-    ///
-    /// # Arguments
-    /// * `method` - New interpolation method to use
-    pub fn set_interpolation_method(&mut self, method: InterpolationMethod) {
-        self.interpolation_method = method;
-    }
 
     /// Convert the trajectory to a matrix representation
     /// Returns a matrix where columns are time points and rows are state elements
@@ -442,18 +432,6 @@ impl Trajectory for DTrajectory {
         Ok(())
     }
 
-    fn state(&self, index: usize) -> Result<DVector<f64>, BraheError> {
-        if index >= self.states.len() {
-            return Err(BraheError::Error(format!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            )));
-        }
-
-        Ok(self.states[index].clone())
-    }
-
     fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
         if index >= self.epochs.len() {
             return Err(BraheError::Error(format!(
@@ -464,6 +442,18 @@ impl Trajectory for DTrajectory {
         }
 
         Ok(self.epochs[index])
+    }
+    
+    fn state(&self, index: usize) -> Result<DVector<f64>, BraheError> {
+        if index >= self.states.len() {
+            return Err(BraheError::Error(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            )));
+        }
+
+        Ok(self.states[index].clone())
     }
 
     fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, DVector<f64>), BraheError> {
@@ -692,13 +682,349 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
-    fn test_dtrajectory_new_default_dimension() {
-        let trajectory = DTrajectory::new(6);
+    fn test_dtrajectory_new_with_dimension() {
 
-        assert_eq!(trajectory.len(), 0);
-        assert_eq!(trajectory.dimension, 6);
-        assert_eq!(trajectory.interpolation_method, InterpolationMethod::Linear);
-        assert!(trajectory.is_empty());
+        // 3
+        let traj = DTrajectory::new(3);
+        assert_eq!(traj.dimension, 3);
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+
+        // 6
+        let traj = DTrajectory::new(6);
+        assert_eq!(traj.dimension, 6);
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+        
+        // 12
+        let traj = DTrajectory::new(12);
+        assert_eq!(traj.dimension, 12);
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+    }
+
+    // Test panic on zero dimension
+    #[test]
+    #[should_panic(expected = "Trajectory dimension must be greater than 0")]
+    fn test_dtrajectory_new_with_zero_dimension() {
+        let _traj = DTrajectory::new(0);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_interpolation_method() {
+        let traj = DTrajectory::new(12)
+            .with_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.dimension, 12);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_eviction_policy_max_size_builder() {
+        // Test builder pattern for max size eviction policy
+        let traj = DTrajectory::new(6)
+            .with_eviction_policy_max_size(5);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_eviction_policy_max_age_builder() {
+        // Test builder pattern for max age eviction policy
+        let traj = DTrajectory::new(6)
+            .with_eviction_policy_max_age(300.0);
+
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+        assert_eq!(traj.len(), 0);
+    }
+
+    #[test]
+    fn test_dtrajectory_builder_pattern_chaining() {
+        // Test chaining multiple builder methods
+        let mut traj = DTrajectory::new(6)
+            .with_interpolation_method(InterpolationMethod::Linear)
+            .with_eviction_policy_max_size(10);
+
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Add states and verify eviction policy works
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..15 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should only have 10 states due to eviction policy
+        assert_eq!(traj.len(), 10);
+    }
+
+    #[test]
+    fn test_dtrajectory_dimension() {
+        let traj = DTrajectory::new(9);
+        assert_eq!(traj.dimension(), 9);
+
+        let traj = DTrajectory::new(4);
+        assert_eq!(traj.dimension(), 4);
+    }
+
+    #[test]
+    fn test_dtrajectory_interpolatable_set_interpolation_method() {
+        let mut traj = DTrajectory::new(6);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+
+        traj.set_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dtrajectory_to_matrix() {
+        let traj = create_test_trajectory();
+        let matrix = traj.to_matrix().unwrap();
+
+        assert_eq!(matrix.nrows(), 6);
+        assert_eq!(matrix.ncols(), 3);
+
+        // Test first row
+        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 1)], 7100e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 2)], 7200e3, epsilon = 1.0);
+
+        // Test first column
+        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(1, 0)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 0)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(3, 0)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(4, 0)], 7.5e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(5, 0)], 0.0, epsilon = 1.0);
+
+        // Test last column
+        assert_abs_diff_eq!(matrix[(0, 2)], 7200e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(1, 2)], 2000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 2)], 1000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(3, 2)], 200.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(4, 2)], 7.7e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(5, 2)], 100.0, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dtrajectory_trajectory_get_eviction_policy() {
+        let mut traj = DTrajectory::new(6);
+
+        // Default is None
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+
+        // Set to KeepCount
+        traj.set_eviction_policy_max_size(10).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+
+        // Set to KeepWithinDuration
+        traj.set_eviction_policy_max_age(100.0).unwrap();
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+    }
+
+    #[test]
+    fn test_dtrajectory_apply_eviction_policy_keep_count() {
+        let mut traj = DTrajectory::new(6)
+            .with_eviction_policy_max_size(3);
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should only have 3 states due to eviction policy
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.epochs[0], t0 + 2.0 * 60.0); // First state should be the third added
+
+    }
+
+    #[test]
+    fn test_dtrajectory_apply_eviction_policy_keep_within_duration() {
+        let mut traj = DTrajectory::new(6)
+            .with_eviction_policy_max_age(86400.0 * 7.0 - 1.0); // 7 days
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..10 {
+            let epoch = t0 + (i as f64 * 86400.0); // 1 day apart
+            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should only have 7 states due to eviction policy
+        assert_eq!(traj.len(), 7);
+        assert_eq!(traj.epochs[0], t0 + 3.0 * 86400.0); // First state should be the fourth added
+
+        // Repeat with an exact 7 days limit
+        let mut traj = DTrajectory::new(6)
+            .with_eviction_policy_max_age(86400.0 * 7.0); // 7 days
+        for i in 0..10 {
+            let epoch = t0 + (i as f64 * 86400.0);
+            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add_state(epoch, state).unwrap();
+        }
+
+        // Should still have 8 states due to exact 7 days limit
+        assert_eq!(traj.len(), 8);
+        assert_eq!(traj.epochs[0], t0 + 2.0 * 86400.0); // First state should be the third added
+    }
+
+    // Default Trait Tests
+
+    #[test]
+    fn test_dtrajectory_default() {
+        let traj = DTrajectory::default();
+        assert_eq!(traj.dimension, 6);
+        assert_eq!(traj.len(), 0);
+        assert!(traj.is_empty());
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::None);
+    }
+
+    // Index Trait Tests
+    #[test]
+    fn test_dtrajectory_index() {
+        let traj = create_test_trajectory();
+        let state = &traj[0];
+
+        assert_eq!(state.len(), 6);
+        assert_eq!(state[0], 7000e3);
+        assert_eq!(state[1], 0.0);
+        assert_eq!(state[2], 0.0);
+        assert_eq!(state[3], 0.0);
+        assert_eq!(state[4], 7.5e3);
+        assert_eq!(state[5], 0.0);
+
+        let state = &traj[1];
+        assert_eq!(state[0], 7100e3);
+        assert_eq!(state[1], 1000e3);
+        assert_eq!(state[2], 500e3);
+        assert_eq!(state[3], 100.0);
+        assert_eq!(state[4], 7.6e3);
+        assert_eq!(state[5], 50.0);
+
+        let state = &traj[2];
+        assert_eq!(state[0], 7200e3);
+        assert_eq!(state[1], 2000e3);
+        assert_eq!(state[2], 1000e3);
+        assert_eq!(state[3], 200.0);
+        assert_eq!(state[4], 7.7e3);
+        assert_eq!(state[5], 100.0);
+    }   
+
+    #[test]
+    #[should_panic]
+    fn test_dtrajectory_index_index_out_of_bounds() {
+        let traj = create_test_trajectory();
+        let _ = &traj[10]; // Should panic
+    }
+
+    // Iterator Trait Tests
+
+    #[test]
+    fn test_dtrajectory_iterator_iterator_len() {
+        let traj = create_test_trajectory();
+
+        let iter = traj.into_iter();
+        assert_eq!(iter.len(), 3);
+    }
+
+    #[test]
+    fn test_dtrajectory_iterator_iterator_size_hint() {
+        let traj = create_test_trajectory();
+
+        let iter = traj.into_iter();
+        let (lower, upper) = iter.size_hint();
+        assert_eq!(lower, 3);
+        assert_eq!(upper, Some(3));
+    }
+
+    // ExactSizeIterator Trait Tests
+
+    #[test]
+    fn test_dtrajectory_exactsizeiterator_len() {
+        let traj = create_test_trajectory();
+        let iter = traj.into_iter();
+        assert_eq!(iter.len(), 3);
+    }
+
+    // IntoIterator Trait Tests
+
+    #[test]
+    fn test_dtrajectory_intoiterator_into_iter() {
+        let traj = create_test_trajectory();
+
+        let mut count = 0;
+        for (epoch, state) in &traj {
+            match count {
+                0 => {
+                    assert_eq!(epoch.jd(), 2451545.0);
+                    assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+                }
+                1 => {
+                    assert_eq!(epoch.jd(), 2451545.1);
+                    assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+                }
+                2 => {
+                    assert_eq!(epoch.jd(), 2451545.2);
+                    assert_abs_diff_eq!(state[0], 7200e3, epsilon = 1.0);
+                }
+                _ => panic!("Too many iterations"),
+            }
+            count += 1;
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_dtrajectory_intoiterator_into_iter_empty() {
+        let traj = DTrajectory::new(6);
+
+        let mut count = 0;
+        for _ in &traj {
+            count += 1;
+        }
+        assert_eq!(count, 0);
+    }
+
+    // Trajectory Trait Tests
+
+    #[test]
+    fn test_dtrajectory_from_data() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0]),
+            DVector::from_vec(vec![4.0, 5.0, 6.0]),
+        ];
+
+        let traj = DTrajectory::from_data(epochs, states).unwrap();
+        assert_eq!(traj.dimension, 3);
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_dtrajectory_from_data_errors() {
+        let epochs = vec![
+            Epoch::from_jd(2451545.0, TimeSystem::UTC),
+            Epoch::from_jd(2451545.1, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![1.0, 2.0, 3.0]),
+        ];
+
+        let result = DTrajectory::from_data(epochs.clone(), states);
+        assert!(result.is_err());
+
+        let empty_epochs: Vec<Epoch> = vec![];
+        let empty_states: Vec<DVector<f64>> = vec![];
+        let result = DTrajectory::from_data(empty_epochs, empty_states);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -722,31 +1048,54 @@ mod tests {
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_state_at_epoch() {
-        let traj = create_test_trajectory();
+    fn test_dtrajectory_trajectory_add_state_out_of_order() {
+        let mut trajectory = DTrajectory::new(6);
+        let epoch1 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0]);
 
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let state = traj.interpolate(&epoch).unwrap();
-        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+        trajectory.add_state(epoch1, state1.clone()).unwrap();
+        assert_eq!(trajectory.len(), 1);
+        assert_eq!(trajectory.epochs[0], epoch1);
+        assert_eq!(trajectory.states[0], state1);
 
-        let epoch_interp = Epoch::from_jd(2451545.05, TimeSystem::UTC);
-        let state_interp = traj.interpolate(&epoch_interp).unwrap();
-        assert_abs_diff_eq!(state_interp[0], 7050e3, epsilon = 1.0);
+        let epoch2 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state2 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        trajectory.add_state(epoch2, state2.clone()).unwrap();
+        assert_eq!(trajectory.len(), 2);
+        assert_eq!(trajectory.epochs[0], epoch2);
+        assert_eq!(trajectory.states[0], state2);
+        assert_eq!(trajectory.epochs[1], epoch1);
+        assert_eq!(trajectory.states[1], state1);
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_state_at_index() {
-        let traj = create_test_trajectory();
+    fn test_dtrajectory_trajectory_add_state_dimension_mismatch() {
+        let mut trajectory = DTrajectory::new(6);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0]); // Dimension 3 instead of 6
 
-        let state = traj.state(0).unwrap();
-        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
-
-        let state = traj.state(1).unwrap();
-        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+        let result = trajectory.add_state(epoch, state);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_epoch_at_index() {
+    fn test_dtrajectory_trajectory_add_state_replace() {
+        let mut trajectory = DTrajectory::new(6);
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        trajectory.add_state(epoch, state1.clone()).unwrap();
+        assert_eq!(trajectory.len(), 1);
+        assert_eq!(trajectory.states[0], state1);
+
+        let state2 = DVector::from_vec(vec![7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0]);
+        trajectory.add_state(epoch, state2.clone()).unwrap();
+        assert_eq!(trajectory.len(), 1); // Length should remain the same
+        assert_eq!(trajectory.states[0], state2); // State should be replaced
+    }
+
+    #[test]
+    fn test_dtrajectory_trajectory_epoch() {
         let traj = create_test_trajectory();
 
         let epoch = traj.epoch(0).unwrap();
@@ -757,16 +1106,39 @@ mod tests {
     }
 
     #[test]
+    fn test_dtrajectory_trajectory_state() {
+        let traj = create_test_trajectory();
+
+        let state = traj.state(0).unwrap();
+        assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
+
+        let state = traj.state(1).unwrap();
+        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
+    }
+
+    #[test]
     fn test_dtrajectory_trajectory_nearest_state() {
         let traj = create_test_trajectory();
 
+        // Halfway between first and second
         let epoch = Epoch::from_jd(2451545.05, TimeSystem::UTC);
         let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
         assert_eq!(nearest_epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
 
+        // Slightly before the second
+        let epoch = Epoch::from_jd(2451545.09, TimeSystem::UTC);
+        let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
+        assert_eq!(nearest_epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+
+        // Slightly after the second
         let epoch = Epoch::from_jd(2451545.11, TimeSystem::UTC);
         let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
         assert_eq!(nearest_epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
+
+        // Exactly at the third
+        let epoch = Epoch::from_jd(2451545.2, TimeSystem::UTC);
+        let (nearest_epoch, _) = traj.nearest_state(&epoch).unwrap();
+        assert_eq!(nearest_epoch, Epoch::from_jd(2451545.2, TimeSystem::UTC));
     }
 
     #[test]
@@ -870,6 +1242,14 @@ mod tests {
     }
 
     #[test]
+    fn test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds() {
+        let mut traj = create_test_trajectory();
+
+        let result = traj.remove_state_at_index(10);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_dtrajectory_trajectory_get() {
         let traj = create_test_trajectory();
 
@@ -877,196 +1257,6 @@ mod tests {
         assert_eq!(epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
         assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
     }
-
-    // DTrajectory Method Tests
-
-    #[test]
-    fn test_dtrajectory_new_with_dimension() {
-        let traj = DTrajectory::new(7);
-        assert_eq!(traj.dimension, 7);
-        assert_eq!(traj.len(), 0);
-        assert!(traj.is_empty());
-    }
-
-    #[test]
-    fn test_dtrajectory_with_interpolation_method() {
-        let traj = DTrajectory::new(12)
-            .with_interpolation_method(InterpolationMethod::Linear);
-        assert_eq!(traj.dimension, 12);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
-    }
-
-    #[test]
-    fn test_dtrajectory_from_data() {
-        let epochs = vec![
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-        ];
-        let states = vec![
-            DVector::from_vec(vec![1.0, 2.0, 3.0]),
-            DVector::from_vec(vec![4.0, 5.0, 6.0]),
-        ];
-
-        let traj = DTrajectory::from_data(epochs, states).unwrap();
-        assert_eq!(traj.dimension, 3);
-        assert_eq!(traj.len(), 2);
-    }
-
-    #[test]
-    fn test_dtrajectory_from_data_errors() {
-        let epochs = vec![
-            Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Epoch::from_jd(2451545.1, TimeSystem::UTC),
-        ];
-        let states = vec![
-            DVector::from_vec(vec![1.0, 2.0, 3.0]),
-        ];
-
-        let result = DTrajectory::from_data(epochs.clone(), states);
-        assert!(result.is_err());
-
-        let empty_epochs: Vec<Epoch> = vec![];
-        let empty_states: Vec<DVector<f64>> = vec![];
-        let result = DTrajectory::from_data(empty_epochs, empty_states);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_dtrajectory_dimension() {
-        let traj = DTrajectory::new(9);
-        assert_eq!(traj.dimension(), 9);
-    }
-
-    #[test]
-    fn test_dtrajectory_interpolatable_set_interpolation_method() {
-        let mut traj = DTrajectory::new(6);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
-
-        traj.set_interpolation_method(InterpolationMethod::Linear);
-        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
-    }
-
-    #[test]
-    fn test_dtrajectory_trajectory_get_eviction_policy() {
-        let mut traj = DTrajectory::new(6);
-
-        // Default is None
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
-
-        // Set to KeepCount
-        traj.set_eviction_policy_max_size(10).unwrap();
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
-
-        // Set to KeepWithinDuration
-        traj.set_eviction_policy_max_age(100.0).unwrap();
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
-    }
-
-    #[test]
-    fn test_dtrajectory_with_eviction_policy_max_size_builder() {
-        // Test builder pattern for max size eviction policy
-        let traj = DTrajectory::new(6)
-            .with_eviction_policy_max_size(5);
-
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
-        assert_eq!(traj.len(), 0);
-    }
-
-    #[test]
-    fn test_dtrajectory_with_eviction_policy_max_age_builder() {
-        // Test builder pattern for max age eviction policy
-        let traj = DTrajectory::new(6)
-            .with_eviction_policy_max_age(300.0);
-
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
-        assert_eq!(traj.len(), 0);
-    }
-
-    #[test]
-    fn test_dtrajectory_builder_pattern_chaining() {
-        // Test chaining multiple builder methods
-        let mut traj = DTrajectory::new(6)
-            .with_interpolation_method(InterpolationMethod::Linear)
-            .with_eviction_policy_max_size(10);
-
-        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
-
-        // Add states and verify eviction policy works
-        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-        for i in 0..15 {
-            let epoch = t0 + (i as f64 * 60.0);
-            let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-            traj.add_state(epoch, state).unwrap();
-        }
-
-        // Should only have 10 states due to eviction policy
-        assert_eq!(traj.len(), 10);
-    }
-
-    #[test]
-    fn test_dtrajectory_set_eviction_policy_max_size() {
-        let mut traj = create_test_trajectory();
-        assert_eq!(traj.len(), 3);
-
-        traj.set_eviction_policy_max_size(2).unwrap();
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
-    }
-
-    #[test]
-    fn test_dtrajectory_set_eviction_policy_max_age() {
-        let mut traj = create_test_trajectory();
-
-        // Max age slightly larger than 0.1 days to account for floating point precision
-        traj.set_eviction_policy_max_age(0.15 * 86400.0).unwrap();
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepWithinDuration);
-    }
-
-    #[test]
-    fn test_dtrajectory_to_matrix() {
-        let traj = create_test_trajectory();
-        let matrix = traj.to_matrix().unwrap();
-
-        assert_eq!(matrix.nrows(), 6);
-        assert_eq!(matrix.ncols(), 3);
-        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(0, 1)], 7100e3, epsilon = 1.0);
-    }
-
-    #[test]
-    fn test_dtrajectory_indexing_operator() {
-        let traj = create_test_trajectory();
-        let state = &traj[1];
-        assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
-    }
-
-    #[test]
-    fn test_dtrajectory_dimension_validation() {
-        let mut traj = DTrajectory::new(6);
-        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        let wrong_dim_state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let result = traj.add_state(epoch, wrong_dim_state);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_dtrajectory_state_at_epoch_errors() {
-        let traj = create_test_trajectory();
-
-        let too_early = Epoch::from_jd(2451544.0, TimeSystem::UTC);
-        let result = traj.interpolate(&too_early);
-        assert!(result.is_err());
-
-        let too_late = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-        let result = traj.interpolate(&too_late);
-        assert!(result.is_err());
-    }
-
-
-    // Additional Trajectory Trait Tests
 
     #[test]
     fn test_dtrajectory_trajectory_index_before_epoch() {
@@ -1169,21 +1359,21 @@ mod tests {
         let t0_plus_30 = t0 + 30.0;
         let (epoch, state) = traj.state_before_epoch(&t0_plus_30).unwrap();
         assert_eq!(epoch, t0);
-        assert_abs_diff_eq!(state[0], 1.0, epsilon = 1e-10);
+        assert_eq!(state[0], 1.0);
 
         let t0_plus_90 = t0 + 90.0;
         let (epoch, state) = traj.state_before_epoch(&t0_plus_90).unwrap();
         assert_eq!(epoch, t1);
-        assert_abs_diff_eq!(state[0], 11.0, epsilon = 1e-10);
+        assert_eq!(state[0], 11.0);
 
         // Test error case for epoch before all states
         let before_t0 = t0 - 10.0;
         assert!(traj.state_before_epoch(&before_t0).is_err());
 
-        // Verify it uses the default trait implementation correctly
-        let (epoch, state) = traj.state_before_epoch(&t2).unwrap();
-        assert_eq!(epoch, t2);
-        assert_abs_diff_eq!(state[0], 21.0, epsilon = 1e-10);
+        // Test that exact matches return the correct state
+        let (epoch, state) = traj.state_before_epoch(&t1).unwrap();
+        assert_eq!(epoch, t1);
+        assert_eq!(state[0], 11.0);
     }
 
     #[test]
@@ -1206,21 +1396,41 @@ mod tests {
         let t0_plus_30 = t0 + 30.0;
         let (epoch, state) = traj.state_after_epoch(&t0_plus_30).unwrap();
         assert_eq!(epoch, t1);
-        assert_abs_diff_eq!(state[0], 11.0, epsilon = 1e-10);
+        assert_eq!(state[0], 11.0);
 
         let t0_plus_90 = t0 + 90.0;
         let (epoch, state) = traj.state_after_epoch(&t0_plus_90).unwrap();
         assert_eq!(epoch, t2);
-        assert_abs_diff_eq!(state[0], 21.0, epsilon = 1e-10);
+        assert_eq!(state[0], 21.0);
 
         // Test error case for epoch after all states
         let after_t2 = t2 + 10.0;
         assert!(traj.state_after_epoch(&after_t2).is_err());
 
-        // Verify it uses the default trait implementation correctly
-        let (epoch, state) = traj.state_after_epoch(&t0).unwrap();
-        assert_eq!(epoch, t0);
-        assert_abs_diff_eq!(state[0], 1.0, epsilon = 1e-10);
+        // Verify that exact matches return the correct state
+        let (epoch, state) = traj.state_after_epoch(&t1).unwrap();
+        assert_eq!(epoch, t1);
+        assert_eq!(state[0], 11.0);
+    }
+
+    #[test]
+    fn test_dtrajectory_set_eviction_policy_max_size() {
+        let mut traj = create_test_trajectory();
+        assert_eq!(traj.len(), 3);
+
+        traj.set_eviction_policy_max_size(2).unwrap();
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
+    }
+
+    #[test]
+    fn test_dtrajectory_set_eviction_policy_max_age() {
+        let mut traj = create_test_trajectory();
+
+        // Max age slightly larger than 0.1 days
+        traj.set_eviction_policy_max_age(0.11 * 86400.0).unwrap();
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepWithinDuration);
     }
 
     // Interpolatable Trait Tests
@@ -1234,7 +1444,6 @@ mod tests {
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
 
         // Set it to different methods and verify get_interpolation_method returns the correct value
-
 
 
         traj.set_interpolation_method(InterpolationMethod::Linear);
@@ -1276,6 +1485,9 @@ mod tests {
         assert_abs_diff_eq!(state_at_midpoint[0], 30.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_at_midpoint[1], 60.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_at_midpoint[2], 90.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint[3], 120.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint[4], 150.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint[5], 180.0, epsilon = 1e-10);
 
         // Test interpolation at midpoint between t1 and t2
         let t1_plus_30 = t1 + 30.0;
@@ -1283,6 +1495,15 @@ mod tests {
         assert_abs_diff_eq!(state_at_midpoint2[0], 90.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_at_midpoint2[1], 180.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_at_midpoint2[2], 270.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint2[3], 360.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint2[4], 450.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_at_midpoint2[5], 540.0, epsilon = 1e-10);
+
+        // Test error case: interpolation outside bounds
+        let before_t0 = t0 - 10.0;
+        assert!(traj.interpolate_linear(&before_t0).is_err());
+        let after_t2 = t2 + 10.0;
+        assert!(traj.interpolate_linear(&after_t2).is_err());
 
         // Test edge case: single state trajectory
         let single_epoch = vec![t0];
@@ -1292,6 +1513,18 @@ mod tests {
         let state_single = single_traj.interpolate_linear(&t0).unwrap();
         assert_abs_diff_eq!(state_single[0], 100.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_single[1], 200.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_single[2], 300.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_single[3], 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_single[4], 500.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_single[5], 600.0, epsilon = 1e-10);
+
+        // Test error case: interpolation on single state trajectory at different epoch
+        let different_epoch = t0 + 10.0;
+        assert!(single_traj.interpolate_linear(&different_epoch).is_err());
+
+        // Test error case: interpolation on empty trajectory
+        let empty_traj = DTrajectory::new(6);
+        assert!(empty_traj.interpolate_linear(&t0).is_err());
     }
 
     #[test]
@@ -1318,86 +1551,5 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(state_interpolate[i], state_interpolate_linear[i], epsilon = 1e-10);
         }
-    }
-
-    // Index Trait Tests
-
-    #[test]
-    fn test_dtrajectory_index_index() {
-        let traj = create_test_trajectory();
-
-        // Test indexing returns state vectors
-        let state0 = &traj[0];
-        assert_abs_diff_eq!(state0[0], 7000e3, epsilon = 1.0);
-
-        let state1 = &traj[1];
-        assert_abs_diff_eq!(state1[0], 7100e3, epsilon = 1.0);
-
-        let state2 = &traj[2];
-        assert_abs_diff_eq!(state2[0], 7200e3, epsilon = 1.0);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_dtrajectory_index_index_out_of_bounds() {
-        let traj = create_test_trajectory();
-        let _ = &traj[10]; // Should panic
-    }
-
-    // IntoIterator Trait Tests
-
-    #[test]
-    fn test_dtrajectory_intoiterator_into_iter() {
-        let traj = create_test_trajectory();
-
-        let mut count = 0;
-        for (epoch, state) in &traj {
-            match count {
-                0 => {
-                    assert_eq!(epoch.jd(), 2451545.0);
-                    assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
-                }
-                1 => {
-                    assert_eq!(epoch.jd(), 2451545.1);
-                    assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
-                }
-                2 => {
-                    assert_eq!(epoch.jd(), 2451545.2);
-                    assert_abs_diff_eq!(state[0], 7200e3, epsilon = 1.0);
-                }
-                _ => panic!("Too many iterations"),
-            }
-            count += 1;
-        }
-        assert_eq!(count, 3);
-    }
-
-    #[test]
-    fn test_dtrajectory_intoiterator_into_iter_empty() {
-        let traj = DTrajectory::new(6);
-
-        let mut count = 0;
-        for _ in &traj {
-            count += 1;
-        }
-        assert_eq!(count, 0);
-    }
-
-    #[test]
-    fn test_dtrajectory_iterator_iterator_size_hint() {
-        let traj = create_test_trajectory();
-
-        let iter = traj.into_iter();
-        let (lower, upper) = iter.size_hint();
-        assert_eq!(lower, 3);
-        assert_eq!(upper, Some(3));
-    }
-
-    #[test]
-    fn test_dtrajectory_iterator_iterator_len() {
-        let traj = create_test_trajectory();
-
-        let iter = traj.into_iter();
-        assert_eq!(iter.len(), 3);
     }
 }

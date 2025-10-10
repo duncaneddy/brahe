@@ -24,7 +24,7 @@
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     AngleFormat::None,
- * ).unwrap();
+ * );
  * ```
  */
 

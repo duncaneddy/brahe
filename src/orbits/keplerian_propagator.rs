@@ -472,7 +472,6 @@ impl AnalyticPropagator for KeplerianPropagator {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
-    use crate::trajectories::OrbitalTrajectory;
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
 

@@ -429,7 +429,7 @@ pub trait Interpolatable: Trajectory {
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     AngleFormat::None,
-/// ).unwrap();
+/// );
 ///
 /// // Add state
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -437,7 +437,7 @@ pub trait Interpolatable: Trajectory {
 /// traj.add_state(epoch, state).unwrap();
 ///
 /// // Convert to Keplerian in degrees
-/// let kep_traj = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+/// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
 /// ```
 pub trait OrbitalTrajectory: Interpolatable {
     /// Create orbital trajectory from data with specified orbital properties.

@@ -34,12 +34,15 @@ use sgp4::chrono::{Datelike, Timelike};
 
 use crate::coordinates::state_cartesian_to_osculating;
 use crate::frames::state_eci_to_ecef;
+use crate::orbits::tle::{
+    calculate_tle_line_checksum, parse_norad_id, validate_tle_lines, TleFormat,
+};
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
-use crate::orbits::tle::{calculate_tle_line_checksum, validate_tle_lines, parse_norad_id, TleFormat};
 use crate::time::Epoch;
-use crate::trajectories::{AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory, OrbitalTrajectory};
+use crate::trajectories::{
+    AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, OrbitalTrajectory, Trajectory,
+};
 use crate::utils::BraheError;
-
 
 /// SGP4 propagator using TLE data with the new architecture
 #[derive(Debug, Clone)]
@@ -92,7 +95,6 @@ pub struct SGPPropagator {
     output_angle_format: AngleFormat,
 }
 
-
 impl SGPPropagator {
     /// Create a new SGP propagator from TLE lines
     ///
@@ -117,7 +119,12 @@ impl SGPPropagator {
     ///
     /// # Returns
     /// * `Result<SGPPropagator, BraheError>` - New SGP propagator instance or error
-    pub fn from_3le(name: Option<&str>, line1: &str, line2: &str, step_size: f64) -> Result<Self, BraheError> {
+    pub fn from_3le(
+        name: Option<&str>,
+        line1: &str,
+        line2: &str,
+        step_size: f64,
+    ) -> Result<Self, BraheError> {
         // Validate TLE format
         if !validate_tle_lines(line1, line2) {
             return Err(BraheError::Error("Invalid TLE format".to_string()));
@@ -126,7 +133,12 @@ impl SGPPropagator {
         // Extract NORAD ID and determine format
         let norad_id_string = line1[2..7].trim().to_string();
         let norad_id = parse_norad_id(&norad_id_string)?;
-        let format = if norad_id_string.chars().next().unwrap_or('0').is_alphabetic() {
+        let format = if norad_id_string
+            .chars()
+            .next()
+            .unwrap_or('0')
+            .is_alphabetic()
+        {
             TleFormat::Alpha5
         } else {
             TleFormat::Classic
@@ -140,8 +152,12 @@ impl SGPPropagator {
 
             // Zero out positions 2-6 (NORAD ID field)
             for i in 2..7 {
-                if i < line1_chars.len() { line1_chars[i] = '0'; }
-                if i < line2_chars.len() { line2_chars[i] = '0'; }
+                if i < line1_chars.len() {
+                    line1_chars[i] = '0';
+                }
+                if i < line2_chars.len() {
+                    line2_chars[i] = '0';
+                }
             }
 
             // Recalculate checksums for modified lines
@@ -168,7 +184,8 @@ impl SGPPropagator {
             Some(norad_id.to_string()),
             sgp4_line1.as_bytes(),
             sgp4_line2.as_bytes(),
-        ).map_err(|e| BraheError::Error(format!("SGP4 parsing error: {:?}", e)))?;
+        )
+        .map_err(|e| BraheError::Error(format!("SGP4 parsing error: {:?}", e)))?;
 
         let constants = sgp4::Constants::from_elements(&elements)
             .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
@@ -177,7 +194,8 @@ impl SGPPropagator {
         let initial_epoch = Self::extract_epoch_from_elements(&elements)?;
 
         // Compute initial state in ECI
-        let prediction = constants.propagate(sgp4::MinutesSinceEpoch(0.0))
+        let prediction = constants
+            .propagate(sgp4::MinutesSinceEpoch(0.0))
             .map_err(|e| BraheError::Error(format!("SGP4 propagation error: {:?}", e)))?;
 
         // Convert from km to m and km/s to m/s
@@ -194,7 +212,7 @@ impl SGPPropagator {
         let mut trajectory = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::None,  // Cartesian representation should use None for angle format
+            AngleFormat::None, // Cartesian representation should use None for angle format
         );
         trajectory.add_state(initial_epoch, initial_state)?;
 
@@ -228,7 +246,15 @@ impl SGPPropagator {
         let second = dt.second() as f64 + dt.nanosecond() as f64 / 1e9;
 
         // Convert to Julian date and then to Epoch
-        let jd = crate::time::conversions::datetime_to_jd(year as u32, month as u8, day as u8, hour as u8, minute as u8, second, 0.0);
+        let jd = crate::time::conversions::datetime_to_jd(
+            year as u32,
+            month as u8,
+            day as u8,
+            hour as u8,
+            minute as u8,
+            second,
+            0.0,
+        );
         Ok(Epoch::from_jd(jd, crate::time::TimeSystem::UTC))
     }
 
@@ -293,13 +319,16 @@ impl OrbitPropagator for SGPPropagator {
     }
 
     fn current_epoch(&self) -> Epoch {
-        self.trajectory.epoch(self.trajectory.len() - 1).unwrap_or(self.initial_epoch)
+        self.trajectory
+            .epoch(self.trajectory.len() - 1)
+            .unwrap_or(self.initial_epoch)
     }
 
     fn current_state(&self) -> Vector6<f64> {
-        self.trajectory.state(self.trajectory.len() - 1).unwrap_or(self.initial_state)
+        self.trajectory
+            .state(self.trajectory.len() - 1)
+            .unwrap_or(self.initial_state)
     }
-
 
     fn initial_state(&self) -> Vector6<f64> {
         self.initial_state
@@ -319,7 +348,8 @@ impl OrbitPropagator for SGPPropagator {
 
     fn reset(&mut self) -> Result<(), BraheError> {
         self.trajectory.clear();
-        self.trajectory.add_state(self.initial_epoch, self.initial_state)?;
+        self.trajectory
+            .add_state(self.initial_epoch, self.initial_state)?;
         Ok(())
     }
 
@@ -333,7 +363,8 @@ impl OrbitPropagator for SGPPropagator {
     ) -> Result<(), BraheError> {
         // For SGP propagator, initial conditions come from TLE and cannot be changed
         Err(BraheError::Error(
-            "Cannot change initial conditions for SGP propagator - state is determined by TLE data".to_string()
+            "Cannot change initial conditions for SGP propagator - state is determined by TLE data"
+                .to_string(),
         ))
     }
 
@@ -364,7 +395,9 @@ impl AnalyticPropagator for SGPPropagator {
         let time_diff = (epoch.jd() - self.initial_epoch.jd()) * 1440.0; // Convert days to minutes
 
         // Propagate using SGP4
-        let prediction = self.constants.propagate(sgp4::MinutesSinceEpoch(time_diff))
+        let prediction = self
+            .constants
+            .propagate(sgp4::MinutesSinceEpoch(time_diff))
             .unwrap_or_else(|_| {
                 // Return zero state on propagation error
                 sgp4::Prediction {
@@ -459,7 +492,6 @@ impl AnalyticPropagator for SGPPropagator {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
-    use crate::trajectories::OrbitalTrajectory;
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
 
@@ -650,7 +682,7 @@ mod tests {
             state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::None
+            AngleFormat::None,
         );
         assert!(result.is_err());
     }
@@ -759,11 +791,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let epochs = vec![
-            initial_epoch,
-            initial_epoch + 0.01,
-            initial_epoch + 0.02,
-        ];
+        let epochs = vec![initial_epoch, initial_epoch + 0.01, initial_epoch + 0.02];
 
         let traj = prop.states(&epochs);
         assert_eq!(traj.len(), 3);
@@ -774,10 +802,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let epochs = vec![
-            initial_epoch,
-            initial_epoch + 0.01,
-        ];
+        let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
         let traj = prop.states_eci(&epochs);
         assert_eq!(traj.len(), 2);
@@ -791,10 +816,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let epochs = vec![
-            initial_epoch,
-            initial_epoch + 0.01,
-        ];
+        let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
         let traj = prop.states_ecef(&epochs);
         assert_eq!(traj.len(), 2);
@@ -806,10 +828,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let epochs = vec![
-            initial_epoch,
-            initial_epoch + 0.01,
-        ];
+        let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
         let traj = prop.states_osculating_elements(&epochs);
         assert_eq!(traj.len(), 2);

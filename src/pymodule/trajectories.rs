@@ -206,21 +206,6 @@ impl PyOrbitalTrajectory {
         }
     }
 
-    /// Get state at a specific epoch using interpolation
-    ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Interpolated state vector
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.state_at_epoch(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
     /// Get the nearest state to a given epoch
     ///
     /// Arguments:
@@ -1202,20 +1187,6 @@ impl PyTrajectory {
         }
     }
 
-    /// Get state at a specific epoch using interpolation
-    ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Interpolated state vector
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.interpolate(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
 
     /// Get the nearest state to a given epoch
     ///
@@ -1709,21 +1680,6 @@ impl PySTrajectory6 {
 
         match self.trajectory.add_state(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get state at a specific epoch using interpolation
-    ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Interpolated state vector
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_at_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.interpolate(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }

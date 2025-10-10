@@ -53,21 +53,6 @@ class TestSTrajectoryTrajectory:
         assert traj.epoch(1).jd() == 2451545.1
         assert traj.epoch(2).jd() == 2451545.2
 
-    def test_strajectory_trajectory_state_at_epoch(self):
-        """Test state interpolation at specific epoch."""
-        traj, epochs, states = create_test_trajectory()
-        for epoch, state in zip(epochs, states):
-            traj.add_state(epoch, state)
-
-        # Test interpolation at 50% between first two states
-        epoch_50 = brahe.Epoch.from_jd(2451545.05, "UTC")
-        state_at_50 = traj.state_at_epoch(epoch_50)
-
-        # The interpolated values should be 50% between the first two states
-        assert abs(state_at_50[0] - 7050e3) < 1.0
-        assert abs(state_at_50[1] - 500e3) < 1.0
-        assert abs(state_at_50[4] - 7.55e3) < 0.01
-
     def test_strajectory_trajectory_state_at_index(self):
         """Test retrieving state by index."""
         traj, epochs, states = create_test_trajectory()
@@ -413,13 +398,6 @@ class TestSTrajectoryInterpolatable:
         traj.add_state(t1, states[1])
         traj.add_state(t2, states[2])
 
-        # Test interpolation at midpoint between t0 and t1
-        t0_plus_30 = t0 + 30.0
-        state_at_midpoint = traj.state_at_epoch(t0_plus_30)
-        assert abs(state_at_midpoint[0] - 30.0) < 1e-10
-        assert abs(state_at_midpoint[1] - 60.0) < 1e-10
-        assert abs(state_at_midpoint[2] - 90.0) < 1e-10
-
     def test_strajectory_interpolatable_interpolate(self):
         """Test generic interpolate method."""
         t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
@@ -436,15 +414,6 @@ class TestSTrajectoryInterpolatable:
         traj.add_state(t0, states[0])
         traj.add_state(t1, states[1])
         traj.add_state(t2, states[2])
-
-        # Test that state_at_epoch with Linear method works
-        t0_plus_30 = t0 + 30.0
-        state_interpolate = traj.state_at_epoch(t0_plus_30)
-
-        assert abs(state_interpolate[0] - 30.0) < 1e-10
-
-        # Test linear interpolation works
-        assert abs(state_interpolate[0] - 30.0) < 1e-10
 
 
 class TestSTrajectoryIndex:

@@ -1,15 +1,16 @@
 """Tests for DTrajectory in brahe - 1:1 parity with Rust tests"""
 import pytest
 import numpy as np
+import brahe
 from brahe import Epoch, DTrajectory, InterpolationMethod
 
 
 def create_test_trajectory():
     """Helper function matching Rust create_test_trajectory()"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
 
     states = [
@@ -88,7 +89,7 @@ def test_dtrajectory_builder_pattern_chaining():
     assert traj.get_eviction_policy() == "KeepCount"
 
     # Add states and verify eviction policy works
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(15):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -171,7 +172,7 @@ def test_dtrajectory_apply_eviction_policy_keep_count():
     """Rust: test_dtrajectory_apply_eviction_policy_keep_count"""
     traj = DTrajectory(6).with_eviction_policy_max_size(3)
 
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(5):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -186,7 +187,7 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
     """Rust: test_dtrajectory_apply_eviction_policy_keep_within_duration"""
     traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0 - 1.0)  # 7 days
 
-    t0 = Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     for i in range(10):
         epoch = t0 + (i * 86400.0)  # 1 day apart
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -296,8 +297,8 @@ def test_dtrajectory_intoiterator_into_iter_empty():
 def test_dtrajectory_from_data():
     """Rust: test_dtrajectory_from_data"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     # States as 2D array: shape (num_epochs, dimension) = (2, 3)
     states = np.array([
@@ -313,8 +314,8 @@ def test_dtrajectory_from_data():
 def test_dtrajectory_from_data_errors():
     """Rust: test_dtrajectory_from_data_errors"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     # Mismatched: 2 epochs but only 1 state
     states = np.array([
@@ -334,13 +335,13 @@ def test_dtrajectory_trajectory_add():
     """Rust: test_dtrajectory_trajectory_add"""
     trajectory = DTrajectory(6)
 
-    epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
     trajectory.add(epoch1, state1)
     assert len(trajectory) == 1
 
-    epoch2 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
+    epoch2 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, brahe.UTC)
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
 
     trajectory.add(epoch2, state2)
@@ -353,7 +354,7 @@ def test_dtrajectory_trajectory_add():
 def test_dtrajectory_trajectory_add_out_of_order():
     """Rust: test_dtrajectory_trajectory_add_out_of_order"""
     trajectory = DTrajectory(6)
-    epoch1 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
+    epoch1 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0])
 
     trajectory.add(epoch1, state1)
@@ -361,7 +362,7 @@ def test_dtrajectory_trajectory_add_out_of_order():
     assert trajectory.epoch(0) == epoch1
     np.testing.assert_array_equal(trajectory.state(0), state1)
 
-    epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state2 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     trajectory.add(epoch2, state2)
     assert len(trajectory) == 2
@@ -374,7 +375,7 @@ def test_dtrajectory_trajectory_add_out_of_order():
 def test_dtrajectory_trajectory_add_dimension_mismatch():
     """Rust: test_dtrajectory_trajectory_add_dimension_mismatch"""
     trajectory = DTrajectory(6)
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0])  # Dimension 3 instead of 6
 
     with pytest.raises(Exception):
@@ -384,7 +385,7 @@ def test_dtrajectory_trajectory_add_dimension_mismatch():
 def test_dtrajectory_trajectory_add_replace():
     """Rust: test_dtrajectory_trajectory_add_replace"""
     trajectory = DTrajectory(6)
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
     trajectory.add(epoch, state1)
@@ -402,10 +403,10 @@ def test_dtrajectory_trajectory_epoch():
     traj = create_test_trajectory()
 
     epoch = traj.epoch(0)
-    assert epoch == Epoch.from_jd(2451545.0, "UTC")
+    assert epoch == Epoch.from_jd(2451545.0, brahe.UTC)
 
     epoch = traj.epoch(1)
-    assert epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert epoch == Epoch.from_jd(2451545.1, brahe.UTC)
 
 
 def test_dtrajectory_trajectory_state():
@@ -424,24 +425,24 @@ def test_dtrajectory_trajectory_nearest_state():
     traj = create_test_trajectory()
 
     # Halfway between first and second
-    epoch = Epoch.from_jd(2451545.05, "UTC")
+    epoch = Epoch.from_jd(2451545.05, brahe.UTC)
     nearest_epoch, _ = traj.nearest_state(epoch)
-    assert nearest_epoch == Epoch.from_jd(2451545.0, "UTC")
+    assert nearest_epoch == Epoch.from_jd(2451545.0, brahe.UTC)
 
     # Slightly before the second
-    epoch = Epoch.from_jd(2451545.09, "UTC")
+    epoch = Epoch.from_jd(2451545.09, brahe.UTC)
     nearest_epoch, _ = traj.nearest_state(epoch)
-    assert nearest_epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert nearest_epoch == Epoch.from_jd(2451545.1, brahe.UTC)
 
     # Slightly after the second
-    epoch = Epoch.from_jd(2451545.11, "UTC")
+    epoch = Epoch.from_jd(2451545.11, brahe.UTC)
     nearest_epoch, _ = traj.nearest_state(epoch)
-    assert nearest_epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert nearest_epoch == Epoch.from_jd(2451545.1, brahe.UTC)
 
     # Exactly at the third
-    epoch = Epoch.from_jd(2451545.2, "UTC")
+    epoch = Epoch.from_jd(2451545.2, brahe.UTC)
     nearest_epoch, _ = traj.nearest_state(epoch)
-    assert nearest_epoch == Epoch.from_jd(2451545.2, "UTC")
+    assert nearest_epoch == Epoch.from_jd(2451545.2, brahe.UTC)
 
 
 def test_dtrajectory_trajectory_len():
@@ -466,7 +467,7 @@ def test_dtrajectory_trajectory_start_epoch():
     """Rust: test_dtrajectory_trajectory_start_epoch"""
     traj = create_test_trajectory()
     start = traj.start_epoch()
-    assert start == Epoch.from_jd(2451545.0, "UTC")
+    assert start == Epoch.from_jd(2451545.0, brahe.UTC)
 
     empty_traj = DTrajectory(6)
     assert empty_traj.start_epoch() is None
@@ -476,7 +477,7 @@ def test_dtrajectory_trajectory_end_epoch():
     """Rust: test_dtrajectory_trajectory_end_epoch"""
     traj = create_test_trajectory()
     end = traj.end_epoch()
-    assert end == Epoch.from_jd(2451545.2, "UTC")
+    assert end == Epoch.from_jd(2451545.2, brahe.UTC)
 
     empty_traj = DTrajectory(6)
     assert empty_traj.end_epoch() is None
@@ -496,7 +497,7 @@ def test_dtrajectory_trajectory_first():
     """Rust: test_dtrajectory_trajectory_first"""
     traj = create_test_trajectory()
     epoch, state = traj.first()
-    assert epoch == Epoch.from_jd(2451545.0, "UTC")
+    assert epoch == Epoch.from_jd(2451545.0, brahe.UTC)
     assert state[0] == pytest.approx(7000e3, abs=1.0)
 
     empty_traj = DTrajectory(6)
@@ -507,7 +508,7 @@ def test_dtrajectory_trajectory_last():
     """Rust: test_dtrajectory_trajectory_last"""
     traj = create_test_trajectory()
     epoch, state = traj.last()
-    assert epoch == Epoch.from_jd(2451545.2, "UTC")
+    assert epoch == Epoch.from_jd(2451545.2, brahe.UTC)
     assert state[0] == pytest.approx(7200e3, abs=1.0)
 
     empty_traj = DTrajectory(6)
@@ -527,7 +528,7 @@ def test_dtrajectory_trajectory_clear():
 def test_dtrajectory_trajectory_remove_epoch():
     """Rust: test_dtrajectory_trajectory_remove_epoch"""
     traj = create_test_trajectory()
-    epoch = Epoch.from_jd(2451545.1, "UTC")
+    epoch = Epoch.from_jd(2451545.1, brahe.UTC)
 
     removed_state = traj.remove_epoch(epoch)
     assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
@@ -539,7 +540,7 @@ def test_dtrajectory_trajectory_remove():
     traj = create_test_trajectory()
 
     removed_epoch, removed_state = traj.remove(1)
-    assert removed_epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert removed_epoch == Epoch.from_jd(2451545.1, brahe.UTC)
     assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
     assert len(traj) == 2
 
@@ -557,14 +558,14 @@ def test_dtrajectory_trajectory_get():
     traj = create_test_trajectory()
 
     epoch, state = traj.get(1)
-    assert epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert epoch == Epoch.from_jd(2451545.1, brahe.UTC)
     assert state[0] == pytest.approx(7100e3, abs=1.0)
 
 
 def test_dtrajectory_trajectory_index_before_epoch():
     """Rust: test_dtrajectory_trajectory_index_before_epoch"""
     # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -604,7 +605,7 @@ def test_dtrajectory_trajectory_index_before_epoch():
 def test_dtrajectory_trajectory_index_after_epoch():
     """Rust: test_dtrajectory_trajectory_index_after_epoch"""
     # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -647,7 +648,7 @@ def test_dtrajectory_trajectory_index_after_epoch():
 def test_dtrajectory_trajectory_state_before_epoch():
     """Rust: test_dtrajectory_trajectory_state_before_epoch"""
     # Create a DTrajectory with distinguishable states at 3 epochs
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -685,7 +686,7 @@ def test_dtrajectory_trajectory_state_before_epoch():
 def test_dtrajectory_trajectory_state_after_epoch():
     """Rust: test_dtrajectory_trajectory_state_after_epoch"""
     # Create a DTrajectory with distinguishable states at 3 epochs
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -758,7 +759,7 @@ def test_dtrajectory_interpolatable_get_interpolation_method():
 def test_dtrajectory_interpolatable_interpolate_linear():
     """Rust: test_dtrajectory_interpolatable_interpolate_linear"""
     # Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -839,7 +840,7 @@ def test_dtrajectory_interpolatable_interpolate_linear():
 def test_dtrajectory_interpolatable_interpolate():
     """Rust: test_dtrajectory_interpolatable_interpolate"""
     # Create a trajectory for testing
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 

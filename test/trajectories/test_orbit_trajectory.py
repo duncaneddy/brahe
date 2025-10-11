@@ -6,6 +6,7 @@ These tests provide 1:1 parity with the Rust test suite in src/trajectories/orbi
 
 import pytest
 import numpy as np
+import brahe
 from brahe import (
     Epoch,
     OrbitTrajectory,
@@ -30,15 +31,15 @@ def create_test_trajectory():
         AngleFormat.DEGREES,
     )
 
-    epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
     traj.add(epoch1, state1)
 
-    epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 10, 0.0, 0.0, "UTC")
+    epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 10, 0.0, 0.0, brahe.UTC)
     state2 = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 60.0])
     traj.add(epoch2, state2)
 
-    epoch3 = Epoch.from_datetime(2023, 1, 1, 12, 20, 0.0, 0.0, "UTC")
+    epoch3 = Epoch.from_datetime(2023, 1, 1, 12, 20, 0.0, 0.0, brahe.UTC)
     state3 = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 75.0])
     traj.add(epoch3, state3)
 
@@ -128,9 +129,9 @@ def test_orbittrajetory_dimension():
 def test_orbittrajectory_to_matrix():
     """Rust: test_orbittrajectory_to_matrix"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -191,16 +192,16 @@ def test_orbittrajectory_trajectory_add():
     )
 
     # Add states in order
-    epoch1 = Epoch.from_jd(2451545.0, "UTC")
+    epoch1 = Epoch.from_jd(2451545.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch1, state1)
 
-    epoch3 = Epoch.from_jd(2451545.2, "UTC")
+    epoch3 = Epoch.from_jd(2451545.2, brahe.UTC)
     state3 = np.array([7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0])
     traj.add(epoch3, state3)
 
     # Add a state in between
-    epoch2 = Epoch.from_jd(2451545.1, "UTC")
+    epoch2 = Epoch.from_jd(2451545.1, brahe.UTC)
     state2 = np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     traj.add(epoch2, state2)
 
@@ -213,9 +214,9 @@ def test_orbittrajectory_trajectory_add():
 def test_orbittrajectory_trajectory_state():
     """Rust: test_orbittrajectory_trajectory_state"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -248,9 +249,9 @@ def test_orbittrajectory_trajectory_state():
 def test_orbittrajectory_trajectory_epoch():
     """Rust: test_orbittrajectory_trajectory_epoch"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -283,9 +284,9 @@ def test_orbittrajectory_trajectory_epoch():
 def test_orbittrajectory_trajectory_nearest_state():
     """Rust: test_orbittrajectory_trajectory_nearest_state"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -301,31 +302,31 @@ def test_orbittrajectory_trajectory_nearest_state():
     )
 
     # Test before first epoch
-    test_epoch = Epoch.from_jd(2451544.9, "UTC")
+    test_epoch = Epoch.from_jd(2451544.9, brahe.UTC)
     nearest_epoch, nearest_state = traj.nearest_state(test_epoch)
     assert nearest_epoch.jd() == epochs[0].jd()
     assert nearest_state[0] == 7000e3
 
     # Test after last epoch
-    test_epoch = Epoch.from_jd(2451545.3, "UTC")
+    test_epoch = Epoch.from_jd(2451545.3, brahe.UTC)
     nearest_epoch, nearest_state = traj.nearest_state(test_epoch)
     assert nearest_epoch.jd() == epochs[2].jd()
     assert nearest_state[0] == 7200e3
 
     # Test between epochs
-    test_epoch = Epoch.from_jd(2451545.15, "UTC")
+    test_epoch = Epoch.from_jd(2451545.15, brahe.UTC)
     nearest_epoch, nearest_state = traj.nearest_state(test_epoch)
     assert nearest_epoch.jd() == epochs[1].jd()
     assert nearest_state[0] == 7100e3
 
     # Test exact match
-    test_epoch = Epoch.from_jd(2451545.1, "UTC")
+    test_epoch = Epoch.from_jd(2451545.1, brahe.UTC)
     nearest_epoch, nearest_state = traj.nearest_state(test_epoch)
     assert nearest_epoch.jd() == epochs[1].jd()
     assert nearest_state[0] == 7100e3
 
     # Test just before second epoch
-    test_epoch = Epoch.from_jd(2451545.0999, "UTC")
+    test_epoch = Epoch.from_jd(2451545.0999, brahe.UTC)
     nearest_epoch, nearest_state = traj.nearest_state(test_epoch)
     assert nearest_epoch.jd() == epochs[1].jd()
     assert nearest_state[0] == 7100e3
@@ -342,7 +343,7 @@ def test_orbittrajectory_trajectory_len():
     assert len(traj) == 0
     assert traj.is_empty()
 
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch, state)
 
@@ -360,7 +361,7 @@ def test_orbittrajectory_trajectory_is_empty():
 
     assert traj.is_empty()
 
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch, state)
 
@@ -377,7 +378,7 @@ def test_orbittrajectory_trajectory_start_epoch():
 
     assert traj.start_epoch() is None
 
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch, state)
 
@@ -394,8 +395,8 @@ def test_orbittrajectory_trajectory_end_epoch():
 
     assert traj.end_epoch() is None
 
-    epoch1 = Epoch.from_jd(2451545.0, "UTC")
-    epoch2 = Epoch.from_jd(2451545.1, "UTC")
+    epoch1 = Epoch.from_jd(2451545.0, brahe.UTC)
+    epoch2 = Epoch.from_jd(2451545.1, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch1, state)
     traj.add(epoch2, state)
@@ -406,8 +407,8 @@ def test_orbittrajectory_trajectory_end_epoch():
 def test_orbittrajectory_trajectory_timespan():
     """Rust: test_orbittrajectory_trajectory_timespan"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -428,8 +429,8 @@ def test_orbittrajectory_trajectory_timespan():
 def test_orbittrajectory_trajectory_first():
     """Rust: test_orbittrajectory_trajectory_first"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -451,8 +452,8 @@ def test_orbittrajectory_trajectory_first():
 def test_orbittrajectory_trajectory_last():
     """Rust: test_orbittrajectory_trajectory_last"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -479,7 +480,7 @@ def test_orbittrajectory_trajectory_clear():
         AngleFormat.NONE,
     )
 
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj.add(epoch, state)
 
@@ -491,8 +492,8 @@ def test_orbittrajectory_trajectory_clear():
 def test_orbittrajectory_trajectory_remove_epoch():
     """Rust: test_orbittrajectory_trajectory_remove_epoch"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -514,8 +515,8 @@ def test_orbittrajectory_trajectory_remove_epoch():
 def test_orbittrajectory_trajectory_remove():
     """Rust: test_orbittrajectory_trajectory_remove"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -538,8 +539,8 @@ def test_orbittrajectory_trajectory_remove():
 def test_orbittrajectory_trajectory_get():
     """Rust: test_orbittrajectory_trajectory_get"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -560,7 +561,7 @@ def test_orbittrajectory_trajectory_get():
 
 def test_orbittrajectory_trajectory_index_before_epoch():
     """Rust: test_orbittrajectory_trajectory_index_before_epoch"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -605,7 +606,7 @@ def test_orbittrajectory_trajectory_index_before_epoch():
 
 def test_orbittrajectory_trajectory_index_after_epoch():
     """Rust: test_orbittrajectory_trajectory_index_after_epoch"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -653,7 +654,7 @@ def test_orbittrajectory_trajectory_index_after_epoch():
 
 def test_orbittrajectory_trajectory_state_before_epoch():
     """Rust: test_orbittrajectory_trajectory_state_before_epoch"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -696,7 +697,7 @@ def test_orbittrajectory_trajectory_state_before_epoch():
 
 def test_orbittrajectory_trajectory_state_after_epoch():
     """Rust: test_orbittrajectory_trajectory_state_after_epoch"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -746,7 +747,7 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_size():
     )
 
     # Add 5 states
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(5):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -785,7 +786,7 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_age():
     )
 
     # Add states spanning 5 minutes
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(6):
         epoch = t0 + (i * 60.0)  # 0, 60, 120, 180, 240, 300 seconds
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -827,9 +828,9 @@ def test_orbittrajectory_default():
 def test_orbittrajectory_index_index():
     """Rust: test_orbittrajectory_index_index"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -857,7 +858,7 @@ def test_orbittrajectory_index_index():
 
 def test_orbittrajectory_index_index_out_of_bounds():
     """Rust: test_orbittrajectory_index_index_out_of_bounds"""
-    epochs = [Epoch.from_jd(2451545.0, "UTC")]
+    epochs = [Epoch.from_jd(2451545.0, brahe.UTC)]
     states = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
@@ -874,9 +875,9 @@ def test_orbittrajectory_index_index_out_of_bounds():
 def test_orbittrajectory_intoiterator_into_iter():
     """Rust: test_orbittrajectory_intoiterator_into_iter"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -925,9 +926,9 @@ def test_orbittrajectory_intoiterator_into_iter_empty():
 def test_orbittrajectory_iterator_iterator_len():
     """Rust: test_orbittrajectory_iterator_iterator_len"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -978,7 +979,7 @@ def test_orbittrajectory_interpolatable_get_interpolation_method():
 
 def test_orbittrajectory_interpolatable_interpolate_linear():
     """Rust: test_orbittrajectory_interpolatable_interpolate_linear"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -1042,7 +1043,7 @@ def test_orbittrajectory_interpolatable_interpolate_linear():
 
 def test_orbittrajectory_interpolatable_interpolate():
     """Rust: test_orbittrajectory_interpolatable_interpolate"""
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
 
@@ -1073,8 +1074,8 @@ def test_orbittrajectory_interpolatable_interpolate():
 def test_orbittrajectory_orbitaltrajectory_from_orbital_data():
     """Rust: test_orbittrajectory_orbitaltrajectory_from_orbital_data"""
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     states = np.array([
         7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
@@ -1110,7 +1111,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
         AngleFormat.NONE,
     )
 
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     traj.add(epoch, state_base)
 
     eci_traj = traj.to_eci()
@@ -1183,7 +1184,7 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
     """Rust: test_orbittrajectory_orbitaltrajectory_to_ecef"""
     tol = 1e-6
 
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_base = state_eci_to_ecef(
         epoch,
         state_osculating_to_cartesian(
@@ -1270,7 +1271,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
     tol = 1e-6
     DEG2RAD = 0.017453292519943295
 
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_kep_deg = np.array([7000e3, 0.01, 97.0, 15.0, 30.0, 45.0])
 
     # No transformation needed if already in Keplerian Degrees
@@ -1352,7 +1353,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
     tol = 1e-6
     DEG2RAD = 0.017453292519943295
 
-    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_kep_deg = np.array([7000e3, 0.01, 97.0, 15.0, 30.0, 45.0])
     state_kep_rad = state_kep_deg.copy()
     for i in range(2, 6):

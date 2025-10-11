@@ -7,6 +7,7 @@ Each test corresponds to a specific Rust test in src/trajectories/strajectory.rs
 
 import pytest
 import numpy as np
+import brahe
 from brahe import Epoch, STrajectory6, InterpolationMethod
 
 
@@ -16,9 +17,9 @@ def create_test_trajectory():
     Corresponds to Rust function: create_test_trajectory()
     """
     epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
     ]
 
     states = np.array([
@@ -50,7 +51,7 @@ def test_strajectory_with_interpolation_method():
 
     # Verify it works with adding states
     traj = STrajectory6().with_interpolation_method(InterpolationMethod.LINEAR)
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     traj.add(t0, state)
     assert len(traj) == 1
@@ -86,7 +87,7 @@ def test_strajectory_builder_pattern_chaining():
     assert traj.get_eviction_policy() == "KeepCount"
 
     # Add states and verify eviction policy works
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(15):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -104,7 +105,7 @@ def test_strajectory_dimension():
 
 def test_strajectory_to_matrix():
     """Rust test: test_strajectory_to_matrix"""
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     epochs = [
         t0,
         t0 + 60.0,
@@ -237,16 +238,16 @@ def test_strajectory_trajectory_add():
     trajectory = STrajectory6()
 
     # Add states in order
-    epoch1 = Epoch.from_jd(2451545.0, "UTC")
+    epoch1 = Epoch.from_jd(2451545.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     trajectory.add(epoch1, state1)
 
-    epoch3 = Epoch.from_jd(2451545.2, "UTC")
+    epoch3 = Epoch.from_jd(2451545.2, brahe.UTC)
     state3 = np.array([7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0])
     trajectory.add(epoch3, state3)
 
     # Add a state in between
-    epoch2 = Epoch.from_jd(2451545.1, "UTC")
+    epoch2 = Epoch.from_jd(2451545.1, brahe.UTC)
     state2 = np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     trajectory.add(epoch2, state2)
 
@@ -299,24 +300,24 @@ def test_strajectory_trajectory_nearest_state():
     trajectory = create_test_trajectory()
 
     # Request a time exactly at a state
-    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.0, "UTC"))
+    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.0, brahe.UTC))
     assert epoch.jd() == 2451545.0
     assert state[0] == 7000e3
 
     # Request a time halfway between two states
-    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.05, "UTC"))
+    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.05, brahe.UTC))
 
     # Should return the closest state (first one)
     assert epoch.jd() == 2451545.0
     assert state[0] == 7000e3
 
     # Request a time right before the second state
-    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.0999, "UTC"))
+    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.0999, brahe.UTC))
     assert epoch.jd() == 2451545.1
     assert state[0] == 7100e3
 
     # Request a time after the last state
-    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.3, "UTC"))
+    epoch, state = trajectory.nearest_state(Epoch.from_jd(2451545.3, brahe.UTC))
     assert epoch.jd() == 2451545.2
     assert state[0] == 7200e3
 
@@ -327,13 +328,13 @@ def test_strajectory_trajectory_len():
     assert len(trajectory) == 0
 
     trajectory.add(
-        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
     assert len(trajectory) == 1
 
     trajectory.add(
-        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.1, brahe.UTC),
         np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     )
     assert len(trajectory) == 2
@@ -345,7 +346,7 @@ def test_strajectory_trajectory_is_empty():
     assert trajectory.is_empty()
 
     trajectory.add(
-        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
     assert not trajectory.is_empty()
@@ -388,7 +389,7 @@ def test_strajectory_trajectory_timespan():
     # Test single state trajectory
     single_trajectory = STrajectory6()
     single_trajectory.add(
-        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.0, brahe.UTC),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
     assert single_trajectory.time_span is None
@@ -406,7 +407,7 @@ def test_strajectory_trajectory_first():
 
     # Test single state trajectory
     single_trajectory = STrajectory6()
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     single_trajectory.add(epoch, state)
 
@@ -429,7 +430,7 @@ def test_strajectory_trajectory_last():
 
     # Test single state trajectory
     single_trajectory = STrajectory6()
-    epoch = Epoch.from_jd(2451545.0, "UTC")
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     single_trajectory.add(epoch, state)
 
@@ -461,13 +462,13 @@ def test_strajectory_trajectory_remove_epoch():
     """Rust test: test_strajectory_trajectory_remove_epoch"""
     trajectory = create_test_trajectory()
 
-    epoch_to_remove = Epoch.from_jd(2451545.1, "UTC")
+    epoch_to_remove = Epoch.from_jd(2451545.1, brahe.UTC)
     removed_state = trajectory.remove_epoch(epoch_to_remove)
     assert removed_state[0] == 7100e3
     assert len(trajectory) == 2
 
     # Test error case
-    non_existent_epoch = Epoch.from_jd(2451546.0, "UTC")
+    non_existent_epoch = Epoch.from_jd(2451546.0, brahe.UTC)
     with pytest.raises(Exception):
         trajectory.remove_epoch(non_existent_epoch)
 
@@ -502,7 +503,7 @@ def test_strajectory_trajectory_get():
 def test_strajectory_trajectory_index_before_epoch():
     """Rust test: test_strajectory_trajectory_index_before_epoch"""
     # Create a trajectory with states at epochs: t0, t0+60s, t0+120s
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     epochs = [
         t0,
         t0 + 60.0,
@@ -549,7 +550,7 @@ def test_strajectory_trajectory_index_before_epoch():
 def test_strajectory_trajectory_index_after_epoch():
     """Rust test: test_strajectory_trajectory_index_after_epoch"""
     # Create a trajectory with states at epochs: t0, t0+60s, t0+120s
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     epochs = [
         t0,
         t0 + 60.0,
@@ -600,7 +601,7 @@ def test_strajectory_trajectory_index_after_epoch():
 def test_strajectory_trajectory_state_before_epoch():
     """Rust test: test_strajectory_trajectory_state_before_epoch"""
     # Create a trajectory with distinguishable states at 3 epochs
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     epochs = [
         t0,
         t0 + 60.0,
@@ -660,7 +661,7 @@ def test_strajectory_trajectory_state_before_epoch():
 def test_strajectory_trajectory_state_after_epoch():
     """Rust test: test_strajectory_trajectory_state_after_epoch"""
     # Create a trajectory with distinguishable states at 3 epochs
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
     epochs = [
         t0,
         t0 + 60.0,
@@ -744,7 +745,7 @@ def test_strajectory_set_eviction_policy_max_size():
     traj = STrajectory6()
 
     # Add 5 states
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(5):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -780,7 +781,7 @@ def test_strajectory_set_eviction_policy_max_age():
     traj = STrajectory6()
 
     # Add states spanning 5 minutes
-    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(6):
         epoch = t0 + (i * 60.0)  # 0, 60, 120, 180, 240, 300 seconds
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -823,7 +824,7 @@ def test_strajectory_interpolatable_get_interpolation_method():
 
 def test_strajectory_interpolatable_interpolate_linear():
     """Rust test: test_strajectory_interpolatable_interpolate_linear"""
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
 
     # Create a trajectory with 3 states at t0, t0+60s, t0+120s with distinct position values
     epochs = [
@@ -896,7 +897,7 @@ def test_strajectory_interpolatable_interpolate_linear():
 
 def test_strajectory_interpolatable_interpolate():
     """Rust test: test_strajectory_interpolatable_interpolate"""
-    t0 = Epoch.from_jd(2451545.0, "UTC")
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
 
     # Create a trajectory with 3 states at different epochs
     epochs = [

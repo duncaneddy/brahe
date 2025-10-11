@@ -12,13 +12,13 @@ def test_parse_float():
 
 @pytest.mark.xfail
 def test_epoch_from_epochlike_mjd():
-    assert epoch_from_epochlike("55420.0") == Epoch.from_mjd(55420.0, "UTC")
-    assert epoch_from_epochlike("55420") == Epoch.from_mjd(55420.0, "UTC")
+    assert epoch_from_epochlike("55420.0") == Epoch.from_mjd(55420.0, brahe.UTC)
+    assert epoch_from_epochlike("55420") == Epoch.from_mjd(55420.0, brahe.UTC)
 
 @pytest.mark.xfail
 def test_epoch_from_epochlike_jd():
-    assert epoch_from_epochlike("2455420.0") == Epoch.from_jd(2455420.0, "UTC")
-    assert epoch_from_epochlike("2455420") == Epoch.from_jd(2455420.0, "UTC")
+    assert epoch_from_epochlike("2455420.0") == Epoch.from_jd(2455420.0, brahe.UTC)
+    assert epoch_from_epochlike("2455420") == Epoch.from_jd(2455420.0, brahe.UTC)
 
 @pytest.mark.xfail
 def test_epoch_from_epochlike_string():

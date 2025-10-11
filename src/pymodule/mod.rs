@@ -151,6 +151,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* Time *//
 
+    module.add_class::<PyTimeSystem>()?;
     module.add_class::<PyEpoch>()?;
     module.add_class::<PyTimeRange>()?;
     module.add_function(wrap_pyfunction!(py_mjd_to_datetime, module)?)?;
@@ -163,6 +164,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         py_time_system_offset_for_datetime,
         module
     )?)?;
+
+    // Top-level time system constants
+    module.add("GPS", PyTimeSystem { ts: time::TimeSystem::GPS })?;
+    module.add("TAI", PyTimeSystem { ts: time::TimeSystem::TAI })?;
+    module.add("TT", PyTimeSystem { ts: time::TimeSystem::TT })?;
+    module.add("UTC", PyTimeSystem { ts: time::TimeSystem::UTC })?;
+    module.add("UT1", PyTimeSystem { ts: time::TimeSystem::UT1 })?;
 
     //* Frames *//
     module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;

@@ -218,7 +218,7 @@ class TestCreateTLELines:
 
     def test_create_tle_lines(self):
         """Test creation of TLE lines with various parameters."""
-        epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, 'UTC')
+        epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
         semi_major_axis = 6786000.0  # meters
         eccentricity = 0.12345      # dimensionless
         inclination = 51.6461       # degrees
@@ -288,7 +288,7 @@ class TestKeplerianElementsToTLE:
 
     def test_keplerian_elements_to_tle(self):
         """Test conversion from Keplerian elements to TLE."""
-        epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, 'UTC')
+        epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
         semi_major_axis = 6786000.0  # meters
         eccentricity = 0.12345      # dimensionless
         inclination = 51.6461       # degrees
@@ -359,7 +359,7 @@ class TestTLECircularity:
     def test_keplerian_tle_circularity(self):
         """Test circularity: Keplerian elements -> TLE -> Keplerian elements."""
         # Original Keplerian elements
-        original_epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, 'UTC')
+        original_epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
         original_elements = np.array([
             6786000.0,  # Semi-major axis (m)
             0.12345,    # Eccentricity

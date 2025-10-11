@@ -245,8 +245,8 @@ impl OrbitTrajectory {
     }
 
     /// Convert the trajectory to a matrix representation
-    /// Returns a matrix where columns are time points and rows are state elements
-    /// The matrix has shape (6, n_epochs) for a 6-element state vector
+    /// Returns a matrix where rows are time points (epochs) and columns are state elements
+    /// The matrix has shape (n_epochs, 6) for a 6-element state vector
     pub fn to_matrix(&self) -> Result<nalgebra::DMatrix<f64>, BraheError> {
         if self.states.is_empty() {
             return Err(BraheError::Error(
@@ -257,11 +257,11 @@ impl OrbitTrajectory {
         let n_epochs = self.states.len();
         let n_elements = 6;
 
-        let mut matrix = nalgebra::DMatrix::<f64>::zeros(n_elements, n_epochs);
+        let mut matrix = nalgebra::DMatrix::<f64>::zeros(n_epochs, n_elements);
 
-        for (col_idx, state) in self.states.iter().enumerate() {
-            for row_idx in 0..n_elements {
-                matrix[(row_idx, col_idx)] = state[row_idx];
+        for (row_idx, state) in self.states.iter().enumerate() {
+            for col_idx in 0..n_elements {
+                matrix[(row_idx, col_idx)] = state[col_idx];
             }
         }
 
@@ -1052,33 +1052,38 @@ mod tests {
         // Convert to matrix
         let matrix = traj.to_matrix().unwrap();
 
-        // Verify dimensions: 6 rows (state elements) x 3 columns (time points)
-        assert_eq!(matrix.nrows(), 6);
-        assert_eq!(matrix.ncols(), 3);
+        // Verify dimensions: 3 rows (time points) x 6 columns (state elements)
+        assert_eq!(matrix.nrows(), 3);
+        assert_eq!(matrix.ncols(), 6);
 
-        // Verify first column matches first state
+        // Verify first row matches first state
         assert_eq!(matrix[(0, 0)], states[0][0]);
-        assert_eq!(matrix[(1, 0)], states[0][1]);
-        assert_eq!(matrix[(2, 0)], states[0][2]);
-        assert_eq!(matrix[(3, 0)], states[0][3]);
-        assert_eq!(matrix[(4, 0)], states[0][4]);
-        assert_eq!(matrix[(5, 0)], states[0][5]);
+        assert_eq!(matrix[(0, 1)], states[0][1]);
+        assert_eq!(matrix[(0, 2)], states[0][2]);
+        assert_eq!(matrix[(0, 3)], states[0][3]);
+        assert_eq!(matrix[(0, 4)], states[0][4]);
+        assert_eq!(matrix[(0, 5)], states[0][5]);
 
-        // Verify second column matches second state
-        assert_eq!(matrix[(0, 1)], states[1][0]);
+        // Verify second row matches second state
+        assert_eq!(matrix[(1, 0)], states[1][0]);
         assert_eq!(matrix[(1, 1)], states[1][1]);
-        assert_eq!(matrix[(2, 1)], states[1][2]);
-        assert_eq!(matrix[(3, 1)], states[1][3]);
-        assert_eq!(matrix[(4, 1)], states[1][4]);
-        assert_eq!(matrix[(5, 1)], states[1][5]);
+        assert_eq!(matrix[(1, 2)], states[1][2]);
+        assert_eq!(matrix[(1, 3)], states[1][3]);
+        assert_eq!(matrix[(1, 4)], states[1][4]);
+        assert_eq!(matrix[(1, 5)], states[1][5]);
 
-        // Verify third column matches third state
-        assert_eq!(matrix[(0, 2)], states[2][0]);
-        assert_eq!(matrix[(1, 2)], states[2][1]);
+        // Verify third row matches third state
+        assert_eq!(matrix[(2, 0)], states[2][0]);
+        assert_eq!(matrix[(2, 1)], states[2][1]);
         assert_eq!(matrix[(2, 2)], states[2][2]);
-        assert_eq!(matrix[(3, 2)], states[2][3]);
-        assert_eq!(matrix[(4, 2)], states[2][4]);
-        assert_eq!(matrix[(5, 2)], states[2][5]);
+        assert_eq!(matrix[(2, 3)], states[2][3]);
+        assert_eq!(matrix[(2, 4)], states[2][4]);
+        assert_eq!(matrix[(2, 5)], states[2][5]);
+
+        // Verify first column contains first element of each state over time
+        assert_eq!(matrix[(0, 0)], states[0][0]);
+        assert_eq!(matrix[(1, 0)], states[1][0]);
+        assert_eq!(matrix[(2, 0)], states[2][0]);
     }
 
     // Additional Trajectory Trait Tests

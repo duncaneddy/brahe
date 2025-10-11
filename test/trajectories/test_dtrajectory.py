@@ -1,744 +1,891 @@
-"""
-Tests for the DTrajectory class in brahe.
-
-These tests mirror the Rust DTrajectory test suite to ensure Python bindings work correctly.
-"""
-
+"""Tests for DTrajectory in brahe - 1:1 parity with Rust tests"""
 import pytest
 import numpy as np
-import brahe
+from brahe import Epoch, DTrajectory, InterpolationMethod
 
 
-@pytest.fixture
-def sample_epochs():
-    """Create sample epochs for testing."""
-    base_epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-    return [
-        base_epoch,
-        brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
-        brahe.Epoch.from_datetime(2023, 1, 1, 14, 0, 0.0, 0.0, "UTC"),
+def create_test_trajectory():
+    """Helper function matching Rust create_test_trajectory()"""
+    epochs = [
+        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.1, "UTC"),
+        Epoch.from_jd(2451545.2, "UTC"),
     ]
 
-
-@pytest.fixture
-def sample_states():
-    """Create sample 6-element state vectors."""
-    return [
-        np.array([1000.0, 2000.0, 3000.0, 1.0, 2.0, 3.0]),
-        np.array([1100.0, 2100.0, 3100.0, 1.1, 2.1, 3.1]),
-        np.array([1200.0, 2200.0, 3200.0, 1.2, 2.2, 3.2]),
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
     ]
 
+    traj = DTrajectory(6)
+    for epoch, state in zip(epochs, states):
+        traj.add_state(epoch, state)
 
-class TestTrajectoryCreation:
-    """Test trajectory creation that mirrors Rust tests."""
+    return traj
 
-    def test_trajectory_creation(self):
-        """Test basic trajectory creation."""
-        trajectory = brahe.DTrajectory()
-        assert len(trajectory) == 0
 
-    def test_trajectory_with_interpolation(self):
-        """Test trajectory creation with specific interpolation."""
-        linear_interp = brahe.InterpolationMethod.linear
-        trajectory = brahe.DTrajectory(linear_interp)
-        assert len(trajectory) == 0
+# Trajectory Trait Tests
 
+def test_dtrajectory_new_with_dimension():
+    """Rust: test_dtrajectory_new_with_dimension"""
+    # 3
+    traj = DTrajectory(3)
+    assert traj.dimension() == 3
+    assert len(traj) == 0
+    assert traj.is_empty()
 
-class TestTrajectoryStateManagement:
-    """Test trajectory state management that mirrors Rust tests."""
+    # 6
+    traj = DTrajectory(6)
+    assert traj.dimension() == 6
+    assert len(traj) == 0
+    assert traj.is_empty()
 
-    def test_trajectory_add_state(self, sample_epochs, sample_states):
-        """Test adding states to trajectory."""
-        trajectory = brahe.DTrajectory()
+    # 12
+    traj = DTrajectory(12)
+    assert traj.dimension() == 12
+    assert len(traj) == 0
+    assert traj.is_empty()
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
 
-        assert len(trajectory) == 3
+def test_dtrajectory_new_with_zero_dimension():
+    """Rust: test_dtrajectory_new_with_zero_dimension"""
+    with pytest.raises(Exception, match="Trajectory dimension must be greater than 0"):
+        DTrajectory(0)
 
-    def test_trajectory_indexing(self, sample_epochs, sample_states):
-        """Test trajectory indexing."""
-        trajectory = brahe.DTrajectory()
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+def test_dtrajectory_with_interpolation_method():
+    """Rust: test_dtrajectory_with_interpolation_method"""
+    traj = DTrajectory(12).with_interpolation_method(InterpolationMethod.linear)
+    assert traj.dimension() == 12
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
 
-        # Test indexing
-        first_epoch = trajectory.epoch(0)
-        assert first_epoch.jd() == sample_epochs[0].jd()
 
-    def test_trajectory_nearest_state(self, sample_epochs, sample_states):
-        """Test finding nearest state."""
-        trajectory = brahe.DTrajectory()
+def test_dtrajectory_with_eviction_policy_max_size_builder():
+    """Rust: test_dtrajectory_with_eviction_policy_max_size_builder"""
+    # Test builder pattern for max size eviction policy
+    traj = DTrajectory(6).with_eviction_policy_max_size(5)
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+    assert traj.get_eviction_policy() == "KeepCount"
+    assert len(traj) == 0
 
-        # Test nearest state
-        nearest_epoch, nearest_state = trajectory.nearest_state(sample_epochs[1])
-        assert nearest_epoch.jd() == sample_epochs[1].jd()
-        np.testing.assert_array_almost_equal(nearest_state, sample_states[1])
 
+def test_dtrajectory_with_eviction_policy_max_age_builder():
+    """Rust: test_dtrajectory_with_eviction_policy_max_age_builder"""
+    # Test builder pattern for max age eviction policy
+    traj = DTrajectory(6).with_eviction_policy_max_age(300.0)
 
-class TestTrajectoryInterpolation:
-    """Test trajectory interpolation that mirrors Rust tests."""
+    assert traj.get_eviction_policy() == "KeepWithinDuration"
+    assert len(traj) == 0
 
-    def test_trajectory_linear_interpolation(self, sample_epochs, sample_states):
-        """Test linear interpolation."""
-        trajectory = brahe.DTrajectory(brahe.InterpolationMethod.linear)
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+def test_dtrajectory_builder_pattern_chaining():
+    """Rust: test_dtrajectory_builder_pattern_chaining"""
+    # Test chaining multiple builder methods
+    traj = DTrajectory(6).with_interpolation_method(InterpolationMethod.linear).with_eviction_policy_max_size(10)
 
-        # Test interpolation at midpoint
-        mid_time_jd = (sample_epochs[0].jd() + sample_epochs[1].jd()) / 2.0
-        mid_epoch = brahe.Epoch.from_jd(mid_time_jd, "UTC")
-        # interpolated_state = trajectory.state_at_epoch(mid_epoch)
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_eviction_policy() == "KeepCount"
 
-        # # Should be roughly halfway between first two states
-        # expected_state = (sample_states[0] + sample_states[1]) / 2.0
-        # np.testing.assert_array_almost_equal(interpolated_state, expected_state, decimal=1)
+    # Add states and verify eviction policy works
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    for i in range(15):
+        epoch = t0 + (i * 60.0)
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
 
+    # Should only have 10 states due to eviction policy
+    assert len(traj) == 10
 
-class TestTrajectoryProperties:
-    """Test trajectory properties that mirror Rust tests."""
 
-    def test_trajectory_to_matrix(self, sample_epochs, sample_states):
-        """Test converting trajectory to matrix."""
-        trajectory = brahe.DTrajectory()
+def test_dtrajectory_dimension():
+    """Rust: test_dtrajectory_dimension"""
+    traj = DTrajectory(9)
+    assert traj.dimension() == 9
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+    traj = DTrajectory(4)
+    assert traj.dimension() == 4
 
-        matrix = trajectory.to_matrix()
-        assert matrix.shape == (6, 3)  # 6 elements, 3 states
 
-        # Check that we can access matrix elements (implementation-specific organization)
-        assert matrix[0, 0] == sample_states[0][0]  # First element of first state
+def test_dtrajectory_interpolatable_set_interpolation_method():
+    """Rust: test_dtrajectory_interpolatable_set_interpolation_method"""
+    traj = DTrajectory(6)
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
 
+    traj.set_interpolation_method(InterpolationMethod.linear)
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
 
-class TestTrajectoryFirstLast:
-    """Test trajectory first() and last() methods."""
 
-    def test_trajectory_first_empty(self):
-        """Test first() method on empty trajectory."""
-        trajectory = brahe.DTrajectory()
-        assert trajectory.first() is None
+def test_dtrajectory_to_matrix():
+    """Rust: test_dtrajectory_to_matrix"""
+    traj = create_test_trajectory()
+    matrix = traj.to_matrix()
+
+    # Matrix should be 3 rows (time points) x 6 columns (state elements)
+    assert matrix.shape[0] == 3
+    assert matrix.shape[1] == 6
+
+    # Test first row (first state at t0)
+    assert matrix[0, 0] == pytest.approx(7000e3, abs=1.0)
+    assert matrix[0, 1] == pytest.approx(0.0, abs=1.0)
+    assert matrix[0, 2] == pytest.approx(0.0, abs=1.0)
+    assert matrix[0, 3] == pytest.approx(0.0, abs=1.0)
+    assert matrix[0, 4] == pytest.approx(7.5e3, abs=1.0)
+    assert matrix[0, 5] == pytest.approx(0.0, abs=1.0)
+
+    # Test second row (second state at t1)
+    assert matrix[1, 0] == pytest.approx(7100e3, abs=1.0)
+    assert matrix[1, 1] == pytest.approx(1000e3, abs=1.0)
+
+    # Test third row (third state at t2)
+    assert matrix[2, 0] == pytest.approx(7200e3, abs=1.0)
+    assert matrix[2, 1] == pytest.approx(2000e3, abs=1.0)
+    assert matrix[2, 2] == pytest.approx(1000e3, abs=1.0)
+    assert matrix[2, 3] == pytest.approx(200.0, abs=1.0)
+    assert matrix[2, 4] == pytest.approx(7.7e3, abs=1.0)
+    assert matrix[2, 5] == pytest.approx(100.0, abs=1.0)
+
+    # Test first column (first element of each state over time)
+    assert matrix[0, 0] == pytest.approx(7000e3, abs=1.0)
+    assert matrix[1, 0] == pytest.approx(7100e3, abs=1.0)
+    assert matrix[2, 0] == pytest.approx(7200e3, abs=1.0)
+
+
+def test_dtrajectory_trajectory_get_eviction_policy():
+    """Rust: test_dtrajectory_trajectory_get_eviction_policy"""
+    traj = DTrajectory(6)
+
+    # Default is None
+    assert traj.get_eviction_policy() == "None"
+
+    # Set to KeepCount
+    traj.set_eviction_policy_max_size(10)
+    assert traj.get_eviction_policy() == "KeepCount"
+
+    # Set to KeepWithinDuration
+    traj.set_eviction_policy_max_age(100.0)
+    assert traj.get_eviction_policy() == "KeepWithinDuration"
+
+
+def test_dtrajectory_apply_eviction_policy_keep_count():
+    """Rust: test_dtrajectory_apply_eviction_policy_keep_count"""
+    traj = DTrajectory(6).with_eviction_policy_max_size(3)
+
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    for i in range(5):
+        epoch = t0 + (i * 60.0)
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
+
+    # Should only have 3 states due to eviction policy
+    assert len(traj) == 3
+    assert traj.epoch(0) == t0 + 2.0 * 60.0  # First state should be the third added
+
+
+def test_dtrajectory_apply_eviction_policy_keep_within_duration():
+    """Rust: test_dtrajectory_apply_eviction_policy_keep_within_duration"""
+    traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0 - 1.0)  # 7 days
+
+    t0 = Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+    for i in range(10):
+        epoch = t0 + (i * 86400.0)  # 1 day apart
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
 
-    def test_trajectory_last_empty(self):
-        """Test last() method on empty trajectory."""
-        trajectory = brahe.DTrajectory()
-        assert trajectory.last() is None
+    # Should only have 7 states due to eviction policy
+    assert len(traj) == 7
+    assert traj.epoch(0) == t0 + 3.0 * 86400.0  # First state should be the fourth added
 
-    def test_trajectory_first_single_state(self, sample_epochs, sample_states):
-        """Test first() method with single state."""
-        trajectory = brahe.DTrajectory()
-        trajectory.add_state(sample_epochs[0], sample_states[0])
+    # Repeat with an exact 7 days limit
+    traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0)  # 7 days
+    for i in range(10):
+        epoch = t0 + (i * 86400.0)
+        state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        traj.add_state(epoch, state)
+
+    # Should still have 8 states due to exact 7 days limit
+    assert len(traj) == 8
+    assert traj.epoch(0) == t0 + 2.0 * 86400.0  # First state should be the third added
+
+
+# Default Trait Tests
+
+def test_dtrajectory_default():
+    """Rust: test_dtrajectory_default"""
+    traj = DTrajectory()
+    assert traj.dimension() == 6
+    assert len(traj) == 0
+    assert traj.is_empty()
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_eviction_policy() == "None"
+
+
+# Index Trait Tests
+
+def test_dtrajectory_index():
+    """Rust: test_dtrajectory_index"""
+    traj = create_test_trajectory()
+    state = traj[0]
+
+    assert len(state) == 6
+    assert state[0] == 7000e3
+    assert state[1] == 0.0
+    assert state[2] == 0.0
+    assert state[3] == 0.0
+    assert state[4] == 7.5e3
+    assert state[5] == 0.0
+
+    state = traj[1]
+    assert state[0] == 7100e3
+    assert state[1] == 1000e3
+    assert state[2] == 500e3
+    assert state[3] == 100.0
+    assert state[4] == 7.6e3
+    assert state[5] == 50.0
+
+    state = traj[2]
+    assert state[0] == 7200e3
+    assert state[1] == 2000e3
+    assert state[2] == 1000e3
+    assert state[3] == 200.0
+    assert state[4] == 7.7e3
+    assert state[5] == 100.0
+
+
+def test_dtrajectory_index_index_out_of_bounds():
+    """Rust: test_dtrajectory_index_index_out_of_bounds"""
+    traj = create_test_trajectory()
+    with pytest.raises(IndexError):
+        _ = traj[10]
+
+
+# Iterator Trait Tests
+
+def test_dtrajectory_iterator_iterator_len():
+    """Rust: test_dtrajectory_iterator_iterator_len"""
+    traj = create_test_trajectory()
+
+    # In Python, we can test iteration length
+    count = 0
+    for _ in traj:
+        count += 1
+    assert count == 3
+
+
+def test_dtrajectory_iterator_iterator_size_hint():
+    """Rust: test_dtrajectory_iterator_iterator_size_hint"""
+    traj = create_test_trajectory()
+
+    # Python doesn't have size_hint, but we can test len()
+    assert len(traj) == 3
+
+
+# ExactSizeIterator Trait Tests
+
+def test_dtrajectory_exactsizeiterator_len():
+    """Rust: test_dtrajectory_exactsizeiterator_len"""
+    traj = create_test_trajectory()
+    assert len(traj) == 3
+
+
+# IntoIterator Trait Tests
+
+def test_dtrajectory_intoiterator_into_iter():
+    """Rust: test_dtrajectory_intoiterator_into_iter"""
+    traj = create_test_trajectory()
+
+    count = 0
+    for epoch, state in traj:
+        if count == 0:
+            assert epoch.jd() == 2451545.0
+            assert state[0] == pytest.approx(7000e3, abs=1.0)
+        elif count == 1:
+            assert epoch.jd() == 2451545.1
+            assert state[0] == pytest.approx(7100e3, abs=1.0)
+        elif count == 2:
+            assert epoch.jd() == 2451545.2
+            assert state[0] == pytest.approx(7200e3, abs=1.0)
+        else:
+            pytest.fail("Too many iterations")
+        count += 1
+    assert count == 3
+
+
+def test_dtrajectory_intoiterator_into_iter_empty():
+    """Rust: test_dtrajectory_intoiterator_into_iter_empty"""
+    traj = DTrajectory(6)
+
+    count = 0
+    for _ in traj:
+        count += 1
+    assert count == 0
+
+
+# Trajectory Trait Tests
+
+def test_dtrajectory_from_data():
+    """Rust: test_dtrajectory_from_data"""
+    epochs = [
+        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.1, "UTC"),
+    ]
+    # States as 2D array: shape (num_epochs, dimension) = (2, 3)
+    states = np.array([
+        [1.0, 2.0, 3.0],
+        [4.0, 5.0, 6.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+    assert traj.dimension() == 3
+    assert len(traj) == 2
 
-        first_result = trajectory.first()
-        assert first_result is not None
-        first_epoch, first_state = first_result
+
+def test_dtrajectory_from_data_errors():
+    """Rust: test_dtrajectory_from_data_errors"""
+    epochs = [
+        Epoch.from_jd(2451545.0, "UTC"),
+        Epoch.from_jd(2451545.1, "UTC"),
+    ]
+    # Mismatched: 2 epochs but only 1 state
+    states = np.array([
+        [1.0, 2.0, 3.0],
+    ])
 
-        assert first_epoch.jd() == sample_epochs[0].jd()
-        np.testing.assert_array_almost_equal(first_state, sample_states[0])
+    with pytest.raises(Exception):
+        DTrajectory.from_data(epochs, states)
 
-    def test_trajectory_last_single_state(self, sample_epochs, sample_states):
-        """Test last() method with single state."""
-        trajectory = brahe.DTrajectory()
-        trajectory.add_state(sample_epochs[0], sample_states[0])
+    empty_epochs = []
+    empty_states = np.array([]).reshape(0, 3)  # Empty 2D array
+    with pytest.raises(Exception):
+        DTrajectory.from_data(empty_epochs, empty_states)
 
-        last_result = trajectory.last()
-        assert last_result is not None
-        last_epoch, last_state = last_result
 
-        assert last_epoch.jd() == sample_epochs[0].jd()
-        np.testing.assert_array_almost_equal(last_state, sample_states[0])
+def test_dtrajectory_trajectory_add_state():
+    """Rust: test_dtrajectory_trajectory_add_state"""
+    trajectory = DTrajectory(6)
 
-    def test_trajectory_first_multiple_states(self, sample_epochs, sample_states):
-        """Test first() method with multiple states."""
-        trajectory = brahe.DTrajectory()
+    epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+    trajectory.add_state(epoch1, state1)
+    assert len(trajectory) == 1
 
-        first_result = trajectory.first()
-        assert first_result is not None
-        first_epoch, first_state = first_result
+    epoch2 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
+    state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
+
+    trajectory.add_state(epoch2, state2)
+    assert len(trajectory) == 2
 
-        assert first_epoch.jd() == sample_epochs[0].jd()
-        np.testing.assert_array_almost_equal(first_state, sample_states[0])
+    np.testing.assert_array_equal(trajectory.state(0), state1)
+    np.testing.assert_array_equal(trajectory.state(1), state2)
 
-    def test_trajectory_last_multiple_states(self, sample_epochs, sample_states):
-        """Test last() method with multiple states."""
-        trajectory = brahe.DTrajectory()
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+def test_dtrajectory_trajectory_add_state_out_of_order():
+    """Rust: test_dtrajectory_trajectory_add_state_out_of_order"""
+    trajectory = DTrajectory(6)
+    epoch1 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
+    state1 = np.array([7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0])
 
-        last_result = trajectory.last()
-        assert last_result is not None
-        last_epoch, last_state = last_result
+    trajectory.add_state(epoch1, state1)
+    assert len(trajectory) == 1
+    assert trajectory.epoch(0) == epoch1
+    np.testing.assert_array_equal(trajectory.state(0), state1)
 
-        assert last_epoch.jd() == sample_epochs[-1].jd()
-        np.testing.assert_array_almost_equal(last_state, sample_states[-1])
+    epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    state2 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    trajectory.add_state(epoch2, state2)
+    assert len(trajectory) == 2
+    assert trajectory.epoch(0) == epoch2
+    np.testing.assert_array_equal(trajectory.state(0), state2)
+    assert trajectory.epoch(1) == epoch1
+    np.testing.assert_array_equal(trajectory.state(1), state1)
 
-    def test_trajectory_first_last_ordering(self, sample_epochs, sample_states):
-        """Test that first() and last() respect chronological ordering."""
-        trajectory = brahe.DTrajectory()
 
-        # Add states in reverse order
-        for epoch, state in zip(reversed(sample_epochs), reversed(sample_states)):
-            trajectory.add_state(epoch, state)
+def test_dtrajectory_trajectory_add_state_dimension_mismatch():
+    """Rust: test_dtrajectory_trajectory_add_state_dimension_mismatch"""
+    trajectory = DTrajectory(6)
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    state = np.array([7000e3, 0.0, 0.0])  # Dimension 3 instead of 6
 
-        # first() should still return the chronologically first state
-        first_result = trajectory.first()
-        assert first_result is not None
-        first_epoch, first_state = first_result
-        assert first_epoch.jd() == sample_epochs[0].jd()  # Earliest epoch
-        np.testing.assert_array_almost_equal(first_state, sample_states[0])
+    with pytest.raises(Exception):
+        trajectory.add_state(epoch, state)
 
-        # last() should still return the chronologically last state
-        last_result = trajectory.last()
-        assert last_result is not None
-        last_epoch, last_state = last_result
-        assert last_epoch.jd() == sample_epochs[-1].jd()  # Latest epoch
-        np.testing.assert_array_almost_equal(last_state, sample_states[-1])
 
+def test_dtrajectory_trajectory_add_state_replace():
+    """Rust: test_dtrajectory_trajectory_add_state_replace"""
+    trajectory = DTrajectory(6)
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
-class TestTrajectoryAdditionalMethods:
-    """Test additional trajectory methods for comprehensive coverage."""
+    trajectory.add_state(epoch, state1)
+    assert len(trajectory) == 1
+    np.testing.assert_array_equal(trajectory.state(0), state1)
 
-    def test_trajectory_set_interpolation_method(self):
-        """Test setting interpolation method."""
-        trajectory = brahe.DTrajectory(brahe.InterpolationMethod.linear)
+    state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
+    trajectory.add_state(epoch, state2)
+    assert len(trajectory) == 1  # Length should remain the same
+    np.testing.assert_array_equal(trajectory.state(0), state2)  # State should be replaced
 
-        # Test initial method
-        assert trajectory.interpolation_method == brahe.InterpolationMethod.linear
 
-        # Test changing method
-        trajectory.set_interpolation_method(brahe.InterpolationMethod.linear)
-        assert trajectory.interpolation_method == brahe.InterpolationMethod.linear
-
-    def test_trajectory_state_at_index(self, sample_epochs, sample_states):
-        """Test state_at_index method."""
-        trajectory = brahe.DTrajectory()
+def test_dtrajectory_trajectory_epoch():
+    """Rust: test_dtrajectory_trajectory_epoch"""
+    traj = create_test_trajectory()
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
+    epoch = traj.epoch(0)
+    assert epoch == Epoch.from_jd(2451545.0, "UTC")
 
-        # Test valid indices
-        state0 = trajectory.state(0)
-        np.testing.assert_array_almost_equal(state0, sample_states[0])
+    epoch = traj.epoch(1)
+    assert epoch == Epoch.from_jd(2451545.1, "UTC")
 
-        state1 = trajectory.state(1)
-        np.testing.assert_array_almost_equal(state1, sample_states[1])
 
-        state2 = trajectory.state(2)
-        np.testing.assert_array_almost_equal(state2, sample_states[2])
+def test_dtrajectory_trajectory_state():
+    """Rust: test_dtrajectory_trajectory_state"""
+    traj = create_test_trajectory()
 
-        # Test invalid index
-        with pytest.raises(Exception):  # Should raise IndexError or similar
-            trajectory.state(10)
+    state = traj.state(0)
+    assert state[0] == pytest.approx(7000e3, abs=1.0)
 
-    def test_trajectory_epoch_at_index(self, sample_epochs, sample_states):
-        """Test epoch_at_index method."""
-        trajectory = brahe.DTrajectory()
+    state = traj.state(1)
+    assert state[0] == pytest.approx(7100e3, abs=1.0)
 
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
 
-        # Test valid indices
-        epoch0 = trajectory.epoch(0)
-        assert epoch0.jd() == sample_epochs[0].jd()
+def test_dtrajectory_trajectory_nearest_state():
+    """Rust: test_dtrajectory_trajectory_nearest_state"""
+    traj = create_test_trajectory()
 
-        epoch1 = trajectory.epoch(1)
-        assert epoch1.jd() == sample_epochs[1].jd()
+    # Halfway between first and second
+    epoch = Epoch.from_jd(2451545.05, "UTC")
+    nearest_epoch, _ = traj.nearest_state(epoch)
+    assert nearest_epoch == Epoch.from_jd(2451545.0, "UTC")
 
-        epoch2 = trajectory.epoch(2)
-        assert epoch2.jd() == sample_epochs[2].jd()
+    # Slightly before the second
+    epoch = Epoch.from_jd(2451545.09, "UTC")
+    nearest_epoch, _ = traj.nearest_state(epoch)
+    assert nearest_epoch == Epoch.from_jd(2451545.1, "UTC")
 
-        # Test invalid index
-        with pytest.raises(Exception):  # Should raise IndexError or similar
-            trajectory.epoch(10)
+    # Slightly after the second
+    epoch = Epoch.from_jd(2451545.11, "UTC")
+    nearest_epoch, _ = traj.nearest_state(epoch)
+    assert nearest_epoch == Epoch.from_jd(2451545.1, "UTC")
 
-    def test_trajectory_start_end_epoch(self, sample_epochs, sample_states):
-        """Test start_epoch and end_epoch properties."""
-        trajectory = brahe.DTrajectory()
+    # Exactly at the third
+    epoch = Epoch.from_jd(2451545.2, "UTC")
+    nearest_epoch, _ = traj.nearest_state(epoch)
+    assert nearest_epoch == Epoch.from_jd(2451545.2, "UTC")
 
-        # Test empty trajectory
-        assert trajectory.start_epoch is None
-        assert trajectory.end_epoch is None
 
-        # Add states
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        # Test populated trajectory
-        start_epoch = trajectory.start_epoch
-        end_epoch = trajectory.end_epoch
-
-        assert start_epoch is not None
-        assert end_epoch is not None
-        assert start_epoch.jd() == sample_epochs[0].jd()
-        assert end_epoch.jd() == sample_epochs[-1].jd()
-
-    def test_trajectory_clear(self, sample_epochs, sample_states):
-        """Test clear method."""
-        trajectory = brahe.DTrajectory()
-
-        # Add states
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        assert len(trajectory) == 3
-
-        # Clear trajectory
-        trajectory.clear()
-        assert len(trajectory) == 0
-        assert trajectory.start_epoch is None
-        assert trajectory.end_epoch is None
-        assert trajectory.first() is None
-        assert trajectory.last() is None
-
-    def test_trajectory_eviction_policies(self):
-        """Test trajectory eviction policies."""
-        trajectory = brahe.DTrajectory()
-
-        # Test max size policy
-        trajectory.set_max_size(2)
-
-        # Add more states than max size
-        epochs = [
-            brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC"),
-            brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
-            brahe.Epoch.from_datetime(2023, 1, 1, 14, 0, 0.0, 0.0, "UTC"),
-        ]
-        states = [
-            np.array([1.0, 2.0, 3.0, 1.0, 2.0, 3.0]),
-            np.array([2.0, 3.0, 4.0, 2.0, 3.0, 4.0]),
-            np.array([3.0, 4.0, 5.0, 3.0, 4.0, 5.0]),
-        ]
-
-        for epoch, state in zip(epochs, states):
-            trajectory.add_state(epoch, state)
-
-        # Should only keep last 2 states
-        assert len(trajectory) == 2
-
-        # Test max age policy (1 hour = 3600 seconds)
-        trajectory = brahe.DTrajectory()
-        trajectory.set_max_age(3600.0)
-
-        # Add states with larger time gaps
-        for epoch, state in zip(epochs, states):
-            trajectory.add_state(epoch, state)
-
-        # Behavior depends on implementation, but should not error
-        assert len(trajectory) >= 0  # At least no error
-
-    def test_trajectory_time_span(self, sample_epochs, sample_states):
-        """Test time_span property."""
-        trajectory = brahe.DTrajectory()
-
-        # Test empty trajectory
-        assert trajectory.time_span is None
-
-        # Add single state
-        trajectory.add_state(sample_epochs[0], sample_states[0])
-        assert trajectory.time_span is None  # Single state has no span
-
-        # Add second state
-        trajectory.add_state(sample_epochs[1], sample_states[1])
-        time_span = trajectory.time_span
-        assert time_span is not None
-        assert time_span > 0
-
-    def test_trajectory_validation_errors(self):
-        """Test trajectory validation error conditions."""
-        # Test adding state to empty trajectory and accessing invalid indices
-        trajectory = brahe.DTrajectory()
-
-        # Test invalid index access
-        with pytest.raises(RuntimeError):
-            trajectory.state(0)
-
-        with pytest.raises(RuntimeError):
-            trajectory.epoch(0)
-
-    def test_trajectory_iterator(self):
-        """Test trajectory iteration functionality."""
-        trajectory = brahe.DTrajectory()
-        epochs = [
-            brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC"),
-            brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
-        ]
-        states = [
-            np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            np.array([2.0, 3.0, 4.0, 5.0, 6.0, 7.0]),
-        ]
-
-        for epoch, state in zip(epochs, states):
-            trajectory.add_state(epoch, state)
-
-        # Test that we can access via indexing (iterator-like behavior)
-        assert len(trajectory) == 2
-        for i in range(len(trajectory)):
-            state = trajectory.state(i)
-            assert state is not None
-
-    def test_trajectory_remove_state_methods(self):
-        """Test state removal functionality."""
-        trajectory = brahe.DTrajectory()
-        epochs = [
-            brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC"),
-            brahe.Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC"),
-            brahe.Epoch.from_datetime(2023, 1, 1, 14, 0, 0.0, 0.0, "UTC"),
-        ]
-        states = [
-            np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            np.array([2.0, 3.0, 4.0, 5.0, 6.0, 7.0]),
-            np.array([3.0, 4.0, 5.0, 6.0, 7.0, 8.0]),
-        ]
-
-        for epoch, state in zip(epochs, states):
-            trajectory.add_state(epoch, state)
-
-        initial_length = len(trajectory)
-        assert initial_length == 3
-
-        # Note: If remove methods are not implemented in Python bindings,
-        # this test documents the expected behavior for when they are added
-        # For now, just verify the trajectory has the expected states
-        assert len(trajectory) == 3
-
-    def test_trajectory_edge_cases(self):
-        """Test trajectory edge cases."""
-        # Test single state trajectory timespan
-        single_trajectory = brahe.DTrajectory()
-        epoch = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-        state = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-        single_trajectory.add_state(epoch, state)
-
-        # Single state should have None or 0 timespan
-        time_span = single_trajectory.time_span
-        assert time_span is None or time_span == 0.0
-
-        # Test empty trajectory timespan
-        empty_trajectory = brahe.DTrajectory()
-        assert empty_trajectory.time_span is None
-
-
-class TestTrajectoryNewMethods:
-    """Test new Trajectory methods that mirror OrbitalTrajectory tests."""
-
-    def test_trajectory_index_before_epoch(self):
-        """Test index_before_epoch method."""
-        # Create trajectory with states at t0, t0+60s, t0+120s
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states with distinguishable values
-        traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        traj.add_state(t0 + 60.0, np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        traj.add_state(t0 + 120.0, np.array([3.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-
-        # Test error case - epoch before all states
-        before_t0 = t0 + (-10.0)
-        with pytest.raises(RuntimeError):
-            traj.index_before_epoch(before_t0)
-
-        # Test finding index before t0+30s (should return index 0)
-        t0_plus_30 = t0 + 30.0
-        idx = traj.index_before_epoch(t0_plus_30)
-        assert idx == 0
-
-        # Test finding index before t0+60s (should return index 1 - exact match)
-        t0_plus_60 = t0 + 60.0
-        idx = traj.index_before_epoch(t0_plus_60)
-        assert idx == 1
-
-        # Test finding index before t0+90s (should return index 1)
-        t0_plus_90 = t0 + 90.0
-        idx = traj.index_before_epoch(t0_plus_90)
-        assert idx == 1
-
-        # Test finding index before t0+120s (should return index 2 - exact match)
-        t0_plus_120 = t0 + 120.0
-        idx = traj.index_before_epoch(t0_plus_120)
-        assert idx == 2
-
-    def test_trajectory_index_after_epoch(self):
-        """Test index_after_epoch method."""
-        # Create trajectory with states at t0, t0+60s, t0+120s
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states with distinguishable values
-        traj.add_state(t0, np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        traj.add_state(t0 + 60.0, np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        traj.add_state(t0 + 120.0, np.array([3.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-
-        # Test error case - epoch after all states
-        after_t0_120 = t0 + 150.0
-        with pytest.raises(RuntimeError):
-            traj.index_after_epoch(after_t0_120)
-
-        # Test finding index after t0-30s (should return index 0)
-        before_t0 = t0 + (-30.0)
-        idx = traj.index_after_epoch(before_t0)
-        assert idx == 0
-
-        # Test finding index after t0 (should return index 0 - exact match)
-        idx = traj.index_after_epoch(t0)
-        assert idx == 0
-
-        # Test finding index after t0+30s (should return index 1)
-        t0_plus_30 = t0 + 30.0
-        idx = traj.index_after_epoch(t0_plus_30)
-        assert idx == 1
-
-        # Test finding index after t0+60s (should return index 1 - exact match)
-        t0_plus_60 = t0 + 60.0
-        idx = traj.index_after_epoch(t0_plus_60)
-        assert idx == 1
-
-        # Test finding index after t0+90s (should return index 2)
-        t0_plus_90 = t0 + 90.0
-        idx = traj.index_after_epoch(t0_plus_90)
-        assert idx == 2
-
-    def test_trajectory_state_before_epoch(self):
-        """Test state_before_epoch method."""
-        # Create trajectory with distinguishable states
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states with distinguishable values
-        state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
-        state2 = np.array([2000.0, 200.0, 20.0, 2.0, 0.2, 0.02])
-        state3 = np.array([3000.0, 300.0, 30.0, 3.0, 0.3, 0.03])
-
-        traj.add_state(t0, state1)
-        traj.add_state(t0 + 60.0, state2)
-        traj.add_state(t0 + 120.0, state3)
-
-        # Test error case - epoch before all states
-        before_t0 = t0 + (-10.0)
-        with pytest.raises(RuntimeError):
-            traj.state_before_epoch(before_t0)
-
-        # Test at t0+30s (should return first state)
-        t0_plus_30 = t0 + 30.0
-        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_30)
-        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
-
-        # Test at exact match t0+60s (should return second state)
-        t0_plus_60 = t0 + 60.0
-        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_60)
-        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
-
-        # Test at t0+90s (should return second state)
-        t0_plus_90 = t0 + 90.0
-        ret_epoch, ret_state = traj.state_before_epoch(t0_plus_90)
-        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
-
-    def test_trajectory_state_after_epoch(self):
-        """Test state_after_epoch method."""
-        # Create trajectory with distinguishable states
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states with distinguishable values
-        state1 = np.array([1000.0, 100.0, 10.0, 1.0, 0.1, 0.01])
-        state2 = np.array([2000.0, 200.0, 20.0, 2.0, 0.2, 0.02])
-        state3 = np.array([3000.0, 300.0, 30.0, 3.0, 0.3, 0.03])
-
-        traj.add_state(t0, state1)
-        traj.add_state(t0 + 60.0, state2)
-        traj.add_state(t0 + 120.0, state3)
-
-        # Test error case - epoch after all states
-        after_t0_120 = t0 + 150.0
-        with pytest.raises(RuntimeError):
-            traj.state_after_epoch(after_t0_120)
-
-        # Test at t0-30s (should return first state)
-        before_t0 = t0 + (-30.0)
-        ret_epoch, ret_state = traj.state_after_epoch(before_t0)
-        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
-
-        # Test at exact match t0 (should return first state)
-        ret_epoch, ret_state = traj.state_after_epoch(t0)
-        assert ret_epoch.jd() == pytest.approx(t0.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(1000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(100.0, rel=1e-9)
-
-        # Test at t0+30s (should return second state)
-        t0_plus_30 = t0 + 30.0
-        t0_plus_60 = t0 + 60.0
-        ret_epoch, ret_state = traj.state_after_epoch(t0_plus_30)
-        assert ret_epoch.jd() == pytest.approx(t0_plus_60.jd(), rel=1e-9)
-        assert ret_state[0] == pytest.approx(2000.0, rel=1e-9)
-        assert ret_state[1] == pytest.approx(200.0, rel=1e-9)
-
-    def test_trajectory_get_interpolation_method(self):
-        """Test get_interpolation_method property."""
-        traj = brahe.DTrajectory()
-
-        # Verify default is Linear
-        assert traj.interpolation_method == brahe.InterpolationMethod.linear
-
-        # Change method using set_interpolation_method() and verify property returns correct value
-        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
-        assert traj.interpolation_method == brahe.InterpolationMethod.linear
-
-        # Change back to linear
-        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
-        assert traj.interpolation_method == brahe.InterpolationMethod.linear
-
-    def test_trajectory_interpolate_linear(self):
-        """Test interpolate_linear method."""
-        # Create trajectory with simple values for easy verification
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states with linearly varying position for simple interpolation verification
-        # At t0: x=7000km, At t0+60s: x=7060km, At t0+120s: x=7120km (1 km/s change)
-        traj.add_state(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-        traj.add_state(t0 + 60.0, np.array([7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-        traj.add_state(t0 + 120.0, np.array([7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-
-        # Test linear interpolation at t0+30s (midpoint between first two states)
-        # Should be halfway between [7000e3, ...] and [7060e3, ...]
-        t_mid = t0 + 30.0
-        state_mid = traj.interpolate_linear(t_mid)
-        assert state_mid[0] == pytest.approx(7030e3, rel=1e-6)
-        assert state_mid[1] == pytest.approx(0.0, abs=1e-6)
-        assert state_mid[2] == pytest.approx(0.0, abs=1e-6)
-        assert state_mid[3] == pytest.approx(0.0, abs=1e-6)
-        assert state_mid[4] == pytest.approx(7.5e3, rel=1e-6)
-        assert state_mid[5] == pytest.approx(0.0, abs=1e-6)
-
-        # Test at exact epochs - should return exact states
-        state_0 = traj.interpolate_linear(t0)
-        assert state_0[0] == pytest.approx(7000e3, rel=1e-6)
-
-        state_60 = traj.interpolate_linear(t0 + 60.0)
-        assert state_60[0] == pytest.approx(7060e3, rel=1e-6)
-
-        # Test at t0+90s (1/2 of the way between t0+60s and t0+120s)
-        # Should be 1/2 of the way: 7060e3 + 0.5 * (7120e3 - 7060e3) = 7090e3
-        t_90 = t0 + 90.0
-        state_90 = traj.interpolate_linear(t_90)
-        assert state_90[0] == pytest.approx(7090e3, rel=1e-6)
-
-    def test_trajectory_interpolate(self):
-        """Test interpolate method."""
-        # Create trajectory
-        t0 = brahe.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
-
-        traj = brahe.DTrajectory()
-
-        # Add states
-        traj.add_state(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-        traj.add_state(t0 + 60.0, np.array([7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-        traj.add_state(t0 + 120.0, np.array([7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
-
-        # Set interpolation method to Linear
-        traj.set_interpolation_method(brahe.InterpolationMethod.linear)
-
-        # Test that interpolate() matches interpolate_linear() for Linear method
-        t_test = t0 + 30.0
-        result_interpolate = traj.interpolate(t_test)
-        result_linear = traj.interpolate_linear(t_test)
-
-        np.testing.assert_array_almost_equal(result_interpolate, result_linear, decimal=6)
-
-
-class TestDTrajectoryIndex:
-    """Test Index trait implementation for DTrajectory."""
-
-    def test_dtrajectory_index(self, sample_epochs, sample_states):
-        """Test positive indexing."""
-        trajectory = brahe.DTrajectory()
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        # Test positive indices
-        state0 = trajectory[0]
-        np.testing.assert_array_almost_equal(state0, sample_states[0])
-
-        state1 = trajectory[1]
-        np.testing.assert_array_almost_equal(state1, sample_states[1])
-
-        state2 = trajectory[2]
-        np.testing.assert_array_almost_equal(state2, sample_states[2])
-
-    def test_dtrajectory_index_negative(self, sample_epochs, sample_states):
-        """Test negative indexing."""
-        trajectory = brahe.DTrajectory()
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        # Test negative indices
-        state_minus1 = trajectory[-1]
-        np.testing.assert_array_almost_equal(state_minus1, sample_states[-1])
-
-        state_minus2 = trajectory[-2]
-        np.testing.assert_array_almost_equal(state_minus2, sample_states[-2])
-
-    def test_dtrajectory_index_out_of_bounds(self, sample_epochs, sample_states):
-        """Test out of bounds indexing."""
-        trajectory = brahe.DTrajectory()
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        # Test out of bounds
-        with pytest.raises(IndexError):
-            _ = trajectory[10]
-
-        with pytest.raises(IndexError):
-            _ = trajectory[-10]
-
-
-class TestDTrajectoryIterator:
-    """Test Iterator trait implementation for DTrajectory."""
-
-    def test_dtrajectory_iterator(self, sample_epochs, sample_states):
-        """Test iteration over trajectory."""
-        trajectory = brahe.DTrajectory()
-        for epoch, state in zip(sample_epochs, sample_states):
-            trajectory.add_state(epoch, state)
-
-        # Test iteration
-        count = 0
-        for epoch, state in trajectory:
-            assert epoch.jd() == sample_epochs[count].jd()
-            np.testing.assert_array_almost_equal(state, sample_states[count])
-            count += 1
-
-        assert count == 3
-
-    def test_dtrajectory_iterator_empty(self):
-        """Test iteration over empty trajectory."""
-        trajectory = brahe.DTrajectory()
-
-        count = 0
-        for _ in trajectory:
-            count += 1
-
-        assert count == 0
+def test_dtrajectory_trajectory_len():
+    """Rust: test_dtrajectory_trajectory_len"""
+    traj = create_test_trajectory()
+    assert len(traj) == 3
+
+    empty_traj = DTrajectory(6)
+    assert len(empty_traj) == 0
+
+
+def test_dtrajectory_trajectory_is_empty():
+    """Rust: test_dtrajectory_trajectory_is_empty"""
+    traj = create_test_trajectory()
+    assert not traj.is_empty()
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.is_empty()
+
+
+def test_dtrajectory_trajectory_start_epoch():
+    """Rust: test_dtrajectory_trajectory_start_epoch"""
+    traj = create_test_trajectory()
+    start = traj.start_epoch()
+    assert start == Epoch.from_jd(2451545.0, "UTC")
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.start_epoch() is None
+
+
+def test_dtrajectory_trajectory_end_epoch():
+    """Rust: test_dtrajectory_trajectory_end_epoch"""
+    traj = create_test_trajectory()
+    end = traj.end_epoch()
+    assert end == Epoch.from_jd(2451545.2, "UTC")
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.end_epoch() is None
+
+
+def test_dtrajectory_trajectory_timespan():
+    """Rust: test_dtrajectory_trajectory_timespan"""
+    traj = create_test_trajectory()
+    timespan = traj.timespan()
+    assert timespan == pytest.approx(0.2 * 86400.0, abs=1.0)
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.timespan() is None
+
+
+def test_dtrajectory_trajectory_first():
+    """Rust: test_dtrajectory_trajectory_first"""
+    traj = create_test_trajectory()
+    epoch, state = traj.first()
+    assert epoch == Epoch.from_jd(2451545.0, "UTC")
+    assert state[0] == pytest.approx(7000e3, abs=1.0)
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.first() is None
+
+
+def test_dtrajectory_trajectory_last():
+    """Rust: test_dtrajectory_trajectory_last"""
+    traj = create_test_trajectory()
+    epoch, state = traj.last()
+    assert epoch == Epoch.from_jd(2451545.2, "UTC")
+    assert state[0] == pytest.approx(7200e3, abs=1.0)
+
+    empty_traj = DTrajectory(6)
+    assert empty_traj.last() is None
+
+
+def test_dtrajectory_trajectory_clear():
+    """Rust: test_dtrajectory_trajectory_clear"""
+    traj = create_test_trajectory()
+    assert len(traj) == 3
+
+    traj.clear()
+    assert len(traj) == 0
+    assert traj.is_empty()
+
+
+def test_dtrajectory_trajectory_remove_state():
+    """Rust: test_dtrajectory_trajectory_remove_state"""
+    traj = create_test_trajectory()
+    epoch = Epoch.from_jd(2451545.1, "UTC")
+
+    removed_state = traj.remove_state(epoch)
+    assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
+    assert len(traj) == 2
+
+
+def test_dtrajectory_trajectory_remove_state_at_index():
+    """Rust: test_dtrajectory_trajectory_remove_state_at_index"""
+    traj = create_test_trajectory()
+
+    removed_epoch, removed_state = traj.remove_state_at_index(1)
+    assert removed_epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
+    assert len(traj) == 2
+
+
+def test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds():
+    """Rust: test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds"""
+    traj = create_test_trajectory()
+
+    with pytest.raises(Exception):
+        traj.remove_state_at_index(10)
+
+
+def test_dtrajectory_trajectory_get():
+    """Rust: test_dtrajectory_trajectory_get"""
+    traj = create_test_trajectory()
+
+    epoch, state = traj.get(1)
+    assert epoch == Epoch.from_jd(2451545.1, "UTC")
+    assert state[0] == pytest.approx(7100e3, abs=1.0)
+
+
+def test_dtrajectory_trajectory_index_before_epoch():
+    """Rust: test_dtrajectory_trajectory_index_before_epoch"""
+    # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test finding index before t0 (should error - before all states)
+    before_t0 = t0 + (-10.0)
+    with pytest.raises(Exception):
+        traj.index_before_epoch(before_t0)
+
+    # Test finding index before t0+30s (should return index 0)
+    t0_plus_30 = t0 + 30.0
+    assert traj.index_before_epoch(t0_plus_30) == 0
+
+    # Test finding index before t0+60s (should return index 1 - exact match)
+    assert traj.index_before_epoch(t1) == 1
+
+    # Test finding index before t0+90s (should return index 1)
+    t0_plus_90 = t0 + 90.0
+    assert traj.index_before_epoch(t0_plus_90) == 1
+
+    # Test finding index before t0+120s (should return index 2 - exact match)
+    assert traj.index_before_epoch(t2) == 2
+
+    # Test finding index before t0+150s (should return index 2)
+    t0_plus_150 = t0 + 150.0
+    assert traj.index_before_epoch(t0_plus_150) == 2
+
+
+def test_dtrajectory_trajectory_index_after_epoch():
+    """Rust: test_dtrajectory_trajectory_index_after_epoch"""
+    # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test finding index after t0-30s (should return index 0)
+    t0_minus_30 = t0 + (-30.0)
+    assert traj.index_after_epoch(t0_minus_30) == 0
+
+    # Test finding index after t0 (should return index 0 - exact match)
+    assert traj.index_after_epoch(t0) == 0
+
+    # Test finding index after t0+30s (should return index 1)
+    t0_plus_30 = t0 + 30.0
+    assert traj.index_after_epoch(t0_plus_30) == 1
+
+    # Test finding index after t0+60s (should return index 1 - exact match)
+    assert traj.index_after_epoch(t1) == 1
+
+    # Test finding index after t0+90s (should return index 2)
+    t0_plus_90 = t0 + 90.0
+    assert traj.index_after_epoch(t0_plus_90) == 2
+
+    # Test finding index after t0+120s (should return index 2 - exact match)
+    assert traj.index_after_epoch(t2) == 2
+
+    # Test finding index after t0+150s (should error - after all states)
+    t0_plus_150 = t0 + 150.0
+    with pytest.raises(Exception):
+        traj.index_after_epoch(t0_plus_150)
+
+
+def test_dtrajectory_trajectory_state_before_epoch():
+    """Rust: test_dtrajectory_trajectory_state_before_epoch"""
+    # Create a DTrajectory with distinguishable states at 3 epochs
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test that state_before_epoch returns correct (epoch, state) tuples
+    t0_plus_30 = t0 + 30.0
+    epoch, state = traj.state_before_epoch(t0_plus_30)
+    assert epoch == t0
+    assert state[0] == 1.0
+
+    t0_plus_90 = t0 + 90.0
+    epoch, state = traj.state_before_epoch(t0_plus_90)
+    assert epoch == t1
+    assert state[0] == 11.0
+
+    # Test error case for epoch before all states
+    before_t0 = t0 + (-10.0)
+    with pytest.raises(Exception):
+        traj.state_before_epoch(before_t0)
+
+    # Test that exact matches return the correct state
+    epoch, state = traj.state_before_epoch(t1)
+    assert epoch == t1
+    assert state[0] == 11.0
+
+
+def test_dtrajectory_trajectory_state_after_epoch():
+    """Rust: test_dtrajectory_trajectory_state_after_epoch"""
+    # Create a DTrajectory with distinguishable states at 3 epochs
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test that state_after_epoch returns correct (epoch, state) tuples
+    t0_plus_30 = t0 + 30.0
+    epoch, state = traj.state_after_epoch(t0_plus_30)
+    assert epoch == t1
+    assert state[0] == 11.0
+
+    t0_plus_90 = t0 + 90.0
+    epoch, state = traj.state_after_epoch(t0_plus_90)
+    assert epoch == t2
+    assert state[0] == 21.0
+
+    # Test error case for epoch after all states
+    after_t2 = t2 + 10.0
+    with pytest.raises(Exception):
+        traj.state_after_epoch(after_t2)
+
+    # Verify that exact matches return the correct state
+    epoch, state = traj.state_after_epoch(t1)
+    assert epoch == t1
+    assert state[0] == 11.0
+
+
+def test_dtrajectory_set_eviction_policy_max_size():
+    """Rust: test_dtrajectory_set_eviction_policy_max_size"""
+    traj = create_test_trajectory()
+    assert len(traj) == 3
+
+    traj.set_eviction_policy_max_size(2)
+    assert len(traj) == 2
+    assert traj.get_eviction_policy() == "KeepCount"
+
+
+def test_dtrajectory_set_eviction_policy_max_age():
+    """Rust: test_dtrajectory_set_eviction_policy_max_age"""
+    traj = create_test_trajectory()
+
+    # Max age slightly larger than 0.1 days
+    traj.set_eviction_policy_max_age(0.11 * 86400.0)
+    assert len(traj) == 2
+    assert traj.get_eviction_policy() == "KeepWithinDuration"
+
+
+# Interpolatable Trait Tests
+
+def test_dtrajectory_interpolatable_get_interpolation_method():
+    """Rust: test_dtrajectory_interpolatable_get_interpolation_method"""
+    # Create a trajectory with default Linear interpolation
+    traj = DTrajectory(6)
+
+    # Test that get_interpolation_method returns Linear
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
+
+    # Set it to different methods and verify get_interpolation_method returns the correct value
+    traj.set_interpolation_method(InterpolationMethod.linear)
+    assert traj.get_interpolation_method() == InterpolationMethod.linear
+
+
+def test_dtrajectory_interpolatable_interpolate_linear():
+    """Rust: test_dtrajectory_interpolatable_interpolate_linear"""
+    # Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+        [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test interpolate_linear at midpoints and exact epochs
+    state_at_t0 = traj.interpolate_linear(t0)
+    assert state_at_t0[0] == pytest.approx(0.0, abs=1e-10)
+    assert state_at_t0[1] == pytest.approx(0.0, abs=1e-10)
+
+    state_at_t1 = traj.interpolate_linear(t1)
+    assert state_at_t1[0] == pytest.approx(60.0, abs=1e-10)
+    assert state_at_t1[1] == pytest.approx(120.0, abs=1e-10)
+
+    state_at_t2 = traj.interpolate_linear(t2)
+    assert state_at_t2[0] == pytest.approx(120.0, abs=1e-10)
+    assert state_at_t2[1] == pytest.approx(240.0, abs=1e-10)
+
+    # Test interpolation at midpoint between t0 and t1
+    t0_plus_30 = t0 + 30.0
+    state_at_midpoint = traj.interpolate_linear(t0_plus_30)
+    assert state_at_midpoint[0] == pytest.approx(30.0, abs=1e-10)
+    assert state_at_midpoint[1] == pytest.approx(60.0, abs=1e-10)
+    assert state_at_midpoint[2] == pytest.approx(90.0, abs=1e-10)
+    assert state_at_midpoint[3] == pytest.approx(120.0, abs=1e-10)
+    assert state_at_midpoint[4] == pytest.approx(150.0, abs=1e-10)
+    assert state_at_midpoint[5] == pytest.approx(180.0, abs=1e-10)
+
+    # Test interpolation at midpoint between t1 and t2
+    t1_plus_30 = t1 + 30.0
+    state_at_midpoint2 = traj.interpolate_linear(t1_plus_30)
+    assert state_at_midpoint2[0] == pytest.approx(90.0, abs=1e-10)
+    assert state_at_midpoint2[1] == pytest.approx(180.0, abs=1e-10)
+    assert state_at_midpoint2[2] == pytest.approx(270.0, abs=1e-10)
+    assert state_at_midpoint2[3] == pytest.approx(360.0, abs=1e-10)
+    assert state_at_midpoint2[4] == pytest.approx(450.0, abs=1e-10)
+    assert state_at_midpoint2[5] == pytest.approx(540.0, abs=1e-10)
+
+    # Test error case: interpolation outside bounds
+    before_t0 = t0 + (-10.0)
+    with pytest.raises(Exception):
+        traj.interpolate_linear(before_t0)
+    after_t2 = t2 + 10.0
+    with pytest.raises(Exception):
+        traj.interpolate_linear(after_t2)
+
+    # Test edge case: single state trajectory
+    single_epoch = [t0]
+    single_state = np.array([[100.0, 200.0, 300.0, 400.0, 500.0, 600.0]])
+    single_traj = DTrajectory.from_data(single_epoch, single_state)
+
+    state_single = single_traj.interpolate_linear(t0)
+    assert state_single[0] == pytest.approx(100.0, abs=1e-10)
+    assert state_single[1] == pytest.approx(200.0, abs=1e-10)
+    assert state_single[2] == pytest.approx(300.0, abs=1e-10)
+    assert state_single[3] == pytest.approx(400.0, abs=1e-10)
+    assert state_single[4] == pytest.approx(500.0, abs=1e-10)
+    assert state_single[5] == pytest.approx(600.0, abs=1e-10)
+
+    # Test error case: interpolation on single state trajectory at different epoch
+    different_epoch = t0 + 10.0
+    with pytest.raises(Exception):
+        single_traj.interpolate_linear(different_epoch)
+
+    # Test error case: interpolation on empty trajectory
+    empty_traj = DTrajectory(6)
+    with pytest.raises(Exception):
+        empty_traj.interpolate_linear(t0)
+
+
+def test_dtrajectory_interpolatable_interpolate():
+    """Rust: test_dtrajectory_interpolatable_interpolate"""
+    # Create a trajectory for testing
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array([
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+        [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+    ])
+
+    traj = DTrajectory.from_data(epochs, states)
+
+    # Test that interpolate() with Linear method returns same result as interpolate_linear()
+    t0_plus_30 = t0 + 30.0
+    state_interpolate = traj.interpolate(t0_plus_30)
+    state_interpolate_linear = traj.interpolate_linear(t0_plus_30)
+
+    for i in range(6):
+        assert state_interpolate[i] == pytest.approx(state_interpolate_linear[i], abs=1e-10)

@@ -437,6 +437,16 @@ impl PySGPPropagator {
         self.propagator.set_output_angle_format(angle_format.format);
     }
 
+    /// Get current state vector
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Current state vector in the propagator's output format
+    #[pyo3(text_signature = "()")]
+    pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.current_state();
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
     /// Compute state at a specific epoch
     ///
     /// Arguments:

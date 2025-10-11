@@ -7,12 +7,13 @@ use std::path::Path;
 
 use nalgebra as na;
 use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, IntoPyArray, ToPyArray};
+use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray, ToPyArray};
 
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::PyType;
 use pyo3::{exceptions, wrap_pyfunction};
+use pyo3::panic::PanicException;
 
 use crate::utils::errors::*;
 use crate::*;
@@ -71,7 +72,10 @@ include!("trajectories.rs");
 #[pymodule(
     name = "_brahe"
 )] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
-pub fn _brahe(module: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Re-export PanicException so Python tests can catch Rust panics
+    module.add("PanicException", py.get_type::<PanicException>())?;
+
     //* Constants *//
     module.add("DEG2RAD", constants::DEG2RAD)?;
     module.add("RAD2DEG", constants::RAD2DEG)?;

@@ -605,8 +605,8 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     numpy.ndarray: The removed state vector
     #[pyo3(text_signature = "(epoch)")]
-    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.remove_state(&epoch.obj) {
+    pub fn remove_epoch<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_epoch(&epoch.obj) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -620,8 +620,8 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
     #[pyo3(text_signature = "(index)")]
-    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.remove_state_at_index(index) {
+    pub fn remove<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove(index) {
             Ok((epoch, state)) => {
                 Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
             }
@@ -1334,8 +1334,8 @@ impl PyTrajectory {
     /// Returns:
     ///     numpy.ndarray: The removed state vector
     #[pyo3(text_signature = "(epoch)")]
-    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.remove_state(&epoch.obj) {
+    pub fn remove_epoch<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_epoch(&epoch.obj) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1349,8 +1349,8 @@ impl PyTrajectory {
     /// Returns:
     ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
     #[pyo3(text_signature = "(index)")]
-    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.remove_state_at_index(index) {
+    pub fn remove<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove(index) {
             Ok((epoch, state)) => {
                 Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
             }
@@ -1881,8 +1881,8 @@ impl PySTrajectory6 {
     /// Returns:
     ///     numpy.ndarray: The removed state vector
     #[pyo3(text_signature = "(epoch)")]
-    pub fn remove_state<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.remove_state(&epoch.obj) {
+    pub fn remove_epoch<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.trajectory.remove_epoch(&epoch.obj) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1896,8 +1896,8 @@ impl PySTrajectory6 {
     /// Returns:
     ///     tuple: (Epoch, numpy.ndarray) of the removed epoch and state
     #[pyo3(text_signature = "(index)")]
-    pub fn remove_state_at_index<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.remove_state_at_index(index) {
+    pub fn remove<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
+        match self.trajectory.remove(index) {
             Ok((epoch, state)) => {
                 Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
             }

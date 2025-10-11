@@ -582,7 +582,7 @@ impl Trajectory for OrbitTrajectory {
         self.states.clear();
     }
 
-    fn remove_state(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
+    fn remove_epoch(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
         // This could be improved with binary search since epochs are sorted
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
@@ -595,7 +595,7 @@ impl Trajectory for OrbitTrajectory {
         }
     }
 
-    fn remove_state_at_index(
+    fn remove(
         &mut self,
         index: usize,
     ) -> Result<(Epoch, Self::StateVector), BraheError> {
@@ -1118,7 +1118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_trajectory_state_at_index() {
+    fn test_orbittrajectory_trajectory_state() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_trajectory_epoch_at_index() {
+    fn test_orbittrajectory_trajectory_epoch() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1394,7 +1394,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_trajectory_remove_state() {
+    fn test_orbittrajectory_trajectory_remove_epoch() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1411,13 +1411,13 @@ mod tests {
             AngleFormat::None,
         );
 
-        let removed_state = traj.remove_state(&epochs[0]).unwrap();
+        let removed_state = traj.remove_epoch(&epochs[0]).unwrap();
         assert_eq!(removed_state[0], 7000e3);
         assert_eq!(traj.len(), 1);
     }
 
     #[test]
-    fn test_orbittrajectory_trajectory_remove_state_at_index() {
+    fn test_orbittrajectory_trajectory_remove() {
         let epochs = vec![
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
@@ -1434,7 +1434,7 @@ mod tests {
             AngleFormat::None,
         );
 
-        let (removed_epoch, removed_state) = traj.remove_state_at_index(0).unwrap();
+        let (removed_epoch, removed_state) = traj.remove(0).unwrap();
         assert_eq!(removed_epoch.jd(), 2451545.0);
         assert_eq!(removed_state[0], 7000e3);
         assert_eq!(traj.len(), 1);

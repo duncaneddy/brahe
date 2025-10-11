@@ -210,8 +210,8 @@ def test_orbittrajectory_trajectory_add():
     assert traj.epoch(2).jd() == 2451545.2
 
 
-def test_orbittrajectory_trajectory_state_at_index():
-    """Rust: test_orbittrajectory_trajectory_state_at_index"""
+def test_orbittrajectory_trajectory_state():
+    """Rust: test_orbittrajectory_trajectory_state"""
     epochs = [
         Epoch.from_jd(2451545.0, "UTC"),
         Epoch.from_jd(2451545.1, "UTC"),
@@ -245,8 +245,8 @@ def test_orbittrajectory_trajectory_state_at_index():
         traj.state(10)
 
 
-def test_orbittrajectory_trajectory_epoch_at_index():
-    """Rust: test_orbittrajectory_trajectory_epoch_at_index"""
+def test_orbittrajectory_trajectory_epoch():
+    """Rust: test_orbittrajectory_trajectory_epoch"""
     epochs = [
         Epoch.from_jd(2451545.0, "UTC"),
         Epoch.from_jd(2451545.1, "UTC"),
@@ -488,8 +488,8 @@ def test_orbittrajectory_trajectory_clear():
     assert len(traj) == 0
 
 
-def test_orbittrajectory_trajectory_remove_state():
-    """Rust: test_orbittrajectory_trajectory_remove_state"""
+def test_orbittrajectory_trajectory_remove_epoch():
+    """Rust: test_orbittrajectory_trajectory_remove_epoch"""
     epochs = [
         Epoch.from_jd(2451545.0, "UTC"),
         Epoch.from_jd(2451545.1, "UTC"),
@@ -506,13 +506,13 @@ def test_orbittrajectory_trajectory_remove_state():
         AngleFormat.none,
     )
 
-    removed_state = traj.remove_state(epochs[0])
+    removed_state = traj.remove_epoch(epochs[0])
     assert removed_state[0] == 7000e3
     assert len(traj) == 1
 
 
-def test_orbittrajectory_trajectory_remove_state_at_index():
-    """Rust: test_orbittrajectory_trajectory_remove_state_at_index"""
+def test_orbittrajectory_trajectory_remove():
+    """Rust: test_orbittrajectory_trajectory_remove"""
     epochs = [
         Epoch.from_jd(2451545.0, "UTC"),
         Epoch.from_jd(2451545.1, "UTC"),
@@ -529,7 +529,7 @@ def test_orbittrajectory_trajectory_remove_state_at_index():
         AngleFormat.none,
     )
 
-    removed_epoch, removed_state = traj.remove_state_at_index(0)
+    removed_epoch, removed_state = traj.remove(0)
     assert removed_epoch.jd() == 2451545.0
     assert removed_state[0] == 7000e3
     assert len(traj) == 1
@@ -920,31 +920,6 @@ def test_orbittrajectory_intoiterator_into_iter_empty():
     for _ in traj:
         count += 1
     assert count == 0
-
-
-def test_orbittrajectory_iterator_iterator_size_hint():
-    """Rust: test_orbittrajectory_iterator_iterator_size_hint"""
-    epochs = [
-        Epoch.from_jd(2451545.0, "UTC"),
-        Epoch.from_jd(2451545.1, "UTC"),
-        Epoch.from_jd(2451545.2, "UTC"),
-    ]
-    states = np.array([
-        7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
-        7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
-    ])
-    traj = OrbitTrajectory.from_orbital_data(
-        epochs,
-        states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
-    )
-
-    # Python's iterator doesn't have size_hint, but we can use len() on trajectory
-    iter_obj = iter(traj)
-    assert len(traj) == 3
 
 
 def test_orbittrajectory_iterator_iterator_len():

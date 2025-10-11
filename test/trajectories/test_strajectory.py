@@ -222,19 +222,6 @@ def test_strajectory_intoiterator_into_iter_empty():
 
     assert count == 0
 
-
-def test_strajectory_iterator_iterator_size_hint():
-    """Rust test: test_strajectory_iterator_iterator_size_hint
-
-    Note: Python doesn't have a direct equivalent to Rust's size_hint().
-    This test verifies the length is correct instead.
-    """
-    trajectory = create_test_trajectory()
-
-    # In Python, we can check the length directly
-    assert len(trajectory) == 3
-
-
 def test_strajectory_iterator_iterator_len():
     """Rust test: test_strajectory_iterator_iterator_len"""
     trajectory = create_test_trajectory()
@@ -470,33 +457,33 @@ def test_strajectory_trajectory_clear():
     assert trajectory.end_epoch is None
 
 
-def test_strajectory_trajectory_remove_state():
-    """Rust test: test_strajectory_trajectory_remove_state"""
+def test_strajectory_trajectory_remove_epoch():
+    """Rust test: test_strajectory_trajectory_remove_epoch"""
     trajectory = create_test_trajectory()
 
     epoch_to_remove = Epoch.from_jd(2451545.1, "UTC")
-    removed_state = trajectory.remove_state(epoch_to_remove)
+    removed_state = trajectory.remove_epoch(epoch_to_remove)
     assert removed_state[0] == 7100e3
     assert len(trajectory) == 2
 
     # Test error case
     non_existent_epoch = Epoch.from_jd(2451546.0, "UTC")
     with pytest.raises(Exception):
-        trajectory.remove_state(non_existent_epoch)
+        trajectory.remove_epoch(non_existent_epoch)
 
 
-def test_strajectory_trajectory_remove_state_at_index():
-    """Rust test: test_strajectory_trajectory_remove_state_at_index"""
+def test_strajectory_trajectory_remove():
+    """Rust test: test_strajectory_trajectory_remove"""
     trajectory = create_test_trajectory()
 
-    removed_epoch, removed_state = trajectory.remove_state_at_index(1)
+    removed_epoch, removed_state = trajectory.remove(1)
     assert removed_epoch.jd() == 2451545.1
     assert removed_state[0] == 7100e3
     assert len(trajectory) == 2
 
     # Test error case
     with pytest.raises(Exception):
-        trajectory.remove_state_at_index(10)
+        trajectory.remove(10)
 
 
 def test_strajectory_trajectory_get():

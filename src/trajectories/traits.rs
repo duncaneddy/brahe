@@ -174,7 +174,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(state)` - The removed state vector
     /// * `Err(BraheError)` - If epoch not found
-    fn remove_state(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>;
+    fn remove_epoch(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>;
 
     /// Remove a state at a specific index
     ///
@@ -184,7 +184,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok((epoch, state))` - The removed epoch and state
     /// * `Err(BraheError)` - If index is out of bounds
-    fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError>;
+    fn remove(&mut self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError>;
 
     /// Get both epoch and state at a specific index
     ///

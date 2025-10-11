@@ -502,7 +502,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         self.states.clear();
     }
 
-    fn remove_state(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
+    fn remove_epoch(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
         // This could be improved with binary search since epochs are sorted
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
@@ -515,7 +515,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         }
     }
 
-    fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError> {
+    fn remove(&mut self, index: usize) -> Result<(Epoch, Self::StateVector), BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -1125,30 +1125,30 @@ mod tests {
     }
 
     #[test]
-    fn test_strajectory_trajectory_remove_state() {
+    fn test_strajectory_trajectory_remove_epoch() {
         let mut trajectory = create_test_trajectory();
 
         let epoch_to_remove = Epoch::from_jd(2451545.1, TimeSystem::UTC);
-        let removed_state = trajectory.remove_state(&epoch_to_remove).unwrap();
+        let removed_state = trajectory.remove_epoch(&epoch_to_remove).unwrap();
         assert_eq!(removed_state[0], 7100e3);
         assert_eq!(trajectory.len(), 2);
 
         // Test error case
         let non_existent_epoch = Epoch::from_jd(2451546.0, TimeSystem::UTC);
-        assert!(trajectory.remove_state(&non_existent_epoch).is_err());
+        assert!(trajectory.remove_epoch(&non_existent_epoch).is_err());
     }
 
     #[test]
-    fn test_strajectory_trajectory_remove_state_at_index() {
+    fn test_strajectory_trajectory_remove() {
         let mut trajectory = create_test_trajectory();
 
-        let (removed_epoch, removed_state) = trajectory.remove_state_at_index(1).unwrap();
+        let (removed_epoch, removed_state) = trajectory.remove(1).unwrap();
         assert_eq!(removed_epoch.jd(), 2451545.1);
         assert_eq!(removed_state[0], 7100e3);
         assert_eq!(trajectory.len(), 2);
 
         // Test error case
-        assert!(trajectory.remove_state_at_index(10).is_err());
+        assert!(trajectory.remove(10).is_err());
     }
 
     #[test]

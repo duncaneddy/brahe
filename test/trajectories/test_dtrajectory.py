@@ -524,32 +524,32 @@ def test_dtrajectory_trajectory_clear():
     assert traj.is_empty()
 
 
-def test_dtrajectory_trajectory_remove_state():
-    """Rust: test_dtrajectory_trajectory_remove_state"""
+def test_dtrajectory_trajectory_remove_epoch():
+    """Rust: test_dtrajectory_trajectory_remove_epoch"""
     traj = create_test_trajectory()
     epoch = Epoch.from_jd(2451545.1, "UTC")
 
-    removed_state = traj.remove_state(epoch)
+    removed_state = traj.remove_epoch(epoch)
     assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
     assert len(traj) == 2
 
 
-def test_dtrajectory_trajectory_remove_state_at_index():
-    """Rust: test_dtrajectory_trajectory_remove_state_at_index"""
+def test_dtrajectory_trajectory_remove():
+    """Rust: test_dtrajectory_trajectory_remove"""
     traj = create_test_trajectory()
 
-    removed_epoch, removed_state = traj.remove_state_at_index(1)
+    removed_epoch, removed_state = traj.remove(1)
     assert removed_epoch == Epoch.from_jd(2451545.1, "UTC")
     assert removed_state[0] == pytest.approx(7100e3, abs=1.0)
     assert len(traj) == 2
 
 
-def test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds():
-    """Rust: test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds"""
+def test_dtrajectory_trajectory_remove_out_of_bounds():
+    """Rust: test_dtrajectory_trajectory_remove_out_of_bounds"""
     traj = create_test_trajectory()
 
     with pytest.raises(Exception):
-        traj.remove_state_at_index(10)
+        traj.remove(10)
 
 
 def test_dtrajectory_trajectory_get():

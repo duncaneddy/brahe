@@ -524,7 +524,7 @@ impl Trajectory for DTrajectory {
         self.states.clear();
     }
 
-    fn remove_state(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+    fn remove_epoch(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
             self.epochs.remove(index);
@@ -536,7 +536,7 @@ impl Trajectory for DTrajectory {
         }
     }
 
-    fn remove_state_at_index(&mut self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
+    fn remove(&mut self, index: usize) -> Result<(Epoch, DVector<f64>), BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -1227,30 +1227,30 @@ mod tests {
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_remove_state() {
+    fn test_dtrajectory_trajectory_remove_epoch() {
         let mut traj = create_test_trajectory();
         let epoch = Epoch::from_jd(2451545.1, TimeSystem::UTC);
 
-        let removed_state = traj.remove_state(&epoch).unwrap();
+        let removed_state = traj.remove_epoch(&epoch).unwrap();
         assert_abs_diff_eq!(removed_state[0], 7100e3, epsilon = 1.0);
         assert_eq!(traj.len(), 2);
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_remove_state_at_index() {
+    fn test_dtrajectory_trajectory_remove() {
         let mut traj = create_test_trajectory();
 
-        let (removed_epoch, removed_state) = traj.remove_state_at_index(1).unwrap();
+        let (removed_epoch, removed_state) = traj.remove(1).unwrap();
         assert_eq!(removed_epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
         assert_abs_diff_eq!(removed_state[0], 7100e3, epsilon = 1.0);
         assert_eq!(traj.len(), 2);
     }
 
     #[test]
-    fn test_dtrajectory_trajectory_remove_state_at_index_out_of_bounds() {
+    fn test_dtrajectory_trajectory_remove_out_of_bounds() {
         let mut traj = create_test_trajectory();
 
-        let result = traj.remove_state_at_index(10);
+        let result = traj.remove(10);
         assert!(result.is_err());
     }
 

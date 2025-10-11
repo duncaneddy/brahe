@@ -91,7 +91,7 @@ impl KeplerianPropagator {
             representation,
             angle_format,
         );
-        trajectory.add_state(epoch, state)?;
+        trajectory.add(epoch, state)?;
 
         let n = mean_motion(internal_elements[0], false);
 
@@ -231,14 +231,14 @@ impl OrbitPropagator for KeplerianPropagator {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + self.step_size;
         let new_state = self.propagate_internal(target_epoch)?;
-        self.trajectory.add_state(target_epoch, new_state)
+        self.trajectory.add(target_epoch, new_state)
     }
 
     fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size;
         let new_state = self.propagate_internal(target_epoch)?;
-        self.trajectory.add_state(target_epoch, new_state)
+        self.trajectory.add(target_epoch, new_state)
     }
 
     fn propagate_steps(&mut self, num_steps: usize) -> Result<(), BraheError> {
@@ -250,7 +250,7 @@ impl OrbitPropagator for KeplerianPropagator {
 
     fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
         let new_state = self.propagate_internal(target_epoch)?;
-        self.trajectory.add_state(target_epoch, new_state)
+        self.trajectory.add(target_epoch, new_state)
     }
 
     fn current_state(&self) -> Vector6<f64> {
@@ -299,7 +299,7 @@ impl OrbitPropagator for KeplerianPropagator {
             self.representation,
             self.angle_format,
         );
-        self.trajectory.add_state(self.initial_epoch, self.initial_state)?;
+        self.trajectory.add(self.initial_epoch, self.initial_state)?;
 
         Ok(())
     }
@@ -344,7 +344,7 @@ impl OrbitPropagator for KeplerianPropagator {
             representation,
             angle_format,
         );
-        self.trajectory.add_state(epoch, state)?;
+        self.trajectory.add(epoch, state)?;
 
         Ok(())
     }

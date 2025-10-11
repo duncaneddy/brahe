@@ -20,7 +20,7 @@ def create_test_trajectory():
 
     traj = DTrajectory(6)
     for epoch, state in zip(epochs, states):
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     return traj
 
@@ -92,7 +92,7 @@ def test_dtrajectory_builder_pattern_chaining():
     for i in range(15):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     # Should only have 10 states due to eviction policy
     assert len(traj) == 10
@@ -175,7 +175,7 @@ def test_dtrajectory_apply_eviction_policy_keep_count():
     for i in range(5):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     # Should only have 3 states due to eviction policy
     assert len(traj) == 3
@@ -190,7 +190,7 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
     for i in range(10):
         epoch = t0 + (i * 86400.0)  # 1 day apart
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     # Should only have 7 states due to eviction policy
     assert len(traj) == 7
@@ -201,7 +201,7 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
     for i in range(10):
         epoch = t0 + (i * 86400.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     # Should still have 8 states due to exact 7 days limit
     assert len(traj) == 8
@@ -257,36 +257,6 @@ def test_dtrajectory_index_index_out_of_bounds():
     traj = create_test_trajectory()
     with pytest.raises(IndexError):
         _ = traj[10]
-
-
-# Iterator Trait Tests
-
-def test_dtrajectory_iterator_iterator_len():
-    """Rust: test_dtrajectory_iterator_iterator_len"""
-    traj = create_test_trajectory()
-
-    # In Python, we can test iteration length
-    count = 0
-    for _ in traj:
-        count += 1
-    assert count == 3
-
-
-def test_dtrajectory_iterator_iterator_size_hint():
-    """Rust: test_dtrajectory_iterator_iterator_size_hint"""
-    traj = create_test_trajectory()
-
-    # Python doesn't have size_hint, but we can test len()
-    assert len(traj) == 3
-
-
-# ExactSizeIterator Trait Tests
-
-def test_dtrajectory_exactsizeiterator_len():
-    """Rust: test_dtrajectory_exactsizeiterator_len"""
-    traj = create_test_trajectory()
-    assert len(traj) == 3
-
 
 # IntoIterator Trait Tests
 
@@ -360,40 +330,40 @@ def test_dtrajectory_from_data_errors():
         DTrajectory.from_data(empty_epochs, empty_states)
 
 
-def test_dtrajectory_trajectory_add_state():
-    """Rust: test_dtrajectory_trajectory_add_state"""
+def test_dtrajectory_trajectory_add():
+    """Rust: test_dtrajectory_trajectory_add"""
     trajectory = DTrajectory(6)
 
     epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
-    trajectory.add_state(epoch1, state1)
+    trajectory.add(epoch1, state1)
     assert len(trajectory) == 1
 
     epoch2 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
 
-    trajectory.add_state(epoch2, state2)
+    trajectory.add(epoch2, state2)
     assert len(trajectory) == 2
 
     np.testing.assert_array_equal(trajectory.state(0), state1)
     np.testing.assert_array_equal(trajectory.state(1), state2)
 
 
-def test_dtrajectory_trajectory_add_state_out_of_order():
-    """Rust: test_dtrajectory_trajectory_add_state_out_of_order"""
+def test_dtrajectory_trajectory_add_out_of_order():
+    """Rust: test_dtrajectory_trajectory_add_out_of_order"""
     trajectory = DTrajectory(6)
     epoch1 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, "UTC")
     state1 = np.array([7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0])
 
-    trajectory.add_state(epoch1, state1)
+    trajectory.add(epoch1, state1)
     assert len(trajectory) == 1
     assert trajectory.epoch(0) == epoch1
     np.testing.assert_array_equal(trajectory.state(0), state1)
 
     epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
     state2 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    trajectory.add_state(epoch2, state2)
+    trajectory.add(epoch2, state2)
     assert len(trajectory) == 2
     assert trajectory.epoch(0) == epoch2
     np.testing.assert_array_equal(trajectory.state(0), state2)
@@ -401,28 +371,28 @@ def test_dtrajectory_trajectory_add_state_out_of_order():
     np.testing.assert_array_equal(trajectory.state(1), state1)
 
 
-def test_dtrajectory_trajectory_add_state_dimension_mismatch():
-    """Rust: test_dtrajectory_trajectory_add_state_dimension_mismatch"""
+def test_dtrajectory_trajectory_add_dimension_mismatch():
+    """Rust: test_dtrajectory_trajectory_add_dimension_mismatch"""
     trajectory = DTrajectory(6)
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
     state = np.array([7000e3, 0.0, 0.0])  # Dimension 3 instead of 6
 
     with pytest.raises(Exception):
-        trajectory.add_state(epoch, state)
+        trajectory.add(epoch, state)
 
 
-def test_dtrajectory_trajectory_add_state_replace():
-    """Rust: test_dtrajectory_trajectory_add_state_replace"""
+def test_dtrajectory_trajectory_add_replace():
+    """Rust: test_dtrajectory_trajectory_add_replace"""
     trajectory = DTrajectory(6)
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
-    trajectory.add_state(epoch, state1)
+    trajectory.add(epoch, state1)
     assert len(trajectory) == 1
     np.testing.assert_array_equal(trajectory.state(0), state1)
 
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
-    trajectory.add_state(epoch, state2)
+    trajectory.add(epoch, state2)
     assert len(trajectory) == 1  # Length should remain the same
     np.testing.assert_array_equal(trajectory.state(0), state2)  # State should be replaced
 

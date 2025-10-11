@@ -214,7 +214,7 @@ impl SGPPropagator {
             OrbitRepresentation::Cartesian,
             AngleFormat::None, // Cartesian representation should use None for angle format
         );
-        trajectory.add_state(initial_epoch, initial_state)?;
+        trajectory.add(initial_epoch, initial_state)?;
 
         Ok(SGPPropagator {
             line1: line1.to_string(),
@@ -314,7 +314,7 @@ impl OrbitPropagator for SGPPropagator {
         )?;
 
         // Add to trajectory
-        self.trajectory.add_state(target_epoch, output_state)?;
+        self.trajectory.add(target_epoch, output_state)?;
         Ok(())
     }
 
@@ -349,7 +349,7 @@ impl OrbitPropagator for SGPPropagator {
     fn reset(&mut self) -> Result<(), BraheError> {
         self.trajectory.clear();
         self.trajectory
-            .add_state(self.initial_epoch, self.initial_state)?;
+            .add(self.initial_epoch, self.initial_state)?;
         Ok(())
     }
 

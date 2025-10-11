@@ -246,7 +246,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;
     module.add_class::<PyOrbitRepresentation>()?;
-    module.add_class::<PyOrbitStateType>()?;
     module.add_class::<PyAngleFormat>()?;
     module.add_class::<PyInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;

@@ -25,9 +25,9 @@ from brahe._brahe import PanicException
 def create_test_trajectory():
     """Helper function to create a test trajectory (mirrors Rust helper)."""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.degrees,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
     )
 
     epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
@@ -48,24 +48,24 @@ def create_test_trajectory():
 def test_orbittrajectory_new():
     """Rust: test_orbittrajectory_new"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert len(traj) == 0
-    assert traj.frame == OrbitFrame.eci
-    assert traj.representation == OrbitRepresentation.cartesian
-    assert traj.angle_format == AngleFormat.none
+    assert traj.frame == OrbitFrame.ECI
+    assert traj.representation == OrbitRepresentation.CARTESIAN
+    assert traj.angle_format == AngleFormat.NONE
 
 
 def test_orbittrajectory_new_invalid_keplerian_none():
     """Rust: test_orbittrajectory_new_invalid_keplerian_none"""
     with pytest.raises(PanicException, match="Angle format must be specified for Keplerian elements"):
         OrbitTrajectory(
-            OrbitFrame.eci,
-            OrbitRepresentation.keplerian,
-            AngleFormat.none,
+            OrbitFrame.ECI,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.NONE,
         )
 
 
@@ -73,9 +73,9 @@ def test_orbittrajectory_new_invalid_cartesian_degrees():
     """Rust: test_orbittrajectory_new_invalid_cartesian_degrees"""
     with pytest.raises(PanicException, match="Angle format should be None for Cartesian representation"):
         OrbitTrajectory(
-            OrbitFrame.eci,
-            OrbitRepresentation.cartesian,
-            AngleFormat.degrees,
+            OrbitFrame.ECI,
+            OrbitRepresentation.CARTESIAN,
+            AngleFormat.DEGREES,
         )
 
 
@@ -83,9 +83,9 @@ def test_orbittrajectory_new_invalid_cartesian_radians():
     """Rust: test_orbittrajectory_new_invalid_cartesian_radians"""
     with pytest.raises(PanicException, match="Angle format should be None for Cartesian representation"):
         OrbitTrajectory(
-            OrbitFrame.eci,
-            OrbitRepresentation.cartesian,
-            AngleFormat.radians,
+            OrbitFrame.ECI,
+            OrbitRepresentation.CARTESIAN,
+            AngleFormat.RADIANS,
         )
 
 
@@ -93,9 +93,9 @@ def test_orbittrajectory_new_invalid_keplerian_ecef_degrees():
     """Rust: test_orbittrajectory_new_invalid_keplerian_ecef_degrees"""
     with pytest.raises(PanicException, match="Keplerian elements should be in ECI frame"):
         OrbitTrajectory(
-            OrbitFrame.ecef,
-            OrbitRepresentation.keplerian,
-            AngleFormat.degrees,
+            OrbitFrame.ECEF,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.DEGREES,
         )
 
 
@@ -103,9 +103,9 @@ def test_orbittrajectory_new_invalid_keplerian_ecef_radians():
     """Rust: test_orbittrajectory_new_invalid_keplerian_ecef_radians"""
     with pytest.raises(PanicException, match="Keplerian elements should be in ECI frame"):
         OrbitTrajectory(
-            OrbitFrame.ecef,
-            OrbitRepresentation.keplerian,
-            AngleFormat.radians,
+            OrbitFrame.ECEF,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.RADIANS,
         )
 
 
@@ -113,9 +113,9 @@ def test_orbittrajectory_new_invalid_keplerian_ecef_none():
     """Rust: test_orbittrajectory_new_invalid_keplerian_ecef_none"""
     with pytest.raises(PanicException, match="Angle format must be specified for Keplerian elements"):
         OrbitTrajectory(
-            OrbitFrame.ecef,
-            OrbitRepresentation.keplerian,
-            AngleFormat.none,
+            OrbitFrame.ECEF,
+            OrbitRepresentation.KEPLERIAN,
+            AngleFormat.NONE,
         )
 
 
@@ -140,9 +140,9 @@ def test_orbittrajectory_to_matrix():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Convert to matrix
@@ -185,9 +185,9 @@ def test_orbittrajectory_to_matrix():
 def test_orbittrajectory_trajectory_add():
     """Rust: test_orbittrajectory_trajectory_add"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Add states in order
@@ -225,9 +225,9 @@ def test_orbittrajectory_trajectory_state():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test valid indices
@@ -260,9 +260,9 @@ def test_orbittrajectory_trajectory_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test valid indices
@@ -295,9 +295,9 @@ def test_orbittrajectory_trajectory_nearest_state():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test before first epoch
@@ -334,9 +334,9 @@ def test_orbittrajectory_trajectory_nearest_state():
 def test_orbittrajectory_trajectory_len():
     """Rust: test_orbittrajectory_trajectory_len"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert len(traj) == 0
@@ -353,9 +353,9 @@ def test_orbittrajectory_trajectory_len():
 def test_orbittrajectory_trajectory_is_empty():
     """Rust: test_orbittrajectory_trajectory_is_empty"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert traj.is_empty()
@@ -370,9 +370,9 @@ def test_orbittrajectory_trajectory_is_empty():
 def test_orbittrajectory_trajectory_start_epoch():
     """Rust: test_orbittrajectory_trajectory_start_epoch"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert traj.start_epoch() is None
@@ -387,9 +387,9 @@ def test_orbittrajectory_trajectory_start_epoch():
 def test_orbittrajectory_trajectory_end_epoch():
     """Rust: test_orbittrajectory_trajectory_end_epoch"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert traj.end_epoch() is None
@@ -416,9 +416,9 @@ def test_orbittrajectory_trajectory_timespan():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     timespan = traj.timespan()
@@ -438,9 +438,9 @@ def test_orbittrajectory_trajectory_first():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     first_epoch, first_state = traj.first()
@@ -461,9 +461,9 @@ def test_orbittrajectory_trajectory_last():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     last_epoch, last_state = traj.last()
@@ -474,9 +474,9 @@ def test_orbittrajectory_trajectory_last():
 def test_orbittrajectory_trajectory_clear():
     """Rust: test_orbittrajectory_trajectory_clear"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     epoch = Epoch.from_jd(2451545.0, "UTC")
@@ -501,9 +501,9 @@ def test_orbittrajectory_trajectory_remove_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     removed_state = traj.remove_epoch(epochs[0])
@@ -524,9 +524,9 @@ def test_orbittrajectory_trajectory_remove():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     removed_epoch, removed_state = traj.remove(0)
@@ -548,9 +548,9 @@ def test_orbittrajectory_trajectory_get():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     epoch, state = traj.get(1)
@@ -574,9 +574,9 @@ def test_orbittrajectory_trajectory_index_before_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test finding index before t0 (should error - before all states)
@@ -619,9 +619,9 @@ def test_orbittrajectory_trajectory_index_after_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test finding index after t0-30s (should return index 0)
@@ -667,9 +667,9 @@ def test_orbittrajectory_trajectory_state_before_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test that state_before_epoch returns correct (epoch, state) tuples
@@ -710,9 +710,9 @@ def test_orbittrajectory_trajectory_state_after_epoch():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test that state_after_epoch returns correct (epoch, state) tuples
@@ -740,9 +740,9 @@ def test_orbittrajectory_trajectory_state_after_epoch():
 def test_orbittrajectory_trajectory_set_eviction_policy_max_size():
     """Rust: test_orbittrajectory_trajectory_set_eviction_policy_max_size"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Add 5 states
@@ -779,9 +779,9 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_size():
 def test_orbittrajectory_trajectory_set_eviction_policy_max_age():
     """Rust: test_orbittrajectory_trajectory_set_eviction_policy_max_age"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Add states spanning 5 minutes
@@ -819,9 +819,9 @@ def test_orbittrajectory_default():
     traj = OrbitTrajectory.default()
     assert len(traj) == 0
     assert traj.is_empty()
-    assert traj.frame == OrbitFrame.eci
-    assert traj.representation == OrbitRepresentation.cartesian
-    assert traj.angle_format == AngleFormat.none
+    assert traj.frame == OrbitFrame.ECI
+    assert traj.representation == OrbitRepresentation.CARTESIAN
+    assert traj.angle_format == AngleFormat.NONE
 
 
 def test_orbittrajectory_index_index():
@@ -839,9 +839,9 @@ def test_orbittrajectory_index_index():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test indexing returns state vectors
@@ -862,9 +862,9 @@ def test_orbittrajectory_index_index_out_of_bounds():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     with pytest.raises(Exception):
@@ -886,9 +886,9 @@ def test_orbittrajectory_intoiterator_into_iter():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     count = 0
@@ -911,9 +911,9 @@ def test_orbittrajectory_intoiterator_into_iter():
 def test_orbittrajectory_intoiterator_into_iter_empty():
     """Rust: test_orbittrajectory_intoiterator_into_iter_empty"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     count = 0
@@ -937,9 +937,9 @@ def test_orbittrajectory_iterator_iterator_len():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     iter_obj = iter(traj)
@@ -949,31 +949,31 @@ def test_orbittrajectory_iterator_iterator_len():
 def test_orbittrajectory_interpolatable_set_interpolation_method():
     """Rust: test_orbittrajectory_interpolatable_set_interpolation_method"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
-    traj.set_interpolation_method(InterpolationMethod.linear)
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
 def test_orbittrajectory_interpolatable_get_interpolation_method():
     """Rust: test_orbittrajectory_interpolatable_get_interpolation_method"""
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test that get_interpolation_method returns Linear
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
     # Set it to different methods and verify get_interpolation_method returns the correct value
-    traj.set_interpolation_method(InterpolationMethod.linear)
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
 def test_orbittrajectory_interpolatable_interpolate_linear():
@@ -992,9 +992,9 @@ def test_orbittrajectory_interpolatable_interpolate_linear():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test interpolate_linear at midpoints and exact epochs
@@ -1030,9 +1030,9 @@ def test_orbittrajectory_interpolatable_interpolate_linear():
     single_traj = OrbitTrajectory.from_orbital_data(
         single_epoch,
         single_state,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     state_single = single_traj.interpolate_linear(t0)
@@ -1056,9 +1056,9 @@ def test_orbittrajectory_interpolatable_interpolate():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     # Test that interpolate() with Linear method returns same result as interpolate_linear()
@@ -1084,14 +1084,14 @@ def test_orbittrajectory_orbitaltrajectory_from_orbital_data():
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     assert len(traj) == 2
-    assert traj.frame == OrbitFrame.eci
-    assert traj.representation == OrbitRepresentation.cartesian
+    assert traj.frame == OrbitFrame.ECI
+    assert traj.representation == OrbitRepresentation.CARTESIAN
 
 
 def test_orbittrajectory_orbitaltrajectory_to_eci():
@@ -1105,18 +1105,18 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
 
     # No transformation needed if already in ECI
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, "UTC")
     traj.add(epoch, state_base)
 
     eci_traj = traj.to_eci()
-    assert eci_traj.frame == OrbitFrame.eci
-    assert eci_traj.representation == OrbitRepresentation.cartesian
-    assert eci_traj.angle_format == AngleFormat.none
+    assert eci_traj.frame == OrbitFrame.ECI
+    assert eci_traj.representation == OrbitRepresentation.CARTESIAN
+    assert eci_traj.angle_format == AngleFormat.NONE
     assert len(eci_traj) == 1
     epoch_out, state_out = eci_traj.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1125,17 +1125,17 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
 
     # Convert Keplerian to ECI - Radians
     kep_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.radians,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
     )
     kep_state_rad = state_cartesian_to_osculating(state_base, False)
     kep_traj.add(epoch, kep_state_rad)
 
     eci_from_kep_rad = kep_traj.to_eci()
-    assert eci_from_kep_rad.frame == OrbitFrame.eci
-    assert eci_from_kep_rad.representation == OrbitRepresentation.cartesian
-    assert eci_from_kep_rad.angle_format == AngleFormat.none
+    assert eci_from_kep_rad.frame == OrbitFrame.ECI
+    assert eci_from_kep_rad.representation == OrbitRepresentation.CARTESIAN
+    assert eci_from_kep_rad.angle_format == AngleFormat.NONE
     assert len(eci_from_kep_rad) == 1
     epoch_out, state_out = eci_from_kep_rad.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1144,16 +1144,16 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
 
     # Convert Keplerian to ECI - Degrees
     kep_traj_deg = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.degrees,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
     )
     kep_state_deg = state_cartesian_to_osculating(state_base, True)
     kep_traj_deg.add(epoch, kep_state_deg)
     eci_from_kep_deg = kep_traj_deg.to_eci()
-    assert eci_from_kep_deg.frame == OrbitFrame.eci
-    assert eci_from_kep_deg.representation == OrbitRepresentation.cartesian
-    assert eci_from_kep_deg.angle_format == AngleFormat.none
+    assert eci_from_kep_deg.frame == OrbitFrame.ECI
+    assert eci_from_kep_deg.representation == OrbitRepresentation.CARTESIAN
+    assert eci_from_kep_deg.angle_format == AngleFormat.NONE
     assert len(eci_from_kep_deg) == 1
     epoch_out, state_out = eci_from_kep_deg.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1162,16 +1162,16 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
 
     # Convert ECEF to ECI
     ecef_traj = OrbitTrajectory(
-        OrbitFrame.ecef,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECEF,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     ecef_state = state_eci_to_ecef(epoch, state_base)
     ecef_traj.add(epoch, ecef_state)
     eci_from_ecef = ecef_traj.to_eci()
-    assert eci_from_ecef.frame == OrbitFrame.eci
-    assert eci_from_ecef.representation == OrbitRepresentation.cartesian
-    assert eci_from_ecef.angle_format == AngleFormat.none
+    assert eci_from_ecef.frame == OrbitFrame.ECI
+    assert eci_from_ecef.representation == OrbitRepresentation.CARTESIAN
+    assert eci_from_ecef.angle_format == AngleFormat.NONE
     assert len(eci_from_ecef) == 1
     epoch_out, state_out = eci_from_ecef.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1194,16 +1194,16 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
 
     # No transformation needed if already in ECEF
     traj = OrbitTrajectory(
-        OrbitFrame.ecef,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECEF,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
 
     traj.add(epoch, state_base)
     ecef_traj = traj.to_ecef()
-    assert ecef_traj.frame == OrbitFrame.ecef
-    assert ecef_traj.representation == OrbitRepresentation.cartesian
-    assert ecef_traj.angle_format == AngleFormat.none
+    assert ecef_traj.frame == OrbitFrame.ECEF
+    assert ecef_traj.representation == OrbitRepresentation.CARTESIAN
+    assert ecef_traj.angle_format == AngleFormat.NONE
     assert len(ecef_traj) == 1
     epoch_out, state_out = ecef_traj.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1212,16 +1212,16 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
 
     # Convert ECI to ECEF
     eci_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     eci_state = state_ecef_to_eci(epoch, state_base)
     eci_traj.add(epoch, eci_state)
     ecef_from_eci = eci_traj.to_ecef()
-    assert ecef_from_eci.frame == OrbitFrame.ecef
-    assert ecef_from_eci.representation == OrbitRepresentation.cartesian
-    assert ecef_from_eci.angle_format == AngleFormat.none
+    assert ecef_from_eci.frame == OrbitFrame.ECEF
+    assert ecef_from_eci.representation == OrbitRepresentation.CARTESIAN
+    assert ecef_from_eci.angle_format == AngleFormat.NONE
     assert len(ecef_from_eci) == 1
     epoch_out, state_out = ecef_from_eci.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1230,16 +1230,16 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
 
     # Convert Keplerian to ECEF - Radians
     kep_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.radians,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
     )
     kep_state_rad = state_cartesian_to_osculating(eci_state, False)
     kep_traj.add(epoch, kep_state_rad)
     ecef_from_kep_rad = kep_traj.to_ecef()
-    assert ecef_from_kep_rad.frame == OrbitFrame.ecef
-    assert ecef_from_kep_rad.representation == OrbitRepresentation.cartesian
-    assert ecef_from_kep_rad.angle_format == AngleFormat.none
+    assert ecef_from_kep_rad.frame == OrbitFrame.ECEF
+    assert ecef_from_kep_rad.representation == OrbitRepresentation.CARTESIAN
+    assert ecef_from_kep_rad.angle_format == AngleFormat.NONE
     assert len(ecef_from_kep_rad) == 1
     epoch_out, state_out = ecef_from_kep_rad.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1248,16 +1248,16 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
 
     # Convert Keplerian to ECEF - Degrees
     kep_traj_deg = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.degrees,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
     )
     kep_state_deg = state_cartesian_to_osculating(eci_state, True)
     kep_traj_deg.add(epoch, kep_state_deg)
     ecef_from_kep_deg = kep_traj_deg.to_ecef()
-    assert ecef_from_kep_deg.frame == OrbitFrame.ecef
-    assert ecef_from_kep_deg.representation == OrbitRepresentation.cartesian
-    assert ecef_from_kep_deg.angle_format == AngleFormat.none
+    assert ecef_from_kep_deg.frame == OrbitFrame.ECEF
+    assert ecef_from_kep_deg.representation == OrbitRepresentation.CARTESIAN
+    assert ecef_from_kep_deg.angle_format == AngleFormat.NONE
     assert len(ecef_from_kep_deg) == 1
     epoch_out, state_out = ecef_from_kep_deg.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1275,15 +1275,15 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
 
     # No transformation needed if already in Keplerian Degrees
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.degrees,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
     )
     traj.add(epoch, state_kep_deg)
-    kep_traj = traj.to_keplerian(AngleFormat.degrees)
-    assert kep_traj.frame == OrbitFrame.eci
-    assert kep_traj.representation == OrbitRepresentation.keplerian
-    assert kep_traj.angle_format == AngleFormat.degrees
+    kep_traj = traj.to_keplerian(AngleFormat.DEGREES)
+    assert kep_traj.frame == OrbitFrame.ECI
+    assert kep_traj.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_traj.angle_format == AngleFormat.DEGREES
     assert len(kep_traj) == 1
     epoch_out, state_out = kep_traj.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1292,18 +1292,18 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
 
     # Convert Keplerian Radians to Keplerian Degrees
     kep_rad_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.radians,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
     )
     state_kep_rad = state_kep_deg.copy()
     for i in range(2, 6):
         state_kep_rad[i] = state_kep_deg[i] * DEG2RAD
     kep_rad_traj.add(epoch, state_kep_rad)
-    kep_from_rad = kep_rad_traj.to_keplerian(AngleFormat.degrees)
-    assert kep_from_rad.frame == OrbitFrame.eci
-    assert kep_from_rad.representation == OrbitRepresentation.keplerian
-    assert kep_from_rad.angle_format == AngleFormat.degrees
+    kep_from_rad = kep_rad_traj.to_keplerian(AngleFormat.DEGREES)
+    assert kep_from_rad.frame == OrbitFrame.ECI
+    assert kep_from_rad.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_rad.angle_format == AngleFormat.DEGREES
     assert len(kep_from_rad) == 1
     epoch_out, state_out = kep_from_rad.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1312,16 +1312,16 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
 
     # Convert ECI to Keplerian Degrees
     cart_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     cart_state = state_osculating_to_cartesian(state_kep_deg, True)
     cart_traj.add(epoch, cart_state)
-    kep_from_cart = cart_traj.to_keplerian(AngleFormat.degrees)
-    assert kep_from_cart.frame == OrbitFrame.eci
-    assert kep_from_cart.representation == OrbitRepresentation.keplerian
-    assert kep_from_cart.angle_format == AngleFormat.degrees
+    kep_from_cart = cart_traj.to_keplerian(AngleFormat.DEGREES)
+    assert kep_from_cart.frame == OrbitFrame.ECI
+    assert kep_from_cart.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_cart.angle_format == AngleFormat.DEGREES
     assert len(kep_from_cart) == 1
     epoch_out, state_out = kep_from_cart.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1330,16 +1330,16 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
 
     # Convert ECEF to Keplerian Degrees
     ecef_traj = OrbitTrajectory(
-        OrbitFrame.ecef,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECEF,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     ecef_state = state_eci_to_ecef(epoch, cart_state)
     ecef_traj.add(epoch, ecef_state)
-    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.degrees)
-    assert kep_from_ecef.frame == OrbitFrame.eci
-    assert kep_from_ecef.representation == OrbitRepresentation.keplerian
-    assert kep_from_ecef.angle_format == AngleFormat.degrees
+    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.DEGREES)
+    assert kep_from_ecef.frame == OrbitFrame.ECI
+    assert kep_from_ecef.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_ecef.angle_format == AngleFormat.DEGREES
     assert len(kep_from_ecef) == 1
     epoch_out, state_out = kep_from_ecef.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1360,15 +1360,15 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
 
     # No transformation needed if already in Keplerian Radians
     traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.radians,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
     )
     traj.add(epoch, state_kep_rad)
-    kep_traj = traj.to_keplerian(AngleFormat.radians)
-    assert kep_traj.frame == OrbitFrame.eci
-    assert kep_traj.representation == OrbitRepresentation.keplerian
-    assert kep_traj.angle_format == AngleFormat.radians
+    kep_traj = traj.to_keplerian(AngleFormat.RADIANS)
+    assert kep_traj.frame == OrbitFrame.ECI
+    assert kep_traj.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_traj.angle_format == AngleFormat.RADIANS
     assert len(kep_traj) == 1
     epoch_out, state_out = kep_traj.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1377,15 +1377,15 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
 
     # Convert Keplerian Degrees to Keplerian Radians
     kep_deg_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.keplerian,
-        AngleFormat.degrees,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
     )
     kep_deg_traj.add(epoch, state_kep_deg)
-    kep_from_deg = kep_deg_traj.to_keplerian(AngleFormat.radians)
-    assert kep_from_deg.frame == OrbitFrame.eci
-    assert kep_from_deg.representation == OrbitRepresentation.keplerian
-    assert kep_from_deg.angle_format == AngleFormat.radians
+    kep_from_deg = kep_deg_traj.to_keplerian(AngleFormat.RADIANS)
+    assert kep_from_deg.frame == OrbitFrame.ECI
+    assert kep_from_deg.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_deg.angle_format == AngleFormat.RADIANS
     assert len(kep_from_deg) == 1
     epoch_out, state_out = kep_from_deg.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1394,16 +1394,16 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
 
     # Convert ECI to Keplerian Radians
     cart_traj = OrbitTrajectory(
-        OrbitFrame.eci,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     cart_state = state_osculating_to_cartesian(state_kep_deg, True)
     cart_traj.add(epoch, cart_state)
-    kep_from_cart = cart_traj.to_keplerian(AngleFormat.radians)
-    assert kep_from_cart.frame == OrbitFrame.eci
-    assert kep_from_cart.representation == OrbitRepresentation.keplerian
-    assert kep_from_cart.angle_format == AngleFormat.radians
+    kep_from_cart = cart_traj.to_keplerian(AngleFormat.RADIANS)
+    assert kep_from_cart.frame == OrbitFrame.ECI
+    assert kep_from_cart.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_cart.angle_format == AngleFormat.RADIANS
     assert len(kep_from_cart) == 1
     epoch_out, state_out = kep_from_cart.get(0)
     assert epoch_out.jd() == epoch.jd()
@@ -1412,16 +1412,16 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
 
     # Convert ECEF to Keplerian Radians
     ecef_traj = OrbitTrajectory(
-        OrbitFrame.ecef,
-        OrbitRepresentation.cartesian,
-        AngleFormat.none,
+        OrbitFrame.ECEF,
+        OrbitRepresentation.CARTESIAN,
+        AngleFormat.NONE,
     )
     ecef_state = state_eci_to_ecef(epoch, cart_state)
     ecef_traj.add(epoch, ecef_state)
-    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.radians)
-    assert kep_from_ecef.frame == OrbitFrame.eci
-    assert kep_from_ecef.representation == OrbitRepresentation.keplerian
-    assert kep_from_ecef.angle_format == AngleFormat.radians
+    kep_from_ecef = ecef_traj.to_keplerian(AngleFormat.RADIANS)
+    assert kep_from_ecef.frame == OrbitFrame.ECI
+    assert kep_from_ecef.representation == OrbitRepresentation.KEPLERIAN
+    assert kep_from_ecef.angle_format == AngleFormat.RADIANS
     assert len(kep_from_ecef) == 1
     epoch_out, state_out = kep_from_ecef.get(0)
     assert epoch_out.jd() == epoch.jd()

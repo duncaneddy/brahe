@@ -1,5 +1,81 @@
 /// Python bindings for the new trajectory architecture
 
+
+/// Python wrapper for AngleFormat enum
+#[pyclass]
+#[pyo3(name = "AngleFormat")]
+#[derive(Clone)]
+pub struct PyAngleFormat {
+    pub(crate) format: trajectories::AngleFormat,
+}
+
+#[pymethods]
+impl PyAngleFormat {
+    #[classattr]
+    fn RADIANS() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::Radians }
+    }
+
+    #[classattr]
+    fn DEGREES() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::Degrees }
+    }
+
+    #[classattr]
+    fn NONE() -> Self {
+        PyAngleFormat { format: trajectories::AngleFormat::None }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.format)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AngleFormat.{:?}", self.format)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.format == other.format),
+            CompareOp::Ne => Ok(self.format != other.format),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
+/// Python wrapper for InterpolationMethod enum
+#[pyclass]
+#[pyo3(name = "InterpolationMethod")]
+#[derive(Clone)]
+pub struct PyInterpolationMethod {
+    pub(crate) method: trajectories::InterpolationMethod,
+}
+
+#[pymethods]
+impl PyInterpolationMethod {
+    #[classattr]
+    fn LINEAR() -> Self {
+        PyInterpolationMethod { method: trajectories::InterpolationMethod::Linear }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.method)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("InterpolationMethod.{:?}", self.method)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.method == other.method),
+            CompareOp::Ne => Ok(self.method != other.method),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
+
 /// Python wrapper for OrbitFrame enum
 #[pyclass]
 #[pyo3(name = "OrbitFrame")]
@@ -12,13 +88,13 @@ pub struct PyOrbitFrame {
 impl PyOrbitFrame {
     /// ECI frame
     #[classattr]
-    fn eci() -> Self {
+    fn ECI() -> Self {
         PyOrbitFrame { frame: trajectories::OrbitFrame::ECI }
     }
 
     /// ECEF frame
     #[classattr]
-    fn ecef() -> Self {
+    fn ECEF() -> Self {
         PyOrbitFrame { frame: trajectories::OrbitFrame::ECEF }
     }
 
@@ -62,13 +138,13 @@ pub struct PyOrbitRepresentation {
 impl PyOrbitRepresentation {
     /// Cartesian representation
     #[classattr]
-    fn cartesian() -> Self {
+    fn CARTESIAN() -> Self {
         PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Cartesian }
     }
 
     /// Keplerian representation
     #[classattr]
-    fn keplerian() -> Self {
+    fn KEPLERIAN() -> Self {
         PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Keplerian }
     }
 
@@ -766,112 +842,6 @@ impl PyOrbitalTrajectoryIterator {
         }
     }
 }
-
-/// Legacy trajectory classes for backward compatibility
-
-/// Python wrapper for OrbitStateType enum (legacy)
-#[pyclass]
-#[pyo3(name = "OrbitStateType")]
-#[derive(Clone)]
-pub struct PyOrbitStateType {
-    state_type: String,
-}
-
-#[pymethods]
-impl PyOrbitStateType {
-    #[classattr]
-    fn cartesian() -> Self {
-        PyOrbitStateType { state_type: "Cartesian".to_string() }
-    }
-
-    #[classattr]
-    fn keplerian() -> Self {
-        PyOrbitStateType { state_type: "Keplerian".to_string() }
-    }
-
-    fn __str__(&self) -> String {
-        self.state_type.clone()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("OrbitStateType.{}", self.state_type)
-    }
-}
-
-/// Python wrapper for AngleFormat enum
-#[pyclass]
-#[pyo3(name = "AngleFormat")]
-#[derive(Clone)]
-pub struct PyAngleFormat {
-    pub(crate) format: trajectories::AngleFormat,
-}
-
-#[pymethods]
-impl PyAngleFormat {
-    #[classattr]
-    fn radians() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::Radians }
-    }
-
-    #[classattr]
-    fn degrees() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::Degrees }
-    }
-
-    #[classattr]
-    fn none() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::None }
-    }
-
-    fn __str__(&self) -> String {
-        format!("{:?}", self.format)
-    }
-
-    fn __repr__(&self) -> String {
-        format!("AngleFormat.{:?}", self.format)
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.format == other.format),
-            CompareOp::Ne => Ok(self.format != other.format),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
-        }
-    }
-}
-
-/// Python wrapper for InterpolationMethod enum
-#[pyclass]
-#[pyo3(name = "InterpolationMethod")]
-#[derive(Clone)]
-pub struct PyInterpolationMethod {
-    pub(crate) method: trajectories::InterpolationMethod,
-}
-
-#[pymethods]
-impl PyInterpolationMethod {
-    #[classattr]
-    fn linear() -> Self {
-        PyInterpolationMethod { method: trajectories::InterpolationMethod::Linear }
-    }
-
-    fn __str__(&self) -> String {
-        format!("{:?}", self.method)
-    }
-
-    fn __repr__(&self) -> String {
-        format!("InterpolationMethod.{:?}", self.method)
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.method == other.method),
-            CompareOp::Ne => Ok(self.method != other.method),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
-        }
-    }
-}
-
 
 /// Python wrapper for dynamic Trajectory class
 #[pyclass]

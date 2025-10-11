@@ -56,9 +56,9 @@ def test_dtrajectory_new_with_zero_dimension():
 
 def test_dtrajectory_with_interpolation_method():
     """Rust: test_dtrajectory_with_interpolation_method"""
-    traj = DTrajectory(12).with_interpolation_method(InterpolationMethod.linear)
+    traj = DTrajectory(12).with_interpolation_method(InterpolationMethod.LINEAR)
     assert traj.dimension() == 12
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
 def test_dtrajectory_with_eviction_policy_max_size_builder():
@@ -82,9 +82,9 @@ def test_dtrajectory_with_eviction_policy_max_age_builder():
 def test_dtrajectory_builder_pattern_chaining():
     """Rust: test_dtrajectory_builder_pattern_chaining"""
     # Test chaining multiple builder methods
-    traj = DTrajectory(6).with_interpolation_method(InterpolationMethod.linear).with_eviction_policy_max_size(10)
+    traj = DTrajectory(6).with_interpolation_method(InterpolationMethod.LINEAR).with_eviction_policy_max_size(10)
 
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
     assert traj.get_eviction_policy() == "KeepCount"
 
     # Add states and verify eviction policy works
@@ -110,10 +110,10 @@ def test_dtrajectory_dimension():
 def test_dtrajectory_interpolatable_set_interpolation_method():
     """Rust: test_dtrajectory_interpolatable_set_interpolation_method"""
     traj = DTrajectory(6)
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
-    traj.set_interpolation_method(InterpolationMethod.linear)
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
 def test_dtrajectory_to_matrix():
@@ -216,7 +216,7 @@ def test_dtrajectory_default():
     assert traj.dimension() == 6
     assert len(traj) == 0
     assert traj.is_empty()
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
     assert traj.get_eviction_policy() == "None"
 
 
@@ -748,11 +748,11 @@ def test_dtrajectory_interpolatable_get_interpolation_method():
     traj = DTrajectory(6)
 
     # Test that get_interpolation_method returns Linear
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
     # Set it to different methods and verify get_interpolation_method returns the correct value
-    traj.set_interpolation_method(InterpolationMethod.linear)
-    assert traj.get_interpolation_method() == InterpolationMethod.linear
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
 def test_dtrajectory_interpolatable_interpolate_linear():

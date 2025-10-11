@@ -67,7 +67,7 @@ class TestSGPPropagatorMethods:
         """Test setting output frame to ECEF."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_frame(brahe.OrbitFrame.ecef)
+        prop.set_output_frame(brahe.OrbitFrame.ECEF)
         prop.step()
 
         # Verify it doesn't error
@@ -77,7 +77,7 @@ class TestSGPPropagatorMethods:
         """Test setting output angle format."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_angle_format(brahe.AngleFormat.degrees)
+        prop.set_output_angle_format(brahe.AngleFormat.DEGREES)
         prop.step()
 
         # Verify it doesn't error

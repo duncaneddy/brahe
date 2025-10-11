@@ -37,24 +37,24 @@ def test_strajectory_strajectory_new():
     trajectory = STrajectory6()
 
     assert len(trajectory) == 0
-    assert trajectory.interpolation_method == InterpolationMethod.linear
+    assert trajectory.interpolation_method == InterpolationMethod.LINEAR
     assert trajectory.is_empty()
 
 
 def test_strajectory_with_interpolation_method():
     """Rust test: test_strajectory_with_interpolation_method"""
     # Test creating trajectory with specific interpolation method using builder pattern
-    traj = STrajectory6().with_interpolation_method(InterpolationMethod.linear)
-    assert traj.interpolation_method == InterpolationMethod.linear
+    traj = STrajectory6().with_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.interpolation_method == InterpolationMethod.LINEAR
     assert len(traj) == 0
 
     # Verify it works with adding states
-    traj = STrajectory6().with_interpolation_method(InterpolationMethod.linear)
+    traj = STrajectory6().with_interpolation_method(InterpolationMethod.LINEAR)
     t0 = Epoch.from_jd(2451545.0, "UTC")
     state = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     traj.add(t0, state)
     assert len(traj) == 1
-    assert traj.interpolation_method == InterpolationMethod.linear
+    assert traj.interpolation_method == InterpolationMethod.LINEAR
 
 
 def test_strajectory_with_eviction_policy_max_size_builder():
@@ -79,10 +79,10 @@ def test_strajectory_builder_pattern_chaining():
     """Rust test: test_strajectory_builder_pattern_chaining"""
     # Test chaining multiple builder methods
     traj = (STrajectory6()
-            .with_interpolation_method(InterpolationMethod.linear)
+            .with_interpolation_method(InterpolationMethod.LINEAR)
             .with_eviction_policy_max_size(10))
 
-    assert traj.interpolation_method == InterpolationMethod.linear
+    assert traj.interpolation_method == InterpolationMethod.LINEAR
     assert traj.get_eviction_policy() == "KeepCount"
 
     # Add states and verify eviction policy works
@@ -159,7 +159,7 @@ def test_strajectory_default():
     """Rust test: test_strajectory_default"""
     trajectory = STrajectory6()
     assert len(trajectory) == 0
-    assert trajectory.interpolation_method == InterpolationMethod.linear
+    assert trajectory.interpolation_method == InterpolationMethod.LINEAR
     assert trajectory.is_empty()
 
 
@@ -814,11 +814,11 @@ def test_strajectory_interpolatable_get_interpolation_method():
     traj = STrajectory6()
 
     # Test default interpolation method is Linear
-    assert traj.interpolation_method == InterpolationMethod.linear
+    assert traj.interpolation_method == InterpolationMethod.LINEAR
 
     # Test setting to Linear explicitly
-    traj.set_interpolation_method(InterpolationMethod.linear)
-    assert traj.interpolation_method == InterpolationMethod.linear
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    assert traj.interpolation_method == InterpolationMethod.LINEAR
 
 
 def test_strajectory_interpolatable_interpolate_linear():

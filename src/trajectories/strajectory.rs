@@ -22,7 +22,7 @@
  * let mut traj = STrajectory6::new();
  * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
  * let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
- * traj.add_state(epoch, state).unwrap();
+ * traj.add(epoch, state).unwrap();
  * ```
  */
 
@@ -381,7 +381,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         })
     }
 
-    fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
         // Find the correct position to insert based on epoch
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
@@ -686,7 +686,7 @@ mod tests {
             .with_interpolation_method(InterpolationMethod::Linear);
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
-        traj.add_state(t0, state).unwrap();
+        traj.add(t0, state).unwrap();
         assert_eq!(traj.len(), 1);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
     }
@@ -726,7 +726,7 @@ mod tests {
         for i in 0..15 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add_state(epoch, state).unwrap();
+            traj.add(epoch, state).unwrap();
         }
 
         // Should only have 10 states due to eviction policy
@@ -894,22 +894,22 @@ mod tests {
     // Trajectory Trait Tests
 
     #[test]
-    fn test_strajectory_trajectory_add_state() {
+    fn test_strajectory_trajectory_add() {
         let mut trajectory = STrajectory6::new();
 
         // Add states in order
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        trajectory.add_state(epoch1, state1).unwrap();
+        trajectory.add(epoch1, state1).unwrap();
 
         let epoch3 = Epoch::from_jd(2451545.2, TimeSystem::UTC);
         let state3 = Vector6::new(7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0);
-        trajectory.add_state(epoch3, state3).unwrap();
+        trajectory.add(epoch3, state3).unwrap();
 
         // Add a state in between
         let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
         let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
-        trajectory.add_state(epoch2, state2).unwrap();
+        trajectory.add(epoch2, state2).unwrap();
 
         assert_eq!(trajectory.len(), 3);
         assert_eq!(trajectory.epochs[0].jd(), 2451545.0);
@@ -993,13 +993,13 @@ mod tests {
         let mut trajectory = STrajectory6::new();
         assert_eq!(trajectory.len(), 0);
 
-        trajectory.add_state(
+        trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
         ).unwrap();
         assert_eq!(trajectory.len(), 1);
 
-        trajectory.add_state(
+        trajectory.add(
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
             Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0)
         ).unwrap();
@@ -1011,7 +1011,7 @@ mod tests {
         let mut trajectory = STrajectory6::new();
         assert!(trajectory.is_empty());
 
-        trajectory.add_state(
+        trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
         ).unwrap();
@@ -1054,7 +1054,7 @@ mod tests {
 
         // Test single state trajectory
         let mut single_trajectory = STrajectory6::new();
-        single_trajectory.add_state(
+        single_trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
         ).unwrap();
@@ -1075,7 +1075,7 @@ mod tests {
         let mut single_trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        single_trajectory.add_state(epoch, state).unwrap();
+        single_trajectory.add(epoch, state).unwrap();
 
         let (first_epoch, first_state) = single_trajectory.first().unwrap();
         assert_eq!(first_epoch.jd(), 2451545.0);
@@ -1098,7 +1098,7 @@ mod tests {
         let mut single_trajectory = STrajectory6::new();
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        single_trajectory.add_state(epoch, state).unwrap();
+        single_trajectory.add(epoch, state).unwrap();
 
         let (last_epoch, last_state) = single_trajectory.last().unwrap();
         assert_eq!(last_epoch.jd(), 2451545.0);
@@ -1408,7 +1408,7 @@ mod tests {
         for i in 0..5 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add_state(epoch, state).unwrap();
+            traj.add(epoch, state).unwrap();
         }
 
         assert_eq!(traj.len(), 5);
@@ -1426,7 +1426,7 @@ mod tests {
         // Add another state - should still maintain max size
         let new_epoch = t0 + 5.0 * 60.0;
         let new_state = Vector6::new(7000e3 + 5000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add_state(new_epoch, new_state).unwrap();
+        traj.add(new_epoch, new_state).unwrap();
 
         assert_eq!(traj.len(), 3);
         assert_eq!(traj.state(0).unwrap()[0], 7000e3 + 3000.0);
@@ -1444,7 +1444,7 @@ mod tests {
         for i in 0..6 {
             let epoch = t0 + (i as f64 * 60.0); // 0, 60, 120, 180, 240, 300 seconds
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add_state(epoch, state).unwrap();
+            traj.add(epoch, state).unwrap();
         }
 
         assert_eq!(traj.len(), 6);

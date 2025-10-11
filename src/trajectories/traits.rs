@@ -108,7 +108,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(())` - State successfully added
     /// * `Err(BraheError)` - If addition fails (e.g., dimension mismatch)
-    fn add_state(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
 
     /// Get the epoch at a specific index
     ///
@@ -434,7 +434,7 @@ pub trait Interpolatable: Trajectory {
 /// // Add state
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-/// traj.add_state(epoch, state).unwrap();
+/// traj.add(epoch, state).unwrap();
 ///
 /// // Convert to Keplerian in degrees
 /// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);

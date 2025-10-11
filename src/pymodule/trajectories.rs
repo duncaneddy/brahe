@@ -244,7 +244,7 @@ impl PyOrbitalTrajectory {
     /// Returns:
     ///     None
     #[pyo3(text_signature = "(epoch, state)")]
-    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
+    pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -254,7 +254,7 @@ impl PyOrbitalTrajectory {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        match self.trajectory.add_state(epoch.obj, state_vec) {
+        match self.trajectory.add(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -962,7 +962,7 @@ impl PyTrajectory {
             let state_row = states_array.row(i);
             let state_vec = na::DVector::from_iterator(dimension, state_row.iter().copied());
 
-            if let Err(e) = trajectory.add_state(epochs_vec[i], state_vec) {
+            if let Err(e) = trajectory.add(epochs_vec[i], state_vec) {
                 return Err(exceptions::PyRuntimeError::new_err(e.to_string()));
             }
         }
@@ -1034,7 +1034,7 @@ impl PyTrajectory {
     /// Returns:
     ///     None
     #[pyo3(text_signature = "(epoch, state)")]
-    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
+    pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
         if state_array.len() != self.trajectory.dimension {
             return Err(exceptions::PyValueError::new_err(
@@ -1044,7 +1044,7 @@ impl PyTrajectory {
         }
 
         let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
-        match self.trajectory.add_state(epoch.obj, state_vec) {
+        match self.trajectory.add(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -1591,7 +1591,7 @@ impl PySTrajectory6 {
     /// Returns:
     ///     None
     #[pyo3(text_signature = "(epoch, state)")]
-    pub fn add_state(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
+    pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
         if state_array.len() != 6 {
             return Err(exceptions::PyValueError::new_err(
@@ -1601,7 +1601,7 @@ impl PySTrajectory6 {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        match self.trajectory.add_state(epoch.obj, state_vec) {
+        match self.trajectory.add(epoch.obj, state_vec) {
             Ok(_) => Ok(()),
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }

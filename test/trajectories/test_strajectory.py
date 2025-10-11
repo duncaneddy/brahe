@@ -52,7 +52,7 @@ def test_strajectory_with_interpolation_method():
     traj = STrajectory6().with_interpolation_method(InterpolationMethod.linear)
     t0 = Epoch.from_jd(2451545.0, "UTC")
     state = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-    traj.add_state(t0, state)
+    traj.add(t0, state)
     assert len(traj) == 1
     assert traj.interpolation_method == InterpolationMethod.linear
 
@@ -90,7 +90,7 @@ def test_strajectory_builder_pattern_chaining():
     for i in range(15):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     # Should only have 10 states due to eviction policy
     assert len(traj) == 10
@@ -245,23 +245,23 @@ def test_strajectory_iterator_iterator_len():
 
 # Trajectory Trait Tests
 
-def test_strajectory_trajectory_add_state():
-    """Rust test: test_strajectory_trajectory_add_state"""
+def test_strajectory_trajectory_add():
+    """Rust test: test_strajectory_trajectory_add"""
     trajectory = STrajectory6()
 
     # Add states in order
     epoch1 = Epoch.from_jd(2451545.0, "UTC")
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    trajectory.add_state(epoch1, state1)
+    trajectory.add(epoch1, state1)
 
     epoch3 = Epoch.from_jd(2451545.2, "UTC")
     state3 = np.array([7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0])
-    trajectory.add_state(epoch3, state3)
+    trajectory.add(epoch3, state3)
 
     # Add a state in between
     epoch2 = Epoch.from_jd(2451545.1, "UTC")
     state2 = np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
-    trajectory.add_state(epoch2, state2)
+    trajectory.add(epoch2, state2)
 
     assert len(trajectory) == 3
     assert trajectory.epoch(0).jd() == 2451545.0
@@ -339,13 +339,13 @@ def test_strajectory_trajectory_len():
     trajectory = STrajectory6()
     assert len(trajectory) == 0
 
-    trajectory.add_state(
+    trajectory.add(
         Epoch.from_jd(2451545.0, "UTC"),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
     assert len(trajectory) == 1
 
-    trajectory.add_state(
+    trajectory.add(
         Epoch.from_jd(2451545.1, "UTC"),
         np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     )
@@ -357,7 +357,7 @@ def test_strajectory_trajectory_is_empty():
     trajectory = STrajectory6()
     assert trajectory.is_empty()
 
-    trajectory.add_state(
+    trajectory.add(
         Epoch.from_jd(2451545.0, "UTC"),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
@@ -400,7 +400,7 @@ def test_strajectory_trajectory_timespan():
 
     # Test single state trajectory
     single_trajectory = STrajectory6()
-    single_trajectory.add_state(
+    single_trajectory.add(
         Epoch.from_jd(2451545.0, "UTC"),
         np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     )
@@ -421,7 +421,7 @@ def test_strajectory_trajectory_first():
     single_trajectory = STrajectory6()
     epoch = Epoch.from_jd(2451545.0, "UTC")
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    single_trajectory.add_state(epoch, state)
+    single_trajectory.add(epoch, state)
 
     first_epoch, first_state = single_trajectory.first()
     assert first_epoch.jd() == 2451545.0
@@ -444,7 +444,7 @@ def test_strajectory_trajectory_last():
     single_trajectory = STrajectory6()
     epoch = Epoch.from_jd(2451545.0, "UTC")
     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    single_trajectory.add_state(epoch, state)
+    single_trajectory.add(epoch, state)
 
     last_epoch, last_state = single_trajectory.last()
     assert last_epoch.jd() == 2451545.0
@@ -761,7 +761,7 @@ def test_strajectory_set_eviction_policy_max_size():
     for i in range(5):
         epoch = t0 + (i * 60.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     assert len(traj) == 5
 
@@ -778,7 +778,7 @@ def test_strajectory_set_eviction_policy_max_size():
     # Add another state - should still maintain max size
     new_epoch = t0 + 5.0 * 60.0
     new_state = np.array([7000e3 + 5000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    traj.add_state(new_epoch, new_state)
+    traj.add(new_epoch, new_state)
 
     assert len(traj) == 3
     assert traj.state(0)[0] == 7000e3 + 3000.0
@@ -797,7 +797,7 @@ def test_strajectory_set_eviction_policy_max_age():
     for i in range(6):
         epoch = t0 + (i * 60.0)  # 0, 60, 120, 180, 240, 300 seconds
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-        traj.add_state(epoch, state)
+        traj.add(epoch, state)
 
     assert len(traj) == 6
 

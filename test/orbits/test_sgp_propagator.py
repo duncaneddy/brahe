@@ -124,10 +124,10 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         assert prop.current_epoch >= target_epoch
 
     def test_sgppropagator_orbitpropagator_current_state(self, iss_tle):
-        """Test current state via trajectory."""
+        """Test current state via propagator."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        state = prop.trajectory.current_state_vector()
+        state = prop.current_state()
 
         assert len(state) == 6
         assert all(np.isfinite(state))
@@ -245,6 +245,7 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
         assert traj.length == 5
         for i in range(5):
             state = traj.state(i)
+            print(state)
             assert len(state) == 6
             assert all(np.isfinite(state))
 

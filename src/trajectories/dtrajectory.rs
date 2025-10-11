@@ -217,8 +217,8 @@ impl DTrajectory {
 
 
     /// Convert the trajectory to a matrix representation
-    /// Returns a matrix where columns are time points and rows are state elements
-    /// The matrix has shape (dimension, n_epochs)
+    /// Returns a matrix where rows are time points (epochs) and columns are state elements
+    /// The matrix has shape (n_epochs, dimension)
     pub fn to_matrix(&self) -> Result<DMatrix<f64>, BraheError> {
         if self.states.is_empty() {
             return Err(BraheError::Error(
@@ -229,11 +229,11 @@ impl DTrajectory {
         let n_epochs = self.states.len();
         let n_elements = self.dimension;
 
-        let mut matrix = DMatrix::<f64>::zeros(n_elements, n_epochs);
+        let mut matrix = DMatrix::<f64>::zeros(n_epochs, n_elements);
 
-        for (col_idx, state) in self.states.iter().enumerate() {
-            for row_idx in 0..n_elements {
-                matrix[(row_idx, col_idx)] = state[row_idx];
+        for (row_idx, state) in self.states.iter().enumerate() {
+            for col_idx in 0..n_elements {
+                matrix[(row_idx, col_idx)] = state[col_idx];
             }
         }
 
@@ -783,29 +783,34 @@ mod tests {
         let traj = create_test_trajectory();
         let matrix = traj.to_matrix().unwrap();
 
-        assert_eq!(matrix.nrows(), 6);
-        assert_eq!(matrix.ncols(), 3);
+        // Matrix should be 3 rows (time points) x 6 columns (state elements)
+        assert_eq!(matrix.nrows(), 3);
+        assert_eq!(matrix.ncols(), 6);
 
-        // Test first row
+        // Test first row (first state at t0)
         assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(0, 1)], 7100e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(0, 2)], 7200e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 1)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 2)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 3)], 0.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 4)], 7.5e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(0, 5)], 0.0, epsilon = 1.0);
 
-        // Test first column
-        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(1, 0)], 0.0, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(2, 0)], 0.0, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(3, 0)], 0.0, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(4, 0)], 7.5e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(5, 0)], 0.0, epsilon = 1.0);
+        // Test second row (second state at t1)
+        assert_abs_diff_eq!(matrix[(1, 0)], 7100e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(1, 1)], 1000e3, epsilon = 1.0);
 
-        // Test last column
-        assert_abs_diff_eq!(matrix[(0, 2)], 7200e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(1, 2)], 2000e3, epsilon = 1.0);
+        // Test third row (third state at t2)
+        assert_abs_diff_eq!(matrix[(2, 0)], 7200e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 1)], 2000e3, epsilon = 1.0);
         assert_abs_diff_eq!(matrix[(2, 2)], 1000e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(3, 2)], 200.0, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(4, 2)], 7.7e3, epsilon = 1.0);
-        assert_abs_diff_eq!(matrix[(5, 2)], 100.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 3)], 200.0, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 4)], 7.7e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 5)], 100.0, epsilon = 1.0);
+
+        // Test first column (first element of each state over time)
+        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(1, 0)], 7100e3, epsilon = 1.0);
+        assert_abs_diff_eq!(matrix[(2, 0)], 7200e3, epsilon = 1.0);
     }
 
     #[test]

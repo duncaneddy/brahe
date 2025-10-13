@@ -434,7 +434,7 @@ pub trait Interpolatable: Trajectory {
 /// // Add state
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
-/// traj.add(epoch, state).unwrap();
+/// traj.add(epoch, state);
 ///
 /// // Convert to Keplerian in degrees
 /// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);

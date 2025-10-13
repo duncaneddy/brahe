@@ -2,48 +2,6 @@
 
 // Import traits needed by trajectory metho
 
-/// Python wrapper for AngleFormat enum
-#[pyclass]
-#[pyo3(name = "AngleFormat")]
-#[derive(Clone)]
-pub struct PyAngleFormat {
-    pub(crate) format: trajectories::traits::AngleFormat,
-}
-
-#[pymethods]
-impl PyAngleFormat {
-    #[classattr]
-    fn RADIANS() -> Self {
-        PyAngleFormat { format: trajectories::traits::AngleFormat::Radians }
-    }
-
-    #[classattr]
-    fn DEGREES() -> Self {
-        PyAngleFormat { format: trajectories::traits::AngleFormat::Degrees }
-    }
-
-    #[classattr]
-    fn NONE() -> Self {
-        PyAngleFormat { format: trajectories::traits::AngleFormat::None }
-    }
-
-    fn __str__(&self) -> String {
-        format!("{:?}", self.format)
-    }
-
-    fn __repr__(&self) -> String {
-        format!("AngleFormat.{:?}", self.format)
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.format == other.format),
-            CompareOp::Ne => Ok(self.format != other.format),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
-        }
-    }
-}
-
 /// Python wrapper for InterpolationMethod enum
 #[pyclass]
 #[pyo3(name = "InterpolationMethod")]
@@ -180,23 +138,40 @@ impl PyOrbitalTrajectory {
     /// Arguments:
     ///     frame (OrbitFrame): Reference frame
     ///     representation (OrbitRepresentation): Orbital representation
-    ///     angle_format (AngleFormat): Format for angular quantities
+    ///     angle_format (AngleFormat | None): Format for angular quantities (None for Cartesian)
     ///
     /// Returns:
     ///     OrbitTrajectory: New trajectory instance
     #[new]
-    #[pyo3(text_signature = "(frame, representation, angle_format)")]
+    #[pyo3(signature = (frame, representation, angle_format=None), text_signature = "(frame, representation, angle_format=None)")]
     pub fn new(
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
-        angle_format: PyRef<PyAngleFormat>,
-    ) -> Self {
+        angle_format: Option<PyRef<PyAngleFormat>>,
+    ) -> PyResult<Self> {
+        // Validate: Cartesian must have None, Keplerian must have Some
+        match (representation.representation, &angle_format) {
+            (trajectories::traits::OrbitRepresentation::Cartesian, Some(_)) => {
+                return Err(exceptions::PyValueError::new_err(
+                    "Angle format must be None for Cartesian representation"
+                ));
+            },
+            (trajectories::traits::OrbitRepresentation::Keplerian, None) => {
+                return Err(exceptions::PyValueError::new_err(
+                    "Angle format must be specified for Keplerian representation"
+                ));
+            },
+            _ => {}
+        }
+
+        let angle_fmt = angle_format.as_ref().map(|af| af.value).unwrap_or(constants::AngleFormat::Radians);
+
         let trajectory = trajectories::OrbitTrajectory::new(
             frame.frame,
             representation.representation,
-            angle_format.format,
+            angle_fmt,
         );
-        PyOrbitalTrajectory { trajectory }
+        Ok(PyOrbitalTrajectory { trajectory })
     }
 
     /// Create a default empty orbital trajectory (ECI Cartesian)
@@ -218,20 +193,34 @@ impl PyOrbitalTrajectory {
     ///     states: Flattened array of 6-element state vectors (Nx6 total elements)
     ///     frame (OrbitFrame): Reference frame
     ///     representation (OrbitRepresentation): Orbital representation
-    ///     angle_format (AngleFormat): Format for angular quantities
+    ///     angle_format (AngleFormat | None): Format for angular quantities (None for Cartesian)
     ///
     /// Returns:
     ///     OrbitalTrajectory: New trajectory instance with data
     #[classmethod]
-    #[pyo3(text_signature = "(epochs, states, frame, representation, angle_format)")]
+    #[pyo3(signature = (epochs, states, frame, representation, angle_format=None), text_signature = "(epochs, states, frame, representation, angle_format=None)")]
     pub fn from_orbital_data(
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
         states: PyReadonlyArray1<f64>,
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
-        angle_format: PyRef<PyAngleFormat>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
     ) -> PyResult<Self> {
+        // Validate: Cartesian must have None, Keplerian must have Some
+        match (representation.representation, &angle_format) {
+            (trajectories::traits::OrbitRepresentation::Cartesian, Some(_)) => {
+                return Err(exceptions::PyValueError::new_err(
+                    "Angle format must be None for Cartesian representation"
+                ));
+            },
+            (trajectories::traits::OrbitRepresentation::Keplerian, None) => {
+                return Err(exceptions::PyValueError::new_err(
+                    "Angle format must be specified for Keplerian representation"
+                ));
+            },
+            _ => {}
+        }
 
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
@@ -256,12 +245,14 @@ impl PyOrbitalTrajectory {
             states_vec.push(na::Vector6::from_row_slice(state_slice));
         }
 
+        let angle_fmt = angle_format.as_ref().map(|af| af.value).unwrap_or(constants::AngleFormat::Radians);
+
         let trajectory = trajectories::OrbitTrajectory::from_orbital_data(
             epochs_vec,
             states_vec,
             frame.frame,
             representation.representation,
-            angle_format.format,
+            angle_fmt,
         );
         Ok(PyOrbitalTrajectory { trajectory })
     }
@@ -493,7 +484,7 @@ impl PyOrbitalTrajectory {
     /// Get trajectory angle format
     #[getter]
     pub fn angle_format(&self) -> PyAngleFormat {
-        PyAngleFormat { format: self.trajectory.angle_format }
+        PyAngleFormat { value: self.trajectory.angle_format }
     }
 
     /// Clear all states from the trajectory
@@ -639,7 +630,7 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in ECI Keplerian representation
     #[pyo3(text_signature = "(angle_format)")]
     pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> Self {
-        let new_trajectory = self.trajectory.to_keplerian(angle_format.format);
+        let new_trajectory = self.trajectory.to_keplerian(angle_format.value);
         PyOrbitalTrajectory { trajectory: new_trajectory }
     }
 

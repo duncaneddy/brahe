@@ -203,7 +203,7 @@ class TestKeplerianElementsFromTLE:
         # Check elements
         # Convert mean motion to semi-major axis for comparison
         n_rad_per_sec = 15.48919103 * 2.0 * np.pi / 86400.0
-        expected_a = brahe.semimajor_axis(n_rad_per_sec, False)
+        expected_a = brahe.semimajor_axis(n_rad_per_sec, brahe.AngleFormat.RADIANS)
 
         assert abs(elements[0] - expected_a) < 1.0e-3  # Semi-major axis in meters
         assert abs(elements[1] - 0.0003417) < 1.0e-7   # Eccentricity

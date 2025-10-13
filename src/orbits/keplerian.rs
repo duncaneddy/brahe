@@ -2,7 +2,7 @@
  * The `keplerian` module contains types and functions for working with Keplerian orbital elements.
  */
 
-use crate::constants::{GM_EARTH, J2_EARTH, R_EARTH};
+use crate::constants::{AngleFormat, DEG2RAD, GM_EARTH, J2_EARTH, R_EARTH, RAD2DEG};
 use std::f64::consts::PI;
 
 /// Computes the orbital period of an object around Earth.
@@ -99,7 +99,7 @@ pub fn semimajor_axis_from_orbital_period(period: f64) -> f64 {
 /// # Arguments
 ///
 /// * `a`:The semi-major axis of the astronomical object. Units: (_m_)
-/// * `as_degrees`: Return output in degrees instead of radians
+/// * `angle_format`: Format for angular output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -107,13 +107,13 @@ pub fn semimajor_axis_from_orbital_period(period: f64) -> f64 {
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::{R_EARTH};
+/// use brahe::constants::{R_EARTH, RADIANS, DEGREES};
 /// use brahe::orbits::mean_motion;
-/// let n_rad = mean_motion(R_EARTH + 500e3, false);
-/// let n_deg = mean_motion(R_EARTH + 500e3, true);
+/// let n_rad = mean_motion(R_EARTH + 500e3, RADIANS);
+/// let n_deg = mean_motion(R_EARTH + 500e3, DEGREES);
 /// ```
-pub fn mean_motion(a: f64, as_degrees: bool) -> f64 {
-    mean_motion_general(a, GM_EARTH, as_degrees)
+pub fn mean_motion(a: f64, angle_format: AngleFormat) -> f64 {
+    mean_motion_general(a, GM_EARTH, angle_format)
 }
 
 /// Computes the mean motion of an astronomical object around a general body
@@ -123,7 +123,7 @@ pub fn mean_motion(a: f64, as_degrees: bool) -> f64 {
 ///
 /// * `a`:The semi-major axis of the astronomical object. Units: (_m_)
 /// * `gm`:The standard gravitational parameter of primary body. Units: (_m^3/s^2_)
-/// * `as_degrees`:Return output in degrees instead of radians
+/// * `angle_format`: Format for angular output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -131,18 +131,17 @@ pub fn mean_motion(a: f64, as_degrees: bool) -> f64 {
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::{R_EARTH, GM_EARTH, R_MOON, GM_MOON};
+/// use brahe::constants::{R_EARTH, GM_EARTH, R_MOON, GM_MOON, RADIANS, DEGREES};
 /// use brahe::orbits::mean_motion_general;
-/// let n_earth = mean_motion_general(R_EARTH + 500e3, GM_EARTH, false);
-/// let n_moon  = mean_motion_general(R_MOON + 500e3, GM_MOON, true);
+/// let n_earth = mean_motion_general(R_EARTH + 500e3, GM_EARTH, RADIANS);
+/// let n_moon  = mean_motion_general(R_MOON + 500e3, GM_MOON, DEGREES);
 /// ```
-pub fn mean_motion_general(a: f64, gm: f64, as_degrees: bool) -> f64 {
+pub fn mean_motion_general(a: f64, gm: f64, angle_format: AngleFormat) -> f64 {
     let n = (gm / a.powi(3)).sqrt();
 
-    if as_degrees == true {
-        n * 180.0 / PI
-    } else {
-        n
+    match angle_format {
+        AngleFormat::Degrees => n * RAD2DEG,
+        AngleFormat::Radians => n,
     }
 }
 
@@ -152,7 +151,7 @@ pub fn mean_motion_general(a: f64, gm: f64, as_degrees: bool) -> f64 {
 /// # Arguments
 ///
 /// * `n`:The mean motion of the astronomical object. Units: (rad) or (deg)
-/// * `as_degrees`:Interpret mean motion as degrees if `true` or radians if `false`
+/// * `angle_format`: Format for angular input (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -160,11 +159,12 @@ pub fn mean_motion_general(a: f64, gm: f64, as_degrees: bool) -> f64 {
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::RADIANS;
 /// use brahe::orbits::semimajor_axis;
-/// let a_earth = semimajor_axis(0.0011067836148773837, false);
+/// let a_earth = semimajor_axis(0.0011067836148773837, RADIANS);
 /// ```
-pub fn semimajor_axis(n: f64, as_degrees: bool) -> f64 {
-    semimajor_axis_general(n, GM_EARTH, as_degrees)
+pub fn semimajor_axis(n: f64, angle_format: AngleFormat) -> f64 {
+    semimajor_axis_general(n, GM_EARTH, angle_format)
 }
 
 /// Computes the semi-major axis of an astronomical object from a general body
@@ -174,7 +174,7 @@ pub fn semimajor_axis(n: f64, as_degrees: bool) -> f64 {
 ///
 /// * `n`:The mean motion of the astronomical object. Units: (rad) or (deg)
 /// * `gm`:The standard gravitational parameter of primary body. Units: (_m^3/s^2_)
-/// * `as_degrees`:Interpret mean motion as degrees if `true` or radians if `false`
+/// * `angle_format`: Format for angular input (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -182,18 +182,17 @@ pub fn semimajor_axis(n: f64, as_degrees: bool) -> f64 {
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::{GM_MOON};
+/// use brahe::constants::{GM_MOON, RADIANS};
 /// use brahe::orbits::semimajor_axis_general;
-/// let a_moon = semimajor_axis_general(0.0011067836148773837, GM_MOON, false);
+/// let a_moon = semimajor_axis_general(0.0011067836148773837, GM_MOON, RADIANS);
 /// ```
-pub fn semimajor_axis_general(n: f64, gm: f64, as_degrees: bool) -> f64 {
-    let n = if as_degrees == true {
-        n * PI / 180.0
-    } else {
-        n
+pub fn semimajor_axis_general(n: f64, gm: f64, angle_format: AngleFormat) -> f64 {
+    let n_rad = match angle_format {
+        AngleFormat::Degrees => n * DEG2RAD,
+        AngleFormat::Radians => n,
     };
 
-    (gm / n.powi(2)).powf(1.0 / 3.0)
+    (gm / n_rad.powi(2)).powf(1.0 / 3.0)
 }
 
 /// Computes the perigee velocity of an astronomical object around Earth.
@@ -331,7 +330,7 @@ pub fn apoapsis_distance(a: f64, e: f64) -> f64 {
 ///
 /// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
 /// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`: Return output in degrees instead of radians
+/// * `angle_format`: Format for angular output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -339,11 +338,11 @@ pub fn apoapsis_distance(a: f64, e: f64) -> f64 {
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::{R_EARTH, GM_EARTH};
+/// use brahe::constants::{R_EARTH, GM_EARTH, DEGREES};
 /// use brahe::orbits::sun_synchronous_inclination;
-/// let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, true); // approx 97.5 deg
+/// let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, DEGREES); // approx 97.5 deg
 /// ```
-pub fn sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> f64 {
+pub fn sun_synchronous_inclination(a: f64, e: f64, angle_format: AngleFormat) -> f64 {
     // The required RAAN precession for a sun-synchronous orbit
     let omega_dot_ss = 2.0 * PI / 365.2421897 / 86400.0;
 
@@ -352,10 +351,9 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> f64 {
         / (3.0 * (R_EARTH.powi(2)) * J2_EARTH * GM_EARTH.sqrt()))
     .acos();
 
-    if as_degrees == true {
-        i * 180.0 / PI
-    } else {
-        i
+    match angle_format {
+        AngleFormat::Degrees => i * RAD2DEG,
+        AngleFormat::Radians => i,
     }
 }
 
@@ -365,7 +363,7 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> f64 {
 ///
 /// * `anm_ecc`: Eccentric anomaly. Units: (rad) or (deg)
 /// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`: Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -373,29 +371,28 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> f64 {
 ///
 /// # Examples
 /// ```
-/// use brahe::orbits::anomaly_mean_to_eccentric;
-/// let e = anomaly_mean_to_eccentric(90.0, 0.001, true);
+/// use brahe::constants::DEGREES;
+/// use brahe::orbits::anomaly_eccentric_to_mean;
+/// let m = anomaly_eccentric_to_mean(90.0, 0.001, DEGREES);
 /// ```
 ///
 /// # References:
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 ///  Applications*, 2012. Eq. 2.65.
-pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 {
+pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: AngleFormat) -> f64 {
     // Ensure anm_ecc is in radians regardless of input
-    let anm_ecc = if as_degrees == true {
-        anm_ecc * PI / 180.0
-    } else {
-        anm_ecc
+    let anm_ecc_rad = match angle_format {
+        AngleFormat::Degrees => anm_ecc * DEG2RAD,
+        AngleFormat::Radians => anm_ecc,
     };
 
     // Convert to mean anomaly
-    let anm_mean = anm_ecc - e * anm_ecc.sin();
+    let anm_mean = anm_ecc_rad - e * anm_ecc_rad.sin();
 
     // Convert output to desired angular format
-    if as_degrees == true {
-        anm_mean * 180.0 / PI
-    } else {
-        anm_mean
+    match angle_format {
+        AngleFormat::Degrees => anm_mean * RAD2DEG,
+        AngleFormat::Radians => anm_mean,
     }
 }
 
@@ -405,7 +402,7 @@ pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 
 ///
 /// * `anm_mean`:Mean anomaly. Units: (rad) or (deg)
 /// * `e`:The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`:Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -413,15 +410,15 @@ pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_mean_to_eccentric;
-/// let e = anomaly_mean_to_eccentric(90.0, 0.001, true).unwrap();
+/// let e = anomaly_mean_to_eccentric(90.0, 0.001, DEGREES).unwrap();
 /// ```
-pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f64, String> {
+pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: AngleFormat) -> Result<f64, String> {
     // Ensure anm_mean is in radians regardless of input
-    let anm_mean = if as_degrees == true {
-        anm_mean * PI / 180.0
-    } else {
-        anm_mean
+    let anm_mean_rad = match angle_format {
+        AngleFormat::Degrees => anm_mean * DEG2RAD,
+        AngleFormat::Radians => anm_mean,
     };
 
     // Set constants of iteration
@@ -429,31 +426,30 @@ pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> Res
     let eps = 100.0 * f64::EPSILON; // Convergence with respect to data-type precision
 
     // Initialize starting iteration values
-    let anm_mean = anm_mean % (2.0 * PI);
-    let mut anm_ecc = if e < 0.8 { anm_mean } else { PI };
+    let anm_mean_rad = anm_mean_rad % (2.0 * PI);
+    let mut anm_ecc = if e < 0.8 { anm_mean_rad } else { PI };
 
-    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean;
+    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
     let mut i = 0;
 
     // Iterate until convergence
     while f.abs() > eps {
-        f = anm_ecc - e * anm_ecc.sin() - anm_mean;
+        f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
         anm_ecc = anm_ecc - f / (1.0 - e * anm_ecc.cos());
 
         i += 1;
         if i > max_iter {
             return Err(format!(
                 "Reached maximum number of iterations ({}) before convergence for (M: {}, e: {}).",
-                max_iter, anm_mean, e
+                max_iter, anm_mean_rad, e
             ));
         }
     }
 
     // Convert output to desired angular format
-    if as_degrees == true {
-        Ok(anm_ecc * 180.0 / PI)
-    } else {
-        Ok(anm_ecc)
+    match angle_format {
+        AngleFormat::Degrees => Ok(anm_ecc * RAD2DEG),
+        AngleFormat::Radians => Ok(anm_ecc),
     }
 }
 
@@ -463,7 +459,7 @@ pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> Res
 ///
 /// * `anm_true`:true anomaly. Units: (rad) or (deg)
 /// * `e`:The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`:Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -471,26 +467,25 @@ pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> Res
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_true_to_eccentric;
-/// let anm_ecc = anomaly_true_to_eccentric(15.0, 0.001, true);
+/// let anm_ecc = anomaly_true_to_eccentric(15.0, 0.001, DEGREES);
 /// ```
 ///
 /// # Reference
 /// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, pp. 47, eq. 2-9, 2010.
-pub fn anomaly_true_to_eccentric(anm_true: f64, e: f64, as_degrees: bool) -> f64 {
+pub fn anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: AngleFormat) -> f64 {
     // Ensure anm_true is in radians regardless of input
-    let anm_true = if as_degrees == true {
-        anm_true * PI / 180.0
-    } else {
-        anm_true
+    let anm_true_rad = match angle_format {
+        AngleFormat::Degrees => anm_true * DEG2RAD,
+        AngleFormat::Radians => anm_true,
     };
 
-    let anm_ecc = (anm_true.sin() * (1.0 - e.powi(2)).sqrt()).atan2(anm_true.cos() + e);
+    let anm_ecc = (anm_true_rad.sin() * (1.0 - e.powi(2)).sqrt()).atan2(anm_true_rad.cos() + e);
 
-    if as_degrees == true {
-        anm_ecc * 180.0 / PI
-    } else {
-        anm_ecc
+    match angle_format {
+        AngleFormat::Degrees => anm_ecc * RAD2DEG,
+        AngleFormat::Radians => anm_ecc,
     }
 }
 
@@ -500,7 +495,7 @@ pub fn anomaly_true_to_eccentric(anm_true: f64, e: f64, as_degrees: bool) -> f64
 ///
 /// * `anm_ecc`:Eccentric anomaly. Units: (rad) or (deg)
 /// * `e`:The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`:Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -508,26 +503,25 @@ pub fn anomaly_true_to_eccentric(anm_true: f64, e: f64, as_degrees: bool) -> f64
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_eccentric_to_true;
-/// let ecc_anm = anomaly_eccentric_to_true(15.0, 0.001, true);
+/// let anm_true = anomaly_eccentric_to_true(15.0, 0.001, DEGREES);
 /// ```
 ///
 /// # Reference
 /// 1. D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, pp. 47, eq. 2-9, 2010.
-pub fn anomaly_eccentric_to_true(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 {
+pub fn anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: AngleFormat) -> f64 {
     // Ensure anm_ecc is in radians regardless of input
-    let anm_ecc = if as_degrees == true {
-        anm_ecc * PI / 180.0
-    } else {
-        anm_ecc
+    let anm_ecc_rad = match angle_format {
+        AngleFormat::Degrees => anm_ecc * DEG2RAD,
+        AngleFormat::Radians => anm_ecc,
     };
 
-    let anm_true = (anm_ecc.sin() * (1.0 - e.powi(2)).sqrt()).atan2(anm_ecc.cos() - e);
+    let anm_true = (anm_ecc_rad.sin() * (1.0 - e.powi(2)).sqrt()).atan2(anm_ecc_rad.cos() - e);
 
-    if as_degrees == true {
-        anm_true * 180.0 / PI
-    } else {
-        anm_true
+    match angle_format {
+        AngleFormat::Degrees => anm_true * RAD2DEG,
+        AngleFormat::Radians => anm_true,
     }
 }
 
@@ -537,7 +531,7 @@ pub fn anomaly_eccentric_to_true(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 
 ///
 /// * `anm_true`:True anomaly. Units: (rad) or (deg)
 /// * `e`:The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`:Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -545,18 +539,19 @@ pub fn anomaly_eccentric_to_true(anm_ecc: f64, e: f64, as_degrees: bool) -> f64 
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_true_to_mean;
-/// let anm_mean = anomaly_true_to_mean(90.0, 0.001, true);
+/// let anm_mean = anomaly_true_to_mean(90.0, 0.001, DEGREES);
 /// ```
 ///
 /// # References:
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 ///  Applications*, 2012.
-pub fn anomaly_true_to_mean(anm_true: f64, e: f64, as_degrees: bool) -> f64 {
+pub fn anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: AngleFormat) -> f64 {
     anomaly_eccentric_to_mean(
-        anomaly_true_to_eccentric(anm_true, e, as_degrees),
+        anomaly_true_to_eccentric(anm_true, e, angle_format),
         e,
-        as_degrees,
+        angle_format,
     )
 }
 
@@ -566,7 +561,7 @@ pub fn anomaly_true_to_mean(anm_true: f64, e: f64, as_degrees: bool) -> f64 {
 ///
 /// * `anm_mean`:Mean anomaly. Units: (rad) or (deg)
 /// * `e`:The eccentricity of the astronomical object's orbit. Dimensionless
-/// * `as_degrees`:Interprets input and returns output in (deg) if `true` or (rad) if `false`
+/// * `angle_format`: Format for angular input/output (Radians or Degrees)
 ///
 /// # Returns
 ///
@@ -574,15 +569,15 @@ pub fn anomaly_true_to_mean(anm_true: f64, e: f64, as_degrees: bool) -> f64 {
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_mean_to_true;
-/// let e = anomaly_mean_to_true(90.0, 0.001, true).unwrap();
+/// let anm_true = anomaly_mean_to_true(90.0, 0.001, DEGREES).unwrap();
 /// ```
-pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f64, String> {
+pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: AngleFormat) -> Result<f64, String> {
     // Ensure anm_mean is in radians regardless of input
-    let anm_mean = if as_degrees == true {
-        anm_mean * PI / 180.0
-    } else {
-        anm_mean
+    let anm_mean_rad = match angle_format {
+        AngleFormat::Degrees => anm_mean * DEG2RAD,
+        AngleFormat::Radians => anm_mean,
     };
 
     // Set constants of iteration
@@ -590,33 +585,33 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f
     let eps = 100.0 * f64::EPSILON; // Convergence with respect to data-type precision
 
     // Initialize starting iteration values
-    let anm_mean = anm_mean % (2.0 * PI);
-    let mut anm_ecc = if e < 0.8 { anm_mean } else { PI };
+    let anm_mean_rad = anm_mean_rad % (2.0 * PI);
+    let mut anm_ecc = if e < 0.8 { anm_mean_rad } else { PI };
 
-    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean;
+    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
     let mut i = 0;
 
     // Iterate until convergence
     while f.abs() > eps {
-        f = anm_ecc - e * anm_ecc.sin() - anm_mean;
+        f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
         anm_ecc = anm_ecc - f / (1.0 - e * anm_ecc.cos());
 
         i += 1;
         if i > max_iter {
             return Err(format!(
                 "Reached maximum number of iterations ({}) before convergence for (M: {}, e: {}).",
-                max_iter, anm_mean, e
+                max_iter, anm_mean_rad, e
             ));
         }
     }
 
-    // Convert output to desired angular format
-    if as_degrees == true {
-        anm_ecc = anm_ecc * 180.0 / PI;
-    }
+    // Convert eccentric anomaly to desired format and finish conversion to true anomaly
+    let anm_ecc_converted = match angle_format {
+        AngleFormat::Degrees => anm_ecc * RAD2DEG,
+        AngleFormat::Radians => anm_ecc,
+    };
 
-    // Finish conversion from eccentric to true anomaly
-    Ok(anomaly_eccentric_to_true(anm_ecc, e, as_degrees))
+    Ok(anomaly_eccentric_to_true(anm_ecc_converted, e, angle_format))
 }
 
 //
@@ -625,7 +620,7 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> Result<f
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{GM_EARTH, R_EARTH, R_MOON};
+    use crate::constants::{DEGREES, GM_EARTH, R_EARTH, R_MOON, RADIANS};
     use crate::{constants, GM_SUN, orbits::*, R_SUN};
     use std::f64::consts::PI;
 
@@ -651,55 +646,55 @@ mod tests {
 
     #[test]
     fn test_mean_motion() {
-        let n = mean_motion(R_EARTH + 500e3, false);
+        let n = mean_motion(R_EARTH + 500e3, RADIANS);
         assert_abs_diff_eq!(n, 0.0011067836148773837, epsilon = 1e-12);
 
-        let n = mean_motion(R_EARTH + 500e3, true);
+        let n = mean_motion(R_EARTH + 500e3, DEGREES);
         assert_abs_diff_eq!(n, 0.0634140299667068, epsilon = 1e-12);
     }
 
     #[test]
     fn test_mean_motion_general() {
-        let n = mean_motion_general(R_EARTH + 500e3, GM_EARTH, false);
+        let n = mean_motion_general(R_EARTH + 500e3, GM_EARTH, RADIANS);
         assert_abs_diff_eq!(n, 0.0011067836148773837, epsilon = 1e-12);
 
-        let n = mean_motion_general(R_EARTH + 500e3, GM_EARTH, true);
+        let n = mean_motion_general(R_EARTH + 500e3, GM_EARTH, DEGREES);
         assert_abs_diff_eq!(n, 0.0634140299667068, epsilon = 1e-12);
 
-        let n = mean_motion_general(R_EARTH + 500e3, constants::GM_MOON, false);
+        let n = mean_motion_general(R_EARTH + 500e3, constants::GM_MOON, RADIANS);
         assert_abs_diff_ne!(n, 0.0011067836148773837, epsilon = 1e-12);
 
-        let n = mean_motion_general(R_EARTH + 500e3, constants::GM_MOON, true);
+        let n = mean_motion_general(R_EARTH + 500e3, constants::GM_MOON, DEGREES);
         assert_abs_diff_ne!(n, 0.0634140299667068, epsilon = 1e-12);
 
-        let n = mean_motion_general(constants::R_MOON + 500e3, constants::GM_MOON, false);
+        let n = mean_motion_general(constants::R_MOON + 500e3, constants::GM_MOON, RADIANS);
         assert_abs_diff_eq!(n, 0.0006613509296264638, epsilon = 1e-12);
 
-        let n = mean_motion_general(constants::R_MOON + 500e3, constants::GM_MOON, true);
+        let n = mean_motion_general(constants::R_MOON + 500e3, constants::GM_MOON, DEGREES);
         assert_abs_diff_eq!(n, 0.0378926170446499, epsilon = 1e-12);
     }
 
     #[test]
     fn test_semimajor_axis() {
-        let n = semimajor_axis(0.0011067836148773837, false);
+        let n = semimajor_axis(0.0011067836148773837, RADIANS);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
 
-        let n = semimajor_axis(0.0634140299667068, true);
+        let n = semimajor_axis(0.0634140299667068, DEGREES);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
     }
 
     #[test]
     fn test_semimajor_axis_general() {
-        let n = semimajor_axis_general(0.0011067836148773837, GM_EARTH, false);
+        let n = semimajor_axis_general(0.0011067836148773837, GM_EARTH, RADIANS);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
 
-        let n = semimajor_axis_general(0.0634140299667068, GM_EARTH, true);
+        let n = semimajor_axis_general(0.0634140299667068, GM_EARTH, DEGREES);
         assert_abs_diff_eq!(n, R_EARTH + 500e3, epsilon = 1e-8);
 
-        let n = semimajor_axis_general(0.0006613509296264638, constants::GM_MOON, false);
+        let n = semimajor_axis_general(0.0006613509296264638, constants::GM_MOON, RADIANS);
         assert_abs_diff_ne!(n, constants::R_MOON + 500e3, epsilon = 1e-12);
 
-        let n = semimajor_axis_general(0.0378926170446499, constants::GM_MOON, true);
+        let n = semimajor_axis_general(0.0378926170446499, constants::GM_MOON, DEGREES);
         assert_abs_diff_ne!(n, constants::R_MOON + 500e3, epsilon = 1e-12);
     }
 
@@ -761,55 +756,55 @@ mod tests {
 
     #[test]
     fn test_sun_synchronous_inclination() {
-        let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, true);
+        let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, DEGREES);
         assert_abs_diff_eq!(inc, 97.40172901366881, epsilon = 1e-12);
     }
 
     #[test]
     fn test_anomaly_eccentric_to_mean() {
         // 0 degrees
-        let m = anomaly_eccentric_to_mean(0.0, 0.0, false);
+        let m = anomaly_eccentric_to_mean(0.0, 0.0, RADIANS);
         assert_eq!(m, 0.0);
 
-        let m = anomaly_eccentric_to_mean(0.0, 0.0, true);
+        let m = anomaly_eccentric_to_mean(0.0, 0.0, DEGREES);
         assert_eq!(m, 0.0);
 
         // 180 degrees
-        let m = anomaly_eccentric_to_mean(PI, 0.0, false);
+        let m = anomaly_eccentric_to_mean(PI, 0.0, RADIANS);
         assert_eq!(m, PI);
 
-        let m = anomaly_eccentric_to_mean(180.0, 0.0, true);
+        let m = anomaly_eccentric_to_mean(180.0, 0.0, DEGREES);
         assert_eq!(m, 180.0);
 
         // 90 degrees
-        let m = anomaly_eccentric_to_mean(PI / 2.0, 0.1, false);
+        let m = anomaly_eccentric_to_mean(PI / 2.0, 0.1, RADIANS);
         assert_abs_diff_eq!(m, 1.4707963267948965, epsilon = 1e-12);
 
-        let m = anomaly_eccentric_to_mean(90.0, 0.1, true);
+        let m = anomaly_eccentric_to_mean(90.0, 0.1, DEGREES);
         assert_abs_diff_eq!(m, 84.27042204869177, epsilon = 1e-12);
     }
 
     #[test]
     fn test_anomaly_mean_to_eccentric() {
         // 0 degrees
-        let e = anomaly_mean_to_eccentric(0.0, 0.0, false).unwrap();
+        let e = anomaly_mean_to_eccentric(0.0, 0.0, RADIANS).unwrap();
         assert_eq!(e, 0.0);
 
-        let e = anomaly_mean_to_eccentric(0.0, 0.0, true).unwrap();
+        let e = anomaly_mean_to_eccentric(0.0, 0.0, DEGREES).unwrap();
         assert_eq!(e, 0.0);
 
         // 180 degrees
-        let e = anomaly_mean_to_eccentric(PI, 0.0, false).unwrap();
+        let e = anomaly_mean_to_eccentric(PI, 0.0, RADIANS).unwrap();
         assert_eq!(e, PI);
 
-        let e = anomaly_mean_to_eccentric(180.0, 0.0, true).unwrap();
+        let e = anomaly_mean_to_eccentric(180.0, 0.0, DEGREES).unwrap();
         assert_eq!(e, 180.0);
 
         // 90 degrees
-        let e = anomaly_mean_to_eccentric(1.4707963267948965, 0.1, false).unwrap();
+        let e = anomaly_mean_to_eccentric(1.4707963267948965, 0.1, RADIANS).unwrap();
         assert_abs_diff_eq!(e, PI / 2.0, epsilon = 1e-12);
 
-        let e = anomaly_mean_to_eccentric(84.27042204869177, 0.1, true).unwrap();
+        let e = anomaly_mean_to_eccentric(84.27042204869177, 0.1, DEGREES).unwrap();
         assert_abs_diff_eq!(e, 90.0, epsilon = 1e-12);
     }
 
@@ -824,7 +819,7 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_mean_to_eccentric(anomaly_eccentric_to_mean(theta, e, true), e, true)
+                    anomaly_mean_to_eccentric(anomaly_eccentric_to_mean(theta, e, DEGREES), e, DEGREES)
                         .unwrap(),
                     epsilon = 1e-12
                 );
@@ -836,9 +831,9 @@ mod tests {
                 assert_abs_diff_eq!(
                     theta,
                     anomaly_eccentric_to_mean(
-                        anomaly_mean_to_eccentric(theta, e, true).unwrap(),
+                        anomaly_mean_to_eccentric(theta, e, DEGREES).unwrap(),
                         e,
-                        true
+                        DEGREES
                     ),
                     epsilon = 1e-12
                 );
@@ -849,60 +844,60 @@ mod tests {
     #[test]
     fn test_anomaly_true_to_eccentric() {
         // 0 degrees
-        let anm_ecc = anomaly_true_to_eccentric(0.0, 0.0, false);
+        let anm_ecc = anomaly_true_to_eccentric(0.0, 0.0, RADIANS);
         assert_eq!(anm_ecc, 0.0);
 
-        let anm_ecc = anomaly_true_to_eccentric(0.0, 0.0, true);
+        let anm_ecc = anomaly_true_to_eccentric(0.0, 0.0, DEGREES);
         assert_eq!(anm_ecc, 0.0);
 
         // 180 degrees
-        let anm_ecc = anomaly_true_to_eccentric(PI, 0.0, false);
+        let anm_ecc = anomaly_true_to_eccentric(PI, 0.0, RADIANS);
         assert_eq!(anm_ecc, PI);
 
-        let anm_ecc = anomaly_true_to_eccentric(180.0, 0.0, true);
+        let anm_ecc = anomaly_true_to_eccentric(180.0, 0.0, DEGREES);
         assert_eq!(anm_ecc, 180.0);
 
         // 90 degrees
-        let anm_ecc = anomaly_true_to_eccentric(PI / 2.0, 0.0, false);
+        let anm_ecc = anomaly_true_to_eccentric(PI / 2.0, 0.0, RADIANS);
         assert_abs_diff_eq!(anm_ecc, PI / 2.0, epsilon = 1e-12);
 
-        let anm_ecc = anomaly_true_to_eccentric(90.0, 0.0, true);
+        let anm_ecc = anomaly_true_to_eccentric(90.0, 0.0, DEGREES);
         assert_abs_diff_eq!(anm_ecc, 90.0, epsilon = 1e-12);
 
-        let anm_ecc = anomaly_true_to_eccentric(PI / 2.0, 0.1, false);
+        let anm_ecc = anomaly_true_to_eccentric(PI / 2.0, 0.1, RADIANS);
         assert_abs_diff_eq!(anm_ecc, 1.4706289056333368, epsilon = 1e-12);
 
-        let anm_ecc = anomaly_true_to_eccentric(90.0, 0.1, true);
+        let anm_ecc = anomaly_true_to_eccentric(90.0, 0.1, DEGREES);
         assert_abs_diff_eq!(anm_ecc, 84.26082952273322, epsilon = 1e-12);
     }
 
     #[test]
     fn test_anomaly_eccentric_to_true() {
         // 0 degrees
-        let anm_true = anomaly_eccentric_to_true(0.0, 0.0, false);
+        let anm_true = anomaly_eccentric_to_true(0.0, 0.0, RADIANS);
         assert_eq!(anm_true, 0.0);
 
-        let anm_true = anomaly_eccentric_to_true(0.0, 0.0, true);
+        let anm_true = anomaly_eccentric_to_true(0.0, 0.0, DEGREES);
         assert_eq!(anm_true, 0.0);
 
         // 180 degrees
-        let anm_true = anomaly_eccentric_to_true(PI, 0.0, false);
+        let anm_true = anomaly_eccentric_to_true(PI, 0.0, RADIANS);
         assert_eq!(anm_true, PI);
 
-        let anm_true = anomaly_eccentric_to_true(180.0, 0.0, true);
+        let anm_true = anomaly_eccentric_to_true(180.0, 0.0, DEGREES);
         assert_eq!(anm_true, 180.0);
 
         // 90 degrees
-        let anm_true = anomaly_eccentric_to_true(PI / 2.0, 0.0, false);
+        let anm_true = anomaly_eccentric_to_true(PI / 2.0, 0.0, RADIANS);
         assert_abs_diff_eq!(anm_true, PI / 2.0, epsilon = 1e-12);
 
-        let anm_true = anomaly_eccentric_to_true(90.0, 0.0, true);
+        let anm_true = anomaly_eccentric_to_true(90.0, 0.0, DEGREES);
         assert_abs_diff_eq!(anm_true, 90.0, epsilon = 1e-12);
 
-        let anm_true = anomaly_eccentric_to_true(PI / 2.0, 0.1, false);
+        let anm_true = anomaly_eccentric_to_true(PI / 2.0, 0.1, RADIANS);
         assert_abs_diff_eq!(anm_true, 1.6709637479564563, epsilon = 1e-12);
 
-        let anm_true = anomaly_eccentric_to_true(90.0, 0.1, true);
+        let anm_true = anomaly_eccentric_to_true(90.0, 0.1, DEGREES);
         assert_abs_diff_eq!(anm_true, 95.73917047726677, epsilon = 1e-12);
     }
 
@@ -917,7 +912,7 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_eccentric_to_true(anomaly_true_to_eccentric(theta, e, true), e, true),
+                    anomaly_eccentric_to_true(anomaly_true_to_eccentric(theta, e, DEGREES), e, DEGREES),
                     epsilon = 1e-12
                 );
             }
@@ -927,7 +922,7 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_true_to_eccentric(anomaly_eccentric_to_true(theta, e, true), e, true),
+                    anomaly_true_to_eccentric(anomaly_eccentric_to_true(theta, e, DEGREES), e, DEGREES),
                     epsilon = 1e-12
                 );
             }
@@ -937,48 +932,48 @@ mod tests {
     #[test]
     fn test_anomaly_true_to_mean() {
         // 0 degrees
-        let m = anomaly_true_to_mean(0.0, 0.0, false);
+        let m = anomaly_true_to_mean(0.0, 0.0, RADIANS);
         assert_eq!(m, 0.0);
 
-        let m = anomaly_true_to_mean(0.0, 0.0, true);
+        let m = anomaly_true_to_mean(0.0, 0.0, DEGREES);
         assert_eq!(m, 0.0);
 
         // 180 degrees
-        let m = anomaly_true_to_mean(PI, 0.0, false);
+        let m = anomaly_true_to_mean(PI, 0.0, RADIANS);
         assert_eq!(m, PI);
 
-        let m = anomaly_true_to_mean(180.0, 0.0, true);
+        let m = anomaly_true_to_mean(180.0, 0.0, DEGREES);
         assert_eq!(m, 180.0);
 
         // 90 degrees
-        let m = anomaly_true_to_mean(PI / 2.0, 0.1, false);
+        let m = anomaly_true_to_mean(PI / 2.0, 0.1, RADIANS);
         assert_abs_diff_eq!(m, 1.3711301619226748, epsilon = 1e-12);
 
-        let m = anomaly_true_to_mean(90.0, 0.1, true);
+        let m = anomaly_true_to_mean(90.0, 0.1, DEGREES);
         assert_abs_diff_eq!(m, 78.55997144125844, epsilon = 1e-12);
     }
 
     #[test]
     fn test_anomaly_mean_to_true() {
         // 0 degrees
-        let e = anomaly_mean_to_true(0.0, 0.0, false).unwrap();
+        let e = anomaly_mean_to_true(0.0, 0.0, RADIANS).unwrap();
         assert_eq!(e, 0.0);
 
-        let e = anomaly_mean_to_true(0.0, 0.0, true).unwrap();
+        let e = anomaly_mean_to_true(0.0, 0.0, DEGREES).unwrap();
         assert_eq!(e, 0.0);
 
         // 180 degrees
-        let e = anomaly_mean_to_true(PI, 0.0, false).unwrap();
+        let e = anomaly_mean_to_true(PI, 0.0, RADIANS).unwrap();
         assert_eq!(e, PI);
 
-        let e = anomaly_mean_to_true(180.0, 0.0, true).unwrap();
+        let e = anomaly_mean_to_true(180.0, 0.0, DEGREES).unwrap();
         assert_eq!(e, 180.0);
 
         // 90 degrees
-        let e = anomaly_mean_to_true(PI / 2.0, 0.1, false).unwrap();
+        let e = anomaly_mean_to_true(PI / 2.0, 0.1, RADIANS).unwrap();
         assert_abs_diff_eq!(e, 1.7694813731148669, epsilon = 1e-12);
 
-        let e = anomaly_mean_to_true(90.0, 0.1, true).unwrap();
+        let e = anomaly_mean_to_true(90.0, 0.1, DEGREES).unwrap();
         assert_abs_diff_eq!(e, 101.38381460649556, epsilon = 1e-12);
     }
 
@@ -993,7 +988,7 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_mean_to_true(anomaly_true_to_mean(theta, e, true), e, true).unwrap(),
+                    anomaly_mean_to_true(anomaly_true_to_mean(theta, e, DEGREES), e, DEGREES).unwrap(),
                     epsilon = 1e-12
                 );
             }
@@ -1003,7 +998,7 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_true_to_mean(anomaly_mean_to_true(theta, e, true).unwrap(), e, true),
+                    anomaly_true_to_mean(anomaly_mean_to_true(theta, e, DEGREES).unwrap(), e, DEGREES),
                     epsilon = 1e-12
                 );
             }

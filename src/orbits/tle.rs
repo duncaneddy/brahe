@@ -3,6 +3,8 @@ use crate::constants::GM_EARTH;
 use crate::utils::BraheError;
 use nalgebra::Vector6;
 use std::f64::consts::PI;
+#[cfg(test)]
+use crate::constants::RADIANS;
 
 /// TLE format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -638,7 +640,7 @@ mod tests {
         assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
 
         let n_rad_per_sec = 15.48919103 * 2.0 * PI / 86400.0;
-        let a = semimajor_axis( n_rad_per_sec, false);
+        let a = semimajor_axis( n_rad_per_sec, RADIANS);
         assert_abs_diff_eq!(elements[0], a, epsilon = 1.0e-3); // Semi-major axis in meters
         assert_abs_diff_eq!(elements[1], 0.0003417, epsilon = 1.0e-7); // Eccentricity
         assert_abs_diff_eq!(elements[2], 51.6461, epsilon = 1.0e-4); // Inclination

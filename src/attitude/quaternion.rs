@@ -10,6 +10,9 @@ use std::{fmt, ops};
 use crate::attitude::traits::ToAttitude;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::attitude::attitude_types::{ATTITUDE_EPSILON};
+use crate::constants::RADIANS;
+#[cfg(test)]
+use crate::constants::DEGREES;
 use crate::{FromAttitude, Quaternion};
 
 impl Quaternion {
@@ -628,11 +631,11 @@ impl ToAttitude for Quaternion {
 
         // If the angle is zero, the axis is undefined. We'll just return a unit vector in the x-direction
         if angle == 0.0 {
-            return EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, false);
+            return EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, RADIANS);
         }
 
         let axis = Vector3::new(self.data[1], self.data[2], self.data[3]);
-        EulerAxis::new(axis / axis.norm(), angle, false)
+        EulerAxis::new(axis / axis.norm(), angle, RADIANS)
     }
 
     /// Convert the current `Quaternion` to a new `EulerAngle` representation of the attitude transformation.
@@ -810,10 +813,10 @@ mod tests {
 
     #[test]
     fn test_quaternion_slerp() {
-        let q1 = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, true).to_quaternion();
-        let q2 = EulerAngle::new(EulerAngleOrder::XYZ, 180.0, 0.0, 0.0, true).to_quaternion();
+        let q1 = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, DEGREES).to_quaternion();
+        let q2 = EulerAngle::new(EulerAngleOrder::XYZ, 180.0, 0.0, 0.0, DEGREES).to_quaternion();
         let q = q1.slerp(q2, 0.5);
-        assert_eq!(q, EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, true).to_quaternion());
+        assert_eq!(q, EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES).to_quaternion());
     }
 
     #[test]
@@ -876,12 +879,12 @@ mod tests {
 
     #[test]
     fn test_attitude_representation_from_euler_axis() {
-        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, true);
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, DEGREES);
         let q = Quaternion::from_euler_axis(e);
 
         assert_eq!(q, Quaternion::new(1.0, 0.0, 0.0, 0.0));
 
-        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 90.0, true);
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 90.0, DEGREES);
         let q = Quaternion::from_euler_axis(e);
 
         assert_eq!(q, Quaternion::new(0.5, 0.5, 0.0, 0.0));
@@ -889,7 +892,7 @@ mod tests {
 
     #[test]
     fn test_attitude_representation_from_euler_angle() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES);
         let q = Quaternion::from_euler_angle(e);
 
         assert_eq!(q, Quaternion::new(0.7071067811865476, 0.7071067811865475, 0.0, 0.0));
@@ -919,7 +922,7 @@ mod tests {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let e = q.to_euler_axis();
 
-        assert_eq!(e, EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, true));
+        assert_eq!(e, EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 0.0, DEGREES));
     }
 
     #[test]

@@ -481,12 +481,12 @@ impl PyEpoch {
             .to_string_as_time_system(time_system.ts)
     }
 
-    pub fn gast(&self, as_degrees: bool) -> f64 {
-        self.obj.gast(as_degrees)
+    pub fn gast(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
+        self.obj.gast(angle_format.value)
     }
 
-    pub fn gmst(&self, as_degrees: bool) -> f64 {
-        self.obj.gmst(as_degrees)
+    pub fn gmst(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
+        self.obj.gmst(angle_format.value)
     }
 
     /// Returns the year component of the epoch in the epoch's time system.

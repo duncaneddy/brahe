@@ -12,7 +12,7 @@ use regex::Regex;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::constants::{GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
+use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
 use crate::utils::math::split_float;
@@ -1381,14 +1381,17 @@ impl Epoch {
     /// Time is the Greenwich Mean Sidereal Time (GMST) corrected for shift in
     /// the position of the vernal equinox due to nutation.
     ///
+    /// # Arguments
+    /// - `angle_format`: Specifies output format - `AngleFormat::Degrees` or `AngleFormat::Radians`
+    ///
     /// # Returns
-    /// - `gast`: Greenwich Apparent Sidereal Time. Units: (radians) or (degrees)
-    /// - `as_degrees`: Returns output in (degrees) if `true` or (radians) if `false`
+    /// - `gast`: Greenwich Apparent Sidereal Time in specified angle format
     ///
     /// # Example
     /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
+    /// use brahe::constants::AngleFormat;
     ///
     /// // Quick EOP initialization
     /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
@@ -1397,9 +1400,9 @@ impl Epoch {
     /// // April 1, 2022
     /// let epc = Epoch::from_datetime(2022, 4, 1, 1, 2, 3.0, 456000000000.0, TimeSystem::UTC);
     ///
-    /// let gast = epc.gast(true);
+    /// let gast = epc.gast(AngleFormat::Degrees);
     /// ```
-    pub fn gast(&self, as_degrees: bool) -> f64 {
+    pub fn gast(&self, angle_format: AngleFormat) -> f64 {
         let (uta, utb) = self.get_jdfd(TimeSystem::UT1);
         let (tta, ttb) = self.get_jdfd(TimeSystem::TT);
 
@@ -1409,20 +1412,26 @@ impl Epoch {
             gast = rsofa::iauGst06a(uta, utb, tta, ttb);
         }
 
-        if as_degrees { gast * 180.0 / PI } else { gast }
+        match angle_format {
+            AngleFormat::Degrees => gast * 180.0 / PI,
+            AngleFormat::Radians => gast,
+        }
     }
 
     /// Computes the Greenwich Mean Sidereal Time (GMST) as an angular value
     /// for the instantaneous time of the `Epoch`.
     ///
+    /// # Arguments
+    /// - `angle_format`: Specifies output format - `AngleFormat::Degrees` or `AngleFormat::Radians`
+    ///
     /// # Returns
-    /// - `gast`: Greenwich Apparent Sidereal Time. Units: (radians) or (degrees)
-    /// - `as_degrees`: Returns output in (degrees) if `true` or (radians) if `false`
+    /// - `gmst`: Greenwich Mean Sidereal Time in specified angle format
     ///
     /// # Example
     /// ```
     /// use brahe::eop::*;
     /// use brahe::time::*;
+    /// use brahe::constants::AngleFormat;
     ///
     /// // Quick EOP initialization
     /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
@@ -1431,9 +1440,9 @@ impl Epoch {
     /// // April 1, 2022
     /// let epc = Epoch::from_datetime(2022, 4, 1, 1, 2, 3.0, 456000000000.0, TimeSystem::UTC);
     ///
-    /// let gmst = epc.gmst(true);
+    /// let gmst = epc.gmst(AngleFormat::Degrees);
     /// ```
-    pub fn gmst(&self, as_degrees: bool) -> f64 {
+    pub fn gmst(&self, angle_format: AngleFormat) -> f64 {
         let (uta, utb) = self.get_jdfd(TimeSystem::UT1);
         let (tta, ttb) = self.get_jdfd(TimeSystem::TT);
 
@@ -1443,7 +1452,10 @@ impl Epoch {
             gast = rsofa::iauGmst06(uta, utb, tta, ttb);
         }
 
-        if as_degrees { gast * 180.0 / PI } else { gast }
+        match angle_format {
+            AngleFormat::Degrees => gast * 180.0 / PI,
+            AngleFormat::Radians => gast,
+        }
     }
 }
 
@@ -2312,10 +2324,10 @@ mod tests {
         setup_global_test_eop();
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gmst(true), 99.969, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(epc.gmst(AngleFormat::Degrees), 99.969, epsilon = 1.0e-3);
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gmst(false), 99.969 * PI / 180.0, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(epc.gmst(AngleFormat::Radians), 99.969 * PI / 180.0, epsilon = 1.0e-3);
     }
 
     #[test]
@@ -2323,10 +2335,10 @@ mod tests {
         setup_global_test_eop();
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gast(true), 99.965, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(epc.gast(AngleFormat::Degrees), 99.965, epsilon = 1.0e-3);
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gast(false), 99.965 * PI / 180.0, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(epc.gast(AngleFormat::Radians), 99.965 * PI / 180.0, epsilon = 1.0e-3);
     }
 
     #[test]

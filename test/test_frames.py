@@ -111,7 +111,7 @@ def test_state_eci_to_ecef_circular(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    eci = brahe.state_osculating_to_cartesian(oe, True)
+    eci = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
 
     # Perform circular transformations
     ecef = brahe.state_eci_to_ecef(epc, eci)

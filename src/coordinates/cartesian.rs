@@ -10,9 +10,8 @@ use nalgebra::Vector3;
 use super::SVector6;
 
 use crate::constants;
-use crate::constants::GM_EARTH;
+use crate::constants::{AngleFormat, GM_EARTH};
 use crate::orbits;
-use crate::utils::math::{from_degrees, to_degrees};
 
 /// Convert an osculating orbital element state vector into the equivalent
 /// Cartesian (position and velocity) inertial state.
@@ -27,35 +26,42 @@ use crate::utils::math::{from_degrees, to_degrees};
 ///
 /// # Arguments
 /// - `x_oe`: Osculating orbital elements
-/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular elements (Radians or Degrees)
 ///
 /// # Returns
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::R_EARTH;
+/// use brahe::constants::{R_EARTH, RADIANS};
 /// use brahe::utils::vector6_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
-/// let cart = state_osculating_to_cartesian(osc, false);
+/// let cart = state_osculating_to_cartesian(osc, RADIANS);
 /// // Returns state [R_EARTH + 500e3, 0, 0, perigee_velocity(R_EARTH + 500e3, 0.0), 0]
 /// ```
 ///
 /// # Reference
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
-pub fn state_osculating_to_cartesian(x_oe: SVector6, as_degrees: bool) -> SVector6 {
+pub fn state_osculating_to_cartesian(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
     // Unpack input
     let a = x_oe[0];
     let e = x_oe[1];
-    let i = from_degrees(x_oe[2], as_degrees);
-    let RAAN = from_degrees(x_oe[3], as_degrees);
-    let omega = from_degrees(x_oe[4], as_degrees);
-    let M = from_degrees(x_oe[5], as_degrees);
 
-    let E = orbits::anomaly_mean_to_eccentric(M, e, false).unwrap();
+    // Convert angles to radians based on format
+    let (i, RAAN, omega, M) = match angle_format {
+        AngleFormat::Degrees => (
+            x_oe[2] * constants::DEG2RAD,
+            x_oe[3] * constants::DEG2RAD,
+            x_oe[4] * constants::DEG2RAD,
+            x_oe[5] * constants::DEG2RAD,
+        ),
+        AngleFormat::Radians => (x_oe[2], x_oe[3], x_oe[4], x_oe[5]),
+    };
+
+    let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap();
 
     let P: Vector3<f64> = Vector3::new(
         omega.cos() * RAAN.cos() - omega.sin() * i.cos() * RAAN.sin(),
@@ -88,20 +94,20 @@ pub fn state_osculating_to_cartesian(x_oe: SVector6, as_degrees: bool) -> SVecto
 ///
 /// # Arguments
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
-/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `angle_format`: Format for angular elements in output (Radians or Degrees)
 ///
 /// # Returns
 /// - `x_oe`: Osculating orbital elements
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::R_EARTH;
+/// use brahe::constants::{R_EARTH, DEGREES};
 /// use brahe::utils::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::coordinates::*;
 ///
 /// let cart = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0, ]);
-/// let osc = state_cartesian_to_osculating(cart, true);
+/// let osc = state_cartesian_to_osculating(cart, DEGREES);
 /// // Returns state [R_EARTH + 500e3, 0, 0, 0, 0, 0]
 /// ```
 ///
@@ -110,7 +116,7 @@ pub fn state_osculating_to_cartesian(x_oe: SVector6, as_degrees: bool) -> SVecto
 #[allow(non_snake_case)]
 pub fn state_cartesian_to_osculating(
     x_cart: SVector6,
-    as_degrees: bool,
+    angle_format: AngleFormat,
 ) -> SVector6 {
     // # Initialize Cartesian Polistion and Velocity
     let r: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(0));
@@ -135,7 +141,7 @@ pub fn state_cartesian_to_osculating(
 
     let e = (1.0 - p / a).sqrt(); // Eccentricity
     let E = (r.dot(&v) / (n * a * a)).atan2(1.0 - r.norm() / a); // Eccentric Anomaly
-    let M = orbits::anomaly_eccentric_to_mean(E, e, false); // Mean Anomaly
+    let M = orbits::anomaly_eccentric_to_mean(E, e, AngleFormat::Radians); // Mean Anomaly
     let u = (r[2]).atan2(-r[0] * W[1] + r[1] * W[0]); // Mean longiude
     let nu = ((1.0 - e * e).sqrt() * E.sin()).atan2(E.cos() - e); // True Anomaly
     let omega = u - nu; // Argument of perigee
@@ -149,14 +155,18 @@ pub fn state_cartesian_to_osculating(
     let omega = omega % (2.0 * PI);
     let M = M % (2.0 * PI);
 
-    SVector6::new(
-        a,
-        e,
-        to_degrees(i, as_degrees),
-        to_degrees(RAAN, as_degrees),
-        to_degrees(omega, as_degrees),
-        to_degrees(M, as_degrees),
-    )
+    // Convert angles to requested format
+    match angle_format {
+        AngleFormat::Degrees => SVector6::new(
+            a,
+            e,
+            i * constants::RAD2DEG,
+            RAAN * constants::RAD2DEG,
+            omega * constants::RAD2DEG,
+            M * constants::RAD2DEG,
+        ),
+        AngleFormat::Radians => SVector6::new(a, e, i, RAAN, omega, M),
+    }
 }
 
 #[cfg(test)]
@@ -164,7 +174,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::constants::{R_EARTH, DEG2RAD};
+    use crate::constants::{R_EARTH, DEG2RAD, RADIANS, DEGREES};
     use crate::coordinates::*;
     use crate::orbits::*;
     use crate::utils::math::*;
@@ -175,7 +185,7 @@ mod tests {
         setup_global_test_eop();
 
         let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        let cart = state_osculating_to_cartesian(osc, false);
+        let cart = state_osculating_to_cartesian(osc, RADIANS);
 
         assert_eq!(cart[0], R_EARTH + 500e3);
         assert_eq!(cart[1], 0.0);
@@ -185,7 +195,7 @@ mod tests {
         assert_eq!(cart[5], 0.0);
 
         let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 90.0, 0.0, 0.0, 0.0]);
-        let cart = state_osculating_to_cartesian(osc, true);
+        let cart = state_osculating_to_cartesian(osc, DEGREES);
 
         assert_eq!(cart[0], R_EARTH + 500e3);
         assert_eq!(cart[1], 0.0);
@@ -207,7 +217,7 @@ mod tests {
             perigee_velocity(R_EARTH + 500e3, 0.0),
             0.0,
         ]);
-        let osc = state_cartesian_to_osculating(cart, true);
+        let osc = state_cartesian_to_osculating(cart, DEGREES);
 
         assert_abs_diff_eq!(osc[0], R_EARTH + 500e3, epsilon = 1e-9);
         assert_eq!(osc[1], 0.0);
@@ -224,7 +234,7 @@ mod tests {
             0.0,
             perigee_velocity(R_EARTH + 500e3, 0.0),
         ]);
-        let osc = state_cartesian_to_osculating(cart, true);
+        let osc = state_cartesian_to_osculating(cart, DEGREES);
 
         assert_abs_diff_eq!(osc[0], R_EARTH + 500e3, epsilon = 1.0e-9);
         assert_eq!(osc[1], 0.0);
@@ -242,8 +252,8 @@ mod tests {
     fn test_round_trip_conversion_deg(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
 
         let osc = vector6_from_array([a, e, i, raan, omega, m]);
-        let cart = state_osculating_to_cartesian(osc, true);
-        let osc_back = state_cartesian_to_osculating(cart, true);
+        let cart = state_osculating_to_cartesian(osc, DEGREES);
+        let osc_back = state_cartesian_to_osculating(cart, DEGREES);
 
         assert_abs_diff_eq!(osc[0], osc_back[0], epsilon = 1e-8);
         assert_abs_diff_eq!(osc[1], osc_back[1], epsilon = 1e-9);
@@ -261,8 +271,8 @@ mod tests {
     fn test_round_trip_conversion_rad(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
 
         let osc = vector6_from_array([a, e, i, raan, omega, m]);
-        let cart = state_osculating_to_cartesian(osc, false);
-        let osc_back = state_cartesian_to_osculating(cart, false);
+        let cart = state_osculating_to_cartesian(osc, RADIANS);
+        let osc_back = state_cartesian_to_osculating(cart, RADIANS);
 
         assert_abs_diff_eq!(osc[0], osc_back[0], epsilon = 1e-8);
         assert_abs_diff_eq!(osc[1], osc_back[1], epsilon = 1e-9);

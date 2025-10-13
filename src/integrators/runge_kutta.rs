@@ -6,6 +6,8 @@ use nalgebra::{SMatrix, SVector};
 
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::numerical_integrator::NumericalIntegrator;
+#[cfg(test)]
+use crate::constants::RADIANS;
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
 /// over the size of the state vector.
@@ -199,7 +201,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, false);
+        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
         let mut state = state0.clone();
 
         // Get start and end times of propagation (1 orbit)
@@ -234,7 +236,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, false);
+        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no setp and confirm the variational matrix is the identity matrix

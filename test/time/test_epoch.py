@@ -383,18 +383,18 @@ def test_to_string_as_time_system(eop):
 
 def test_gmst(eop):
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gmst(True) == pytest.approx(99.969, abs=1e-3)
+    assert epc.gmst(brahe.AngleFormat.DEGREES) == pytest.approx(99.969, abs=1e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gmst(False) == pytest.approx(99.969 * math.pi / 180.0, abs=1.0e-3)
+    assert epc.gmst(brahe.AngleFormat.RADIANS) == pytest.approx(99.969 * math.pi / 180.0, abs=1.0e-3)
 
 
 def test_gast(eop):
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gast(True) == pytest.approx(99.965, abs=1.0e-3)
+    assert epc.gast(brahe.AngleFormat.DEGREES) == pytest.approx(99.965, abs=1.0e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gast(False) == pytest.approx(99.965 * math.pi / 180.0, abs=1.0e-3)
+    assert epc.gast(brahe.AngleFormat.RADIANS) == pytest.approx(99.965 * math.pi / 180.0, abs=1.0e-3)
 
 
 def test_ops_add_assign():

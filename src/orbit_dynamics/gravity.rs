@@ -549,7 +549,7 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, true);
+/// let x_eci = state_osculating_to_cartesian(oe, DEGREES);
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity

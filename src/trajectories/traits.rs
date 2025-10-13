@@ -5,6 +5,7 @@
  * (runtime sized) trajectory implementations must implement to ensure a consistent interface.
  */
 
+use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use serde::{Deserialize, Serialize};
@@ -60,17 +61,6 @@ pub enum OrbitRepresentation {
     Cartesian,
     /// Keplerian elements (a, e, i, Ω, ω, M)
     Keplerian,
-}
-
-/// Enumeration of angle formats for orbital elements
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AngleFormat {
-    /// Angles represented in radians
-    Radians,
-    /// Angles represented in degrees
-    Degrees,
-    /// No angle representation or not applicable
-    None,
 }
 
 /// Core trajectory functionality that all trajectory implementations must provide.

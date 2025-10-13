@@ -11,7 +11,8 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{DTrajectory, STrajectory6, OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
+ * use brahe::trajectories::{DTrajectory, STrajectory6, OrbitTrajectory};
+ * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
  *
  * // Dynamic trajectory - any dimension
  * let mut dyn_traj = DTrajectory::new(7); // 7-dimensional
@@ -33,8 +34,8 @@ pub mod strajectory;
 pub mod dtrajectory;
 pub mod orbit_trajectory;
 
-// Re-export everything from traits
-pub use traits::*;
+// Note: traits and their types are not re-exported here to avoid ambiguous glob re-exports
+// Use `use brahe::traits::*` or `use brahe::trajectories::traits::*` instead
 
 // Re-export everything from strajectory
 pub use strajectory::*;

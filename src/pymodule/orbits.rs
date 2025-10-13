@@ -1,3 +1,6 @@
+// Import traits needed by propagator methods
+use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+
 /// Computes the orbital period of an object around Earth.
 ///
 /// Uses rastro.constants.GM_EARTH as the standard gravitational parameter for the calculation.

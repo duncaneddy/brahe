@@ -14,8 +14,8 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
- * use brahe::trajectories::{Trajectory, OrbitalTrajectory};
+ * use brahe::trajectories::OrbitTrajectory;
+ * use brahe::traits::{Trajectory, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::Vector6;
  *
@@ -118,7 +118,8 @@ impl OrbitTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// use brahe::trajectories::OrbitTrajectory;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
     ///
     /// let traj = OrbitTrajectory::new(
     ///     OrbitFrame::ECI,
@@ -171,7 +172,8 @@ impl OrbitTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
+    /// use brahe::trajectories::OrbitTrajectory;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
     /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
@@ -196,7 +198,8 @@ impl OrbitTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// use brahe::trajectories::OrbitTrajectory;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
     /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
     ///     .with_eviction_policy_max_size(100);
     /// ```
@@ -226,7 +229,8 @@ impl OrbitTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{OrbitTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// use brahe::trajectories::OrbitTrajectory;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
     /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
     ///     .with_eviction_policy_max_age(3600.0);
     /// ```

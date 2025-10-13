@@ -6,7 +6,7 @@ use nalgebra::Vector6;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat};
+use crate::trajectories::traits::{AngleFormat, OrbitFrame, OrbitRepresentation};
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {

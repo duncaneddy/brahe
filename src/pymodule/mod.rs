@@ -17,6 +17,7 @@ use pyo3::panic::PanicException;
 
 use crate::utils::errors::*;
 use crate::*;
+use crate::traits::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where

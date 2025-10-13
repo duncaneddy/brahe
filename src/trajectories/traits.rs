@@ -292,7 +292,8 @@ pub trait Trajectory {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::{STrajectory6, Trajectory, Interpolatable, InterpolationMethod};
+/// use brahe::trajectories::STrajectory6;
+/// use brahe::traits::{Trajectory, Interpolatable, InterpolationMethod};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
@@ -420,7 +421,8 @@ pub trait Interpolatable: Trajectory {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::{OrbitTrajectory, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
+/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///

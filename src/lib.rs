@@ -125,3 +125,6 @@ pub mod orbits;
 pub mod time;
 pub mod trajectories;
 pub mod utils;
+
+// Centralized traits module - re-exports all public traits
+pub mod traits;

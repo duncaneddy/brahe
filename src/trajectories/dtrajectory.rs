@@ -16,7 +16,8 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{DTrajectory, InterpolationMethod, Trajectory};
+ * use brahe::trajectories::DTrajectory;
+ * use brahe::traits::{Trajectory, InterpolationMethod};
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::DVector;
  *
@@ -106,7 +107,8 @@ impl DTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{DTrajectory, Trajectory};
+    /// use brahe::trajectories::DTrajectory;
+    /// use brahe::traits::Trajectory;
     /// let traj = DTrajectory::new(7); // 7-dimensional trajectory
     /// assert_eq!(traj.len(), 0);
     /// assert_eq!(traj.dimension, 7);
@@ -141,7 +143,8 @@ impl DTrajectory {
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{DTrajectory, InterpolationMethod};
+    /// use brahe::trajectories::DTrajectory;
+    /// use brahe::traits::InterpolationMethod;
     /// let traj = DTrajectory::new(6)
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```

@@ -39,9 +39,8 @@ use crate::orbits::tle::{
 };
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
-use crate::trajectories::{
-    AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory,
-};
+use crate::trajectories::OrbitTrajectory;
+use crate::trajectories::traits::{AngleFormat, OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::BraheError;
 
 /// SGP4 propagator using TLE data with the new architecture

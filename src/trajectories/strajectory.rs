@@ -15,7 +15,8 @@
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{STrajectory6, InterpolationMethod, Trajectory};
+ * use brahe::trajectories::STrajectory6;
+ * use brahe::traits::{Trajectory, InterpolationMethod};
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::Vector6;
  *
@@ -107,7 +108,8 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory, STrajectory6, Trajectory};
+    /// use brahe::trajectories::{STrajectory, STrajectory6};
+    /// use brahe::traits::Trajectory;
     /// let traj = STrajectory6::new(); // 6-dimensional static trajectory
     /// assert_eq!(traj.len(), 0);
     ///
@@ -140,7 +142,8 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory6, InterpolationMethod, TrajectoryEvictionPolicy};
+    /// use brahe::trajectories::STrajectory6;
+    /// use brahe::traits::{InterpolationMethod, TrajectoryEvictionPolicy};
     /// let traj = STrajectory6::new()
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
@@ -165,7 +168,8 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
+    /// use brahe::trajectories::STrajectory6;
+    /// use brahe::traits::InterpolationMethod;
     /// let traj = STrajectory6::new()
     ///     .with_eviction_policy_max_size(100);
     /// ```
@@ -195,7 +199,8 @@ impl<const R: usize> STrajectory<R>
     ///
     /// # Examples
     /// ```rust
-    /// use brahe::trajectories::{STrajectory6, InterpolationMethod};
+    /// use brahe::trajectories::STrajectory6;
+    /// use brahe::traits::InterpolationMethod;
     /// let traj = STrajectory6::new()
     ///     .with_eviction_policy_max_age(3600.0);
     /// ```

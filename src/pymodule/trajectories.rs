@@ -1,29 +1,30 @@
 /// Python bindings for the new trajectory architecture
 
+// Import traits needed by trajectory metho
 
 /// Python wrapper for AngleFormat enum
 #[pyclass]
 #[pyo3(name = "AngleFormat")]
 #[derive(Clone)]
 pub struct PyAngleFormat {
-    pub(crate) format: trajectories::AngleFormat,
+    pub(crate) format: trajectories::traits::AngleFormat,
 }
 
 #[pymethods]
 impl PyAngleFormat {
     #[classattr]
     fn RADIANS() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::Radians }
+        PyAngleFormat { format: trajectories::traits::AngleFormat::Radians }
     }
 
     #[classattr]
     fn DEGREES() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::Degrees }
+        PyAngleFormat { format: trajectories::traits::AngleFormat::Degrees }
     }
 
     #[classattr]
     fn NONE() -> Self {
-        PyAngleFormat { format: trajectories::AngleFormat::None }
+        PyAngleFormat { format: trajectories::traits::AngleFormat::None }
     }
 
     fn __str__(&self) -> String {
@@ -48,14 +49,14 @@ impl PyAngleFormat {
 #[pyo3(name = "InterpolationMethod")]
 #[derive(Clone)]
 pub struct PyInterpolationMethod {
-    pub(crate) method: trajectories::InterpolationMethod,
+    pub(crate) method: trajectories::traits::InterpolationMethod,
 }
 
 #[pymethods]
 impl PyInterpolationMethod {
     #[classattr]
     fn LINEAR() -> Self {
-        PyInterpolationMethod { method: trajectories::InterpolationMethod::Linear }
+        PyInterpolationMethod { method: trajectories::traits::InterpolationMethod::Linear }
     }
 
     fn __str__(&self) -> String {
@@ -81,7 +82,7 @@ impl PyInterpolationMethod {
 #[pyo3(name = "OrbitFrame")]
 #[derive(Clone)]
 pub struct PyOrbitFrame {
-    pub(crate) frame: trajectories::OrbitFrame,
+    pub(crate) frame: trajectories::traits::OrbitFrame,
 }
 
 #[pymethods]
@@ -89,20 +90,20 @@ impl PyOrbitFrame {
     /// ECI frame
     #[classattr]
     fn ECI() -> Self {
-        PyOrbitFrame { frame: trajectories::OrbitFrame::ECI }
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ECI }
     }
 
     /// ECEF frame
     #[classattr]
     fn ECEF() -> Self {
-        PyOrbitFrame { frame: trajectories::OrbitFrame::ECEF }
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ECEF }
     }
 
     /// Get frame name
     fn name(&self) -> &str {
         match self.frame {
-            trajectories::OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
-            trajectories::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
+            trajectories::traits::OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
+            trajectories::traits::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
         }
     }
 
@@ -112,8 +113,8 @@ impl PyOrbitFrame {
 
     fn __repr__(&self) -> String {
         format!("OrbitFrame.{}", match self.frame {
-            trajectories::OrbitFrame::ECI => "ECI",
-            trajectories::OrbitFrame::ECEF => "ECEF",
+            trajectories::traits::OrbitFrame::ECI => "ECI",
+            trajectories::traits::OrbitFrame::ECEF => "ECEF",
         })
     }
 
@@ -131,7 +132,7 @@ impl PyOrbitFrame {
 #[pyo3(name = "OrbitRepresentation")]
 #[derive(Clone)]
 pub struct PyOrbitRepresentation {
-    pub(crate) representation: trajectories::OrbitRepresentation,
+    pub(crate) representation: trajectories::traits::OrbitRepresentation,
 }
 
 #[pymethods]
@@ -139,13 +140,13 @@ impl PyOrbitRepresentation {
     /// Cartesian representation
     #[classattr]
     fn CARTESIAN() -> Self {
-        PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Cartesian }
+        PyOrbitRepresentation { representation: trajectories::traits::OrbitRepresentation::Cartesian }
     }
 
     /// Keplerian representation
     #[classattr]
     fn KEPLERIAN() -> Self {
-        PyOrbitRepresentation { representation: trajectories::OrbitRepresentation::Keplerian }
+        PyOrbitRepresentation { representation: trajectories::traits::OrbitRepresentation::Keplerian }
     }
 
     fn __str__(&self) -> String {
@@ -231,7 +232,6 @@ impl PyOrbitalTrajectory {
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
-        use crate::trajectories::OrbitalTrajectory;
 
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
@@ -616,7 +616,6 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in ECI Cartesian frame
     #[pyo3(text_signature = "()")]
     pub fn to_eci(&self) -> Self {
-        use crate::trajectories::OrbitalTrajectory;
         let new_trajectory = self.trajectory.to_eci();
         PyOrbitalTrajectory { trajectory: new_trajectory }
     }
@@ -627,7 +626,6 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in ECEF Cartesian frame
     #[pyo3(text_signature = "()")]
     pub fn to_ecef(&self) -> Self {
-        use crate::trajectories::OrbitalTrajectory;
         let new_trajectory = self.trajectory.to_ecef();
         PyOrbitalTrajectory { trajectory: new_trajectory }
     }
@@ -641,7 +639,6 @@ impl PyOrbitalTrajectory {
     ///     OrbitalTrajectory: Trajectory in ECI Keplerian representation
     #[pyo3(text_signature = "(angle_format)")]
     pub fn to_keplerian(&self, angle_format: PyRef<PyAngleFormat>) -> Self {
-        use crate::trajectories::OrbitalTrajectory;
         let new_trajectory = self.trajectory.to_keplerian(angle_format.format);
         PyOrbitalTrajectory { trajectory: new_trajectory }
     }
@@ -774,7 +771,6 @@ impl PyOrbitalTrajectory {
     ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
     #[pyo3(text_signature = "()")]
     pub fn get_eviction_policy(&self) -> String {
-        use crate::trajectories::Trajectory;
         format!("{:?}", self.trajectory.get_eviction_policy())
     }
 
@@ -896,7 +892,7 @@ impl PyTrajectory {
     ) -> PyResult<Self> {
         let method = interpolation_method
             .map(|m| m.method)
-            .unwrap_or(trajectories::InterpolationMethod::Linear);
+            .unwrap_or(trajectories::traits::InterpolationMethod::Linear);
 
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
@@ -1219,7 +1215,6 @@ impl PyTrajectory {
     ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
     #[pyo3(text_signature = "()")]
     pub fn get_eviction_policy(&self) -> String {
-        use crate::trajectories::Trajectory;
         format!("{:?}", self.trajectory.get_eviction_policy())
     }
 
@@ -1443,7 +1438,7 @@ impl PySTrajectory6 {
     ) -> Self {
         let method = interpolation_method
             .map(|m| m.method)
-            .unwrap_or(trajectories::InterpolationMethod::Linear);
+            .unwrap_or(trajectories::traits::InterpolationMethod::Linear);
 
         let trajectory = trajectories::STrajectory6::new()
             .with_interpolation_method(method);
@@ -1764,7 +1759,6 @@ impl PySTrajectory6 {
     ///     str: String representation of eviction policy ("None", "KeepCount", or "KeepWithinDuration")
     #[pyo3(text_signature = "()")]
     pub fn get_eviction_policy(&self) -> String {
-        use crate::trajectories::Trajectory;
         format!("{:?}", self.trajectory.get_eviction_policy())
     }
 

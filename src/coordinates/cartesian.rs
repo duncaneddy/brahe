@@ -27,7 +27,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 ///
 /// # Arguments
 /// - `x_oe`: Osculating orbital elements
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
@@ -88,7 +88,7 @@ pub fn state_osculating_to_cartesian(x_oe: SVector6, as_degrees: bool) -> SVecto
 ///
 /// # Arguments
 /// - `x_cart`: Cartesian inertial state. Units: (_m_; _m/s_)
-/// - `use_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
 ///
 /// # Returns
 /// - `x_oe`: Osculating orbital elements

@@ -19,7 +19,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns:
 /// - `E`: Earth-fixed to Topocentric rotation matrix
@@ -56,7 +56,7 @@ pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns:
 /// - `E`: Topocentric to Earth-fixed rotation matrix
@@ -171,7 +171,7 @@ pub fn relative_position_enz_to_ecef(
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns:
 /// - `E`: Earth-fixed to Topocentric rotation matrix
@@ -208,7 +208,7 @@ pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates. Expected format (lon, lat, alt)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns:
 /// - `E`: Topocentric to Earth-fixed rotation matrix
@@ -323,7 +323,7 @@ pub fn relative_position_sez_to_ecef(
 ///
 /// # Args:
 /// - `x_enz`: Relative Cartesian position of object to location East-North-Up coordinates. Units: (*m*)
-/// - `use_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
 ///
 /// # Returns:
 /// - `x_azel`: Azimuth, elevation and range. Units: (*angle*, *angle*, *m*)
@@ -369,7 +369,7 @@ pub fn position_enz_to_azel(x_enz: Vector3<f64>, as_degrees: bool) -> Vector3<f6
 ///
 /// # Args:
 /// - `x_sez`: Relative Cartesian position of object to location South-East-Zenith coordinates. Units: (*m*)
-/// - `use_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
 ///
 /// # Returns:
 /// - `x_azel`: Azimuth, elevation and range. Units: (*angle*, *angle*, *m*)

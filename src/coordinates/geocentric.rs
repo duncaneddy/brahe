@@ -18,7 +18,7 @@ use crate::utils::math::{from_degrees, to_degrees};
 ///
 /// # Arguments:
 /// - `x_geoc`: Geocentric coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
 ///
 /// # Returns
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
@@ -61,7 +61,7 @@ pub fn position_geocentric_to_ecef(
 ///
 /// # Arguments:
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
-/// - `use_degrees`: Produces output in (deg) if `true` or (rad) if `false`
+/// - `as_degrees`: Produces output in (deg) if `true` or (rad) if `false`
 ///
 /// # Returns
 /// - `x_geoc`: Geocentric coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)

@@ -50,7 +50,7 @@ pub use crate::trajectories::traits::{
 };
 
 // Attitude traits
-pub use crate::attitude::attitude_representation::{FromAttitude, ToAttitude};
+pub use crate::attitude::traits::{FromAttitude, ToAttitude};
 
 // EOP traits (imported through public re-export)
 pub use crate::eop::EarthOrientationProvider;

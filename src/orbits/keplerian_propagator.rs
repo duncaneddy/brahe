@@ -320,6 +320,12 @@ impl KeplerianPropagator {
     }
 
     /// Propagate internal Keplerian elements to a target epoch
+    /// 
+    /// # Arguments
+    /// * `target_epoch` - Epoch to which to propagate
+    /// 
+    /// # Returns
+    /// * New osculating elements at the target epoch (always in radians, ECI)
     fn propagate_internal(&self, target_epoch: Epoch) -> Vector6<f64> {
         let dt = target_epoch - self.initial_epoch;
 
@@ -334,11 +340,8 @@ impl KeplerianPropagator {
         // Propagate mean anomaly and normalize to [0, 2π]
         let m = (m0 + self.n * dt) % (2.0 * PI);
 
-        // Create new internal state with propagated mean anomaly
-        let propagated_elements = Vector6::new(a, e, i, raan, argp, m);
-
-        // Convert back to original state format
-        self.convert_from_internal_osculating(target_epoch, propagated_elements)
+        // Return new osculating elements
+        Vector6::new(a, e, i, raan, argp, m)
     }
 }
 
@@ -347,14 +350,22 @@ impl OrbitPropagator for KeplerianPropagator {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + self.step_size;
         let new_state = self.propagate_internal(target_epoch);
-        self.trajectory.add(target_epoch, new_state)
+        
+        // Convert back to original state format
+        let state = self.convert_from_internal_osculating(target_epoch, new_state)
+
+        self.trajectory.add(target_epoch, state)
     }
 
     fn step_by(&mut self, step_size: f64) -> () {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size;
         let new_state = self.propagate_internal(target_epoch);
-        self.trajectory.add(target_epoch, new_state)
+
+        // Convert back to original state format
+        let state = self.convert_from_internal_osculating(target_epoch, new_state);
+
+        self.trajectory.add(target_epoch, state)
     }
 
     fn propagate_steps(&mut self, num_steps: usize) {
@@ -428,6 +439,12 @@ impl OrbitPropagator for KeplerianPropagator {
             ));
         }
 
+        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+            return Err(BraheError::Error(
+                "Keplerian elements must be in ECI frame".to_string(),
+            ));
+        }
+
         if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
             return Err(BraheError::Error(
                 "Angle format should be None for Cartesian representation".to_string(),
@@ -477,22 +494,17 @@ impl OrbitPropagator for KeplerianPropagator {
 
 impl AnalyticPropagator for KeplerianPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
-        self.propagate_internal(epoch)
+        // Get state in original format
+        let internal_state = self.propagate_internal(epoch);
+        self.convert_from_internal_osculating(epoch, internal_state)
     }
 
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
-        // Propagate internal elements and convert to ECI Cartesian
-        let dt = epoch - self.initial_epoch;
-        let a = self.internal_osculating_elements[0];
-        let e = self.internal_osculating_elements[1];
-        let i = self.internal_osculating_elements[2];
-        let raan = self.internal_osculating_elements[3];
-        let argp = self.internal_osculating_elements[4];
-        let m0 = self.internal_osculating_elements[5];
-        let m = (m0 + self.n * dt) % (2.0 * PI);
-        let propagated_elements = Vector6::new(a, e, i, raan, argp, m);
+        // Get state in original format
+        let state = self.propagate_internal(epoch);
 
-        state_osculating_to_cartesian(propagated_elements, false)
+        // Convert to ECI
+        state_osculating_to_cartesian(state, false)
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
@@ -500,78 +512,50 @@ impl AnalyticPropagator for KeplerianPropagator {
         state_eci_to_ecef(epoch, eci_state)
     }
 
-    fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
-        // Propagate internal elements (always in radians)
-        let dt = epoch - self.initial_epoch;
-        let a = self.internal_osculating_elements[0];
-        let e = self.internal_osculating_elements[1];
-        let i = self.internal_osculating_elements[2];
-        let raan = self.internal_osculating_elements[3];
-        let argp = self.internal_osculating_elements[4];
-        let m0 = self.internal_osculating_elements[5];
-        let m = (m0 + self.n * dt) % (2.0 * PI);
-
-        Vector6::new(a, e, i, raan, argp, m)
+    fn state_as_osculating_elements(&self, epoch: Epoch, as_degrees: bool) -> Vector6<f64> {
+        let internal_state = self.propagate_internal(epoch);
+        if as_degrees {
+            let mut elements = internal_state;
+            // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
+            for i in 2..6 {
+                elements[i] = elements[i] * RAD2DEG;
+            }
+            elements
+        } else {
+            internal_state
+        }
     }
 
-    fn states(&self, epochs: &[Epoch]) -> OrbitTrajectory {
+    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
         let mut states = Vec::new();
         for &epoch in epochs {
-            states.push(self.propagate_internal(epoch));
+            states.push(self.state(epoch));
         }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            self.frame,
-            self.representation,
-            self.angle_format,
-        )
+        states
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory {
+    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_eci(epoch));
         }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        )
+        states
     }
 
-    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory {
+    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
         let mut states = Vec::new();
         for &epoch in epochs {
             states.push(self.state_ecef(epoch));
         }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECEF,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        )
+        states
     }
 
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory {
-        let mut states = Vec::new();
+    fn states_as_osculating_elements(&self, epochs: &[Epoch], as_degrees: bool) -> Vec<Vector6<f64>> {
+        let mut elements = Vec::new();
         for &epoch in epochs {
-            states.push(self.state_osculating_elements(epoch));
+            elements.push(self.state_as_osculating_elements(epoch, as_degrees));
         }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        )
+        elements
     }
 }
 

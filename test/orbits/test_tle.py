@@ -422,3 +422,101 @@ class TestTLECircularity:
         assert abs(recovered_elements[5] - original_elements[5]) < 1e-3     # Mean anomaly (degrees)
 
 
+class TestEpochFromTLE:
+    """Test extraction of epoch from TLE line 1."""
+
+    def test_epoch_from_tle_basic(self):
+        """Test basic epoch extraction from ISS TLE."""
+        line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
+        epoch = brahe.epoch_from_tle(line1)
+
+        assert epoch.year() == 2021
+        assert epoch.month() == 1
+        assert epoch.day() == 1
+        assert epoch.hour() == 12
+        assert epoch.minute() == 0
+        assert abs(epoch.second() - 0.0) < 1e-6
+
+    @pytest.mark.parametrize("line1,year,month,day,hour,minute,second", [
+        ("1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997", 2021, 1, 1, 12, 0, 0.0),
+        ("1 25544U 98067A   21032.25000000  .00001764  00000-0  40967-4 0  9997", 2021, 2, 1, 6, 0, 0.0),
+        ("1 25544U 98067A   21365.00000000  .00001764  00000-0  40967-4 0  9997", 2021, 12, 31, 0, 0, 0.0),
+        ("1 25544U 98067A   56001.00000000  .00001764  00000-0  40967-4 0  9997", 2056, 1, 1, 0, 0, 0.0),  # 2000s epoch (56 < 57)
+        ("1 25544U 98067A   57001.00000000  .00001764  00000-0  40967-4 0  9997", 1957, 1, 1, 0, 0, 0.0),  # Boundary: 57 -> 1957
+        ("1 25544U 98067A   00001.00000000  .00001764  00000-0  40967-4 0  9997", 2000, 1, 1, 0, 0, 0.0),  # Y2K
+        ("1 25544U 98067A   99365.00000000  .00001764  00000-0  40967-4 0  9997", 1999, 12, 31, 0, 0, 0.0),  # Last day of 1999
+    ])
+    def test_epoch_from_tle_various_dates(self, line1, year, month, day, hour, minute, second):
+        """Test epoch extraction with various dates."""
+        epoch = brahe.epoch_from_tle(line1)
+        assert epoch.year() == year
+        assert epoch.month() == month
+        assert epoch.day() == day
+        assert epoch.hour() == hour
+        assert epoch.minute() == minute
+        assert abs(epoch.second() - second) < 1e-6
+
+    def test_epoch_from_tle_fractional_day(self):
+        """Test with fractional day of year."""
+        line1 = "1 25544U 98067A   21001.75000000  .00001764  00000-0  40967-4 0  9997"
+        epoch = brahe.epoch_from_tle(line1)
+
+        assert epoch.year() == 2021
+        assert epoch.month() == 1
+        assert epoch.day() == 1
+        assert epoch.hour() == 18
+        assert epoch.minute() == 0
+        assert abs(epoch.second() - 0.0) < 1e-6
+
+    def test_epoch_from_tle_with_seconds(self):
+        """Test with fractional seconds."""
+        line1 = "1 25544U 98067A   21001.50069444  .00001764  00000-0  40967-4 0  9997"
+        epoch = brahe.epoch_from_tle(line1)
+
+        assert epoch.year() == 2021
+        assert epoch.month() == 1
+        assert epoch.day() == 1
+        assert epoch.hour() == 12
+        # 0.00069444 days * 86400 s/day = 60.0 seconds
+        # Due to floating point precision, this is ~59-60 seconds
+        assert epoch.minute() == 0
+        assert abs(epoch.second() - 60.0) <= 1.0
+
+    def test_epoch_from_tle_leap_year(self):
+        """Test leap year day 366."""
+        line1 = "1 25544U 98067A   20366.00000000  .00001764  00000-0  40967-4 0  9997"
+        epoch = brahe.epoch_from_tle(line1)
+
+        assert epoch.year() == 2020
+        assert epoch.month() == 12
+        assert epoch.day() == 31
+        assert epoch.hour() == 0
+        assert epoch.minute() == 0
+        assert abs(epoch.second() - 0.0) < 1e-6
+
+    @pytest.mark.parametrize("line1", [
+        "1 25544U 98067A   21001.5000000",  # Too short
+        "Too short",                        # Way too short
+        "",                                 # Empty
+    ])
+    def test_epoch_from_tle_invalid_lines(self, line1):
+        """Test error handling with invalid lines."""
+        with pytest.raises(RuntimeError):
+            brahe.epoch_from_tle(line1)
+
+    def test_epoch_from_tle_consistency_with_keplerian(self):
+        """Verify epoch_from_tle matches the epoch from keplerian_elements_from_tle."""
+        line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
+        line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+
+        epoch_direct = brahe.epoch_from_tle(line1)
+        epoch_from_keplerian, _ = brahe.keplerian_elements_from_tle(line1, line2)
+
+        assert epoch_direct.year() == epoch_from_keplerian.year()
+        assert epoch_direct.month() == epoch_from_keplerian.month()
+        assert epoch_direct.day() == epoch_from_keplerian.day()
+        assert epoch_direct.hour() == epoch_from_keplerian.hour()
+        assert epoch_direct.minute() == epoch_from_keplerian.minute()
+        assert abs(epoch_direct.second() - epoch_from_keplerian.second()) < 1e-6
+
+

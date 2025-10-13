@@ -288,6 +288,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_keplerian_elements_from_tle, module)?)?;
     module.add_function(wrap_pyfunction!(py_keplerian_elements_to_tle, module)?)?;
     module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
+    module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;

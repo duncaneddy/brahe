@@ -137,7 +137,7 @@ impl KeplerianPropagator {
     }
 
     /// Create a new KeplerianPropagator from Keplerian orbital elements
-    /// 
+    ///
     /// # Arguments
     /// * `epoch` - Initial epoch
     /// * `elements` - Keplerian elements [a, e, i, RAAN, argp, mean_anomaly]
@@ -1137,7 +1137,7 @@ mod tests {
             60.0,
         );
 
-        let osc_elements = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), true);
+        let osc_elements = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), AngleFormat::Degrees);
 
         // Should match initial elements within small tolerance
         for i in 0..6 {
@@ -1145,7 +1145,7 @@ mod tests {
         }
 
         // Now test with radians to degrees conversion
-        let osc_elements_rad = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), false);
+        let osc_elements_rad = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), AngleFormat::Radians);
         for i in 0..2 {
             assert_abs_diff_eq!(osc_elements_rad[i], elements[i], epsilon = 1e-6);
         }
@@ -1261,7 +1261,7 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0])
         ];
 
-        let traj = propagator.states_as_osculating_elements(&epochs, true);
+        let traj = propagator.states_as_osculating_elements(&epochs, AngleFormat::Degrees);
         assert_eq!(traj.len(), 3);
 
         // Confirm all elements remain unchanged within small tolerance
@@ -1272,7 +1272,7 @@ mod tests {
         }
 
         // Repeat with radians output
-        let traj_rad = propagator.states_as_osculating_elements(&epochs, false);
+        let traj_rad = propagator.states_as_osculating_elements(&epochs, AngleFormat::Radians);
         assert_eq!(traj_rad.len(), 3);
 
         for state in &traj_rad {

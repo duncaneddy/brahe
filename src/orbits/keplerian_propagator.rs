@@ -510,6 +510,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use crate::orbits::keplerian::orbital_period;
+    use crate::coordinates::state_cartesian_to_osculating;
     use approx::assert_abs_diff_eq;
 
     // Test data constants
@@ -1079,7 +1080,7 @@ mod tests {
         // Should be Cartesian state in ECI
         assert!(state.norm() > 0.0);
         // Convert back to orbital elements and verify semi-major axis is preserved
-        let computed_elements = crate::coordinates::state_cartesian_to_osculating(state, true);
+        let computed_elements = state_cartesian_to_osculating(state, true);
         
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1104,7 +1105,7 @@ mod tests {
 
         // Convert back into osculating elements via ECI
         let eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state);
-        let computed_elements = crate::coordinates::state_cartesian_to_osculating(eci_state, true);
+        let computed_elements = state_cartesian_to_osculating(eci_state, true);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1193,7 +1194,7 @@ mod tests {
         assert_eq!(states.len(), 3);
         // Verify states convert back to original elements within small tolerance
         for state in &states {
-            let computed_elements = crate::coordinates::state_cartesian_to_osculating(*state, true);
+            let computed_elements = state_cartesian_to_osculating(*state, true);
             for i in 0..6 {
                 assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
             }
@@ -1224,7 +1225,7 @@ mod tests {
         // Verify states convert back to original elements within small tolerance
         for (i, state) in states.iter().enumerate() {
             let eci_state = state_ecef_to_eci(epochs[i], *state);
-            let computed_elements = crate::coordinates::state_cartesian_to_osculating(eci_state, true);
+            let computed_elements = state_cartesian_to_osculating(eci_state, true);
             for j in 0..6 {
                 assert_abs_diff_eq!(computed_elements[j], elements[j], epsilon = 1e-6);
             }

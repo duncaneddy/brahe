@@ -23,7 +23,7 @@
  * let mut traj = DTrajectory::new(7); // 7-dimensional trajectory
  * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
  * let state = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
- * traj.add(epoch, state).unwrap();
+ * traj.add(epoch, state);
  * ```
  */
 
@@ -241,7 +241,7 @@ impl DTrajectory {
     }
 
     /// Apply eviction policy to manage trajectory memory
-    fn apply_eviction_policy(&mut self) -> Result<(), BraheError> {
+    fn apply_eviction_policy(&mut self) {
         match self.eviction_policy {
             TrajectoryEvictionPolicy::None => {
                 // No eviction
@@ -274,7 +274,6 @@ impl DTrajectory {
                 }
             },
         }
-        Ok(())
     }
 }
 
@@ -399,14 +398,10 @@ impl Trajectory for DTrajectory {
         })
     }
 
-    fn add(&mut self, epoch: Epoch, state: DVector<f64>) -> Result<(), BraheError> {
+    fn add(&mut self, epoch: Epoch, state: DVector<f64>) {
         // Validate state dimension
         if state.len() != self.dimension {
-            return Err(BraheError::Error(format!(
-                "State vector dimension {} does not match trajectory dimension {}",
-                state.len(),
-                self.dimension
-            )));
+            panic!("State vector dimension does not match trajectory dimension.");
         }
 
         // Find the correct position to insert based on epoch
@@ -417,19 +412,18 @@ impl Trajectory for DTrajectory {
                 break;
             } else if epoch == *existing_epoch {
                 // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy()?;
-                return Ok(());
+                self.states[i] = state.clone();
+                self.apply_eviction_policy();
+                return;
             }
         }
 
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
-        self.states.insert(insert_idx, state);
+        self.states.insert(insert_idx, state.clone());
 
         // Apply eviction policy after adding state
-        self.apply_eviction_policy()?;
-        Ok(())
+        self.apply_eviction_policy();
     }
 
     fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
@@ -625,7 +619,7 @@ impl Trajectory for DTrajectory {
         self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
         self.max_size = Some(max_size);
         self.max_age = None;
-        self.apply_eviction_policy()?;
+        self.apply_eviction_policy();
         Ok(())
     }
 
@@ -638,7 +632,7 @@ impl Trajectory for DTrajectory {
         self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
         self.max_age = Some(max_age);
         self.max_size = None;
-        self.apply_eviction_policy()?;
+        self.apply_eviction_policy();
         Ok(())
     }
 
@@ -753,7 +747,7 @@ mod tests {
         for i in 0..15 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         // Should only have 10 states due to eviction policy
@@ -838,7 +832,7 @@ mod tests {
         for i in 0..5 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         // Should only have 3 states due to eviction policy
@@ -856,7 +850,7 @@ mod tests {
         for i in 0..10 {
             let epoch = t0 + (i as f64 * 86400.0); // 1 day apart
             let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         // Should only have 7 states due to eviction policy
@@ -869,7 +863,7 @@ mod tests {
         for i in 0..10 {
             let epoch = t0 + (i as f64 * 86400.0);
             let state = DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         // Should still have 8 states due to exact 7 days limit
@@ -1039,13 +1033,13 @@ mod tests {
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
 
-        trajectory.add(epoch1, state1.clone()).unwrap();
+        trajectory.add(epoch1, state1.clone());
         assert_eq!(trajectory.len(), 1);
 
         let epoch2 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
         let state2 = DVector::from_vec(vec![7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0]);
 
-        trajectory.add(epoch2, state2.clone()).unwrap();
+        trajectory.add(epoch2, state2.clone());
         assert_eq!(trajectory.len(), 2);
 
         assert_eq!(trajectory.states[0], state1);
@@ -1058,14 +1052,14 @@ mod tests {
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
         let state1 = DVector::from_vec(vec![7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0]);
 
-        trajectory.add(epoch1, state1.clone()).unwrap();
+        trajectory.add(epoch1, state1.clone());
         assert_eq!(trajectory.len(), 1);
         assert_eq!(trajectory.epochs[0], epoch1);
         assert_eq!(trajectory.states[0], state1);
 
         let epoch2 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state2 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-        trajectory.add(epoch2, state2.clone()).unwrap();
+        trajectory.add(epoch2, state2.clone());
         assert_eq!(trajectory.len(), 2);
         assert_eq!(trajectory.epochs[0], epoch2);
         assert_eq!(trajectory.states[0], state2);
@@ -1089,12 +1083,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
 
-        trajectory.add(epoch, state1.clone()).unwrap();
+        trajectory.add(epoch, state1.clone());
         assert_eq!(trajectory.len(), 1);
         assert_eq!(trajectory.states[0], state1);
 
         let state2 = DVector::from_vec(vec![7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0]);
-        trajectory.add(epoch, state2.clone()).unwrap();
+        trajectory.add(epoch, state2.clone());
         assert_eq!(trajectory.len(), 1); // Length should remain the same
         assert_eq!(trajectory.states[0], state2); // State should be replaced
     }
@@ -1423,7 +1417,7 @@ mod tests {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
 
-        traj.set_eviction_policy_max_size(2).unwrap();
+        traj.set_eviction_policy_max_size(2);
         assert_eq!(traj.len(), 2);
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
     }
@@ -1433,7 +1427,7 @@ mod tests {
         let mut traj = create_test_trajectory();
 
         // Max age slightly larger than 0.1 days
-        traj.set_eviction_policy_max_age(0.11 * 86400.0).unwrap();
+        traj.set_eviction_policy_max_age(0.11 * 86400.0);
         assert_eq!(traj.len(), 2);
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepWithinDuration);
     }

@@ -6,7 +6,7 @@
 use nalgebra::Vector6;
 use std::f64::consts::PI;
 
-use crate::constants::DEG2RAD;
+use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
@@ -19,35 +19,46 @@ use crate::utils::BraheError;
 #[derive(Debug, Clone)]
 pub struct KeplerianPropagator {
     /// Initial epoch
-    initial_epoch: Epoch,
+    pub initial_epoch: Epoch,
 
     /// Initial state vector in the original representation and frame
-    initial_state: Vector6<f64>,
+    pub initial_state: Vector6<f64>,
 
     /// Frame of the input/output states
-    frame: OrbitFrame,
+    pub frame: OrbitFrame,
 
     /// Representation of the input/output states
-    representation: OrbitRepresentation,
+    pub representation: OrbitRepresentation,
 
     /// Angle format of the input/output states (for Keplerian)
-    angle_format: AngleFormat,
+    pub angle_format: AngleFormat,
+
+    /// Accumulated trajectory (current state is always the last entry)
+    pub trajectory: OrbitTrajectory,
+
+    /// Step size in seconds for stepping operations
+    pub step_size: f64,
 
     /// Internal osculating orbital elements (always in radians, ECI frame)
     internal_osculating_elements: Vector6<f64>,
-
-    /// Accumulated trajectory (current state is always the last entry)
-    trajectory: OrbitTrajectory,
-
-    /// Step size in seconds for stepping operations
-    step_size: f64,
 
     /// Mean motion in radians per second
     n: f64,
 }
 
 impl KeplerianPropagator {
-    /// Create a new KeplerianPropagator from orbital elements or Cartesian state
+    /// Create a new KeplerianPropagator from orbital elements or Cartesian state.
+    /// The input state is assumed to be in the specified frame and representation. The 
+    /// input frame, representation, and angle format is assumed to be the desired output format
+    /// for the propagator.
+    /// 
+    /// If the output format needs to be changed, use the `with_output_format` method after initialization.
+    /// 
+    /// The input representation and angle format must be compatible:
+    /// * Keplerian representation requires ECI frame and a specified angle format (Degrees or Radians)
+    /// * Cartesian representation can be in ECI or ECEF frame, but angle format must be None
+    /// 
+    /// The step size must be positive.
     ///
     /// # Arguments
     /// * `epoch` - Initial epoch
@@ -74,16 +85,28 @@ impl KeplerianPropagator {
             ));
         }
 
+        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+            return Err(BraheError::Error(
+                "Keplerian elements must be in ECI frame".to_string(),
+            ));
+        }
+
         if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
             return Err(BraheError::Error(
                 "Angle format should be None for Cartesian representation".to_string(),
             ));
         }
 
+        if step_size <= 0.0 {
+            return Err(BraheError::Error(
+                "Step size must be positive".to_string(),
+            ));
+        }
+
         // Convert input state to internal osculating elements in ECI frame with radians
         let internal_elements = Self::convert_to_internal_osculating(
             epoch, state, frame, representation, angle_format
-        )?;
+        );
 
         // Create initial trajectory
         let mut trajectory = OrbitTrajectory::new(
@@ -91,7 +114,7 @@ impl KeplerianPropagator {
             representation,
             angle_format,
         );
-        trajectory.add(epoch, state)?;
+        trajectory.add(epoch, state);
 
         let n = mean_motion(internal_elements[0], false);
 
@@ -109,34 +132,135 @@ impl KeplerianPropagator {
     }
 
     /// Create a new KeplerianPropagator from Keplerian orbital elements
+    /// 
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `elements` - Keplerian elements [a, e, i, RAAN, argp, mean_anomaly]
+    /// * `angle_format` - Format of angular elements (Degrees or Radians)
+    /// * `step_size` - Step size in seconds for propagation. Must be positive.
+    /// 
+    /// # Returns
+    /// * New KeplerianPropagator instance
     pub fn from_keplerian(
         epoch: Epoch,
         elements: Vector6<f64>,
-        frame: OrbitFrame,
         angle_format: AngleFormat,
         step_size: f64,
     ) -> Result<Self, BraheError> {
-        Self::new(epoch, elements, frame, OrbitRepresentation::Keplerian, angle_format, step_size)
+        Self::new(epoch, elements, OrbitFrame::ECI, OrbitRepresentation::Keplerian, angle_format, step_size)
     }
 
     /// Create a new KeplerianPropagator from Cartesian state
-    pub fn from_cartesian(
+    /// 
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `state` - Cartesian state vector [x, y, z, vx, vy, vz]
+    /// * `frame` - Frame of the input state (ECI or ECEF)
+    /// * `step_size` - Step size in seconds for propagation. Must be positive.
+    /// 
+    /// # Returns
+    /// * New KeplerianPropagator instance
+    pub fn from_eci(
         epoch: Epoch,
-        cartesian_state: Vector6<f64>,
-        frame: OrbitFrame,
+        state: Vector6<f64>,
         step_size: f64,
     ) -> Result<Self, BraheError> {
-        Self::new(epoch, cartesian_state, frame, OrbitRepresentation::Cartesian, AngleFormat::None, step_size)
+        Self::new(epoch, state, OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None, step_size)
+    }
+
+    /// Create a new KeplerianPropagator from Cartesian state in ECEF frame
+    /// 
+    /// # Arguments
+    /// * `epoch` - Initial epoch
+    /// * `state` - Cartesian state vector [x, y, z, vx, vy, vz] in ECEF frame
+    /// * `step_size` - Step size in seconds for propagation. Must be positive.
+    /// 
+    /// # Returns
+    /// * New KeplerianPropagator instance
+    pub fn from_ecef(
+        epoch: Epoch,
+        state: Vector6<f64>,
+        step_size: f64,
+    ) -> Result<Self, BraheError> {
+        Self::new(epoch, state, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, AngleFormat::None, step_size)
+    }
+
+    /// This method allows changing the output format of the propagator. It updates the frame, representation, and angle format.
+    /// It also resets the trajectory to only contain the initial state converted to the new format. It should be
+    /// used with initialization or after a reset to avoid inconsistencies.
+    /// 
+    /// The frame, representation, and angle format must be compatible:
+    /// * Keplerian representation requires ECI frame and a specified angle format (Degrees or Radians)
+    /// * Cartesian representation can be in ECI or ECEF frame, but angle format must be None
+    /// 
+    /// # Arguments
+    /// * `frame` - Desired output frame
+    /// * `representation` - Desired output representation
+    /// * `angle_format` - Desired angle format (only for Keplerian)
+    /// 
+    /// # Returns
+    /// * Updated KeplerianPropagator instance
+    /// 
+    fn with_output_format(mut self, frame: OrbitFrame, representation: OrbitRepresentation, angle_format: AngleFormat) -> Result<Self, BraheError> {
+        // Validate inputs
+        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format must be specified for Keplerian elements".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Keplerian && frame != OrbitFrame::ECI {
+            return Err(BraheError::Error(
+                "Keplerian elements must be in ECI frame".to_string(),
+            ));
+        }
+
+        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+            return Err(BraheError::Error(
+                "Angle format should be None for Cartesian representation".to_string(),
+            ));
+        }
+
+        self.frame = frame;
+        self.representation = representation;
+        self.angle_format = angle_format;
+
+        // Reset trajectory to initial state only
+        self.trajectory = OrbitTrajectory::new(
+            frame,
+            representation,
+            angle_format,
+        );
+        
+        // Convert initial state to new format and add to trajectory
+        let converted_state = self.convert_from_internal_osculating(self.initial_epoch, self.internal_osculating_elements);
+        self.trajectory.add(self.initial_epoch, converted_state);
+
+        Ok(self)
     }
 
     /// Convert any state to internal osculating elements (ECI, radians)
+    /// 
+    /// # Arguments
+    /// * `epoch` - Epoch of the input state
+    /// * `state` - Input state vector
+    /// * `frame` - Frame of the input state
+    /// * `representation` - Representation of the input state
+    /// * `angle_format` - Angle format of the input state (only for Keplerian)
+    /// 
+    /// # Returns
+    /// * Internal osculating elements in ECI frame with radians
+    /// 
+    /// # Note
+    /// Assumes that the input state is valid and consistent with the specified frame, representation, and angle format.
+    /// This is checked during initialization.
     fn convert_to_internal_osculating(
         epoch: Epoch,
         state: Vector6<f64>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: AngleFormat,
-    ) -> Result<Vector6<f64>, BraheError> {
+    ) -> Vector6<f64> {
         match representation {
             OrbitRepresentation::Cartesian => {
                 // First convert to ECI frame if needed
@@ -146,32 +270,26 @@ impl KeplerianPropagator {
                 };
 
                 // Convert Cartesian to osculating elements
-                Ok(state_cartesian_to_osculating(eci_state, false))
+                state_cartesian_to_osculating(eci_state, false)
             }
             OrbitRepresentation::Keplerian => {
-                if frame != OrbitFrame::ECI {
-                    return Err(BraheError::Error(
-                        "Keplerian elements must be in ECI frame".to_string(),
-                    ));
-                }
-
                 // Convert angles to radians if needed
                 if angle_format == AngleFormat::Radians {
-                    Ok(state)
+                    state
                 } else {
                     let mut elements = state;
                     // Convert angles from degrees to radians (i, RAAN, argp, mean_anomaly)
                     for i in 2..6 {
                         elements[i] = elements[i] * DEG2RAD;
                     }
-                    Ok(elements)
+                    elements
                 }
             }
         }
     }
 
     /// Convert internal osculating elements back to original state format
-    fn convert_from_internal_osculating(&self, epoch: Epoch, internal_elements: Vector6<f64>) -> Result<Vector6<f64>, BraheError> {
+    fn convert_from_internal_osculating(&self, epoch: Epoch, internal_elements: Vector6<f64>) -> Vector6<f64> {
         match self.representation {
             OrbitRepresentation::Cartesian => {
                 // Convert osculating elements to Cartesian in ECI
@@ -179,32 +297,30 @@ impl KeplerianPropagator {
 
                 // Convert to original frame if needed
                 match self.frame {
-                    OrbitFrame::ECI => Ok(eci_cartesian),
-                    OrbitFrame::ECEF => Ok(state_eci_to_ecef(epoch, eci_cartesian)),
+                    OrbitFrame::ECI => eci_cartesian,
+                    OrbitFrame::ECEF => state_eci_to_ecef(epoch, eci_cartesian),
                 }
             }
             OrbitRepresentation::Keplerian => {
                 // Convert to original angle format
                 match self.angle_format {
-                    AngleFormat::Radians => Ok(internal_elements),
+                    AngleFormat::Radians => internal_elements,
                     AngleFormat::Degrees => {
                         let mut elements = internal_elements;
                         // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
                         for i in 2..6 {
-                            elements[i] = elements[i] * crate::constants::RAD2DEG;
+                            elements[i] = elements[i] * RAD2DEG;
                         }
-                        Ok(elements)
+                        elements
                     }
-                    AngleFormat::None => Err(BraheError::Error(
-                        "Invalid angle format for Keplerian elements".to_string(),
-                    )),
+                    AngleFormat::None => panic!("Angle format cannot be None for Keplerian representation. This should have been caught earlier."),
                 }
             }
         }
     }
 
     /// Propagate internal Keplerian elements to a target epoch
-    fn propagate_internal(&self, target_epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+    fn propagate_internal(&self, target_epoch: Epoch) -> Vector6<f64> {
         let dt = target_epoch - self.initial_epoch;
 
         // Use internal osculating elements (always in radians, ECI)
@@ -227,38 +343,32 @@ impl KeplerianPropagator {
 }
 
 impl OrbitPropagator for KeplerianPropagator {
-    fn step(&mut self) -> Result<(), BraheError> {
+    fn step(&mut self) -> () {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + self.step_size;
-        let new_state = self.propagate_internal(target_epoch)?;
+        let new_state = self.propagate_internal(target_epoch);
         self.trajectory.add(target_epoch, new_state)
     }
 
-    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
+    fn step_by(&mut self, step_size: f64) -> () {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size;
-        let new_state = self.propagate_internal(target_epoch)?;
+        let new_state = self.propagate_internal(target_epoch);
         self.trajectory.add(target_epoch, new_state)
     }
 
-    fn propagate_steps(&mut self, num_steps: usize) -> Result<(), BraheError> {
+    fn propagate_steps(&mut self, num_steps: usize) {
         for _ in 0..num_steps {
-            self.step()?;
+            self.step();
         }
-        Ok(())
     }
 
-    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError> {
-        let new_state = self.propagate_internal(target_epoch)?;
-        self.trajectory.add(target_epoch, new_state)
-    }
-
-    fn current_state(&self) -> Vector6<f64> {
-        // Return the most recent state from trajectory
-        if let Some(_last_epoch) = self.trajectory.end_epoch() {
-            self.trajectory.state(self.trajectory.len() - 1).unwrap_or(Vector6::zeros())
-        } else {
-            Vector6::zeros()
+    fn propagate_to(&mut self, target_epoch: Epoch) {
+        while self.current_epoch() < target_epoch {
+            // Calculate step size to not overshoot
+            let remaining_time = target_epoch - self.current_epoch();
+            let step_size = remaining_time.min(self.step_size);
+            self.step_by(step_size);
         }
     }
 
@@ -267,12 +377,17 @@ impl OrbitPropagator for KeplerianPropagator {
         self.trajectory.end_epoch().unwrap_or(self.initial_epoch)
     }
 
-    fn initial_state(&self) -> Vector6<f64> {
-        self.initial_state
+    fn current_state(&self) -> Vector6<f64> {
+        // Return the most recent state from trajectory
+        self.trajectory.last().unwrap().1
     }
 
     fn initial_epoch(&self) -> Epoch {
         self.initial_epoch
+    }
+
+    fn initial_state(&self) -> Vector6<f64> {
+        self.initial_state
     }
 
     fn step_size(&self) -> f64 {
@@ -284,22 +399,16 @@ impl OrbitPropagator for KeplerianPropagator {
     }
 
     fn reset(&mut self) -> Result<(), BraheError> {
-        self.internal_osculating_elements = Self::convert_to_internal_osculating(
-            self.initial_epoch,
-            self.initial_state,
-            self.frame,
-            self.representation,
-            self.angle_format,
-        )?;
-        self.n = mean_motion(self.internal_osculating_elements[0], false);
-
         // Reset trajectory to initial state only
         self.trajectory = OrbitTrajectory::new(
             self.frame,
             self.representation,
             self.angle_format,
         );
-        self.trajectory.add(self.initial_epoch, self.initial_state)?;
+        
+        // Convert initial state to new format and add to trajectory
+        let converted_state = self.convert_from_internal_osculating(self.initial_epoch, self.internal_osculating_elements);
+        self.trajectory.add(self.initial_epoch, converted_state);
 
         Ok(())
     }
@@ -335,7 +444,7 @@ impl OrbitPropagator for KeplerianPropagator {
         // Recompute internal elements
         self.internal_osculating_elements = Self::convert_to_internal_osculating(
             epoch, state, frame, representation, angle_format
-        )?;
+        );
         self.n = mean_motion(self.internal_osculating_elements[0], false);
 
         // Reset trajectory to new initial conditions
@@ -344,7 +453,7 @@ impl OrbitPropagator for KeplerianPropagator {
             representation,
             angle_format,
         );
-        self.trajectory.add(epoch, state)?;
+        self.trajectory.add(epoch, state);
 
         Ok(())
     }
@@ -368,7 +477,7 @@ impl OrbitPropagator for KeplerianPropagator {
 
 impl AnalyticPropagator for KeplerianPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
-        self.propagate_internal(epoch).unwrap_or(Vector6::zeros())
+        self.propagate_internal(epoch)
     }
 
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
@@ -408,9 +517,7 @@ impl AnalyticPropagator for KeplerianPropagator {
     fn states(&self, epochs: &[Epoch]) -> OrbitTrajectory {
         let mut states = Vec::new();
         for &epoch in epochs {
-            if let Ok(state) = self.propagate_internal(epoch) {
-                states.push(state);
-            }
+            states.push(self.propagate_internal(epoch));
         }
 
         OrbitTrajectory::from_orbital_data(

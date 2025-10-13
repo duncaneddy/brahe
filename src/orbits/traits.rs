@@ -12,25 +12,25 @@ use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat, OrbitTra
 pub trait OrbitPropagator {
     /// Step forward by the default step size
     /// Returns Result indicating success/failure, use getters to access state
-    fn step(&mut self) -> Result<(), BraheError>;
+    fn step(&mut self);
 
     /// Step forward by a specified time duration
     ///
     /// # Arguments
     /// * `step_size` - Time step in seconds
-    fn step_by(&mut self, step_size: f64) -> Result<(), BraheError>;
+    fn step_by(&mut self, step_size: f64);
 
     /// Step forward by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
-    fn propagate_steps(&mut self, num_steps: usize) -> Result<(), BraheError>;
+    fn propagate_steps(&mut self, num_steps: usize);
 
     /// Propagate to a specific target epoch
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
-    fn propagate_to(&mut self, target_epoch: Epoch) -> Result<(), BraheError>;
+    fn propagate_to(&mut self, target_epoch: Epoch);
 
     // Getter methods for accessing state
     /// Get current state as a 6D vector
@@ -83,11 +83,10 @@ pub trait OrbitPropagator {
     ///
     /// # Arguments
     /// * `epochs` - Epochs to propagate to and add to trajectory
-    fn propagate_trajectory(&mut self, epochs: &[Epoch]) -> Result<(), BraheError> {
+    fn propagate_trajectory(&mut self, epochs: &[Epoch]) {
         for &epoch in epochs {
-            self.propagate_to(epoch)?;
+            self.propagate_to(epoch);
         }
-        Ok(())
     }
 
     // Memory management for trajectory

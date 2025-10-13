@@ -330,10 +330,7 @@ impl PyOrbitalTrajectory {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        match self.trajectory.add(epoch.obj, state_vec) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
+        self.trajectory.add(epoch.obj, state_vec);
     }
 
     /// Get the nearest state to a given epoch
@@ -932,9 +929,7 @@ impl PyTrajectory {
             let state_row = states_array.row(i);
             let state_vec = na::DVector::from_iterator(dimension, state_row.iter().copied());
 
-            if let Err(e) = trajectory.add(epochs_vec[i], state_vec) {
-                return Err(exceptions::PyRuntimeError::new_err(e.to_string()));
-            }
+            trajectory.add(epochs_vec[i], state_vec)
         }
 
         Ok(PyTrajectory { trajectory })
@@ -1014,10 +1009,7 @@ impl PyTrajectory {
         }
 
         let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
-        match self.trajectory.add(epoch.obj, state_vec) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
+        self.trajectory.add(epoch.obj, state_vec);
     }
 
 
@@ -1571,10 +1563,7 @@ impl PySTrajectory6 {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        match self.trajectory.add(epoch.obj, state_vec) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
+        self.trajectory.add(epoch.obj, state_vec);
     }
 
     /// Get the nearest state to a given epoch

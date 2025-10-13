@@ -108,7 +108,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(())` - State successfully added
     /// * `Err(BraheError)` - If addition fails (e.g., dimension mismatch)
-    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError>;
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> ();
 
     /// Get the epoch at a specific index
     ///

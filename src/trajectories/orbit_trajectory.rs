@@ -29,7 +29,7 @@
  * // Add state
  * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
  * let state = Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0);
- * traj.add(epoch, state).unwrap();
+ * traj.add(epoch, state);
  *
  * // Convert to Keplerian in degrees
  * let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
@@ -268,7 +268,7 @@ impl OrbitTrajectory {
         Ok(matrix)
     }
 
-    fn apply_eviction_policy(&mut self) -> Result<(), BraheError> {
+    fn apply_eviction_policy(&mut self) {
         match self.eviction_policy {
             TrajectoryEvictionPolicy::None => {
                 // No eviction
@@ -305,7 +305,6 @@ impl OrbitTrajectory {
                 }
             }
         }
-        Ok(())
     }
 
     /// Internal method for converting a single state vector between formats.
@@ -462,7 +461,7 @@ impl Trajectory for OrbitTrajectory {
         })
     }
 
-    fn add(&mut self, epoch: Epoch, state: Self::StateVector) -> Result<(), BraheError> {
+    fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
         // Find the correct position to insert based on epoch
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
@@ -472,8 +471,8 @@ impl Trajectory for OrbitTrajectory {
             } else if epoch == *existing_epoch {
                 // Replace state if epochs are equal
                 self.states[i] = state;
-                self.apply_eviction_policy()?;
-                return Ok(());
+                self.apply_eviction_policy();
+                return;
             }
         }
 
@@ -482,8 +481,7 @@ impl Trajectory for OrbitTrajectory {
         self.states.insert(insert_idx, state);
 
         // Apply eviction policy after adding state
-        self.apply_eviction_policy()?;
-        Ok(())
+        self.apply_eviction_policy();
     }
 
     fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
@@ -685,7 +683,7 @@ impl Trajectory for OrbitTrajectory {
         self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
         self.max_size = Some(max_size);
         self.max_age = None;
-        self.apply_eviction_policy()?;
+        self.apply_eviction_policy();
         Ok(())
     }
 
@@ -696,7 +694,7 @@ impl Trajectory for OrbitTrajectory {
         self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
         self.max_age = Some(max_age);
         self.max_size = None;
-        self.apply_eviction_policy()?;
+        self.apply_eviction_policy();
         Ok(())
     }
 
@@ -936,15 +934,15 @@ mod tests {
 
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state1 = Vector6::new(R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0);
-        traj.add(epoch1, state1).unwrap();
+        traj.add(epoch1, state1);
 
         let epoch2 = Epoch::from_datetime(2023, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
         let state2 = Vector6::new(R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 60.0);
-        traj.add(epoch2, state2).unwrap();
+        traj.add(epoch2, state2);
 
         let epoch3 = Epoch::from_datetime(2023, 1, 1, 12, 20, 0.0, 0.0, TimeSystem::UTC);
         let state3 = Vector6::new(R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 75.0);
-        traj.add(epoch3, state3).unwrap();
+        traj.add(epoch3, state3);
 
         traj
     }
@@ -1099,16 +1097,16 @@ mod tests {
         // Add states in order
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch1, state1).unwrap();
+        traj.add(epoch1, state1);
 
         let epoch3 = Epoch::from_jd(2451545.2, TimeSystem::UTC);
         let state3 = Vector6::new(7200e3, 0.0, 0.0, 0.0, 7.7e3, 0.0);
-        traj.add(epoch3, state3).unwrap();
+        traj.add(epoch3, state3);
 
         // Add a state in between
         let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
         let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
-        traj.add(epoch2, state2).unwrap();
+        traj.add(epoch2, state2);
 
         assert_eq!(traj.len(), 3);
         let epochs = &traj.epochs;
@@ -1249,7 +1247,7 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch, state).unwrap();
+        traj.add(epoch, state);
 
         assert_eq!(traj.len(), 1);
         assert!(!traj.is_empty());
@@ -1267,7 +1265,7 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch, state).unwrap();
+        traj.add(epoch, state);
 
         assert!(!traj.is_empty());
     }
@@ -1284,7 +1282,7 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch, state).unwrap();
+        traj.add(epoch, state);
 
         assert_eq!(traj.start_epoch().unwrap(), epoch);
     }
@@ -1302,8 +1300,8 @@ mod tests {
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let epoch2 = Epoch::from_jd(2451545.1, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch1, state).unwrap();
-        traj.add(epoch2, state).unwrap();
+        traj.add(epoch1, state);
+        traj.add(epoch2, state);
 
         assert_eq!(traj.end_epoch().unwrap(), epoch2);
     }
@@ -1386,7 +1384,7 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(epoch, state).unwrap();
+        traj.add(epoch, state);
 
         assert_eq!(traj.len(), 1);
         traj.clear();
@@ -1651,7 +1649,7 @@ mod tests {
         for i in 0..5 {
             let epoch = t0 + (i as f64 * 60.0);
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         assert_eq!(traj.len(), 5);
@@ -1669,7 +1667,7 @@ mod tests {
         // Add another state - should still maintain max size
         let new_epoch = t0 + 5.0 * 60.0;
         let new_state = Vector6::new(7000e3 + 5000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        traj.add(new_epoch, new_state).unwrap();
+        traj.add(new_epoch, new_state);
 
         assert_eq!(traj.len(), 3);
 
@@ -1690,7 +1688,7 @@ mod tests {
         for i in 0..6 {
             let epoch = t0 + (i as f64 * 60.0); // 0, 60, 120, 180, 240, 300 seconds
             let state = Vector6::new(7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-            traj.add(epoch, state).unwrap();
+            traj.add(epoch, state);
         }
 
         assert_eq!(traj.len(), 6);
@@ -2066,7 +2064,7 @@ mod tests {
         );
 
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-        traj.add(epoch, state_base).unwrap();
+        traj.add(epoch, state_base);
 
         let eci_traj = traj.to_eci();
         assert_eq!(eci_traj.frame, OrbitFrame::ECI);
@@ -2086,7 +2084,7 @@ mod tests {
             AngleFormat::Radians,
         );
         let kep_state_rad = state_cartesian_to_osculating(state_base, false);
-        kep_traj.add(epoch, kep_state_rad).unwrap();
+        kep_traj.add(epoch, kep_state_rad);
 
         let eci_from_kep_rad = kep_traj.to_eci();
         assert_eq!(eci_from_kep_rad.frame, OrbitFrame::ECI);
@@ -2109,7 +2107,7 @@ mod tests {
             AngleFormat::Degrees,
         );
         let kep_state_deg = state_cartesian_to_osculating(state_base, true);
-        kep_traj_deg.add(epoch, kep_state_deg).unwrap();
+        kep_traj_deg.add(epoch, kep_state_deg);
         let eci_from_kep_deg = kep_traj_deg.to_eci();
         assert_eq!(eci_from_kep_deg.frame, OrbitFrame::ECI);
         assert_eq!(
@@ -2131,7 +2129,7 @@ mod tests {
             AngleFormat::None,
         );
         let ecef_state = state_eci_to_ecef(epoch, state_base);
-        ecef_traj.add(epoch, ecef_state).unwrap();
+        ecef_traj.add(epoch, ecef_state);
         let eci_from_ecef = ecef_traj.to_eci();
         assert_eq!(eci_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(eci_from_ecef.representation, OrbitRepresentation::Cartesian);
@@ -2165,7 +2163,7 @@ mod tests {
             AngleFormat::None,
         );
 
-        traj.add(epoch, state_base).unwrap();
+        traj.add(epoch, state_base);
         let ecef_traj = traj.to_ecef();
         assert_eq!(ecef_traj.frame, OrbitFrame::ECEF);
         assert_eq!(ecef_traj.representation, OrbitRepresentation::Cartesian);
@@ -2184,7 +2182,7 @@ mod tests {
             AngleFormat::None,
         );
         let eci_state = state_ecef_to_eci(epoch, state_base);
-        eci_traj.add(epoch, eci_state).unwrap();
+        eci_traj.add(epoch, eci_state);
         let ecef_from_eci = eci_traj.to_ecef();
         assert_eq!(ecef_from_eci.frame, OrbitFrame::ECEF);
         assert_eq!(ecef_from_eci.representation, OrbitRepresentation::Cartesian);
@@ -2203,7 +2201,7 @@ mod tests {
             AngleFormat::Radians,
         );
         let kep_state_rad = state_cartesian_to_osculating(eci_state, false);
-        kep_traj.add(epoch, kep_state_rad).unwrap();
+        kep_traj.add(epoch, kep_state_rad);
         let ecef_from_kep_rad = kep_traj.to_ecef();
         assert_eq!(ecef_from_kep_rad.frame, OrbitFrame::ECEF);
         assert_eq!(
@@ -2225,7 +2223,7 @@ mod tests {
             AngleFormat::Degrees,
         );
         let kep_state_deg = state_cartesian_to_osculating(eci_state, true);
-        kep_traj_deg.add(epoch, kep_state_deg).unwrap();
+        kep_traj_deg.add(epoch, kep_state_deg);
         let ecef_from_kep_deg = kep_traj_deg.to_ecef();
         assert_eq!(ecef_from_kep_deg.frame, OrbitFrame::ECEF);
         assert_eq!(
@@ -2255,7 +2253,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             AngleFormat::Degrees,
         );
-        traj.add(epoch, state_kep_deg).unwrap();
+        traj.add(epoch, state_kep_deg);
         let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_traj.frame, OrbitFrame::ECI);
         assert_eq!(kep_traj.representation, OrbitRepresentation::Keplerian);
@@ -2277,7 +2275,7 @@ mod tests {
         for i in 2..6 {
             state_kep_rad[i] = state_kep_deg[i] * DEG2RAD;
         }
-        kep_rad_traj.add(epoch, state_kep_rad).unwrap();
+        kep_rad_traj.add(epoch, state_kep_rad);
         let kep_from_rad = kep_rad_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_rad.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_rad.representation, OrbitRepresentation::Keplerian);
@@ -2296,7 +2294,7 @@ mod tests {
             AngleFormat::None,
         );
         let cart_state = state_osculating_to_cartesian(state_kep_deg, true);
-        cart_traj.add(epoch, cart_state).unwrap();
+        cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_cart.representation, OrbitRepresentation::Keplerian);
@@ -2315,7 +2313,7 @@ mod tests {
             AngleFormat::None,
         );
         let ecef_state = state_eci_to_ecef(epoch, cart_state);
-        ecef_traj.add(epoch, ecef_state).unwrap();
+        ecef_traj.add(epoch, ecef_state);
         let kep_from_ecef = ecef_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_ecef.representation, OrbitRepresentation::Keplerian);
@@ -2346,7 +2344,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             AngleFormat::Radians,
         );
-        traj.add(epoch, state_kep_rad).unwrap();
+        traj.add(epoch, state_kep_rad);
         let kep_traj = traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_traj.frame, OrbitFrame::ECI);
         assert_eq!(kep_traj.representation, OrbitRepresentation::Keplerian);
@@ -2364,7 +2362,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             AngleFormat::Degrees,
         );
-        kep_deg_traj.add(epoch, state_kep_deg).unwrap();
+        kep_deg_traj.add(epoch, state_kep_deg);
         let kep_from_deg = kep_deg_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_deg.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_deg.representation, OrbitRepresentation::Keplerian);
@@ -2383,7 +2381,7 @@ mod tests {
             AngleFormat::None,
         );
         let cart_state = state_osculating_to_cartesian(state_kep_deg, true);
-        cart_traj.add(epoch, cart_state).unwrap();
+        cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_cart.representation, OrbitRepresentation::Keplerian);
@@ -2402,7 +2400,7 @@ mod tests {
             AngleFormat::None,
         );
         let ecef_state = state_eci_to_ecef(epoch, cart_state);
-        ecef_traj.add(epoch, ecef_state).unwrap();
+        ecef_traj.add(epoch, ecef_state);
         let kep_from_ecef = ecef_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_ecef.representation, OrbitRepresentation::Keplerian);

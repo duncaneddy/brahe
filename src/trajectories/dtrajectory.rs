@@ -1068,13 +1068,13 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "State vector dimension does not match trajectory dimension")]
     fn test_dtrajectory_trajectory_add_dimension_mismatch() {
         let mut trajectory = DTrajectory::new(6);
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0]); // Dimension 3 instead of 6
 
-        let result = trajectory.add(epoch, state);
-        assert!(result.is_err());
+        trajectory.add(epoch, state);
     }
 
     #[test]
@@ -1417,7 +1417,7 @@ mod tests {
         let mut traj = create_test_trajectory();
         assert_eq!(traj.len(), 3);
 
-        traj.set_eviction_policy_max_size(2);
+        let _ = traj.set_eviction_policy_max_size(2);
         assert_eq!(traj.len(), 2);
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
     }
@@ -1427,7 +1427,7 @@ mod tests {
         let mut traj = create_test_trajectory();
 
         // Max age slightly larger than 0.1 days
-        traj.set_eviction_policy_max_age(0.11 * 86400.0);
+        let _ = traj.set_eviction_policy_max_age(0.11 * 86400.0);
         assert_eq!(traj.len(), 2);
         assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepWithinDuration);
     }

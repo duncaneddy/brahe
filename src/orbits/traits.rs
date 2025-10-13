@@ -6,13 +6,15 @@ use nalgebra::Vector6;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat, OrbitTrajectory};
+use crate::trajectories::{OrbitFrame, OrbitRepresentation, AngleFormat};
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
     /// Step forward by the default step size
     /// Returns Result indicating success/failure, use getters to access state
-    fn step(&mut self);
+    fn step(&mut self) {
+        self.step_by(self.step_size());
+    }
 
     /// Step forward by a specified time duration
     ///
@@ -20,30 +22,59 @@ pub trait OrbitPropagator {
     /// * `step_size` - Time step in seconds
     fn step_by(&mut self, step_size: f64);
 
+    /// Step past a specified target epoch
+    /// If the target epoch is before or equal to the current epoch, no action is taken
+    fn step_past(&mut self, target_epoch: Epoch) {
+        while self.current_epoch() <= target_epoch {
+            self.step();
+        }
+    }
+
     /// Step forward by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
-    fn propagate_steps(&mut self, num_steps: usize);
+    fn propagate_steps(&mut self, num_steps: usize) {
+        for _ in 0..num_steps {
+            self.step();
+        }
+    }
 
     /// Propagate to a specific target epoch
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
-    fn propagate_to(&mut self, target_epoch: Epoch);
+    fn propagate_to(&mut self, target_epoch: Epoch) {
+        let mut current_epoch = self.current_epoch();
+
+        while current_epoch < target_epoch {
+            // Calculate step size to not overshoot
+            let remaining_time = target_epoch - current_epoch;
+            let step_size = remaining_time.min(self.step_size());
+
+            // Guard against very small steps to avoid infinite loops
+            if step_size <= 1e-9 {
+                break;
+            }
+
+            self.step_by(step_size);
+            current_epoch = self.current_epoch();
+        }
+    }
 
     // Getter methods for accessing state
-    /// Get current state as a 6D vector
-    fn current_state(&self) -> Vector6<f64>;
 
     /// Get current epoch
     fn current_epoch(&self) -> Epoch;
 
-    /// Get initial state as a 6D vector
-    fn initial_state(&self) -> Vector6<f64>;
+    /// Get current state as a 6D vector
+    fn current_state(&self) -> Vector6<f64>;
 
     /// Get initial epoch
     fn initial_epoch(&self) -> Epoch;
+
+    /// Get initial state as a 6D vector
+    fn initial_state(&self) -> Vector6<f64>;
 
     // Configuration methods
     /// Get step size in seconds
@@ -53,7 +84,7 @@ pub trait OrbitPropagator {
     fn set_step_size(&mut self, step_size: f64);
 
     /// Reset propagator to initial conditions
-    fn reset(&mut self) -> Result<(), BraheError>;
+    fn reset(&mut self);
 
     /// Set initial conditions from components
     ///
@@ -63,6 +94,9 @@ pub trait OrbitPropagator {
     /// * `frame` - Reference frame
     /// * `representation` - Type of orbital representation
     /// * `angle_format` - Format for angular elements
+    ///
+    /// # Panics
+    /// May panic if the combination of frame, representation, and angle_format is incompatible
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -70,14 +104,7 @@ pub trait OrbitPropagator {
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: AngleFormat,
-    ) -> Result<(), BraheError>;
-
-    // Trajectory access
-    /// Get reference to accumulated trajectory
-    fn trajectory(&self) -> &OrbitTrajectory;
-
-    /// Get mutable reference to accumulated trajectory
-    fn trajectory_mut(&mut self) -> &mut OrbitTrajectory;
+    );
 
     /// Propagate and populate trajectory at multiple epochs
     ///
@@ -151,7 +178,9 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing states in the propagator's native output format
-    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>>;
+    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state(epoch)).collect()
+    }
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates as a STrajectory6.
@@ -161,7 +190,9 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>>;
+    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
+    }
 
     /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF)
     ///
@@ -170,7 +201,9 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>>;
+    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
+    }
 
     /// Returns states at multiple epochs as osculating orbital elements.
     ///
@@ -180,5 +213,7 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing osculating Keplerian elements
-    fn states_as_osculating_elements(&self, epochs: &[Epoch], as_degrees: bool) -> Vec<Vector6<f64>>;
+    fn states_as_osculating_elements(&self, epochs: &[Epoch], as_degrees: bool) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_as_osculating_elements(epoch, as_degrees)).collect()
+    }
 }

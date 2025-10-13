@@ -40,7 +40,7 @@ use crate::orbits::tle::{
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::{
-    AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, OrbitalTrajectory, Trajectory,
+    AngleFormat, OrbitFrame, OrbitRepresentation, OrbitTrajectory, Trajectory,
 };
 use crate::utils::BraheError;
 
@@ -80,7 +80,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    trajectory: OrbitTrajectory,
+    pub trajectory: OrbitTrajectory,
 
     /// Step size in seconds for stepping operations
     step_size: f64,
@@ -280,52 +280,26 @@ impl SGPPropagator {
 }
 
 impl OrbitPropagator for SGPPropagator {
-    fn step(&mut self) {
-        self.step_by(self.step_size)
-    }
 
     fn step_by(&mut self, step_size: f64) {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size; // step_size is in seconds
-        self.propagate_to(target_epoch)
+        let new_state = self.state_eci(target_epoch);
+        self.trajectory.add(target_epoch, new_state)
     }
 
-    fn propagate_steps(&mut self, num_steps: usize) {
-        for _ in 0..num_steps {
-            self.step();
-        }
-    }
-
-    fn propagate_to(&mut self, target_epoch: Epoch) {
-        // Compute state at target epoch
-        let state = self.state(target_epoch);
-
-        // Convert to desired output format
-        let output_state = self.trajectory.convert_state_to_format(
-            target_epoch,
-            state,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-            self.output_frame,
-            self.output_representation,
-            self.output_angle_format,
-        ).unwrap_or(state); // This is wrong and needs to be fixed
-
-        // Add to trajectory
-        self.trajectory.add(target_epoch, output_state);
-    }
+    // Default implementation from trait is used for:
+    // - step()
+    // - step_past()
+    // - propagate_steps()
+    // - propagate_to()
 
     fn current_epoch(&self) -> Epoch {
-        self.trajectory
-            .epoch(self.trajectory.len() - 1)
-            .unwrap_or(self.initial_epoch)
+        self.trajectory.last().unwrap().0
     }
 
     fn current_state(&self) -> Vector6<f64> {
-        self.trajectory
-            .state(self.trajectory.len() - 1)
-            .unwrap_or(self.initial_state)
+        self.trajectory.last().unwrap().1
     }
 
     fn initial_state(&self) -> Vector6<f64> {
@@ -344,11 +318,10 @@ impl OrbitPropagator for SGPPropagator {
         self.step_size = step_size;
     }
 
-    fn reset(&mut self) -> Result<(), BraheError> {
+    fn reset(&mut self) {
         self.trajectory.clear();
         self.trajectory
             .add(self.initial_epoch, self.initial_state);
-        Ok(())
     }
 
     fn set_initial_conditions(
@@ -358,20 +331,9 @@ impl OrbitPropagator for SGPPropagator {
         _frame: OrbitFrame,
         _representation: OrbitRepresentation,
         _angle_format: AngleFormat,
-    ) -> Result<(), BraheError> {
+    ) {
         // For SGP propagator, initial conditions come from TLE and cannot be changed
-        Err(BraheError::Error(
-            "Cannot change initial conditions for SGP propagator - state is determined by TLE data"
-                .to_string(),
-        ))
-    }
-
-    fn trajectory(&self) -> &OrbitTrajectory {
-        &self.trajectory
-    }
-
-    fn trajectory_mut(&mut self) -> &mut OrbitTrajectory {
-        &mut self.trajectory
+        panic!("Cannot change initial conditions for SGP propagator - state is determined by TLE data");
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -443,70 +405,27 @@ impl AnalyticPropagator for SGPPropagator {
         state_eci_to_ecef(epoch, eci_state)
     }
 
-    fn state_osculating_elements(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_as_osculating_elements(&self, epoch: Epoch, as_degrees: bool) -> Vector6<f64> {
         let eci_state = self.state_eci(epoch);
-        state_cartesian_to_osculating(eci_state, false)
-    }
+        let elements = state_cartesian_to_osculating(eci_state, false);
 
-    fn states(&self, epochs: &[Epoch]) -> OrbitTrajectory {
-        let mut states = Vec::new();
-        for &epoch in epochs {
-            states.push(self.state(epoch));
+        if as_degrees {
+            let mut deg_elements = elements;
+            // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
+            for i in 2..6 {
+                deg_elements[i] = deg_elements[i].to_degrees();
+            }
+            deg_elements
+        } else {
+            elements
         }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            self.output_frame,
-            self.output_representation,
-            self.output_angle_format,
-        )
     }
 
-    fn states_eci(&self, epochs: &[Epoch]) -> OrbitTrajectory {
-        let mut states = Vec::new();
-        for &epoch in epochs {
-            states.push(self.state_eci(epoch));
-        }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        )
-    }
-
-    fn states_ecef(&self, epochs: &[Epoch]) -> OrbitTrajectory {
-        let mut states = Vec::new();
-        for &epoch in epochs {
-            states.push(self.state_ecef(epoch));
-        }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECEF,
-            OrbitRepresentation::Cartesian,
-            AngleFormat::None,
-        )
-    }
-
-    fn states_osculating_elements(&self, epochs: &[Epoch]) -> OrbitTrajectory {
-        let mut states = Vec::new();
-        for &epoch in epochs {
-            states.push(self.state_osculating_elements(epoch));
-        }
-
-        OrbitTrajectory::from_orbital_data(
-            epochs.to_vec(),
-            states,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
-        )
-    }
+    // Default implementations from trait are used for:
+    // - states()
+    // - states_eci()
+    // - states_ecef()
+    // - states_as_osculating_elements()
 }
 
 #[cfg(test)]
@@ -580,14 +499,14 @@ mod tests {
         assert_eq!(prop.output_angle_format, AngleFormat::Degrees);
     }
 
-    // OrbitPropagator Trait Tests
+    // // OrbitPropagator Trait Tests
 
     #[test]
     fn test_sgppropagator_orbitpropagator_step() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step().unwrap();
+        prop.step();
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 60.0, epsilon = 0.1);
@@ -598,7 +517,7 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.step_by(120.0).unwrap();
+        prop.step_by(120.0);
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 120.0, epsilon = 0.1);
@@ -609,11 +528,11 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.current_epoch();
 
-        prop.propagate_steps(5).unwrap();
+        prop.propagate_steps(5);
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 300.0, epsilon = 0.1);
-        assert_eq!(prop.trajectory().len(), 6); // Initial + 5 steps
+        assert_eq!(prop.trajectory.len(), 6); // Initial + 5 steps
     }
 
     #[test]
@@ -622,7 +541,7 @@ mod tests {
         let initial_epoch = prop.initial_epoch();
         let target_epoch = initial_epoch + 86400.0; // 1 day forward (in seconds)
 
-        prop.propagate_to(target_epoch).unwrap();
+        prop.propagate_to(target_epoch);
         let current_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(current_epoch.jd(), target_epoch.jd(), epsilon = 1e-9);
@@ -682,47 +601,30 @@ mod tests {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
         // Propagate forward
-        prop.propagate_steps(5).unwrap();
-        assert_eq!(prop.trajectory().len(), 6);
+        prop.propagate_steps(5);
+        assert_eq!(prop.trajectory.len(), 6);
 
         // Reset
-        prop.reset().unwrap();
-        assert_eq!(prop.trajectory().len(), 1);
+        prop.reset();
+        assert_eq!(prop.trajectory.len(), 1);
         assert_eq!(prop.current_epoch(), prop.initial_epoch());
     }
 
     #[test]
+    #[should_panic(expected = "Cannot change initial conditions for SGP propagator")]
     fn test_sgppropagator_orbitpropagator_set_initial_conditions() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
-        // Should return error - SGP propagator doesn't allow changing initial conditions
-        let result = prop.set_initial_conditions(
+        // Should panic - SGP propagator doesn't allow changing initial conditions
+        prop.set_initial_conditions(
             epoch,
             state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             AngleFormat::None,
         );
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_sgppropagator_orbitpropagator_trajectory() {
-        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let traj = prop.trajectory();
-
-        assert_eq!(traj.len(), 1); // Should have initial state
-        assert_eq!(traj.frame, OrbitFrame::ECI);
-    }
-
-    #[test]
-    fn test_sgppropagator_orbitpropagator_trajectory_mut() {
-        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let traj = prop.trajectory_mut();
-
-        assert_eq!(traj.len(), 1);
     }
 
     #[test]
@@ -731,10 +633,10 @@ mod tests {
         prop.set_eviction_policy_max_size(5).unwrap();
 
         // Propagate 10 steps
-        prop.propagate_steps(10).unwrap();
+        prop.propagate_steps(10);
 
         // Should only keep 5 states
-        assert_eq!(prop.trajectory().len(), 5);
+        assert_eq!(prop.trajectory.len(), 5);
     }
 
     #[test]
@@ -746,10 +648,10 @@ mod tests {
         assert!(result.is_ok());
 
         // Propagate several steps
-        prop.propagate_steps(10).unwrap();
+        prop.propagate_steps(10);
 
         // Verify trajectory has states (eviction policy is applied)
-        assert!(prop.trajectory().len() > 0);
+        assert!(prop.trajectory.len() > 0);
     }
 
     // AnalyticPropagator Trait Tests
@@ -757,7 +659,7 @@ mod tests {
     #[test]
     fn test_sgppropagator_analyticpropagator_state() {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let epoch = prop.initial_epoch() + 0.01; // 0.01 days forward
+        let epoch = prop.initial_epoch() + 0.01;
 
         let state = prop.state(epoch);
         assert!(state.norm() > 0.0);
@@ -788,11 +690,11 @@ mod tests {
     }
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_state_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_state_as_osculating_elements() {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_osculating_elements(epoch);
+        let elements = prop.state_as_osculating_elements(epoch, false);
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -814,8 +716,8 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01, initial_epoch + 0.02];
 
-        let traj = prop.states(&epochs);
-        assert_eq!(traj.len(), 3);
+        let states = prop.states(&epochs);
+        assert_eq!(states.len(), 3);
     }
 
     #[test]
@@ -825,10 +727,12 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let traj = prop.states_eci(&epochs);
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.frame, OrbitFrame::ECI);
-        assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
+        let states = prop.states_eci(&epochs);
+        assert_eq!(states.len(), 2);
+        // Verify states are valid Cartesian vectors
+        for state in &states {
+            assert!(state.norm() > 0.0);
+        }
     }
 
     #[test]
@@ -839,21 +743,27 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let traj = prop.states_ecef(&epochs);
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.frame, OrbitFrame::ECEF);
+        let states = prop.states_ecef(&epochs);
+        assert_eq!(states.len(), 2);
+        // Verify states are valid Cartesian vectors
+        for state in &states {
+            assert!(state.norm() > 0.0);
+        }
     }
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_states_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_states_as_osculating_elements() {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let traj = prop.states_osculating_elements(&epochs);
-        assert_eq!(traj.len(), 2);
-        assert_eq!(traj.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(traj.angle_format, AngleFormat::Radians);
+        let elements = prop.states_as_osculating_elements(&epochs, false);
+        assert_eq!(elements.len(), 2);
+        // Verify elements are valid Keplerian elements
+        for elem in &elements {
+            assert!(elem[0] > 0.0); // Semi-major axis positive
+            assert!(elem[1] >= 0.0); // Eccentricity non-negative
+        }
     }
 }

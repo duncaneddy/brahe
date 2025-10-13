@@ -28,10 +28,10 @@
  * ```
  */
 
-mod traits;
-mod strajectory;
-mod dtrajectory;
-mod orbit_trajectory;
+pub mod traits;
+pub mod strajectory;
+pub mod dtrajectory;
+pub mod orbit_trajectory;
 
 // Re-export everything from traits
 pub use traits::*;

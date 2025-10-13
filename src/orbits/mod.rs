@@ -13,4 +13,5 @@ pub use keplerian::*;
 pub use keplerian_propagator::*;
 pub use sgp_propagator::*;
 pub use tle::*;
-pub use traits::*;
+// Note: traits::* is not re-exported here to avoid ambiguous glob re-exports
+// Use `use brahe::traits::*` or `use brahe::orbits::traits::*` instead

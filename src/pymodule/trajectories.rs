@@ -331,6 +331,7 @@ impl PyOrbitalTrajectory {
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
         self.trajectory.add(epoch.obj, state_vec);
+        Ok(())
     }
 
     /// Get the nearest state to a given epoch
@@ -1010,6 +1011,7 @@ impl PyTrajectory {
 
         let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
         self.trajectory.add(epoch.obj, state_vec);
+        Ok(())
     }
 
 
@@ -1564,6 +1566,7 @@ impl PySTrajectory6 {
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
         self.trajectory.add(epoch.obj, state_vec);
+        Ok(())
     }
 
     /// Get the nearest state to a given epoch

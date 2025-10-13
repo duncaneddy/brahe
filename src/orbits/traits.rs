@@ -25,7 +25,7 @@ pub trait OrbitPropagator {
     /// Step past a specified target epoch
     /// If the target epoch is before or equal to the current epoch, no action is taken
     fn step_past(&mut self, target_epoch: Epoch) {
-        while self.current_epoch() <= target_epoch {
+        while self.current_epoch() < target_epoch {
             self.step();
         }
     }

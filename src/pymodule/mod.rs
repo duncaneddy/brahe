@@ -54,6 +54,43 @@ macro_rules! numpy_to_vector {
     }};
 }
 
+/// Python wrapper for AngleFormat enum
+#[pyclass]
+#[pyo3(name = "AngleFormat")]
+#[derive(Clone)]
+pub struct PyAngleFormat {
+    pub(crate) value: constants::AngleFormat,
+}
+
+#[pymethods]
+impl PyAngleFormat {
+    #[classattr]
+    fn RADIANS() -> Self {
+        PyAngleFormat { value: constants::AngleFormat::Radians }
+    }
+
+    #[classattr]
+    fn DEGREES() -> Self {
+        PyAngleFormat { value: constants::AngleFormat::Degrees }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AngleFormat.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
 // We directly include the contents of the module-definition files as they need to be part of a
 // single module for the Python bindings to work correctly.
 

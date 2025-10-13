@@ -6,14 +6,15 @@
 use nalgebra::Vector6;
 use std::f64::consts::PI;
 
-use crate::constants::{DEG2RAD, RAD2DEG};
+use crate::constants::{DEG2RAD, RAD2DEG, RADIANS, DEGREES};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
-use crate::trajectories::traits::{AngleFormat, OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::constants::AngleFormat;
+use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::BraheError;
 
 /// Keplerian propagator for analytical two-body orbital motion
@@ -76,6 +77,7 @@ impl KeplerianPropagator {
     /// Panics if:
     /// - Angle format is None for Keplerian representation
     /// - Keplerian elements are not in ECI frame
+    /// - Angle format is None for Keplerian representation
     /// - Angle format is not None for Cartesian representation
     /// - Step size is not positive
     pub fn new(
@@ -83,11 +85,11 @@ impl KeplerianPropagator {
         state: Vector6<f64>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
-        angle_format: AngleFormat,
+        angle_format: Option<AngleFormat>,
         step_size: f64,
     ) -> Self {
         // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
             panic!("Angle format must be specified for Keplerian elements");
         }
 
@@ -95,13 +97,16 @@ impl KeplerianPropagator {
             panic!("Keplerian elements must be in ECI frame");
         }
 
-        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
             panic!("Angle format should be None for Cartesian representation");
         }
 
         if step_size <= 0.0 {
             panic!("Step size must be positive");
         }
+
+        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
+        let angle_format = angle_format.unwrap_or(RADIANS);
 
         // Convert input state to internal osculating elements in ECI frame with radians
         let internal_elements = Self::convert_to_internal_osculating(
@@ -116,7 +121,7 @@ impl KeplerianPropagator {
         );
         trajectory.add(epoch, state);
 
-        let n = mean_motion(internal_elements[0], false);
+        let n = mean_motion(internal_elements[0], AngleFormat::Radians);
 
         Self {
             initial_epoch: epoch,
@@ -150,7 +155,7 @@ impl KeplerianPropagator {
         angle_format: AngleFormat,
         step_size: f64,
     ) -> Self {
-        Self::new(epoch, elements, OrbitFrame::ECI, OrbitRepresentation::Keplerian, angle_format, step_size)
+        Self::new(epoch, elements, OrbitFrame::ECI, OrbitRepresentation::Keplerian, Some(angle_format), step_size)
     }
 
     /// Create a new KeplerianPropagator from Cartesian state
@@ -171,7 +176,7 @@ impl KeplerianPropagator {
         state: Vector6<f64>,
         step_size: f64,
     ) -> Self {
-        Self::new(epoch, state, OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None, step_size)
+        Self::new(epoch, state, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None, step_size)
     }
 
     /// Create a new KeplerianPropagator from Cartesian state in ECEF frame
@@ -191,7 +196,7 @@ impl KeplerianPropagator {
         state: Vector6<f64>,
         step_size: f64,
     ) -> Self {
-        Self::new(epoch, state, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, AngleFormat::None, step_size)
+        Self::new(epoch, state, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None, step_size)
     }
 
     /// This method allows changing the output format of the propagator. It updates the frame, representation, and angle format.
@@ -216,9 +221,9 @@ impl KeplerianPropagator {
     /// - Keplerian elements are not in ECI frame
     /// - Angle format is not None for Cartesian representation
     #[allow(dead_code)]
-    fn with_output_format(mut self, frame: OrbitFrame, representation: OrbitRepresentation, angle_format: AngleFormat) -> Self {
+    fn with_output_format(mut self, frame: OrbitFrame, representation: OrbitRepresentation, angle_format: Option<AngleFormat>) -> Self {
         // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
             panic!("Angle format must be specified for Keplerian elements");
         }
 
@@ -226,9 +231,12 @@ impl KeplerianPropagator {
             panic!("Keplerian elements must be in ECI frame");
         }
 
-        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
             panic!("Angle format should be None for Cartesian representation");
         }
+
+        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
+        let angle_format = angle_format.unwrap_or(RADIANS);
 
         self.frame = frame;
         self.representation = representation;
@@ -279,7 +287,7 @@ impl KeplerianPropagator {
                 };
 
                 // Convert Cartesian to osculating elements
-                state_cartesian_to_osculating(eci_state, false)
+                state_cartesian_to_osculating(eci_state, AngleFormat::Radians)
             }
             OrbitRepresentation::Keplerian => {
                 // Convert angles to radians if needed
@@ -302,7 +310,7 @@ impl KeplerianPropagator {
         match self.representation {
             OrbitRepresentation::Cartesian => {
                 // Convert osculating elements to Cartesian in ECI
-                let eci_cartesian = state_osculating_to_cartesian(internal_elements, false);
+                let eci_cartesian = state_osculating_to_cartesian(internal_elements, AngleFormat::Radians);
 
                 // Convert to original frame if needed
                 match self.frame {
@@ -322,7 +330,6 @@ impl KeplerianPropagator {
                         }
                         elements
                     }
-                    AngleFormat::None => panic!("Angle format cannot be None for Keplerian representation. This should have been caught earlier."),
                 }
             }
         }
@@ -418,10 +425,10 @@ impl OrbitPropagator for KeplerianPropagator {
         state: Vector6<f64>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
-        angle_format: AngleFormat,
+        angle_format: Option<AngleFormat>,
     ) {
         // Validate inputs
-        if representation == OrbitRepresentation::Keplerian && angle_format == AngleFormat::None {
+        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
             panic!("Angle format must be specified for Keplerian elements");
         }
 
@@ -429,9 +436,12 @@ impl OrbitPropagator for KeplerianPropagator {
             panic!("Keplerian elements must be in ECI frame");
         }
 
-        if representation == OrbitRepresentation::Cartesian && angle_format != AngleFormat::None {
+        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
             panic!("Angle format should be None for Cartesian representation");
         }
+
+        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
+        let angle_format = angle_format.unwrap_or(RADIANS);
 
         // Update all state
         self.initial_epoch = epoch;
@@ -444,7 +454,7 @@ impl OrbitPropagator for KeplerianPropagator {
         self.internal_osculating_elements = Self::convert_to_internal_osculating(
             epoch, state, frame, representation, angle_format
         );
-        self.n = mean_motion(self.internal_osculating_elements[0], false);
+        self.n = mean_motion(self.internal_osculating_elements[0], AngleFormat::Radians);
 
         // Reset trajectory to new initial conditions
         self.trajectory = OrbitTrajectory::new(
@@ -476,7 +486,7 @@ impl AnalyticPropagator for KeplerianPropagator {
         let state = self.propagate_internal(epoch);
 
         // Convert to ECI
-        state_osculating_to_cartesian(state, false)
+        state_osculating_to_cartesian(state, AngleFormat::Radians)
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
@@ -484,17 +494,18 @@ impl AnalyticPropagator for KeplerianPropagator {
         state_eci_to_ecef(epoch, eci_state)
     }
 
-    fn state_as_osculating_elements(&self, epoch: Epoch, as_degrees: bool) -> Vector6<f64> {
+    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat) -> Vector6<f64> {
         let internal_state = self.propagate_internal(epoch);
-        if as_degrees {
-            let mut elements = internal_state;
-            // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
-            for i in 2..6 {
-                elements[i] = elements[i] * RAD2DEG;
+        match angle_format {
+            AngleFormat::Degrees => {
+                let mut elements = internal_state;
+                // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
+                for i in 2..6 {
+                    elements[i] = elements[i] * RAD2DEG;
+                }
+                elements
             }
-            elements
-        } else {
-            internal_state
+            AngleFormat::Radians => internal_state,
         }
     }
 
@@ -533,7 +544,7 @@ mod tests {
         let argp = 45.0; // Argument of perigee
         let ma = 60.0; // Mean anomaly
 
-        state_osculating_to_cartesian(Vector6::new(a, e, i, raan, argp, ma), true)
+        state_osculating_to_cartesian(Vector6::new(a, e, i, raan, argp, ma), DEGREES)
     }
 
     // KeplerianPropagator Method Tests
@@ -548,7 +559,7 @@ mod tests {
             elements,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(RADIANS),
             60.0,
         );
 
@@ -570,10 +581,9 @@ mod tests {
             elements,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::None,
+            None,
             60.0,
         );
-
     }
 
     #[test]
@@ -588,7 +598,7 @@ mod tests {
             elements,
             OrbitFrame::ECEF,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(RADIANS),
             60.0,
         );
     }
@@ -605,7 +615,7 @@ mod tests {
             state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Radians,
+            Some(RADIANS),
             60.0,
         );
     }
@@ -622,7 +632,7 @@ mod tests {
             elements,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(RADIANS),
             -10.0,
         );
     }
@@ -639,7 +649,7 @@ mod tests {
             elements,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(RADIANS),
             0.0,
         );
     }
@@ -994,7 +1004,7 @@ mod tests {
             new_elements,
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
 
         assert_eq!(propagator.initial_epoch(), new_epoch);
@@ -1081,7 +1091,7 @@ mod tests {
         // Should be Cartesian state in ECI
         assert!(state.norm() > 0.0);
         // Convert back to orbital elements and verify semi-major axis is preserved
-        let computed_elements = state_cartesian_to_osculating(state, true);
+        let computed_elements = state_cartesian_to_osculating(state, DEGREES);
         
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1106,7 +1116,7 @@ mod tests {
 
         // Convert back into osculating elements via ECI
         let eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state);
-        let computed_elements = state_cartesian_to_osculating(eci_state, true);
+        let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1195,7 +1205,7 @@ mod tests {
         assert_eq!(states.len(), 3);
         // Verify states convert back to original elements within small tolerance
         for state in &states {
-            let computed_elements = state_cartesian_to_osculating(*state, true);
+            let computed_elements = state_cartesian_to_osculating(*state, DEGREES);
             for i in 0..6 {
                 assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
             }
@@ -1226,7 +1236,7 @@ mod tests {
         // Verify states convert back to original elements within small tolerance
         for (i, state) in states.iter().enumerate() {
             let eci_state = state_ecef_to_eci(epochs[i], *state);
-            let computed_elements = state_cartesian_to_osculating(eci_state, true);
+            let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
             for j in 0..6 {
                 assert_abs_diff_eq!(computed_elements[j], elements[j], epsilon = 1e-6);
             }

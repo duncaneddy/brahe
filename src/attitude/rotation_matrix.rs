@@ -12,7 +12,7 @@ use crate::attitude::attitude_types::{
     EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON
 };
 use crate::attitude::ToAttitude;
-use crate::constants::DEG2RAD;
+use crate::constants::{AngleFormat, RADIANS, DEG2RAD};
 use crate::utils::BraheError;
 use crate::FromAttitude;
 
@@ -153,8 +153,8 @@ impl RotationMatrix {
     ///
     /// # Arguments
     ///
-    /// - `angle` - The angle of rotation in radians or degrees
-    /// - `as_degrees` - A boolean indicating if the angle is in degrees. If true, the angle is interpreted as degrees.
+    /// - `angle` - The angle of rotation
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -164,12 +164,16 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::constants::DEGREES;
     ///
-    /// let r = RotationMatrix::Rx(45.0, true);
+    /// let r = RotationMatrix::Rx(45.0, DEGREES);
     /// ```
     #[allow(non_snake_case)]
-    pub fn Rx(angle: f64, as_degrees: bool) -> Self {
-        let angle = if as_degrees { angle * DEG2RAD } else { angle };
+    pub fn Rx(angle: f64, angle_format: AngleFormat) -> Self {
+        let angle = match angle_format {
+            AngleFormat::Degrees => angle * DEG2RAD,
+            AngleFormat::Radians => angle,
+        };
         let data = SMatrix3::new(
             1.0,
             0.0,
@@ -188,8 +192,8 @@ impl RotationMatrix {
     ///
     /// # Arguments
     ///
-    /// - `angle` - The angle of rotation in radians or degrees
-    /// - `as_degrees` - A boolean indicating if the angle is in degrees. If true, the angle is interpreted as degrees.
+    /// - `angle` - The angle of rotation
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -199,12 +203,16 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::constants::DEGREES;
     ///
-    /// let r = RotationMatrix::Ry(45.0, true);
+    /// let r = RotationMatrix::Ry(45.0, DEGREES);
     /// ```
     #[allow(non_snake_case)]
-    pub fn Ry(angle: f64, as_degrees: bool) -> Self {
-        let angle = if as_degrees { angle * DEG2RAD } else { angle };
+    pub fn Ry(angle: f64, angle_format: AngleFormat) -> Self {
+        let angle = match angle_format {
+            AngleFormat::Degrees => angle * DEG2RAD,
+            AngleFormat::Radians => angle,
+        };
         let data = SMatrix3::new(
             angle.cos(),
             0.0,
@@ -223,8 +231,8 @@ impl RotationMatrix {
     ///
     /// # Arguments
     ///
-    /// - `angle` - The angle of rotation in radians or degrees
-    /// - `as_degrees` - A boolean indicating if the angle is in degrees. If true, the angle is interpreted as degrees.
+    /// - `angle` - The angle of rotation
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -234,12 +242,16 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
+    /// use brahe::constants::DEGREES;
     ///
-    /// let r = RotationMatrix::Rz(45.0, true);
+    /// let r = RotationMatrix::Rz(45.0, DEGREES);
     /// ```
     #[allow(non_snake_case)]
-    pub fn Rz(angle: f64, as_degrees: bool) -> Self {
-        let angle = if as_degrees { angle * DEG2RAD } else { angle };
+    pub fn Rz(angle: f64, angle_format: AngleFormat) -> Self {
+        let angle = match angle_format {
+            AngleFormat::Degrees => angle * DEG2RAD,
+            AngleFormat::Radians => angle,
+        };
         let data = SMatrix3::new(
             angle.cos(),
             angle.sin(),
@@ -388,7 +400,7 @@ impl FromAttitude for RotationMatrix {
     /// use brahe::attitude::attitude_types::{EulerAxis, RotationMatrix};
     /// use brahe::attitude::FromAttitude;
     ///
-    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
+    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
     /// let r = RotationMatrix::from_euler_axis(e);
     /// ```
     fn from_euler_axis(e: EulerAxis) -> Self {
@@ -411,7 +423,7 @@ impl FromAttitude for RotationMatrix {
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder, RotationMatrix};
     /// use brahe::attitude::FromAttitude;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 30.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 30.0, 60.0, DEGREES);
     /// let r = RotationMatrix::from_euler_angle(e);
     /// ```
     fn from_euler_angle(e: EulerAngle) -> Self {
@@ -534,48 +546,48 @@ impl ToAttitude for RotationMatrix {
 
         match order {
             EulerAngleOrder::XYX => {
-                EulerAngle::new(order, r21.atan2(r31), r11.acos(), r12.atan2(-r13), false)
+                EulerAngle::new(order, r21.atan2(r31), r11.acos(), r12.atan2(-r13), RADIANS)
             }
             EulerAngleOrder::XYZ => {
-                EulerAngle::new(order, r23.atan2(r33), -r13.asin(), r12.atan2(r11), false)
+                EulerAngle::new(order, r23.atan2(r33), -r13.asin(), r12.atan2(r11), RADIANS)
             }
             EulerAngleOrder::XZX => {
-                EulerAngle::new(order, r31.atan2(-r21), r11.acos(), r13.atan2(r12), false)
+                EulerAngle::new(order, r31.atan2(-r21), r11.acos(), r13.atan2(r12), RADIANS)
             }
             EulerAngleOrder::XZY => {
-                EulerAngle::new(order, (-r32).atan2(r22), r12.asin(), (-r13).atan2(r11), false)
+                EulerAngle::new(order, (-r32).atan2(r22), r12.asin(), (-r13).atan2(r11), RADIANS)
             }
             EulerAngleOrder::YXY => {
-                EulerAngle::new(order, r12.atan2(-r32), r22.acos(), r21.atan2(r23), false)
+                EulerAngle::new(order, r12.atan2(-r32), r22.acos(), r21.atan2(r23), RADIANS)
             }
             EulerAngleOrder::YXZ => EulerAngle::new(
                 order,
                 (-r13).atan2(r33),
                 r23.asin(),
                 (-r21).atan2(r22),
-                false,
+                RADIANS,
             ),
             EulerAngleOrder::YZX => {
-                EulerAngle::new(order, r31.atan2(r11), -r21.asin(), r23.atan2(r22), false)
+                EulerAngle::new(order, r31.atan2(r11), -r21.asin(), r23.atan2(r22), RADIANS)
             }
             EulerAngleOrder::YZY => {
-                EulerAngle::new(order, r32.atan2(r12), r22.acos(), r23.atan2(-r21), false)
+                EulerAngle::new(order, r32.atan2(r12), r22.acos(), r23.atan2(-r21), RADIANS)
             }
             EulerAngleOrder::ZXY => {
-                EulerAngle::new(order, r12.atan2(r22), -r32.asin(), r31.atan2(r33), false)
+                EulerAngle::new(order, r12.atan2(r22), -r32.asin(), r31.atan2(r33), RADIANS)
             }
             EulerAngleOrder::ZXZ => {
-                EulerAngle::new(order, r13.atan2(r23), r33.acos(), r31.atan2(-r32), false)
+                EulerAngle::new(order, r13.atan2(r23), r33.acos(), r31.atan2(-r32), RADIANS)
             }
             EulerAngleOrder::ZYX => EulerAngle::new(
                 order,
                 (-r21).atan2(r11),
                 r31.asin(),
                 (-r32).atan2(r33),
-                false,
+                RADIANS,
             ),
             EulerAngleOrder::ZYZ => {
-                EulerAngle::new(order, r23.atan2(-r13), r33.acos(), r32.atan2(r31), false)
+                EulerAngle::new(order, r23.atan2(-r13), r33.acos(), r32.atan2(r31), RADIANS)
             }
         }
     }
@@ -613,6 +625,7 @@ mod tests {
     use super::*;
     use nalgebra::Matrix3;
     use strum::IntoEnumIterator;
+    use crate::constants::{DEGREES, RADIANS};
 
     #[test]
     fn test_new() {
@@ -672,7 +685,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_Rx() {
-        let r = RotationMatrix::Rx(45.0, true);
+        let r = RotationMatrix::Rx(45.0, DEGREES);
         let expected = RotationMatrix::new(
             1.0, 0.0, 0.0,
             0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
@@ -685,7 +698,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_Ry() {
-        let r = RotationMatrix::Ry(45.0, true);
+        let r = RotationMatrix::Ry(45.0, DEGREES);
         let expected = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
             0.0, 1.0, 0.0,
@@ -698,7 +711,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_Rz() {
-        let r = RotationMatrix::Rz(45.0, true);
+        let r = RotationMatrix::Rz(45.0, DEGREES);
         let expected = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
             -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
@@ -724,7 +737,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_from_euler_axis_Rx() {
-        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
             1.0, 0.0, 0.0,
@@ -738,7 +751,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_from_euler_axis_Ry() {
-        let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
@@ -752,7 +765,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_from_euler_axis_Rz() {
-        let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
             std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
@@ -765,7 +778,7 @@ mod tests {
 
     #[test]
     fn test_from_euler_angle() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let r = RotationMatrix::from_euler_angle(e);
         let expected = RotationMatrix::new(
             1.0, 0.0, 0.0,
@@ -778,7 +791,7 @@ mod tests {
     #[test]
     fn test_from_euler_angle_all_orders() {
         for order in EulerAngleOrder::iter() {
-            let e = EulerAngle::new(order, 45.0, 30.0, 60.0, true);
+            let e = EulerAngle::new(order, 45.0, 30.0, 60.0, DEGREES);
             let r = RotationMatrix::from_euler_angle(e);
             let e2 = r.to_euler_angle(order);
             assert_eq!(e, e2);
@@ -818,7 +831,7 @@ mod tests {
             0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
         ).unwrap();
         let e = r.to_euler_axis();
-        let expected = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
+        let expected = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         assert_eq!(e, expected);
     }
 
@@ -831,7 +844,7 @@ mod tests {
             std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
         ).unwrap();
         let e = r.to_euler_axis();
-        let expected = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, true);
+        let expected = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         assert_eq!(e, expected);
     }
 
@@ -844,15 +857,15 @@ mod tests {
             0.0, 0.0, 1.0
         ).unwrap();
         let e = r.to_euler_axis();
-        let expected = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, true);
+        let expected = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         assert_eq!(e, expected);
     }
 
     #[test]
     fn test_to_euler_angle_circular_xyx() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::XYX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -860,9 +873,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xyz() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::XYZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -870,9 +883,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xzx() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::XZX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -880,9 +893,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xzy() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::XZY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -890,9 +903,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yxy() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::YXY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -900,9 +913,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yxz() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::YXZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -910,9 +923,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yzx() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::YZX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -920,9 +933,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_yzy() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::YZY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -930,9 +943,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zxy() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::ZXY);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -940,9 +953,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zxz() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::ZXZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -950,9 +963,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zyx() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::ZYX);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);
@@ -960,9 +973,9 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_zyz() {
-        let r = RotationMatrix::Rx(30.0, true)
-            * RotationMatrix::Ry(45.0, true)
-            * RotationMatrix::Rx(60.0, true);
+        let r = RotationMatrix::Rx(30.0, DEGREES)
+            * RotationMatrix::Ry(45.0, DEGREES)
+            * RotationMatrix::Rx(60.0, DEGREES);
         let e = r.to_euler_angle(EulerAngleOrder::ZYZ);
         let r2 = e.to_rotation_matrix();
         assert_eq!(r, r2);

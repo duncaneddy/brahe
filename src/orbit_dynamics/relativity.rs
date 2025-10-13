@@ -6,6 +6,8 @@ relativity.
 use nalgebra::{Vector3, Vector6};
 
 use crate::constants::{C_LIGHT, GM_EARTH};
+#[cfg(test)]
+use crate::constants::DEGREES;
 
 /// Calculate the acceleration due to special and general relativity for an Earth orbiting object.
 ///
@@ -66,7 +68,7 @@ mod tests {
             45.0,
         );
 
-        let x_object = state_osculating_to_cartesian(oe, true);
+        let x_object = state_osculating_to_cartesian(oe, DEGREES);
 
         let a = acceleration_relativity(x_object);
 

@@ -6,7 +6,8 @@ use nalgebra::Vector6;
 
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::trajectories::traits::{AngleFormat, OrbitFrame, OrbitRepresentation};
+use crate::constants::AngleFormat;
+use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
@@ -93,7 +94,7 @@ pub trait OrbitPropagator {
     /// * `state` - 6-element state vector
     /// * `frame` - Reference frame
     /// * `representation` - Type of orbital representation
-    /// * `angle_format` - Format for angular elements
+    /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
     /// # Panics
     /// May panic if the combination of frame, representation, and angle_format is incompatible
@@ -103,7 +104,7 @@ pub trait OrbitPropagator {
         state: Vector6<f64>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
-        angle_format: AngleFormat,
+        angle_format: Option<AngleFormat>,
     );
 
     /// Propagate and populate trajectory at multiple epochs
@@ -164,12 +165,12 @@ pub trait AnalyticPropagator {
     ///
     /// # Arguments
     /// * `epoch` - The epoch at which to compute the state
-    /// * `as_degrees` - If true, angular elements are returned in degrees; otherwise in radians
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
     /// A 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
-    /// where angles are in degrees if `as_degrees` is true, otherwise in radians
-    fn state_as_osculating_elements(&self, epoch: Epoch, as_degrees: bool) -> Vector6<f64>;
+    /// where angles are in the specified format
+    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat) -> Vector6<f64>;
 
     /// Returns states at multiple epochs in the propagator's native coordinate frame
     ///
@@ -209,11 +210,11 @@ pub trait AnalyticPropagator {
     ///
     /// # Arguments
     /// * `epochs` - Slice of epochs at which to compute states
-    /// * `as_degrees` - If true, angular elements are returned in degrees; otherwise in radians
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing osculating Keplerian elements
-    fn states_as_osculating_elements(&self, epochs: &[Epoch], as_degrees: bool) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_as_osculating_elements(epoch, as_degrees)).collect()
+    fn states_as_osculating_elements(&self, epochs: &[Epoch], angle_format: AngleFormat) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_as_osculating_elements(epoch, angle_format)).collect()
     }
 }

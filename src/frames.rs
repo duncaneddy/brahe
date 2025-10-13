@@ -9,6 +9,8 @@ use crate::constants::MJD_ZERO;
 use crate::eop;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::matrix3_from_array;
+#[cfg(test)]
+use crate::constants::DEGREES;
 
 /// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
 /// CIRS intermediate reference frame. This transformation corrects for the
@@ -595,7 +597,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eci = state_osculating_to_cartesian(oe, true);
+        let eci = state_osculating_to_cartesian(oe, DEGREES);
 
         // Perform circular transformations
         let ecef = state_eci_to_ecef(epc, eci);

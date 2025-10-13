@@ -242,9 +242,9 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
 
         traj = prop.states(epochs)
 
-        assert traj.length == 5
+        assert len(traj) == 5
         for i in range(5):
-            state = traj.state(i)
+            state = traj[i]
             print(state)
             assert len(state) == 6
             assert all(np.isfinite(state))
@@ -257,8 +257,8 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
 
         traj = prop.states_eci(epochs)
 
-        assert traj.length == 5
+        assert len(traj) == 5
         for i in range(5):
-            state = traj.state(i)
+            state = traj[i]
             assert len(state) == 6
             assert all(np.isfinite(state))

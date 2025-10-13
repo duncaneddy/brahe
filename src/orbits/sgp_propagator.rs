@@ -40,7 +40,8 @@ use crate::orbits::tle::{
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
-use crate::trajectories::traits::{AngleFormat, OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::constants::{AngleFormat, RADIANS};
+use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::BraheError;
 
 /// SGP4 propagator using TLE data with the new architecture
@@ -211,7 +212,7 @@ impl SGPPropagator {
         let mut trajectory = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::None, // Cartesian representation should use None for angle format
+            RADIANS, // angle_format is not meaningful for Cartesian
         );
         trajectory.add(initial_epoch, initial_state);
 
@@ -230,7 +231,7 @@ impl SGPPropagator {
             step_size,
             output_frame: OrbitFrame::ECI,
             output_representation: OrbitRepresentation::Cartesian,
-            output_angle_format: AngleFormat::None,
+            output_angle_format: RADIANS, // angle_format is not meaningful for Cartesian
         })
     }
 
@@ -329,7 +330,7 @@ impl OrbitPropagator for SGPPropagator {
         _state: Vector6<f64>,
         _frame: OrbitFrame,
         _representation: OrbitRepresentation,
-        _angle_format: AngleFormat,
+        _angle_format: Option<AngleFormat>,
     ) {
         // For SGP propagator, initial conditions come from TLE and cannot be changed
         panic!("Cannot change initial conditions for SGP propagator - state is determined by TLE data");
@@ -404,20 +405,9 @@ impl AnalyticPropagator for SGPPropagator {
         state_eci_to_ecef(epoch, eci_state)
     }
 
-    fn state_as_osculating_elements(&self, epoch: Epoch, as_degrees: bool) -> Vector6<f64> {
+    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat) -> Vector6<f64> {
         let eci_state = self.state_eci(epoch);
-        let elements = state_cartesian_to_osculating(eci_state, false);
-
-        if as_degrees {
-            let mut deg_elements = elements;
-            // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
-            for i in 2..6 {
-                deg_elements[i] = deg_elements[i].to_degrees();
-            }
-            deg_elements
-        } else {
-            elements
-        }
+        state_cartesian_to_osculating(eci_state, angle_format)
     }
 
     // Default implementations from trait are used for:
@@ -492,7 +482,7 @@ mod tests {
     #[test]
     fn test_sgppropagator_set_output_angle_format() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        assert_eq!(prop.output_angle_format, AngleFormat::None);
+        assert_eq!(prop.output_angle_format, RADIANS);
 
         prop.set_output_angle_format(AngleFormat::Degrees);
         assert_eq!(prop.output_angle_format, AngleFormat::Degrees);
@@ -622,7 +612,7 @@ mod tests {
             state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::None,
+            None, // None for Cartesian
         );
     }
 

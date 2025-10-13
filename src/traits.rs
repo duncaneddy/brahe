@@ -42,7 +42,6 @@ pub use crate::trajectories::traits::{
     OrbitalTrajectory,
     Trajectory,
     // Types and Enums
-    AngleFormat,
     InterpolationMethod,
     OrbitFrame,
     OrbitRepresentation,

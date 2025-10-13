@@ -6,7 +6,7 @@ Provide low-accuracy ephemerides for various celestial bodies.
 use nalgebra::Vector3;
 
 use crate::attitude::RotationMatrix;
-use crate::constants::{AS2RAD, MJD2000};
+use crate::constants::{AS2RAD, MJD2000, RADIANS};
 use crate::DEG2RAD;
 use crate::time::{Epoch, TimeSystem};
 
@@ -51,7 +51,7 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
     let r = 149.619e9 - 2.499e9 * M.cos() - 0.021e9 * (2.0 * M).cos(); // [m]
 
     // Equatorial position vector
-    RotationMatrix::Rx(-epsilon, false) * Vector3::new(r * L.cos(), r * L.sin(), 0.0)
+    RotationMatrix::Rx(-epsilon, RADIANS) * Vector3::new(r * L.cos(), r * L.sin(), 0.0)
 }
 
 /// Calculate the position of the Moon in the EME2000 inertial frame using low-precision analytical
@@ -116,7 +116,7 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
         - 171e3 * (l + 2.0 * D).cos() - 152e3 * (l + lp - 2.0 * D).cos();
 
     // Equatorial coordinates
-    RotationMatrix::Rx(-epsilon, false) * Vector3::new(r * L.cos() * B.cos(), r * L.sin() * B.cos(), r * B.sin())
+    RotationMatrix::Rx(-epsilon, RADIANS) * Vector3::new(r * L.cos() * B.cos(), r * L.sin() * B.cos(), r * B.sin())
 }
 
 #[cfg(test)]

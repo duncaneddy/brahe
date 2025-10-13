@@ -8,10 +8,11 @@ use nalgebra::Vector3;
 
 use super::SMatrix3;
 
+use crate::constants;
+use crate::constants::AngleFormat;
 use crate::coordinates::coordinate_types::EllipsoidalConversionType;
 use crate::coordinates::geocentric::position_ecef_to_geocentric;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
-use crate::utils::math::{from_degrees, to_degrees};
 
 /// Compute the rotation matrix from body-fixed to East-North-Zenith (ENZ)
 /// Cartesian coordinates for a given set of coordinates on an ellipsoidal body.
@@ -19,22 +20,29 @@ use crate::utils::math::{from_degrees, to_degrees};
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates (Radians or Degrees)
 ///
 /// # Returns:
 /// - `E`: Earth-fixed to Topocentric rotation matrix
 ///
 /// # Examples:
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
-/// let rot = rotation_ellipsoid_to_enz(x_geo, true);
+/// let rot = rotation_ellipsoid_to_enz(x_geo, DEGREES);
 /// ```
-pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
-    let lon = from_degrees(x_ellipsoid[0], as_degrees);
-    let lat = from_degrees(x_ellipsoid[1], as_degrees);
+pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, angle_format: AngleFormat) -> SMatrix3 {
+    let lon = match angle_format {
+        AngleFormat::Degrees => x_ellipsoid[0] * constants::DEG2RAD,
+        AngleFormat::Radians => x_ellipsoid[0],
+    };
+    let lat = match angle_format {
+        AngleFormat::Degrees => x_ellipsoid[1] * constants::DEG2RAD,
+        AngleFormat::Radians => x_ellipsoid[1],
+    };
 
     // Construct Rotation matrix
     SMatrix3::new(
@@ -56,21 +64,22 @@ pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates (Radians or Degrees)
 ///
 /// # Returns:
 /// - `E`: Topocentric to Earth-fixed rotation matrix
 ///
 /// # Examples:
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
-/// let rot = rotation_enz_to_ellipsoid(x_geo, true);
+/// let rot = rotation_enz_to_ellipsoid(x_geo, DEGREES);
 /// ```
-pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
-    rotation_ellipsoid_to_enz(x_ellipsoid, as_degrees).transpose()
+pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleFormat) -> SMatrix3 {
+    rotation_ellipsoid_to_enz(x_ellipsoid, angle_format).transpose()
 }
 
 /// Computes the relative state in East-North-Zenith (ENZ) coordinates for a target
@@ -107,10 +116,10 @@ pub fn relative_position_ecef_to_enz(
     // Create ENZ rotation matrix
     let E = match conversion_type {
         EllipsoidalConversionType::Geocentric => {
-            rotation_ellipsoid_to_enz(position_ecef_to_geocentric(location_ecef, false), false)
+            rotation_ellipsoid_to_enz(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
         EllipsoidalConversionType::Geodetic => {
-            rotation_ellipsoid_to_enz(position_ecef_to_geodetic(location_ecef, false), false)
+            rotation_ellipsoid_to_enz(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
     };
 
@@ -153,10 +162,10 @@ pub fn relative_position_enz_to_ecef(
     // Create ENZ rotation matrix
     let Et = match conversion_type {
         EllipsoidalConversionType::Geocentric => {
-            rotation_enz_to_ellipsoid(position_ecef_to_geocentric(location_ecef, false), false)
+            rotation_enz_to_ellipsoid(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
         EllipsoidalConversionType::Geodetic => {
-            rotation_enz_to_ellipsoid(position_ecef_to_geodetic(location_ecef, false), false)
+            rotation_enz_to_ellipsoid(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
     };
 
@@ -171,22 +180,29 @@ pub fn relative_position_enz_to_ecef(
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates.  Expected format (lon, lat, alt)
-/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates (Radians or Degrees)
 ///
 /// # Returns:
 /// - `E`: Earth-fixed to Topocentric rotation matrix
 ///
 /// # Examples:
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
-/// let rot = rotation_sez_to_ellipsoid(x_geo, true);
+/// let rot = rotation_sez_to_ellipsoid(x_geo, DEGREES);
 /// ```
-pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
-    let lon = from_degrees(x_ellipsoid[0], as_degrees);
-    let lat = from_degrees(x_ellipsoid[1], as_degrees);
+pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, angle_format: AngleFormat) -> SMatrix3 {
+    let lon = match angle_format {
+        AngleFormat::Degrees => x_ellipsoid[0] * constants::DEG2RAD,
+        AngleFormat::Radians => x_ellipsoid[0],
+    };
+    let lat = match angle_format {
+        AngleFormat::Degrees => x_ellipsoid[1] * constants::DEG2RAD,
+        AngleFormat::Radians => x_ellipsoid[1],
+    };
 
     // Construct Rotation matrix
     SMatrix3::new(
@@ -208,21 +224,22 @@ pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, as_degrees: bool) ->
 ///
 /// # Args:
 /// - `x_ellipsoid`: Ellipsoidal coordinates. Expected format (lon, lat, alt)
-/// - `as_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates (Radians or Degrees)
 ///
 /// # Returns:
 /// - `E`: Topocentric to Earth-fixed rotation matrix
 ///
 /// # Examples:
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
-/// let rot = rotation_sez_to_ellipsoid(x_geo, true);
+/// let rot = rotation_sez_to_ellipsoid(x_geo, DEGREES);
 /// ```
-pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, as_degrees: bool) -> SMatrix3 {
-    rotation_ellipsoid_to_sez(x_ellipsoid, as_degrees).transpose()
+pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleFormat) -> SMatrix3 {
+    rotation_ellipsoid_to_sez(x_ellipsoid, angle_format).transpose()
 }
 
 /// Computes the relative state in South-East-Zenith (SEZ) coordinates for a target
@@ -259,10 +276,10 @@ pub fn relative_position_ecef_to_sez(
     // Create ENZ rotation matrix
     let E = match conversion_type {
         EllipsoidalConversionType::Geocentric => {
-            rotation_ellipsoid_to_sez(position_ecef_to_geocentric(location_ecef, false), false)
+            rotation_ellipsoid_to_sez(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
         EllipsoidalConversionType::Geodetic => {
-            rotation_ellipsoid_to_sez(position_ecef_to_geodetic(location_ecef, false), false)
+            rotation_ellipsoid_to_sez(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
     };
 
@@ -305,10 +322,10 @@ pub fn relative_position_sez_to_ecef(
     // Create SEZ rotation matrix
     let Et = match conversion_type {
         EllipsoidalConversionType::Geocentric => {
-            rotation_sez_to_ellipsoid(position_ecef_to_geocentric(location_ecef, false), false)
+            rotation_sez_to_ellipsoid(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
         EllipsoidalConversionType::Geodetic => {
-            rotation_sez_to_ellipsoid(position_ecef_to_geodetic(location_ecef, false), false)
+            rotation_sez_to_ellipsoid(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
         }
     };
 
@@ -323,23 +340,23 @@ pub fn relative_position_sez_to_ecef(
 ///
 /// # Args:
 /// - `x_enz`: Relative Cartesian position of object to location East-North-Up coordinates. Units: (*m*)
-/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `angle_format`: Format for angular output (Radians or Degrees)
 ///
 /// # Returns:
 /// - `x_azel`: Azimuth, elevation and range. Units: (*angle*, *angle*, *m*)
 ///
 /// # Examples:
 /// ```
-/// use brahe::constants::R_EARTH;
+/// use brahe::constants::{R_EARTH, DEGREES};
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_enz = vector3_from_array([100.0, 0.0, 0.0]);
 ///
-/// let x_azel = position_enz_to_azel(x_enz, true);
+/// let x_azel = position_enz_to_azel(x_enz, DEGREES);
 /// // x_azel = [90.0, 0.0, 100.0]
 /// ```
-pub fn position_enz_to_azel(x_enz: Vector3<f64>, as_degrees: bool) -> Vector3<f64> {
+pub fn position_enz_to_azel(x_enz: Vector3<f64>, angle_format: AngleFormat) -> Vector3<f64> {
     // Range
     let rho = x_enz.norm();
 
@@ -360,7 +377,10 @@ pub fn position_enz_to_azel(x_enz: Vector3<f64>, as_degrees: bool) -> Vector3<f6
         0.0
     };
 
-    Vector3::new(to_degrees(az, as_degrees), to_degrees(el, as_degrees), rho)
+    match angle_format {
+        AngleFormat::Degrees => Vector3::new(az * constants::RAD2DEG, el * constants::RAD2DEG, rho),
+        AngleFormat::Radians => Vector3::new(az, el, rho),
+    }
 }
 
 /// Converts South-East-Zenith topocentric coordinates of an location
@@ -369,23 +389,23 @@ pub fn position_enz_to_azel(x_enz: Vector3<f64>, as_degrees: bool) -> Vector3<f6
 ///
 /// # Args:
 /// - `x_sez`: Relative Cartesian position of object to location South-East-Zenith coordinates. Units: (*m*)
-/// - `as_degrees`: Returns output as (*deg*) if `true` or (*rad*) if `false`
+/// - `angle_format`: Format for angular output (Radians or Degrees)
 ///
 /// # Returns:
 /// - `x_azel`: Azimuth, elevation and range. Units: (*angle*, *angle*, *m*)
 ///
 /// # Examples:
 /// ```
-/// use brahe::constants::R_EARTH;
+/// use brahe::constants::{R_EARTH, DEGREES};
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_enz = vector3_from_array([0.0, 100.0, 0.0]);
 ///
-/// let x_azel = position_sez_to_azel(x_enz, true);
+/// let x_azel = position_sez_to_azel(x_enz, DEGREES);
 /// // x_azel = [90.0, 0.0, 100.0]
 /// ```
-pub fn position_sez_to_azel(x_sez: Vector3<f64>, as_degrees: bool) -> Vector3<f64> {
+pub fn position_sez_to_azel(x_sez: Vector3<f64>, angle_format: AngleFormat) -> Vector3<f64> {
     // Range
     let rho = x_sez.norm();
 
@@ -406,13 +426,17 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, as_degrees: bool) -> Vector3<f6
         0.0
     };
 
-    Vector3::new(to_degrees(az, as_degrees), to_degrees(el, as_degrees), rho)
+    match angle_format {
+        AngleFormat::Degrees => Vector3::new(az * constants::RAD2DEG, el * constants::RAD2DEG, rho),
+        AngleFormat::Radians => Vector3::new(az, el, rho),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
 
+    use crate::constants::{RADIANS, DEGREES};
     use crate::{position_geocentric_to_ecef, position_geodetic_to_ecef, R_EARTH};
 
     use super::*;
@@ -424,7 +448,7 @@ mod tests {
 
         // Test aligned coordinates
         let x_sta = Vector3::new(0.0, 0.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_enz(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_enz(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is ENZ Z-dir
         assert_abs_diff_eq!(rot1[(0, 0)], 0.0, epsilon = tol);
@@ -445,7 +469,7 @@ mod tests {
 
         // Test 90 degree longitude
         let x_sta = Vector3::new(90.0, 0.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_enz(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_enz(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is ENZ -E-dir
         assert_abs_diff_eq!(rot1[(0, 0)], -1.0, epsilon = tol);
@@ -466,7 +490,7 @@ mod tests {
 
         // Test 90 degree latitude
         let x_sta = Vector3::new(00.0, 90.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_enz(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_enz(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is ENZ -N-dir
         assert_abs_diff_eq!(rot1[(0, 0)], 0.0, epsilon = tol);
@@ -491,8 +515,8 @@ mod tests {
         let tol = f64::EPSILON;
 
         let x_sta = Vector3::new(42.1, 53.9, 100.0);
-        let rot = rotation_ellipsoid_to_enz(x_sta, true);
-        let rot_t = rotation_enz_to_ellipsoid(x_sta, true);
+        let rot = rotation_ellipsoid_to_enz(x_sta, DEGREES);
+        let rot_t = rotation_enz_to_ellipsoid(x_sta, DEGREES);
 
         let r = rot * rot_t;
 
@@ -548,7 +572,7 @@ mod tests {
         // Confirm higher latitude and longitude is (+E, +N, -Z)
         let x_sta = Vector3::new(R_EARTH, 0.0, 0.0);
         let x_geoc = Vector3::new(0.5, 0.5, 0.0);
-        let r_ecef = position_geocentric_to_ecef(x_geoc, true).unwrap();
+        let r_ecef = position_geocentric_to_ecef(x_geoc, DEGREES).unwrap();
 
         let r_enz_geoc =
             relative_position_ecef_to_enz(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
@@ -560,7 +584,7 @@ mod tests {
         // Confirm difference in geocentric and geodetic conversions
         let x_sta = Vector3::new(R_EARTH, 0.0, 0.0);
         let x_geod = Vector3::new(0.5, 0.5, 0.0);
-        let r_ecef = position_geodetic_to_ecef(x_geod, true).unwrap();
+        let r_ecef = position_geodetic_to_ecef(x_geod, DEGREES).unwrap();
 
         let r_enz_geod =
             relative_position_ecef_to_enz(x_sta, r_ecef, EllipsoidalConversionType::Geodetic);
@@ -596,7 +620,7 @@ mod tests {
 
         // Test aligned coordinates
         let x_sta = Vector3::new(0.0, 0.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_sez(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_sez(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is SEZ Z-dir
         assert_abs_diff_eq!(rot1[(0, 0)], 0.0, epsilon = tol);
@@ -617,7 +641,7 @@ mod tests {
 
         // Test 90 degree longitude
         let x_sta = Vector3::new(90.0, 0.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_sez(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_sez(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is SEZ -E-dir
         assert_abs_diff_eq!(rot1[(0, 0)], 0.0, epsilon = tol);
@@ -638,7 +662,7 @@ mod tests {
 
         // Test 90 degree latitude
         let x_sta = Vector3::new(00.0, 90.0, 0.0);
-        let rot1 = rotation_ellipsoid_to_sez(x_sta, true);
+        let rot1 = rotation_ellipsoid_to_sez(x_sta, DEGREES);
 
         // ECEF input X - [1, 0, 0] - Expected output is SEZ S-dir
         assert_abs_diff_eq!(rot1[(0, 0)], 1.0, epsilon = tol);
@@ -663,8 +687,8 @@ mod tests {
         let tol = f64::EPSILON;
 
         let x_sta = Vector3::new(42.1, 53.9, 100.0);
-        let rot = rotation_ellipsoid_to_sez(x_sta, true);
-        let rot_t = rotation_sez_to_ellipsoid(x_sta, true);
+        let rot = rotation_ellipsoid_to_sez(x_sta, DEGREES);
+        let rot_t = rotation_sez_to_ellipsoid(x_sta, DEGREES);
 
         let r = rot * rot_t;
 
@@ -720,7 +744,7 @@ mod tests {
         // Confirm higher latitude and longitude is (+E, +N, -Z)
         let x_sta = Vector3::new(R_EARTH, 0.0, 0.0);
         let x_geoc = Vector3::new(0.5, 0.5, 0.0);
-        let r_ecef = position_geocentric_to_ecef(x_geoc, true).unwrap();
+        let r_ecef = position_geocentric_to_ecef(x_geoc, DEGREES).unwrap();
 
         let r_sez_geoc =
             relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geocentric);
@@ -732,7 +756,7 @@ mod tests {
         // Confirm difference in geocentric and geodetic conversions
         let x_sta = Vector3::new(R_EARTH, 0.0, 0.0);
         let x_geod = Vector3::new(0.5, 0.5, 0.0);
-        let r_ecef = position_geodetic_to_ecef(x_geod, true).unwrap();
+        let r_ecef = position_geodetic_to_ecef(x_geod, DEGREES).unwrap();
 
         let r_sez_geod =
             relative_position_ecef_to_sez(x_sta, r_ecef, EllipsoidalConversionType::Geodetic);
@@ -767,7 +791,7 @@ mod tests {
 
         // Directly above
         let r_enz = Vector3::new(0.0, 0.0, 100.0);
-        let x_azel = position_enz_to_azel(r_enz, true);
+        let x_azel = position_enz_to_azel(r_enz, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 90.0, epsilon = tol);
@@ -775,7 +799,7 @@ mod tests {
 
         // North
         let r_enz = Vector3::new(0.0, 100.0, 0.0);
-        let x_azel = position_enz_to_azel(r_enz, true);
+        let x_azel = position_enz_to_azel(r_enz, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
@@ -783,7 +807,7 @@ mod tests {
 
         // East
         let r_enz = Vector3::new(100.0, 0.0, 0.0);
-        let x_azel = position_enz_to_azel(r_enz, true);
+        let x_azel = position_enz_to_azel(r_enz, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 90.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
@@ -791,7 +815,7 @@ mod tests {
 
         // North-West
         let r_enz = Vector3::new(-100.0, 100.0, 0.0);
-        let x_azel = position_enz_to_azel(r_enz, true);
+        let x_azel = position_enz_to_azel(r_enz, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 315.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
@@ -804,7 +828,7 @@ mod tests {
 
         // Directly above
         let r_sez = Vector3::new(0.0, 0.0, 100.0);
-        let x_azel = position_sez_to_azel(r_sez, true);
+        let x_azel = position_sez_to_azel(r_sez, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 90.0, epsilon = tol);
@@ -812,7 +836,7 @@ mod tests {
 
         // North
         let r_sez = Vector3::new(-100.0, 0.0, 0.0);
-        let x_azel = position_sez_to_azel(r_sez, true);
+        let x_azel = position_sez_to_azel(r_sez, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
@@ -820,7 +844,7 @@ mod tests {
 
         // East
         let r_sez = Vector3::new(0.0, 100.0, 0.0);
-        let x_azel = position_sez_to_azel(r_sez, true);
+        let x_azel = position_sez_to_azel(r_sez, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 90.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);
@@ -828,7 +852,7 @@ mod tests {
 
         // North-West
         let r_sez = Vector3::new(-100.0, -100.0, 0.0);
-        let x_azel = position_sez_to_azel(r_sez, true);
+        let x_azel = position_sez_to_azel(r_sez, DEGREES);
 
         assert_abs_diff_eq!(x_azel[0], 315.0, epsilon = tol);
         assert_abs_diff_eq!(x_azel[1], 0.0, epsilon = tol);

@@ -248,16 +248,16 @@ impl PyEulerAngle {
     }
 
     #[new]
-    pub fn new(order: &str, phi: f64, theta: f64, psi: f64, as_degrees: bool) -> PyEulerAngle {
+    pub fn new(order: &str, phi: f64, theta: f64, psi: f64, angle_format: &PyAngleFormat) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::new(string_to_euler_angle_order(order).unwrap(), phi, theta, psi, as_degrees),
+            obj: attitude::EulerAngle::new(string_to_euler_angle_order(order).unwrap(), phi, theta, psi, angle_format.value),
         }
     }
 
     #[classmethod]
-    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, order: &str, as_degrees: bool) -> PyEulerAngle {
+    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, order: &str, angle_format: &PyAngleFormat) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::from_vector(numpy_to_vector!(v, 3, f64), string_to_euler_angle_order(order).unwrap(), as_degrees),
+            obj: attitude::EulerAngle::from_vector(numpy_to_vector!(v, 3, f64), string_to_euler_angle_order(order).unwrap(), angle_format.value),
         }
     }
 
@@ -354,28 +354,28 @@ impl PyEulerAxis {
     }
 
     #[new]
-    pub fn new(axis: &Bound<'_, PyArray<f64, Ix1>>, angle: f64, as_degrees: bool) -> PyEulerAxis {
+    pub fn new(axis: &Bound<'_, PyArray<f64, Ix1>>, angle: f64, angle_format: &PyAngleFormat) -> PyEulerAxis {
         PyEulerAxis {
-            obj: attitude::EulerAxis::new(numpy_to_vector!(axis, 3, f64), angle, as_degrees),
+            obj: attitude::EulerAxis::new(numpy_to_vector!(axis, 3, f64), angle, angle_format.value),
         }
     }
 
     #[classmethod]
-    pub fn from_values(_cls: &Bound<'_, PyType>, x: f64, y: f64, z: f64, angle: f64, as_degrees: bool) -> PyEulerAxis {
+    pub fn from_values(_cls: &Bound<'_, PyType>, x: f64, y: f64, z: f64, angle: f64, angle_format: &PyAngleFormat) -> PyEulerAxis {
         PyEulerAxis {
-            obj: attitude::EulerAxis::from_values(x, y, z, angle, as_degrees),
+            obj: attitude::EulerAxis::from_values(x, y, z, angle, angle_format.value),
         }
     }
 
     #[classmethod]
-    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, as_degrees: bool, vector_first: bool) -> PyEulerAxis {
+    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat, vector_first: bool) -> PyEulerAxis {
         PyEulerAxis {
-            obj: attitude::EulerAxis::from_vector(numpy_to_vector!(v, 4, f64), as_degrees, vector_first),
+            obj: attitude::EulerAxis::from_vector(numpy_to_vector!(v, 4, f64), angle_format.value, vector_first),
         }
     }
 
-    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, as_degrees: bool, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
-        vector_to_numpy!(py, self.obj.to_vector(as_degrees, vector_first), 4, f64)
+    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, angle_format: &PyAngleFormat, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
+        vector_to_numpy!(py, self.obj.to_vector(angle_format.value, vector_first), 4, f64)
     }
 
     #[classmethod]
@@ -490,25 +490,25 @@ impl PyRotationMatrix {
 
     #[classmethod]
     #[allow(non_snake_case)]
-    pub fn Rx(_cls: &Bound<'_, PyType>, angle: f64, as_degrees: bool) -> PyRotationMatrix {
+    pub fn Rx(_cls: &Bound<'_, PyType>, angle: f64, angle_format: &PyAngleFormat) -> PyRotationMatrix {
         PyRotationMatrix {
-            obj: attitude::RotationMatrix::Rx(angle, as_degrees)
+            obj: attitude::RotationMatrix::Rx(angle, angle_format.value)
         }
     }
 
     #[classmethod]
     #[allow(non_snake_case)]
-    pub fn Ry(_cls: &Bound<'_, PyType>, angle: f64, as_degrees: bool) -> PyRotationMatrix {
+    pub fn Ry(_cls: &Bound<'_, PyType>, angle: f64, angle_format: &PyAngleFormat) -> PyRotationMatrix {
         PyRotationMatrix {
-            obj: attitude::RotationMatrix::Ry(angle, as_degrees)
+            obj: attitude::RotationMatrix::Ry(angle, angle_format.value)
         }
     }
 
     #[classmethod]
     #[allow(non_snake_case)]
-    pub fn Rz(_cls: &Bound<'_, PyType>, angle: f64, as_degrees: bool) -> PyRotationMatrix {
+    pub fn Rz(_cls: &Bound<'_, PyType>, angle: f64, angle_format: &PyAngleFormat) -> PyRotationMatrix {
         PyRotationMatrix {
-            obj: attitude::RotationMatrix::Rz(angle, as_degrees)
+            obj: attitude::RotationMatrix::Rz(angle, angle_format.value)
         }
     }
 

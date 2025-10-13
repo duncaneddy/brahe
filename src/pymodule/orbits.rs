@@ -36,15 +36,15 @@ fn py_orbital_period_general(a: f64, gm: f64) -> PyResult<f64> {
 ///
 /// Arguments:
 ///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     as_degrees (`bool`): Return output in degrees instead of radians
+///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(a, as_degrees)")]
+#[pyo3(text_signature = "(a, angle_format)")]
 #[pyo3(name = "mean_motion")]
-fn py_mean_motion(a: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::mean_motion(a, as_degrees))
+fn py_mean_motion(a: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::mean_motion(a, angle_format.value))
 }
 
 /// Computes the mean motion of an astronomical object around a general body
@@ -53,15 +53,15 @@ fn py_mean_motion(a: f64, as_degrees: bool) -> PyResult<f64> {
 /// Arguments:
 ///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
 ///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
-///     as_degrees (`bool`): Return output in degrees instead of radians
+///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(a, gm, as_degrees)")]
+#[pyo3(text_signature = "(a, gm, angle_format)")]
 #[pyo3(name = "mean_motion_general")]
-fn py_mean_motion_general(a: f64, gm: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::mean_motion_general(a, gm, as_degrees))
+fn py_mean_motion_general(a: f64, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::mean_motion_general(a, gm, angle_format.value))
 }
 
 /// Computes the semi-major axis of an astronomical object from Earth
@@ -69,15 +69,15 @@ fn py_mean_motion_general(a: f64, gm: f64, as_degrees: bool) -> PyResult<f64> {
 ///
 /// Arguments:
 ///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
-///     as_degrees (`bool`): Interpret mean motion as degrees if `true` or radians if `false`
+///     angle_format (`AngleFormat`): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
 #[pyfunction]
-#[pyo3(text_signature = "(a, as_degrees)")]
+#[pyo3(text_signature = "(n, angle_format)")]
 #[pyo3(name = "semimajor_axis")]
-fn py_semimajor_axis(n: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis(n, as_degrees))
+fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::semimajor_axis(n, angle_format.value))
 }
 
 /// Computes the semi-major axis of an astronomical object from a general body
@@ -86,15 +86,15 @@ fn py_semimajor_axis(n: f64, as_degrees: bool) -> PyResult<f64> {
 /// Arguments:
 ///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
 ///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
-///     as_degrees (`float`): Interpret mean motion as degrees if `true` or radians if `false`
+///     angle_format (`AngleFormat`): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
 #[pyfunction]
-#[pyo3(text_signature = "(a, gm, as_degrees)")]
+#[pyo3(text_signature = "(n, gm, angle_format)")]
 #[pyo3(name = "semimajor_axis_general")]
-fn py_semimajor_axis_general(n: f64, gm: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::semimajor_axis_general(n, gm, as_degrees))
+fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::semimajor_axis_general(n, gm, angle_format.value))
 }
 
 #[pyfunction]
@@ -213,15 +213,15 @@ fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 /// Arguments:
 ///     a (`float`) The semi-major axis of the astronomical object. Units: (m)
 ///     e (`float`) The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`) Return output in degrees instead of radians
+///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     inc (`float`) Inclination for a Sun synchronous orbit. Units: (deg) or (rad)
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, as_degrees)")]
+#[pyo3(text_signature = "(a, e, angle_format)")]
 #[pyo3(name = "sun_synchronous_inclination")]
-fn py_sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::sun_synchronous_inclination(a, e, as_degrees))
+fn py_sun_synchronous_inclination(a: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::sun_synchronous_inclination(a, e, angle_format.value))
 }
 
 /// Converts eccentric anomaly into mean anomaly.
@@ -229,15 +229,15 @@ fn py_sun_synchronous_inclination(a: f64, e: f64, as_degrees: bool) -> PyResult<
 /// Arguments:
 ///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_ecc, e, as_degrees)")]
+#[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_mean")]
-fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, e, as_degrees))
+fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, e, angle_format.value))
 }
 
 /// Converts mean anomaly into eccentric anomaly
@@ -245,15 +245,15 @@ fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> PyRes
 /// Arguments:
 ///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`float`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_mean, e, as_degrees)")]
+#[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_eccentric")]
-fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    let res = orbits::anomaly_mean_to_eccentric(anm_mean, e, as_degrees);
+fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    let res = orbits::anomaly_mean_to_eccentric(anm_mean, e, angle_format.value);
     if res.is_ok() {
         Ok(res.unwrap())
     } else {
@@ -266,15 +266,15 @@ fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, as_degrees: bool) -> PyRe
 /// Arguments:
 ///     anm_true (`float`): true anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_true, e, as_degrees))")]
+#[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_eccentric")]
-fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::anomaly_true_to_eccentric(anm_true, e, as_degrees))
+fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::anomaly_true_to_eccentric(anm_true, e, angle_format.value))
 }
 
 /// Converts eccentric anomaly into true anomaly
@@ -282,15 +282,15 @@ fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, as_degrees: bool) -> PyRe
 /// # Arguments
 ///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// # Returns
 ///     anm_true (`float`): true anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_ecc, e, as_degrees))")]
+#[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_true")]
-fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::anomaly_eccentric_to_true(anm_ecc, e, as_degrees))
+fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::anomaly_eccentric_to_true(anm_ecc, e, angle_format.value))
 }
 
 /// Converts true anomaly into mean anomaly.
@@ -298,15 +298,15 @@ fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, as_degrees: bool) -> PyRes
 /// Arguments:
 ///     anm_true (`float`): True anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_ecc, e, as_degrees))")]
+#[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_mean")]
-fn py_anomaly_true_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    Ok(orbits::anomaly_true_to_mean(anm_ecc, e, as_degrees))
+fn py_anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    Ok(orbits::anomaly_true_to_mean(anm_true, e, angle_format.value))
 }
 
 /// Converts mean anomaly into true anomaly
@@ -314,15 +314,15 @@ fn py_anomaly_true_to_mean(anm_ecc: f64, e: f64, as_degrees: bool) -> PyResult<f
 /// Arguments:
 ///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
 ///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     as_degrees (`bool`): Interprets input and returns output in (deg) if `true` or (rad) if `false`
+///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
 ///
 /// Returns:
 ///     anm_true (`float`): True anomaly. Units: (rad) or (deg)
 #[pyfunction]
-#[pyo3(text_signature = "(anm_mean, e, as_degrees)")]
+#[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_true")]
-fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, as_degrees: bool) -> PyResult<f64> {
-    let res = orbits::anomaly_mean_to_true(anm_mean, e, as_degrees);
+fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    let res = orbits::anomaly_mean_to_true(anm_mean, e, angle_format.value);
     if res.is_ok() {
         Ok(res.unwrap())
     } else {
@@ -437,7 +437,7 @@ impl PySGPPropagator {
     /// Set output angle format
     #[pyo3(text_signature = "(angle_format)")]
     pub fn set_output_angle_format(&mut self, angle_format: PyRef<PyAngleFormat>) {
-        self.propagator.set_output_angle_format(angle_format.format);
+        self.propagator.set_output_angle_format(angle_format.value);
     }
 
     /// Get current state vector
@@ -630,7 +630,7 @@ impl PyKeplerianPropagator {
             state_vec,
             frame.frame,
             representation.representation,
-            angle_format.format,
+            Some(angle_format.value),
             step_size,
         );
 
@@ -668,7 +668,7 @@ impl PyKeplerianPropagator {
         let propagator = orbits::KeplerianPropagator::from_keplerian(
             epoch.obj,
             elements_vec,
-            angle_format.format,
+            angle_format.value,
             step_size,
         );
 
@@ -862,7 +862,7 @@ impl PyKeplerianPropagator {
             state_vec,
             frame.frame,
             representation.representation,
-            angle_format.format,
+            Some(angle_format.value),
         );
 
         Ok(())
@@ -935,18 +935,18 @@ impl PyKeplerianPropagator {
     ///
     /// Arguments:
     ///     epoch (Epoch): Target epoch for state computation
-    ///     as_degrees (bool): If true, angular elements are returned in degrees
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians
     ///
     /// Returns:
     ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly]
-    #[pyo3(text_signature = "(epoch, as_degrees)")]
+    #[pyo3(text_signature = "(epoch, angle_format)")]
     pub fn state_as_osculating_elements<'a>(
         &self,
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
-        as_degrees: bool,
+        angle_format: &PyAngleFormat,
     ) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_as_osculating_elements(epoch.obj, as_degrees);
+        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -996,19 +996,19 @@ impl PyKeplerianPropagator {
     ///
     /// Arguments:
     ///     epochs (list[Epoch]): List of epochs for state computation
-    ///     as_degrees (bool): If true, angular elements are returned in degrees
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians
     ///
     /// Returns:
     ///     list[numpy.ndarray]: List of osculating element vectors
-    #[pyo3(text_signature = "(epochs, as_degrees)")]
+    #[pyo3(text_signature = "(epochs, angle_format)")]
     pub fn states_as_osculating_elements<'a>(
         &self,
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
-        as_degrees: bool,
+        angle_format: &PyAngleFormat,
     ) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_as_osculating_elements(&epoch_vec, as_degrees);
+        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value);
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 

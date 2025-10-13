@@ -7,7 +7,7 @@ use nalgebra::{Vector3, Vector4};
 use crate::coordinates::SMatrix3;
 use std::{fmt, ops};
 
-use crate::attitude::attitude_representation::ToAttitude;
+use crate::attitude::traits::ToAttitude;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::attitude::attitude_types::{ATTITUDE_EPSILON};
 use crate::{FromAttitude, Quaternion};

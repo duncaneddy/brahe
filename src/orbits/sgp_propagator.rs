@@ -66,10 +66,6 @@ pub struct SGPPropagator {
     /// Decoded numeric NORAD ID
     pub norad_id: u32,
 
-    /// Parsed SGP4 elements
-    #[allow(dead_code)]
-    elements: sgp4::Elements,
-
     /// SGP4 propagation constants
     constants: sgp4::Constants,
 
@@ -83,16 +79,16 @@ pub struct SGPPropagator {
     pub trajectory: OrbitTrajectory,
 
     /// Step size in seconds for stepping operations
-    step_size: f64,
+    pub step_size: f64,
 
     /// Output frame (default: ECI)
-    output_frame: OrbitFrame,
+    pub frame: OrbitFrame,
 
     /// Output representation (default: Cartesian)
-    output_representation: OrbitRepresentation,
+    pub representation: OrbitRepresentation,
 
     /// Output angle format (default: Radians)
-    output_angle_format: AngleFormat,
+    pub angle_format: AngleFormat,
 }
 
 impl SGPPropagator {
@@ -223,15 +219,14 @@ impl SGPPropagator {
             format,
             norad_id_string,
             norad_id,
-            elements,
             constants,
             initial_epoch,
             initial_state,
             trajectory,
             step_size,
-            output_frame: OrbitFrame::ECI,
-            output_representation: OrbitRepresentation::Cartesian,
-            output_angle_format: RADIANS, // angle_format is not meaningful for Cartesian
+            frame: OrbitFrame::ECI,
+            representation: OrbitRepresentation::Cartesian,
+            angle_format: RADIANS, // angle_format is not meaningful for Cartesian
         })
     }
 
@@ -260,22 +255,22 @@ impl SGPPropagator {
 
     /// Set output to Cartesian coordinates
     pub fn set_output_cartesian(&mut self) {
-        self.output_representation = OrbitRepresentation::Cartesian;
+        self.representation = OrbitRepresentation::Cartesian;
     }
 
     /// Set output to Keplerian elements
     pub fn set_output_keplerian(&mut self) {
-        self.output_representation = OrbitRepresentation::Keplerian;
+        self.representation = OrbitRepresentation::Keplerian;
     }
 
     /// Set output frame
     pub fn set_output_frame(&mut self, frame: OrbitFrame) {
-        self.output_frame = frame;
+        self.frame = frame;
     }
 
     /// Set output angle format
     pub fn set_output_angle_format(&mut self, angle_format: AngleFormat) {
-        self.output_angle_format = angle_format;
+        self.angle_format = angle_format;
     }
 }
 
@@ -455,37 +450,37 @@ mod tests {
     fn test_sgppropagator_set_output_cartesian() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         prop.set_output_keplerian();
-        assert_eq!(prop.output_representation, OrbitRepresentation::Keplerian);
+        assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
 
         prop.set_output_cartesian();
-        assert_eq!(prop.output_representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
     }
 
     #[test]
     fn test_sgppropagator_set_output_keplerian() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        assert_eq!(prop.output_representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
 
         prop.set_output_keplerian();
-        assert_eq!(prop.output_representation, OrbitRepresentation::Keplerian);
+        assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
     }
 
     #[test]
     fn test_sgppropagator_set_output_frame() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        assert_eq!(prop.output_frame, OrbitFrame::ECI);
+        assert_eq!(prop.frame, OrbitFrame::ECI);
 
         prop.set_output_frame(OrbitFrame::ECEF);
-        assert_eq!(prop.output_frame, OrbitFrame::ECEF);
+        assert_eq!(prop.frame, OrbitFrame::ECEF);
     }
 
     #[test]
     fn test_sgppropagator_set_output_angle_format() {
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        assert_eq!(prop.output_angle_format, RADIANS);
+        assert_eq!(prop.angle_format, RADIANS);
 
         prop.set_output_angle_format(AngleFormat::Degrees);
-        assert_eq!(prop.output_angle_format, AngleFormat::Degrees);
+        assert_eq!(prop.angle_format, AngleFormat::Degrees);
     }
 
     // // OrbitPropagator Trait Tests
@@ -683,7 +678,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_as_osculating_elements(epoch, false);
+        let elements = prop.state_as_osculating_elements(epoch, RADIANS);
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -747,7 +742,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop.states_as_osculating_elements(&epochs, false);
+        let elements = prop.states_as_osculating_elements(&epochs, RADIANS);
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {

@@ -189,6 +189,30 @@ pub fn norad_id_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
     Ok(first_value * 10000 + numeric_part)
 }
 
+/// Extract Epoch from TLE line 1
+/// 
+/// # Arguments
+/// * `line1` - First TLE line
+/// 
+/// # Returns
+/// * `Result<Epoch, BraheError>` - Extracted epoch
+pub fn epoch_from_tle(line1: &str) -> Result<Epoch, BraheError> {
+    if line1.len() < 32 {
+        return Err(BraheError::Error("TLE line 1 too short to extract epoch".to_string()));
+    }
+
+    let epoch_str = &line1[18..32];
+
+    let year_2digit: u32 = epoch_str[0..2].parse()
+        .map_err(|_| BraheError::Error("Invalid year in TLE".to_string()))?;
+    let year = if year_2digit < 57 { 2000 + year_2digit } else { 1900 + year_2digit };
+    
+    let day_of_year: f64 = epoch_str[2..].parse()
+        .map_err(|_| BraheError::Error("Invalid day of year in TLE".to_string()))?;
+
+    Ok(Epoch::from_day_of_year(year, day_of_year, TimeSystem::UTC))
+}
+
 /// Extract Keplerian orbital elements from TLE lines
 ///
 /// # Arguments
@@ -210,16 +234,7 @@ pub fn keplerian_elements_from_tle(line1: &str, line2: &str) -> Result<(Epoch, V
         return Err(BraheError::Error("Invalid TLE lines".to_string()));
     }
 
-    // Parse epoch from line 1
-    let epoch_str = &line1[18..32];
-
-    let year_2digit: u32 = epoch_str[0..2].parse()
-        .map_err(|_| BraheError::Error("Invalid year in TLE".to_string()))?;
-    let year = if year_2digit < 57 { 2000 + year_2digit } else { 1900 + year_2digit };
-    let day_of_year: f64 = epoch_str[2..].parse()
-        .map_err(|_| BraheError::Error("Invalid day of year in TLE".to_string()))?;
-
-    let epoch = Epoch::from_day_of_year(year, day_of_year, TimeSystem::UTC);
+    let epoch = epoch_from_tle(line1)?;
 
     // Parse orbital elements from line 2
     let inclination: f64 = line2[8..16].trim().parse()
@@ -877,5 +892,111 @@ mod tests {
         assert_abs_diff_eq!(recovered_elements[3], original_elements[3], epsilon = 1e-3);   // RAAN (degrees)
         assert_abs_diff_eq!(recovered_elements[4], original_elements[4], epsilon = 1e-3);   // Argument of periapsis (degrees)
         assert_abs_diff_eq!(recovered_elements[5], original_elements[5], epsilon = 1e-3);   // Mean anomaly (degrees)
+    }
+
+    #[test]
+    fn test_epoch_from_tle_basic() {
+        // Test basic epoch extraction from ISS TLE
+        let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
+        let result = epoch_from_tle(line1);
+        assert!(result.is_ok());
+
+        let epoch = result.unwrap();
+        assert_eq!(epoch.year(), 2021);
+        assert_eq!(epoch.month(), 1);
+        assert_eq!(epoch.day(), 1);
+        assert_eq!(epoch.hour(), 12);
+        assert_eq!(epoch.minute(), 0);
+        assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+        assert_eq!(epoch.time_system, TimeSystem::UTC);
+    }
+
+    #[rstest]
+    #[case("1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997", 2021, 1, 1, 12, 0, 0.0)]
+    #[case("1 25544U 98067A   21032.25000000  .00001764  00000-0  40967-4 0  9997", 2021, 2, 1, 6, 0, 0.0)]
+    #[case("1 25544U 98067A   21365.00000000  .00001764  00000-0  40967-4 0  9997", 2021, 12, 31, 0, 0, 0.0)]
+    #[case("1 25544U 98067A   56001.00000000  .00001764  00000-0  40967-4 0  9997", 2056, 1, 1, 0, 0, 0.0)] // 2000s epoch (56 < 57)
+    #[case("1 25544U 98067A   57001.00000000  .00001764  00000-0  40967-4 0  9997", 1957, 1, 1, 0, 0, 0.0)] // Boundary: 57 -> 1957
+    #[case("1 25544U 98067A   00001.00000000  .00001764  00000-0  40967-4 0  9997", 2000, 1, 1, 0, 0, 0.0)] // Y2K
+    #[case("1 25544U 98067A   99365.00000000  .00001764  00000-0  40967-4 0  9997", 1999, 12, 31, 0, 0, 0.0)] // Last day of 1999
+    fn test_epoch_from_tle_various_dates(#[case] line1: &str, #[case] year: u32, #[case] month: u8, #[case] day: u8, #[case] hour: u8, #[case] minute: u8, #[case] second: f64) {
+        let epoch = epoch_from_tle(line1).unwrap();
+        assert_eq!(epoch.year(), year);
+        assert_eq!(epoch.month(), month);
+        assert_eq!(epoch.day(), day);
+        assert_eq!(epoch.hour(), hour);
+        assert_eq!(epoch.minute(), minute);
+        assert_abs_diff_eq!(epoch.second(), second, epsilon = 1e-6);
+        assert_eq!(epoch.time_system, TimeSystem::UTC);
+    }
+
+    #[test]
+    fn test_epoch_from_tle_fractional_day() {
+        // Test with fractional day of year
+        let line1 = "1 25544U 98067A   21001.75000000  .00001764  00000-0  40967-4 0  9997";
+        let epoch = epoch_from_tle(line1).unwrap();
+
+        assert_eq!(epoch.year(), 2021);
+        assert_eq!(epoch.month(), 1);
+        assert_eq!(epoch.day(), 1);
+        assert_eq!(epoch.hour(), 18);
+        assert_eq!(epoch.minute(), 0);
+        assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_epoch_from_tle_with_seconds() {
+        // Test with fractional seconds
+        // 0.00069444 days * 86400 s/day = 60.0 seconds exactly
+        let line1 = "1 25544U 98067A   21001.50069444  .00001764  00000-0  40967-4 0  9997";
+        let epoch = epoch_from_tle(line1).unwrap();
+
+        assert_eq!(epoch.year(), 2021);
+        assert_eq!(epoch.month(), 1);
+        assert_eq!(epoch.day(), 1);
+        assert_eq!(epoch.hour(), 12);
+        // 60 seconds should be represented as 0 minutes, ~60 seconds
+        // Due to floating point precision in day_of_year conversion
+        assert_eq!(epoch.minute(), 0);
+        assert_abs_diff_eq!(epoch.second(), 60.0, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_epoch_from_tle_leap_year() {
+        // Test leap year day 366
+        let line1 = "1 25544U 98067A   20366.00000000  .00001764  00000-0  40967-4 0  9997";
+        let epoch = epoch_from_tle(line1).unwrap();
+
+        assert_eq!(epoch.year(), 2020);
+        assert_eq!(epoch.month(), 12);
+        assert_eq!(epoch.day(), 31);
+        assert_eq!(epoch.hour(), 0);
+        assert_eq!(epoch.minute(), 0);
+        assert_abs_diff_eq!(epoch.second(), 0.0, epsilon = 1e-6);
+    }
+
+    #[rstest]
+    #[case("1 25544U 98067A   21001.5000000")]  // Too short
+    #[case("Too short")]  // Way too short
+    #[case("")]  // Empty
+    fn test_epoch_from_tle_invalid_lines(#[case] line1: &str) {
+        assert!(epoch_from_tle(line1).is_err());
+    }
+
+    #[test]
+    fn test_epoch_from_tle_consistency_with_keplerian() {
+        // Verify epoch_from_tle matches the epoch from keplerian_elements_from_tle
+        let line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997";
+        let line2 = "2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003";
+
+        let epoch_direct = epoch_from_tle(line1).unwrap();
+        let (epoch_from_keplerian, _) = keplerian_elements_from_tle(line1, line2).unwrap();
+
+        assert_eq!(epoch_direct.year(), epoch_from_keplerian.year());
+        assert_eq!(epoch_direct.month(), epoch_from_keplerian.month());
+        assert_eq!(epoch_direct.day(), epoch_from_keplerian.day());
+        assert_eq!(epoch_direct.hour(), epoch_from_keplerian.hour());
+        assert_eq!(epoch_direct.minute(), epoch_from_keplerian.minute());
+        assert_abs_diff_eq!(epoch_direct.second(), epoch_from_keplerian.second(), epsilon = 1e-6);
     }
 }   

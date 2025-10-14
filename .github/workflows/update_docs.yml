@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --frozen
 
+      - name: Build Python extension
+        run: uv pip install -e .
+
+      - name: Generate type stubs
+        run: ./scripts/generate_stubs.sh
+
       - name: Build documentation
         run: uv run --frozen mkdocs build
 

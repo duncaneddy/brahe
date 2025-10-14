@@ -3,6 +3,9 @@ import brahe
 from brahe import Epoch
 from brahe.cli.utils import epoch_from_epochlike, parse_float
 
+# Note: These tests don't use CliRunner, but we import it here for consistency
+# with other CLI tests that may need NO_COLOR environment variable
+
 def test_parse_float():
     assert parse_float("1") == 1.0
     assert parse_float("1.5") == 1.5

@@ -13,7 +13,7 @@ jobs:
             -   name: Install Rust
                 run: rustup update nightly
             -   run: rustup default nightly
-            -   uses: actions/checkout@v4
+            -   uses: actions/checkout@v5
             -   name: Set up Python 3.12
                 uses: actions/setup-python@v5
                 with:

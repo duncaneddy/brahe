@@ -6,8 +6,11 @@ from typer.testing import CliRunner
 from brahe.cli.__main__ import app
 import brahe
 
+# Monkey patch the app to disable rich colors for testing
+app.rich_markup_mode = None
+
 # Disable color output to avoid ANSI escape codes in output
-runner = CliRunner(mix_stderr=False, env={"NO_COLOR": "1"})
+runner = CliRunner(mix_stderr=False)
 
 def test_cli_eop_download_standard():
     tmpfile = tempfile.NamedTemporaryFile().name

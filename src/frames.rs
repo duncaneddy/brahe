@@ -1,16 +1,16 @@
 use nalgebra::Vector3;
 
-use crate::coordinates::{SVector6, SMatrix3};
+use crate::coordinates::{SMatrix3, SVector6};
 #[cfg(test)]
 use serial_test::serial;
 
 use crate::constants;
+#[cfg(test)]
+use crate::constants::DEGREES;
 use crate::constants::MJD_ZERO;
 use crate::eop;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::matrix3_from_array;
-#[cfg(test)]
-use crate::constants::DEGREES;
 
 /// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
 /// CIRS intermediate reference frame. This transformation corrects for the
@@ -441,7 +441,7 @@ mod tests {
 
     use crate::constants::{AS2RAD, R_EARTH};
     use crate::coordinates::state_osculating_to_cartesian;
-    use crate::eop::{set_global_eop_provider, StaticEOPProvider};
+    use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use crate::frames::*;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::vector6_from_array;

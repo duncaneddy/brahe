@@ -35,7 +35,7 @@ use std::ops::Index;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Trajectory, Interpolatable, InterpolationMethod, TrajectoryEvictionPolicy};
+use super::traits::{Interpolatable, InterpolationMethod, Trajectory, TrajectoryEvictionPolicy};
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
 pub type STrajectory3 = STrajectory<3>;
@@ -67,8 +67,7 @@ pub type STrajectory6 = STrajectory<6>;
 /// # Thread Safety
 /// This structure is not thread-safe. Use appropriate synchronization for concurrent access.
 #[derive(Debug, Clone, PartialEq)]
-pub struct STrajectory<const R: usize>
-{
+pub struct STrajectory<const R: usize> {
     /// Time epochs for each state, maintained in chronological order.
     /// All epochs should use consistent time systems for meaningful interpolation.
     pub epochs: Vec<Epoch>,
@@ -96,8 +95,7 @@ pub struct STrajectory<const R: usize>
     pub metadata: HashMap<String, Value>,
 }
 
-impl<const R: usize> STrajectory<R>
-{
+impl<const R: usize> STrajectory<R> {
     /// Creates a new empty trajectory with default linear interpolation.
     ///
     /// This is the most convenient method for creating trajectories. The interpolation
@@ -219,32 +217,34 @@ impl<const R: usize> STrajectory<R>
         match self.eviction_policy {
             TrajectoryEvictionPolicy::None => {
                 // No eviction
-            },
+            }
             TrajectoryEvictionPolicy::KeepCount => {
-                if let Some(max_size) = self.max_size {
-                    if self.epochs.len() > max_size {
-                        let to_remove = self.epochs.len() - max_size;
-                        self.epochs.drain(0..to_remove);
-                        self.states.drain(0..to_remove);
-                    }
+                if let Some(max_size) = self.max_size
+                    && self.epochs.len() > max_size
+                {
+                    let to_remove = self.epochs.len() - max_size;
+                    self.epochs.drain(0..to_remove);
+                    self.states.drain(0..to_remove);
                 }
-            },
+            }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
-                if let Some(max_age) = self.max_age {
-                    if let Some(&last_epoch) = self.epochs.last() {
-                        let mut indices_to_keep = Vec::new();
-                        for (i, &epoch) in self.epochs.iter().enumerate() {
-                            if (last_epoch - epoch).abs() <= max_age {
-                                indices_to_keep.push(i);
-                            }
+                if let Some(max_age) = self.max_age
+                    && let Some(&last_epoch) = self.epochs.last()
+                {
+                    let mut indices_to_keep = Vec::new();
+                    for (i, &epoch) in self.epochs.iter().enumerate() {
+                        if (last_epoch - epoch).abs() <= max_age {
+                            indices_to_keep.push(i);
                         }
-
-                        let new_epochs: Vec<Epoch> = indices_to_keep.iter().map(|&i| self.epochs[i]).collect();
-                        let new_states: Vec<SVector<f64, R>> = indices_to_keep.iter().map(|&i| self.states[i].clone()).collect();
-
-                        self.epochs = new_epochs;
-                        self.states = new_states;
                     }
+
+                    let new_epochs: Vec<Epoch> =
+                        indices_to_keep.iter().map(|&i| self.epochs[i]).collect();
+                    let new_states: Vec<SVector<f64, R>> =
+                        indices_to_keep.iter().map(|&i| self.states[i]).collect();
+
+                    self.epochs = new_epochs;
+                    self.states = new_states;
                 }
             }
         }
@@ -277,11 +277,9 @@ impl<const R: usize> STrajectory<R>
 
         Ok(matrix)
     }
-
 }
 
-impl<const R: usize> Default for STrajectory<R>
-{
+impl<const R: usize> Default for STrajectory<R> {
     /// Creates a trajectory with default settings (linear interpolation, no memory limits).
     fn default() -> Self {
         Self::new()
@@ -295,8 +293,7 @@ impl<const R: usize> Default for STrajectory<R>
 ///
 /// # Panics
 /// Panics if index is out of bounds
-impl<const R: usize> Index<usize> for STrajectory<R>
-{
+impl<const R: usize> Index<usize> for STrajectory<R> {
     type Output = SVector<f64, R>;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -351,10 +348,7 @@ impl<'a, const R: usize> IntoIterator for &'a STrajectory<R> {
 impl<const R: usize> Trajectory for STrajectory<R> {
     type StateVector = SVector<f64, R>;
 
-    fn from_data(
-        epochs: Vec<Epoch>,
-        states: Vec<Self::StateVector>,
-    ) -> Result<Self, BraheError> {
+    fn from_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>) -> Result<Self, BraheError> {
         if epochs.len() != states.len() {
             return Err(BraheError::Error(
                 "Epochs and states vectors must have the same length".to_string(),
@@ -372,12 +366,12 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
 
         let sorted_epochs: Vec<Epoch> = indices.iter().map(|&i| epochs[i]).collect();
-        let sorted_states: Vec<SVector<f64, R>> = indices.iter().map(|&i| states[i].clone()).collect();
+        let sorted_states: Vec<SVector<f64, R>> = indices.iter().map(|&i| states[i]).collect();
 
         Ok(Self {
             epochs: sorted_epochs,
             states: sorted_states,
-            interpolation_method: InterpolationMethod::Linear,  // Default to Linear
+            interpolation_method: InterpolationMethod::Linear, // Default to Linear
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -429,7 +423,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             )));
         }
 
-        Ok(self.states[index].clone())
+        Ok(self.states[index])
     }
 
     fn nearest_state(&self, epoch: &Epoch) -> Result<(Epoch, Self::StateVector), BraheError> {
@@ -455,7 +449,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             }
         }
 
-        Ok((self.epochs[nearest_idx], self.states[nearest_idx].clone()))
+        Ok((self.epochs[nearest_idx], self.states[nearest_idx]))
     }
 
     fn len(&self) -> usize {
@@ -487,7 +481,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         if self.epochs.is_empty() {
             None
         } else {
-            Some((self.epochs[0], self.states[0].clone()))
+            Some((self.epochs[0], self.states[0]))
         }
     }
 
@@ -496,7 +490,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             None
         } else {
             let last_index = self.epochs.len() - 1;
-            Some((self.epochs[last_index], self.states[last_index].clone()))
+            Some((self.epochs[last_index], self.states[last_index]))
         }
     }
 
@@ -541,7 +535,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             )));
         }
 
-        Ok((self.epochs[index], self.states[index].clone()))
+        Ok((self.epochs[index], self.states[index]))
     }
 
     fn index_before_epoch(&self, epoch: &Epoch) -> Result<usize, BraheError> {
@@ -600,9 +594,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
         if max_size < 1 {
-            return Err(BraheError::Error(
-                "Maximum size must be >= 1".to_string(),
-            ));
+            return Err(BraheError::Error("Maximum size must be >= 1".to_string()));
         }
         self.eviction_policy = TrajectoryEvictionPolicy::KeepCount;
         self.max_size = Some(max_size);
@@ -613,9 +605,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
 
     fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
         if max_age <= 0.0 {
-            return Err(BraheError::Error(
-                "Maximum age must be > 0.0".to_string(),
-            ));
+            return Err(BraheError::Error("Maximum age must be > 0.0".to_string()));
         }
         self.eviction_policy = TrajectoryEvictionPolicy::KeepWithinDuration;
         self.max_age = Some(max_age);
@@ -679,14 +669,12 @@ mod tests {
     #[test]
     fn test_strajectory_with_interpolation_method() {
         // Test creating trajectory with specific interpolation method using builder pattern
-        let traj = STrajectory6::new()
-            .with_interpolation_method(InterpolationMethod::Linear);
+        let traj = STrajectory6::new().with_interpolation_method(InterpolationMethod::Linear);
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
         assert_eq!(traj.len(), 0);
 
         // Verify it works with adding states
-        let mut traj = STrajectory6::new()
-            .with_interpolation_method(InterpolationMethod::Linear);
+        let mut traj = STrajectory6::new().with_interpolation_method(InterpolationMethod::Linear);
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let state = Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
         traj.add(t0, state);
@@ -697,20 +685,24 @@ mod tests {
     #[test]
     fn test_strajectory_with_eviction_policy_max_size_builder() {
         // Test builder pattern for max size eviction policy
-        let traj = STrajectory6::new()
-            .with_eviction_policy_max_size(5);
+        let traj = STrajectory6::new().with_eviction_policy_max_size(5);
 
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepCount
+        );
         assert_eq!(traj.len(), 0);
     }
 
     #[test]
     fn test_strajectory_with_eviction_policy_max_age_builder() {
         // Test builder pattern for max age eviction policy
-        let traj = STrajectory6::new()
-            .with_eviction_policy_max_age(300.0);
+        let traj = STrajectory6::new().with_eviction_policy_max_age(300.0);
 
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
         assert_eq!(traj.len(), 0);
     }
 
@@ -722,7 +714,10 @@ mod tests {
             .with_eviction_policy_max_size(10);
 
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepCount
+        );
 
         // Add states and verify eviction policy works
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -754,11 +749,7 @@ mod tests {
     #[test]
     fn test_strajectory_to_matrix() {
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
             Vector6::new(11.0, 12.0, 13.0, 14.0, 15.0, 16.0),
@@ -998,13 +989,13 @@ mod tests {
 
         trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
         );
         assert_eq!(trajectory.len(), 1);
 
         trajectory.add(
             Epoch::from_jd(2451545.1, TimeSystem::UTC),
-            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0)
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0),
         );
         assert_eq!(trajectory.len(), 2);
     }
@@ -1016,7 +1007,7 @@ mod tests {
 
         trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
         );
         assert!(!trajectory.is_empty());
 
@@ -1059,7 +1050,7 @@ mod tests {
         let mut single_trajectory = STrajectory6::new();
         single_trajectory.add(
             Epoch::from_jd(2451545.0, TimeSystem::UTC),
-            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0)
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
         );
         assert!(single_trajectory.timespan().is_none());
 
@@ -1170,11 +1161,7 @@ mod tests {
     fn test_strajectory_trajectory_index_before_epoch() {
         // Create a trajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0),
@@ -1216,11 +1203,7 @@ mod tests {
     fn test_strajectory_trajectory_index_after_epoch() {
         // Create a trajectory with states at epochs: t0, t0+60s, t0+120s
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             Vector6::new(2.0, 0.0, 0.0, 0.0, 0.0, 0.0),
@@ -1266,11 +1249,7 @@ mod tests {
     fn test_strajectory_trajectory_state_before_epoch() {
         // Create a trajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(1000.0, 100.0, 10.0, 1.0, 0.1, 0.01),
             Vector6::new(2000.0, 200.0, 20.0, 2.0, 0.2, 0.02),
@@ -1325,11 +1304,7 @@ mod tests {
     fn test_strajectory_trajectory_state_after_epoch() {
         // Create a trajectory with distinguishable states at 3 epochs
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(1000.0, 100.0, 10.0, 1.0, 0.1, 0.01),
             Vector6::new(2000.0, 200.0, 20.0, 2.0, 0.2, 0.02),
@@ -1395,11 +1370,17 @@ mod tests {
 
         // Set to KeepCount
         traj.set_eviction_policy_max_size(10).unwrap();
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepCount
+        );
 
         // Set to KeepWithinDuration
         traj.set_eviction_policy_max_age(100.0).unwrap();
-        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::KeepWithinDuration);
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
     }
 
     #[test]
@@ -1458,7 +1439,6 @@ mod tests {
         assert_eq!(traj.epoch(0).unwrap(), t0 + 60.0);
         assert_eq!(traj.state(0).unwrap()[0], 7000e3 + 1000.0);
 
-        
         // Set max age to 239 seconds
         traj.set_eviction_policy_max_age(239.0).unwrap();
         assert_eq!(traj.len(), 4);
@@ -1492,11 +1472,7 @@ mod tests {
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
         // Create a trajectory with 3 states at t0, t0+60s, t0+120s with distinct position values
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
             Vector6::new(7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
@@ -1566,11 +1542,7 @@ mod tests {
         let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
         // Create a trajectory with 3 states at different epochs
-        let epochs = vec![
-            t0,
-            t0 + 60.0,
-            t0 + 120.0,
-        ];
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
         let states = vec![
             Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
             Vector6::new(7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),

@@ -39,13 +39,16 @@ pub fn position_geocentric_to_ecef(
 ) -> Result<Vector3<f64>, String> {
     // Convert angles to radians
     let (lon, lat) = match angle_format {
-        AngleFormat::Degrees => (x_geoc[0] * constants::DEG2RAD, x_geoc[1] * constants::DEG2RAD),
+        AngleFormat::Degrees => (
+            x_geoc[0] * constants::DEG2RAD,
+            x_geoc[1] * constants::DEG2RAD,
+        ),
         AngleFormat::Radians => (x_geoc[0], x_geoc[1]),
     };
     let alt = x_geoc[2];
 
     // Check validity of inputs
-    if lat < -PI / 2.0 || lat > PI / 2.0 {
+    if !(-PI / 2.0..=PI / 2.0).contains(&lat) {
         return Err(format!(
             "Input latitude out of range. Input must be between -90 and 90 degrees. Input: {}",
             lat
@@ -80,7 +83,10 @@ pub fn position_geocentric_to_ecef(
 /// let geoc = position_ecef_to_geocentric(ecef, DEGREES);
 /// // Returns state [0.0, 0.0, 0.0]
 /// ```
-pub fn position_ecef_to_geocentric(x_ecef: Vector3<f64>, angle_format: AngleFormat) -> Vector3<f64> {
+pub fn position_ecef_to_geocentric(
+    x_ecef: Vector3<f64>,
+    angle_format: AngleFormat,
+) -> Vector3<f64> {
     let x = x_ecef[0];
     let y = x_ecef[1];
     let z = x_ecef[2];
@@ -92,11 +98,9 @@ pub fn position_ecef_to_geocentric(x_ecef: Vector3<f64>, angle_format: AngleForm
 
     // Convert angles to requested format
     match angle_format {
-        AngleFormat::Degrees => Vector3::new(
-            lon * constants::RAD2DEG,
-            lat * constants::RAD2DEG,
-            alt,
-        ),
+        AngleFormat::Degrees => {
+            Vector3::new(lon * constants::RAD2DEG, lat * constants::RAD2DEG, alt)
+        }
         AngleFormat::Radians => Vector3::new(lon, lat, alt),
     }
 }
@@ -105,7 +109,7 @@ pub fn position_ecef_to_geocentric(x_ecef: Vector3<f64>, angle_format: AngleForm
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use crate::constants::{WGS84_A, RADIANS, DEGREES};
+    use crate::constants::{DEGREES, RADIANS, WGS84_A};
 
     use super::*;
 

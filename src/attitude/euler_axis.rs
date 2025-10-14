@@ -6,12 +6,12 @@ single rotation about an arbitrary axis.
 use nalgebra::{Vector3, Vector4};
 use std::{fmt, ops};
 
-use crate::attitude::attitude_types::{
-    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON
-};
-use crate::attitude::ToAttitude;
-use crate::constants::{AngleFormat, RADIANS, DEG2RAD, RAD2DEG};
 use crate::FromAttitude;
+use crate::attitude::ToAttitude;
+use crate::attitude::attitude_types::{
+    ATTITUDE_EPSILON, EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix,
+};
+use crate::constants::{AngleFormat, DEG2RAD, RAD2DEG, RADIANS};
 
 impl EulerAxis {
     /// Create a new `EulerAxis` struct from an axis and angle.
@@ -96,7 +96,11 @@ impl EulerAxis {
     /// let vector = Vector4::new(1.0, 1.0, 1.0, 45.0);
     /// let e = EulerAxis::from_vector(vector, AngleFormat::Degrees, false);
     /// ```
-    pub fn from_vector(vector: Vector4<f64>, angle_format: AngleFormat, vector_first: bool) -> Self {
+    pub fn from_vector(
+        vector: Vector4<f64>,
+        angle_format: AngleFormat,
+        vector_first: bool,
+    ) -> Self {
         let (angle, axis) = if vector_first {
             (vector[3], Vector3::new(vector[0], vector[1], vector[2]))
         } else {
@@ -190,17 +194,10 @@ impl ops::Index<usize> for EulerAxis {
 
 impl PartialEq for EulerAxis {
     fn eq(&self, other: &Self) -> bool {
-        (self.axis[0] - other.axis[0]).abs() <= ATTITUDE_EPSILON &&
-        (self.axis[1] - other.axis[1]).abs() <= ATTITUDE_EPSILON &&
-        (self.axis[2] - other.axis[2]).abs() <= ATTITUDE_EPSILON &&
-        (self.angle - other.angle).abs() <= ATTITUDE_EPSILON
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        (self.axis[0] - other.axis[0]).abs() > ATTITUDE_EPSILON ||
-        (self.axis[1] - other.axis[1]).abs() > ATTITUDE_EPSILON ||
-        (self.axis[2] - other.axis[2]).abs() > ATTITUDE_EPSILON ||
-        (self.angle - other.angle).abs() > ATTITUDE_EPSILON
+        (self.axis[0] - other.axis[0]).abs() <= ATTITUDE_EPSILON
+            && (self.axis[1] - other.axis[1]).abs() <= ATTITUDE_EPSILON
+            && (self.axis[2] - other.axis[2]).abs() <= ATTITUDE_EPSILON
+            && (self.angle - other.angle).abs() <= ATTITUDE_EPSILON
     }
 }
 
@@ -267,7 +264,7 @@ impl FromAttitude for EulerAxis {
     /// let e2 = EulerAxis::from_euler_axis(e);
     /// ```
     fn from_euler_axis(e: EulerAxis) -> Self {
-        EulerAxis::new(e.axis.clone(), e.angle, RADIANS)
+        EulerAxis::new(e.axis, e.angle, RADIANS)
     }
 
     /// Create a new `EulerAxis` struct from an `EulerAngle`.
@@ -361,7 +358,7 @@ impl ToAttitude for EulerAxis {
     /// let e2 = e.to_euler_axis();
     /// ```
     fn to_euler_axis(&self) -> EulerAxis {
-        self.clone()
+        *self
     }
 
     /// Convert the `EulerAxis` struct to an `EulerAngle`. The `order` field is used to specify the order of the Euler angles.
@@ -412,10 +409,10 @@ impl ToAttitude for EulerAxis {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::PI;
-    use approx::assert_abs_diff_eq;
     use super::*;
     use crate::constants::{DEGREES, RADIANS};
+    use approx::assert_abs_diff_eq;
+    use std::f64::consts::PI;
 
     #[test]
     fn new() {
@@ -484,7 +481,7 @@ mod tests {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(1.0, 0.0, 0.0));
-        assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -492,7 +489,7 @@ mod tests {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(0.0, 1.0, 0.0));
-        assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -500,46 +497,67 @@ mod tests {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(0.0, 0.0, 1.0));
-        assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn from_rotation_matrix_Rx() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let e = EulerAxis::from_rotation_matrix(r);
         assert_eq!(e.axis, Vector3::new(1.0, 0.0, 0.0));
-        assert_abs_diff_eq!(e.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn from_rotation_matrix_Ry() {
         let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            1.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let e = EulerAxis::from_rotation_matrix(r);
         assert_eq!(e.axis, Vector3::new(0.0, 1.0, 0.0));
-        assert_abs_diff_eq!(e.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn from_rotation_matrix_Rz() {
         let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
         let e = EulerAxis::from_rotation_matrix(r);
         assert_eq!(e.axis, Vector3::new(0.0, 0.0, 1.0));
-        assert_abs_diff_eq!(e.angle, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e.angle, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -562,10 +580,10 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Rx() {
-        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
-        assert_abs_diff_eq!(e2.phi, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.phi, PI / 4.0, epsilon = 1e-12);
         assert_eq!(e2.theta, 0.0);
         assert_eq!(e2.psi, 0.0);
     }
@@ -573,29 +591,29 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Ry() {
-        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
         assert_eq!(e2.phi, 0.0);
-        assert_abs_diff_eq!(e2.theta, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.theta, PI / 4.0, epsilon = 1e-12);
         assert_eq!(e2.psi, 0.0);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Rz() {
-        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI / 4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
         assert_eq!(e2.phi, 0.0);
         assert_eq!(e2.theta, 0.0);
-        assert_abs_diff_eq!(e2.psi, PI/4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(e2.psi, PI / 4.0, epsilon = 1e-12);
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Rx() {
-        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -611,7 +629,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Ry() {
-        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -627,7 +645,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Rz() {
-        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, RADIANS);
+        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI / 4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);

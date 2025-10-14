@@ -114,10 +114,7 @@ pub fn state_osculating_to_cartesian(x_oe: SVector6, angle_format: AngleFormat) 
 /// # Reference
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
 #[allow(non_snake_case)]
-pub fn state_cartesian_to_osculating(
-    x_cart: SVector6,
-    angle_format: AngleFormat,
-) -> SVector6 {
+pub fn state_cartesian_to_osculating(x_cart: SVector6, angle_format: AngleFormat) -> SVector6 {
     // # Initialize Cartesian Polistion and Velocity
     let r: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(0));
     let v: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(3));
@@ -174,7 +171,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::constants::{R_EARTH, DEG2RAD, RADIANS, DEGREES};
+    use crate::constants::{DEG2RAD, DEGREES, R_EARTH, RADIANS};
     use crate::coordinates::*;
     use crate::orbits::*;
     use crate::utils::math::*;
@@ -249,8 +246,14 @@ mod tests {
     #[case(26560e3, 0.74, 63.4, 250.0, 90.0, 180.0)]
     #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
     #[case(7000e3, 0.5, 45.0, 120.0, 270.0, 300.0)]
-    fn test_round_trip_conversion_deg(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
-
+    fn test_round_trip_conversion_deg(
+        #[case] a: f64,
+        #[case] e: f64,
+        #[case] i: f64,
+        #[case] raan: f64,
+        #[case] omega: f64,
+        #[case] m: f64,
+    ) {
         let osc = vector6_from_array([a, e, i, raan, omega, m]);
         let cart = state_osculating_to_cartesian(osc, DEGREES);
         let osc_back = state_cartesian_to_osculating(cart, DEGREES);
@@ -268,8 +271,14 @@ mod tests {
     #[case(26560e3, 0.74, 63.4 * DEG2RAD, 250.0 * DEG2RAD, 90.0 * DEG2RAD, 180.0 * DEG2RAD)]
     #[case(42164e3, 0.0, 0.0, 0.0, 0.0, 0.0)]
     #[case(7000e3, 0.5, 45.0 * DEG2RAD, 120.0 * DEG2RAD, 270.0 * DEG2RAD, 300.0 * DEG2RAD)]
-    fn test_round_trip_conversion_rad(#[case] a: f64, #[case] e: f64, #[case] i: f64, #[case] raan: f64, #[case] omega: f64, #[case] m: f64) {
-
+    fn test_round_trip_conversion_rad(
+        #[case] a: f64,
+        #[case] e: f64,
+        #[case] i: f64,
+        #[case] raan: f64,
+        #[case] omega: f64,
+        #[case] m: f64,
+    ) {
         let osc = vector6_from_array([a, e, i, raan, omega, m]);
         let cart = state_osculating_to_cartesian(osc, RADIANS);
         let osc_back = state_cartesian_to_osculating(cart, RADIANS);

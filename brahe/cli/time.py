@@ -25,17 +25,34 @@ class EpochFormat(str, Enum):
 
 
 @app.command()
-def convert(epoch: Annotated[str, typer.Argument(..., help="Epoch to convert the time representation for")],
-            input_format: Annotated[EpochFormat, typer.Argument(..., help="Input format of the epoch")],
-            output_format: Annotated[EpochFormat, typer.Argument(..., help="Desired output format of the epoch")],
-            input_time_system: Annotated[TimeSystem, typer.Option(help="Time system of the input epoch")] = None,
-            output_time_system: Annotated[TimeSystem, typer.Option(help="Time system of the output epoch")] = None
-            ):
-    if input_time_system and input_format in [EpochFormat.gps_date, EpochFormat.gps_nanoseconds]:
+def convert(
+    epoch: Annotated[
+        str, typer.Argument(..., help="Epoch to convert the time representation for")
+    ],
+    input_format: Annotated[
+        EpochFormat, typer.Argument(..., help="Input format of the epoch")
+    ],
+    output_format: Annotated[
+        EpochFormat, typer.Argument(..., help="Desired output format of the epoch")
+    ],
+    input_time_system: Annotated[
+        TimeSystem, typer.Option(help="Time system of the input epoch")
+    ] = None,
+    output_time_system: Annotated[
+        TimeSystem, typer.Option(help="Time system of the output epoch")
+    ] = None,
+):
+    if input_time_system and input_format in [
+        EpochFormat.gps_date,
+        EpochFormat.gps_nanoseconds,
+    ]:
         typer.echo("Input time system is not supported for GPS date or nanoseconds")
         typer.Exit(code=1)
 
-    if output_time_system and output_format in [EpochFormat.gps_date, EpochFormat.gps_nanoseconds]:
+    if output_time_system and output_format in [
+        EpochFormat.gps_date,
+        EpochFormat.gps_nanoseconds,
+    ]:
         typer.echo("Output time system is not supported for GPS date or nanoseconds")
         typer.Exit(code=1)
 
@@ -75,12 +92,18 @@ def convert(epoch: Annotated[str, typer.Argument(..., help="Epoch to convert the
         typer.echo("Invalid output format")
         typer.Exit(code=1)
 
-@app.command()
-def add(epoch: Annotated[str, typer.Argument(..., help="Epoch to add time to")],
-        seconds: Annotated[float, typer.Argument(..., help="Seconds to add")],
-        output_format: Annotated[EpochFormat, typer.Option(help="Desired output format of the epoch")] = EpochFormat.string,
-        output_time_system: Annotated[TimeSystem, typer.Option(help="Time system of the output epoch")] = TimeSystem.UTC):
 
+@app.command()
+def add(
+    epoch: Annotated[str, typer.Argument(..., help="Epoch to add time to")],
+    seconds: Annotated[float, typer.Argument(..., help="Seconds to add")],
+    output_format: Annotated[
+        EpochFormat, typer.Option(help="Desired output format of the epoch")
+    ] = EpochFormat.string,
+    output_time_system: Annotated[
+        TimeSystem, typer.Option(help="Time system of the output epoch")
+    ] = TimeSystem.UTC,
+):
     epc = epoch_from_epochlike(epoch)
 
     epc += seconds
@@ -99,10 +122,17 @@ def add(epoch: Annotated[str, typer.Argument(..., help="Epoch to add time to")],
         typer.echo("Invalid output format")
         typer.Exit(code=1)
 
+
 @app.command()
-def time_system_offset(epoch: Annotated[str, typer.Argument(..., help="Epoch-like to get EOP data for")],
-                       source: Annotated[TimeSystem, typer.Argument(..., help="Time system to convert from")],
-                       target: Annotated[TimeSystem, typer.Argument(..., help="Time system to convert to")]):
+def time_system_offset(
+    epoch: Annotated[str, typer.Argument(..., help="Epoch-like to get EOP data for")],
+    source: Annotated[
+        TimeSystem, typer.Argument(..., help="Time system to convert from")
+    ],
+    target: Annotated[
+        TimeSystem, typer.Argument(..., help="Time system to convert to")
+    ],
+):
     epc = epoch_from_epochlike(epoch)
 
     offset = brahe.time_system_offset_for_mjd(epc.mjd(), source.value, target.value)
@@ -111,9 +141,15 @@ def time_system_offset(epoch: Annotated[str, typer.Argument(..., help="Epoch-lik
 
 
 @app.command(name="range")
-def time_range(epoch_start: Annotated[str, typer.Argument(..., help="Epoch-like for start of time range")],
-               epoch_end: Annotated[str, typer.Argument(..., help="Epoch-like for end of time range")],
-               step: Annotated[float, typer.Argument(..., help="Step size in seconds")]):
+def time_range(
+    epoch_start: Annotated[
+        str, typer.Argument(..., help="Epoch-like for start of time range")
+    ],
+    epoch_end: Annotated[
+        str, typer.Argument(..., help="Epoch-like for end of time range")
+    ],
+    step: Annotated[float, typer.Argument(..., help="Step size in seconds")],
+):
     epc_start = epoch_from_epochlike(epoch_start)
     epc_end = epoch_from_epochlike(epoch_end)
 

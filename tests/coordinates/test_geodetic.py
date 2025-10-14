@@ -2,6 +2,8 @@ import pytest
 import brahe
 import numpy as np
 from pytest import approx
+
+
 def test_position_geodetic(eop):
     tol = 1.0e-7
 
@@ -25,7 +27,7 @@ def test_position_geodetic(eop):
 
     assert ecef3[0] == approx(0.0, abs=tol)
     assert ecef3[1] == approx(0.0, abs=tol)
-    assert ecef3[2] == approx(brahe.WGS84_A*(1.0-brahe.WGS84_F), abs=tol)
+    assert ecef3[2] == approx(brahe.WGS84_A * (1.0 - brahe.WGS84_F), abs=tol)
 
     # Test two input format
     geod = np.array([0.0, 0.0, 0.0])
@@ -47,7 +49,7 @@ def test_position_geodetic(eop):
 
     assert ecef[0] == approx(0.0, abs=tol)
     assert ecef[1] == approx(0.0, abs=tol)
-    assert ecef[2] == approx(brahe.WGS84_A*(1.0-brahe.WGS84_F), abs=tol)
+    assert ecef[2] == approx(brahe.WGS84_A * (1.0 - brahe.WGS84_F), abs=tol)
 
     # Test circularity
     geod4 = brahe.position_ecef_to_geodetic(ecef1, brahe.AngleFormat.DEGREES)
@@ -66,15 +68,18 @@ def test_position_geodetic(eop):
     assert geod6[1] == approx(geod3[1], abs=tol)
     assert geod6[2] == approx(geod3[2], abs=tol)
 
-    geod  = np.array([77.875000,    20.975200,     0.000000])
-    ecef  = brahe.position_geodetic_to_ecef(geod, brahe.AngleFormat.DEGREES)
+    geod = np.array([77.875000, 20.975200, 0.000000])
+    ecef = brahe.position_geodetic_to_ecef(geod, brahe.AngleFormat.DEGREES)
     geodc = brahe.position_ecef_to_geodetic(ecef, brahe.AngleFormat.DEGREES)
     assert geod[0] == approx(geodc[0], abs=tol)
     assert geod[1] == approx(geodc[1], abs=tol)
     assert geod[2] == approx(geodc[2], abs=tol)
 
+
 @pytest.mark.parametrize("lat", [90.1, -90.1])
 def test_geodetic_failure(eop, lat):
     # Test Error Condition
     with pytest.raises(ValueError):
-        brahe.position_geodetic_to_ecef(np.array([0.0,  lat, 0.0]), brahe.AngleFormat.DEGREES)
+        brahe.position_geodetic_to_ecef(
+            np.array([0.0, lat, 0.0]), brahe.AngleFormat.DEGREES
+        )

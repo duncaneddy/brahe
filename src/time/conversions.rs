@@ -224,7 +224,7 @@ fn tai_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
 
     // Return the difference between the input TAI time and the adjusted UTC time
     // now that we have a good guess for UTC.
-    return utc_jdfd_to_utc_offset(u1, u2);
+    utc_jdfd_to_utc_offset(u1, u2)
 }
 
 /// Compute the offset between UTC and TAI at a given Epoch, represented by a Julian Date and
@@ -264,7 +264,7 @@ fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
         rsofa::iauDat(iy, im, id, seconds / 86400.0, &mut dutc);
     }
 
-    return dutc;
+    dutc
 }
 
 /// Compute the offset between two time systems at a given Epoch.
@@ -484,6 +484,7 @@ pub fn time_system_offset_for_jd(
 /// let offset = time_system_offset_for_datetime(2018, 6, 1, 0, 0, 0.0, 0.0, TimeSystem::GPS, TimeSystem::TAI);
 /// assert_eq!(offset, 19.0);
 /// ```
+#[allow(clippy::too_many_arguments)]
 pub fn time_system_offset_for_datetime(
     year: u32,
     month: u8,

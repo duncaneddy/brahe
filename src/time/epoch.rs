@@ -109,7 +109,7 @@ impl fmt::Display for Epoch {
             hh,
             mm,
             ss + ns / NANOSECONDS_PER_SECOND_FLOAT,
-            self.time_system.to_string()
+            self.time_system
         )
     }
 }
@@ -120,11 +120,7 @@ impl fmt::Debug for Epoch {
         write!(
             f,
             "Epoch<{}, {}, {}, {}, {}>",
-            self.days,
-            self.seconds,
-            self.nanoseconds,
-            self.nanoseconds_kc,
-            self.time_system.to_string()
+            self.days, self.seconds, self.nanoseconds, self.nanoseconds_kc, self.time_system
         )
     }
 }
@@ -285,6 +281,7 @@ impl Epoch {
     /// let epc = Epoch::from_datetime(2022, 4, 1, 1, 2, 3.4, 5.6, TimeSystem::GPS);
     /// ```
     #[allow(dangling_pointers_from_temporaries)]
+    #[allow(clippy::too_many_arguments)]
     pub fn from_datetime(
         year: u32,
         month: u8,
@@ -329,14 +326,13 @@ impl Epoch {
 
         // Aggregate Component pieces
         let mut days = (wjd + wfd) as u64; // This will always be positive
-        let seconds: u32;
 
-        if (ws + woffset + f64::trunc(second)) >= 0.0 {
-            seconds = (ws + woffset + f64::trunc(second)) as u32;
+        let seconds: u32 = if (ws + woffset + f64::trunc(second)) >= 0.0 {
+            (ws + woffset + f64::trunc(second)) as u32
         } else {
             days -= 1;
-            seconds = (SECONDS_PER_DAY + (ws + woffset + f64::trunc(second))) as u32;
-        }
+            (SECONDS_PER_DAY + (ws + woffset + f64::trunc(second))) as u32
+        };
 
         let nanoseconds =
             nanoseconds + (fs + foffset + f64::fract(second)) * NANOSECONDS_PER_SECOND_FLOAT;
@@ -430,7 +426,7 @@ impl Epoch {
 
                     if caps.len() >= 8 {
                         let mut ps_str = caps.get(7).map_or("0.0", |s| s.as_str());
-                        if ps_str.len() == 0 {
+                        if ps_str.is_empty() {
                             ps_str = "0.0"
                         }; // Some parses return a "" which causes issues for the below
                         nanoseconds = ps_str.parse::<f64>().unwrap()
@@ -838,10 +834,9 @@ impl Epoch {
         self.to_datetime_as_time_system(self.time_system)
     }
 
-
     /// Returns the year component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -861,8 +856,8 @@ impl Epoch {
     }
 
     /// Returns the month component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -882,8 +877,8 @@ impl Epoch {
     }
 
     /// Returns the day component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -903,8 +898,8 @@ impl Epoch {
     }
 
     /// Returns the hour component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -924,8 +919,8 @@ impl Epoch {
     }
 
     /// Returns the minute component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -945,8 +940,8 @@ impl Epoch {
     }
 
     /// Returns the second component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -966,8 +961,8 @@ impl Epoch {
     }
 
     /// Returns the nanosecond component of the epoch in the epoch's time system.
-    /// 
-    /// If you need to extract more than one component of the date/time 
+    ///
+    /// If you need to extract more than one component of the date/time
     /// it is more efficient to use the `to_datetime` method which returns
     /// all components at once.
     ///
@@ -1011,15 +1006,29 @@ impl Epoch {
 
         // Calculate day of year
         let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let days_in_month = [
+            31,
+            if is_leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
 
         let mut day_of_year = day as f64;
-        for i in 0..(month - 1) as usize {
-            day_of_year += days_in_month[i] as f64;
+        for &days in days_in_month.iter().take((month - 1) as usize) {
+            day_of_year += days as f64;
         }
 
         // Add fractional part for hour, minute, second, nanosecond
-        day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
+        day_of_year +=
+            (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
 
         day_of_year
     }
@@ -1044,19 +1053,34 @@ impl Epoch {
     /// assert!((doy_tai - 100.5).abs() < 1e-3);
     /// ```
     pub fn day_of_year_as_time_system(&self, time_system: TimeSystem) -> f64 {
-        let (year, month, day, hour, minute, second, nanosecond) = self.to_datetime_as_time_system(time_system);
+        let (year, month, day, hour, minute, second, nanosecond) =
+            self.to_datetime_as_time_system(time_system);
 
         // Calculate day of year
         let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        let days_in_month = [31, if is_leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let days_in_month = [
+            31,
+            if is_leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
 
         let mut day_of_year = day as f64;
-        for i in 0..(month - 1) as usize {
-            day_of_year += days_in_month[i] as f64;
+        for &days in days_in_month.iter().take((month - 1) as usize) {
+            day_of_year += days as f64;
         }
 
         // Add fractional part for hour, minute, second, nanosecond
-        day_of_year += (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
+        day_of_year +=
+            (hour as f64 * 3600.0 + minute as f64 * 60.0 + second + nanosecond * 1e-9) / 86400.0;
 
         day_of_year
     }
@@ -1281,9 +1305,7 @@ impl Epoch {
             self.to_datetime_as_time_system(TimeSystem::UTC);
 
         let s = second + nanoseconds / NANOSECONDS_PER_SECOND_FLOAT;
-        String::from(format!(
-            "{year:4}-{month:02}-{day:02}T{hour:02}:{minute:02}:{s:02.0}Z"
-        ))
+        format!("{year:4}-{month:02}-{day:02}T{hour:02}:{minute:02}:{s:02.0}Z")
     }
 
     /// Convert an `Epoch` into an ISO8061 formatted time string with specified
@@ -1316,12 +1338,10 @@ impl Epoch {
 
         if decimals == 0 {
             let s = second + nanoseconds / NANOSECONDS_PER_SECOND_FLOAT;
-            String::from(format!(
-                "{year:4}-{month:02}-{day:02}T{hour:02}:{minute:02}:{s:02.0}Z"
-            ))
+            format!("{year:4}-{month:02}-{day:02}T{hour:02}:{minute:02}:{s:02.0}Z")
         } else {
             let f = nanoseconds / NANOSECONDS_PER_SECOND_FLOAT * 10.0_f64.powi(decimals as i32);
-            String::from(format!(
+            format!(
                 "{:4}-{:02}-{:02}T{:02}:{:02}:{:02}.{:.0}Z",
                 year,
                 month,
@@ -1330,7 +1350,7 @@ impl Epoch {
                 minute,
                 second,
                 f.trunc()
-            ))
+            )
         }
     }
 
@@ -1364,7 +1384,7 @@ impl Epoch {
     /// ```
     pub fn to_string_as_time_system(&self, time_system: TimeSystem) -> String {
         let (y, m, d, hh, mm, ss, ns) = self.to_datetime_as_time_system(time_system);
-        String::from(format!(
+        format!(
             "{:4}-{:02}-{:02} {:02}:{:02}:{:06.3} {}",
             y,
             m,
@@ -1372,8 +1392,8 @@ impl Epoch {
             hh,
             mm,
             ss + ns / NANOSECONDS_PER_SECOND_FLOAT,
-            time_system.to_string()
-        ))
+            time_system
+        )
     }
 
     /// Computes the Greenwich Apparent Sidereal Time (GAST) as an angular value
@@ -2327,7 +2347,11 @@ mod tests {
         assert_abs_diff_eq!(epc.gmst(AngleFormat::Degrees), 99.969, epsilon = 1.0e-3);
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gmst(AngleFormat::Radians), 99.969 * PI / 180.0, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(
+            epc.gmst(AngleFormat::Radians),
+            99.969 * PI / 180.0,
+            epsilon = 1.0e-3
+        );
     }
 
     #[test]
@@ -2338,7 +2362,11 @@ mod tests {
         assert_abs_diff_eq!(epc.gast(AngleFormat::Degrees), 99.965, epsilon = 1.0e-3);
 
         let epc = Epoch::from_date(2000, 1, 1, TimeSystem::UTC);
-        assert_abs_diff_eq!(epc.gast(AngleFormat::Radians), 99.965 * PI / 180.0, epsilon = 1.0e-3);
+        assert_abs_diff_eq!(
+            epc.gast(AngleFormat::Radians),
+            99.965 * PI / 180.0,
+            epsilon = 1.0e-3
+        );
     }
 
     #[test]
@@ -2652,16 +2680,16 @@ mod tests {
 
         let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, TimeSystem::TAI);
         let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456789, TimeSystem::TAI);
-        assert_eq!(epc_1 == epc_2, true);
+        assert!(epc_1 == epc_2);
 
         let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.234, TimeSystem::TAI);
         let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.235, TimeSystem::TAI);
-        assert_eq!(epc_1 != epc_2, true);
+        assert!(epc_1 != epc_2);
 
         // Check instant comparison against time systems works
         let epc_1 = Epoch::from_datetime(1980, 1, 6, 0, 0, 0.0, 0.0, TimeSystem::GPS);
         let epc_2 = Epoch::from_datetime(1980, 1, 6, 0, 0, 19.0, 0.0, TimeSystem::TAI);
-        assert_eq!(epc_1 == epc_2, true);
+        assert!(epc_1 == epc_2);
     }
 
     #[test]
@@ -2670,17 +2698,17 @@ mod tests {
 
         let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
         let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, TimeSystem::TAI);
-        assert_eq!(epc_1 > epc_2, true);
-        assert_eq!(epc_1 >= epc_2, true);
-        assert_eq!(epc_1 < epc_2, false);
-        assert_eq!(epc_1 <= epc_2, false);
+        assert!(epc_1 > epc_2);
+        assert!(epc_1 >= epc_2);
+        assert!((epc_1 >= epc_2));
+        assert!((epc_1 > epc_2));
 
         let epc_1 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
         let epc_2 = Epoch::from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, TimeSystem::TAI);
-        assert_eq!(epc_1 > epc_2, false);
-        assert_eq!(epc_1 >= epc_2, true);
-        assert_eq!(epc_1 < epc_2, false);
-        assert_eq!(epc_1 <= epc_2, true);
+        assert!((epc_1 <= epc_2));
+        assert!(epc_1 >= epc_2);
+        assert!((epc_1 >= epc_2));
+        assert!(epc_1 <= epc_2);
     }
 
     #[test]
@@ -2735,7 +2763,8 @@ mod tests {
         assert_eq!(epoch_start.nanosecond(), 0.0);
 
         // December 31st, end of day
-        let epoch_end = Epoch::from_datetime(2023, 12, 31, 23, 59, 59.0, 999999999.0, TimeSystem::GPS);
+        let epoch_end =
+            Epoch::from_datetime(2023, 12, 31, 23, 59, 59.0, 999999999.0, TimeSystem::GPS);
         assert_eq!(epoch_end.year(), 2023);
         assert_eq!(epoch_end.month(), 12);
         assert_eq!(epoch_end.day(), 31);
@@ -2971,12 +3000,13 @@ mod tests {
         assert_abs_diff_eq!(doy_tt, 100.5, epsilon = 1e-3);
 
         // Test edge case where time system difference might cause day boundary crossing
-        let epoch_near_midnight = Epoch::from_datetime(2023, 4, 10, 0, 0, 1.0, 0.0, TimeSystem::UTC);
+        let epoch_near_midnight =
+            Epoch::from_datetime(2023, 4, 10, 0, 0, 1.0, 0.0, TimeSystem::UTC);
         let doy_utc_midnight = epoch_near_midnight.day_of_year_as_time_system(TimeSystem::UTC);
         let doy_tai_midnight = epoch_near_midnight.day_of_year_as_time_system(TimeSystem::TAI);
 
-        assert_abs_diff_eq!(doy_utc_midnight, 100.0 + 1.0/86400.0, epsilon = 1e-10);
-        assert_abs_diff_eq!(doy_tai_midnight, 100.0 + 1.0/86400.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(doy_utc_midnight, 100.0 + 1.0 / 86400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(doy_tai_midnight, 100.0 + 1.0 / 86400.0, epsilon = 1e-3);
     }
 
     #[test]
@@ -2993,7 +3023,8 @@ mod tests {
         ];
 
         for (year, month, day, hour, minute, second, time_system) in test_cases {
-            let epoch = Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system);
+            let epoch =
+                Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system);
             let doy1 = epoch.day_of_year();
             let doy2 = epoch.day_of_year_as_time_system(time_system);
 

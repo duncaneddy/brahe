@@ -78,11 +78,11 @@ pub fn acceleration_solar_radiation_pressure(
 /// ```
 #[allow(non_snake_case)] // To better comply with the literature
 pub fn eclipse_conical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
-
     // Occultation Geometry
     let a = (R_SUN / (r_sun - r_object).norm()).asin();
     let b = (R_EARTH / r_object.norm()).asin();
-    let c = (-r_object.dot(&(r_sun - r_object)) / (r_object.norm() * (r_sun - r_object).norm())).acos();
+    let c =
+        (-r_object.dot(&(r_sun - r_object)) / (r_object.norm() * (r_sun - r_object).norm())).acos();
 
     // Test Occulation Conditions and return illumination fraction
     if (a - b).abs() < c && c < (a + b) {
@@ -145,11 +145,12 @@ pub fn eclipse_cylindrical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::{Epoch, sun_position, TimeSystem};
+    use crate::{Epoch, TimeSystem, sun_position};
 
     use super::*;
 
@@ -200,7 +201,21 @@ mod tests {
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 1.0, 6693864.22555059, 1295667.60967006, - 204164.211397098, - 1.4204788995187e-08, 7.67850203052004e-08, 3.32899385735956e-08)]
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 1.0, 6333183.86841522, 2494761.03873549, 327102.634966258, - 1.42046050834611e-08, 7.67835930304877e-08, 3.32893263626367e-08)]
     #[case(60310.0, 1.0, 100.0, 1.8, 4.56e-06, 149597870000.0, 0.0, 5722314.46705829, 3595279.7368028, 845439.049265208, - 1.42045807122508e-08, 7.67821909185259e-08, 3.32887422598158e-08)]
-    fn test_cross_validation_srp_and_eclipse(#[case] mjd_tt: f64, #[case] area: f64, #[case] mass: f64, #[case] cr: f64, #[case] p0: f64, #[case] _au: f64, #[case] illum: f64, #[case] rx: f64, #[case] ry: f64, #[case] rz: f64, #[case] ax: f64, #[case] ay: f64, #[case] az: f64) {
+    fn test_cross_validation_srp_and_eclipse(
+        #[case] mjd_tt: f64,
+        #[case] area: f64,
+        #[case] mass: f64,
+        #[case] cr: f64,
+        #[case] p0: f64,
+        #[case] _au: f64,
+        #[case] illum: f64,
+        #[case] rx: f64,
+        #[case] ry: f64,
+        #[case] rz: f64,
+        #[case] ax: f64,
+        #[case] ay: f64,
+        #[case] az: f64,
+    ) {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
@@ -577,7 +592,13 @@ mod tests {
     #[case(60310.0, 5128708.87668871, 4314160.70056012, 1205403.08321316, 0.0)]
     #[case(60310.0, 5049046.55863509, 4395331.48419301, 1247435.88746564, 0.0)]
     #[case(60310.0, 4967799.20643349, 4475122.45261482, 1289077.08733042, 0.0)]
-    fn test_eclipse_cross_validation(#[case] mjd_tt: f64, #[case] rx: f64, #[case] ry: f64, #[case] rz: f64, #[case] illum: f64) {
+    fn test_eclipse_cross_validation(
+        #[case] mjd_tt: f64,
+        #[case] rx: f64,
+        #[case] ry: f64,
+        #[case] rz: f64,
+        #[case] illum: f64,
+    ) {
         let r_object = Vector3::new(rx, ry, rz);
 
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);

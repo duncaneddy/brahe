@@ -1,4 +1,5 @@
 """Tests for DTrajectory in brahe - 1:1 parity with Rust tests"""
+
 import pytest
 import numpy as np
 import brahe
@@ -27,6 +28,7 @@ def create_test_trajectory():
 
 
 # Trajectory Trait Tests
+
 
 def test_dtrajectory_new_with_dimension():
     """Rust: test_dtrajectory_new_with_dimension"""
@@ -83,7 +85,11 @@ def test_dtrajectory_with_eviction_policy_max_age_builder():
 def test_dtrajectory_builder_pattern_chaining():
     """Rust: test_dtrajectory_builder_pattern_chaining"""
     # Test chaining multiple builder methods
-    traj = DTrajectory(6).with_interpolation_method(InterpolationMethod.LINEAR).with_eviction_policy_max_size(10)
+    traj = (
+        DTrajectory(6)
+        .with_interpolation_method(InterpolationMethod.LINEAR)
+        .with_eviction_policy_max_size(10)
+    )
 
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
     assert traj.get_eviction_policy() == "KeepCount"
@@ -211,6 +217,7 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
 
 # Default Trait Tests
 
+
 def test_dtrajectory_default():
     """Rust: test_dtrajectory_default"""
     traj = DTrajectory()
@@ -222,6 +229,7 @@ def test_dtrajectory_default():
 
 
 # Index Trait Tests
+
 
 def test_dtrajectory_index():
     """Rust: test_dtrajectory_index"""
@@ -259,7 +267,9 @@ def test_dtrajectory_index_index_out_of_bounds():
     with pytest.raises(IndexError):
         _ = traj[10]
 
+
 # IntoIterator Trait Tests
+
 
 def test_dtrajectory_intoiterator_into_iter():
     """Rust: test_dtrajectory_intoiterator_into_iter"""
@@ -294,6 +304,7 @@ def test_dtrajectory_intoiterator_into_iter_empty():
 
 # Trajectory Trait Tests
 
+
 def test_dtrajectory_from_data():
     """Rust: test_dtrajectory_from_data"""
     epochs = [
@@ -301,10 +312,12 @@ def test_dtrajectory_from_data():
         Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     # States as 2D array: shape (num_epochs, dimension) = (2, 3)
-    states = np.array([
-        [1.0, 2.0, 3.0],
-        [4.0, 5.0, 6.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
     assert traj.dimension() == 3
@@ -318,9 +331,11 @@ def test_dtrajectory_from_data_errors():
         Epoch.from_jd(2451545.1, brahe.UTC),
     ]
     # Mismatched: 2 epochs but only 1 state
-    states = np.array([
-        [1.0, 2.0, 3.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0],
+        ]
+    )
 
     with pytest.raises(Exception):
         DTrajectory.from_data(epochs, states)
@@ -395,7 +410,9 @@ def test_dtrajectory_trajectory_add_replace():
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
     trajectory.add(epoch, state2)
     assert len(trajectory) == 1  # Length should remain the same
-    np.testing.assert_array_equal(trajectory.state(0), state2)  # State should be replaced
+    np.testing.assert_array_equal(
+        trajectory.state(0), state2
+    )  # State should be replaced
 
 
 def test_dtrajectory_trajectory_epoch():
@@ -570,11 +587,13 @@ def test_dtrajectory_trajectory_index_before_epoch():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
-        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -610,11 +629,13 @@ def test_dtrajectory_trajectory_index_after_epoch():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
-        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -653,11 +674,13 @@ def test_dtrajectory_trajectory_state_before_epoch():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
-        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -691,11 +714,13 @@ def test_dtrajectory_trajectory_state_after_epoch():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
-        [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
-    ])
+    states = np.array(
+        [
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -743,6 +768,7 @@ def test_dtrajectory_set_eviction_policy_max_age():
 
 # Interpolatable Trait Tests
 
+
 def test_dtrajectory_interpolatable_get_interpolation_method():
     """Rust: test_dtrajectory_interpolatable_get_interpolation_method"""
     # Create a trajectory with default Linear interpolation
@@ -764,11 +790,13 @@ def test_dtrajectory_interpolatable_interpolate_linear():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
-        [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
-    ])
+    states = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -845,11 +873,13 @@ def test_dtrajectory_interpolatable_interpolate():
     t2 = t0 + 120.0
 
     epochs = [t0, t1, t2]
-    states = np.array([
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
-        [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
-    ])
+    states = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+        ]
+    )
 
     traj = DTrajectory.from_data(epochs, states)
 
@@ -859,4 +889,6 @@ def test_dtrajectory_interpolatable_interpolate():
     state_interpolate_linear = traj.interpolate_linear(t0_plus_30)
 
     for i in range(6):
-        assert state_interpolate[i] == pytest.approx(state_interpolate_linear[i], abs=1e-10)
+        assert state_interpolate[i] == pytest.approx(
+            state_interpolate_linear[i], abs=1e-10
+        )

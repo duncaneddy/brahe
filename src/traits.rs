@@ -39,12 +39,12 @@ pub use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 pub use crate::trajectories::traits::{
     // Traits
     Interpolatable,
-    OrbitalTrajectory,
-    Trajectory,
     // Types and Enums
     InterpolationMethod,
     OrbitFrame,
     OrbitRepresentation,
+    OrbitalTrajectory,
+    Trajectory,
     TrajectoryEvictionPolicy,
 };
 

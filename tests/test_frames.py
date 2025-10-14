@@ -3,6 +3,7 @@ import pytest
 import brahe
 from pytest import approx
 
+
 @pytest.fixture()
 def static_eop():
     pm_x = 0.0349282 * brahe.AS2RAD
@@ -12,6 +13,7 @@ def static_eop():
     dY = -0.0002259 * brahe.AS2RAD * 1.0e-3
     eop = brahe.StaticEOPProvider.from_values(pm_x, pm_y, ut1_utc, dX, dY, 0.0)
     brahe.set_global_eop_provider_from_static_provider(eop)
+
 
 def test_bias_precession_nutation(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, brahe.UTC)
@@ -31,6 +33,7 @@ def test_bias_precession_nutation(static_eop):
     assert rc2i[2, 1] == approx(+0.000044385250426, abs=tol)
     assert rc2i[2, 2] == approx(+0.999999745354420, abs=tol)
 
+
 def test_earth_rotation(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
@@ -48,6 +51,7 @@ def test_earth_rotation(static_eop):
     assert r[2, 0] == approx(+0.000712264729599, abs=tol)
     assert r[2, 1] == approx(+0.000044385250426, abs=tol)
     assert r[2, 2] == approx(+0.999999745354420, abs=tol)
+
 
 def test_eci_to_ecef(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
@@ -67,6 +71,7 @@ def test_eci_to_ecef(static_eop):
     assert r[2, 1] == approx(+0.000046626403995, abs=tol)
     assert r[2, 2] == approx(+0.999999745754024, abs=tol)
 
+
 def test_ecef_to_eci(static_eop):
     epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
@@ -85,6 +90,7 @@ def test_ecef_to_eci(static_eop):
     assert r[2, 1] == approx(+0.000118545366625, abs=tol)
     assert r[2, 2] == approx(+0.999999745754024, abs=tol)
 
+
 def test_position_eci_to_ecef(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
@@ -96,6 +102,7 @@ def test_position_eci_to_ecef(eop):
     assert p_eci[1] != p_ecef[1]
     assert p_eci[2] != p_ecef[2]
 
+
 def test_position_ecef_to_eci(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
@@ -106,6 +113,7 @@ def test_position_ecef_to_eci(eop):
     assert p_eci[0] != p_ecef[0]
     assert p_eci[1] != p_ecef[1]
     assert p_eci[2] != p_ecef[2]
+
 
 def test_state_eci_to_ecef_circular(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)

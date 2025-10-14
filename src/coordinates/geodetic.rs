@@ -46,7 +46,7 @@ pub fn position_geodetic_to_ecef(
     let alt = x_geod[2];
 
     // Check validity of inputs
-    if lat < -PI / 2.0 || lat > PI / 2.0 {
+    if !(-PI / 2.0..=PI / 2.0).contains(&lat) {
         return Err(format!(
             "Input latitude out of range. Input must be between -90 and 90 degrees. Input: {}",
             lat
@@ -122,11 +122,9 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
     let alt = (rho2 + zdz * zdz).sqrt() - N;
 
     match angle_format {
-        AngleFormat::Degrees => Vector3::new(
-            lon * constants::RAD2DEG,
-            lat * constants::RAD2DEG,
-            alt,
-        ),
+        AngleFormat::Degrees => {
+            Vector3::new(lon * constants::RAD2DEG, lat * constants::RAD2DEG, alt)
+        }
         AngleFormat::Radians => Vector3::new(lon, lat, alt),
     }
 }
@@ -135,7 +133,7 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use crate::constants::{WGS84_A, WGS84_F, RADIANS, DEGREES};
+    use crate::constants::{DEGREES, RADIANS, WGS84_A, WGS84_F};
 
     use super::*;
 

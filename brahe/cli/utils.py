@@ -2,12 +2,14 @@ import typer
 import brahe
 from brahe import Epoch
 
+
 def parse_float(s):
     try:
         num = float(s)
         return num
     except ValueError:
         return None
+
 
 def epoch_from_epochlike(time: str) -> Epoch:
     """Attempts to convert a string to an Epoch object. Accepts any Epoch-like format.
@@ -34,8 +36,9 @@ def epoch_from_epochlike(time: str) -> Epoch:
     except ValueError:
         pass
 
-    typer.echo(f"Could not parse \"{time}\" as an Epoch-like object")
+    typer.echo(f'Could not parse "{time}" as an Epoch-like object')
     raise typer.Exit(code=1)
+
 
 def set_cli_eop():
     eop = brahe.FileEOPProvider.from_default_standard(True, "Error")

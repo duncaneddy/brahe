@@ -1,5 +1,8 @@
 
-/// Python wrapper for TimeSystem enum
+/// Enumeration of supported time systems.
+///
+/// Time systems define different conventions for measuring and representing time.
+/// Each system has specific uses in astrodynamics and timekeeping applications.
 #[pyclass]
 #[pyo3(name = "TimeSystem")]
 #[derive(Clone)]
@@ -9,32 +12,52 @@ pub struct PyTimeSystem {
 
 #[pymethods]
 impl PyTimeSystem {
-    /// GPS time system
+    /// GPS (Global Positioning System) time system.
+    ///
+    /// Continuous time scale starting from GPS epoch (January 6, 1980, 00:00:00 UTC).
+    /// Does not include leap seconds, making it ahead of UTC by an integer number of seconds.
     #[classattr]
+    #[allow(non_snake_case)]
     fn GPS() -> Self {
         PyTimeSystem { ts: time::TimeSystem::GPS }
     }
 
-    /// TAI time system
+    /// TAI (International Atomic Time) time system.
+    ///
+    /// Continuous time scale based on atomic clocks. TAI does not include leap seconds
+    /// and is currently 37 seconds ahead of UTC (as of 2024).
     #[classattr]
+    #[allow(non_snake_case)]
     fn TAI() -> Self {
         PyTimeSystem { ts: time::TimeSystem::TAI }
     }
 
-    /// TT time system
+    /// TT (Terrestrial Time) time system.
+    ///
+    /// Theoretical time scale used for solar system calculations. TT is TAI + 32.184 seconds
+    /// and represents proper time on Earth's geoid.
     #[classattr]
+    #[allow(non_snake_case)]
     fn TT() -> Self {
         PyTimeSystem { ts: time::TimeSystem::TT }
     }
 
-    /// UTC time system
+    /// UTC (Coordinated Universal Time) time system.
+    ///
+    /// Civil time standard used worldwide. UTC includes leap seconds to keep it within
+    /// 0.9 seconds of UT1 (Earth's rotation time).
     #[classattr]
+    #[allow(non_snake_case)]
     fn UTC() -> Self {
         PyTimeSystem { ts: time::TimeSystem::UTC }
     }
 
-    /// UT1 time system
+    /// UT1 (Universal Time 1) time system.
+    ///
+    /// Time scale based on Earth's rotation. UT1 is computed from UTC using Earth
+    /// Orientation Parameters (EOP) and varies irregularly due to changes in Earth's rotation rate.
     #[classattr]
+    #[allow(non_snake_case)]
     fn UT1() -> Self {
         PyTimeSystem { ts: time::TimeSystem::UT1 }
     }
@@ -56,34 +79,23 @@ impl PyTimeSystem {
     }
 }
 
-/// Helper function to convert time system enumerations into representative string
-fn time_system_to_string(ts: time::TimeSystem) -> String {
-    match ts {
-        time::TimeSystem::GPS => String::from("GPS"),
-        time::TimeSystem::TAI => String::from("TAI"),
-        time::TimeSystem::TT => String::from("TT"),
-        time::TimeSystem::UTC => String::from("UTC"),
-        time::TimeSystem::UT1 => String::from("UT1"),
-    }
-}
-
-/// Convert a Gregorian calendar date representation to the equivalent Julian Date
-/// representation of that same instant in time.
+/// Convert a Gregorian calendar date to the equivalent Julian Date.
 ///
 /// Note: Due to the ambiguity of the nature of leap second insertion, this
-/// method should not be used if a specific behavior for leap second insertion is expected. This
-/// method treats leap seconds as if they don't exist.
+/// method should not be used if a specific behavior for leap second insertion is expected.
+/// This method treats leap seconds as if they don't exist.
 ///
-/// Arguments:
-///     year (`float`): Year
-///     month (`float`): Month
-///     day (`float`): Day
-///     hour (`float`): Hour
-///     minute (`float`): Minute
-///     second (`float`): Second
+/// Args:
+///     year (int): Year
+///     month (int): Month (1-12)
+///     day (int): Day of month (1-31)
+///     hour (int): Hour (0-23)
+///     minute (int): Minute (0-59)
+///     second (float): Second with fractional part
+///     nanosecond (float): Nanosecond component
 ///
 /// Returns:
-///     jd (`float`) Julian date of epoch
+///     float: Julian date of epoch
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_jd")]
@@ -101,23 +113,23 @@ fn py_datetime_to_jd(
     ))
 }
 
-/// Convert a Gregorian calendar date representation to the equivalent Modified Julian Date
-/// representation of that same instant in time.
+/// Convert a Gregorian calendar date to the equivalent Modified Julian Date.
 ///
 /// Note: Due to the ambiguity of the nature of leap second insertion, this
-/// method should not be used if a specific behavior for leap second insertion is expected. This
-/// method treats leap seconds as if they don't exist.
+/// method should not be used if a specific behavior for leap second insertion is expected.
+/// This method treats leap seconds as if they don't exist.
 ///
-/// Arguments:
-///     year (`float`): Year
-///     month (`float`): Month
-///     day (`float`): Day
-///     hour (`float`): Hour
-///     minute (`float`): Minute
-///     second (`float`): Second
+/// Args:
+///     year (int): Year
+///     month (int): Month (1-12)
+///     day (int): Day of month (1-31)
+///     hour (int): Hour (0-23)
+///     minute (int): Minute (0-59)
+///     second (float): Second with fractional part
+///     nanosecond (float): Nanosecond component
 ///
 /// Returns:
-///     mjd (`float`) Modified Julian date of epoch
+///     float: Modified Julian date of epoch
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_mjd")]
@@ -135,64 +147,51 @@ fn py_datetime_to_mjd(
     ))
 }
 
-/// Convert a Julian Date representation to the equivalent Gregorian calendar date representation
-/// of that same instant in time.
+/// Convert a Julian Date to the equivalent Gregorian calendar date.
 ///
 /// Note: Due to the ambiguity of the nature of leap second insertion, this
-/// method should not be used if a specific behavior for leap second insertion is expected. This
-/// method treats leap seconds as if they don't exist.
+/// method should not be used if a specific behavior for leap second insertion is expected.
+/// This method treats leap seconds as if they don't exist.
 ///
-/// Arguments:
-///     mjd (`float`) Modified Julian date of epoch
+/// Args:
+///     jd (float): Julian date
 ///
 /// Returns:
-///     year (`float`): Year
-///     month (`float`): Month
-///     day (`float`): Day
-///     hour (`float`): Hour
-///     minute (`float`): Minute
-///     second (`float`): Second
+///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
 #[pyfunction]
-#[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
+#[pyo3(text_signature = "(jd)")]
 #[pyo3(name = "jd_to_datetime")]
 fn py_jd_to_datetime(jd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
     Ok(time::jd_to_datetime(jd))
 }
 
-/// Convert a Modified Julian Date representation to the equivalent Gregorian calendar date representation
-/// of that same instant in time.
+/// Convert a Modified Julian Date to the equivalent Gregorian calendar date.
 ///
 /// Note: Due to the ambiguity of the nature of leap second insertion, this
-/// method should not be used if a specific behavior for leap second insertion is expected. This
-/// method treats leap seconds as if they don't exist.
+/// method should not be used if a specific behavior for leap second insertion is expected.
+/// This method treats leap seconds as if they don't exist.
 ///
-/// Arguments:
-///     mjd (`float`) Modified Julian date of epoch
+/// Args:
+///     mjd (float): Modified Julian date
 ///
 /// Returns:
-///     year (`float`): Year
-///     month (`float`): Month
-///     day (`float`): Day
-///     hour (`float`): Hour
-///     minute (`float`): Minute
-///     second (`float`): Second
+///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
 #[pyfunction]
-#[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
+#[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "mjd_to_datetime")]
 fn py_mjd_to_datetime(mjd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
     Ok(time::mjd_to_datetime(mjd))
 }
 
-/// Calculate the offset between two time systems for a given Modified Julian Date
-/// representation of time.
+/// Calculate the offset between two time systems for a given Modified Julian Date.
 ///
-/// Arguments:
-///    mjd (`float`): Modified Julian date of epoch
-///    time_system_src (TimeSystem): Source time system
-///    time_system_dst (TimeSystem): Destination time system
+/// Args:
+///     mjd (float): Modified Julian date
+///     time_system_src (TimeSystem): Source time system
+///     time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
-///     offset (`float`): Offset between time systems in seconds
+///     float: Offset between time systems in seconds
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_mjd")]
@@ -204,16 +203,15 @@ fn py_time_system_offset_for_mjd(
     Ok(time::time_system_offset_for_mjd(mjd, time_system_src.ts, time_system_dst.ts))
 }
 
-/// Calculate the offset between two time systems for a given Julian Date
-/// representation of time.
+/// Calculate the offset between two time systems for a given Julian Date.
 ///
-/// Arguments:
-///     jd (`float`): Julian date of epoch
+/// Args:
+///     jd (float): Julian date
 ///     time_system_src (TimeSystem): Source time system
 ///     time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
-///     offset (`float`): Offset between time systems in seconds
+///     float: Offset between time systems in seconds
 #[pyfunction]
 #[pyo3(text_signature = "(jd, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_jd")]
@@ -225,26 +223,25 @@ fn py_time_system_offset_for_jd(
     Ok(time::time_system_offset_for_jd(jd, time_system_src.ts, time_system_dst.ts))
 }
 
-/// Calculate the offset between two time systems for a given Gregorian calendar date
-/// representation of time.
+/// Calculate the offset between two time systems for a given Gregorian calendar date.
 ///
-///
-/// Arguments:
-///     year (`float`): Year
-///     month (`float`): Month
-///     day (`float`): Day
-///     hour (`float`): Hour
-///     minute (`float`): Minute
-///     second (`float`): Second
-///     nanosecond (`float`): Nanosecond
+/// Args:
+///     year (int): Year
+///     month (int): Month (1-12)
+///     day (int): Day of month (1-31)
+///     hour (int): Hour (0-23)
+///     minute (int): Minute (0-59)
+///     second (float): Second with fractional part
+///     nanosecond (float): Nanosecond component
 ///     time_system_src (TimeSystem): Source time system
 ///     time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
-///    offset (`float`): Offset between time systems in seconds
+///     float: Offset between time systems in seconds
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_datetime")]
+#[allow(clippy::too_many_arguments)]
 fn py_time_system_offset_for_datetime(
     year: u32,
     month: u8,
@@ -269,33 +266,32 @@ fn py_time_system_offset_for_datetime(
     ))
 }
 
-/// `Epoch` representing a specific instant in time.
+/// Represents a specific instant in time.
 ///
-/// The Epoch structure is the primary and preferred mechanism for representing
-/// time in the Rastro library. It is designed to be able to accurately represent,
-/// track, and compare instants in time accurately.
+/// Epoch is the primary and preferred mechanism for representing time in brahe.
+/// It accurately represents, tracks, and compares instants in time with nanosecond precision.
 ///
-/// Internally, the Epoch structure stores time in terms of `days`, `seconds`, and
-/// `nanoseconds`. This representation was chosen so that underlying time system
-/// conversions and comparisons can be performed using the IAU SOFA library, which
-/// has an API that operations in days and fractional days. However a day-based representation
-/// does not accurately handle small changes in time (subsecond time) especially when
-/// propagating or adding small values over long periods. Therefore, the Epoch structure
-/// internall stores time in terms of seconds and nanoseconds and converts converts changes to
-/// seconds and days when required. This enables the best of both worlds. Accurate
-/// time representation of small differences and changes in time (nanoseconds) and
-/// validated conversions between time systems.
+/// Internally, Epoch stores time in terms of days, seconds, and nanoseconds. This representation
+/// was chosen to enable accurate time system conversions using the IAU SOFA library (which operates
+/// in days and fractional days) while maintaining high precision for small time differences.
+/// The structure uses Kahan summation to accurately handle running sums over long periods without
+/// losing accuracy to floating-point rounding errors.
 ///
-/// Internally, the structure
-/// uses [Kahan summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) to
-/// accurate handle running sums over long periods of time without losing accuracy to
-/// floating point representation of nanoseconds.
+/// All arithmetic operations (addition, subtraction) use seconds as the default unit and return
+/// time differences in seconds.
 ///
-/// All arithmetic operations (addition, substracion) that the structure supports
-/// use seconds as the default value and return time differences in seconds.
+/// Examples:
+///     >>> from brahe import Epoch, TimeSystem
+///     >>> epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+///     >>> print(epoch)
+///     2024-01-01T12:00:00.000000000 UTC
+///     >>> epoch2 = epoch + 3600.0  # Add one hour
+///     >>> diff = epoch2 - epoch     # Difference in seconds
+///     >>> print(diff)
+///     3600.0
 #[pyclass]
 #[pyo3(name = "Epoch")]
-struct PyEpoch {
+pub struct PyEpoch {
     /// Stored object for underlying EOP
     obj: time::Epoch,
 }
@@ -311,12 +307,25 @@ impl PyEpoch {
     }
 
     // Define attribute access methods
-    /// `TimeSystem`: Time system of Epoch
+    /// Time system of the epoch.
+    ///
+    /// Returns:
+    ///     TimeSystem: The time system used by this epoch
     #[getter]
     fn time_system(&self) -> PyTimeSystem {
         PyTimeSystem { ts: self.obj.time_system }
     }
 
+    /// Create an Epoch from a calendar date at midnight.
+    ///
+    /// Args:
+    ///     year (int): Gregorian calendar year
+    ///     month (int): Month (1-12)
+    ///     day (int): Day of month (1-31)
+    ///     time_system (TimeSystem): Time system
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing midnight on the specified date
     #[classmethod]
     fn from_date(
         _cls: &Bound<'_, PyType>,
@@ -361,7 +370,22 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from a complete Gregorian calendar date and time.
+    ///
+    /// Args:
+    ///     year (int): Gregorian calendar year
+    ///     month (int): Month (1-12)
+    ///     day (int): Day of month (1-31)
+    ///     hour (int): Hour (0-23)
+    ///     minute (int): Minute (0-59)
+    ///     second (float): Second with fractional part
+    ///     nanosecond (float): Nanosecond component
+    ///     time_system (TimeSystem): Time system
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the specified date and time
     #[classmethod]
+    #[allow(clippy::too_many_arguments)]
     pub fn from_datetime(
         _cls: &Bound<'_, PyType>,
         year: u32,
@@ -387,6 +411,13 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from an ISO 8601 formatted string.
+    ///
+    /// Args:
+    ///     datestr (str): ISO 8601 formatted date string (e.g., "2024-01-01T12:00:00.000000000 UTC")
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the parsed date and time
     #[classmethod]
     pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -394,6 +425,14 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from a Julian Date.
+    ///
+    /// Args:
+    ///     jd (float): Julian date
+    ///     time_system (TimeSystem): Time system
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the Julian date
     #[classmethod]
     pub fn from_jd(_cls: &Bound<'_, PyType>, jd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -401,6 +440,14 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from a Modified Julian Date.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian date
+    ///     time_system (TimeSystem): Time system
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the Modified Julian date
     #[classmethod]
     pub fn from_mjd(_cls: &Bound<'_, PyType>, mjd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -408,6 +455,14 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from GPS week and seconds.
+    ///
+    /// Args:
+    ///     week (int): GPS week number since GPS epoch (January 6, 1980)
+    ///     seconds (float): Seconds into the GPS week
+    ///
+    /// Returns:
+    ///     Epoch: The epoch in GPS time system
     #[classmethod]
     pub fn from_gps_date(_cls: &Bound<'_, PyType>, week: u32, seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -415,6 +470,13 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from GPS seconds since the GPS epoch.
+    ///
+    /// Args:
+    ///     gps_seconds (float): Seconds since GPS epoch (January 6, 1980, 00:00:00 UTC)
+    ///
+    /// Returns:
+    ///     Epoch: The epoch in GPS time system
     #[classmethod]
     pub fn from_gps_seconds(_cls: &Bound<'_, PyType>, gps_seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -422,6 +484,13 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from GPS nanoseconds since the GPS epoch.
+    ///
+    /// Args:
+    ///     gps_nanoseconds (int): Nanoseconds since GPS epoch (January 6, 1980, 00:00:00 UTC)
+    ///
+    /// Returns:
+    ///     Epoch: The epoch in GPS time system
     #[classmethod]
     pub fn from_gps_nanoseconds(_cls: &Bound<'_, PyType>, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -429,62 +498,139 @@ impl PyEpoch {
         })
     }
 
+    /// Convert the epoch to Gregorian calendar date and time in a specified time system.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Target time system for the conversion
+    ///
+    /// Returns:
+    ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
     pub fn to_datetime_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj
             .to_datetime_as_time_system(time_system.ts)
     }
 
+    /// Convert the epoch to Gregorian calendar date and time in the epoch's time system.
+    ///
+    /// Returns:
+    ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
     pub fn to_datetime(&self) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj.to_datetime()
     }
 
+    /// Get the Julian Date in a specified time system.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Target time system for the conversion
+    ///
+    /// Returns:
+    ///     float: Julian date in the specified time system
     pub fn jd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
             .jd_as_time_system(time_system.ts)
     }
 
+    /// Get the Julian Date in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: Julian date
     pub fn jd(&self) -> f64 {
         self.obj.jd()
     }
 
+    /// Get the Modified Julian Date in a specified time system.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Target time system for the conversion
+    ///
+    /// Returns:
+    ///     float: Modified Julian date in the specified time system
     pub fn mjd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
             .mjd_as_time_system(time_system.ts)
     }
 
+    /// Get the Modified Julian Date in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: Modified Julian date
     pub fn mjd(&self) -> f64 {
         self.obj.mjd()
     }
 
+    /// Get the GPS week number and seconds into the week.
+    ///
+    /// Returns:
+    ///     tuple: A tuple containing (week, seconds_into_week)
     pub fn gps_date(&self) -> (u32, f64) {
         self.obj.gps_date()
     }
 
+    /// Get the seconds since GPS epoch (January 6, 1980, 00:00:00 UTC).
+    ///
+    /// Returns:
+    ///     float: GPS seconds
     pub fn gps_seconds(&self) -> f64 {
         self.obj.gps_seconds()
     }
 
+    /// Get the nanoseconds since GPS epoch (January 6, 1980, 00:00:00 UTC).
+    ///
+    /// Returns:
+    ///     float: GPS nanoseconds
     pub fn gps_nanoseconds(&self) -> f64 {
         self.obj.gps_nanoseconds()
     }
 
+    /// Convert the epoch to an ISO 8601 formatted string.
+    ///
+    /// Returns:
+    ///     str: ISO 8601 formatted date string with full nanosecond precision
     pub fn isostring(&self) -> String {
         self.obj.isostring()
     }
 
+    /// Convert the epoch to an ISO 8601 formatted string with specified decimal precision.
+    ///
+    /// Args:
+    ///     decimals (int): Number of decimal places for the seconds field
+    ///
+    /// Returns:
+    ///     str: ISO 8601 formatted date string
     pub fn isostring_with_decimals(&self, decimals: usize) -> String {
         self.obj.isostring_with_decimals(decimals)
     }
 
+    /// Convert the epoch to a string representation in a specified time system.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Target time system for the conversion
+    ///
+    /// Returns:
+    ///     str: String representation of the epoch
     pub fn to_string_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> String {
         self.obj
             .to_string_as_time_system(time_system.ts)
     }
 
+    /// Get the Greenwich Apparent Sidereal Time (GAST) for this epoch.
+    ///
+    /// Args:
+    ///     angle_format (AngleFormat): Format for the returned angle (radians or degrees)
+    ///
+    /// Returns:
+    ///     float: GAST angle
     pub fn gast(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
         self.obj.gast(angle_format.value)
     }
 
+    /// Get the Greenwich Mean Sidereal Time (GMST) for this epoch.
+    ///
+    /// Args:
+    ///     angle_format (AngleFormat): Format for the returned angle (radians or degrees)
+    ///
+    /// Returns:
+    ///     float: GMST angle
     pub fn gmst(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
         self.obj.gmst(angle_format.value)
     }
@@ -588,7 +734,7 @@ impl PyEpoch {
         })
     }
 
-    pub fn __iadd__(&mut self, other: f64) -> () {
+    pub fn __iadd__(&mut self, other: f64) {
         self.obj += other;
     }
 
@@ -596,7 +742,7 @@ impl PyEpoch {
         self.obj - other.obj
     }
 
-    pub fn __isub__(&mut self, other: f64) -> () {
+    pub fn __isub__(&mut self, other: f64) {
         self.obj -= other;
     }
 
@@ -612,6 +758,24 @@ impl PyEpoch {
     }
 }
 
+/// Iterator that generates a sequence of epochs over a time range.
+///
+/// TimeRange creates an iterator that yields epochs from a start time to an end time
+/// with a specified step size in seconds. This is useful for propagating orbits,
+/// sampling trajectories, or generating time grids for analysis.
+///
+/// Args:
+///     epoch_start (Epoch): Starting epoch for the range
+///     epoch_end (Epoch): Ending epoch for the range
+///     step (float): Time step in seconds between consecutive epochs
+///
+/// Examples:
+///     >>> from brahe import Epoch, TimeRange, TimeSystem
+///     >>> start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+///     >>> end = start + 3600.0  # One hour later
+///     >>> time_range = TimeRange(start, end, 60.0)  # 60-second steps
+///     >>> for epoch in time_range:
+///     ...     print(epoch)
 #[pyclass]
 #[pyo3(name = "TimeRange")]
 struct PyTimeRange {
@@ -620,6 +784,15 @@ struct PyTimeRange {
 
 #[pymethods]
 impl PyTimeRange {
+    /// Create a new TimeRange iterator.
+    ///
+    /// Args:
+    ///     epoch_start (Epoch): Starting epoch for the range
+    ///     epoch_end (Epoch): Ending epoch for the range
+    ///     step (float): Time step in seconds between consecutive epochs
+    ///
+    /// Returns:
+    ///     TimeRange: Iterator over the time range
     #[new]
     fn new(epoch_start: &PyEpoch, epoch_end: &PyEpoch, step: f64) -> Self {
         Self {
@@ -632,10 +805,7 @@ impl PyTimeRange {
     }
 
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyEpoch> {
-        match slf.obj.next() {
-            Some(e) => Some(PyEpoch { obj: e }),
-            None => None,
-        }
+        slf.obj.next().map(|e| PyEpoch { obj: e })
     }
 }
 

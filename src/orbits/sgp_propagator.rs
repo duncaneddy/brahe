@@ -29,31 +29,30 @@
  * - Vallado, D. A., et al. (2006). Revisiting Spacetrack Report #3.
  */
 
-use nalgebra::{Vector3, Vector6};
+use crate::attitude::RotationMatrix;
+#[cfg(test)]
+use crate::constants::RADIANS;
+use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
 use crate::coordinates::state_cartesian_to_osculating;
 use crate::frames::{polar_motion, state_ecef_to_eci};
 use crate::orbits::tle::{
-    calculate_tle_line_checksum, parse_norad_id, validate_tle_lines, TleFormat, epoch_from_tle
+    TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
 };
 use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::OrbitTrajectory;
-use crate::constants::{AngleFormat, RAD2DEG, DEG2RAD, OMEGA_EARTH};
-#[cfg(test)]
-use crate::constants::RADIANS;
-use crate::attitude::RotationMatrix;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::BraheError;
+use nalgebra::{Vector3, Vector6};
 
 /// Helper functions
-
 /// Compute Greenwich Mean Sidereal Time 1982 Model. Formulae taken from
 /// `Revisiting Spacetrack Report No 3` by David Vallado for use in transforming
 /// between the TEME and PEF frames.
-/// 
+///
 /// # Arguments:
 /// * epoch (:obj:`Epoch`): Epoch of transformation
-/// 
+///
 /// # Returns:
 /// * Greenwich mean sidereal time as angle. Units: Radians [0, 2pi)
 /// * Rate of change of Greenwich mean sidereal time as angle. Units: Radians/second [0, 2pi)
@@ -63,22 +62,27 @@ fn tle_gmst82(epoch: Epoch, angle_format: AngleFormat) -> f64 {
     let tut1 = (jd_ut1 - 2451545.0) / 36525.0;
 
     // GMST in seconds
-    let gmst_sec = 67310.54841
-        + (876600.0 * 3600.0 + 8640184.812866) * tut1
-        + 0.093104 * tut1 * tut1
-        - 6.2e-6 * tut1 * tut1 * tut1;
+    let gmst_sec =
+        67310.54841 + (876600.0 * 3600.0 + 8640184.812866) * tut1 + 0.093104 * tut1 * tut1
+            - 6.2e-6 * tut1 * tut1 * tut1;
 
     // Normalize to [0, 86400)
-    let theta = (gmst_sec * DEG2RAD / 240.0) % (2.0* std::f64::consts::PI);
+    let theta = (gmst_sec * DEG2RAD / 240.0) % (2.0 * std::f64::consts::PI);
 
     // Convert to radians or degrees
     match angle_format {
         AngleFormat::Radians => theta,
-        AngleFormat::Degrees => theta * RAD2DEG
+        AngleFormat::Degrees => theta * RAD2DEG,
     }
 }
 
-fn convert_state_from_spg4_frame(epoch: Epoch, tle_state: Vector6<f64>, frame: OrbitFrame, representation: OrbitRepresentation, angle_format: Option<AngleFormat>) -> Vector6<f64> {
+fn convert_state_from_spg4_frame(
+    epoch: Epoch,
+    tle_state: Vector6<f64>,
+    frame: OrbitFrame,
+    representation: OrbitRepresentation,
+    angle_format: Option<AngleFormat>,
+) -> Vector6<f64> {
     // SGP4 outputs state in TEME
     // Conversion chain is TEME -> PEF -> ECEF -> ECI
 
@@ -89,7 +93,8 @@ fn convert_state_from_spg4_frame(epoch: Epoch, tle_state: Vector6<f64>, frame: O
     let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH); // rad/s
 
     let r_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
-    let v_pef: Vector3<f64> = R * (Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef));
+    let v_pef: Vector3<f64> =
+        R * (Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef));
 
     // Step 2: PEF to ECEF
     #[allow(non_snake_case)]
@@ -97,24 +102,24 @@ fn convert_state_from_spg4_frame(epoch: Epoch, tle_state: Vector6<f64>, frame: O
 
     let r_ecef = PM * r_pef;
     let v_ecef = PM * v_pef;
-    let ecef_state = Vector6::new(r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2]);
+    let ecef_state = Vector6::new(
+        r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2],
+    );
 
     match representation {
-        OrbitRepresentation::Cartesian => {
-            match frame {
-                OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
-                OrbitFrame::ECEF => ecef_state,
-            }
+        OrbitRepresentation::Cartesian => match frame {
+            OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
+            OrbitFrame::ECEF => ecef_state,
         },
         OrbitRepresentation::Keplerian => {
             if frame != OrbitFrame::ECI {
                 panic!("Keplerian elements must be in ECI frame");
             }
 
-            if angle_format.is_none() {
-                panic!("Angle format must be specified for Keplerian elements");
+            if let Some(format) = angle_format {
+                state_cartesian_to_osculating(state_ecef_to_eci(epoch, ecef_state), format)
             } else {
-                state_cartesian_to_osculating(state_ecef_to_eci(epoch, ecef_state), angle_format.unwrap())
+                panic!("Angle format must be specified for Keplerian elements");
             }
         }
     }
@@ -263,7 +268,7 @@ impl SGPPropagator {
             .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
 
         // Extract initial epoch
-        let initial_epoch = epoch_from_tle(&line1)?;
+        let initial_epoch = epoch_from_tle(line1)?;
 
         // Compute initial state in ECI
         let prediction = constants
@@ -290,11 +295,8 @@ impl SGPPropagator {
         );
 
         // Create trajectory with initial state
-        let mut trajectory = OrbitTrajectory::new(
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            None
-        );
+        let mut trajectory =
+            OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         trajectory.add(initial_epoch, initial_state);
 
@@ -316,7 +318,12 @@ impl SGPPropagator {
         })
     }
 
-    pub fn with_output_format(mut self, frame: OrbitFrame, representation: OrbitRepresentation, angle_format: Option<AngleFormat>) -> Self {
+    pub fn with_output_format(
+        mut self,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    ) -> Self {
         // Validate inputs
         if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
             panic!("Angle format must be specified for Keplerian elements");
@@ -335,14 +342,11 @@ impl SGPPropagator {
         self.angle_format = angle_format;
 
         // Reset trajectory to initial state only
-        self.trajectory = OrbitTrajectory::new(
-            frame,
-            representation,
-            angle_format,
-        );
-        
+        self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+
         // Propagate to initial epoch and add to trajectory
-        let prediction = self.constants
+        let prediction = self
+            .constants
             .propagate(sgp4::MinutesSinceEpoch(0.0))
             .expect("SGP4 propagation failed");
 
@@ -397,24 +401,24 @@ impl SGPPropagator {
         // Conversion chain is TEME -> PEF
 
         // Step 1: TEME to PEF
-        let gmst = tle_gmst82(epoch, AngleFormat::Radians); 
+        let gmst = tle_gmst82(epoch, AngleFormat::Radians);
         #[allow(non_snake_case)]
         let R = RotationMatrix::Rz(gmst, AngleFormat::Radians);
         let omega_earth = Vector3::new(0.0, 0.0, OMEGA_EARTH); // rad/s
 
         let r_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
-        let v_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
+        let v_pef: Vector3<f64> =
+            R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
 
         Vector6::new(r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2])
     }
 }
 
 impl OrbitPropagator for SGPPropagator {
-
     fn step_by(&mut self, step_size: f64) {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size; // step_size is in seconds
-        
+
         let tle_state = self.propagate_internal(target_epoch);
         let new_state = convert_state_from_spg4_frame(
             target_epoch,
@@ -458,8 +462,7 @@ impl OrbitPropagator for SGPPropagator {
 
     fn reset(&mut self) {
         self.trajectory.clear();
-        self.trajectory
-            .add(self.initial_epoch, self.initial_state);
+        self.trajectory.add(self.initial_epoch, self.initial_state);
     }
 
     fn set_initial_conditions(
@@ -471,7 +474,9 @@ impl OrbitPropagator for SGPPropagator {
         _angle_format: Option<AngleFormat>,
     ) {
         // For SGP propagator, initial conditions come from TLE and cannot be changed
-        panic!("Cannot change initial conditions for SGP propagator - state is determined by TLE data");
+        panic!(
+            "Cannot change initial conditions for SGP propagator - state is determined by TLE data"
+        );
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -502,14 +507,20 @@ impl AnalyticPropagator for SGPPropagator {
 
         #[allow(non_snake_case)]
         let PM = polar_motion(epoch);
-        
+
         let r_ecef = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
         let v_ecef = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
 
-        Vector6::new(r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2])
+        Vector6::new(
+            r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2],
+        )
     }
 
-    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat) -> Vector6<f64> {
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Vector6<f64> {
         let state_eci = self.state_eci(epoch);
 
         state_cartesian_to_osculating(state_eci, angle_format)
@@ -929,7 +940,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]  // Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    #[ignore] // Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eci_values() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -947,5 +958,4 @@ mod tests {
         assert_abs_diff_eq!(state[4], 7840.6666110244705, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[5], -586.3906587951877, epsilon = 1.5e-1);
     }
-
 }

@@ -5,6 +5,10 @@
 use crate::constants::AS2RAD;
 use crate::utils::errors::BraheError;
 
+// Type alias for complex EOP parse result
+type EOPParseResult =
+    Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), BraheError>;
+
 /// Parse a line out of a C04 file and return the resulting data.
 ///
 /// # Arguments
@@ -44,9 +48,7 @@ use crate::utils::errors::BraheError;
 /// assert_eq!(lod, Some(0.0002867));
 /// ```
 #[allow(non_snake_case)]
-pub fn parse_c04_line(
-    line: String,
-) -> Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), BraheError> {
+pub fn parse_c04_line(line: String) -> EOPParseResult {
     const MJD_RANGE: std::ops::Range<usize> = 16..26;
     const PM_X_RANGE: std::ops::Range<usize> = 26..38;
     const PM_Y_RANGE: std::ops::Range<usize> = 38..50;
@@ -70,7 +72,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse mjd from '{}': {}",
                 &line[MJD_RANGE], e
-            )))
+            )));
         }
     };
     let pm_x = match line[PM_X_RANGE].trim().parse::<f64>() {
@@ -79,7 +81,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_x from '{}': {}",
                 &line[PM_X_RANGE], e
-            )))
+            )));
         }
     };
     let pm_y = match line[PM_Y_RANGE].trim().parse::<f64>() {
@@ -88,7 +90,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_y from '{}': {}",
                 &line[PM_Y_RANGE], e
-            )))
+            )));
         }
     };
     let ut1_utc = match line[UT1_UTC_RANGE].trim().parse::<f64>() {
@@ -97,7 +99,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse ut1_utc from '{}': {}",
                 &line[UT1_UTC_RANGE], e
-            )))
+            )));
         }
     };
     let lod = match line[LOD_RANGE].trim().parse::<f64>() {
@@ -106,7 +108,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse lod from '{}': {}",
                 &line[LOD_RANGE], e
-            )))
+            )));
         }
     };
     let dX = match line[DX_RANGE].trim().parse::<f64>() {
@@ -115,7 +117,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse dX from '{}': {}",
                 &line[DX_RANGE], e
-            )))
+            )));
         }
     };
     let dY = match line[DY_RANGE].trim().parse::<f64>() {
@@ -124,7 +126,7 @@ pub fn parse_c04_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse dY from '{}': {}",
                 &line[DY_RANGE], e
-            )))
+            )));
         }
     };
 

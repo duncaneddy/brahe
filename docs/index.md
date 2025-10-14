@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/pages/assets/logo-gold.png" alt="Brahe"></a>
+  <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/assets/logo-gold.png" alt="Brahe"></a>
 </p>
 <p align="center">
     <em>Brahe - easy-to-learn, high-performance, and quick-to-deploy</em>
@@ -26,121 +26,64 @@
 
 ----
 
-Documentation: https://duncaneddy.github.io/brahe
-
-Rust Library Reference: https://docs.rs/crate/brahe/latest
-
-Source Code: https://github.com/duncaneddy/brahe
-
-----
-
-# Overhaul Notice
-
-The older pure-Python version of brahe is currently being deprecated in favor of a mixed
-Rust-Python implementation, along with improved documentation. That means that the development
-on the `master` branch is being frozen and will no longer be developed against. Moving forward
-the `main` branch will be the primary branch for the project.
-
-There will be point commits (less than `1.0.0`) during this period as part
-of improving the CI/CD workflow for the project. Furthermore, initially the features of the
-new implementation will not be at partity with the old python implementation, so users should
-pin their requirements file to use the latest commit of the master branch:
-
-```
-brahe @ git+https://github.com/duncaneddy/brahe@master
-```
-
-To install and use the latest master branch via pip
-
-```
-pip install git+https://github.com/duncaneddy/brahe.git@master
-```
-
-The old master branch can be found [here](https://github.com/duncaneddy/brahe/tree/master).
-
-----
+!!! warning "Pure-Python Brahe Deprecation Notice"
+    
+    The older pure-Python implementaiton of brahe is currently being deprecated in favor of an improved Rust-based implementation. There will be breaking changes during this period that include breaking changes. You can read more about this change in the [deprecation notice](about/python_deprecation.md).
 
 # Brahe
+
+!!! note ""
+
+    All software is wrong, but some is useful.
+
 Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.
+applications. It is designed to be easy-to-learn, quick-to-deploy, and easy to build on.
 The north-star of the development is enabling users to solve meaningful problems
-and answer questions quickly, easily, and correctly.
+and answer questions quickly and correctly.
 
-The key features of the library are:
+The Brahe permissively licensed and distributed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to encourage adoption and enable the
+broader community to build on the work.
 
-- **Intuitive API**: API designed to be easily composable, making it easy to
-  solve complex problems correctly by building on core functionality.
-- **Easy-to-Learn**: Designed to be easy to use and learn. The objective is
-  to provide clear documentation and visibility into what the software is doing
-  so that users don't need to spend time reverse engineering internal routines
-  and more time solving their own problems.
-- **High-Performance**: Brahe provides a Python 3.6+ wrapper that is
-  auto-generated from a core Rust library. This provides fast core implementation,
-  while allowing users to take advantage of Python's rich scientific ecosystem
-  if they so choose.
-- **Answer Questions Quickly**: Brahe is designed to make it easy to code up
-  solutions to meaningful problems. High-fieldity, high-performance APIs are not
-  the end-objective, but helping users solve their problems.
+If you do find it useful, please consider starring the repository on GitHub to help
+increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
+You can find my contact information on my [personal website](https://duncaneddy.com), 
+or open an issue on the GitHub repository.
 
-Brahe gets its name from the combination of Rust and astrodynamics (Rust +
-astrodynamics = Brahe). The library specifically focuses on satellite astrodynamics
-and space mission analysis. While the underlying concepts have been studied and known since
-Kepler wrote down his three laws, there are few modern software
-libraries that make these concepts easily accessible. While extremely well tested,
-other astrodynamics and mission analysis software can have an extremely steep
-learning curve, making it difficult to quickly run simple analysis that is known
-to be correct.
 
-Because of this, students, researchers, and engineers frequently end up
-reimplementing common astrodynamics and mission analysis tools with unfortunately
-frequent regularity. While  reimplementation of common code can be a good learning
-mechanisms, in most cases it is both error-prone and costs time better spent
-on other endeavours. This project seeks to providing an easy-to-use,
-well-tested library, to enable everyone to more easily, and quickly
-perform astrodynamics and space mission analysis without sacrificing performance
-or correctness. The software built in Rust for performance with bindings to
-Python for ease of use.
+## Quick Start
 
-The implementation approach is opinionated, the objective is to provide an
-easy-to-use and accurate astrodynamics library to enable users to quickly
-and correctly solve most common problem types. it is not practical to try to
-implement _every_ aerodynamics model and function utilized in practice or historically.
-Since Brahe is open source, if a specific function is not present, or a different
-implementation is required, users can modify the code to address their specific
-use case. This means that Brahe, while we want to continue expanding the
-capabilities of the module over time, the immediate goal is to provide a well-tested,
-flexible, composable API to quickly address modern problems in astrodynamics.
+To install the latest release of brahe, simply run:
 
-One example of this in practice is that the built-in Earth reference frame transformation
-utilizes the IAU 2006/2000A precession-nutation model, CIO-based transformation.
-Even through there are multiple ways to construct this transformation, Brahe
-only implements one. Another example, is that the geodetic and geocentric
-transformations use the latest NIMA technical report definitions for Earth's radius and flatness.
-If a desired model isn't implemented users are free to extend the software to
-address and functionality or modeling gaps that exist to address their specific application.
+```bash
+pip install brahe
+```
 
-## Documentation
+You can then import the package in your Python code with:
+
+```python
+import brahe as bh
+```
+
+And do something fun like calculate the orbital-period of a satellite in low Earth orbit:
+
+```python
+import brahe as bh
+
+# Define the semi-major axis of a low Earth orbit (in meters)
+a = bh.constants.EARTH_RADIUS + 400e3  # 400 km altitude
+
+# Calculate the orbital period using Kepler's third law
+T = bh.orbital_period(a)
+
+print(f"Orbital Period: {T / 60:.2f} minutes")
+```
+
+## Going Further
 
 You can find the package documentation [here](https://duncaneddy.github.io/brahe).
-This documentation is meant to provide a human-friendly walk through of the
-software and package. Brahe is currently in the early stages of development so
-the documentation will likely not be complete. Sections marked **[WIP]**
-will have some software functionality implemented but not be considered
-documented.
 
-The most complete API reference guide will always be the Rust crate API
-reference, found on [crates.io](https://docs.rs/brahe/). This is always up-to-date with the latest release
-since it is autogenerated at build time during the release process.
-
-## Software Usage and License
-
-The Brahe package is licensed and distributed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to
-encourage adoption and to make it easy to integrate with other tools.
-
-The only thing asked is that if you do use the package in your work, or
-appreciate the project, either send a message or star the project. Knowing
-that the project is being actively used is a large motivator for continued
-development.
+The documentation contains learning guides for the major concepts, how-to-examples
+for common tasks, and a full API reference for both the Python and Rust libraries.
 
 ## Support and Acknowledgement
 
@@ -149,7 +92,4 @@ because I find having these tools helpful in professional and hobby work. I plan
 continue developing it for the time being regardless of greater adoption as time permitting.
 
 That being said, it's incredibly encouraging and useful to know if the
-software is being adopted or found useful in wider practice. If you're
-using Brahe for school, research, or a commercial endeavour, I'd
-love to know about it! Tweet me [@duncaneddy](https://twitter.com/DuncanEddy) or
-email me at duncan.eddy (at) gmail.com.
+software is being adopted or found useful in wider practice.

@@ -24,10 +24,8 @@ pub fn download_c04_eop_file(filepath: &str) -> Result<(), &str> {
         .parent()
         .expect("Failed to identify parent directory.");
 
-    fs::create_dir_all(parent_dir).expect(&*format!(
-        "Failed to create directory {}",
-        parent_dir.display()
-    ));
+    fs::create_dir_all(parent_dir)
+        .unwrap_or_else(|_| panic!("Failed to create directory {}", parent_dir.display()));
 
     let body = ureq::get(C04_FILE_SOURCE)
         .call()
@@ -36,7 +34,8 @@ pub fn download_c04_eop_file(filepath: &str) -> Result<(), &str> {
         .read_to_string()
         .expect("Failed to parse response into string");
 
-    fs::write(filepath, body).expect(&*format!("Failed to write file: {}", filepath.display()));
+    fs::write(filepath, body)
+        .unwrap_or_else(|_| panic!("Failed to write file: {}", filepath.display()));
 
     Ok(())
 }
@@ -55,10 +54,8 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
         .parent()
         .expect("Failed to identify parent directory.");
 
-    fs::create_dir_all(parent_dir).expect(&*format!(
-        "Failed to create directory {}",
-        parent_dir.display()
-    ));
+    fs::create_dir_all(parent_dir)
+        .unwrap_or_else(|_| panic!("Failed to create directory {}", parent_dir.display()));
 
     let body = ureq::get(STANDARD_FILE_SOURCE)
         .call()
@@ -67,7 +64,8 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
         .read_to_string()
         .expect("Failed to parse response into string");
 
-    fs::write(filepath, body).expect(&*format!("Failed to write file: {}", filepath.display()));
+    fs::write(filepath, body)
+        .unwrap_or_else(|_| panic!("Failed to write file: {}", filepath.display()));
 
     Ok(())
 }

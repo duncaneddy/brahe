@@ -72,6 +72,13 @@ impl fmt::Debug for StaticEOPProvider {
         )
     }
 }
+
+impl Default for StaticEOPProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticEOPProvider {
     /// Creates a new, uninitialized `StaticEOPProvider` with zero values for all EOP parameters.
     /// This is the default constructor. It is not recommended to use this constructor unless a
@@ -522,13 +529,13 @@ mod tests {
     fn test_from_zero() {
         let eop = StaticEOPProvider::from_zero();
 
-        assert_eq!(eop.is_initialized(), true);
+        assert!(eop.is_initialized());
         assert_eq!(eop.len(), 1);
         assert_eq!(eop.mjd_min(), 0.0);
         assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), false);
+        assert!(!eop.interpolation());
 
         // EOP Values
         assert_eq!(eop.get_ut1_utc(59950.0).unwrap(), 0.0);
@@ -543,13 +550,13 @@ mod tests {
     fn test_from_values() {
         let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
 
-        assert_eq!(eop.is_initialized(), true);
+        assert!(eop.is_initialized());
         assert_eq!(eop.len(), 1);
         assert_eq!(eop.mjd_min(), 0.0);
         assert_eq!(eop.mjd_max(), f64::MAX);
         assert_eq!(eop.eop_type(), EOPType::Static);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), false);
+        assert!(!eop.interpolation());
 
         // EOP Values
         assert_eq!(eop.get_pm(59950.0).unwrap().0, 0.001);
@@ -653,5 +660,24 @@ mod tests {
                 "EOP provider not initialized"
             )))
         );
+    }
+
+    #[test]
+    fn test_default_implementation() {
+        // Test that Default::default() is equivalent to new()
+        let eop_default = StaticEOPProvider::default();
+        let eop_new = StaticEOPProvider::new();
+
+        // Both should be uninitialized
+        assert_eq!(eop_default.is_initialized(), eop_new.is_initialized());
+        assert!(!eop_default.is_initialized());
+
+        // Both should have the same type
+        assert_eq!(eop_default.eop_type(), eop_new.eop_type());
+        assert_eq!(eop_default.eop_type(), EOPType::Static);
+
+        // Both should have the same length
+        assert_eq!(eop_default.len(), eop_new.len());
+        assert_eq!(eop_default.len(), 1);
     }
 }

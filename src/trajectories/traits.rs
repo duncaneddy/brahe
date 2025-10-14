@@ -15,34 +15,24 @@ use serde::{Deserialize, Serialize};
 /// Different methods provide varying trade-offs between computational cost and accuracy.
 /// For most applications, linear interpolation provides sufficient accuracy with minimal
 /// computational overhead.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum InterpolationMethod {
     /// Linear interpolation between adjacent states.
     /// Good balance of speed and accuracy for smooth trajectories.
+    #[default]
     Linear,
 }
 
-impl Default for InterpolationMethod {
-    fn default() -> Self {
-        InterpolationMethod::Linear
-    }
-}
-
 /// Enumeration of trajectory eviction policies for memory management
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TrajectoryEvictionPolicy {
     /// No eviction - trajectory grows unbounded
+    #[default]
     None,
     /// Keep most recent states, evict oldest when limit reached
     KeepCount,
     /// Keep states within a time duration from current epoch
     KeepWithinDuration,
-}
-
-impl Default for TrajectoryEvictionPolicy {
-    fn default() -> Self {
-        TrajectoryEvictionPolicy::None
-    }
 }
 
 /// Enumeration of orbit reference frames
@@ -87,7 +77,9 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(Self)` - Trajectory successfully created with sorted data
     /// * `Err(BraheError)` - If validation fails (length mismatch, empty vectors, inconsistent dimensions)
-    fn from_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>) -> Result<Self, BraheError> where Self: Sized;
+    fn from_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>) -> Result<Self, BraheError>
+    where
+        Self: Sized;
 
     /// Add a state vector at a specific epoch
     ///
@@ -327,7 +319,9 @@ pub trait Interpolatable: Trajectory {
     /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
     fn interpolate_linear(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>
     where
-        Self::StateVector: Clone + std::ops::Mul<f64, Output = Self::StateVector> + std::ops::Add<Output = Self::StateVector>,
+        Self::StateVector: Clone
+            + std::ops::Mul<f64, Output = Self::StateVector>
+            + std::ops::Add<Output = Self::StateVector>,
     {
         if self.is_empty() {
             return Err(BraheError::Error(
@@ -340,7 +334,8 @@ pub trait Interpolatable: Trajectory {
             let (only_epoch, only_state) = self.first().unwrap();
             if *epoch != only_epoch {
                 return Err(BraheError::Error(
-                    "Cannot interpolate state: single state trajectory and epoch does not match".to_string(),
+                    "Cannot interpolate state: single state trajectory and epoch does not match"
+                        .to_string(),
                 ));
             }
             return Ok(only_state);
@@ -380,7 +375,9 @@ pub trait Interpolatable: Trajectory {
     /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
     fn interpolate(&self, epoch: &Epoch) -> Result<Self::StateVector, BraheError>
     where
-        Self::StateVector: Clone + std::ops::Mul<f64, Output = Self::StateVector> + std::ops::Add<Output = Self::StateVector>,
+        Self::StateVector: Clone
+            + std::ops::Mul<f64, Output = Self::StateVector>
+            + std::ops::Add<Output = Self::StateVector>,
     {
         self.interpolate_linear(epoch)
     }
@@ -447,9 +444,15 @@ pub trait OrbitalTrajectory: Interpolatable {
     ///
     /// # Panics
     /// Panics if parameters are invalid (e.g., None angle_format with Keplerian, or Keplerian with ECEF)
-    fn from_orbital_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>,
-        frame: OrbitFrame, representation: OrbitRepresentation, angle_format: Option<AngleFormat>,
-    ) -> Self where Self: Sized;
+    fn from_orbital_data(
+        epochs: Vec<Epoch>,
+        states: Vec<Self::StateVector>,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    ) -> Self
+    where
+        Self: Sized;
 
     /// Convert to Earth-Centered Inertial (ECI) frame.
     ///
@@ -458,7 +461,9 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECI frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_eci(&self) -> Self where Self: Sized;
+    fn to_eci(&self) -> Self
+    where
+        Self: Sized;
 
     /// Convert to Earth-Centered Earth-Fixed (ECEF) frame.
     ///
@@ -467,10 +472,12 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in ECEF frame
     /// * `Err(BraheError)` - If conversion fails
-    fn to_ecef(&self) -> Self where Self: Sized;
+    fn to_ecef(&self) -> Self
+    where
+        Self: Sized;
 
     /// Convert to Keplerian elements with specified angle format.
-    /// 
+    ///
     /// Returns a new trajectory in Keplerian representation.
     ///
     /// # Arguments
@@ -479,5 +486,7 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Returns
     /// * `Ok(Self)` - New trajectory in Keplerian representation
     /// * `Err(BraheError)` - If angle_format is None or conversion fails
-    fn to_keplerian(&self, angle_format: AngleFormat) -> Self where Self: Sized;
+    fn to_keplerian(&self, angle_format: AngleFormat) -> Self
+    where
+        Self: Sized;
 }

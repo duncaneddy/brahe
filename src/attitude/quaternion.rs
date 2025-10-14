@@ -7,12 +7,12 @@ use nalgebra::{Vector3, Vector4};
 use crate::coordinates::SMatrix3;
 use std::{fmt, ops};
 
-use crate::attitude::traits::ToAttitude;
+use crate::attitude::attitude_types::ATTITUDE_EPSILON;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
-use crate::attitude::attitude_types::{ATTITUDE_EPSILON};
-use crate::constants::RADIANS;
+use crate::attitude::traits::ToAttitude;
 #[cfg(test)]
 use crate::constants::DEGREES;
+use crate::constants::RADIANS;
 use crate::{FromAttitude, Quaternion};
 
 impl Quaternion {
@@ -93,7 +93,7 @@ impl Quaternion {
     /// ```
     pub fn to_vector(&self, scalar_first: bool) -> Vector4<f64> {
         if scalar_first {
-            self.data.clone()
+            self.data
         } else {
             Vector4::new(self.data[1], self.data[2], self.data[3], self.data[0])
         }
@@ -332,10 +332,10 @@ impl ops::Index<usize> for Quaternion {
 }
 
 impl PartialEq for Quaternion {
-
     fn eq(&self, other: &Self) -> bool {
         if self.norm() == 1.0 && other.norm() == 1.0 {
-            (self.data[0] - other.data[0]).abs() < ATTITUDE_EPSILON && (self.data[1] - other.data[1]).abs() < ATTITUDE_EPSILON
+            (self.data[0] - other.data[0]).abs() < ATTITUDE_EPSILON
+                && (self.data[1] - other.data[1]).abs() < ATTITUDE_EPSILON
                 && (self.data[2] - other.data[2]).abs() < ATTITUDE_EPSILON
                 && (self.data[3] - other.data[3]).abs() < ATTITUDE_EPSILON
         } else {
@@ -348,25 +348,10 @@ impl PartialEq for Quaternion {
             let v1 = self.data / self.norm();
             let v2 = other.data / other.norm();
 
-            (v1[0] - v2[0]).abs() < ATTITUDE_EPSILON && (v1[1] - v2[1]).abs() < ATTITUDE_EPSILON
+            (v1[0] - v2[0]).abs() < ATTITUDE_EPSILON
+                && (v1[1] - v2[1]).abs() < ATTITUDE_EPSILON
                 && (v1[2] - v2[2]).abs() < ATTITUDE_EPSILON
                 && (v1[3] - v2[3]).abs() < ATTITUDE_EPSILON
-        }
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        if self.norm() == 1.0 && other.norm() == 1.0 {
-            (self.data[0] - other.data[0]).abs() > ATTITUDE_EPSILON || (self.data[1] - other.data[1]).abs() > ATTITUDE_EPSILON
-                || (self.data[2] - other.data[2]).abs() > ATTITUDE_EPSILON
-                || (self.data[3] - other.data[3]).abs() > ATTITUDE_EPSILON
-        } else {
-            // While implementing the quaternion equality check, we need to handle the case where the quaternions
-            // are not normalized. This is because two quaternions can represent the same rotation, but have different
-            // magnitudes. To handle this, we need to normalize the quaternions before comparing them.
-            //
-            // While this introduces more computational cost it removes a class of unintentional errors for the user
-            // where they may not have normalized the quaternions before comparing them.
-            return self.data / self.norm() != other.data / other.norm();
         }
     }
 }
@@ -395,7 +380,7 @@ impl FromAttitude for Quaternion {
     /// assert_eq!(q, q2);
     /// ```
     fn from_quaternion(q: Quaternion) -> Self {
-        q.clone()
+        q
     }
 
     /// Create a new `Quaternion` from an `EulerAxis`.
@@ -541,7 +526,7 @@ impl FromAttitude for Quaternion {
 
         // Create the quaternion based on the index of the maximum value
         if ind_max == 0 {
-            return Quaternion {
+            Quaternion {
                 data: 0.5
                     * Vector4::new(
                         q_max.sqrt(),
@@ -549,9 +534,9 @@ impl FromAttitude for Quaternion {
                         (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
                         (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
                     ),
-            };
+            }
         } else if ind_max == 1 {
-            return Quaternion {
+            Quaternion {
                 data: 0.5
                     * Vector4::new(
                         (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
@@ -559,9 +544,9 @@ impl FromAttitude for Quaternion {
                         (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
                         (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
                     ),
-            };
+            }
         } else if ind_max == 2 {
-            return Quaternion {
+            Quaternion {
                 data: 0.5
                     * Vector4::new(
                         (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
@@ -569,9 +554,9 @@ impl FromAttitude for Quaternion {
                         q_max.sqrt(),
                         (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
                     ),
-            };
+            }
         } else {
-            return Quaternion {
+            Quaternion {
                 data: 0.5
                     * Vector4::new(
                         (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
@@ -579,7 +564,7 @@ impl FromAttitude for Quaternion {
                         (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
                         q_max.sqrt(),
                     ),
-            };
+            }
         }
     }
 }
@@ -604,7 +589,7 @@ impl ToAttitude for Quaternion {
     /// assert_eq!(q, q2);
     /// ```
     fn to_quaternion(&self) -> Quaternion {
-        self.clone()
+        *self
     }
 
     /// Convert the current `Quaternion` to a new `EulerAxis` representation of the attitude transformation.
@@ -728,8 +713,8 @@ impl From<RotationMatrix> for Quaternion {
 
 #[cfg(test)]
 mod tests {
-    use approx::assert_abs_diff_eq;
     use super::*;
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn test_quaternion_display() {
@@ -816,7 +801,10 @@ mod tests {
         let q1 = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, DEGREES).to_quaternion();
         let q2 = EulerAngle::new(EulerAngleOrder::XYZ, 180.0, 0.0, 0.0, DEGREES).to_quaternion();
         let q = q1.slerp(q2, 0.5);
-        assert_eq!(q, EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES).to_quaternion());
+        assert_eq!(
+            q,
+            EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES).to_quaternion()
+        );
     }
 
     #[test]
@@ -895,15 +883,37 @@ mod tests {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 90.0, 0.0, 0.0, DEGREES);
         let q = Quaternion::from_euler_angle(e);
 
-        assert_eq!(q, Quaternion::new(0.7071067811865476, 0.7071067811865475, 0.0, 0.0));
+        assert_eq!(
+            q,
+            Quaternion::new(
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0
+            )
+        );
     }
 
     #[test]
     fn test_attitude_representation_from_rotation_matrix() {
-        let r = RotationMatrix::new(1.0, 0.0, 0.0, 0.0, 2.0_f64.sqrt()/2.0, -2.0_f64.sqrt()/2.0, 0.0, 2.0_f64.sqrt()/2.0, 2.0_f64.sqrt()/2.0).unwrap();
+        let r = RotationMatrix::new(
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0_f64.sqrt() / 2.0,
+            -2.0_f64.sqrt() / 2.0,
+            0.0,
+            2.0_f64.sqrt() / 2.0,
+            2.0_f64.sqrt() / 2.0,
+        )
+        .unwrap();
         let q = Quaternion::from_rotation_matrix(r);
 
-        assert_eq!(q, Quaternion::new(0.9238795325112867, -0.3826834323650898, 0.0, 0.0));
+        assert_eq!(
+            q,
+            Quaternion::new(0.9238795325112867, -0.3826834323650898, 0.0, 0.0)
+        );
     }
 
     #[test]
@@ -1047,5 +1057,4 @@ mod tests {
 
         assert_eq!(Quaternion::from_rotation_matrix(r), q);
     }
-
 }

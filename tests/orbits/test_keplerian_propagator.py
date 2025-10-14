@@ -6,10 +6,20 @@ These tests mirror the Rust tests from src/orbits/keplerian_propagator.rs
 
 import numpy as np
 import pytest
-from brahe import (Epoch, TimeSystem, KeplerianPropagator, OrbitFrame, OrbitRepresentation,
-                   AngleFormat, orbital_period, state_osculating_to_cartesian,
-                   state_cartesian_to_osculating, state_eci_to_ecef, state_ecef_to_eci,
-                   PanicException)
+from brahe import (
+    Epoch,
+    TimeSystem,
+    KeplerianPropagator,
+    OrbitFrame,
+    OrbitRepresentation,
+    AngleFormat,
+    orbital_period,
+    state_osculating_to_cartesian,
+    state_cartesian_to_osculating,
+    state_eci_to_ecef,
+    state_ecef_to_eci,
+    PanicException,
+)
 
 # Test data constants
 TEST_EPOCH_JD = 2451545.0
@@ -34,10 +44,13 @@ def create_cartesian_state():
     argp = 45.0  # Argument of perigee
     ma = 60.0  # Mean anomaly
 
-    return state_osculating_to_cartesian(np.array([a, e, i, raan, argp, ma]), angle_format=AngleFormat.DEGREES)
+    return state_osculating_to_cartesian(
+        np.array([a, e, i, raan, argp, ma]), angle_format=AngleFormat.DEGREES
+    )
 
 
 # KeplerianPropagator Method Tests
+
 
 def test_keplerianpropagator_new():
     """Test KeplerianPropagator.new()"""
@@ -192,6 +205,7 @@ def test_keplerianpropagator_from_ecef():
 
 
 # OrbitPropagator Trait Tests
+
 
 def test_keplerianpropagator_orbitpropagator_step():
     """Test step() method"""
@@ -542,6 +556,7 @@ def test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_age():
 
 # AnalyticPropagator Trait Tests
 
+
 def test_keplerianpropagator_analyticpropagator_state():
     """Test state() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
@@ -579,7 +594,9 @@ def test_keplerianpropagator_analyticpropagator_state_eci():
     # Should be Cartesian state in ECI
     assert np.linalg.norm(state) > 0.0
     # Convert back to orbital elements and verify semi-major axis is preserved
-    computed_elements = state_cartesian_to_osculating(state, angle_format=AngleFormat.DEGREES)
+    computed_elements = state_cartesian_to_osculating(
+        state, angle_format=AngleFormat.DEGREES
+    )
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -602,7 +619,9 @@ def test_keplerianpropagator_analyticpropagator_state_ecef():
 
     # Convert back into osculating elements via ECI
     eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state)
-    computed_elements = state_cartesian_to_osculating(eci_state, angle_format=AngleFormat.DEGREES)
+    computed_elements = state_cartesian_to_osculating(
+        eci_state, angle_format=AngleFormat.DEGREES
+    )
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -621,14 +640,18 @@ def test_keplerianpropagator_analyticpropagator_state_as_osculating_elements():
         60.0,
     )
 
-    osc_elements = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), angle_format=AngleFormat.DEGREES)
+    osc_elements = propagator.state_as_osculating_elements(
+        epoch + orbital_period(elements[0]), angle_format=AngleFormat.DEGREES
+    )
 
     # Should match initial elements within small tolerance
     for i in range(6):
         assert abs(osc_elements[i] - elements[i]) < 1e-6
 
     # Now test with radians to degrees conversion
-    osc_elements_rad = propagator.state_as_osculating_elements(epoch + orbital_period(elements[0]), angle_format=AngleFormat.RADIANS)
+    osc_elements_rad = propagator.state_as_osculating_elements(
+        epoch + orbital_period(elements[0]), angle_format=AngleFormat.RADIANS
+    )
     for i in range(2):
         assert abs(osc_elements_rad[i] - elements[i]) < 1e-6
     for i in range(2, 6):
@@ -650,7 +673,7 @@ def test_keplerianpropagator_analyticpropagator_states():
     epochs = [
         epoch,
         epoch + orbital_period(elements[0]),
-        epoch + 2.0 * orbital_period(elements[0])
+        epoch + 2.0 * orbital_period(elements[0]),
     ]
 
     traj = propagator.states(epochs)
@@ -677,14 +700,16 @@ def test_keplerianpropagator_analyticpropagator_states_eci():
     epochs = [
         epoch,
         epoch + orbital_period(elements[0]),
-        epoch + 2.0 * orbital_period(elements[0])
+        epoch + 2.0 * orbital_period(elements[0]),
     ]
 
     states = propagator.states_eci(epochs)
     assert len(states) == 3
     # Verify states convert back to original elements within small tolerance
     for state in states:
-        computed_elements = state_cartesian_to_osculating(state, angle_format=AngleFormat.DEGREES)
+        computed_elements = state_cartesian_to_osculating(
+            state, angle_format=AngleFormat.DEGREES
+        )
         for i in range(6):
             assert abs(computed_elements[i] - elements[i]) < 1e-6
 
@@ -704,7 +729,7 @@ def test_keplerianpropagator_analyticpropagator_states_ecef():
     epochs = [
         epoch,
         epoch + orbital_period(elements[0]),
-        epoch + 2.0 * orbital_period(elements[0])
+        epoch + 2.0 * orbital_period(elements[0]),
     ]
 
     states = propagator.states_ecef(epochs)
@@ -712,7 +737,9 @@ def test_keplerianpropagator_analyticpropagator_states_ecef():
     # Verify states convert back to original elements within small tolerance
     for i, state in enumerate(states):
         eci_state = state_ecef_to_eci(epochs[i], state)
-        computed_elements = state_cartesian_to_osculating(eci_state, angle_format=AngleFormat.DEGREES)
+        computed_elements = state_cartesian_to_osculating(
+            eci_state, angle_format=AngleFormat.DEGREES
+        )
         for j in range(6):
             assert abs(computed_elements[j] - elements[j]) < 1e-6
 
@@ -732,10 +759,12 @@ def test_keplerianpropagator_analyticpropagator_states_as_osculating_elements():
     epochs = [
         epoch,
         epoch + orbital_period(elements[0]),
-        epoch + 2.0 * orbital_period(elements[0])
+        epoch + 2.0 * orbital_period(elements[0]),
     ]
 
-    traj = propagator.states_as_osculating_elements(epochs, angle_format=AngleFormat.DEGREES)
+    traj = propagator.states_as_osculating_elements(
+        epochs, angle_format=AngleFormat.DEGREES
+    )
     assert len(traj) == 3
 
     # Confirm all elements remain unchanged within small tolerance
@@ -744,7 +773,9 @@ def test_keplerianpropagator_analyticpropagator_states_as_osculating_elements():
             assert abs(state[i] - elements[i]) < 1e-6
 
     # Repeat with radians output
-    traj_rad = propagator.states_as_osculating_elements(epochs, angle_format=AngleFormat.RADIANS)
+    traj_rad = propagator.states_as_osculating_elements(
+        epochs, angle_format=AngleFormat.RADIANS
+    )
     assert len(traj_rad) == 3
 
     for state in traj_rad:

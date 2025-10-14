@@ -32,7 +32,7 @@
 
 # Brahe
 
-!!! note ""
+!!! quote ""
 
     All software is wrong, but some is useful.
 
@@ -80,10 +80,13 @@ print(f"Orbital Period: {T / 60:.2f} minutes")
 
 ## Going Further
 
-You can find the package documentation [here](https://duncaneddy.github.io/brahe).
+If you want to learn more about how to use the package the documentation is structured in the following way:
 
-The documentation contains learning guides for the major concepts, how-to-examples
-for common tasks, and a full API reference for both the Python and Rust libraries.
+- [Learn](learn/index.md): Provides short-form documentation of major concepts of the package.
+- [Examples](examples/index.md): Provides longer-form examples of how-to examples of accomplish common tasks.
+- [Library API](library_api/index.md): Provides detailed reference documentation of the Python API.
+- [Rust API](https://docs.rs/brahe): Provides detailed reference documentation of the Rust API.
+
 
 ## Support and Acknowledgement
 

@@ -2,7 +2,8 @@ import pytest
 from typer.testing import CliRunner
 from brahe.cli.__main__ import app
 
-runner = CliRunner()
+# Disable color output to avoid ANSI escape codes in output
+runner = CliRunner(mix_stderr=False, env={"NO_COLOR": "1"})
 
 def test_help():
     result = runner.invoke(app, ["--help"])

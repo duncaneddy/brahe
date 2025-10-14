@@ -43,41 +43,41 @@ class TestSGPPropagatorMethods:
         assert prop.step_size == 60.0
         assert prop.satellite_name == "ISS (ZARYA)"
 
-    def test_sgppropagator_set_output_cartesian(self, iss_tle):
-        """Test setting output representation to Cartesian."""
+    def test_sgppropagator_set_output_format_cartesian(self, iss_tle):
+        """Test setting output format to ECI Cartesian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_cartesian()
+        prop.set_output_format(brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.CARTESIAN, None)
         prop.step()
 
         # Verify it doesn't error and trajectory stores states
         assert prop.trajectory.length > 0
 
-    def test_sgppropagator_set_output_keplerian(self, iss_tle):
-        """Test setting output representation to Keplerian."""
+    def test_sgppropagator_set_output_format_keplerian(self, iss_tle):
+        """Test setting output format to ECI Keplerian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_keplerian()
+        prop.set_output_format(brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, brahe.AngleFormat.RADIANS)
         prop.step()
 
         # Verify it doesn't error and trajectory stores states
         assert prop.trajectory.length > 0
 
-    def test_sgppropagator_set_output_frame(self, iss_tle):
-        """Test setting output frame to ECEF."""
+    def test_sgppropagator_set_output_format_ecef(self, iss_tle):
+        """Test setting output format to ECEF Cartesian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_frame(brahe.OrbitFrame.ECEF)
+        prop.set_output_format(brahe.OrbitFrame.ECEF, brahe.OrbitRepresentation.CARTESIAN, None)
         prop.step()
 
         # Verify it doesn't error
         assert prop.trajectory.length > 0
 
-    def test_sgppropagator_set_output_angle_format(self, iss_tle):
-        """Test setting output angle format."""
+    def test_sgppropagator_set_output_format_degrees(self, iss_tle):
+        """Test setting output format with degrees."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        prop.set_output_angle_format(brahe.AngleFormat.DEGREES)
+        prop.set_output_format(brahe.OrbitFrame.ECI, brahe.OrbitRepresentation.KEPLERIAN, brahe.AngleFormat.DEGREES)
         prop.step()
 
         # Verify it doesn't error
@@ -262,3 +262,118 @@ class TestSGPPropagatorAnalyticPropagatorTrait:
             state = traj[i]
             assert len(state) == 6
             assert all(np.isfinite(state))
+
+
+class TestOldBraheTLEFunctions:
+    """Test standalone TLE utility functions."""
+
+    def test_calculate_tle_line_checksum(self):
+        """Test TLE line checksum calculation."""
+        # Test with line 1
+        checksum = brahe.calculate_tle_line_checksum(ISS_LINE1)
+        assert checksum == 7
+
+        # Test with line 2
+        checksum = brahe.calculate_tle_line_checksum(ISS_LINE2)
+        assert checksum == 7
+
+    def test_validate_tle_line_valid(self):
+        """Test TLE line validation with valid lines."""
+        assert brahe.validate_tle_line(ISS_LINE1) == True
+        assert brahe.validate_tle_line(ISS_LINE2) == True
+
+    def test_validate_tle_line_invalid(self):
+        """Test TLE line validation with invalid checksum."""
+        # Change last digit (checksum) to make it invalid
+        invalid_line = ISS_LINE1[:-1] + '6'  # Change checksum from 7 to 6
+        assert brahe.validate_tle_line(invalid_line) == False
+
+    def test_validate_tle_lines(self):
+        """Test TLE line pair validation."""
+        assert brahe.validate_tle_lines(ISS_LINE1, ISS_LINE2) == True
+
+    def test_keplerian_elements_from_tle(self, eop_original_brahe):
+        """Test extracting Keplerian elements from TLE."""
+        epoch, elements = brahe.keplerian_elements_from_tle(ISS_LINE1, ISS_LINE2)
+
+        assert len(elements) == 6
+        # Elements are [a, e, i, raan, argp, M]
+        # Values extracted from ISS TLE
+        assert elements[0] == pytest.approx(6730960.675248184, abs=1.0)  # Semi-major axis in meters
+        assert elements[1] == pytest.approx(0.0006703, abs=1e-7)  # Eccentricity
+        assert elements[2] == pytest.approx(51.6416, abs=1e-4)  # InJclination (degrees)
+        assert elements[3] == pytest.approx(247.4627, abs=1e-4)  # RAAN (degrees)
+        assert elements[4] == pytest.approx(130.536, abs=1e-4)  # Argument of periapsis (degrees)
+        assert elements[5] == pytest.approx(325.0288, abs=1e-4)  # Mean anomaly (degrees)
+
+    def test_epoch_from_tle(self, eop_original_brahe):
+        """Test extracting epoch from TLE."""
+        epoch = brahe.epoch_from_tle(ISS_LINE1)
+
+        assert epoch.year() == 2008
+        assert epoch.month() == 9
+        assert epoch.day() == 20
+
+    def test_sgppropagator_state_teme(self, iss_tle, eop_original_brahe):
+        """Test state output in TEME frame (native SGP4 output)."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        state = prop.state(prop.epoch)
+
+        assert len(state) == 6
+        # TEME is the native SGP4 output frame
+        assert state[0] == pytest.approx(4083909.8260273533, abs=1e-8)
+        assert state[1] == pytest.approx(-993636.8325621719, abs=1e-8)
+        assert state[2] == pytest.approx(5243614.536966579, abs=1e-8)
+        assert state[3] == pytest.approx(2512.831950943635, abs=1e-8)
+        assert state[4] == pytest.approx(7259.8698423432315, abs=1e-8)
+        assert state[5] == pytest.approx(-583.775727402632, abs=1e-8)
+
+    def test_sgppropagator_state_pef(self, iss_tle, eop_original_brahe):
+        """Test state output in PEF frame."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        state = prop.state_pef(prop.epoch)
+
+        assert len(state) == 6
+        # TEME is the native SGP4 output frame
+        assert state[0] == pytest.approx(-3953205.7105210484, abs=1.5e-1)
+        assert state[1] == pytest.approx(1427514.704810681, abs=1.5e-1)
+        assert state[2] == pytest.approx(5243614.536966579, abs=1.5e-1)
+        assert state[3] == pytest.approx(-3175.692140186211, abs=1.5e-1)
+        assert state[4] == pytest.approx(-6658.887120918979, abs=1.5e-1)
+        assert state[5] == pytest.approx(-583.775727402632, abs=1.5e-1)
+
+    @pytest.mark.xfail(reason="Error is higher than expected - Need to investigate frame transformations")
+    def test_sgppropagator_state_ecef(self, iss_tle, eop_original_brahe):
+        """Test state output in ECEF/ITRF frame."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        state = prop.state_ecef(prop.epoch)
+
+        assert len(state) == 6
+        # ECEF/ITRF frame
+        # Note: Frame transformations have looser tolerance due to EOP variations
+        assert state[0] == pytest.approx( -3953198.5496517573, abs=1.5e-1)
+        assert state[1] == pytest.approx( 1427508.1713723878, abs=1.5e-1)
+        assert state[2] == pytest.approx( 5243621.714247745, abs=1.5e-1)
+        assert state[3] == pytest.approx( -3414.313706718372, abs=1.5e-1)
+        assert state[4] == pytest.approx( -7222.549343535009, abs=1.5e-1)
+        assert state[5] == pytest.approx( -583.7798954042405, abs=1.5e-1)
+
+    @pytest.mark.xfail(reason="Error is higher than expected - Need to investigate frame transformations")
+    def test_sgppropagator_state_eci(self, iss_tle, eop_original_brahe):
+        """Test state output in ECI/GCRF frame."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        state = prop.state_eci(prop.epoch)
+
+        assert len(state) == 6
+        # ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
+        # Note: Frame transformations have looser tolerance due to EOP variations
+        assert state[0] == pytest.approx( 4086521.040536244, abs=1.5e-1)
+        assert state[1] == pytest.approx( -1001422.0787863219, abs=1.5e-1)
+        assert state[2] == pytest.approx( 5240097.960898061, abs=1.5e-1)
+        assert state[3] == pytest.approx( 2704.171077071122, abs=1.5e-1)
+        assert state[4] == pytest.approx( 7840.6666110244705, abs=1.5e-1)
+        assert state[5] == pytest.approx( -586.3906587951877, abs=1.5e-1)

@@ -6,7 +6,9 @@
 use nalgebra::Vector6;
 use std::f64::consts::PI;
 
-use crate::constants::{DEG2RAD, RAD2DEG, RADIANS, DEGREES};
+use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
+#[cfg(test)]
+use crate::constants::DEGREES;
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_eci_to_ecef, state_ecef_to_eci};
 use crate::orbits::keplerian::mean_motion;
@@ -32,8 +34,8 @@ pub struct KeplerianPropagator {
     /// Representation of the input/output states
     pub representation: OrbitRepresentation,
 
-    /// Angle format of the input/output states (for Keplerian)
-    pub angle_format: AngleFormat,
+    /// Angle format of the input/output states (None for Cartesian, Some for Keplerian)
+    pub angle_format: Option<AngleFormat>,
 
     /// Step size in seconds for stepping operations
     pub step_size: f64,
@@ -105,12 +107,12 @@ impl KeplerianPropagator {
             panic!("Step size must be positive");
         }
 
-        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
-        let angle_format = angle_format.unwrap_or(RADIANS);
+        // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
+        let angle_format_unwrapped = angle_format.unwrap_or(RADIANS);
 
         // Convert input state to internal osculating elements in ECI frame with radians
         let internal_elements = Self::convert_to_internal_osculating(
-            epoch, state, frame, representation, angle_format
+            epoch, state, frame, representation, angle_format_unwrapped
         );
 
         // Create initial trajectory
@@ -235,9 +237,6 @@ impl KeplerianPropagator {
             panic!("Angle format should be None for Cartesian representation");
         }
 
-        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
-        let angle_format = angle_format.unwrap_or(RADIANS);
-
         self.frame = frame;
         self.representation = representation;
         self.angle_format = angle_format;
@@ -320,7 +319,8 @@ impl KeplerianPropagator {
             }
             OrbitRepresentation::Keplerian => {
                 // Convert to original angle format
-                match self.angle_format {
+                // For Keplerian, angle_format is guaranteed to be Some() by validation
+                match self.angle_format.unwrap() {
                     AngleFormat::Radians => internal_elements,
                     AngleFormat::Degrees => {
                         let mut elements = internal_elements;
@@ -440,8 +440,8 @@ impl OrbitPropagator for KeplerianPropagator {
             panic!("Angle format should be None for Cartesian representation");
         }
 
-        // Unwrap angle_format for Keplerian (validated above), use RADIANS for Cartesian
-        let angle_format = angle_format.unwrap_or(RADIANS);
+        // Unwrap angle_format for internal conversion (use RADIANS for Cartesian)
+        let angle_format_unwrapped = angle_format.unwrap_or(RADIANS);
 
         // Update all state
         self.initial_epoch = epoch;
@@ -452,7 +452,7 @@ impl OrbitPropagator for KeplerianPropagator {
 
         // Recompute internal elements
         self.internal_osculating_elements = Self::convert_to_internal_osculating(
-            epoch, state, frame, representation, angle_format
+            epoch, state, frame, representation, angle_format_unwrapped
         );
         self.n = mean_motion(self.internal_osculating_elements[0], AngleFormat::Radians);
 

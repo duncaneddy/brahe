@@ -29,9 +29,9 @@ impl EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
-    /// use brahe::constants::DEGREES;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// ```
     pub fn new(order: EulerAngleOrder, phi: f64, theta: f64, psi: f64, angle_format: AngleFormat) -> Self {
         let (phi, theta, psi) = match angle_format {
@@ -65,11 +65,11 @@ impl EulerAngle {
     /// ```
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
-    /// use brahe::constants::DEGREES;
+    /// use brahe::AngleFormat;
     ///
     /// let v = Vector3::new(30.0, 45.0, 60.0);
     ///
-    /// let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, DEGREES);
+    /// let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, AngleFormat::Degrees);
     /// ```
     pub fn from_vector(vector: Vector3<f64>, order: EulerAngleOrder, angle_format: AngleFormat) -> Self {
         Self::new(order, vector.x, vector.y, vector.z, angle_format)
@@ -114,8 +114,9 @@ impl EulerAngle {
     /// ```
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
+    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, AngleFormat::Degrees);
     /// let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
     /// ```
     pub fn from_euler_axis(e: EulerAxis, order: EulerAngleOrder) -> Self {
@@ -139,8 +140,9 @@ impl EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = EulerAngle::from_euler_angle(e, EulerAngleOrder::ZYX);
     /// ```
     pub fn from_euler_angle(e: EulerAngle, order: EulerAngleOrder) -> Self {
@@ -226,8 +228,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let q = e.to_quaternion();
     /// ```
     fn to_quaternion(&self) -> Quaternion {
@@ -245,8 +248,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = e.to_euler_axis();
     /// ```
     fn to_euler_axis(&self) -> EulerAxis {
@@ -269,8 +273,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = e.to_euler_angle(EulerAngleOrder::ZYX);
     /// ```
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle {
@@ -288,8 +293,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let r = e.to_rotation_matrix();
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {

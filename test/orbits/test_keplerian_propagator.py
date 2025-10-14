@@ -61,12 +61,12 @@ def test_keplerianpropagator_new():
 
 
 def test_keplerianpropagator_new_invalid_angle_format():
-    """Test that new() panics when angle_format is None for Keplerian elements"""
+    """Test that new() raises TypeError when angle_format is None for Keplerian elements"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
-    # This should panic because angle format must be specified for Keplerian elements
-    with pytest.raises(PanicException):
+    # This should raise TypeError because angle format cannot be None
+    with pytest.raises(TypeError):
         KeplerianPropagator(
             epoch,
             elements,

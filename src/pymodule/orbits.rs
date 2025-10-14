@@ -416,28 +416,25 @@ impl PySGPPropagator {
         self.propagator.set_step_size(step_size);
     }
 
-    /// Set output to Cartesian coordinates
-    #[pyo3(text_signature = "()")]
-    pub fn set_output_cartesian(&mut self) {
-        self.propagator.set_output_cartesian();
-    }
-
-    /// Set output to Keplerian elements
-    #[pyo3(text_signature = "()")]
-    pub fn set_output_keplerian(&mut self) {
-        self.propagator.set_output_keplerian();
-    }
-
-    /// Set output frame
-    #[pyo3(text_signature = "(frame)")]
-    pub fn set_output_frame(&mut self, frame: PyRef<PyOrbitFrame>) {
-        self.propagator.set_output_frame(frame.frame);
-    }
-
-    /// Set output angle format
-    #[pyo3(text_signature = "(angle_format)")]
-    pub fn set_output_angle_format(&mut self, angle_format: PyRef<PyAngleFormat>) {
-        self.propagator.set_output_angle_format(angle_format.value);
+    /// Set output format (frame, representation, and angle format)
+    ///
+    /// Arguments:
+    ///     frame: Output frame (ECI or ECEF)
+    ///     representation: Output representation (Cartesian or Keplerian)
+    ///     angle_format: Angle format for Keplerian (None for Cartesian)
+    #[pyo3(text_signature = "(frame, representation, angle_format)")]
+    pub fn set_output_format(
+        &mut self,
+        frame: PyRef<PyOrbitFrame>,
+        representation: PyRef<PyOrbitRepresentation>,
+        angle_format: Option<PyRef<PyAngleFormat>>,
+    ) {
+        let angle_fmt = angle_format.map(|af| af.value);
+        self.propagator = self.propagator.clone().with_output_format(
+            frame.frame,
+            representation.representation,
+            angle_fmt,
+        );
     }
 
     /// Get current state vector
@@ -460,6 +457,19 @@ impl PySGPPropagator {
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in PEF coordinates
+    ///
+    /// Arguments:
+    ///     epoch (Epoch): Target epoch for state computation
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in PEF frame
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_pef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_pef(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 

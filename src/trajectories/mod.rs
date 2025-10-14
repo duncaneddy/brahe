@@ -12,7 +12,7 @@
  * # Examples
  * ```rust
  * use brahe::trajectories::{DTrajectory, STrajectory6, OrbitTrajectory};
- * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+ * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
  *
  * // Dynamic trajectory - any dimension
  * let mut dyn_traj = DTrajectory::new(7); // 7-dimensional
@@ -24,7 +24,7 @@
  * let mut orbit_traj = OrbitTrajectory::new(
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
- *     AngleFormat::None,
+ *     None,
  * );
  * ```
  */

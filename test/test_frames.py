@@ -14,7 +14,7 @@ def static_eop():
     brahe.set_global_eop_provider_from_static_provider(eop)
 
 def test_bias_precession_nutation(static_eop):
-    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0, 0.0, brahe.UTC)
 
     rc2i = brahe.bias_precession_nutation(epc)
 
@@ -32,7 +32,7 @@ def test_bias_precession_nutation(static_eop):
     assert rc2i[2, 2] == approx(+0.999999745354420, abs=tol)
 
 def test_earth_rotation(static_eop):
-    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
     r = brahe.earth_rotation(epc) @ brahe.bias_precession_nutation(epc)
 
@@ -50,7 +50,7 @@ def test_earth_rotation(static_eop):
     assert r[2, 2] == approx(+0.999999745354420, abs=tol)
 
 def test_eci_to_ecef(static_eop):
-    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
     r = brahe.rotation_eci_to_ecef(epc)
 
@@ -68,7 +68,7 @@ def test_eci_to_ecef(static_eop):
     assert r[2, 2] == approx(+0.999999745754024, abs=tol)
 
 def test_ecef_to_eci(static_eop):
-    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
 
     r = brahe.rotation_ecef_to_eci(epc)
 
@@ -86,7 +86,7 @@ def test_ecef_to_eci(static_eop):
     assert r[2, 2] == approx(+0.999999745754024, abs=tol)
 
 def test_position_eci_to_ecef(eop):
-    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     p_eci = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -97,7 +97,7 @@ def test_position_eci_to_ecef(eop):
     assert p_eci[2] != p_ecef[2]
 
 def test_position_ecef_to_eci(eop):
-    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     p_ecef = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -108,10 +108,10 @@ def test_position_ecef_to_eci(eop):
     assert p_eci[2] != p_ecef[2]
 
 def test_state_eci_to_ecef_circular(eop):
-    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, "UTC")
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    eci = brahe.state_osculating_to_cartesian(oe, True)
+    eci = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
 
     # Perform circular transformations
     ecef = brahe.state_eci_to_ecef(epc, eci)

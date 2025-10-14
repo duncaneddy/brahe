@@ -3,6 +3,7 @@ import math
 import brahe
 import numpy as np
 from pytest import approx
+from brahe import AngleFormat
 
 def test_rotation_ellipsoid_to_enz():
     # Epsilon Tolerance
@@ -10,7 +11,7 @@ def test_rotation_ellipsoid_to_enz():
 
     # Test aligned coordinates
     x_sta = np.array([0.0, 0.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is ENZ Z-dir
     assert rot1[0,0] == approx(0.0, abs = tol)
@@ -31,7 +32,7 @@ def test_rotation_ellipsoid_to_enz():
 
     # Test 90 degree longitude
     x_sta = np.array([90.0, 0.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is ENZ -E-dir
     assert rot1[0,0] == approx(-1.0, abs = tol)
@@ -52,7 +53,7 @@ def test_rotation_ellipsoid_to_enz():
 
     # Test 90 degree latitude
     x_sta = np.array([00.0, 90.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_enz(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is ENZ -N-dir
     assert rot1[0,0] == approx(0.0, abs = tol)
@@ -75,8 +76,8 @@ def test_rotation_enz_to_ellipsoid():
     tol = np.finfo(float).eps
 
     x_sta = np.array([42.1, 53.9, 100.0])
-    rot = brahe.rotation_ellipsoid_to_enz(x_sta, True)
-    rot_t = brahe.rotation_enz_to_ellipsoid(x_sta, True)
+    rot = brahe.rotation_ellipsoid_to_enz(x_sta, AngleFormat.DEGREES)
+    rot_t = brahe.rotation_enz_to_ellipsoid(x_sta, AngleFormat.DEGREES)
 
     r = rot @ rot_t
 
@@ -127,7 +128,7 @@ def test_relative_position_ecef_to_enz():
     # Confirm higher latitude and longitude is (+E, +N, -Z)
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     x_geoc = np.array([0.5, 0.5, 0.0])
-    r_ecef = brahe.position_geocentric_to_ecef(x_geoc, True)
+    r_ecef = brahe.position_geocentric_to_ecef(x_geoc, brahe.AngleFormat.DEGREES)
 
     r_enz_geoc = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geocentric")
 
@@ -138,7 +139,7 @@ def test_relative_position_ecef_to_enz():
     # Confirm difference in geocentric and geodetic conversions
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     x_geod = np.array([0.5, 0.5, 0.0])
-    r_ecef = brahe.position_geodetic_to_ecef(x_geod, True)
+    r_ecef = brahe.position_geodetic_to_ecef(x_geod, brahe.AngleFormat.DEGREES)
 
     r_enz_geod = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geodetic")
 
@@ -167,7 +168,7 @@ def test_rotation_ellipsoid_to_sez():
 
     # Test aligned coordinates
     x_sta = np.array([0.0, 0.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is SEZ Z-dir
     assert rot1[0,0] == approx(0.0, abs = tol)
@@ -188,7 +189,7 @@ def test_rotation_ellipsoid_to_sez():
 
     # Test 90 degree longitude
     x_sta = np.array([90.0, 0.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is SEZ -E-dir
     assert rot1[0,0] == approx(0.0, abs = tol)
@@ -209,7 +210,7 @@ def test_rotation_ellipsoid_to_sez():
 
     # Test 90 degree latitude
     x_sta = np.array([00.0, 90.0, 0.0])
-    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, True)
+    rot1 = brahe.rotation_ellipsoid_to_sez(x_sta, AngleFormat.DEGREES)
 
     # ECEF input X - [1, 0, 0] - Expected output is SEZ S-dir
     assert rot1[0,0] == approx(1.0, abs = tol)
@@ -232,8 +233,8 @@ def test_rotation_sez_to_ellipsoid():
     tol = np.finfo(float).eps
 
     x_sta = np.array([42.1, 53.9, 100.0])
-    rot = brahe.rotation_ellipsoid_to_sez(x_sta, True)
-    rot_t = brahe.rotation_sez_to_ellipsoid(x_sta, True)
+    rot = brahe.rotation_ellipsoid_to_sez(x_sta, AngleFormat.DEGREES)
+    rot_t = brahe.rotation_sez_to_ellipsoid(x_sta, AngleFormat.DEGREES)
 
     r = rot @ rot_t
 
@@ -284,7 +285,7 @@ def test_relative_position_ecef_to_sez():
     # Confirm higher latitude and longitude is (+E, +N, -Z)
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     x_geoc = np.array([0.5, 0.5, 0.0])
-    r_ecef = brahe.position_geocentric_to_ecef(x_geoc, True)
+    r_ecef = brahe.position_geocentric_to_ecef(x_geoc, brahe.AngleFormat.DEGREES)
 
     r_sez_geoc = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geocentric")
 
@@ -295,7 +296,7 @@ def test_relative_position_ecef_to_sez():
     # Confirm difference in geocentric and geodetic conversions
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     x_geod = np.array([0.5, 0.5, 0.0])
-    r_ecef = brahe.position_geodetic_to_ecef(x_geod, True)
+    r_ecef = brahe.position_geodetic_to_ecef(x_geod, brahe.AngleFormat.DEGREES)
 
     r_sez_geod = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geodetic")
 
@@ -323,7 +324,7 @@ def test_position_enz_to_azel():
 
     # Directly above
     r_enz = np.array([0.0, 0.0, 100.0])
-    x_azel = brahe.position_enz_to_azel(r_enz, True)
+    x_azel = brahe.position_enz_to_azel(r_enz, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(0.0, abs = tol)
     assert x_azel[1] == approx(90.0, abs = tol)
@@ -331,7 +332,7 @@ def test_position_enz_to_azel():
 
     # North
     r_enz = np.array([0.0, 100.0, 0.0])
-    x_azel = brahe.position_enz_to_azel(r_enz, True)
+    x_azel = brahe.position_enz_to_azel(r_enz, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(0.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)
@@ -339,7 +340,7 @@ def test_position_enz_to_azel():
 
     # East
     r_enz = np.array([100.0, 0.0, 0.0])
-    x_azel = brahe.position_enz_to_azel(r_enz, True)
+    x_azel = brahe.position_enz_to_azel(r_enz, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(90.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)
@@ -347,7 +348,7 @@ def test_position_enz_to_azel():
 
     # North-West
     r_enz = np.array([-100.0, 100.0, 0.0])
-    x_azel = brahe.position_enz_to_azel(r_enz, True)
+    x_azel = brahe.position_enz_to_azel(r_enz, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(315.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)
@@ -358,7 +359,7 @@ def test_position_sez_to_azel():
 
     # Directly above
     r_sez = np.array([0.0, 0.0, 100.0])
-    x_azel = brahe.position_sez_to_azel(r_sez, True)
+    x_azel = brahe.position_sez_to_azel(r_sez, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(0.0, abs = tol)
     assert x_azel[1] == approx(90.0, abs = tol)
@@ -366,7 +367,7 @@ def test_position_sez_to_azel():
 
     # North
     r_sez = np.array([-100.0, 0.0, 0.0])
-    x_azel = brahe.position_sez_to_azel(r_sez, True)
+    x_azel = brahe.position_sez_to_azel(r_sez, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(0.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)
@@ -374,7 +375,7 @@ def test_position_sez_to_azel():
 
     # East
     r_sez = np.array([0.0, 100.0, 0.0])
-    x_azel = brahe.position_sez_to_azel(r_sez, True)
+    x_azel = brahe.position_sez_to_azel(r_sez, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(90.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)
@@ -382,7 +383,7 @@ def test_position_sez_to_azel():
 
     # North-West
     r_sez = np.array([-100.0, -100.0, 0.0])
-    x_azel = brahe.position_sez_to_azel(r_sez, True)
+    x_azel = brahe.position_sez_to_azel(r_sez, AngleFormat.DEGREES)
 
     assert x_azel[0] == approx(315.0, abs = tol)
     assert x_azel[1] == approx(0.0, abs = tol)

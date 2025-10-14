@@ -6,8 +6,12 @@ on:
       - v[0-9].[0-9]+.[0-9]+
 
 jobs:
+  update-bundled-data:
+    uses: ./.github/workflows/update_bundled_data.yml
+  
   test-rust:
     uses: ./.github/workflows/test_rust.yml
+    needs: [update-bundled-data]
   test-python:
     uses: ./.github/workflows/test_python.yml
     needs: [ test-rust ]
@@ -56,7 +60,7 @@ jobs:
     strategy:
       matrix:
           os: [ ubuntu-latest, macos-latest ]
-          python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+          python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
     environment: release
 
     steps:

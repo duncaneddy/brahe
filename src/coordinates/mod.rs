@@ -2,6 +2,14 @@
  * Module to provide coordinate system transformations.
  */
 
+use nalgebra::{SVector, SMatrix};
+
+/// 6-dimensional static vector type for Cartesian state vectors
+pub type SVector6 = SVector<f64, 6>;
+
+/// 3x3 static matrix type for rotation matrices and transformations
+pub type SMatrix3 = SMatrix<f64, 3, 3>;
+
 pub mod cartesian;
 pub mod coordinate_types;
 pub mod geocentric;

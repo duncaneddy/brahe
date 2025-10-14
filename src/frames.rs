@@ -1,5 +1,6 @@
-use nalgebra as na;
-use nalgebra::{Vector3, Vector6};
+use nalgebra::Vector3;
+
+use crate::coordinates::{SVector6, SMatrix3};
 #[cfg(test)]
 use serial_test::serial;
 
@@ -8,6 +9,8 @@ use crate::constants::MJD_ZERO;
 use crate::eop;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::matrix3_from_array;
+#[cfg(test)]
+use crate::constants::DEGREES;
 
 /// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
 /// CIRS intermediate reference frame. This transformation corrects for the
@@ -46,7 +49,7 @@ use crate::utils::matrix3_from_array;
 /// # References:
 /// - [IAU SOFA Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
 #[allow(non_snake_case)]
-pub fn bias_precession_nutation(epc: Epoch) -> na::Matrix3<f64> {
+pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
     // Compute X, Y, s terms using low-precision series terms
     let mut x = 0.0;
     let mut y = 0.0;
@@ -103,7 +106,7 @@ pub fn bias_precession_nutation(epc: Epoch) -> na::Matrix3<f64> {
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
-pub fn earth_rotation(epc: Epoch) -> na::Matrix3<f64> {
+pub fn earth_rotation(epc: Epoch) -> SMatrix3 {
     let mut r = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
 
     unsafe {
@@ -147,7 +150,7 @@ pub fn earth_rotation(epc: Epoch) -> na::Matrix3<f64> {
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
-pub fn polar_motion(epc: Epoch) -> na::Matrix3<f64> {
+pub fn polar_motion(epc: Epoch) -> SMatrix3 {
     let mut rpm = [[0.0; 3]; 3];
 
     let (pm_x, pm_y) = eop::get_global_pm(epc.mjd_as_time_system(TimeSystem::TT)).unwrap();
@@ -199,7 +202,7 @@ pub fn polar_motion(epc: Epoch) -> na::Matrix3<f64> {
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
-pub fn rotation_eci_to_ecef(epc: Epoch) -> na::Matrix3<f64> {
+pub fn rotation_eci_to_ecef(epc: Epoch) -> SMatrix3 {
     polar_motion(epc) * earth_rotation(epc) * bias_precession_nutation(epc)
 }
 
@@ -238,7 +241,7 @@ pub fn rotation_eci_to_ecef(epc: Epoch) -> na::Matrix3<f64> {
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
-pub fn rotation_ecef_to_eci(epc: Epoch) -> na::Matrix3<f64> {
+pub fn rotation_ecef_to_eci(epc: Epoch) -> SMatrix3 {
     rotation_eci_to_ecef(epc).transpose()
 }
 
@@ -355,7 +358,7 @@ pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// // Convert to ECEF state
 /// let x_ecef = state_eci_to_ecef(epc, x_cart);
 /// ```
-pub fn state_eci_to_ecef(epc: Epoch, x_eci: Vector6<f64>) -> Vector6<f64> {
+pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
     // Compute Sequential Transformation Matrices
     let bpn = bias_precession_nutation(epc);
     let r = earth_rotation(epc);
@@ -370,7 +373,7 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: Vector6<f64>) -> Vector6<f64> {
     let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_eci);
     let v: Vector3<f64> = pm * (r * bpn * v_eci - omega_vec.cross(&(r * bpn * r_eci)));
 
-    Vector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 /// Transforms a Cartesian Earth-fixed state (position and velocity) into the
@@ -411,7 +414,7 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: Vector6<f64>) -> Vector6<f64> {
 /// // Convert ECEF state back to inertial state
 /// let x_eci = state_ecef_to_eci(epc, x_ecef);
 /// ```
-pub fn state_ecef_to_eci(epc: Epoch, x_ecef: Vector6<f64>) -> Vector6<f64> {
+pub fn state_ecef_to_eci(epc: Epoch, x_ecef: SVector6) -> SVector6 {
     // Compute Sequential Transformation Matrices
     let bpn = bias_precession_nutation(epc);
     let r = earth_rotation(epc);
@@ -427,7 +430,7 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: Vector6<f64>) -> Vector6<f64> {
     let v: Vector3<f64> = (r * bpn).transpose()
         * (pm.transpose() * v_ecef + omega_vec.cross(&(pm.transpose() * r_ecef)));
 
-    Vector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 #[cfg(test)]
@@ -594,7 +597,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eci = state_osculating_to_cartesian(oe, true);
+        let eci = state_osculating_to_cartesian(oe, DEGREES);
 
         // Perform circular transformations
         let ecef = state_eci_to_ecef(epc, eci);

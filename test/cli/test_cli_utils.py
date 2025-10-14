@@ -1,8 +1,8 @@
 import pytest
+import brahe
 from brahe import Epoch
 from brahe.cli.utils import epoch_from_epochlike, parse_float
 
-@pytest.mark.xfail
 def test_parse_float():
     assert parse_float("1") == 1.0
     assert parse_float("1.5") == 1.5
@@ -10,17 +10,14 @@ def test_parse_float():
     assert parse_float("potato") == None
     assert parse_float("2022-01-01T00:00:00") == None
 
-@pytest.mark.xfail
 def test_epoch_from_epochlike_mjd():
-    assert epoch_from_epochlike("55420.0") == Epoch.from_mjd(55420.0, "UTC")
-    assert epoch_from_epochlike("55420") == Epoch.from_mjd(55420.0, "UTC")
+    assert epoch_from_epochlike("55420.0") == Epoch.from_mjd(55420.0, brahe.TimeSystem.UTC)
+    assert epoch_from_epochlike("55420") == Epoch.from_mjd(55420.0, brahe.TimeSystem.UTC)
 
-@pytest.mark.xfail
 def test_epoch_from_epochlike_jd():
-    assert epoch_from_epochlike("2455420.0") == Epoch.from_jd(2455420.0, "UTC")
-    assert epoch_from_epochlike("2455420") == Epoch.from_jd(2455420.0, "UTC")
+    assert epoch_from_epochlike("2455420.0") == Epoch.from_jd(2455420.0, brahe.TimeSystem.UTC)
+    assert epoch_from_epochlike("2455420") == Epoch.from_jd(2455420.0, brahe.TimeSystem.UTC)
 
-@pytest.mark.xfail
 def test_epoch_from_epochlike_string():
     assert epoch_from_epochlike("2022-01-01T00:00:00Z") == Epoch.from_string("2022-01-01T00:00:00Z")
     assert epoch_from_epochlike("2022-01-01T00:00:00.000Z") == Epoch.from_string("2022-01-01T00:00:00Z")

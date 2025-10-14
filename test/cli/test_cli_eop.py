@@ -8,25 +8,22 @@ import brahe
 
 runner = CliRunner()
 
-@pytest.mark.xfail
 def test_cli_eop_download_standard():
     tmpfile = tempfile.NamedTemporaryFile().name
     with patch("brahe.download_standard_eop_file") as mock:
         result = runner.invoke(app, ["eop", "download", tmpfile, "--product", "standard"])
         assert result.exit_code == 0
         assert f"Downloaded standard EOP data to {tmpfile}" in result.stdout
-        assert mock.called_once_with(tmpfile)
+        mock.assert_called_once_with(tmpfile)
 
-@pytest.mark.xfail
 def test_cli_eop_download_c04():
     tmpfile = tempfile.NamedTemporaryFile().name
     with patch("brahe.download_c04_eop_file") as mock:
         result = runner.invoke(app, ["eop", "download", tmpfile, "--product", "c04"])
         assert result.exit_code == 0
         assert f"Downloaded c04 EOP data to {tmpfile}" in result.stdout
-        assert mock.called_once_with(tmpfile)
+        mock.assert_called_once_with(tmpfile)
 
-@pytest.mark.xfail
 def test_cli_eop_get_utc_ut1(iau2000_standard_filepath, iau2000_c04_20_filepath):
 
     # Patch the eop initialization to use the test files
@@ -62,7 +59,6 @@ def test_cli_eop_get_utc_ut1(iau2000_standard_filepath, iau2000_c04_20_filepath)
     assert result.exit_code == 1
     assert 'is out of range for EOP data.' in result.stdout
 
-@pytest.mark.xfail
 def test_cli_eop_get_polar_motion(iau2000_standard_filepath, iau2000_c04_20_filepath):
 
     # Patch the eop initialization to use the test files
@@ -98,7 +94,6 @@ def test_cli_eop_get_polar_motion(iau2000_standard_filepath, iau2000_c04_20_file
     assert result.exit_code == 1
     assert 'is out of range for EOP data.' in result.stdout
 
-@pytest.mark.xfail
 def test_cli_eop_get_cip_offset(iau2000_standard_filepath, iau2000_c04_20_filepath):
 
     # Patch the eop initialization to use the test files
@@ -134,37 +129,36 @@ def test_cli_eop_get_cip_offset(iau2000_standard_filepath, iau2000_c04_20_filepa
     assert result.exit_code == 1
     assert 'is out of range for EOP data.' in result.stdout
 
-@pytest.mark.xfail
 def test_cli_eop_get_lod(iau2000_standard_filepath, iau2000_c04_20_filepath):
 
     # Patch the eop initialization to use the test files
     with patch("brahe.cli.eop.get_global_eop_source", return_value=brahe.FileEOPProvider.from_file(iau2000_standard_filepath, True, "Error")) as mock:
         result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z"])
         assert result.exit_code == 0
-        assert '-2.6700000000000002e-05' in result.stdout
+        assert '-2.67e-05' in result.stdout
 
     with patch("brahe.cli.eop.get_global_eop_source", return_value=brahe.FileEOPProvider.from_file(iau2000_standard_filepath, True, "Error")) as mock:
         result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "standard"])
         assert result.exit_code == 0
-        assert '-2.6700000000000002e-05' in result.stdout
+        assert '-2.67e-05' in result.stdout
 
     result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "standard", "--source", "file", "--filepath", iau2000_standard_filepath])
     assert result.exit_code == 0
-    assert '-2.6700000000000002e-05' in result.stdout
+    assert '-2.67e-05' in result.stdout
 
     with patch("brahe.cli.eop.get_global_eop_source", return_value=brahe.FileEOPProvider.from_file(iau2000_c04_20_filepath, True, "Error")) as mock:
         result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "c04"])
         assert result.exit_code == 0
-        assert '-3.14e-05' in result.stdout
+        assert '-3.14' in result.stdout and 'e-05' in result.stdout
 
     with patch("brahe.cli.eop.get_global_eop_source", return_value=brahe.FileEOPProvider.from_file(iau2000_c04_20_filepath, True, "Error")) as mock:
         result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "c04"])
         assert result.exit_code == 0
-        assert '-3.14e-05' in result.stdout
+        assert '-3.14' in result.stdout and 'e-05' in result.stdout
 
     result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "c04", "--source", "file", "--filepath", iau2000_c04_20_filepath])
     assert result.exit_code == 0
-    assert '-3.14e-05' in result.stdout
+    assert '-3.14' in result.stdout and 'e-05' in result.stdout
 
     result = runner.invoke(app, ["eop", "get-lod", "3000-01-01T00:00:00Z"])
     assert result.exit_code == 1

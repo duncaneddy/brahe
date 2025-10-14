@@ -1,3 +1,10 @@
+# IDE
+.idea/
+.vscode
+digest.txt
+CLAUDE.md
+.claude/*
+
 # Scratch & WIP
 nrlmsis2.1/
 sgp4/
@@ -34,3 +41,8 @@ docs/site/*
 .DS_Store
 .idea/*
 .vscode/*
+
+# Markdown files in root (except README and CHANGELOG)
+/*.md
+!README.md
+!CHANGELOG.md

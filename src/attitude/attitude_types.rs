@@ -140,5 +140,5 @@ pub struct EulerAngle {
 /// other attitude representations. Specifically, `Quaternion`, `EulerAxis`, and `EulerAngle`.
 #[derive(Clone, Copy)]
 pub struct RotationMatrix {
-    pub(crate) data: Matrix3<f64>,
+    pub(crate) data: crate::coordinates::SMatrix3,
 }

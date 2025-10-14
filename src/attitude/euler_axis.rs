@@ -10,18 +10,17 @@ use crate::attitude::attitude_types::{
     EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON
 };
 use crate::attitude::ToAttitude;
-use crate::constants::{DEG2RAD, RAD2DEG};
+use crate::constants::{AngleFormat, RADIANS, DEG2RAD, RAD2DEG};
 use crate::FromAttitude;
 
 impl EulerAxis {
-    /// Create a new `EulerAxis` struct from an axis and angle. The angle can be in either degrees or radians, and
-    /// the `as_degrees` flag is used to specify the input angle units.
+    /// Create a new `EulerAxis` struct from an axis and angle.
     ///
     /// # Arguments
     ///
     /// - `axis` - A `Vector3<f64>` representing the axis of rotation.
     /// - `angle` - A `f64` representing the angle of rotation.
-    /// - `as_degrees` - A `bool` flag indicating if the input angle is in degrees.
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -32,19 +31,22 @@ impl EulerAxis {
     /// ```
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::AngleFormat;
     ///
     /// let axis = Vector3::new(1.0, 1.0, 1.0);
     /// let angle = 45.0;
     ///
-    /// let e = EulerAxis::new(axis, angle, true);
+    /// let e = EulerAxis::new(axis, angle, AngleFormat::Degrees);
     /// ```
-    pub fn new(axis: Vector3<f64>, angle: f64, as_degrees: bool) -> Self {
-        let angle = if as_degrees { angle * DEG2RAD } else { angle };
+    pub fn new(axis: Vector3<f64>, angle: f64, angle_format: AngleFormat) -> Self {
+        let angle = match angle_format {
+            AngleFormat::Degrees => angle * DEG2RAD,
+            AngleFormat::Radians => angle,
+        };
         Self { axis, angle }
     }
 
-    /// Create a new `EulerAxis` struct from individual axis and angle values. The angle can be in either degrees or radians, and
-    /// the `as_degrees` flag is used to specify the input angle units.
+    /// Create a new `EulerAxis` struct from individual axis and angle values.
     ///
     /// # Arguments
     ///
@@ -52,7 +54,7 @@ impl EulerAxis {
     /// - `y` - A `f64` representing the y-component of the axis of rotation.
     /// - `z` - A `f64` representing the z-component of the axis of rotation.
     /// - `angle` - A `f64` representing the angle of rotation.
-    /// - `as_degrees` - A `bool` flag indicating if the input angle is in degrees. Set to `true` if the input angle is in degrees.
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -62,21 +64,22 @@ impl EulerAxis {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// ```
-    pub fn from_values(x: f64, y: f64, z: f64, angle: f64, as_degrees: bool) -> Self {
-        Self::new(Vector3::new(x, y, z), angle, as_degrees)
+    pub fn from_values(x: f64, y: f64, z: f64, angle: f64, angle_format: AngleFormat) -> Self {
+        Self::new(Vector3::new(x, y, z), angle, angle_format)
     }
 
-    /// Create a new `EulerAxis` struct from a `Vector4<f64>`. The `as_degrees` flag is used to specify the input angle units.
+    /// Create a new `EulerAxis` struct from a `Vector4<f64>`.
     /// The angle can be either the first or last component of the vector, and the `vector_first` flag is used to specify
     /// the location of the angle in the vector.
     ///
     /// # Arguments
     ///
     /// - `vector` - A `Vector4<f64>` representing the axis and angle of rotation.
-    /// - `as_degrees` - A `bool` flag indicating if the input angle is in degrees. Set to `true` if the input angle is in degrees.
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     /// - `vector_first` - A `bool` flag indicating if the angle is the first component of the vector. Set to `true` if the angle is the first component.
     ///
     /// # Returns
@@ -88,27 +91,28 @@ impl EulerAxis {
     /// ```
     /// use nalgebra::Vector4;
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::AngleFormat;
     ///
     /// let vector = Vector4::new(1.0, 1.0, 1.0, 45.0);
-    /// let e = EulerAxis::from_vector(vector, true, false);
+    /// let e = EulerAxis::from_vector(vector, AngleFormat::Degrees, false);
     /// ```
-    pub fn from_vector(vector: Vector4<f64>, as_degrees: bool, vector_first: bool) -> Self {
+    pub fn from_vector(vector: Vector4<f64>, angle_format: AngleFormat, vector_first: bool) -> Self {
         let (angle, axis) = if vector_first {
             (vector[3], Vector3::new(vector[0], vector[1], vector[2]))
         } else {
             (vector[0], Vector3::new(vector[1], vector[2], vector[3]))
         };
 
-        Self::new(axis, angle, as_degrees)
+        Self::new(axis, angle, angle_format)
     }
 
-    /// Convert the `EulerAxis` struct to a `Vector4<f64>`. The `as_degrees` flag is used to specify the output angle units.
+    /// Convert the `EulerAxis` struct to a `Vector4<f64>`.
     /// The angle can be either the first or last component of the vector, and the `vector_first` flag is used to specify
     /// the location of the angle in the vector.
     ///
     /// # Arguments
     ///
-    /// - `as_degrees` - A `bool` flag indicating if the output angle is in degrees. Set to `true` if the output angle is in degrees.
+    /// - `angle_format` - Format for angular elements in output (Radians or Degrees).
     /// - `vector_first` - A `bool` flag indicating if the angle is the first component of the vector. Set to `true` if the angle is the first component.
     ///
     /// # Returns
@@ -120,33 +124,31 @@ impl EulerAxis {
     /// ```
     /// use nalgebra::Vector4;
     /// use brahe::attitude::attitude_types::EulerAxis;
+    /// use brahe::AngleFormat;
     ///
     /// // Create angle-first vector
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
-    /// let vector = e.to_vector(true, false);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
+    /// let vector = e.to_vector(AngleFormat::Degrees, false);
     ///
     /// assert_eq!(vector, Vector4::new(45.0, 1.0, 1.0, 1.0));
     ///
     /// // Create angle-last vector
     ///
-    /// let vector = e.to_vector(true, true);
+    /// let vector = e.to_vector(AngleFormat::Degrees, true);
     ///
     /// assert_eq!(vector, Vector4::new(1.0, 1.0, 1.0, 45.0));
     /// ```
-    pub fn to_vector(&self, as_degrees: bool, vector_first: bool) -> Vector4<f64> {
-        if as_degrees {
-            if vector_first {
-                Vector4::new(self.axis.x, self.axis.y, self.axis.z, self.angle * RAD2DEG)
-            } else {
-                Vector4::new(self.angle * RAD2DEG, self.axis.x, self.axis.y, self.axis.z)
-            }
+    pub fn to_vector(&self, angle_format: AngleFormat, vector_first: bool) -> Vector4<f64> {
+        let angle = match angle_format {
+            AngleFormat::Degrees => self.angle * RAD2DEG,
+            AngleFormat::Radians => self.angle,
+        };
+
+        if vector_first {
+            Vector4::new(self.axis.x, self.axis.y, self.axis.z, angle)
         } else {
-            if vector_first {
-                Vector4::new(self.axis.x, self.axis.y, self.axis.z, self.angle)
-            } else {
-                Vector4::new(self.angle, self.axis.x, self.axis.y, self.axis.z)
-            }
+            Vector4::new(angle, self.axis.x, self.axis.y, self.axis.z)
         }
     }
 }
@@ -259,12 +261,13 @@ impl FromAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
     /// use brahe::attitude::FromAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// let e2 = EulerAxis::from_euler_axis(e);
     /// ```
     fn from_euler_axis(e: EulerAxis) -> Self {
-        EulerAxis::new(e.axis.clone(), e.angle, false)
+        EulerAxis::new(e.axis.clone(), e.angle, RADIANS)
     }
 
     /// Create a new `EulerAxis` struct from an `EulerAngle`.
@@ -282,8 +285,9 @@ impl FromAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder};
     /// use brahe::attitude::FromAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 45.0, 45.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 45.0, 45.0, AngleFormat::Degrees);
     /// let e2 = EulerAxis::from_euler_angle(e);
     /// ```
     fn from_euler_angle(e: EulerAngle) -> Self {
@@ -331,8 +335,9 @@ impl ToAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// let q = e.to_quaternion();
     /// ```
     fn to_quaternion(&self) -> Quaternion {
@@ -350,8 +355,9 @@ impl ToAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// let e2 = e.to_euler_axis();
     /// ```
     fn to_euler_axis(&self) -> EulerAxis {
@@ -374,8 +380,9 @@ impl ToAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAxis, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let euler_axis = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let euler_axis = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// let euler_angle = euler_axis.to_euler_angle(EulerAngleOrder::XYZ);
     /// ```
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle {
@@ -393,8 +400,9 @@ impl ToAttitude for EulerAxis {
     /// ```
     /// use brahe::attitude::attitude_types::EulerAxis;
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+    /// let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, AngleFormat::Degrees);
     /// let r = e.to_rotation_matrix();
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {
@@ -407,17 +415,18 @@ mod tests {
     use std::f64::consts::PI;
     use approx::assert_abs_diff_eq;
     use super::*;
+    use crate::constants::{DEGREES, RADIANS};
 
     #[test]
     fn new() {
-        let e = EulerAxis::new(Vector3::new(1.0, 1.0, 1.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(1.0, 1.0, 1.0), 45.0, DEGREES);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
         assert_eq!(e.angle, 45.0 * DEG2RAD);
     }
 
     #[test]
     fn from_values() {
-        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
         assert_eq!(e.angle, 45.0 * DEG2RAD);
     }
@@ -425,7 +434,7 @@ mod tests {
     #[test]
     fn from_vector_vector_first() {
         let vector = Vector4::new(1.0, 1.0, 1.0, 45.0);
-        let e = EulerAxis::from_vector(vector, true, true);
+        let e = EulerAxis::from_vector(vector, DEGREES, true);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
         assert_eq!(e.angle, 45.0 * DEG2RAD);
     }
@@ -433,22 +442,22 @@ mod tests {
     #[test]
     fn from_vector_angle_first() {
         let vector = Vector4::new(45.0, 1.0, 1.0, 1.0);
-        let e = EulerAxis::from_vector(vector, true, false);
+        let e = EulerAxis::from_vector(vector, DEGREES, false);
         assert_eq!(e.axis, Vector3::new(1.0, 1.0, 1.0));
         assert_eq!(e.angle, 45.0 * DEG2RAD);
     }
 
     #[test]
     fn to_vector_vector_first() {
-        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
-        let vector = e.to_vector(true, true);
+        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
+        let vector = e.to_vector(DEGREES, true);
         assert_eq!(vector, Vector4::new(1.0, 1.0, 1.0, 45.0));
     }
 
     #[test]
     fn to_vector_angle_first() {
-        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
-        let vector = e.to_vector(true, false);
+        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
+        let vector = e.to_vector(DEGREES, false);
         assert_eq!(vector, Vector4::new(45.0, 1.0, 1.0, 1.0));
     }
 
@@ -462,7 +471,7 @@ mod tests {
 
     #[test]
     fn from_euler_axis() {
-        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let e2 = EulerAxis::from_euler_axis(e);
         assert_eq!(e, e2);
 
@@ -472,7 +481,7 @@ mod tests {
 
     #[test]
     fn from_euler_angle_x_axis() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(1.0, 0.0, 0.0));
         assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
@@ -480,7 +489,7 @@ mod tests {
 
     #[test]
     fn from_euler_angle_y_axis() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(0.0, 1.0, 0.0));
         assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
@@ -488,7 +497,7 @@ mod tests {
 
     #[test]
     fn from_euler_angle_z_axis() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let e2 = EulerAxis::from_euler_angle(e);
         assert_eq!(e2.axis, Vector3::new(0.0, 0.0, 1.0));
         assert_abs_diff_eq!(e2.angle, PI/4.0, epsilon = 1e-12);
@@ -535,14 +544,14 @@ mod tests {
 
     #[test]
     fn to_quaternion() {
-        let e = EulerAxis::from_values(1.0, 0.0, 0.0, 0.0, false);
+        let e = EulerAxis::from_values(1.0, 0.0, 0.0, 0.0, RADIANS);
         let q = e.to_quaternion();
         assert_eq!(q, Quaternion::new(1.0, 0.0, 0.0, 0.0));
     }
 
     #[test]
     fn to_euler_axis() {
-        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, true);
+        let e = EulerAxis::from_values(1.0, 1.0, 1.0, 45.0, DEGREES);
         let e2 = e.to_euler_axis();
         assert_eq!(e, e2);
 
@@ -553,7 +562,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Rx() {
-        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, false);
+        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
         assert_abs_diff_eq!(e2.phi, PI/4.0, epsilon = 1e-12);
@@ -564,7 +573,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Ry() {
-        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, false);
+        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
         assert_eq!(e2.phi, 0.0);
@@ -575,7 +584,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_euler_angle_Rz() {
-        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, false);
+        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, RADIANS);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e2.order, EulerAngleOrder::XYZ);
         assert_eq!(e2.phi, 0.0);
@@ -586,7 +595,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Rx() {
-        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, false);
+        let e = EulerAxis::from_values(1.0, 0.0, 0.0, PI/4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -602,7 +611,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Ry() {
-        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, false);
+        let e = EulerAxis::from_values(0.0, 1.0, 0.0, PI/4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -618,7 +627,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn to_rotation_matrix_Rz() {
-        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, false);
+        let e = EulerAxis::from_values(0.0, 0.0, 1.0, PI/4.0, RADIANS);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);

@@ -2,10 +2,11 @@ import pytest
 import brahe
 import numpy as np
 from pytest import approx
+from brahe import AngleFormat
 
 def test_state_osculating_to_cartesian(eop):
     osc = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
-    cart = brahe.state_osculating_to_cartesian(osc, False)
+    cart = brahe.state_osculating_to_cartesian(osc, AngleFormat.RADIANS)
 
     assert isinstance(cart, np.ndarray)
     assert cart[0] == brahe.R_EARTH + 500e3
@@ -16,7 +17,7 @@ def test_state_osculating_to_cartesian(eop):
     assert cart[5] == 0.0
 
     osc = np.array([brahe.R_EARTH + 500e3, 0.0, 90.0, 0.0, 0.0, 0.0])
-    cart = brahe.state_osculating_to_cartesian(osc, True)
+    cart = brahe.state_osculating_to_cartesian(osc, AngleFormat.DEGREES)
 
     assert isinstance(cart, np.ndarray)
     assert cart[0] == brahe.R_EARTH + 500e3
@@ -35,7 +36,7 @@ def test_state_cartesian_to_osculating(eop):
         brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0),
         0.0,
         ])
-    osc = brahe.state_cartesian_to_osculating(cart, True)
+    osc = brahe.state_cartesian_to_osculating(cart, brahe.AngleFormat.DEGREES)
 
     assert osc[0] == approx(brahe.R_EARTH + 500e3, abs = 1e-9)
     assert osc[1] == 0.0
@@ -52,7 +53,7 @@ def test_state_cartesian_to_osculating(eop):
         0.0,
         brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0),
         ])
-    osc = brahe.state_cartesian_to_osculating(cart, True)
+    osc = brahe.state_cartesian_to_osculating(cart, AngleFormat.DEGREES)
 
     assert osc[0] == approx(brahe.R_EARTH + 500e3, abs = 1.0e-9)
     assert osc[1] == 0.0

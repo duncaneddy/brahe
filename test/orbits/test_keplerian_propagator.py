@@ -528,9 +528,15 @@ def test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_age():
         60.0,
     )
 
+    # Set eviction policy - only keep states within 120 seconds of current
     propagator.set_eviction_policy_max_age(120.0)
 
+    # Propagate several steps (10 * 60s = 600s total)
     propagator.propagate_steps(10)
+
+    # Should have evicted old states - should keep only last ~3 states (120s / 60s step)
+    # Plus current state: 3 previous + current = 4 states max
+    assert len(propagator.trajectory) <= 4
     assert len(propagator.trajectory) > 0
 
 

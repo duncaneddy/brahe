@@ -1044,10 +1044,16 @@ mod tests {
             60.0,
         );
 
+        // Set eviction policy - only keep states within 120 seconds of current
         let result = propagator.set_eviction_policy_max_age(120.0);
         assert!(result.is_ok());
 
+        // Propagate several steps (10 * 60s = 600s total)
         propagator.propagate_steps(10);
+
+        // Should have evicted old states - should keep only last ~3 states (120s / 60s step)
+        // Plus current state: 3 previous + current = 4 states max
+        assert!(propagator.trajectory.len() <= 4);
         assert!(propagator.trajectory.len() > 0);
     }
 

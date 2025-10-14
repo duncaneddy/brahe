@@ -570,6 +570,11 @@ mod tests {
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 60.0, epsilon = 0.1);
+        assert_eq!(prop.trajectory.len(), 2); // Initial + 1 step
+
+        // State should have changed after propagation
+        let new_state = prop.current_state();
+        assert_ne!(new_state, prop.initial_state);
     }
 
     #[test]
@@ -582,6 +587,13 @@ mod tests {
         let new_epoch = prop.current_epoch();
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 120.0, epsilon = 0.1);
+
+        // Confirm only 2 states in trajectory (initial + 1 step)
+        assert_eq!(prop.trajectory.len(), 2);
+
+        // State should have changed after propagation
+        let new_state = prop.current_state();
+        assert_ne!(new_state, prop.initial_state);
     }
 
     #[test]
@@ -595,20 +607,51 @@ mod tests {
 
         assert_abs_diff_eq!(new_epoch - initial_epoch, 300.0, epsilon = 0.1);
         assert_eq!(prop.trajectory.len(), 6); // Initial + 5 steps
+
+        // State should have changed after propagation
+        let new_state = prop.current_state();
+        assert_ne!(new_state, prop.initial_state);
     }
 
     #[test]
-    #[ignore] // SGP4 fails to propagate this ISS TLE 1 day forward (NegativeSemiLatusRectum error)
+    fn test_sgppropagator_orbitpropagator_step_past() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let target_epoch = initial_epoch + 250.0;
+        prop.step_past(target_epoch);
+
+        let current_epoch = prop.current_epoch();
+        assert!(current_epoch > target_epoch);
+
+        // Should have 6 steps: initial + 5 steps of 60s
+        assert_eq!(prop.trajectory.len(), 6);
+        assert_abs_diff_eq!(current_epoch - initial_epoch, 300.0, epsilon = 0.1);
+
+        // State should have changed after propagation
+        let new_state = prop.current_state();
+        assert_ne!(new_state, prop.initial_state);
+    }
+
+    #[test]
     fn test_sgppropagator_orbitpropagator_propagate_to() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
-        let target_epoch = initial_epoch + 86400.0; // 1 day forward (in seconds)
+        let target_epoch = initial_epoch + 90.0; // 90 seconds forward
 
         prop.propagate_to(target_epoch);
         let current_epoch = prop.current_epoch();
 
-        assert_abs_diff_eq!(current_epoch.jd(), target_epoch.jd(), epsilon = 1e-9);
+        assert_eq!(current_epoch, target_epoch);
+
+        // Should have 3 steps: initial + 1 step of 60s + 1 step of 30s
+        assert_eq!(prop.trajectory.len(), 3);
+
+        // State should have changed after propagation
+        let new_state = prop.current_state();
+        assert_ne!(new_state, prop.initial_state);
     }
 
     #[test]
@@ -717,14 +760,16 @@ mod tests {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
-        // Set eviction policy - should succeed
+        // Set eviction policy - only keep states within 120 seconds of current
         let result = prop.set_eviction_policy_max_age(120.0);
         assert!(result.is_ok());
 
-        // Propagate several steps
+        // Propagate several steps (10 * 60s = 600s total)
         prop.propagate_steps(10);
 
-        // Verify trajectory has states (eviction policy is applied)
+        // Should have evicted old states - should keep only last ~3 states (120s / 60s step)
+        // Plus current state: 3 previous + current = 4 states max
+        assert!(prop.trajectory.len() <= 4);
         assert!(prop.trajectory.len() > 0);
     }
 

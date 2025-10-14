@@ -2,70 +2,130 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://github.com/duncaneddy/brahe/index.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/contributing.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/installation.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/about/index.html</loc>
-         <lastmod>2024-10-14</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/about/contact.html</loc>
-         <lastmod>2024-10-14</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/about/contributing.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/about/design_decisions.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/about/license.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/about/roadmap.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/about/python_deprecation.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/index.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/examples/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/contact_prediction.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/first_script.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/attitude_representation.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/frame_conversion.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/constants.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/installation.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/coordinate_transformations.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/orbit_prediction.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/frame_transformations.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/getting_started/tle_download.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <loc>https://github.com/duncaneddy/brahe/learn/orbital_properties.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/learn/time.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/learn/orbit_propagation/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/learn/orbit_propagation/keplerian_propagation.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/learn/orbit_propagation/sgp_propagation.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/library_api/index.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/constants.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/eop.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/frames.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/time.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/trajectories.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/orbits.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/propagators.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/tle.html</loc>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/reference/index.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/reference/constants.html</loc>
-         <lastmod>2024-10-14</lastmod>
+         <lastmod>2025-10-14</lastmod>
     </url>
 </urlset>

@@ -53,12 +53,12 @@ unsafe fn py_position_geocentric_to_ecef<'py>(
     py: Python<'py>,
     x_geoc: Bound<'py, PyArray<f64, Ix1>>,
     angle_format: &PyAngleFormat,
-) -> Bound<'py, PyArray<f64, Ix1>> {
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let vec =
         coordinates::position_geocentric_to_ecef(numpy_to_vector!(x_geoc, 3, f64), angle_format.value)
-            .unwrap();
+            .map_err(|e| exceptions::PyValueError::new_err(e))?;
 
-    vector_to_numpy!(py, vec, 3, f64)
+    Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
 #[pyfunction]
@@ -82,11 +82,11 @@ unsafe fn py_position_geodetic_to_ecef<'py>(
     py: Python<'py>,
     x_geod: Bound<'py, PyArray<f64, Ix1>>,
     angle_format: &PyAngleFormat,
-) -> Bound<'py, PyArray<f64, Ix1>> {
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let vec = coordinates::position_geodetic_to_ecef(numpy_to_vector!(x_geod, 3, f64), angle_format.value)
-        .unwrap();
+        .map_err(|e| exceptions::PyValueError::new_err(e))?;
 
-    vector_to_numpy!(py, vec, 3, f64)
+    Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
 #[pyfunction]

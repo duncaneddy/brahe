@@ -3,7 +3,7 @@ site_author: Duncan Eddy
 site_description: Brahe - easy-to-learn, high-performance, and quick-to-deploy
 site_url: https://github.com/duncaneddy/brahe
 repo_url: https://github.com/duncaneddy/brahe
-docs_dir: pages
+docs_dir: docs
 use_directory_urls: false
 
 extra_css:

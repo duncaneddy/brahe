@@ -1,7 +1,0 @@
-mkdocs-material>=9.5.2,<10.0.0
-mkdocs-git-revision-date-localized-plugin>=1.2.4,<2.0.0
-mkdocstrings==0.24.0
-mkdocs-section-index==0.3.8
-
-matplotlib>=3.8.2,<4.0.0
-plotly>=5.18.0,<6.0.0

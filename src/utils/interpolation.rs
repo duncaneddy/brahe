@@ -10,7 +10,10 @@ pub trait StateInterpolator<const S: usize> {
     fn interpolate(&self, t: Epoch) -> SVector<f64, S>;
 }
 
-pub fn lagrange_interpolation<const S: usize>(t: Epoch, data: Vec<(Epoch, SVector<f64, S>)>) -> SVector<f64, S> {
+pub fn lagrange_interpolation<const S: usize>(
+    t: Epoch,
+    data: Vec<(Epoch, SVector<f64, S>)>,
+) -> SVector<f64, S> {
     let mut result = SVector::<f64, S>::zeros();
     for i in 0..data.len() {
         let mut term = data[i].1;

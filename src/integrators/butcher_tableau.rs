@@ -22,10 +22,10 @@ impl<const S: usize> ButcherTableau<S> {
     /// # Arguments
     ///
     /// - `a`: The matrix of coefficients for the Runge-Kutta method. Should be a square matrix of size `S`.
-    ///       The upper diagonal of the matrix should be zero.
+    ///   The upper diagonal of the matrix should be zero.
     /// - `b`: The vector of coefficients for the Runge-Kutta method. Should be a vector of size `S`.
     /// - `c`: The vector of coefficients for the Runge-Kutta method. Should be a vector of size `S`. The first
-    ///     element of the vector should be zero.
+    ///   element of the vector should be zero.
     ///
     /// # Returns
     ///

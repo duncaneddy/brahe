@@ -29,10 +29,10 @@
  * ```
  */
 
-pub mod traits;
-pub mod strajectory;
 pub mod dtrajectory;
 pub mod orbit_trajectory;
+pub mod strajectory;
+pub mod traits;
 
 // Note: traits and their types are not re-exported here to avoid ambiguous glob re-exports
 // Use `use brahe::traits::*` or `use brahe::trajectories::traits::*` instead

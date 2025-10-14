@@ -5,11 +5,11 @@ use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 ///
 /// Uses rastro.constants.GM_EARTH as the standard gravitational parameter for the calculation.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
 ///
 /// Returns:
-///     period (`float`): The orbital period of the astronomical object. Units: (s)
+///     float: The orbital period of the astronomical object in seconds.
 #[pyfunction]
 #[pyo3(text_signature = "(a)")]
 #[pyo3(name = "orbital_period")]
@@ -19,12 +19,12 @@ fn py_orbital_period(a: f64) -> PyResult<f64> {
 
 /// Computes the orbital period of an astronomical object around a general body.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     period (`float`): The orbital period of the astronomical object. Units: (s)
+///     float: The orbital period of the astronomical object in seconds.
 #[pyfunction]
 #[pyo3(text_signature = "(a, gm)")]
 #[pyo3(name = "orbital_period_general")]
@@ -34,12 +34,12 @@ fn py_orbital_period_general(a: f64, gm: f64) -> PyResult<f64> {
 
 /// Computes the mean motion of an astronomical object around Earth.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
+///     float: The mean motion of the astronomical object in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(a, angle_format)")]
 #[pyo3(name = "mean_motion")]
@@ -50,13 +50,13 @@ fn py_mean_motion(a: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 /// Computes the mean motion of an astronomical object around a general body
 /// given a semi-major axis.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
-///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
+///     float: The mean motion of the astronomical object in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(a, gm, angle_format)")]
 #[pyo3(name = "mean_motion_general")]
@@ -67,12 +67,12 @@ fn py_mean_motion_general(a: f64, gm: f64, angle_format: &PyAngleFormat) -> PyRe
 /// Computes the semi-major axis of an astronomical object from Earth
 /// given the object's mean motion.
 ///
-/// Arguments:
-///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
-///     angle_format (`AngleFormat`): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     n (float): The mean motion of the astronomical object in radians or degrees.
+///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
+///     float: The semi-major axis of the astronomical object in meters.
 #[pyfunction]
 #[pyo3(text_signature = "(n, angle_format)")]
 #[pyo3(name = "semimajor_axis")]
@@ -83,13 +83,13 @@ fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 /// Computes the semi-major axis of an astronomical object from a general body
 /// given the object's mean motion.
 ///
-/// Arguments:
-///     n (`float`): The mean motion of the astronomical object. Units: (rad) or (deg)
-///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
-///     angle_format (`AngleFormat`): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     n (float): The mean motion of the astronomical object in radians or degrees.
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
+///     float: The semi-major axis of the astronomical object in meters.
 #[pyfunction]
 #[pyo3(text_signature = "(n, gm, angle_format)")]
 #[pyo3(name = "semimajor_axis_general")]
@@ -97,15 +97,30 @@ fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> P
     Ok(orbits::semimajor_axis_general(n, gm, angle_format.value))
 }
 
+/// Computes the semi-major axis from orbital period for a general body.
+///
+/// Args:
+///     period (float): The orbital period in seconds.
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///
+/// Returns:
+///     float: The semi-major axis in meters.
 #[pyfunction]
-#[pyo3(text_signature = "(T, gm)")]
+#[pyo3(text_signature = "(period, gm)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period_general")]
 fn py_semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> PyResult<f64> {
     Ok(orbits::semimajor_axis_from_orbital_period_general(period, gm))
 }
 
+/// Computes the semi-major axis from orbital period around Earth.
+///
+/// Args:
+///     period (float): The orbital period in seconds.
+///
+/// Returns:
+///     float: The semi-major axis in meters.
 #[pyfunction]
-#[pyo3(text_signature = "(T)")]
+#[pyo3(text_signature = "(period)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period")]
 fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
     Ok(orbits::semimajor_axis_from_orbital_period(period))
@@ -113,12 +128,12 @@ fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
 
 /// Computes the perigee velocity of an astronomical object around Earth.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
 ///
 /// Returns:
-///     v (`float`): The magnitude of velocity of the object at perigee. Units: (m/s)
+///     float: The magnitude of velocity of the object at perigee in m/s.
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "perigee_velocity")]
@@ -128,30 +143,28 @@ fn py_perigee_velocity(a: f64, e: f64) -> PyResult<f64> {
 
 /// Computes the periapsis velocity of an astronomical object around a general body.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     v (`float`): The magnitude of velocity of the object at periapsis. Units: (m/s)
+///     float: The magnitude of velocity of the object at periapsis in m/s.
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(text_signature = "(a, e, gm)")]
 #[pyo3(name = "periapsis_velocity")]
 fn py_periapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
     Ok(orbits::periapsis_velocity(a, e, gm))
 }
 
-/// Calculate the distance of an object at its periapsis
+/// Calculate the distance of an object at its periapsis.
 ///
-/// # Arguments
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
 ///
-/// * `a`: The semi-major axis of the astronomical object. Units: (m)
-/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
-///
-/// # Returns
-///
-/// * `r`: The distance of the object at periapsis. Units (s)
+/// Returns:
+///     float: The distance of the object at periapsis in meters.
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "periapsis_distance")]
@@ -161,12 +174,12 @@ fn py_periapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 
 /// Computes the apogee velocity of an astronomical object around Earth.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
 ///
 /// Returns:
-///     v (`float`): The magnitude of velocity of the object at apogee. Units: (m/s)
+///     float: The magnitude of velocity of the object at apogee in m/s.
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "apogee_velocity")]
@@ -176,30 +189,28 @@ fn py_apogee_velocity(a: f64, e: f64) -> PyResult<f64> {
 
 /// Computes the apoapsis velocity of an astronomical object around a general body.
 ///
-/// Arguments:
-///     a (`float`): The semi-major axis of the astronomical object. Units: (m)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     gm (`float`): The standard gravitational parameter of primary body. Units: [m^3/s^2]
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
-///     v (`float`): The magnitude of velocity of the object at apoapsis. Units: (m/s)
+///     float: The magnitude of velocity of the object at apoapsis in m/s.
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(text_signature = "(a, e, gm)")]
 #[pyo3(name = "apoapsis_velocity")]
 fn py_apoapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
     Ok(orbits::apoapsis_velocity(a, e, gm))
 }
 
-/// Calculate the distance of an object at its apoapsis
+/// Calculate the distance of an object at its apoapsis.
 ///
-/// # Arguments
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
 ///
-/// * `a`: The semi-major axis of the astronomical object. Units: (m)
-/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
-///
-/// # Returns
-///
-/// * `r`: The distance of the object at apoapsis. Units (s)
+/// Returns:
+///     float: The distance of the object at apoapsis in meters.
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "apoapsis_distance")]
@@ -210,13 +221,13 @@ fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 /// Computes the inclination for a Sun-synchronous orbit around Earth based on
 /// the J2 gravitational perturbation.
 ///
-/// Arguments:
-///     a (`float`) The semi-major axis of the astronomical object. Units: (m)
-///     e (`float`) The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     inc (`float`) Inclination for a Sun synchronous orbit. Units: (deg) or (rad)
+///     float: Inclination for a Sun synchronous orbit in degrees or radians.
 #[pyfunction]
 #[pyo3(text_signature = "(a, e, angle_format)")]
 #[pyo3(name = "sun_synchronous_inclination")]
@@ -226,13 +237,13 @@ fn py_sun_synchronous_inclination(a: f64, e: f64, angle_format: &PyAngleFormat) 
 
 /// Converts eccentric anomaly into mean anomaly.
 ///
-/// Arguments:
-///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_ecc (float): Eccentric anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
+///     float: Mean anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_mean")]
@@ -240,36 +251,34 @@ fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
     Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, e, angle_format.value))
 }
 
-/// Converts mean anomaly into eccentric anomaly
+/// Converts mean anomaly into eccentric anomaly.
 ///
-/// Arguments:
-///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_mean (float): Mean anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
+///     float: Eccentric anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_eccentric")]
 fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    let res = orbits::anomaly_mean_to_eccentric(anm_mean, e, angle_format.value);
-    if res.is_ok() {
-        Ok(res.unwrap())
-    } else {
-        Err(exceptions::PyRuntimeError::new_err(res.err().unwrap()))
+    match orbits::anomaly_mean_to_eccentric(anm_mean, e, angle_format.value) {
+        Ok(value) => Ok(value),
+        Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
     }
 }
 
-/// Converts true anomaly into eccentric anomaly
+/// Converts true anomaly into eccentric anomaly.
 ///
-/// Arguments:
-///     anm_true (`float`): true anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_true (float): True anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
+///     float: Eccentric anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_eccentric")]
@@ -277,15 +286,15 @@ fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: &PyAngleFor
     Ok(orbits::anomaly_true_to_eccentric(anm_true, e, angle_format.value))
 }
 
-/// Converts eccentric anomaly into true anomaly
+/// Converts eccentric anomaly into true anomaly.
 ///
-/// # Arguments
-///     anm_ecc (`float`): Eccentric anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_ecc (float): Eccentric anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
-/// # Returns
-///     anm_true (`float`): true anomaly. Units: (rad) or (deg)
+/// Returns:
+///     float: True anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_true")]
@@ -295,13 +304,13 @@ fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
 
 /// Converts true anomaly into mean anomaly.
 ///
-/// Arguments:
-///     anm_true (`float`): True anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_true (float): True anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
+///     float: Mean anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_mean")]
@@ -309,24 +318,22 @@ fn py_anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: &PyAngleFormat) 
     Ok(orbits::anomaly_true_to_mean(anm_true, e, angle_format.value))
 }
 
-/// Converts mean anomaly into true anomaly
+/// Converts mean anomaly into true anomaly.
 ///
-/// Arguments:
-///     anm_mean (`float`): Mean anomaly. Units: (rad) or (deg)
-///     e (`float`): The eccentricity of the astronomical object's orbit. Dimensionless
-///     angle_format (`AngleFormat`): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS
+/// Args:
+///     anm_mean (float): Mean anomaly in radians or degrees.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
-///     anm_true (`float`): True anomaly. Units: (rad) or (deg)
+///     float: True anomaly in radians or degrees.
 #[pyfunction]
 #[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_true")]
 fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    let res = orbits::anomaly_mean_to_true(anm_mean, e, angle_format.value);
-    if res.is_ok() {
-        Ok(res.unwrap())
-    } else {
-        Err(exceptions::PyRuntimeError::new_err(res.err().unwrap()))
+    match orbits::anomaly_mean_to_true(anm_mean, e, angle_format.value) {
+        Ok(value) => Ok(value),
+        Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
     }
 }
 
@@ -341,15 +348,15 @@ pub struct PySGPPropagator {
 
 #[pymethods]
 impl PySGPPropagator {
-    /// Create a new SGP propagator from TLE lines
+    /// Create a new SGP propagator from TLE lines.
     ///
-    /// Arguments:
-    ///     line1 (str): First line of TLE data
-    ///     line2 (str): Second line of TLE data
-    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
+    /// Args:
+    ///     line1 (str): First line of TLE data.
+    ///     line2 (str): Second line of TLE data.
+    ///     step_size (float): Step size in seconds for propagation. Defaults to 60.0.
     ///
     /// Returns:
-    ///     SGPPropagator: New SGP propagator instance
+    ///     SGPPropagator: New SGP propagator instance.
     #[classmethod]
     #[pyo3(signature = (line1, line2, step_size=60.0))]
     pub fn from_tle(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
@@ -360,16 +367,16 @@ impl PySGPPropagator {
         }
     }
 
-    /// Create a new SGP propagator from 3-line TLE format (with satellite name)
+    /// Create a new SGP propagator from 3-line TLE format (with satellite name).
     ///
-    /// Arguments:
-    ///     name (str): Satellite name (line 0)
-    ///     line1 (str): First line of TLE data
-    ///     line2 (str): Second line of TLE data
-    ///     step_size (float): Step size in seconds for propagation (default: 60.0)
+    /// Args:
+    ///     name (str): Satellite name (line 0).
+    ///     line1 (str): First line of TLE data.
+    ///     line2 (str): Second line of TLE data.
+    ///     step_size (float): Step size in seconds for propagation. Defaults to 60.0.
     ///
     /// Returns:
-    ///     SGPPropagator: New SGP propagator instance
+    ///     SGPPropagator: New SGP propagator instance.
     #[classmethod]
     #[pyo3(signature = (name, line1, line2, step_size=60.0))]
     pub fn from_3le(_cls: &Bound<'_, PyType>, name: String, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
@@ -380,48 +387,66 @@ impl PySGPPropagator {
         }
     }
 
-    /// Get NORAD ID
+    /// Get NORAD ID.
+    ///
+    /// Returns:
+    ///     int: NORAD catalog ID.
     #[getter]
     pub fn norad_id(&self) -> u32 {
         self.propagator.norad_id
     }
 
-    /// Get satellite name (if available)
+    /// Get satellite name (if available).
+    ///
+    /// Returns:
+    ///     str or None: Satellite name if provided.
     #[getter]
     pub fn satellite_name(&self) -> Option<String> {
         self.propagator.satellite_name.clone()
     }
 
-    /// Get TLE epoch
+    /// Get TLE epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Epoch of the TLE data.
     #[getter]
     pub fn epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.initial_epoch() }
     }
 
-    /// Get current epoch
+    /// Get current epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Current propagator epoch.
     #[getter]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
     }
 
-    /// Get step size in seconds
+    /// Get step size in seconds.
+    ///
+    /// Returns:
+    ///     float: Step size in seconds.
     #[getter]
     pub fn step_size(&self) -> f64 {
         self.propagator.step_size()
     }
 
-    /// Set step size in seconds
+    /// Set step size in seconds.
+    ///
+    /// Args:
+    ///     step_size (float): New step size in seconds.
     #[setter]
     pub fn set_step_size(&mut self, step_size: f64) {
         self.propagator.set_step_size(step_size);
     }
 
-    /// Set output format (frame, representation, and angle format)
+    /// Set output format (frame, representation, and angle format).
     ///
-    /// Arguments:
-    ///     frame: Output frame (ECI or ECEF)
-    ///     representation: Output representation (Cartesian or Keplerian)
-    ///     angle_format: Angle format for Keplerian (None for Cartesian)
+    /// Args:
+    ///     frame (OrbitFrame): Output frame (ECI or ECEF).
+    ///     representation (OrbitRepresentation): Output representation (Cartesian or Keplerian).
+    ///     angle_format (AngleFormat or None): Angle format for Keplerian (None for Cartesian).
     #[pyo3(text_signature = "(frame, representation, angle_format)")]
     pub fn set_output_format(
         &mut self,
@@ -437,85 +462,85 @@ impl PySGPPropagator {
         );
     }
 
-    /// Get current state vector
+    /// Get current state vector.
     ///
     /// Returns:
-    ///     numpy.ndarray: Current state vector in the propagator's output format
+    ///     numpy.ndarray: Current state vector in the propagator's output format.
     #[pyo3(text_signature = "()")]
     pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.current_state();
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Get initial state vector
+    /// Get initial state vector.
     ///
     /// Returns:
-    ///     numpy.ndarray: Initial state vector in the propagator's output format
+    ///     numpy.ndarray: Initial state vector in the propagator's output format.
     #[pyo3(text_signature = "()")]
     pub fn initial_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.initial_state();
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute state at a specific epoch
+    /// Compute state at a specific epoch.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector in the propagator's current output format
+    ///     numpy.ndarray: State vector in the propagator's current output format.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Compute state at a specific epoch in PEF coordinates
+    /// Compute state at a specific epoch in PEF coordinates.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in PEF frame
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in PEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_pef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state_pef(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Compute state at a specific epoch in ECI coordinates
+    /// Compute state at a specific epoch in ECI coordinates.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state_eci(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Compute state at a specific epoch in ECEF coordinates
+    /// Compute state at a specific epoch in ECEF coordinates.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state_ecef(epoch.obj);
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Compute states at multiple epochs
+    /// Compute states at multiple epochs.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format
+    ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -523,13 +548,13 @@ impl PySGPPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Compute states at multiple epochs in ECI coordinates
+    /// Compute states at multiple epochs in ECI coordinates.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of ECI state vectors
+    ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -537,81 +562,84 @@ impl PySGPPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Step forward by the default step size
+    /// Step forward by the default step size.
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
         self.propagator.step();
     }
 
-    /// Step forward by a specified time duration
+    /// Step forward by a specified time duration.
     ///
-    /// Arguments:
-    ///     step_size (float): Time step in seconds
+    /// Args:
+    ///     step_size (float): Time step in seconds.
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
         self.propagator.step_by(step_size);
     }
 
-    /// Step past a specified target epoch
+    /// Step past a specified target epoch.
     ///
-    /// Arguments:
-    ///     target_epoch (Epoch): The epoch to step past
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to step past.
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.step_past(target_epoch.obj);
     }
 
-    /// Propagate forward by specified number of steps
+    /// Propagate forward by specified number of steps.
     ///
-    /// Arguments:
-    ///     num_steps (int): Number of steps to take
+    /// Args:
+    ///     num_steps (int): Number of steps to take.
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
         self.propagator.propagate_steps(num_steps);
     }
 
-    /// Propagate to a specific target epoch
+    /// Propagate to a specific target epoch.
     ///
-    /// Arguments:
-    ///     target_epoch (Epoch): The epoch to propagate to
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to propagate to.
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.propagate_to(target_epoch.obj);
     }
 
-    /// Reset propagator to initial conditions
+    /// Reset propagator to initial conditions.
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
     }
 
-    /// Set trajectory eviction policy based on maximum size
+    /// Set trajectory eviction policy based on maximum size.
     ///
-    /// Arguments:
-    ///     max_size (int): Maximum number of states to keep in trajectory
+    /// Args:
+    ///     max_size (int): Maximum number of states to keep in trajectory.
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
         self.propagator.set_eviction_policy_max_size(max_size)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
     }
 
-    /// Set trajectory eviction policy based on maximum age
+    /// Set trajectory eviction policy based on maximum age.
     ///
-    /// Arguments:
-    ///     max_age (float): Maximum age in seconds to keep states in trajectory
+    /// Args:
+    ///     max_age (float): Maximum age in seconds to keep states in trajectory.
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
         self.propagator.set_eviction_policy_max_age(max_age)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
     }
 
-    /// Get accumulated trajectory
+    /// Get accumulated trajectory.
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: The accumulated trajectory.
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
     }
 
-    /// String representation
+    /// String representation.
     fn __repr__(&self) -> String {
         format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",
                 self.propagator.norad_id,
@@ -619,7 +647,7 @@ impl PySGPPropagator {
                 self.propagator.initial_epoch())
     }
 
-    /// String conversion
+    /// String conversion.
     fn __str__(&self) -> String {
         self.__repr__()
     }
@@ -634,18 +662,18 @@ pub struct PyKeplerianPropagator {
 
 #[pymethods]
 impl PyKeplerianPropagator {
-    /// Create a new Keplerian propagator from state vector
+    /// Create a new Keplerian propagator from state vector.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Initial epoch
-    ///     state (numpy.ndarray): 6-element state vector
-    ///     frame (OrbitFrame): Reference frame
-    ///     representation (OrbitRepresentation): State representation
-    ///     angle_format (AngleFormat): Angle format (only for Keplerian)
-    ///     step_size (float): Step size in seconds for propagation
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): 6-element state vector.
+    ///     frame (OrbitFrame): Reference frame.
+    ///     representation (OrbitRepresentation): State representation.
+    ///     angle_format (AngleFormat): Angle format (only for Keplerian).
+    ///     step_size (float): Step size in seconds for propagation.
     ///
     /// Returns:
-    ///     KeplerianPropagator: New propagator instance
+    ///     KeplerianPropagator: New propagator instance.
     #[new]
     #[pyo3(signature = (epoch, state, frame, representation, angle_format, step_size))]
     pub fn new(
@@ -677,16 +705,16 @@ impl PyKeplerianPropagator {
         Ok(PyKeplerianPropagator { propagator })
     }
 
-    /// Create a new Keplerian propagator from Keplerian orbital elements
+    /// Create a new Keplerian propagator from Keplerian orbital elements.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Initial epoch
-    ///     elements (numpy.ndarray): 6-element Keplerian elements [a, e, i, raan, argp, mean_anomaly]
-    ///     angle_format (AngleFormat): Angle format (Degrees or Radians)
-    ///     step_size (float): Step size in seconds for propagation
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     elements (numpy.ndarray): 6-element Keplerian elements [a, e, i, raan, argp, mean_anomaly].
+    ///     angle_format (AngleFormat): Angle format (Degrees or Radians).
+    ///     step_size (float): Step size in seconds for propagation.
     ///
     /// Returns:
-    ///     KeplerianPropagator: New propagator instance
+    ///     KeplerianPropagator: New propagator instance.
     #[classmethod]
     #[pyo3(signature = (epoch, elements, angle_format, step_size))]
     pub fn from_keplerian(
@@ -715,15 +743,15 @@ impl PyKeplerianPropagator {
         Ok(PyKeplerianPropagator { propagator })
     }
 
-    /// Create a new Keplerian propagator from Cartesian state in ECI frame
+    /// Create a new Keplerian propagator from Cartesian state in ECI frame.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Initial epoch
-    ///     state (numpy.ndarray): 6-element Cartesian state [x, y, z, vx, vy, vz] in ECI frame
-    ///     step_size (float): Step size in seconds for propagation
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): 6-element Cartesian state [x, y, z, vx, vy, vz] in ECI frame.
+    ///     step_size (float): Step size in seconds for propagation.
     ///
     /// Returns:
-    ///     KeplerianPropagator: New propagator instance
+    ///     KeplerianPropagator: New propagator instance.
     #[classmethod]
     #[pyo3(signature = (epoch, state, step_size))]
     pub fn from_eci(
@@ -750,15 +778,15 @@ impl PyKeplerianPropagator {
         Ok(PyKeplerianPropagator { propagator })
     }
 
-    /// Create a new Keplerian propagator from Cartesian state in ECEF frame
+    /// Create a new Keplerian propagator from Cartesian state in ECEF frame.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Initial epoch
-    ///     state (numpy.ndarray): 6-element Cartesian state [x, y, z, vx, vy, vz] in ECEF frame
-    ///     step_size (float): Step size in seconds for propagation
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): 6-element Cartesian state [x, y, z, vx, vy, vz] in ECEF frame.
+    ///     step_size (float): Step size in seconds for propagation.
     ///
     /// Returns:
-    ///     KeplerianPropagator: New propagator instance
+    ///     KeplerianPropagator: New propagator instance.
     #[classmethod]
     #[pyo3(signature = (epoch, state, step_size))]
     pub fn from_ecef(
@@ -785,100 +813,118 @@ impl PyKeplerianPropagator {
         Ok(PyKeplerianPropagator { propagator })
     }
 
-    /// Get current epoch
+    /// Get current epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Current propagator epoch.
     #[getter]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
     }
 
-    /// Get initial epoch
+    /// Get initial epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Initial propagator epoch.
     #[getter]
     pub fn initial_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.initial_epoch() }
     }
 
-    /// Get initial state
+    /// Get initial state.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Initial state vector.
     #[pyo3(text_signature = "()")]
     pub fn initial_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.initial_state();
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Get step size in seconds
+    /// Get step size in seconds.
+    ///
+    /// Returns:
+    ///     float: Step size in seconds.
     #[getter]
     pub fn step_size(&self) -> f64 {
         self.propagator.step_size()
     }
 
-    /// Set step size in seconds
+    /// Set step size in seconds.
+    ///
+    /// Args:
+    ///     step_size (float): New step size in seconds.
     #[setter]
     pub fn set_step_size(&mut self, step_size: f64) {
         self.propagator.set_step_size(step_size);
     }
 
-    /// Get current state vector
+    /// Get current state vector.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Current state vector.
     #[pyo3(text_signature = "()")]
     pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.current_state();
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Step forward by the default step size
+    /// Step forward by the default step size.
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
         self.propagator.step();
     }
 
-    /// Step forward by a specified time duration
+    /// Step forward by a specified time duration.
     ///
-    /// Arguments:
-    ///     step_size (float): Time step in seconds
+    /// Args:
+    ///     step_size (float): Time step in seconds.
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
         self.propagator.step_by(step_size);
     }
 
-    /// Step past a specified target epoch
+    /// Step past a specified target epoch.
     ///
-    /// Arguments:
-    ///     target_epoch (Epoch): The epoch to step past
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to step past.
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.step_past(target_epoch.obj);
     }
 
-    /// Propagate forward by specified number of steps
+    /// Propagate forward by specified number of steps.
     ///
-    /// Arguments:
-    ///     num_steps (int): Number of steps to take
+    /// Args:
+    ///     num_steps (int): Number of steps to take.
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
         self.propagator.propagate_steps(num_steps);
     }
 
-    /// Propagate to a specific target epoch
+    /// Propagate to a specific target epoch.
     ///
-    /// Arguments:
-    ///     target_epoch (Epoch): The epoch to propagate to
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to propagate to.
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.propagate_to(target_epoch.obj);
     }
 
-    /// Reset propagator to initial conditions
+    /// Reset propagator to initial conditions.
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
     }
 
-    /// Set initial conditions
+    /// Set initial conditions.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Initial epoch
-    ///     state (numpy.ndarray): Initial state vector
-    ///     frame (OrbitFrame): Reference frame
-    ///     representation (OrbitRepresentation): State representation
-    ///     angle_format (AngleFormat): Angle format
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector.
+    ///     frame (OrbitFrame): Reference frame.
+    ///     representation (OrbitRepresentation): State representation.
+    ///     angle_format (AngleFormat): Angle format.
     #[pyo3(text_signature = "(epoch, state, frame, representation, angle_format)")]
     pub fn set_initial_conditions(
         &mut self,
@@ -908,10 +954,10 @@ impl PyKeplerianPropagator {
         Ok(())
     }
 
-    /// Set eviction policy to keep maximum number of states
+    /// Set eviction policy to keep maximum number of states.
     ///
-    /// Arguments:
-    ///     max_size (int): Maximum number of states to retain
+    /// Args:
+    ///     max_size (int): Maximum number of states to retain.
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
         match self.propagator.set_eviction_policy_max_size(max_size) {
@@ -920,10 +966,10 @@ impl PyKeplerianPropagator {
         }
     }
 
-    /// Set eviction policy to keep states within maximum age
+    /// Set eviction policy to keep states within maximum age.
     ///
-    /// Arguments:
-    ///     max_age (float): Maximum age in seconds
+    /// Args:
+    ///     max_age (float): Maximum age in seconds.
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
         match self.propagator.set_eviction_policy_max_age(max_age) {
@@ -932,53 +978,53 @@ impl PyKeplerianPropagator {
         }
     }
 
-    /// Compute state at a specific epoch
+    /// Compute state at a specific epoch.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector in the propagator's native format
+    ///     numpy.ndarray: State vector in the propagator's native format.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.state(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute state at a specific epoch in ECI coordinates
+    /// Compute state at a specific epoch in ECI coordinates.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.state_eci(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute state at a specific epoch in ECEF coordinates
+    /// Compute state at a specific epoch in ECEF coordinates.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
-    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.state_ecef(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute state as osculating elements at a specific epoch
+    /// Compute state as osculating elements at a specific epoch.
     ///
-    /// Arguments:
-    ///     epoch (Epoch): Target epoch for state computation
-    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
     ///
     /// Returns:
-    ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly]
+    ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
     #[pyo3(text_signature = "(epoch, angle_format)")]
     pub fn state_as_osculating_elements<'a>(
         &self,
@@ -990,13 +1036,13 @@ impl PyKeplerianPropagator {
         state.as_slice().to_pyarray(py).to_owned()
     }
 
-    /// Compute states at multiple epochs
+    /// Compute states at multiple epochs.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of state vectors in the propagator's native format
+    ///     list[numpy.ndarray]: List of state vectors in the propagator's native format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -1004,13 +1050,13 @@ impl PyKeplerianPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Compute states at multiple epochs in ECI coordinates
+    /// Compute states at multiple epochs in ECI coordinates.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of ECI state vectors
+    ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -1018,13 +1064,13 @@ impl PyKeplerianPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Compute states at multiple epochs in ECEF coordinates
+    /// Compute states at multiple epochs in ECEF coordinates.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of ECEF state vectors
+    ///     list[numpy.ndarray]: List of ECEF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
@@ -1032,14 +1078,14 @@ impl PyKeplerianPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Compute states as osculating elements at multiple epochs
+    /// Compute states as osculating elements at multiple epochs.
     ///
-    /// Arguments:
-    ///     epochs (list[Epoch]): List of epochs for state computation
-    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
     ///
     /// Returns:
-    ///     list[numpy.ndarray]: List of osculating element vectors
+    ///     list[numpy.ndarray]: List of osculating element vectors.
     #[pyo3(text_signature = "(epochs, angle_format)")]
     pub fn states_as_osculating_elements<'a>(
         &self,
@@ -1052,27 +1098,30 @@ impl PyKeplerianPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
-    /// Get accumulated trajectory
+    /// Get accumulated trajectory.
+    ///
+    /// Returns:
+    ///     OrbitalTrajectory: The accumulated trajectory.
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
     }
 
-    /// String representation
+    /// String representation.
     fn __repr__(&self) -> String {
         format!("KeplerianPropagator(epoch={:?}, step_size={})",
                 self.propagator.current_epoch(),
                 self.propagator.step_size())
     }
 
-    /// String conversion
+    /// String conversion.
     fn __str__(&self) -> String {
         self.__repr__()
     }
 }
 
 // Legacy TLE support (for backward compatibility)
-/// Legacy TLE class for backward compatibility
+/// Legacy TLE class for backward compatibility.
 #[pyclass]
 #[pyo3(name = "TLE")]
 pub struct PyTLE {
@@ -1082,7 +1131,15 @@ pub struct PyTLE {
 
 #[pymethods]
 impl PyTLE {
-    /// Create a TLE from lines (legacy compatibility)
+    /// Create a TLE from lines (legacy compatibility).
+    ///
+    /// Args:
+    ///     line1 (str): First line of TLE data.
+    ///     line2 (str): Second line of TLE data.
+    ///     step_size (float): Step size in seconds for propagation. Defaults to 60.0.
+    ///
+    /// Returns:
+    ///     TLE: New TLE instance.
     #[classmethod]
     #[pyo3(signature = (line1, line2, step_size=60.0))]
     pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
@@ -1093,20 +1150,33 @@ impl PyTLE {
         }
     }
 
-    /// Get NORAD ID
+    /// Get NORAD ID.
+    ///
+    /// Returns:
+    ///     int: NORAD catalog ID.
     #[getter]
     pub fn norad_id(&self) -> u32 {
         self.propagator.norad_id
     }
 
-    /// Get TLE epoch
+    /// Get TLE epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Epoch of the TLE data.
     #[getter]
     pub fn epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.initial_epoch() }
     }
 }
 
-/// Validate TLE lines
+/// Validate TLE lines.
+///
+/// Args:
+///     line1 (str): First line of TLE data.
+///     line2 (str): Second line of TLE data.
+///
+/// Returns:
+///     bool: True if both lines are valid.
 #[pyfunction]
 #[pyo3(text_signature = "(line1, line2)")]
 #[pyo3(name = "validate_tle_lines")]
@@ -1114,7 +1184,13 @@ fn py_validate_tle_lines(line1: String, line2: String) -> PyResult<bool> {
     Ok(orbits::validate_tle_lines(&line1, &line2))
 }
 
-/// Validate single TLE line
+/// Validate single TLE line.
+///
+/// Args:
+///     line (str): TLE line to validate.
+///
+/// Returns:
+///     bool: True if the line is valid.
 #[pyfunction]
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "validate_tle_line")]
@@ -1122,36 +1198,39 @@ fn py_validate_tle_line(line: String) -> PyResult<bool> {
     Ok(orbits::validate_tle_line(&line))
 }
 
-/// Calculate TLE line checksum
+/// Calculate TLE line checksum.
+///
+/// Args:
+///     line (str): TLE line.
+///
+/// Returns:
+///     int: Checksum value.
 #[pyfunction]
 #[pyo3(text_signature = "(line)")]
 #[pyo3(name = "calculate_tle_line_checksum")]
 fn py_calculate_tle_line_checksum(line: String) -> PyResult<u32> {
-    Ok(orbits::calculate_tle_line_checksum(&line) as u32)
+    Ok(orbits::calculate_tle_line_checksum(&line))
 }
 
 
 
 
 
-/// Extract Keplerian orbital elements from TLE lines
+/// Extract Keplerian orbital elements from TLE lines.
 ///
 /// Extracts the standard six Keplerian orbital elements from Two-Line Element (TLE) data.
 /// Returns elements in standard order: [a, e, i, raan, argp, M] where angles are in radians.
 ///
-/// Arguments:
-///     line1 (`str`): First line of TLE data
-///     line2 (`str`): Second line of TLE data
+/// Args:
+///     line1 (str): First line of TLE data.
+///     line2 (str): Second line of TLE data.
 ///
 /// Returns:
-///     elements (`numpy.ndarray`): Six Keplerian elements [a, e, i, raan, argp, M]
-///         - a: Semi-major axis (m)
-///         - e: Eccentricity (dimensionless)
-///         - i: Inclination (rad)
-///         - raan: Right ascension of ascending node (rad)
-///         - argp: Argument of periapsis (rad)
-///         - M: Mean anomaly (rad)
-///     epoch (`Epoch`): Epoch of the TLE data
+///     tuple: A tuple containing:
+///         - epoch (Epoch): Epoch of the TLE data.
+///         - elements (numpy.ndarray): Six Keplerian elements [a, e, i, raan, argp, M] where
+///           a is semi-major axis in meters, e is eccentricity (dimensionless), and
+///           i, raan, argp, M are in radians.
 #[pyfunction]
 #[pyo3(text_signature = "(line1, line2)")]
 #[pyo3(name = "keplerian_elements_from_tle")]
@@ -1166,18 +1245,18 @@ fn py_keplerian_elements_from_tle<'py>(py: Python<'py>, line1: String, line2: St
     }
 }
 
-/// Convert Keplerian elements to TLE lines
+/// Convert Keplerian elements to TLE lines.
 ///
 /// Converts standard Keplerian orbital elements to Two-Line Element (TLE) format.
 /// Input angles should be in degrees for compatibility with TLE format.
 ///
-/// Arguments:
-///     epoch (`Epoch`): Epoch of the elements
-///     elements (`array`): Keplerian elements [a (m), e, i (deg), Ω (deg), ω (deg), M (deg)]
-///     norad_id (`str`): NORAD catalog number (supports numeric and Alpha-5 format)
+/// Args:
+///     epoch (Epoch): Epoch of the elements.
+///     elements (numpy.ndarray): Keplerian elements [a (m), e, i (deg), raan (deg), argp (deg), M (deg)].
+///     norad_id (str): NORAD catalog number (supports numeric and Alpha-5 format).
 ///
 /// Returns:
-///     tuple: (line1, line2) - The two TLE lines as strings
+///     tuple: A tuple containing (line1, line2) - the two TLE lines as strings.
 #[pyfunction]
 #[pyo3(text_signature = "(epoch, elements, norad_id)")]
 #[pyo3(name = "keplerian_elements_to_tle")]
@@ -1199,34 +1278,35 @@ fn py_keplerian_elements_to_tle(
     }
 }
 
-/// Create complete TLE lines from all parameters
+/// Create complete TLE lines from all parameters.
 ///
 /// Creates Two-Line Element (TLE) lines from complete set of orbital and administrative parameters.
 /// Provides full control over all TLE fields including derivatives and drag terms.
 ///
-/// Arguments:
-///     epoch (`Epoch`): Epoch of the elements
-///     inclination (`float`): Inclination (degrees)
-///     raan (`float`): Right ascension of ascending node (degrees)
-///     eccentricity (`float`): Eccentricity (dimensionless)
-///     arg_perigee (`float`): Argument of periapsis (degrees)
-///     mean_anomaly (`float`): Mean anomaly (degrees)
-///     mean_motion (`float`): Mean motion (revolutions per day)
-///     norad_id (`str`): NORAD catalog number (supports numeric and Alpha-5 format)
-///     ephemeris_type (`int`): Ephemeris type (0-9)
-///     element_set_number (`int`): Element set number
-///     revolution_number (`int`): Revolution number at epoch
-///     classification (`str`, optional): Security classification (default: ' ')
-///     intl_designator (`str`, optional): International designator (default: '')
-///     first_derivative (`float`, optional): First derivative of mean motion (default: 0.0)
-///     second_derivative (`float`, optional): Second derivative of mean motion (default: 0.0)
-///     bstar (`float`, optional): BSTAR drag term (default: 0.0)
+/// Args:
+///     epoch (Epoch): Epoch of the elements.
+///     inclination (float): Inclination in degrees.
+///     raan (float): Right ascension of ascending node in degrees.
+///     eccentricity (float): Eccentricity (dimensionless).
+///     arg_perigee (float): Argument of periapsis in degrees.
+///     mean_anomaly (float): Mean anomaly in degrees.
+///     mean_motion (float): Mean motion in revolutions per day.
+///     norad_id (str): NORAD catalog number (supports numeric and Alpha-5 format).
+///     ephemeris_type (int): Ephemeris type (0-9).
+///     element_set_number (int): Element set number.
+///     revolution_number (int): Revolution number at epoch.
+///     classification (str, optional): Security classification. Defaults to ' '.
+///     intl_designator (str, optional): International designator. Defaults to ''.
+///     first_derivative (float, optional): First derivative of mean motion. Defaults to 0.0.
+///     second_derivative (float, optional): Second derivative of mean motion. Defaults to 0.0.
+///     bstar (float, optional): BSTAR drag term. Defaults to 0.0.
 ///
 /// Returns:
-///     tuple: (line1, line2) - The two TLE lines as strings
+///     tuple: A tuple containing (line1, line2) - the two TLE lines as strings.
 #[pyfunction]
 #[pyo3(text_signature = "(epoch, inclination, raan, eccentricity, arg_perigee, mean_anomaly, mean_motion, norad_id, ephemeris_type, element_set_number, revolution_number, classification=None, intl_designator=None, first_derivative=None, second_derivative=None, bstar=None)")]
 #[pyo3(name = "create_tle_lines")]
+#[allow(clippy::too_many_arguments)]
 fn py_create_tle_lines(
     epoch: &PyEpoch,
     inclination: f64,
@@ -1270,13 +1350,13 @@ fn py_create_tle_lines(
     }
 }
 
-/// Parse NORAD ID from string, handling both classic and Alpha-5 formats
+/// Parse NORAD ID from string, handling both classic and Alpha-5 formats.
 ///
-/// # Arguments
-/// * `norad_str` - NORAD ID string from TLE
+/// Args:
+///     norad_str (str): NORAD ID string from TLE.
 ///
-/// # Returns
-/// * `u32` - Parsed numeric NORAD ID
+/// Returns:
+///     int: Parsed numeric NORAD ID.
 #[pyfunction]
 #[pyo3(text_signature = "(norad_str)")]
 #[pyo3(name = "parse_norad_id")]
@@ -1287,13 +1367,13 @@ fn py_parse_norad_id(norad_str: String) -> PyResult<u32> {
     }
 }
 
-/// Convert numeric NORAD ID to Alpha-5 format
+/// Convert numeric NORAD ID to Alpha-5 format.
 ///
-/// # Arguments
-/// * `norad_id` - Numeric NORAD ID (100000-339999)
+/// Args:
+///     norad_id (int): Numeric NORAD ID (100000-339999).
 ///
-/// # Returns
-/// * `str` - Alpha-5 format ID (e.g., "A0001")
+/// Returns:
+///     str: Alpha-5 format ID (e.g., "A0001").
 #[pyfunction]
 #[pyo3(text_signature = "(norad_id)")]
 #[pyo3(name = "norad_id_numeric_to_alpha5")]
@@ -1304,13 +1384,13 @@ fn py_norad_id_numeric_to_alpha5(norad_id: u32) -> PyResult<String> {
     }
 }
 
-/// Convert Alpha-5 NORAD ID to numeric format
+/// Convert Alpha-5 NORAD ID to numeric format.
 ///
-/// # Arguments
-/// * `alpha5_id` - Alpha-5 format ID (e.g., "A0001")
+/// Args:
+///     alpha5_id (str): Alpha-5 format ID (e.g., "A0001").
 ///
-/// # Returns
-/// * `int` - Numeric NORAD ID
+/// Returns:
+///     int: Numeric NORAD ID.
 #[pyfunction]
 #[pyo3(text_signature = "(alpha5_id)")]
 #[pyo3(name = "norad_id_alpha5_to_numeric")]

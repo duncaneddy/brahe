@@ -7,10 +7,21 @@ use nalgebra::{SMatrix, SVector};
 
 pub trait NumericalIntegrator<const S: usize> {
     fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> SVector<f64, S>;
-    fn step_with_varmat(&self, t: f64, state: SVector<f64, S>, phi: SMatrix<f64, S, S>, dt: f64) -> (SVector<f64, S>, SMatrix<f64, S, S>);
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        phi: SMatrix<f64, S, S>,
+        dt: f64,
+    ) -> (SVector<f64, S>, SMatrix<f64, S, S>);
 }
 
-pub fn varmat_from_percentage_offset<const S: usize>(t: f64, state: SVector<f64, S>, f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>, percentage: f64) -> SMatrix<f64, S, S> {
+pub fn varmat_from_percentage_offset<const S: usize>(
+    t: f64,
+    state: SVector<f64, S>,
+    f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>,
+    percentage: f64,
+) -> SMatrix<f64, S, S> {
     // Note: The variational matrix development along with the perturbation calculation is
     // defined as a seprate funciton in the RK4Integrator struct instead of being implemented
     // as part of the rk_step_varmat function. This is because the choice of how the variational
@@ -36,7 +47,12 @@ pub fn varmat_from_percentage_offset<const S: usize>(t: f64, state: SVector<f64,
     phi
 }
 
-pub fn varmat_from_fixed_offset<const S: usize>(t: f64, state: SVector<f64, S>, f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>, offset: f64) -> SMatrix<f64, S, S> {
+pub fn varmat_from_fixed_offset<const S: usize>(
+    t: f64,
+    state: SVector<f64, S>,
+    f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>,
+    offset: f64,
+) -> SMatrix<f64, S, S> {
     // Note: The variational matrix development along with the perturbation calculation is
     // defined as a seprate funciton in the RK4Integrator struct instead of being implemented
     // as part of the rk_step_varmat function. This is because the choice of how the variational
@@ -61,7 +77,12 @@ pub fn varmat_from_fixed_offset<const S: usize>(t: f64, state: SVector<f64, S>, 
     phi
 }
 
-pub fn varmat_from_offset_vector<const S: usize>(t: f64, state: SVector<f64, S>, f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>, offset: SVector<f64, S>) -> SMatrix<f64, S, S> {
+pub fn varmat_from_offset_vector<const S: usize>(
+    t: f64,
+    state: SVector<f64, S>,
+    f: &dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>,
+    offset: SVector<f64, S>,
+) -> SMatrix<f64, S, S> {
     // Note: The variational matrix development along with the perturbation calculation is
     // defined as a seprate funciton in the RK4Integrator struct instead of being implemented
     // as part of the rk_step_varmat function. This is because the choice of how the variational

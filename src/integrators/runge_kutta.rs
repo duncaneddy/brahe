@@ -4,10 +4,15 @@ Implementation of Runge-Kutta integration methods.
 
 use nalgebra::{SMatrix, SVector};
 
-use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
-use crate::integrators::numerical_integrator::NumericalIntegrator;
 #[cfg(test)]
 use crate::constants::RADIANS;
+use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
+use crate::integrators::numerical_integrator::NumericalIntegrator;
+
+// Type aliases for complex function types
+type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
+type VariationalMatrix<const S: usize> =
+    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>;
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
 /// over the size of the state vector.
@@ -51,13 +56,13 @@ use crate::constants::RADIANS;
 /// assert!(state[0] - 100.0 < 1.0e-12);
 /// ```
 pub struct RK4Integrator<const S: usize> {
-    f: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>,
-    varmat: Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>,
+    f: StateDynamics<S>,
+    varmat: VariationalMatrix<S>,
     bt: ButcherTableau<4>,
 }
 
 impl<const S: usize> RK4Integrator<S> {
-    pub fn new(f: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>, varmat: Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>) -> Self {
+    pub fn new(f: StateDynamics<S>, varmat: VariationalMatrix<S>) -> Self {
         Self {
             f,
             varmat,
@@ -90,7 +95,13 @@ impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
         state + state_update
     }
 
-    fn step_with_varmat(&self, t: f64, state: SVector<f64, S>, phi: SMatrix<f64, S, S>, dt: f64) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        phi: SMatrix<f64, S, S>,
+        dt: f64,
+    ) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
         // Define working variables to hold internal step state
         let mut k = SMatrix::<f64, S, 4>::zeros();
         let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 4];
@@ -104,19 +115,20 @@ impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
             let mut ksum = SVector::<f64, S>::zeros();
             let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
 
-            for j in 0..i {
+            for (j, k_phi_j) in k_phi.iter().enumerate().take(i) {
                 ksum += self.bt.a[(i, j)] * k.column(j);
-                k_phi_sum += self.bt.a[(i, j)] * k_phi[j];
+                k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * dt, state + dt * ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, state + dt * ksum) * (phi + dt * k_phi_sum);
+            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, state + dt * ksum)
+                * (phi + dt * k_phi_sum);
         }
 
         // Compute the state update from each internal step
-        for i in 0..4 {
+        for (i, k_phi_i) in k_phi.iter().enumerate().take(4) {
             state_update += dt * self.bt.b[i] * k.column(i);
-            phi_update += dt * self.bt.b[i] * k_phi[i];
+            phi_update += dt * self.bt.b[i] * k_phi_i;
         }
 
         // Combine the state and the state update to get the new state
@@ -128,7 +140,10 @@ impl<const S: usize> NumericalIntegrator<S> for RK4Integrator<S> {
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use crate::{Epoch, GM_EARTH, orbital_period, R_EARTH, state_osculating_to_cartesian, TimeSystem, varmat_from_fixed_offset, varmat_from_offset_vector};
+    use crate::{
+        Epoch, GM_EARTH, R_EARTH, TimeSystem, orbital_period, state_osculating_to_cartesian,
+        varmat_from_fixed_offset, varmat_from_offset_vector,
+    };
 
     use super::*;
 
@@ -161,7 +176,6 @@ mod tests {
             state_new[0] = 2.0 * t;
             state_new
         };
-
 
         let rk4 = RK4Integrator::new(Box::new(f), None);
 
@@ -202,13 +216,13 @@ mod tests {
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
         let state0 = state_osculating_to_cartesian(oe0, RADIANS);
-        let mut state = state0.clone();
+        let mut state = state0;
 
         // Get start and end times of propagation (1 orbit)
         let epc0 = Epoch::from_date(2024, 1, 1, TimeSystem::TAI);
         let epcf = epc0 + orbital_period(oe0[0]);
         let mut dt;
-        let mut epc = epc0.clone();
+        let mut epc = epc0;
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
@@ -270,7 +284,12 @@ mod tests {
         // Define a simple perturbation to simplify the tests
         let pert = SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_offset_vector(t, state, &point_earth, SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            varmat_from_offset_vector(
+                t,
+                state,
+                &point_earth,
+                SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            )
         };
         let rk4 = RK4Integrator::new(Box::new(point_earth), Some(Box::new(varmat)));
 

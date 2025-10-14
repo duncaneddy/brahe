@@ -4,10 +4,10 @@
 
 use nalgebra::Vector6;
 
-use crate::time::Epoch;
-use crate::utils::BraheError;
 use crate::constants::AngleFormat;
+use crate::time::Epoch;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
+use crate::utils::BraheError;
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
@@ -170,7 +170,8 @@ pub trait AnalyticPropagator {
     /// # Returns
     /// A 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
     /// where angles are in the specified format
-    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat) -> Vector6<f64>;
+    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat)
+    -> Vector6<f64>;
 
     /// Returns states at multiple epochs in the propagator's native coordinate frame
     ///
@@ -214,7 +215,14 @@ pub trait AnalyticPropagator {
     ///
     /// # Returns
     /// * Vector of 6-element vectors containing osculating Keplerian elements
-    fn states_as_osculating_elements(&self, epochs: &[Epoch], angle_format: AngleFormat) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_as_osculating_elements(epoch, angle_format)).collect()
+    fn states_as_osculating_elements(
+        &self,
+        epochs: &[Epoch],
+        angle_format: AngleFormat,
+    ) -> Vec<Vector6<f64>> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_as_osculating_elements(epoch, angle_format))
+            .collect()
     }
 }

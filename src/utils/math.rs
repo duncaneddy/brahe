@@ -135,7 +135,6 @@ pub fn matrix3_from_array(mat: &[[f64; 3]; 3]) -> na::SMatrix<f64, 3, 3> {
     )
 }
 
-
 /// Compute the Kronecker delta function.
 ///
 /// # Arguments
@@ -158,11 +157,7 @@ pub fn matrix3_from_array(mat: &[[f64; 3]; 3]) -> na::SMatrix<f64, 3, 3> {
 /// assert_eq!(kronecker_delta(1, 1), 1);
 /// ```
 pub fn kronecker_delta(i: usize, j: usize) -> u8 {
-    if i == j {
-        1
-    } else {
-        0
-    }
+    if i == j { 1 } else { 0 }
 }
 
 /// Wrap an angle to the range \[0, 2π\].

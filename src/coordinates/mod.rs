@@ -2,7 +2,7 @@
  * Module to provide coordinate system transformations.
  */
 
-use nalgebra::{SVector, SMatrix};
+use nalgebra::{SMatrix, SVector};
 
 /// 6-dimensional static vector type for Cartesian state vectors
 pub type SVector6 = SVector<f64, 6>;

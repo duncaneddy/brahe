@@ -6,18 +6,19 @@
 use std::path::Path;
 
 use nalgebra as na;
-use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray, ToPyArray};
+use numpy::{
+    IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, ToPyArray,
+};
 
+use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::PyType;
 use pyo3::{exceptions, wrap_pyfunction};
-use pyo3::panic::PanicException;
 
+use crate::traits::*;
 use crate::utils::errors::*;
 use crate::*;
-use crate::traits::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where
@@ -30,7 +31,9 @@ use crate::traits::*;
 
 macro_rules! matrix_to_numpy {
     ($py:expr,$mat:expr,$r:expr,$c:expr,$typ:ty) => {{
-        let flat_vec: Vec<$typ> = (0..$r).flat_map(|i| (0..$c).map(move |j| $mat[(i, j)])).collect();
+        let flat_vec: Vec<$typ> = (0..$r)
+            .flat_map(|i| (0..$c).map(move |j| $mat[(i, j)]))
+            .collect();
         flat_vec.into_pyarray($py).reshape([$r, $c]).unwrap()
     }};
 }
@@ -43,15 +46,11 @@ macro_rules! vector_to_numpy {
 }
 
 macro_rules! numpy_to_matrix {
-    ($mat:expr,$r:expr,$c:expr,$typ:ty) => {{
-        na::SMatrix::<$typ, $r, $c>::from_vec($mat.to_vec().unwrap())
-    }};
+    ($mat:expr,$r:expr,$c:expr,$typ:ty) => {{ na::SMatrix::<$typ, $r, $c>::from_vec($mat.to_vec().unwrap()) }};
 }
 
 macro_rules! numpy_to_vector {
-    ($vec:expr,$l:expr,$typ:ty) => {{
-        na::SVector::<$typ, $l>::from_vec($vec.to_vec().unwrap())
-    }};
+    ($vec:expr,$l:expr,$typ:ty) => {{ na::SVector::<$typ, $l>::from_vec($vec.to_vec().unwrap()) }};
 }
 
 /// Python wrapper for AngleFormat enum
@@ -65,13 +64,19 @@ pub struct PyAngleFormat {
 #[pymethods]
 impl PyAngleFormat {
     #[classattr]
+    #[allow(non_snake_case)]
     fn RADIANS() -> Self {
-        PyAngleFormat { value: constants::AngleFormat::Radians }
+        PyAngleFormat {
+            value: constants::AngleFormat::Radians,
+        }
     }
 
     #[classattr]
+    #[allow(non_snake_case)]
     fn DEGREES() -> Self {
-        PyAngleFormat { value: constants::AngleFormat::Degrees }
+        PyAngleFormat {
+            value: constants::AngleFormat::Degrees,
+        }
     }
 
     fn __str__(&self) -> String {
@@ -86,7 +91,9 @@ impl PyAngleFormat {
         match op {
             CompareOp::Eq => Ok(self.value == other.value),
             CompareOp::Ne => Ok(self.value != other.value),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -104,15 +111,14 @@ include!("trajectories.rs");
 
 // Define Module
 
-#[cfg(
-    feature = "python"
-)] // Gate this definition behind a feature flag so it doesn't interfere with non-python builds
-#[pymodule(
-    name = "_brahe"
-)] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
+#[cfg(feature = "python")] // Gate this definition behind a feature flag so it doesn't interfere with non-python builds
+#[pymodule(name = "_brahe")] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
 pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Re-export PanicException so Python tests can catch Rust panics
     module.add("PanicException", py.get_type::<PanicException>())?;
+
+    // Add version from Cargo.toml
+    module.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
     //* Constants *//
     module.add("DEG2RAD", constants::DEG2RAD)?;
@@ -204,11 +210,36 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
 
     // Top-level time system constants
-    module.add("GPS", PyTimeSystem { ts: time::TimeSystem::GPS })?;
-    module.add("TAI", PyTimeSystem { ts: time::TimeSystem::TAI })?;
-    module.add("TT", PyTimeSystem { ts: time::TimeSystem::TT })?;
-    module.add("UTC", PyTimeSystem { ts: time::TimeSystem::UTC })?;
-    module.add("UT1", PyTimeSystem { ts: time::TimeSystem::UT1 })?;
+    module.add(
+        "GPS",
+        PyTimeSystem {
+            ts: time::TimeSystem::GPS,
+        },
+    )?;
+    module.add(
+        "TAI",
+        PyTimeSystem {
+            ts: time::TimeSystem::TAI,
+        },
+    )?;
+    module.add(
+        "TT",
+        PyTimeSystem {
+            ts: time::TimeSystem::TT,
+        },
+    )?;
+    module.add(
+        "UTC",
+        PyTimeSystem {
+            ts: time::TimeSystem::UTC,
+        },
+    )?;
+    module.add(
+        "UT1",
+        PyTimeSystem {
+            ts: time::TimeSystem::UT1,
+        },
+    )?;
 
     //* Frames *//
     module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;
@@ -254,8 +285,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis_general, module)?)?;
-    module.add_function(wrap_pyfunction!(py_semimajor_axis_from_orbital_period, module)?)?;
-    module.add_function(wrap_pyfunction!(py_semimajor_axis_from_orbital_period_general, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_semimajor_axis_from_orbital_period,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_semimajor_axis_from_orbital_period_general,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_perigee_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_periapsis_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_periapsis_distance, module)?)?;
@@ -269,14 +306,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
-    
+
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
 
     // Legacy TLE Support (for backward compatibility)
     module.add_class::<PyTLE>()?;
-    
+
     module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
     module.add_function(wrap_pyfunction!(py_calculate_tle_line_checksum, module)?)?;

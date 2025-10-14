@@ -115,12 +115,14 @@ pub fn relative_position_ecef_to_enz(
 ) -> Vector3<f64> {
     // Create ENZ rotation matrix
     let E = match conversion_type {
-        EllipsoidalConversionType::Geocentric => {
-            rotation_ellipsoid_to_enz(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
-        EllipsoidalConversionType::Geodetic => {
-            rotation_ellipsoid_to_enz(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
+        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_enz(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_enz(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
     };
 
     // Compute range transformation
@@ -161,12 +163,14 @@ pub fn relative_position_enz_to_ecef(
 ) -> Vector3<f64> {
     // Create ENZ rotation matrix
     let Et = match conversion_type {
-        EllipsoidalConversionType::Geocentric => {
-            rotation_enz_to_ellipsoid(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
-        EllipsoidalConversionType::Geodetic => {
-            rotation_enz_to_ellipsoid(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
+        EllipsoidalConversionType::Geocentric => rotation_enz_to_ellipsoid(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_enz_to_ellipsoid(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
     };
 
     // Compute range transformation
@@ -275,12 +279,14 @@ pub fn relative_position_ecef_to_sez(
 ) -> Vector3<f64> {
     // Create ENZ rotation matrix
     let E = match conversion_type {
-        EllipsoidalConversionType::Geocentric => {
-            rotation_ellipsoid_to_sez(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
-        EllipsoidalConversionType::Geodetic => {
-            rotation_ellipsoid_to_sez(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
+        EllipsoidalConversionType::Geocentric => rotation_ellipsoid_to_sez(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_ellipsoid_to_sez(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
     };
 
     // Compute range transformation
@@ -321,12 +327,14 @@ pub fn relative_position_sez_to_ecef(
 ) -> Vector3<f64> {
     // Create SEZ rotation matrix
     let Et = match conversion_type {
-        EllipsoidalConversionType::Geocentric => {
-            rotation_sez_to_ellipsoid(position_ecef_to_geocentric(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
-        EllipsoidalConversionType::Geodetic => {
-            rotation_sez_to_ellipsoid(position_ecef_to_geodetic(location_ecef, AngleFormat::Radians), AngleFormat::Radians)
-        }
+        EllipsoidalConversionType::Geocentric => rotation_sez_to_ellipsoid(
+            position_ecef_to_geocentric(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
+        EllipsoidalConversionType::Geodetic => rotation_sez_to_ellipsoid(
+            position_ecef_to_geodetic(location_ecef, AngleFormat::Radians),
+            AngleFormat::Radians,
+        ),
     };
 
     // Compute range transformation
@@ -367,11 +375,7 @@ pub fn position_enz_to_azel(x_enz: Vector3<f64>, angle_format: AngleFormat) -> V
     let az = if el != PI / 2.0 {
         let azt = x_enz[0].atan2(x_enz[1]);
 
-        if azt >= 0.0 {
-            azt
-        } else {
-            azt + 2.0 * PI
-        }
+        if azt >= 0.0 { azt } else { azt + 2.0 * PI }
     } else {
         // If at peak elevation azimuth is ambiguous so define as 0.0
         0.0
@@ -416,11 +420,7 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, angle_format: AngleFormat) -> V
     let az = if el != PI / 2.0 {
         let azt = (x_sez[1]).atan2(-x_sez[0]);
 
-        if azt >= 0.0 {
-            azt
-        } else {
-            azt + 2.0 * PI
-        }
+        if azt >= 0.0 { azt } else { azt + 2.0 * PI }
     } else {
         // If at peak elevation azimuth is ambiguous so define as 0.0
         0.0
@@ -437,7 +437,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     use crate::constants::DEGREES;
-    use crate::{position_geocentric_to_ecef, position_geodetic_to_ecef, R_EARTH};
+    use crate::{R_EARTH, position_geocentric_to_ecef, position_geodetic_to_ecef};
 
     use super::*;
 

@@ -57,7 +57,7 @@ impl TimeRange {
     /// ```
     pub fn new(epoch_start: Epoch, epoch_end: Epoch, step: f64) -> Self {
         Self {
-            epoch_current: epoch_start.clone(),
+            epoch_current: epoch_start,
             epoch_end,
             step: step.abs(),
             positive_step: epoch_end > epoch_start,
@@ -71,7 +71,7 @@ impl Iterator for TimeRange {
     fn next(&mut self) -> Option<Self::Item> {
         if self.epoch_end != self.epoch_current {
             // Grab current epoch to return prior to advancing
-            let epc = self.epoch_current.clone();
+            let epc = self.epoch_current;
 
             let rem = (self.epoch_end - self.epoch_current).abs();
             let h = if self.step < rem { self.step } else { rem };
@@ -113,7 +113,7 @@ mod tests {
 
         let epcl = Epoch::from_datetime(2022, 1, 1, 23, 59, 59.0, 0.0, TimeSystem::TAI);
         assert_eq!(epcv.len(), 86400);
-        assert_eq!(epcv[epcv.len() - 1] != epcf, true);
+        assert!(epcv[epcv.len() - 1] != epcf);
         assert!((epcv[epcv.len() - 1] - epcl).abs() < 1.0e-9);
     }
 
@@ -134,7 +134,7 @@ mod tests {
 
         let epcl = Epoch::from_datetime(2022, 1, 1, 0, 0, 1.0, 0.0, TimeSystem::TAI);
         assert_eq!(epcv.len(), 86400);
-        assert_eq!(epcv[epcv.len() - 1] != epcf, true);
+        assert!(epcv[epcv.len() - 1] != epcf);
         assert!((epcv[epcv.len() - 1] - epcl).abs() < 1.0e-9);
     }
 }

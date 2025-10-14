@@ -22,16 +22,34 @@ def create_test_trajectory():
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
 
-    states = np.array([
-        7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0,
-        7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0,
-    ])
+    states = np.array(
+        [
+            7000e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+            7100e3,
+            1000e3,
+            500e3,
+            100.0,
+            7.6e3,
+            50.0,
+            7200e3,
+            2000e3,
+            1000e3,
+            200.0,
+            7.7e3,
+            100.0,
+        ]
+    )
 
     return STrajectory6.from_data(epochs, states)
 
 
 # STrajectory Trait Tests
+
 
 def test_strajectory_strajectory_new():
     """Rust test: test_strajectory_strajectory_new"""
@@ -79,9 +97,11 @@ def test_strajectory_with_eviction_policy_max_age_builder():
 def test_strajectory_builder_pattern_chaining():
     """Rust test: test_strajectory_builder_pattern_chaining"""
     # Test chaining multiple builder methods
-    traj = (STrajectory6()
-            .with_interpolation_method(InterpolationMethod.LINEAR)
-            .with_eviction_policy_max_size(10))
+    traj = (
+        STrajectory6()
+        .with_interpolation_method(InterpolationMethod.LINEAR)
+        .with_eviction_policy_max_size(10)
+    )
 
     assert traj.interpolation_method == InterpolationMethod.LINEAR
     assert traj.get_eviction_policy() == "KeepCount"
@@ -111,11 +131,28 @@ def test_strajectory_to_matrix():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        1.0, 2.0, 3.0, 4.0, 5.0, 6.0,
-        11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
-        21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
-    ])
+    states = np.array(
+        [
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            11.0,
+            12.0,
+            13.0,
+            14.0,
+            15.0,
+            16.0,
+            21.0,
+            22.0,
+            23.0,
+            24.0,
+            25.0,
+            26.0,
+        ]
+    )
 
     traj = STrajectory6.from_data(epochs, states)
 
@@ -156,6 +193,7 @@ def test_strajectory_to_matrix():
 
 # Default Trait Tests
 
+
 def test_strajectory_default():
     """Rust test: test_strajectory_default"""
     trajectory = STrajectory6()
@@ -165,6 +203,7 @@ def test_strajectory_default():
 
 
 # Index Trait Tests
+
 
 def test_strajectory_index_index():
     """Rust test: test_strajectory_index_index"""
@@ -190,6 +229,7 @@ def test_strajectory_index_index_out_of_bounds():
 
 
 # IntoIterator Trait Tests
+
 
 def test_strajectory_intoiterator_into_iter():
     """Rust test: test_strajectory_intoiterator_into_iter"""
@@ -223,6 +263,7 @@ def test_strajectory_intoiterator_into_iter_empty():
 
     assert count == 0
 
+
 def test_strajectory_iterator_iterator_len():
     """Rust test: test_strajectory_iterator_iterator_len"""
     trajectory = create_test_trajectory()
@@ -232,6 +273,7 @@ def test_strajectory_iterator_iterator_len():
 
 
 # Trajectory Trait Tests
+
 
 def test_strajectory_trajectory_add():
     """Rust test: test_strajectory_trajectory_add"""
@@ -329,13 +371,13 @@ def test_strajectory_trajectory_len():
 
     trajectory.add(
         Epoch.from_jd(2451545.0, brahe.UTC),
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
     )
     assert len(trajectory) == 1
 
     trajectory.add(
         Epoch.from_jd(2451545.1, brahe.UTC),
-        np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
+        np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0]),
     )
     assert len(trajectory) == 2
 
@@ -347,7 +389,7 @@ def test_strajectory_trajectory_is_empty():
 
     trajectory.add(
         Epoch.from_jd(2451545.0, brahe.UTC),
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
     )
     assert not trajectory.is_empty()
 
@@ -390,7 +432,7 @@ def test_strajectory_trajectory_timespan():
     single_trajectory = STrajectory6()
     single_trajectory.add(
         Epoch.from_jd(2451545.0, brahe.UTC),
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
     )
     assert single_trajectory.time_span is None
 
@@ -509,11 +551,28 @@ def test_strajectory_trajectory_index_before_epoch():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        2.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        3.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    ])
+    states = np.array(
+        [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            3.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test finding index before t0 (should error - before all states)
@@ -556,11 +615,28 @@ def test_strajectory_trajectory_index_after_epoch():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        2.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        3.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    ])
+    states = np.array(
+        [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            3.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test finding index after t0-30s (should return index 0)
@@ -607,11 +683,28 @@ def test_strajectory_trajectory_state_before_epoch():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        1000.0, 100.0, 10.0, 1.0, 0.1, 0.01,
-        2000.0, 200.0, 20.0, 2.0, 0.2, 0.02,
-        3000.0, 300.0, 30.0, 3.0, 0.3, 0.03,
-    ])
+    states = np.array(
+        [
+            1000.0,
+            100.0,
+            10.0,
+            1.0,
+            0.1,
+            0.01,
+            2000.0,
+            200.0,
+            20.0,
+            2.0,
+            0.2,
+            0.02,
+            3000.0,
+            300.0,
+            30.0,
+            3.0,
+            0.3,
+            0.03,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test error case for epoch before all states
@@ -667,11 +760,28 @@ def test_strajectory_trajectory_state_after_epoch():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        1000.0, 100.0, 10.0, 1.0, 0.1, 0.01,
-        2000.0, 200.0, 20.0, 2.0, 0.2, 0.02,
-        3000.0, 300.0, 30.0, 3.0, 0.3, 0.03,
-    ])
+    states = np.array(
+        [
+            1000.0,
+            100.0,
+            10.0,
+            1.0,
+            0.1,
+            0.01,
+            2000.0,
+            200.0,
+            20.0,
+            2.0,
+            0.2,
+            0.02,
+            3000.0,
+            300.0,
+            30.0,
+            3.0,
+            0.3,
+            0.03,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test error case for epoch after all states
@@ -810,6 +920,7 @@ def test_strajectory_set_eviction_policy_max_age():
 
 # Interpolatable Trait Tests
 
+
 def test_strajectory_interpolatable_get_interpolation_method():
     """Rust test: test_strajectory_interpolatable_get_interpolation_method"""
     traj = STrajectory6()
@@ -832,11 +943,28 @@ def test_strajectory_interpolatable_interpolate_linear():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-    ])
+    states = np.array(
+        [
+            7000e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+            7060e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+            7120e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test interpolate_linear at t0+30s (midpoint between first two states)
@@ -905,11 +1033,28 @@ def test_strajectory_interpolatable_interpolate():
         t0 + 60.0,
         t0 + 120.0,
     ]
-    states = np.array([
-        7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-        7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0,
-    ])
+    states = np.array(
+        [
+            7000e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+            7060e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+            7120e3,
+            0.0,
+            0.0,
+            0.0,
+            7.5e3,
+            0.0,
+        ]
+    )
     traj = STrajectory6.from_data(epochs, states)
 
     # Test that interpolate() returns same result as interpolate_linear() for the same epoch

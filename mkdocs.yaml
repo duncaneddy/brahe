@@ -1,6 +1,6 @@
 site_name: Brahe
 site_author: Duncan Eddy
-site_description: Brahe - easy-to-learn, high-performance, and quick-to-deploy
+site_description: Brahe - Practical Astrodynamics
 site_url: https://github.com/duncaneddy/brahe
 repo_url: https://github.com/duncaneddy/brahe
 docs_dir: docs
@@ -11,12 +11,28 @@ extra_css:
 
 plugins:
     - search
-    - mkdocstrings
+    -   mkdocstrings:
+            handlers:
+                python:
+                    options:
+                        show_source: false
+                        docstring_style: google
+                        docstring_section_style: table
+                        merge_init_into_class: true
+                        show_if_no_docstring: false
+                        show_signature_annotations: true
+                        separate_signature: true
+                        show_root_heading: true
+                        show_root_full_path: false
+                        show_symbol_type_heading: true
+                        show_symbol_type_toc: true
     - section-index
     -   git-revision-date-localized:
             enable_creation_date: true
             fallback_to_build_date: true
+            enable_git_follow: false
             type: iso_date
+            strict: false
 theme:
     name: material
     logo: assets/icon.png
@@ -57,27 +73,31 @@ markdown_extensions:
             toc_depth: 3
 
 nav:
-    -   Brahe: index.md
-    -   Getting Started (Tutorials & Guides):
-            - getting_started/index.md
-            - getting_started/installation.md
-            - getting_started/first_script.md
-            - getting_started/frame_conversion.md
-            - getting_started/contact_prediction.md
-            - getting_started/orbit_prediction.md
-            - getting_started/tle_download.md
-    -   Library API:
+    -   Brahe:
+            - index.md
+            - installation.md
+            - contributing.md
+    -   Learn:
+            - learn/index.md
+    -   Examples:
+            - examples/index.md
+    -   Python API Reference:
             - library_api/index.md
-    -   Reference:
-            - reference/index.md
-            - reference/constants.md
+            - Constants: library_api/constants.md
+            - EOP: library_api/eop.md
+            - Time: library_api/time.md
+            - Coordinates: library_api/coordinates.md
+            - Frames: library_api/frames.md
+            - Orbits: 
+                - library_api/orbits/index.md
+                - library_api/orbits.md
+            - Attitude: library_api/attitude.md
+            - Trajectories: library_api/trajectories.md
+    -   Rust API Reference: https://docs.rs/brahe
     -   About:
             - about/index.md
-            - about/roadmap.md
             - about/design_decisions.md
-            - about/contributing.md
             - about/license.md
-            - about/contact.md
     -   Blog: https://duncaneddy.com
 
 extra:

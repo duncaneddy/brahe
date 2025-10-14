@@ -14,18 +14,17 @@ use once_cell::sync::Lazy;
 use crate::utils::{BraheError, kronecker_delta};
 
 /// Packaged EGM2008_360 Data File
-static PACKAGED_EGM2008_360: &'static [u8] =
-    include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
+static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
 
 /// Packaged GGM05S Data File
-static PACKAGED_GGM05S: &'static [u8] =
-    include_bytes!("../../data/gravity_models/GGM05S.gfc");
+static PACKAGED_GGM05S: &[u8] = include_bytes!("../../data/gravity_models/GGM05S.gfc");
 
 /// Packaged JGM3
-static PACKAGED_JGM3: &'static [u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
-static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> = Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
+static PACKAGED_JGM3: &[u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
+static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
 
-/// Set the global gravity model to a new gravity model. A global gravity model is useful as it 
+/// Set the global gravity model to a new gravity model. A global gravity model is useful as it
 /// allows for a single gravity model to be used throughout a program. This is useful when multiple
 /// objects are being propagated, as it allows for the gravity model to only be loaded into memory
 /// once, reducing memory usage and improving performance.
@@ -76,10 +75,10 @@ fn factorial_product(n: usize, m: usize) -> f64 {
 
     // TODO: Confirm range termination of n+m+1 vs n+m
     for i in n - m + 1..n + m + 1 {
-        p = p / i as f64;
+        p /= i as f64;
     }
 
-    return p;
+    p
 }
 
 /// Compute the acceleration due to point-mass gravity.
@@ -248,32 +247,49 @@ impl GravityModel {
                     "calibrated" => GravityModelErrors::Calibrated,
                     "formal" => GravityModelErrors::Formal,
                     "calibrated_and_formal" => GravityModelErrors::CalibratedAndFormal,
-                    _ => return Err(BraheError::ParseError(format!("Invalid model_errors value: \"{}\". Expected \"no\", \"calibrated\", \"formal\", or \"calibrated_and_formal\".", line.split_whitespace().last().unwrap()))),
+                    _ => {
+                        return Err(BraheError::ParseError(format!(
+                            "Invalid model_errors value: \"{}\". Expected \"no\", \"calibrated\", \"formal\", or \"calibrated_and_formal\".",
+                            line.split_whitespace().last().unwrap()
+                        )));
+                    }
                 };
             } else if line.starts_with("normalization") {
                 normalization = match line.split_whitespace().last().unwrap() {
                     "fully_normalized" => GravityModelNormalization::FullyNormalized,
                     "unnormalized" => GravityModelNormalization::Unnormalized,
-                    _ => return Err(BraheError::ParseError(format!("Invalid normalization value: \"{}\". Expected \"fully_normalized\" or \"unnormalized\".", line.split_whitespace().last().unwrap()))),
+                    _ => {
+                        return Err(BraheError::ParseError(format!(
+                            "Invalid normalization value: \"{}\". Expected \"fully_normalized\" or \"unnormalized\".",
+                            line.split_whitespace().last().unwrap()
+                        )));
+                    }
                 };
             }
         }
 
         // Confirm that the header contained all required fields
         if gm == 0.0 {
-            return Err(BraheError::ParseError("Gravity model file header missing required field: \"earth_gravity_constant\"".to_string()));
+            return Err(BraheError::ParseError(
+                "Gravity model file header missing required field: \"earth_gravity_constant\""
+                    .to_string(),
+            ));
         }
         if radius == 0.0 {
-            return Err(BraheError::ParseError("Gravity model file header missing required field: \"radius\"".to_string()));
+            return Err(BraheError::ParseError(
+                "Gravity model file header missing required field: \"radius\"".to_string(),
+            ));
         }
         if n_max == 0 {
-            return Err(BraheError::ParseError("Gravity model file header missing required field: \"max_degree\"".to_string()));
+            return Err(BraheError::ParseError(
+                "Gravity model file header missing required field: \"max_degree\"".to_string(),
+            ));
         }
 
         // Read the data
         let mut data = DMatrix::zeros(n_max + 1, m_max + 1);
 
-        while let Some(line) = lines.next() {
+        for line in lines {
             let l = line?.replace("D", "e").replace("d", "e");
             let mut values = l.split_whitespace();
 
@@ -370,10 +386,13 @@ impl GravityModel {
     /// # Returns
     ///
     /// - `Result<(f64, f64), BraheError>` : Tuple of the gravity model coefficients. The first value
-    /// is the C coefficient and the second value is the S coefficient.
+    ///   is the C coefficient and the second value is the S coefficient.
     pub fn get(&self, n: usize, m: usize) -> Result<(f64, f64), BraheError> {
         if n > self.n_max || m > self.m_max {
-            return Err(BraheError::OutOfBoundsError(format!("Requested gravity model coefficients (n={}, m={}) are out of bounds (n_max={}, m_max={}).", n, m, self.n_max, self.m_max)));
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested gravity model coefficients (n={}, m={}) are out of bounds (n_max={}, m_max={}).",
+                n, m, self.n_max, self.m_max
+            )));
         }
 
         if m == 0 {
@@ -384,13 +403,24 @@ impl GravityModel {
     }
 
     #[allow(non_snake_case)]
-    pub fn compute_spherical_harmonics(&self, r_body: Vector3<f64>, n_max: usize, m_max: usize) -> Result<Vector3<f64>, BraheError> {
+    pub fn compute_spherical_harmonics(
+        &self,
+        r_body: Vector3<f64>,
+        n_max: usize,
+        m_max: usize,
+    ) -> Result<Vector3<f64>, BraheError> {
         if n_max > self.n_max || m_max > self.m_max {
-            return Err(BraheError::OutOfBoundsError(format!("Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds for the input model (n_max={}, m_max={}).", n_max, m_max, self.n_max, self.m_max)));
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds for the input model (n_max={}, m_max={}).",
+                n_max, m_max, self.n_max, self.m_max
+            )));
         }
 
         if m_max > n_max {
-            return Err(BraheError::OutOfBoundsError(format!("Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds. m_max must be less than or equal to n_max.", n_max, m_max)));
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds. m_max must be less than or equal to n_max.",
+                n_max, m_max
+            )));
         }
 
         // Auxiliary quantities
@@ -414,10 +444,10 @@ impl GravityModel {
 
         for n in 2..(n_max + 2) {
             let nf = n as f64;
-            V[(n, 0)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, 0)] - (nf - 1.0) * rho * V[(n - 2, 0)]) / nf;
+            V[(n, 0)] =
+                ((2.0 * nf - 1.0) * z0 * V[(n - 1, 0)] - (nf - 1.0) * rho * V[(n - 2, 0)]) / nf;
             W[(n, 0)] = 0.0
         }
-
 
         // Calculate tesseral and sectorial terms
         for m in 1..m_max + 2 {
@@ -426,7 +456,6 @@ impl GravityModel {
             V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
             W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
 
-
             if m <= n_max {
                 V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                 W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -434,11 +463,14 @@ impl GravityModel {
 
             for n in m + 2..n_max + 2 {
                 let nf = n as f64;
-                V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)] - (nf + mf - 1.0) * rho * V[(n - 2, m)]) / (nf - mf);
-                W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)] - (nf + mf - 1.0) * rho * W[(n - 2, m)]) / (nf - mf);
+                V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
+                    - (nf + mf - 1.0) * rho * V[(n - 2, m)])
+                    / (nf - mf);
+                W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
+                    - (nf + mf - 1.0) * rho * W[(n - 2, m)])
+                    / (nf - mf);
             }
         }
-
 
         // Calculate accelerations ax,ay,az
         let mut ax = 0.0;
@@ -450,14 +482,13 @@ impl GravityModel {
             for n in m..n_max + 1 {
                 let nf = n as f64;
                 if m == 0 {
-                    let C;
                     // Denormalize coefficients, if required
-                    if self.normalization == GravityModelNormalization::FullyNormalized {
+                    let C = if self.normalization == GravityModelNormalization::FullyNormalized {
                         let N = (2.0 * nf + 1.0).sqrt();
-                        C = N * self.data[(n, 0)];
+                        N * self.data[(n, 0)]
                     } else {
-                        C = self.data[(n, 0)];
-                    }
+                        self.data[(n, 0)]
+                    };
 
                     ax -= C * V[(n + 1, 1)];
                     ay -= C * W[(n + 1, 1)];
@@ -467,7 +498,10 @@ impl GravityModel {
                     let S;
                     // Denormalize coefficients, if required
                     if self.normalization == GravityModelNormalization::FullyNormalized {
-                        let N = ((2 - kronecker_delta(0, m)) as f64 * (2.0 * nf + 1.0) * factorial_product(n, m)).sqrt();
+                        let N = ((2 - kronecker_delta(0, m)) as f64
+                            * (2.0 * nf + 1.0)
+                            * factorial_product(n, m))
+                        .sqrt();
                         C = N * self.data[(n, m)];
                         S = N * self.data[(m - 1, n)];
                     } else {
@@ -567,7 +601,9 @@ pub fn acceleration_gravity_spherical_harmonics(
     let r_bf = R_i2b * r_eci;
 
     // Compute spherical harmonic acceleration
-    let a_ecef = gravity_model.compute_spherical_harmonics(r_bf, n_max, m_max).unwrap();
+    let a_ecef = gravity_model
+        .compute_spherical_harmonics(r_bf, n_max, m_max)
+        .unwrap();
 
     // Inertial acceleration
     R_i2b.transpose() * a_ecef
@@ -595,7 +631,10 @@ mod tests {
         assert_eq!(gravity_model.m_max, 360);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
-        assert_eq!(gravity_model.normalization, GravityModelNormalization::FullyNormalized);
+        assert_eq!(
+            gravity_model.normalization,
+            GravityModelNormalization::FullyNormalized
+        );
     }
 
     #[test]
@@ -609,7 +648,10 @@ mod tests {
         assert_eq!(gravity_model.m_max, 360);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
-        assert_eq!(gravity_model.normalization, GravityModelNormalization::FullyNormalized);
+        assert_eq!(
+            gravity_model.normalization,
+            GravityModelNormalization::FullyNormalized
+        );
     }
 
     #[test]
@@ -623,7 +665,10 @@ mod tests {
         assert_eq!(gravity_model.m_max, 180);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::ZeroTide);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
-        assert_eq!(gravity_model.normalization, GravityModelNormalization::FullyNormalized);
+        assert_eq!(
+            gravity_model.normalization,
+            GravityModelNormalization::FullyNormalized
+        );
     }
 
     #[test]
@@ -637,7 +682,10 @@ mod tests {
         assert_eq!(gravity_model.m_max, 70);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::Unknown);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Formal);
-        assert_eq!(gravity_model.normalization, GravityModelNormalization::FullyNormalized);
+        assert_eq!(
+            gravity_model.normalization,
+            GravityModelNormalization::FullyNormalized
+        );
     }
 
     #[test]
@@ -701,17 +749,20 @@ mod tests {
 
         let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
 
-
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
         // Simple test confirming point-mass equivalence
-        let a_grav = gravity_model.compute_spherical_harmonics(r_body, 0, 0).unwrap();
-        assert_abs_diff_eq!(a_grav[0], -GM_EARTH/R_EARTH.powi(2), epsilon = 1e-12);
+        let a_grav = gravity_model
+            .compute_spherical_harmonics(r_body, 0, 0)
+            .unwrap();
+        assert_abs_diff_eq!(a_grav[0], -GM_EARTH / R_EARTH.powi(2), epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[1], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[2], 0.0, epsilon = 1e-12);
 
         // Test a more complex case
-        let a_grav = gravity_model.compute_spherical_harmonics(r_body, 60, 60).unwrap();
+        let a_grav = gravity_model
+            .compute_spherical_harmonics(r_body, 60, 60)
+            .unwrap();
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[2], -7.29925652190e-5, epsilon = 1e-12);
@@ -737,7 +788,13 @@ mod tests {
     #[case(18, 18, - 6.97926208121, - 1.829284918, - 2.6899952379)]
     #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
     #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
-    fn test_acceleration_gravity_jgm3_validation(#[case] n: usize, #[case] m: usize, #[case] ax: f64, #[case] ay: f64, #[case] az: f64) {
+    fn test_acceleration_gravity_jgm3_validation(
+        #[case] n: usize,
+        #[case] m: usize,
+        #[case] ax: f64,
+        #[case] ay: f64,
+        #[case] az: f64,
+    ) {
         let rot = SMatrix3::identity();
 
         let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);

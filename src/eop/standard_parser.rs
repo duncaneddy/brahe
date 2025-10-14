@@ -5,6 +5,10 @@
 use crate::constants::AS2RAD;
 use crate::utils::errors::BraheError;
 
+// Type alias for complex EOP parse result
+type EOPParseResult =
+    Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), BraheError>;
+
 /// Parse a line out of a standard file and return the resulting data.
 ///
 /// # Arguments
@@ -23,9 +27,7 @@ use crate::utils::errors::BraheError;
 /// # References
 /// 1. See [Standard Series Metadata](https://datacenter.iers.org/versionMetadata.php?filename=latestVersionMeta/9_FINALS.ALL_IAU2000_V2013_019.txt) for more information on the standard file format.
 #[allow(non_snake_case)]
-pub fn parse_standard_line(
-    line: String,
-) -> Result<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), BraheError> {
+pub fn parse_standard_line(line: String) -> EOPParseResult {
     const MJD_RANGE: std::ops::Range<usize> = 6..15;
     const PM_X_RANGE: std::ops::Range<usize> = 17..27;
     const PM_Y_RANGE: std::ops::Range<usize> = 36..46;
@@ -49,7 +51,7 @@ pub fn parse_standard_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse mjd from '{}': {}",
                 &line[MJD_RANGE], e
-            )))
+            )));
         }
     };
     let pm_x = match line[PM_X_RANGE].trim().parse::<f64>() {
@@ -58,7 +60,7 @@ pub fn parse_standard_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_x from '{}': {}",
                 &line[PM_X_RANGE], e
-            )))
+            )));
         }
     };
     let pm_y = match line[PM_Y_RANGE].trim().parse::<f64>() {
@@ -67,7 +69,7 @@ pub fn parse_standard_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse pm_y from '{}': {}",
                 &line[PM_Y_RANGE], e
-            )))
+            )));
         }
     };
     let ut1_utc = match line[UT1_UTC_RANGE].trim().parse::<f64>() {
@@ -76,7 +78,7 @@ pub fn parse_standard_line(
             return Err(BraheError::EOPError(format!(
                 "Failed to parse ut1_utc from '{}': {}",
                 &line[UT1_UTC_RANGE], e
-            )))
+            )));
         }
     };
     let lod = match line[LOD_RANGE].trim().parse::<f64>() {

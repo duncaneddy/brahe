@@ -20,21 +20,29 @@ use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::standard_parser::parse_standard_line;
 use crate::utils::BraheError;
 
+// Type aliases for complex EOP data structures
+type EOPData = (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>);
+type EOPDataMap = BTreeMap<EOPKey, EOPData>;
+
 // Package EOP data as part of crate
 
 /// Packaged C04 EOP Data File
-static PACKAGED_C04_FILE: &'static [u8] =
-    include_bytes!("../../data/eop/EOP_20_C04_one_file_1962-now.txt");
+static PACKAGED_C04_FILE: &[u8] = include_bytes!("../../data/eop/EOP_20_C04_one_file_1962-now.txt");
 
 /// Packaged Finals 2000A Data File
-static PACKAGED_STANDARD2000_FILE: &'static [u8] =
-    include_bytes!("../../data/eop/finals.all.iau2000.txt");
+static PACKAGED_STANDARD2000_FILE: &[u8] = include_bytes!("../../data/eop/finals.all.iau2000.txt");
 
 // Define a custom key type for the EOP data BTreeMap to enable use
 // since f64 does not implement Ord by default. This is not used
 // by and accessors and is only used internally to the FileEOPProvider.
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq)]
 struct EOPKey(f64);
+
+impl PartialOrd for EOPKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl Ord for EOPKey {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -89,7 +97,7 @@ impl Eq for EOPKey {}
 pub struct FileEOPProvider {
     initialized: bool,
     pub eop_type: EOPType,
-    data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)>,
+    data: EOPDataMap,
     pub extrapolate: EOPExtrapolation,
     pub interpolate: bool,
     pub mjd_min: f64,
@@ -173,25 +181,31 @@ fn detect_eop_file_type(filepath: &Path) -> Result<EOPType, io::Error> {
     let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
 
     // First check for C04 file header
-    if let Some(line) = lines.get(1) {
-        if line.contains("C04") {
-            // Check if first line of file parses as a C04-type line
-            if let Some(line) = lines.get(6) {
-                if parse_c04_line(line.to_owned()).is_ok() {
-                    return Ok(EOPType::C04);
-                }
-            }
+    if let Some(line) = lines.get(1)
+        && line.contains("C04")
+    {
+        // Check if first line of file parses as a C04-type line
+        if let Some(line) = lines.get(6)
+            && parse_c04_line(line.to_owned()).is_ok()
+        {
+            return Ok(EOPType::C04);
         }
     }
 
     // Next test if file parses as a standard-type file
-    if let Some(line) = lines.get(0) {
-        if parse_standard_line(line.to_owned()).is_ok() {
-            return Ok(EOPType::StandardBulletinA);
-        }
+    if let Some(line) = lines.first()
+        && parse_standard_line(line.to_owned()).is_ok()
+    {
+        return Ok(EOPType::StandardBulletinA);
     }
 
     Ok(EOPType::Unknown)
+}
+
+impl Default for FileEOPProvider {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileEOPProvider {
@@ -211,8 +225,7 @@ impl FileEOPProvider {
     /// let eop = FileEOPProvider::new();
     /// ```
     pub fn new() -> Self {
-        let data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)> =
-            BTreeMap::new();
+        let data: EOPDataMap = BTreeMap::new();
 
         Self {
             initialized: false,
@@ -285,8 +298,7 @@ impl FileEOPProvider {
         let mut mjd_min = 0.0;
         let mut mjd_max = 0.0;
 
-        let mut data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)> =
-            BTreeMap::new();
+        let mut data: EOPDataMap = BTreeMap::new();
 
         for (line_num, line_str) in reader.lines().enumerate() {
             // Skip first 6 lines of C04 data file header
@@ -402,8 +414,7 @@ impl FileEOPProvider {
         let mut mjd_last_lod = 0.0;
         let mut mjd_last_dxdy = 0.0;
 
-        let mut data: BTreeMap<EOPKey, (f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)> =
-            BTreeMap::new();
+        let mut data: EOPDataMap = BTreeMap::new();
 
         for (line_num, line_str) in reader.lines().enumerate() {
             // There is no header to skip in standard file, so we immediately start reading
@@ -808,10 +819,9 @@ impl EarthOrientationProvider for FileEOPProvider {
     fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             if mjd < self.mjd_max {
-                if self.interpolate == true {
+                if self.interpolate {
                     // Get cursor pointing at the gap after the data for the previous data point
                     let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
 
                     // Time points and values
                     let (t1, data1) = cursor.peek_prev().unwrap();
@@ -834,7 +844,9 @@ impl EarthOrientationProvider for FileEOPProvider {
                         .data
                         .lower_bound(Bound::Included(&EOPKey(mjd)))
                         .peek_prev()
-                        .unwrap().1.2)
+                        .unwrap()
+                        .1
+                        .2)
                 }
             } else {
                 match self.extrapolate {
@@ -893,10 +905,9 @@ impl EarthOrientationProvider for FileEOPProvider {
     fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             if mjd < self.mjd_max {
-                if self.interpolate == true {
+                if self.interpolate {
                     // Get cursor pointing at the gap after the data for the previous data point
                     let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
 
                     // Time points and values
                     let (t1, data1) = cursor.peek_prev().unwrap();
@@ -920,7 +931,12 @@ impl EarthOrientationProvider for FileEOPProvider {
                     }
                 } else {
                     // Get First value below - Note the "upper" bound is actually the lower time value
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd))).peek_prev().unwrap().1;
+                    let below = self
+                        .data
+                        .lower_bound(Bound::Included(&EOPKey(mjd)))
+                        .peek_prev()
+                        .unwrap()
+                        .1;
                     Ok((below.0, below.1))
                 }
             } else {
@@ -981,10 +997,9 @@ impl EarthOrientationProvider for FileEOPProvider {
     fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         if self.initialized {
             if mjd < self.mjd_last_dxdy {
-                if self.interpolate == true {
+                if self.interpolate {
                     // Get cursor pointing at the gap after the data for the previous data point
                     let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
 
                     // Time points and values
                     let (t1, data1) = cursor.peek_prev().unwrap();
@@ -1008,11 +1023,13 @@ impl EarthOrientationProvider for FileEOPProvider {
                     }
                 } else {
                     // Get First value below - Note the "upper" bound is actually the lower time value
-                    let below = self.data.lower_bound(Bound::Included(&EOPKey(mjd))).peek_prev().unwrap().1;
-                    Ok((
-                        below.3.unwrap(),
-                        below.4.unwrap(),
-                    ))
+                    let below = self
+                        .data
+                        .lower_bound(Bound::Included(&EOPKey(mjd)))
+                        .peek_prev()
+                        .unwrap()
+                        .1;
+                    Ok((below.3.unwrap(), below.4.unwrap()))
                 }
             } else {
                 match self.extrapolate {
@@ -1070,10 +1087,9 @@ impl EarthOrientationProvider for FileEOPProvider {
     fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
         if self.initialized {
             if mjd < self.mjd_last_lod {
-                if self.interpolate == true {
+                if self.interpolate {
                     // Get cursor pointing at the gap after the data for the previous data point
                     let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
 
                     // Time points and values
                     let (t1, data1) = cursor.peek_prev().unwrap();
@@ -1097,7 +1113,8 @@ impl EarthOrientationProvider for FileEOPProvider {
                         .lower_bound(Bound::Included(&EOPKey(mjd)))
                         .peek_prev()
                         .unwrap()
-                        .1.5
+                        .1
+                        .5
                         .unwrap())
                 }
             } else {
@@ -1105,7 +1122,12 @@ impl EarthOrientationProvider for FileEOPProvider {
                     EOPExtrapolation::Zero => Ok(0.0),
                     EOPExtrapolation::Hold => {
                         // LOD is guaranteed to be present through `mjd_last_lod`
-                        Ok(self.data.get(&EOPKey(self.mjd_last_lod)).unwrap().5.unwrap())
+                        Ok(self
+                            .data
+                            .get(&EOPKey(self.mjd_last_lod))
+                            .unwrap()
+                            .5
+                            .unwrap())
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
@@ -1188,11 +1210,9 @@ mod tests {
             .join("test_assets")
             .join("finals.all.iau2000.txt");
 
-        let eop_result =
-            FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation);
-        assert_eq!(eop_result.is_err(), false);
-        let eop = eop_result.unwrap();
-        assert_eq!(eop.initialized, true);
+        let eop = FileEOPProvider::from_file(&filepath, eop_interpolation, eop_extrapolation)
+            .expect("Failed to load EOP file for tests");
+        assert!(eop.initialized);
 
         eop
     }
@@ -1235,7 +1255,7 @@ mod tests {
         assert_eq!(eop.mjd_max(), 60269.0);
         assert_eq!(eop.eop_type(), EOPType::C04);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), true);
+        assert!(eop.interpolation());
     }
 
     #[test]
@@ -1251,7 +1271,7 @@ mod tests {
         assert!(eop.mjd_max() >= 60269.0);
         assert_eq!(eop.eop_type(), EOPType::C04);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), true);
+        assert!(eop.interpolation());
     }
 
     #[test]
@@ -1269,7 +1289,7 @@ mod tests {
         assert_eq!(eop.mjd_max(), 60672.0);
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), true);
+        assert!(eop.interpolation());
     }
 
     #[test]
@@ -1279,7 +1299,7 @@ mod tests {
             true,
             EOPExtrapolation::Hold,
         )
-            .unwrap();
+        .unwrap();
 
         // These need to be structured slightly differently since the
         // default package data is regularly updated.
@@ -1289,7 +1309,7 @@ mod tests {
         assert!(eop.mjd_max() >= 60672.0);
         assert_eq!(eop.eop_type(), EOPType::StandardBulletinA);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
-        assert_eq!(eop.interpolation(), true);
+        assert!(eop.interpolation());
     }
 
     #[test]
@@ -1494,4 +1514,23 @@ mod tests {
     //     // let (dX_c04, dY_c04) = eop_c04.get_dxdy(54195.0).unwrap();
     //     // assert_abs_diff_eq!(dX_s, dX_c04, epsilon = 1.0e-12)
     // }
+
+    #[test]
+    fn test_default_implementation() {
+        // Test that Default::default() is equivalent to new()
+        let eop_default = FileEOPProvider::default();
+        let eop_new = FileEOPProvider::new();
+
+        // Both should be uninitialized
+        assert_eq!(eop_default.is_initialized(), eop_new.is_initialized());
+        assert!(!eop_default.is_initialized());
+
+        // Both should have the same type
+        assert_eq!(eop_default.eop_type(), eop_new.eop_type());
+        assert_eq!(eop_default.eop_type(), EOPType::Unknown);
+
+        // Both should have the same length
+        assert_eq!(eop_default.len(), eop_new.len());
+        assert_eq!(eop_default.len(), 0);
+    }
 }

@@ -8,13 +8,13 @@ use nalgebra::Vector3;
 use crate::coordinates::SMatrix3;
 use std::{fmt, ops};
 
-use crate::attitude::attitude_types::{
-    EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON
-};
-use crate::attitude::ToAttitude;
-use crate::constants::{AngleFormat, RADIANS, DEG2RAD};
-use crate::utils::BraheError;
 use crate::FromAttitude;
+use crate::attitude::ToAttitude;
+use crate::attitude::attitude_types::{
+    ATTITUDE_EPSILON, EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix,
+};
+use crate::constants::{AngleFormat, DEG2RAD, RADIANS};
+use crate::utils::BraheError;
 
 fn is_so3_or_error(matrix: &SMatrix3, tol: f64) -> Result<(), BraheError> {
     let det = matrix.determinant();
@@ -66,6 +66,7 @@ impl RotationMatrix {
     ///    0.0, 0.7071067811865476, -0.7071067811865476,
     ///    0.0, 0.7071067811865476, 0.7071067811865476
     /// ).unwrap();
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         r11: f64,
         r12: f64,
@@ -80,9 +81,7 @@ impl RotationMatrix {
         let data = SMatrix3::new(r11, r12, r13, r21, r22, r23, r31, r32, r33);
 
         // If the matrix is not a proper rotation matrix, return an error
-        if let Err(e) = is_so3_or_error(&data, 1e-7) {
-            return Err(e);
-        }
+        is_so3_or_error(&data, 1e-7)?;
 
         Ok(Self { data })
     }
@@ -115,14 +114,12 @@ impl RotationMatrix {
     /// let r = RotationMatrix::from_matrix(matrix).unwrap();
     /// ```
     pub fn from_matrix(matrix: SMatrix3) -> Result<Self, BraheError> {
-        let data = matrix.clone();
+        let data = matrix;
 
         // If the matrix is not a proper rotation matrix, return an error
-        if let Err(e) = is_so3_or_error(&data, 1e-7) {
-            return Err(e);
-        }
+        is_so3_or_error(&data, 1e-7)?;
 
-        Ok(Self { data: data })
+        Ok(Self { data })
     }
 
     /// Converts the `RotationMatrix` to a `nalgebra::SMatrix<f64, 3, 3>`.
@@ -146,7 +143,7 @@ impl RotationMatrix {
     /// let matrix = r.to_matrix();
     /// ```
     pub fn to_matrix(&self) -> SMatrix3 {
-        self.data.clone()
+        self.data
     }
 
     /// Create a new `RotationMatrix` representing a rotation about the x-axis.
@@ -282,27 +279,15 @@ impl fmt::Debug for RotationMatrix {
 
 impl PartialEq for RotationMatrix {
     fn eq(&self, other: &Self) -> bool {
-        (self.data[(0, 0)] - other.data[(0,0)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(0, 1)] - other.data[(0,1)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(0, 2)] - other.data[(0,2)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(1, 0)] - other.data[(1,0)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(1, 1)] - other.data[(1,1)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(1, 2)] - other.data[(1,2)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(2, 0)] - other.data[(2,0)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(2, 1)] - other.data[(2,1)]).abs() <= ATTITUDE_EPSILON &&
-        (self.data[(2, 2)] - other.data[(2,2)]).abs() <= ATTITUDE_EPSILON
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        (self.data[(0, 0)] - other.data[(0,0)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(0, 1)] - other.data[(0,1)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(0, 2)] - other.data[(0,2)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(1, 0)] - other.data[(1,0)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(1, 1)] - other.data[(1,1)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(1, 2)] - other.data[(1,2)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(2, 0)] - other.data[(2,0)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(2, 1)] - other.data[(2,1)]).abs() > ATTITUDE_EPSILON ||
-        (self.data[(2, 2)] - other.data[(2,2)]).abs() > ATTITUDE_EPSILON
+        (self.data[(0, 0)] - other.data[(0, 0)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(0, 1)] - other.data[(0, 1)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(0, 2)] - other.data[(0, 2)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(1, 0)] - other.data[(1, 0)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(1, 1)] - other.data[(1, 1)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(1, 2)] - other.data[(1, 2)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(2, 0)] - other.data[(2, 0)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(2, 1)] - other.data[(2, 1)]).abs() <= ATTITUDE_EPSILON
+            && (self.data[(2, 2)] - other.data[(2, 2)]).abs() <= ATTITUDE_EPSILON
     }
 }
 
@@ -457,9 +442,7 @@ impl FromAttitude for RotationMatrix {
     /// let r2 = RotationMatrix::from_rotation_matrix(r);
     /// ```
     fn from_rotation_matrix(r: RotationMatrix) -> Self {
-        RotationMatrix {
-            data: r.data.clone(),
-        }
+        RotationMatrix { data: r.data }
     }
 }
 
@@ -556,9 +539,13 @@ impl ToAttitude for RotationMatrix {
             EulerAngleOrder::XZX => {
                 EulerAngle::new(order, r31.atan2(-r21), r11.acos(), r13.atan2(r12), RADIANS)
             }
-            EulerAngleOrder::XZY => {
-                EulerAngle::new(order, (-r32).atan2(r22), r12.asin(), (-r13).atan2(r11), RADIANS)
-            }
+            EulerAngleOrder::XZY => EulerAngle::new(
+                order,
+                (-r32).atan2(r22),
+                r12.asin(),
+                (-r13).atan2(r11),
+                RADIANS,
+            ),
             EulerAngleOrder::YXY => {
                 EulerAngle::new(order, r12.atan2(-r32), r22.acos(), r21.atan2(r23), RADIANS)
             }
@@ -616,52 +603,54 @@ impl ToAttitude for RotationMatrix {
     /// let r2 = r.to_rotation_matrix();
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {
-        RotationMatrix {
-            data: self.data.clone(),
-        }
+        RotationMatrix { data: self.data }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{DEGREES, RADIANS};
     use nalgebra::Matrix3;
     use strum::IntoEnumIterator;
-    use crate::constants::{DEGREES, RADIANS};
 
     #[test]
     fn test_new() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
         );
 
         assert!(r.is_ok());
 
         // Determinant is not 1
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, 2.0, 0.0,
-            0.0, 0.0, 1.0
-        );
+        let r = RotationMatrix::new(1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0);
         assert!(r.is_err());
 
         // Not a square matrix
-        let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, 2.0, 3.0,
-            0.0, 0.0, 1.0
-        );
+        let r = RotationMatrix::new(1.0, 0.0, 0.0, 0.0, 2.0, 3.0, 0.0, 0.0, 1.0);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_from_matrix() {
         let matrix = Matrix3::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
         );
 
         let r = RotationMatrix::from_matrix(matrix);
@@ -671,17 +660,33 @@ mod tests {
     #[test]
     fn test_to_matrix() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
 
         let matrix = r.to_matrix();
-        assert_eq!(matrix, Matrix3::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ));
+        assert_eq!(
+            matrix,
+            Matrix3::new(
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+                0.0,
+                -std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2
+            )
+        );
     }
 
     #[test]
@@ -689,10 +694,17 @@ mod tests {
     fn test_Rx() {
         let r = RotationMatrix::Rx(45.0, DEGREES);
         let expected = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -702,10 +714,17 @@ mod tests {
     fn test_Ry() {
         let r = RotationMatrix::Ry(45.0, DEGREES);
         let expected = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            1.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -715,10 +734,17 @@ mod tests {
     fn test_Rz() {
         let r = RotationMatrix::Rz(45.0, DEGREES);
         let expected = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -727,11 +753,7 @@ mod tests {
     fn test_from_quaternion() {
         let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
         let r = RotationMatrix::from_quaternion(q);
-        let expected = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+        let expected = RotationMatrix::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0).unwrap();
 
         assert_eq!(r, expected);
     }
@@ -742,10 +764,17 @@ mod tests {
         let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -756,10 +785,17 @@ mod tests {
         let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            1.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -770,10 +806,17 @@ mod tests {
         let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         let r = RotationMatrix::from_euler_axis(e);
         let expected = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
 
         assert_eq!(r, expected);
     }
@@ -783,10 +826,17 @@ mod tests {
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let r = RotationMatrix::from_euler_angle(e);
         let expected = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         assert_eq!(r, expected);
     }
 
@@ -803,10 +853,17 @@ mod tests {
     #[test]
     fn test_from_rotation_matrix() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let r2 = RotationMatrix::from_rotation_matrix(r);
         assert_eq!(r, r2);
         assert!(!std::ptr::eq(&r, &r2));
@@ -815,10 +872,17 @@ mod tests {
     #[test]
     fn test_to_quaternion() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let q = r.to_quaternion();
         let expected = Quaternion::new(0.9238795325112867, 0.3826834323650898, 0.0, 0.0);
         assert_eq!(q, expected);
@@ -828,10 +892,17 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_to_euler_axis_Rx() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let e = r.to_euler_axis();
         let expected = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         assert_eq!(e, expected);
@@ -841,10 +912,17 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_to_euler_axis_Ry() {
         let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, -std::f64::consts::FRAC_1_SQRT_2,
-            0.0, 1.0, 0.0,
-            std::f64::consts::FRAC_1_SQRT_2, 0.0, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            1.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let e = r.to_euler_axis();
         let expected = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         assert_eq!(e, expected);
@@ -854,10 +932,17 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_to_euler_axis_Rz() {
         let r = RotationMatrix::new(
-            std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2, 0.0,
-            0.0, 0.0, 1.0
-        ).unwrap();
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
         let e = r.to_euler_axis();
         let expected = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         assert_eq!(e, expected);
@@ -986,10 +1071,17 @@ mod tests {
     #[test]
     fn test_to_rotation_matrix() {
         let r = RotationMatrix::new(
-            1.0, 0.0, 0.0,
-            0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2,
-            0.0, -std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2
-        ).unwrap();
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.0,
+            -std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        )
+        .unwrap();
         let r2 = r.to_rotation_matrix();
         assert_eq!(r, r2);
         assert!(!std::ptr::eq(&r, &r2));

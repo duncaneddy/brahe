@@ -187,14 +187,18 @@ def test_epoch_from_jd(eop):
     assert epc.time_system == brahe.TAI
 
     epc = brahe.Epoch.from_jd(brahe.MJD_ZERO + brahe.MJD2000, brahe.GPS)
-    (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime_as_time_system(brahe.TAI)
+    (year, month, day, hour, minute, second, nanosecond) = (
+        epc.to_datetime_as_time_system(brahe.TAI)
+    )
     assert year == 2000
     assert month == 1
     assert day == 1
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert nanosecond == 17643.974853515625  # Rounding error from floating point conversion
+    assert (
+        nanosecond == 17643.974853515625
+    )  # Rounding error from floating point conversion
     assert epc.time_system == brahe.GPS
 
 
@@ -211,14 +215,18 @@ def test_epoch_from_mjd(eop):
     assert epc.time_system == brahe.TAI
 
     epc = brahe.Epoch.from_mjd(brahe.MJD2000, brahe.GPS)
-    (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime_as_time_system(brahe.TAI)
+    (year, month, day, hour, minute, second, nanosecond) = (
+        epc.to_datetime_as_time_system(brahe.TAI)
+    )
     assert year == 2000
     assert month == 1
     assert day == 1
     assert hour == 12
     assert minute == 0
     assert second == 19.0
-    assert nanosecond == 17643.974853515625  # Rounding error from floating point conversion
+    assert (
+        nanosecond == 17643.974853515625
+    )  # Rounding error from floating point conversion
     assert epc.time_system == brahe.GPS
 
 
@@ -301,7 +309,10 @@ def test_epoch_to_jd(eop):
     assert epc.jd() == brahe.MJD_ZERO + brahe.MJD2000
 
     epc = brahe.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, brahe.TAI)
-    assert epc.jd_as_time_system(brahe.UTC) == brahe.MJD_ZERO + brahe.MJD2000 - 32.0 / 86400.0
+    assert (
+        epc.jd_as_time_system(brahe.UTC)
+        == brahe.MJD_ZERO + brahe.MJD2000 - 32.0 / 86400.0
+    )
 
 
 def test_epoch_to_mjd(eop):
@@ -386,7 +397,9 @@ def test_gmst(eop):
     assert epc.gmst(brahe.AngleFormat.DEGREES) == pytest.approx(99.969, abs=1e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gmst(brahe.AngleFormat.RADIANS) == pytest.approx(99.969 * math.pi / 180.0, abs=1.0e-3)
+    assert epc.gmst(brahe.AngleFormat.RADIANS) == pytest.approx(
+        99.969 * math.pi / 180.0, abs=1.0e-3
+    )
 
 
 def test_gast(eop):
@@ -394,7 +407,9 @@ def test_gast(eop):
     assert epc.gast(brahe.AngleFormat.DEGREES) == pytest.approx(99.965, abs=1.0e-3)
 
     epc = brahe.Epoch.from_date(2000, 1, 1, brahe.UTC)
-    assert epc.gast(brahe.AngleFormat.RADIANS) == pytest.approx(99.965 * math.pi / 180.0, abs=1.0e-3)
+    assert epc.gast(brahe.AngleFormat.RADIANS) == pytest.approx(
+        99.965 * math.pi / 180.0, abs=1.0e-3
+    )
 
 
 def test_ops_add_assign():
@@ -662,6 +677,7 @@ def test_ops_add():
 #     assert nanosecond == 0.0
 #     assert epc.time_system == brahe.TAI
 
+
 def test_ops_sub_epoch():
     epc_1 = brahe.Epoch.from_date(2022, 1, 31, brahe.TAI)
     epc_2 = brahe.Epoch.from_date(2022, 2, 1, brahe.TAI)
@@ -704,17 +720,17 @@ def test_eq_epoch(eop):
 def test_cmp_epoch(eop):
     epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, brahe.TAI)
     epc_2 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23455, brahe.TAI)
-    assert (epc_1 > epc_2) == True
-    assert (epc_1 >= epc_2) == True
-    assert (epc_1 < epc_2) == False
-    assert (epc_1 <= epc_2) == False
+    assert (epc_1 > epc_2) is True
+    assert (epc_1 >= epc_2) is True
+    assert (epc_1 < epc_2) is False
+    assert (epc_1 <= epc_2) is False
 
     epc_1 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, brahe.TAI)
     epc_2 = brahe.Epoch.from_datetime(2022, 1, 1, 12, 23, 59.9, 1.23456, brahe.TAI)
-    assert (epc_1 > epc_2) == False
-    assert (epc_1 >= epc_2) == True
-    assert (epc_1 < epc_2) == False
-    assert (epc_1 <= epc_2) == True
+    assert (epc_1 > epc_2) is False
+    assert (epc_1 >= epc_2) is True
+    assert (epc_1 < epc_2) is False
+    assert (epc_1 <= epc_2) is True
 
 
 # def test_nanosecond_addition_stability():
@@ -748,7 +764,9 @@ def test_epoch_datetime_accessors(eop):
     assert epoch.hour() == 14
     assert epoch.minute() == 30
     assert epoch.second() == 45.0
-    assert abs(epoch.nanosecond() - 123.0) < 1.0  # Allow for small precision differences
+    assert (
+        abs(epoch.nanosecond() - 123.0) < 1.0
+    )  # Allow for small precision differences
 
 
 def test_epoch_datetime_accessors_edge_cases(eop):
@@ -764,7 +782,9 @@ def test_epoch_datetime_accessors_edge_cases(eop):
     assert epoch_start.nanosecond() == 0.0
 
     # December 31st, end of day
-    epoch_end = brahe.Epoch.from_datetime(2023, 12, 31, 23, 59, 59.0, 999999999.0, brahe.GPS)
+    epoch_end = brahe.Epoch.from_datetime(
+        2023, 12, 31, 23, 59, 59.0, 999999999.0, brahe.GPS
+    )
     assert epoch_end.year() == 2023
     assert epoch_end.month() == 12
     assert epoch_end.day() == 31
@@ -810,7 +830,7 @@ def test_epoch_datetime_accessors_vs_to_datetime(eop):
     epochs = [
         brahe.Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC),
         brahe.Epoch.from_datetime(2024, 6, 15, 12, 30, 45.123, 456789.0, brahe.TAI),
-        brahe.Epoch.from_datetime(2000, 12, 31, 23, 59, 59.999, 999999999.0, brahe.GPS)
+        brahe.Epoch.from_datetime(2000, 12, 31, 23, 59, 59.999, 999999999.0, brahe.GPS),
     ]
 
     for epoch in epochs:
@@ -894,12 +914,7 @@ def test_epoch_from_day_of_year_fractional(eop):
 
 def test_epoch_from_day_of_year_time_systems(eop):
     """Test day-of-year with different time systems."""
-    test_cases = [
-        brahe.UTC,
-        brahe.TAI,
-        brahe.GPS,
-        brahe.TT
-    ]
+    test_cases = [brahe.UTC, brahe.TAI, brahe.GPS, brahe.TT]
 
     for time_system in test_cases:
         epoch = brahe.Epoch.from_day_of_year(2023, 100.0, time_system)
@@ -907,5 +922,3 @@ def test_epoch_from_day_of_year_time_systems(eop):
         assert epoch.month() == 4
         assert epoch.day() == 10
         assert epoch.time_system == time_system
-
-

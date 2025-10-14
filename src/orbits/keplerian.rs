@@ -378,7 +378,7 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, angle_format: AngleFormat) ->
 ///
 /// # References:
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
-///  Applications*, 2012. Eq. 2.65.
+///     Applications*, 2012. Eq. 2.65.
 pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: AngleFormat) -> f64 {
     // Ensure anm_ecc is in radians regardless of input
     let anm_ecc_rad = match angle_format {
@@ -414,7 +414,11 @@ pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: AngleFormat
 /// use brahe::orbits::anomaly_mean_to_eccentric;
 /// let e = anomaly_mean_to_eccentric(90.0, 0.001, DEGREES).unwrap();
 /// ```
-pub fn anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: AngleFormat) -> Result<f64, String> {
+pub fn anomaly_mean_to_eccentric(
+    anm_mean: f64,
+    e: f64,
+    angle_format: AngleFormat,
+) -> Result<f64, String> {
     // Ensure anm_mean is in radians regardless of input
     let anm_mean_rad = match angle_format {
         AngleFormat::Degrees => anm_mean * DEG2RAD,
@@ -546,7 +550,7 @@ pub fn anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: AngleFormat
 ///
 /// # References:
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
-///  Applications*, 2012.
+///     Applications*, 2012.
 pub fn anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: AngleFormat) -> f64 {
     anomaly_eccentric_to_mean(
         anomaly_true_to_eccentric(anm_true, e, angle_format),
@@ -573,7 +577,11 @@ pub fn anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: AngleFormat) ->
 /// use brahe::orbits::anomaly_mean_to_true;
 /// let anm_true = anomaly_mean_to_true(90.0, 0.001, DEGREES).unwrap();
 /// ```
-pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: AngleFormat) -> Result<f64, String> {
+pub fn anomaly_mean_to_true(
+    anm_mean: f64,
+    e: f64,
+    angle_format: AngleFormat,
+) -> Result<f64, String> {
     // Ensure anm_mean is in radians regardless of input
     let anm_mean_rad = match angle_format {
         AngleFormat::Degrees => anm_mean * DEG2RAD,
@@ -611,7 +619,11 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: AngleFormat) ->
         AngleFormat::Radians => anm_ecc,
     };
 
-    Ok(anomaly_eccentric_to_true(anm_ecc_converted, e, angle_format))
+    Ok(anomaly_eccentric_to_true(
+        anm_ecc_converted,
+        e,
+        angle_format,
+    ))
 }
 
 //
@@ -621,7 +633,7 @@ pub fn anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: AngleFormat) ->
 #[cfg(test)]
 mod tests {
     use crate::constants::{DEGREES, GM_EARTH, R_EARTH, R_MOON, RADIANS};
-    use crate::{constants, GM_SUN, orbits::*, R_SUN};
+    use crate::{GM_SUN, R_SUN, constants, orbits::*};
     use std::f64::consts::PI;
 
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne};
@@ -819,8 +831,12 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_mean_to_eccentric(anomaly_eccentric_to_mean(theta, e, DEGREES), e, DEGREES)
-                        .unwrap(),
+                    anomaly_mean_to_eccentric(
+                        anomaly_eccentric_to_mean(theta, e, DEGREES),
+                        e,
+                        DEGREES
+                    )
+                    .unwrap(),
                     epsilon = 1e-12
                 );
             }
@@ -912,7 +928,11 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_eccentric_to_true(anomaly_true_to_eccentric(theta, e, DEGREES), e, DEGREES),
+                    anomaly_eccentric_to_true(
+                        anomaly_true_to_eccentric(theta, e, DEGREES),
+                        e,
+                        DEGREES
+                    ),
                     epsilon = 1e-12
                 );
             }
@@ -922,7 +942,11 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_true_to_eccentric(anomaly_eccentric_to_true(theta, e, DEGREES), e, DEGREES),
+                    anomaly_true_to_eccentric(
+                        anomaly_eccentric_to_true(theta, e, DEGREES),
+                        e,
+                        DEGREES
+                    ),
                     epsilon = 1e-12
                 );
             }
@@ -988,7 +1012,8 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_mean_to_true(anomaly_true_to_mean(theta, e, DEGREES), e, DEGREES).unwrap(),
+                    anomaly_mean_to_true(anomaly_true_to_mean(theta, e, DEGREES), e, DEGREES)
+                        .unwrap(),
                     epsilon = 1e-12
                 );
             }
@@ -998,7 +1023,11 @@ mod tests {
                 let theta = f64::from(i);
                 assert_abs_diff_eq!(
                     theta,
-                    anomaly_true_to_mean(anomaly_mean_to_true(theta, e, DEGREES).unwrap(), e, DEGREES),
+                    anomaly_true_to_mean(
+                        anomaly_mean_to_true(theta, e, DEGREES).unwrap(),
+                        e,
+                        DEGREES
+                    ),
                     epsilon = 1e-12
                 );
             }

@@ -2,6 +2,8 @@ import pytest
 import brahe
 import numpy as np
 from pytest import approx
+
+
 def test_position_geocentric(eop):
     tol = 1.0e-7
 
@@ -67,15 +69,18 @@ def test_position_geocentric(eop):
     assert geoc6[2] == approx(geoc3[2], abs=tol)
 
     # Random point circularity
-    geoc  = np.array([77.875000, 20.975200, 0.000000])
-    ecef  = brahe.position_geocentric_to_ecef(geoc, brahe.AngleFormat.DEGREES)
+    geoc = np.array([77.875000, 20.975200, 0.000000])
+    ecef = brahe.position_geocentric_to_ecef(geoc, brahe.AngleFormat.DEGREES)
     geocc = brahe.position_ecef_to_geocentric(ecef, brahe.AngleFormat.DEGREES)
     assert geoc[0] == approx(geocc[0], abs=tol)
     assert geoc[1] == approx(geocc[1], abs=tol)
     assert geoc[2] == approx(geocc[2], abs=tol)
 
+
 @pytest.mark.parametrize("lat", [90.1, -90.1])
 def test_geocentric_failure(eop, lat):
     # Test Error Condition
     with pytest.raises(ValueError):
-        brahe.position_geocentric_to_ecef(np.array([0.0,  lat, 0.0]), brahe.AngleFormat.DEGREES)
+        brahe.position_geocentric_to_ecef(
+            np.array([0.0, lat, 0.0]), brahe.AngleFormat.DEGREES
+        )

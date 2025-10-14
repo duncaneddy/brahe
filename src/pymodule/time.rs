@@ -1,16 +1,58 @@
 
-/// Helper function to parse strings into appropriate time system enumerations
-fn string_to_time_system(s: &str) -> Result<time::TimeSystem, PyErr> {
-    match s.as_ref() {
-        "GPS" => Ok(time::TimeSystem::GPS),
-        "TAI" => Ok(time::TimeSystem::TAI),
-        "TT" => Ok(time::TimeSystem::TT),
-        "UTC" => Ok(time::TimeSystem::UTC),
-        "UT1" => Ok(time::TimeSystem::UT1),
-        _ => Err(exceptions::PyRuntimeError::new_err(format!(
-            "Unknown time system string \"{}\"",
-            s
-        ))),
+/// Python wrapper for TimeSystem enum
+#[pyclass]
+#[pyo3(name = "TimeSystem")]
+#[derive(Clone)]
+pub struct PyTimeSystem {
+    pub(crate) ts: time::TimeSystem,
+}
+
+#[pymethods]
+impl PyTimeSystem {
+    /// GPS time system
+    #[classattr]
+    fn GPS() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::GPS }
+    }
+
+    /// TAI time system
+    #[classattr]
+    fn TAI() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::TAI }
+    }
+
+    /// TT time system
+    #[classattr]
+    fn TT() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::TT }
+    }
+
+    /// UTC time system
+    #[classattr]
+    fn UTC() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::UTC }
+    }
+
+    /// UT1 time system
+    #[classattr]
+    fn UT1() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::UT1 }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{}", self.ts)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TimeSystem.{}", self.ts)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.ts == other.ts),
+            CompareOp::Ne => Ok(self.ts != other.ts),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
     }
 }
 
@@ -146,8 +188,8 @@ fn py_mjd_to_datetime(mjd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
 ///
 /// Arguments:
 ///    mjd (`float`): Modified Julian date of epoch
-///    time_system_src (`str`): Source time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
-///    time_system_dst (`str`): Destination time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
+///    time_system_src (TimeSystem): Source time system
+///    time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
 ///     offset (`float`): Offset between time systems in seconds
@@ -156,10 +198,10 @@ fn py_mjd_to_datetime(mjd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
 #[pyo3(name = "time_system_offset_for_mjd")]
 fn py_time_system_offset_for_mjd(
     mjd: f64,
-    time_system_src: &str,
-    time_system_dst: &str,
+    time_system_src: PyRef<PyTimeSystem>,
+    time_system_dst: PyRef<PyTimeSystem>,
 ) -> PyResult<f64> {
-    Ok(time::time_system_offset_for_mjd(mjd, string_to_time_system(time_system_src)?, string_to_time_system(time_system_dst)?))
+    Ok(time::time_system_offset_for_mjd(mjd, time_system_src.ts, time_system_dst.ts))
 }
 
 /// Calculate the offset between two time systems for a given Julian Date
@@ -167,8 +209,8 @@ fn py_time_system_offset_for_mjd(
 ///
 /// Arguments:
 ///     jd (`float`): Julian date of epoch
-///     time_system_src (`str`): Source time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
-///     time_system_dst (`str`): Destination time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
+///     time_system_src (TimeSystem): Source time system
+///     time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
 ///     offset (`float`): Offset between time systems in seconds
@@ -177,10 +219,10 @@ fn py_time_system_offset_for_mjd(
 #[pyo3(name = "time_system_offset_for_jd")]
 fn py_time_system_offset_for_jd(
     jd: f64,
-    time_system_src: &str,
-    time_system_dst: &str,
+    time_system_src: PyRef<PyTimeSystem>,
+    time_system_dst: PyRef<PyTimeSystem>,
 ) -> PyResult<f64> {
-    Ok(time::time_system_offset_for_jd(jd, string_to_time_system(time_system_src)?, string_to_time_system(time_system_dst)?))
+    Ok(time::time_system_offset_for_jd(jd, time_system_src.ts, time_system_dst.ts))
 }
 
 /// Calculate the offset between two time systems for a given Gregorian calendar date
@@ -195,8 +237,8 @@ fn py_time_system_offset_for_jd(
 ///     minute (`float`): Minute
 ///     second (`float`): Second
 ///     nanosecond (`float`): Nanosecond
-///     time_system_src (`str`): Source time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
-///     time_system_dst (`str`): Destination time system. One of: "GPS", "TAI", "TT", "UTC", "UT1"
+///     time_system_src (TimeSystem): Source time system
+///     time_system_dst (TimeSystem): Destination time system
 ///
 /// Returns:
 ///    offset (`float`): Offset between time systems in seconds
@@ -211,8 +253,8 @@ fn py_time_system_offset_for_datetime(
     minute: u8,
     second: f64,
     nanosecond: f64,
-    time_system_src: &str,
-    time_system_dst: &str,
+    time_system_src: PyRef<PyTimeSystem>,
+    time_system_dst: PyRef<PyTimeSystem>,
 ) -> PyResult<f64> {
     Ok(time::time_system_offset_for_datetime(
         year,
@@ -222,8 +264,8 @@ fn py_time_system_offset_for_datetime(
         minute,
         second,
         nanosecond,
-        string_to_time_system(time_system_src)?,
-        string_to_time_system(time_system_dst)?,
+        time_system_src.ts,
+        time_system_dst.ts,
     ))
 }
 
@@ -269,33 +311,59 @@ impl PyEpoch {
     }
 
     // Define attribute access methods
-    /// `str`: Time system of Epoch. One of: "GPS", "TAI", "TT", "UTC", "UT1"
+    /// `TimeSystem`: Time system of Epoch
     #[getter]
-    fn time_system(&self) -> String {
-        time_system_to_string(self.obj.time_system)
+    fn time_system(&self) -> PyTimeSystem {
+        PyTimeSystem { ts: self.obj.time_system }
     }
 
     #[classmethod]
     fn from_date(
-        _cls: &PyType,
+        _cls: &Bound<'_, PyType>,
         year: u32,
         month: u8,
         day: u8,
-        time_system: &str,
+        time_system: PyRef<PyTimeSystem>,
     ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_date(
                 year,
                 month,
                 day,
-                string_to_time_system(time_system).unwrap(),
+                time_system.ts,
+            ),
+        })
+    }
+
+    /// Create an Epoch from a year and floating-point day-of-year.
+    ///
+    /// Args:
+    ///     year (int): Gregorian calendar year
+    ///     day_of_year (float): Day of year as a floating-point number
+    ///         (1.0 = January 1st, 1.5 = January 1st noon, etc.)
+    ///     time_system (TimeSystem): Time system
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the specified day of year
+    #[classmethod]
+    fn from_day_of_year(
+        _cls: &Bound<'_, PyType>,
+        year: u32,
+        day_of_year: f64,
+        time_system: PyRef<PyTimeSystem>,
+    ) -> PyResult<PyEpoch> {
+        Ok(PyEpoch {
+            obj: time::Epoch::from_day_of_year(
+                year,
+                day_of_year,
+                time_system.ts,
             ),
         })
     }
 
     #[classmethod]
     pub fn from_datetime(
-        _cls: &PyType,
+        _cls: &Bound<'_, PyType>,
         year: u32,
         month: u8,
         day: u8,
@@ -303,7 +371,7 @@ impl PyEpoch {
         minute: u8,
         second: f64,
         nanosecond: f64,
-        time_system: &str,
+        time_system: PyRef<PyTimeSystem>,
     ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_datetime(
@@ -314,74 +382,74 @@ impl PyEpoch {
                 minute,
                 second,
                 nanosecond,
-                string_to_time_system(time_system).unwrap(),
+                time_system.ts,
             ),
         })
     }
 
     #[classmethod]
-    pub fn from_string(_cls: &PyType, datestr: &str) -> PyResult<PyEpoch> {
+    pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_string(datestr).unwrap(),
         })
     }
 
     #[classmethod]
-    pub fn from_jd(_cls: &PyType, jd: f64, time_system: &str) -> PyResult<PyEpoch> {
+    pub fn from_jd(_cls: &Bound<'_, PyType>, jd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
-            obj: time::Epoch::from_jd(jd, string_to_time_system(time_system).unwrap()),
+            obj: time::Epoch::from_jd(jd, time_system.ts),
         })
     }
 
     #[classmethod]
-    pub fn from_mjd(_cls: &PyType, mjd: f64, time_system: &str) -> PyResult<PyEpoch> {
+    pub fn from_mjd(_cls: &Bound<'_, PyType>, mjd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
-            obj: time::Epoch::from_mjd(mjd, string_to_time_system(time_system).unwrap()),
+            obj: time::Epoch::from_mjd(mjd, time_system.ts),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_date(_cls: &PyType, week: u32, seconds: f64) -> PyResult<PyEpoch> {
+    pub fn from_gps_date(_cls: &Bound<'_, PyType>, week: u32, seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_date(week, seconds),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_seconds(_cls: &PyType, gps_seconds: f64) -> PyResult<PyEpoch> {
+    pub fn from_gps_seconds(_cls: &Bound<'_, PyType>, gps_seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_seconds(gps_seconds),
         })
     }
 
     #[classmethod]
-    pub fn from_gps_nanoseconds(_cls: &PyType, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
+    pub fn from_gps_nanoseconds(_cls: &Bound<'_, PyType>, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_nanoseconds(gps_nanoseconds),
         })
     }
 
-    pub fn to_datetime_as_time_system(&self, time_system: &str) -> (u32, u8, u8, u8, u8, f64, f64) {
+    pub fn to_datetime_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj
-            .to_datetime_as_time_system(string_to_time_system(time_system).unwrap())
+            .to_datetime_as_time_system(time_system.ts)
     }
 
     pub fn to_datetime(&self) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj.to_datetime()
     }
 
-    pub fn jd_as_time_system(&self, time_system: &str) -> f64 {
+    pub fn jd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
-            .jd_as_time_system(string_to_time_system(time_system).unwrap())
+            .jd_as_time_system(time_system.ts)
     }
 
     pub fn jd(&self) -> f64 {
         self.obj.jd()
     }
 
-    pub fn mjd_as_time_system(&self, time_system: &str) -> f64 {
+    pub fn mjd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
-            .mjd_as_time_system(string_to_time_system(time_system).unwrap())
+            .mjd_as_time_system(time_system.ts)
     }
 
     pub fn mjd(&self) -> f64 {
@@ -408,17 +476,110 @@ impl PyEpoch {
         self.obj.isostring_with_decimals(decimals)
     }
 
-    pub fn to_string_as_time_system(&self, time_system: &str) -> String {
+    pub fn to_string_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> String {
         self.obj
-            .to_string_as_time_system(string_to_time_system(time_system).unwrap())
+            .to_string_as_time_system(time_system.ts)
     }
 
-    pub fn gast(&self, as_degrees: bool) -> f64 {
-        self.obj.gast(as_degrees)
+    pub fn gast(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
+        self.obj.gast(angle_format.value)
     }
 
-    pub fn gmst(&self, as_degrees: bool) -> f64 {
-        self.obj.gmst(as_degrees)
+    pub fn gmst(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
+        self.obj.gmst(angle_format.value)
+    }
+
+    /// Returns the year component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The year as a 4-digit integer
+    pub fn year(&self) -> u32 {
+        self.obj.year()
+    }
+
+    /// Returns the month component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The month as an integer from 1 to 12
+    pub fn month(&self) -> u8 {
+        self.obj.month()
+    }
+
+    /// Returns the day component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The day of the month as an integer from 1 to 31
+    pub fn day(&self) -> u8 {
+        self.obj.day()
+    }
+
+    /// Returns the hour component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The hour as an integer from 0 to 23
+    pub fn hour(&self) -> u8 {
+        self.obj.hour()
+    }
+
+    /// Returns the minute component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     int: The minute as an integer from 0 to 59
+    pub fn minute(&self) -> u8 {
+        self.obj.minute()
+    }
+
+    /// Returns the second component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: The second as a floating-point number from 0.0 to 59.999...
+    pub fn second(&self) -> f64 {
+        self.obj.second()
+    }
+
+    /// Returns the nanosecond component of the epoch in the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: The nanosecond component as a floating-point number
+    pub fn nanosecond(&self) -> f64 {
+        self.obj.nanosecond()
+    }
+
+    /// Returns the day of year as a floating-point number in the epoch's time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// Returns:
+    ///     float: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// Example:
+    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
+    ///     >>> doy = epoch.day_of_year()
+    ///     >>> print(f"Day of year: {doy}")
+    ///     Day of year: 100.5
+    pub fn day_of_year(&self) -> f64 {
+        self.obj.day_of_year()
+    }
+
+    /// Returns the day of year as a floating-point number in the specified time system.
+    ///
+    /// The day of year is computed such that January 1st at midnight is 1.0,
+    /// January 1st at noon is 1.5, January 2nd at midnight is 2.0, etc.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): The time system to use for the calculation
+    ///
+    /// Returns:
+    ///     float: The day of year as a floating-point number (1.0 to 366.999...)
+    ///
+    /// Example:
+    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    ///     >>> doy_tai = epoch.day_of_year_as_time_system(brahe.TimeSystem.TAI)
+    ///     >>> print(f"Day of year in TAI: {doy_tai}")
+    ///     Day of year in TAI: 100.50042824074075
+    pub fn day_of_year_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
+        self.obj.day_of_year_as_time_system(time_system.ts)
     }
 
     pub fn __add__(&self, other: f64) -> PyResult<PyEpoch> {

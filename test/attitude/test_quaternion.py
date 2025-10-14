@@ -1,7 +1,7 @@
 from math import sqrt
 import numpy as np
 from pytest import approx
-from brahe import Quaternion, EulerAngle, EulerAxis, RotationMatrix
+from brahe import Quaternion, EulerAngle, EulerAxis, RotationMatrix, AngleFormat
 
 
 def test_quaternion_display():
@@ -62,10 +62,10 @@ def test_quaternion_inverse():
 
 
 def test_quaternion_slerp():
-    q1 = EulerAngle("XYZ", 0.0, 0.0, 0.0, True).to_quaternion()
-    q2 = EulerAngle("XYZ", 180.0, 0.0, 0.0, True).to_quaternion()
+    q1 = EulerAngle("XYZ", 0.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
+    q2 = EulerAngle("XYZ", 180.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
     q = q1.slerp(q2, 0.5)
-    assert q == EulerAngle("XYZ", 90.0, 0.0, 0.0, True).to_quaternion()
+    assert q == EulerAngle("XYZ", 90.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
 
 
 def test_quaternion_add():
@@ -118,18 +118,18 @@ def test_attitude_representation_from_quaternion():
     assert q == q2
 
 def test_attitude_representation_from_euler_axis():
-    e = EulerAxis(np.array([1.0, 0.0, 0.0]), 0.0, True)
+    e = EulerAxis(np.array([1.0, 0.0, 0.0]), 0.0, AngleFormat.DEGREES)
     q = Quaternion.from_euler_axis(e)
 
     assert q == Quaternion(1.0, 0.0, 0.0, 0.0)
 
-    e = EulerAxis(np.array([1.0, 0.0, 0.0]), 90.0, True)
+    e = EulerAxis(np.array([1.0, 0.0, 0.0]), 90.0, AngleFormat.DEGREES)
     q = Quaternion.from_euler_axis(e)
 
     assert q == Quaternion(0.5, 0.5, 0.0, 0.0)
 
 def test_attitude_representation_from_euler_angle():
-    e = EulerAngle("XYZ", 90.0, 0.0, 0.0, True)
+    e = EulerAngle("XYZ", 90.0, 0.0, 0.0, AngleFormat.DEGREES)
     q = Quaternion.from_euler_angle(e)
 
     assert q == Quaternion(0.7071067811865476, 0.7071067811865475, 0.0, 0.0)
@@ -154,7 +154,7 @@ def test_attitude_representation_to_euler_axis():
     q = Quaternion(1.0, 0.0, 0.0, 0.0)
     e = q.to_euler_axis()
 
-    assert e == EulerAxis(np.array([1.0, 0.0, 0.0]), 0.0, True)
+    assert e == EulerAxis(np.array([1.0, 0.0, 0.0]), 0.0, AngleFormat.DEGREES)
 
 
 def test_attitude_representation_to_euler_angle_xyx():

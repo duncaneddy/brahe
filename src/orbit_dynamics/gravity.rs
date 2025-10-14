@@ -6,7 +6,9 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 
-use nalgebra::{DMatrix, Matrix3, Vector3};
+use nalgebra::{DMatrix, Vector3};
+
+use crate::coordinates::SMatrix3;
 use once_cell::sync::Lazy;
 
 use crate::utils::{BraheError, kronecker_delta};
@@ -533,7 +535,7 @@ impl std::fmt::Debug for GravityModel {
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem};
+/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
@@ -547,7 +549,7 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, true);
+/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
@@ -556,7 +558,7 @@ impl std::fmt::Debug for GravityModel {
 #[allow(non_snake_case)]
 pub fn acceleration_gravity_spherical_harmonics(
     r_eci: Vector3<f64>,
-    R_i2b: Matrix3<f64>,
+    R_i2b: SMatrix3,
     gravity_model: &GravityModel,
     n_max: usize,
     m_max: usize,
@@ -736,7 +738,7 @@ mod tests {
     #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
     #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
     fn test_acceleration_gravity_jgm3_validation(#[case] n: usize, #[case] m: usize, #[case] ax: f64, #[case] ay: f64, #[case] az: f64) {
-        let rot = Matrix3::<f64>::identity();
+        let rot = SMatrix3::identity();
 
         let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);

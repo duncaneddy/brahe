@@ -7,15 +7,17 @@ use std::path::Path;
 
 use nalgebra as na;
 use numpy;
-use numpy::{Ix1, Ix2, PyArray, PyArrayMethods};
+use numpy::{Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray, ToPyArray};
 
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::PyType;
 use pyo3::{exceptions, wrap_pyfunction};
+use pyo3::panic::PanicException;
 
 use crate::utils::errors::*;
 use crate::*;
+use crate::traits::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where
@@ -28,27 +30,15 @@ use crate::*;
 
 macro_rules! matrix_to_numpy {
     ($py:expr,$mat:expr,$r:expr,$c:expr,$typ:ty) => {{
-        let arr = numpy::PyArray2::<$typ>::new_bound($py, [$r, $c], false);
-
-        for i in 0..$r {
-            for j in 0..$c {
-                arr.uget_raw([i, j]).write($mat[(i, j)])
-            }
-        }
-
-        arr
+        let flat_vec: Vec<$typ> = (0..$r).flat_map(|i| (0..$c).map(move |j| $mat[(i, j)])).collect();
+        flat_vec.into_pyarray($py).reshape([$r, $c]).unwrap()
     }};
 }
 
 macro_rules! vector_to_numpy {
     ($py:expr,$vec:expr,$l:expr,$typ:ty) => {{
-        let arr = numpy::PyArray1::<$typ>::new_bound($py, [$l], false);
-
-        for i in 0..$l {
-            arr.uget_raw([i]).write($vec[i])
-        }
-
-        arr
+        let flat_vec: Vec<$typ> = (0..$l).map(|i| $vec[i]).collect();
+        flat_vec.into_pyarray($py)
     }};
 }
 
@@ -64,6 +54,43 @@ macro_rules! numpy_to_vector {
     }};
 }
 
+/// Python wrapper for AngleFormat enum
+#[pyclass]
+#[pyo3(name = "AngleFormat")]
+#[derive(Clone)]
+pub struct PyAngleFormat {
+    pub(crate) value: constants::AngleFormat,
+}
+
+#[pymethods]
+impl PyAngleFormat {
+    #[classattr]
+    fn RADIANS() -> Self {
+        PyAngleFormat { value: constants::AngleFormat::Radians }
+    }
+
+    #[classattr]
+    fn DEGREES() -> Self {
+        PyAngleFormat { value: constants::AngleFormat::Degrees }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AngleFormat.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
 // We directly include the contents of the module-definition files as they need to be part of a
 // single module for the Python bindings to work correctly.
 
@@ -73,6 +100,7 @@ include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
 include!("attitude.rs");
+include!("trajectories.rs");
 
 // Define Module
 
@@ -82,7 +110,10 @@ include!("attitude.rs");
 #[pymodule(
     name = "_brahe"
 )] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
-pub fn brahe_module(module: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Re-export PanicException so Python tests can catch Rust panics
+    module.add("PanicException", py.get_type::<PanicException>())?;
+
     //* Constants *//
     module.add("DEG2RAD", constants::DEG2RAD)?;
     module.add("RAD2DEG", constants::RAD2DEG)?;
@@ -158,6 +189,7 @@ pub fn brahe_module(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* Time *//
 
+    module.add_class::<PyTimeSystem>()?;
     module.add_class::<PyEpoch>()?;
     module.add_class::<PyTimeRange>()?;
     module.add_function(wrap_pyfunction!(py_mjd_to_datetime, module)?)?;
@@ -170,6 +202,13 @@ pub fn brahe_module(module: &Bound<'_, PyModule>) -> PyResult<()> {
         py_time_system_offset_for_datetime,
         module
     )?)?;
+
+    // Top-level time system constants
+    module.add("GPS", PyTimeSystem { ts: time::TimeSystem::GPS })?;
+    module.add("TAI", PyTimeSystem { ts: time::TimeSystem::TAI })?;
+    module.add("TT", PyTimeSystem { ts: time::TimeSystem::TT })?;
+    module.add("UTC", PyTimeSystem { ts: time::TimeSystem::UTC })?;
+    module.add("UT1", PyTimeSystem { ts: time::TimeSystem::UT1 })?;
 
     //* Frames *//
     module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;
@@ -230,6 +269,35 @@ pub fn brahe_module(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_true, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_true, module)?)?;
+    
+    // Propagator Support
+    module.add_class::<PySGPPropagator>()?;
+    module.add_class::<PyKeplerianPropagator>()?;
+
+    // Legacy TLE Support (for backward compatibility)
+    module.add_class::<PyTLE>()?;
+    
+    module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;
+    module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
+    module.add_function(wrap_pyfunction!(py_calculate_tle_line_checksum, module)?)?;
+    module.add_function(wrap_pyfunction!(py_parse_norad_id, module)?)?;
+    module.add_function(wrap_pyfunction!(py_norad_id_numeric_to_alpha5, module)?)?;
+    module.add_function(wrap_pyfunction!(py_norad_id_alpha5_to_numeric, module)?)?;
+
+    // New TLE conversion functions
+    module.add_function(wrap_pyfunction!(py_keplerian_elements_from_tle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_keplerian_elements_to_tle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
+    module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
+
+    //* Trajectories *//
+    module.add_class::<PyOrbitFrame>()?;
+    module.add_class::<PyOrbitRepresentation>()?;
+    module.add_class::<PyAngleFormat>()?;
+    module.add_class::<PyInterpolationMethod>()?;
+    module.add_class::<PyOrbitalTrajectory>()?;
+    module.add_class::<PyTrajectory>()?;
+    module.add_class::<PySTrajectory6>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;

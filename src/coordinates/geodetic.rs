@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use nalgebra::Vector3;
 
 use crate::constants;
-use crate::utils::math::{from_degrees, to_degrees};
+use crate::constants::AngleFormat;
 
 const ECC2: f64 = constants::WGS84_F * (2.0 - constants::WGS84_F);
 
@@ -15,27 +15,34 @@ const ECC2: f64 = constants::WGS84_F * (2.0 - constants::WGS84_F);
 ///
 /// # Arguments:
 /// - `x_geod`: Geodetic coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
-/// - `use_degrees`: Interprets input as (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates (Radians or Degrees)
 ///
 /// # Returns
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
 ///
 /// # Examples
 /// ```
+/// use brahe::constants::DEGREES;
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let geod = vector3_from_array([0.0, 0.0, 0.0]);
-/// let ecef = position_geodetic_to_ecef(geod, true).unwrap();
+/// let ecef = position_geodetic_to_ecef(geod, DEGREES).unwrap();
 /// // Returns state [R_EARTH, 0.0, 0.0]
 /// ```
 #[allow(non_snake_case)]
 pub fn position_geodetic_to_ecef(
     x_geod: Vector3<f64>,
-    as_degrees: bool,
+    angle_format: AngleFormat,
 ) -> Result<Vector3<f64>, String> {
-    let lon = from_degrees(x_geod[0], as_degrees);
-    let lat = from_degrees(x_geod[1], as_degrees);
+    let lon = match angle_format {
+        AngleFormat::Degrees => x_geod[0] * constants::DEG2RAD,
+        AngleFormat::Radians => x_geod[0],
+    };
+    let lat = match angle_format {
+        AngleFormat::Degrees => x_geod[1] * constants::DEG2RAD,
+        AngleFormat::Radians => x_geod[1],
+    };
     let alt = x_geod[2];
 
     // Check validity of inputs
@@ -59,23 +66,23 @@ pub fn position_geodetic_to_ecef(
 ///
 /// # Arguments:
 /// - `x_ecef`: Earth-fixed coordinates. Units (*m*)
-/// - `use_degrees`: Produces output in (deg) if `true` or (rad) if `false`
+/// - `angle_format`: Format for angular coordinates in output (Radians or Degrees)
 ///
 /// # Returns
 /// - `x_geod`: Geodetic coordinates (lon, lat, altitude). Units: (*rad* or *deg* and *m*)
 ///
 /// # Examples
 /// ```
-/// use brahe::constants::R_EARTH;
+/// use brahe::constants::{R_EARTH, DEGREES};
 /// use brahe::utils::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let ecef = vector3_from_array([R_EARTH, 0.0, 0.0]);
-/// let geoc = position_ecef_to_geodetic(ecef, true);
+/// let geoc = position_ecef_to_geodetic(ecef, DEGREES);
 /// // Returns state [0.0, 0.0, 0.0]
 /// ```
 #[allow(non_snake_case)]
-pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, as_degrees: bool) -> Vector3<f64> {
+pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat) -> Vector3<f64> {
     let x = x_ecef[0];
     let y = x_ecef[1];
     let z = x_ecef[2];
@@ -114,18 +121,21 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, as_degrees: bool) -> Vect
     let lat = zdz.atan2(rho2.sqrt());
     let alt = (rho2 + zdz * zdz).sqrt() - N;
 
-    Vector3::new(
-        to_degrees(lon, as_degrees),
-        to_degrees(lat, as_degrees),
-        alt,
-    )
+    match angle_format {
+        AngleFormat::Degrees => Vector3::new(
+            lon * constants::RAD2DEG,
+            lat * constants::RAD2DEG,
+            alt,
+        ),
+        AngleFormat::Radians => Vector3::new(lon, lat, alt),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use crate::constants::{WGS84_A, WGS84_F};
+    use crate::constants::{WGS84_A, WGS84_F, RADIANS, DEGREES};
 
     use super::*;
 
@@ -135,21 +145,21 @@ mod tests {
 
         // Test known position conversions
         let geod1 = Vector3::new(0.0, 0.0, 0.0);
-        let ecef1 = position_geodetic_to_ecef(geod1, false).unwrap();
+        let ecef1 = position_geodetic_to_ecef(geod1, RADIANS).unwrap();
 
         assert_abs_diff_eq!(ecef1[0], WGS84_A, epsilon = tol);
         assert_abs_diff_eq!(ecef1[1], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef1[2], 0.0, epsilon = tol);
 
         let geod2 = Vector3::new(90.0, 0.0, 0.0);
-        let ecef2 = position_geodetic_to_ecef(geod2, true).unwrap();
+        let ecef2 = position_geodetic_to_ecef(geod2, DEGREES).unwrap();
 
         assert_abs_diff_eq!(ecef2[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef2[1], WGS84_A, epsilon = tol);
         assert_abs_diff_eq!(ecef2[2], 0.0, epsilon = tol);
 
         let geod3 = Vector3::new(0.0, 90.0, 0.0);
-        let ecef3 = position_geodetic_to_ecef(geod3, true).unwrap();
+        let ecef3 = position_geodetic_to_ecef(geod3, DEGREES).unwrap();
 
         assert_abs_diff_eq!(ecef3[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef3[1], 0.0, epsilon = tol);
@@ -157,30 +167,30 @@ mod tests {
 
         // Test two-input format
         let geod = Vector3::new(0.0, 0.0, 0.0);
-        let ecef = position_geodetic_to_ecef(geod, false).unwrap();
+        let ecef = position_geodetic_to_ecef(geod, RADIANS).unwrap();
 
         assert_abs_diff_eq!(ecef[0], WGS84_A, epsilon = tol);
         assert_abs_diff_eq!(ecef[1], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef[2], 0.0, epsilon = tol);
 
         let geod = Vector3::new(90.0, 0.0, 0.0);
-        let ecef = position_geodetic_to_ecef(geod, true).unwrap();
+        let ecef = position_geodetic_to_ecef(geod, DEGREES).unwrap();
 
         assert_abs_diff_eq!(ecef[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef[1], WGS84_A, epsilon = tol);
         assert_abs_diff_eq!(ecef[2], 0.0, epsilon = tol);
 
         let geod = Vector3::new(0.0, 90.0, 0.0);
-        let ecef = position_geodetic_to_ecef(geod, true).unwrap();
+        let ecef = position_geodetic_to_ecef(geod, DEGREES).unwrap();
 
         assert_abs_diff_eq!(ecef[0], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef[1], 0.0, epsilon = tol);
         assert_abs_diff_eq!(ecef[2], WGS84_A * (1.0 - WGS84_F), epsilon = tol);
 
         // Test circularity
-        let geod4 = position_ecef_to_geodetic(ecef1, true);
-        let geod5 = position_ecef_to_geodetic(ecef2, true);
-        let geod6 = position_ecef_to_geodetic(ecef3, true);
+        let geod4 = position_ecef_to_geodetic(ecef1, DEGREES);
+        let geod5 = position_ecef_to_geodetic(ecef2, DEGREES);
+        let geod6 = position_ecef_to_geodetic(ecef3, DEGREES);
 
         assert_abs_diff_eq!(geod4[0], geod1[0], epsilon = tol);
         assert_abs_diff_eq!(geod4[1], geod1[1], epsilon = tol);
@@ -196,14 +206,14 @@ mod tests {
 
         // Random point circularity
         let geod = Vector3::new(77.875000, 20.975200, 0.000000);
-        let ecef = position_geodetic_to_ecef(geod, true).unwrap();
-        let geodd = position_ecef_to_geodetic(ecef, true);
+        let ecef = position_geodetic_to_ecef(geod, DEGREES).unwrap();
+        let geodd = position_ecef_to_geodetic(ecef, DEGREES);
         assert_abs_diff_eq!(geod[0], geodd[0], epsilon = tol);
         assert_abs_diff_eq!(geod[1], geodd[1], epsilon = tol);
         assert_abs_diff_eq!(geod[2], geodd[2], epsilon = tol);
 
-        assert!(position_geodetic_to_ecef(Vector3::new(0.0, 90.1, 0.0), true).is_err());
+        assert!(position_geodetic_to_ecef(Vector3::new(0.0, 90.1, 0.0), DEGREES).is_err());
 
-        assert!(position_geodetic_to_ecef(Vector3::new(0.0, -90.1, 0.0), true).is_err());
+        assert!(position_geodetic_to_ecef(Vector3::new(0.0, -90.1, 0.0), DEGREES).is_err());
     }
 }

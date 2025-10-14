@@ -6,7 +6,7 @@ use nalgebra::Vector3;
 use std::fmt;
 
 use crate::attitude::{FromAttitude, ToAttitude};
-use crate::constants::DEG2RAD;
+use crate::constants::{AngleFormat, DEG2RAD};
 use crate::{EulerAngle, EulerAngleOrder, EulerAxis, Quaternion, RotationMatrix, ATTITUDE_EPSILON};
 
 impl EulerAngle {
@@ -16,10 +16,10 @@ impl EulerAngle {
     /// # Arguments
     ///
     /// - `order` - The order of the rotations. This is a value from the `EulerAngleOrder` enum.
-    /// - `phi` - The angle of the first rotation, in radians.
-    /// - `theta` - The angle of the second rotation, in radians.
-    /// - `psi` - The angle of the third rotation, in radians.
-    /// - `as_degrees` - A boolean indicating if the input angles are in degrees. If true, the angles are converted to radians.
+    /// - `phi` - The angle of the first rotation.
+    /// - `theta` - The angle of the second rotation.
+    /// - `psi` - The angle of the third rotation.
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -29,13 +29,15 @@ impl EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// ```
-    pub fn new(order: EulerAngleOrder, phi: f64, theta: f64, psi: f64, as_degrees: bool) -> Self {
-        let phi = if as_degrees { phi * DEG2RAD } else { phi };
-        let theta = if as_degrees { theta * DEG2RAD } else { theta };
-        let psi = if as_degrees { psi * DEG2RAD } else { psi };
+    pub fn new(order: EulerAngleOrder, phi: f64, theta: f64, psi: f64, angle_format: AngleFormat) -> Self {
+        let (phi, theta, psi) = match angle_format {
+            AngleFormat::Degrees => (phi * DEG2RAD, theta * DEG2RAD, psi * DEG2RAD),
+            AngleFormat::Radians => (phi, theta, psi),
+        };
 
         Self {
             order,
@@ -50,10 +52,9 @@ impl EulerAngle {
     ///
     /// # Arguments
     /// - `order` - The order of the rotations. This is a value from the `EulerAngleOrder` enum.
-    /// - `vector` - A `Vector3<f64>` containing the angles of the three rotations, in radians. The vector is assumed to
+    /// - `vector` - A `Vector3<f64>` containing the angles of the three rotations. The vector is assumed to
     /// be in the order of phi, theta, psi. These angles are the angles of the first, second, and third rotations.
-    /// - `as_degrees` - A boolean indicating if the angles are in degrees. If true, the angles are converted to radians.
-    /// If false, the angles are assumed to be in radians.
+    /// - `angle_format` - Format for angular elements (Radians or Degrees).
     ///
     /// # Returns
     ///
@@ -64,13 +65,14 @@ impl EulerAngle {
     /// ```
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
     /// let v = Vector3::new(30.0, 45.0, 60.0);
     ///
-    /// let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, true);
+    /// let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, AngleFormat::Degrees);
     /// ```
-    pub fn from_vector(vector: Vector3<f64>, order: EulerAngleOrder, as_degrees: bool) -> Self {
-        Self::new(order, vector.x, vector.y, vector.z, as_degrees)
+    pub fn from_vector(vector: Vector3<f64>, order: EulerAngleOrder, angle_format: AngleFormat) -> Self {
+        Self::new(order, vector.x, vector.y, vector.z, angle_format)
     }
 
     /// Create a new `EulerAngle` from a `Quaternion`.
@@ -112,8 +114,9 @@ impl EulerAngle {
     /// ```
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAxis, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
+    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, AngleFormat::Degrees);
     /// let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
     /// ```
     pub fn from_euler_axis(e: EulerAxis, order: EulerAngleOrder) -> Self {
@@ -137,8 +140,9 @@ impl EulerAngle {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = EulerAngle::from_euler_angle(e, EulerAngleOrder::ZYX);
     /// ```
     pub fn from_euler_angle(e: EulerAngle, order: EulerAngleOrder) -> Self {
@@ -224,8 +228,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let q = e.to_quaternion();
     /// ```
     fn to_quaternion(&self) -> Quaternion {
@@ -243,8 +248,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = e.to_euler_axis();
     /// ```
     fn to_euler_axis(&self) -> EulerAxis {
@@ -267,8 +273,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let e = e.to_euler_angle(EulerAngleOrder::ZYX);
     /// ```
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle {
@@ -286,8 +293,9 @@ impl ToAttitude for EulerAngle {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder};
     /// use brahe::attitude::ToAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, AngleFormat::Degrees);
     /// let r = e.to_rotation_matrix();
     /// ```
     fn to_rotation_matrix(&self) -> RotationMatrix {
@@ -304,16 +312,17 @@ mod tests {
     use std::f64::consts::PI;
     use approx::assert_abs_diff_eq;
     use strum::IntoEnumIterator;
+    use crate::constants::{DEGREES, RADIANS};
 
     #[test]
     fn test_euler_angle_new() {
-        let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         assert_eq!(e1.phi, 30.0 * DEG2RAD);
         assert_eq!(e1.theta, 45.0 * DEG2RAD);
         assert_eq!(e1.psi, 60.0 * DEG2RAD);
         assert_eq!(e1.order, EulerAngleOrder::XYZ);
 
-        let e2 = EulerAngle::new(EulerAngleOrder::XYZ, PI/6.0, PI/4.0,  PI/3.0,false);
+        let e2 = EulerAngle::new(EulerAngleOrder::XYZ, PI/6.0, PI/4.0,  PI/3.0, RADIANS);
         assert_eq!(e2.phi, PI/6.0);
         assert_eq!(e2.theta, PI/4.0);
         assert_eq!(e2.psi, PI/3.0);
@@ -325,7 +334,7 @@ mod tests {
     #[test]
     fn test_all_euler_angle_orders() {
         for order in EulerAngleOrder::iter() {
-            let e = EulerAngle::new(order, 30.0, 45.0, 60.0, true);
+            let e = EulerAngle::new(order, 30.0, 45.0, 60.0, DEGREES);
             assert_eq!(e.order, order);
         }
     }
@@ -333,7 +342,7 @@ mod tests {
     #[test]
     fn test_euler_angle_from_vector() {
         let v = Vector3::new(30.0, 45.0, 60.0);
-        let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, true);
+        let e = EulerAngle::from_vector(v, EulerAngleOrder::XYZ, DEGREES);
         assert_eq!(e.phi, 30.0 * DEG2RAD);
         assert_eq!(e.theta, 45.0 * DEG2RAD);
         assert_eq!(e.psi, 60.0 * DEG2RAD);
@@ -352,21 +361,21 @@ mod tests {
 
     #[test]
     fn test_euler_angle_from_euler_axis() {
-        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
         let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
         assert_abs_diff_eq!(e.phi, 45.0 * DEG2RAD, epsilon = 1e-12);
         assert_eq!(e.theta, 0.0);
         assert_eq!(e.psi, 0.0);
         assert_eq!(e.order, EulerAngleOrder::XYZ);
 
-        let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(0.0, 1.0, 0.0), 45.0, DEGREES);
         let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
         assert_eq!(e.phi, 0.0);
         assert_abs_diff_eq!(e.theta, 45.0 * DEG2RAD, epsilon = 1e-12);
         assert_eq!(e.psi, 0.0);
         assert_eq!(e.order, EulerAngleOrder::XYZ);
 
-        let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, true);
+        let e = EulerAxis::new(Vector3::new(0.0, 0.0, 1.0), 45.0, DEGREES);
         let e = EulerAngle::from_euler_axis(e, EulerAngleOrder::XYZ);
         assert_eq!(e.phi, 0.0);
         assert_eq!(e.theta, 0.0);
@@ -376,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_euler_angle_from_euler_angle() {
-        let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e1 = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = EulerAngle::from_euler_angle(e1, EulerAngleOrder::ZYX);
         assert_eq!(e2.order, EulerAngleOrder::ZYX);
     }
@@ -397,14 +406,14 @@ mod tests {
 
     #[test]
     fn test_euler_angle_to_quaternion() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 0.0, DEGREES);
         let q = e.to_quaternion();
         assert_abs_diff_eq!(q[0], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(q[1], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(q[2], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(q[3], 0.0, epsilon = 1e-12);
 
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let q = e.to_quaternion();
         assert_abs_diff_eq!(q[0], 0.8223631719059994, epsilon = 1e-12);
         assert_abs_diff_eq!(q[1], 0.022260026714733844, epsilon = 1e-12);
@@ -414,21 +423,21 @@ mod tests {
 
     #[test]
     fn test_euler_angle_to_euler_axis() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let e = e.to_euler_axis();
         assert_abs_diff_eq!(e.axis[0], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.axis[1], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.axis[2], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.angle, PI/4.0, epsilon = 1e-12);
 
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let e = e.to_euler_axis();
         assert_abs_diff_eq!(e.axis[0], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.axis[1], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.axis[2], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.angle, PI/4.0, epsilon = 1e-12);
 
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let e = e.to_euler_axis();
         assert_abs_diff_eq!(e.axis[0], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(e.axis[1], 0.0, epsilon = 1e-12);
@@ -438,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_euler_angle_to_euler_angle() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e = e.to_euler_angle(EulerAngleOrder::ZYX);
         assert_eq!(e.order, EulerAngleOrder::ZYX);
     }
@@ -446,7 +455,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_euler_angle_to_rotation_matrix_Rx() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 0.0, 0.0, DEGREES);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -462,7 +471,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_euler_angle_to_rotation_matrix_Ry() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 45.0, 0.0, DEGREES);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
@@ -478,7 +487,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_euler_angle_to_rotation_matrix_Rz() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 0.0, 0.0, 45.0, DEGREES);
         let r = e.to_rotation_matrix();
         assert_abs_diff_eq!(r[(0, 0)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
         assert_abs_diff_eq!(r[(0, 1)], std::f64::consts::FRAC_1_SQRT_2, epsilon = 1e-12);
@@ -493,84 +502,84 @@ mod tests {
 
     #[test]
     fn test_to_euler_angle_circular_xyx() {
-        let e = EulerAngle::new(EulerAngleOrder::XYX, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYX);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_xyz() {
-        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XYZ);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_xzx() {
-        let e = EulerAngle::new(EulerAngleOrder::XZX, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XZX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XZX);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_xzy() {
-        let e = EulerAngle::new(EulerAngleOrder::XZY, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::XZY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::XZY);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_yxy() {
-        let e = EulerAngle::new(EulerAngleOrder::YXY, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::YXY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YXY);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_yxz() {
-        let e = EulerAngle::new(EulerAngleOrder::YXZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::YXZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YXZ);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_yzx() {
-        let e = EulerAngle::new(EulerAngleOrder::YZX, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::YZX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YZX);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_yzy() {
-        let e = EulerAngle::new(EulerAngleOrder::YZY, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::YZY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::YZY);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_zxy() {
-        let e = EulerAngle::new(EulerAngleOrder::ZXY, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::ZXY, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZXY);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_zxz() {
-        let e = EulerAngle::new(EulerAngleOrder::ZXZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::ZXZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZXZ);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_zyx() {
-        let e = EulerAngle::new(EulerAngleOrder::ZYX, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::ZYX, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZYX);
         assert_eq!(e, e2);
     }
 
     #[test]
     fn test_to_euler_angle_circular_zyz() {
-        let e = EulerAngle::new(EulerAngleOrder::ZYZ, 30.0, 45.0, 60.0, true);
+        let e = EulerAngle::new(EulerAngleOrder::ZYZ, 30.0, 45.0, 60.0, DEGREES);
         let e2 = e.to_euler_angle(EulerAngleOrder::ZYZ);
         assert_eq!(e, e2);
     }

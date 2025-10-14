@@ -96,7 +96,7 @@ pub fn vector3_from_array(vec: [f64; 3]) -> na::Vector3<f64> {
     na::Vector3::new(vec[0], vec[1], vec[2])
 }
 
-/// Convert a 6-element array to a `na::Vector6<f64>`.
+/// Convert a 6-element array to a `na::SVector<f64, 6>`.
 ///
 /// # Arguments
 /// - `vec`: The 6-element array to convert.
@@ -108,13 +108,13 @@ pub fn vector3_from_array(vec: [f64; 3]) -> na::Vector3<f64> {
 ///
 /// let vec = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 /// let v = vector6_from_array(vec);
-/// assert_eq!(v, na::Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
+/// assert_eq!(v, na::SVector::<f64, 6>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
 /// ```
-pub fn vector6_from_array(vec: [f64; 6]) -> na::Vector6<f64> {
-    na::Vector6::new(vec[0], vec[1], vec[2], vec[3], vec[4], vec[5])
+pub fn vector6_from_array(vec: [f64; 6]) -> na::SVector<f64, 6> {
+    na::SVector::<f64, 6>::new(vec[0], vec[1], vec[2], vec[3], vec[4], vec[5])
 }
 
-/// Convert a 3x3 array to a `na::Matrix3<f64>`.
+/// Convert a 3x3 array to a `na::SMatrix<f64, 3, 3>`.
 ///
 /// # Arguments
 /// - `mat`: The 3x3 array to convert.
@@ -126,10 +126,10 @@ pub fn vector6_from_array(vec: [f64; 6]) -> na::Vector6<f64> {
 ///
 /// let mat = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
 /// let m = matrix3_from_array(&mat);
-/// assert_eq!(m, na::Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0));
+/// assert_eq!(m, na::SMatrix::<f64, 3, 3>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0));
 /// ```
-pub fn matrix3_from_array(mat: &[[f64; 3]; 3]) -> na::Matrix3<f64> {
-    na::Matrix3::new(
+pub fn matrix3_from_array(mat: &[[f64; 3]; 3]) -> na::SMatrix<f64, 3, 3> {
+    na::SMatrix::<f64, 3, 3>::new(
         mat[0][0], mat[0][1], mat[0][2], mat[1][0], mat[1][1], mat[1][2], mat[2][0], mat[2][1],
         mat[2][2],
     )
@@ -235,7 +235,7 @@ mod tests {
     fn test_vector6_from_array() {
         let vec = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let v = vector6_from_array(vec);
-        assert_eq!(v, na::Vector6::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
+        assert_eq!(v, na::SVector::<f64, 6>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
         let m = matrix3_from_array(&mat);
         assert_eq!(
             m,
-            na::Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
+            na::SMatrix::<f64, 3, 3>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
         );
 
         assert_eq!(m[(0, 0)], 1.0);

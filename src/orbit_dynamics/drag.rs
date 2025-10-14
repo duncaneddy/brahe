@@ -3,9 +3,14 @@ Module to provide implementation of drag force and simple atmospheric models.
  */
 
 
-use nalgebra::{Matrix3, Vector3, Vector6};
+use nalgebra::{Vector3, Vector6};
+
+use crate::constants::AngleFormat;
+use crate::coordinates::SMatrix3;
 
 use crate::{OMEGA_EARTH, position_ecef_to_geodetic};
+#[cfg(test)]
+use crate::constants::DEGREES;
 
 const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 
@@ -31,7 +36,7 @@ const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 /// 1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.83-86.
 ///
 #[allow(non_snake_case)]
-pub fn acceleration_drag(x_object: Vector6<f64>, density: f64, mass: f64, area: f64, drag_coefficient: f64, T: Matrix3<f64>) -> Vector3<f64> {
+pub fn acceleration_drag(x_object: Vector6<f64>, density: f64, mass: f64, area: f64, drag_coefficient: f64, T: SMatrix3) -> Vector3<f64> {
     // Position and velocity in true-of-date system
     let r_tod: Vector3<f64> = T * x_object.fixed_rows::<3>(0);
     let v_tod: Vector3<f64> = T * x_object.fixed_rows::<3>(3);
@@ -96,7 +101,7 @@ pub fn density_harris_priester(r_tod: Vector3<f64>, r_sun: Vector3<f64>) -> f64 
         2.360e-02, 1.810e-02];
 
     // Satellite height
-    let geod = position_ecef_to_geodetic(r_tod, false);
+    let geod = position_ecef_to_geodetic(r_tod, AngleFormat::Radians);
     let height = geod[2] / 1.0e3; // height in [km]
 
     // Exit with zero density outside height model limits
@@ -150,6 +155,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::{sun_position, TimeSystem};
+    use crate::constants::AngleFormat;
     use crate::constants::R_EARTH;
     use crate::coordinates::*;
     use crate::time::Epoch;
@@ -167,9 +173,9 @@ mod tests {
             45.0,
         );
 
-        let x_object = state_osculating_to_cartesian(oe, true);
+        let x_object = state_osculating_to_cartesian(oe, DEGREES);
 
-        let a = acceleration_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, Matrix3::identity());
+        let a = acceleration_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
 
         assert_abs_diff_eq!(a.norm(), 5.97601877277239e-8, epsilon = 1.0e-10);
     }
@@ -477,13 +483,13 @@ mod tests {
         let r_sun = Vector3::new(24622331959.580, -133060326832.922, -57688711921.833);
 
         // Test below 100 km threshold
-        let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 50.0e3), true).unwrap();
+        let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 50.0e3), AngleFormat::Degrees).unwrap();
         let rho = density_harris_priester(r, r_sun);
 
         assert_eq!(rho, 0.0);
 
         // Test above 1000 km threshold
-        let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 1100.0e3), true).unwrap();
+        let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 1100.0e3), AngleFormat::Degrees).unwrap();
         let rho = density_harris_priester(r, r_sun);
 
         assert_eq!(rho, 0.0);
@@ -530,7 +536,7 @@ mod tests {
 
         let rho = density_harris_priester(Vector3::new(r_x, r_y, r_z), r_sun);
 
-        let a = acceleration_drag(x, rho, mass, area, cd, Matrix3::<f64>::identity());
+        let a = acceleration_drag(x, rho, mass, area, cd, SMatrix3::identity());
 
         let tol = 1.0e-12;
         assert_abs_diff_eq!(a[0], a_x_expected, epsilon = tol);

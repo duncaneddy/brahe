@@ -99,6 +99,11 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         assert abs((current_epoch - initial_epoch) - 60.0) < 0.01
         assert prop.trajectory.length == 2  # Initial + 1 step
 
+        # State should have changed after propagation
+        new_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.array_equal(new_state, initial_state)
+
     def test_sgppropagator_orbitpropagator_step_by(self, iss_tle):
         """Test step_by method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
@@ -110,18 +115,68 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         # Use approximate comparison for epoch (floating point precision)
         assert abs((current_epoch - initial_epoch) - 120.0) < 0.01
 
+        # Confirm only 2 states in trajectory (initial + 1 step)
+        assert prop.trajectory.length == 2
+
+        # State should have changed after propagation
+        new_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.array_equal(new_state, initial_state)
+
+    def test_sgppropagator_orbitpropagator_propagate_steps(self, iss_tle):
+        """Test propagate_steps method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+
+        prop.propagate_steps(5)
+
+        current_epoch = prop.current_epoch
+        assert abs((current_epoch - initial_epoch) - 300.0) < 0.01
+        assert prop.trajectory.length == 6  # Initial + 5 steps
+
+        # State should have changed after propagation
+        new_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.array_equal(new_state, initial_state)
+
+    def test_sgppropagator_orbitpropagator_step_past(self, iss_tle):
+        """Test step_past method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+
+        target_epoch = initial_epoch + 250.0
+        prop.step_past(target_epoch)
+
+        current_epoch = prop.current_epoch
+        assert current_epoch > target_epoch
+
+        # Should have 6 steps: initial + 5 steps of 60s
+        assert prop.trajectory.length == 6
+        assert abs((current_epoch - initial_epoch) - 300.0) < 0.01
+
+        # State should have changed after propagation
+        new_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.array_equal(new_state, initial_state)
+
     def test_sgppropagator_orbitpropagator_propagate_to(self, iss_tle):
         """Test propagate_to method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         initial_epoch = prop.epoch
-        target_epoch = initial_epoch + 300.0
+        target_epoch = initial_epoch + 90.0  # 90 seconds forward
 
         prop.propagate_to(target_epoch)
 
-        # Should have propagated with step size 60.0
-        assert prop.trajectory.length > 1
-        # Current epoch should be at or past target
-        assert prop.current_epoch >= target_epoch
+        current_epoch = prop.current_epoch
+        assert current_epoch == target_epoch
+
+        # Should have 3 steps: initial + 1 step of 60s + 1 step of 30s
+        assert prop.trajectory.length == 3
+
+        # State should have changed after propagation
+        new_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.array_equal(new_state, initial_state)
 
     def test_sgppropagator_orbitpropagator_current_state(self, iss_tle):
         """Test current state via propagator."""
@@ -191,6 +246,32 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         traj = prop.trajectory
 
         assert traj.length == 1  # Initial state
+
+    def test_sgppropagator_orbitpropagator_set_eviction_policy_max_size(self, iss_tle):
+        """Test set_eviction_policy_max_size method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_eviction_policy_max_size(5)
+
+        # Propagate 10 steps
+        prop.propagate_steps(10)
+
+        # Should only keep 5 states
+        assert prop.trajectory.length == 5
+
+    def test_sgppropagator_orbitpropagator_set_eviction_policy_max_age(self, iss_tle):
+        """Test set_eviction_policy_max_age method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        # Set eviction policy - only keep states within 120 seconds of current
+        prop.set_eviction_policy_max_age(120.0)
+
+        # Propagate several steps (10 * 60s = 600s total)
+        prop.propagate_steps(10)
+
+        # Should have evicted old states - should keep only last ~3 states (120s / 60s step)
+        # Plus current state: 3 previous + current = 4 states max
+        assert prop.trajectory.length <= 4
+        assert prop.trajectory.length > 0
 
 
 class TestSGPPropagatorAnalyticPropagatorTrait:

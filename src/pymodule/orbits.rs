@@ -447,6 +447,16 @@ impl PySGPPropagator {
         state.as_slice().to_pyarray(py).to_owned()
     }
 
+    /// Get initial state vector
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Initial state vector in the propagator's output format
+    #[pyo3(text_signature = "()")]
+    pub fn initial_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.initial_state();
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
     /// Compute state at a specific epoch
     ///
     /// Arguments:
@@ -573,6 +583,26 @@ impl PySGPPropagator {
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
+    }
+
+    /// Set trajectory eviction policy based on maximum size
+    ///
+    /// Arguments:
+    ///     max_size (int): Maximum number of states to keep in trajectory
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        self.propagator.set_eviction_policy_max_size(max_size)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Set trajectory eviction policy based on maximum age
+    ///
+    /// Arguments:
+    ///     max_age (float): Maximum age in seconds to keep states in trajectory
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        self.propagator.set_eviction_policy_max_age(max_age)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
     }
 
     /// Get accumulated trajectory

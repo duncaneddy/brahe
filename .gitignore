@@ -30,6 +30,7 @@ wheels/
 
 # Build Artifacts - Validation
 /build
+site/*
 
 # Documentation
 docs/*/site/*

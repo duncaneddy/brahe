@@ -32,7 +32,7 @@
 
 # Brahe
 
-!!! quote ""
+!!! quote ""'s 
 
     All software is wrong, but some is useful.
 

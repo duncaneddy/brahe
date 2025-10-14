@@ -53,6 +53,7 @@ dev = [
     { name = "mkdocstrings-python" },
     { name = "plotly" },
     { name = "pre-commit" },
+    { name = "pyo3-stubgen" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-order" },
@@ -75,6 +76,7 @@ dev = [
     { name = "mkdocstrings-python", specifier = ">=1.18.2" },
     { name = "plotly", specifier = ">=6.3.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
+    { name = "pyo3-stubgen", specifier = ">=0.3.0" },
     { name = "pytest", specifier = ">=7.4.4" },
     { name = "pytest-cov", specifier = ">=3.0.0" },
     { name = "pytest-order", specifier = ">=1.3.0" },
@@ -1801,6 +1803,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/b3/6d2b3f149bc5413b0a29761c2c5832d8ce904a1d7f621e86616d96f505cc/pymdown_extensions-10.16.1.tar.gz", hash = "sha256:aace82bcccba3efc03e25d584e6a22d27a8e17caa3f4dd9f207e49b787aa9a91", size = 853277, upload-time = "2025-07-28T16:19:34.167Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/06/43084e6cbd4b3bc0e80f6be743b2e79fbc6eed8de9ad8c629939fa55d972/pymdown_extensions-10.16.1-py3-none-any.whl", hash = "sha256:d6ba157a6c03146a7fb122b2b9a121300056384eafeec9c9f9e584adfdb2a32d", size = 266178, upload-time = "2025-07-28T16:19:31.401Z" },
+]
+
+[[package]]
+name = "pyo3-stubgen"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/db/df405145366251eded9194a1bf2fdba544f44a4b5d571c519f7916ddec61/pyo3_stubgen-0.3.0.tar.gz", hash = "sha256:57434fb833d5a3e54942e6f5fde486b56412bf02319cf528068254da58b95327", size = 5935, upload-time = "2024-06-30T16:46:39.281Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/fb/92a4a232d31c00276085d03e6f96f28b940cc802cf69b07b8d892def293d/pyo3_stubgen-0.3.0-py3-none-any.whl", hash = "sha256:a05c32ddf1981be043fa5015f24d625b4eb631c27769e0db475acf4b28e5acc3", size = 5611, upload-time = "2024-06-30T16:46:38.196Z" },
 ]
 
 [[package]]

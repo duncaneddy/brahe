@@ -164,9 +164,9 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
-    /// use brahe::constants::DEGREES;
+    /// use brahe::AngleFormat;
     ///
-    /// let r = RotationMatrix::Rx(45.0, DEGREES);
+    /// let r = RotationMatrix::Rx(45.0, AngleFormat::Degrees);
     /// ```
     #[allow(non_snake_case)]
     pub fn Rx(angle: f64, angle_format: AngleFormat) -> Self {
@@ -203,9 +203,9 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
-    /// use brahe::constants::DEGREES;
+    /// use brahe::AngleFormat;
     ///
-    /// let r = RotationMatrix::Ry(45.0, DEGREES);
+    /// let r = RotationMatrix::Ry(45.0, AngleFormat::Degrees);
     /// ```
     #[allow(non_snake_case)]
     pub fn Ry(angle: f64, angle_format: AngleFormat) -> Self {
@@ -242,9 +242,9 @@ impl RotationMatrix {
     ///
     /// ```
     /// use brahe::attitude::attitude_types::RotationMatrix;
-    /// use brahe::constants::DEGREES;
+    /// use brahe::AngleFormat;
     ///
-    /// let r = RotationMatrix::Rz(45.0, DEGREES);
+    /// let r = RotationMatrix::Rz(45.0, AngleFormat::Degrees);
     /// ```
     #[allow(non_snake_case)]
     pub fn Rz(angle: f64, angle_format: AngleFormat) -> Self {
@@ -399,8 +399,9 @@ impl FromAttitude for RotationMatrix {
     /// use nalgebra::Vector3;
     /// use brahe::attitude::attitude_types::{EulerAxis, RotationMatrix};
     /// use brahe::attitude::FromAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, DEGREES);
+    /// let e = EulerAxis::new(Vector3::new(1.0, 0.0, 0.0), 45.0, AngleFormat::Degrees);
     /// let r = RotationMatrix::from_euler_axis(e);
     /// ```
     fn from_euler_axis(e: EulerAxis) -> Self {
@@ -422,8 +423,9 @@ impl FromAttitude for RotationMatrix {
     /// ```
     /// use brahe::attitude::attitude_types::{EulerAngle, EulerAngleOrder, RotationMatrix};
     /// use brahe::attitude::FromAttitude;
+    /// use brahe::AngleFormat;
     ///
-    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 30.0, 60.0, DEGREES);
+    /// let e = EulerAngle::new(EulerAngleOrder::XYZ, 45.0, 30.0, 60.0, AngleFormat::Degrees);
     /// let r = RotationMatrix::from_euler_angle(e);
     /// ```
     fn from_euler_angle(e: EulerAngle) -> Self {

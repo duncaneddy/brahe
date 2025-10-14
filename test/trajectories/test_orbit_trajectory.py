@@ -51,11 +51,13 @@ def test_orbittrajectory_new():
     traj = OrbitTrajectory(
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
+        None,
     )
 
     assert len(traj) == 0
     assert traj.frame == OrbitFrame.ECI
     assert traj.representation == OrbitRepresentation.CARTESIAN
+    assert traj.angle_format is None
 
 
 def test_orbittrajectory_new_invalid_keplerian_none():
@@ -818,6 +820,7 @@ def test_orbittrajectory_default():
     assert traj.is_empty()
     assert traj.frame == OrbitFrame.ECI
     assert traj.representation == OrbitRepresentation.CARTESIAN
+    assert traj.angle_format is None
 
 
 def test_orbittrajectory_index_index():

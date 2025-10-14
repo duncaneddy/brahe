@@ -412,7 +412,8 @@ pub trait Interpolatable: Trajectory {
 /// # Examples
 /// ```rust
 /// use brahe::trajectories::OrbitTrajectory;
-/// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat, Trajectory};
+/// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, Trajectory};
+/// use brahe::AngleFormat;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
@@ -420,7 +421,7 @@ pub trait Interpolatable: Trajectory {
 /// let mut traj = OrbitTrajectory::new(
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
-///     AngleFormat::None,
+///     None,
 /// );
 ///
 /// // Add state
@@ -447,7 +448,7 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// # Panics
     /// Panics if parameters are invalid (e.g., None angle_format with Keplerian, or Keplerian with ECEF)
     fn from_orbital_data(epochs: Vec<Epoch>, states: Vec<Self::StateVector>,
-        frame: OrbitFrame, representation: OrbitRepresentation, angle_format: AngleFormat,
+        frame: OrbitFrame, representation: OrbitRepresentation, angle_format: Option<AngleFormat>,
     ) -> Self where Self: Sized;
 
     /// Convert to Earth-Centered Inertial (ECI) frame.

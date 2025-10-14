@@ -164,7 +164,7 @@ impl PyOrbitalTrajectory {
             _ => {}
         }
 
-        let angle_fmt = angle_format.as_ref().map(|af| af.value).unwrap_or(constants::AngleFormat::Radians);
+        let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
         let trajectory = trajectories::OrbitTrajectory::new(
             frame.frame,
@@ -245,7 +245,7 @@ impl PyOrbitalTrajectory {
             states_vec.push(na::Vector6::from_row_slice(state_slice));
         }
 
-        let angle_fmt = angle_format.as_ref().map(|af| af.value).unwrap_or(constants::AngleFormat::Radians);
+        let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
         let trajectory = trajectories::OrbitTrajectory::from_orbital_data(
             epochs_vec,
@@ -483,8 +483,8 @@ impl PyOrbitalTrajectory {
 
     /// Get trajectory angle format
     #[getter]
-    pub fn angle_format(&self) -> PyAngleFormat {
-        PyAngleFormat { value: self.trajectory.angle_format }
+    pub fn angle_format(&self) -> Option<PyAngleFormat> {
+        self.trajectory.angle_format.map(|af| PyAngleFormat { value: af })
     }
 
     /// Clear all states from the trajectory

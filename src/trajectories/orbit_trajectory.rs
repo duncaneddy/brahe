@@ -15,7 +15,8 @@
  * # Examples
  * ```rust
  * use brahe::trajectories::OrbitTrajectory;
- * use brahe::traits::{Trajectory, OrbitalTrajectory, OrbitFrame, OrbitRepresentation, AngleFormat};
+ * use brahe::traits::{Trajectory, OrbitalTrajectory, OrbitFrame, OrbitRepresentation};
+ * use brahe::AngleFormat;
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::Vector6;
  *
@@ -23,7 +24,7 @@
  * let mut traj = OrbitTrajectory::new(
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
- *     AngleFormat::None,
+ *     None,
  * );
  *
  * // Add state
@@ -40,7 +41,7 @@ use nalgebra::{SVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::constants::{DEG2RAD, RAD2DEG, RADIANS, DEGREES};
+use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::constants::AngleFormat;
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
@@ -96,8 +97,8 @@ pub struct OrbitTrajectory {
 
     /// Angle format for angular elements
     /// None is used for Cartesian representation.
-    /// Radians or Degrees can be used for Keplerian elements.
-    pub angle_format: AngleFormat,
+    /// Some(Radians) or Some(Degrees) can be used for Keplerian elements.
+    pub angle_format: Option<AngleFormat>,
 
     /// Generic metadata storage supporting arbitrary key-value pairs.
     /// Can store any JSON-serializable data including strings, numbers, booleans,
@@ -120,26 +121,33 @@ impl OrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::OrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::AngleFormat;
     ///
     /// let traj = OrbitTrajectory::new(
     ///     OrbitFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
-    ///     AngleFormat::None,
+    ///     None,
     /// );
     /// ```
     pub fn new(
         frame: OrbitFrame,
         representation: OrbitRepresentation,
-        angle_format: AngleFormat,
+        angle_format: Option<AngleFormat>,
     ) -> Self {
+        // Validate angle_format for representation (check this first)
+        if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
+            panic!("Angle format must be specified for Keplerian elements");
+        }
+
+        if representation == OrbitRepresentation::Cartesian && angle_format.is_some() {
+            panic!("Angle format should be None for Cartesian representation");
+        }
+
         // Validate frame for representation
         if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
             panic!("Keplerian elements should be in ECI frame");
         }
-
-        // Note: angle_format is only meaningful for Keplerian representation
-        // For Cartesian representation, the angle_format field is ignored
 
         Self {
             epochs: Vec::new(),
@@ -169,8 +177,8 @@ impl OrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::OrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat, InterpolationMethod};
-    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, InterpolationMethod};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
     pub fn with_interpolation_method(mut self, interpolation_method: InterpolationMethod) -> Self {
@@ -195,8 +203,8 @@ impl OrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::OrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
-    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_eviction_policy_max_size(100);
     /// ```
     pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
@@ -226,8 +234,8 @@ impl OrbitTrajectory {
     /// # Examples
     /// ```rust
     /// use brahe::trajectories::OrbitTrajectory;
-    /// use brahe::traits::{OrbitFrame, OrbitRepresentation, AngleFormat};
-    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, AngleFormat::None)
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_eviction_policy_max_age(3600.0);
     /// ```
     pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
@@ -306,50 +314,6 @@ impl OrbitTrajectory {
             }
         }
     }
-
-    /// Internal method for converting a single state vector between formats.
-    pub(crate) fn convert_state_to_format(
-        &self,
-        epoch: Epoch,
-        state: SVector<f64, 6>,
-        from_frame: OrbitFrame,
-        from_representation: OrbitRepresentation,
-        from_angle_format: AngleFormat,
-        to_frame: OrbitFrame,
-        to_representation: OrbitRepresentation,
-        to_angle_format: AngleFormat,
-    ) -> Result<SVector<f64, 6>, BraheError> {
-        let mut converted_state = state;
-
-        // Step 1: Convert to ECI Cartesian as intermediate format
-        if from_frame != OrbitFrame::ECI || from_representation != OrbitRepresentation::Cartesian {
-            // Convert representation first (if needed)
-            if from_representation == OrbitRepresentation::Keplerian {
-                converted_state = state_osculating_to_cartesian(converted_state, from_angle_format);
-            }
-
-            // Convert frame (if needed)
-            if from_frame == OrbitFrame::ECEF {
-                converted_state = state_ecef_to_eci(epoch, converted_state);
-            }
-        }
-
-        // Step 2: Convert from ECI Cartesian to target format
-        if to_frame != OrbitFrame::ECI || to_representation != OrbitRepresentation::Cartesian {
-            // Convert frame first (if needed)
-            if to_frame == OrbitFrame::ECEF {
-                // Immediately return so you can't request an ECEF Keplerian state
-                return Ok(state_eci_to_ecef(epoch, converted_state));
-            }
-
-            // Convert representation (if needed)
-            if to_representation == OrbitRepresentation::Keplerian {
-                converted_state = state_cartesian_to_osculating(converted_state, to_angle_format);
-            }
-        }
-
-        Ok(converted_state)
-    }
 }
 
 impl Default for OrbitTrajectory {
@@ -358,7 +322,7 @@ impl Default for OrbitTrajectory {
         Self::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS, // angle_format is not meaningful for Cartesian
+            None, // angle_format is None for Cartesian
         )
     }
 }
@@ -454,7 +418,7 @@ impl Trajectory for OrbitTrajectory {
             max_age: None,
             frame: OrbitFrame::ECI, // Default to ECI Cartesian
             representation: OrbitRepresentation::Cartesian,
-            angle_format: RADIANS, // angle_format is not meaningful for Cartesian
+            angle_format: None, // angle_format is not meaningful for Cartesian
             metadata: HashMap::new(),
         })
     }
@@ -731,7 +695,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
         states: Vec<Vector6<f64>>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
-        angle_format: AngleFormat,
+        angle_format: Option<AngleFormat>,
     ) -> Self {
         // Validate inputs
         if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
@@ -739,7 +703,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
         }
 
         // Note: angle_format is only meaningful for Keplerian representation
-        // For Cartesian representation, the angle_format field is ignored
+        // For Cartesian representation, the angle_format field should be None
 
         Self {
             epochs,
@@ -771,7 +735,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
             // Keplerian to Cartesian first
             for (_e, s) in self.into_iter() {
                 let state_cartesian =
-                    state_osculating_to_cartesian(s, self.angle_format);
+                    state_osculating_to_cartesian(s, self.angle_format.expect("Keplerian representation must have angle_format"));
                 states_converted.push(state_cartesian);
             }
         } else {
@@ -791,7 +755,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
             max_age: self.max_age,
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
-            angle_format: RADIANS, // angle_format is not meaningful for Cartesian
+            angle_format: None, // angle_format is not meaningful for Cartesian
             metadata: self.metadata.clone(),
         }
     }
@@ -812,7 +776,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
             // Keplerian to Cartesian first
             for (e, s) in self.into_iter() {
                 let state_cartesian =
-                    state_osculating_to_cartesian(s, self.angle_format);
+                    state_osculating_to_cartesian(s, self.angle_format.expect("Keplerian representation must have angle_format"));
                 let state_ecef = state_eci_to_ecef(e, state_cartesian);
                 states_converted.push(state_ecef);
             }
@@ -833,7 +797,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
             max_age: self.max_age,
             frame: OrbitFrame::ECEF,
             representation: OrbitRepresentation::Cartesian,
-            angle_format: RADIANS, // angle_format is not meaningful for Cartesian
+            angle_format: None, // angle_format is not meaningful for Cartesian
             metadata: self.metadata.clone(),
         }
     }
@@ -843,7 +807,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self: Sized,
     {
         if self.representation == OrbitRepresentation::Keplerian
-            && self.angle_format == angle_format
+            && self.angle_format == Some(angle_format)
         {
             // Already in desired format
             return self.clone();
@@ -856,14 +820,15 @@ impl OrbitalTrajectory for OrbitTrajectory {
         if self.representation == OrbitRepresentation::Keplerian {
             for (_e, s) in self.into_iter() {
                 let mut state_converted = s;
-                if self.angle_format == AngleFormat::Degrees && angle_format == AngleFormat::Radians
+                let current_format = self.angle_format.expect("Keplerian representation must have angle_format");
+                if current_format == AngleFormat::Degrees && angle_format == AngleFormat::Radians
                 {
                     // Degrees to Radians
                     state_converted[2] *= DEG2RAD;
                     state_converted[3] *= DEG2RAD;
                     state_converted[4] *= DEG2RAD;
                     state_converted[5] *= DEG2RAD;
-                } else if self.angle_format == AngleFormat::Radians
+                } else if current_format == AngleFormat::Radians
                     && angle_format == AngleFormat::Degrees
                 {
                     // Radians to Degrees
@@ -904,7 +869,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
             max_age: self.max_age,
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Keplerian,
-            angle_format,
+            angle_format: Some(angle_format),
             metadata: self.metadata.clone(),
         }
     }
@@ -913,7 +878,7 @@ impl OrbitalTrajectory for OrbitTrajectory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::R_EARTH;
+    use crate::constants::{R_EARTH, RADIANS, DEGREES};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -922,7 +887,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
 
         let epoch1 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -945,13 +910,13 @@ mod tests {
         let traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert_eq!(traj.len(), 0);
         assert_eq!(traj.frame, OrbitFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(traj.angle_format, RADIANS);
+        assert_eq!(traj.angle_format, None);
     }
 
     #[test]
@@ -960,7 +925,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            RADIANS,
+            None,
         );
     }
 
@@ -970,7 +935,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
     }
 
@@ -980,7 +945,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
     }
 
@@ -990,7 +955,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
     }
 
@@ -1000,7 +965,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
     }
 
@@ -1010,7 +975,7 @@ mod tests {
         OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Keplerian,
-            RADIANS,
+            None,
         );
     }
 
@@ -1037,7 +1002,7 @@ mod tests {
             states.clone(),
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Convert to matrix
@@ -1084,7 +1049,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Add states in order
@@ -1125,7 +1090,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test valid indices
@@ -1159,7 +1124,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test valid indices
@@ -1193,7 +1158,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test before first epoch
@@ -1232,7 +1197,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert_eq!(traj.len(), 0);
@@ -1251,7 +1216,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert!(traj.is_empty());
@@ -1268,7 +1233,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert!(traj.start_epoch().is_none());
@@ -1285,7 +1250,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert!(traj.end_epoch().is_none());
@@ -1314,7 +1279,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let timespan = traj.timespan().unwrap();
@@ -1336,7 +1301,7 @@ mod tests {
             states.clone(),
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let (first_epoch, first_state) = traj.first().unwrap();
@@ -1359,7 +1324,7 @@ mod tests {
             states.clone(),
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let (last_epoch, last_state) = traj.last().unwrap();
@@ -1372,7 +1337,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -1399,7 +1364,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let removed_state = traj.remove_epoch(&epochs[0]).unwrap();
@@ -1422,7 +1387,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let (removed_epoch, removed_state) = traj.remove(0).unwrap();
@@ -1446,7 +1411,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let (epoch, state) = traj.get(1).unwrap();
@@ -1472,7 +1437,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test finding index before t0 (should error - before all states)
@@ -1516,7 +1481,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test finding index after t0-30s (should return index 0)
@@ -1563,7 +1528,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test that state_before_epoch returns correct (epoch, state) tuples
@@ -1605,7 +1570,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test that state_after_epoch returns correct (epoch, state) tuples
@@ -1634,7 +1599,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Add 5 states
@@ -1673,7 +1638,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Add states spanning 5 minutes
@@ -1714,7 +1679,7 @@ mod tests {
         assert!(traj.is_empty());
         assert_eq!(traj.frame, OrbitFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(traj.angle_format, RADIANS);
+        assert_eq!(traj.angle_format, None);
     }
 
     // Index Trait Tests
@@ -1736,7 +1701,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test indexing returns state vectors
@@ -1760,7 +1725,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let _ = &traj[10]; // Should panic
@@ -1785,7 +1750,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let mut count = 0;
@@ -1815,7 +1780,7 @@ mod tests {
         let traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let mut count = 0;
@@ -1842,7 +1807,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let iter = traj.into_iter();
@@ -1868,7 +1833,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let iter = traj.into_iter();
@@ -1882,7 +1847,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
@@ -1896,7 +1861,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test that get_interpolation_method returns Linear
@@ -1926,7 +1891,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test interpolate_linear at midpoints and exact epochs
@@ -1964,7 +1929,7 @@ mod tests {
             single_state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let state_single = single_traj.interpolate_linear(&t0).unwrap();
@@ -1990,7 +1955,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         // Test that interpolate() with Linear method returns same result as interpolate_linear()
@@ -2025,7 +1990,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         assert_eq!(traj.len(), 2);
@@ -2053,7 +2018,7 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -2062,7 +2027,7 @@ mod tests {
         let eci_traj = traj.to_eci();
         assert_eq!(eci_traj.frame, OrbitFrame::ECI);
         assert_eq!(eci_traj.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(eci_traj.angle_format, RADIANS);
+        assert_eq!(eci_traj.angle_format, None);
         assert_eq!(eci_traj.len(), 1);
         let (epoch_out, state_out) = eci_traj.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2074,7 +2039,7 @@ mod tests {
         let mut kep_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
         let kep_state_rad = state_cartesian_to_osculating(state_base, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
@@ -2085,7 +2050,7 @@ mod tests {
             eci_from_kep_rad.representation,
             OrbitRepresentation::Cartesian
         );
-        assert_eq!(eci_from_kep_rad.angle_format, RADIANS);
+        assert_eq!(eci_from_kep_rad.angle_format, None);
         assert_eq!(eci_from_kep_rad.len(), 1);
         let (epoch_out, state_out) = eci_from_kep_rad.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2097,7 +2062,7 @@ mod tests {
         let mut kep_traj_deg = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
         let kep_state_deg = state_cartesian_to_osculating(state_base, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
@@ -2107,7 +2072,7 @@ mod tests {
             eci_from_kep_deg.representation,
             OrbitRepresentation::Cartesian
         );
-        assert_eq!(eci_from_kep_deg.angle_format, RADIANS);
+        assert_eq!(eci_from_kep_deg.angle_format, None);
         assert_eq!(eci_from_kep_deg.len(), 1);
         let (epoch_out, state_out) = eci_from_kep_deg.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2119,14 +2084,14 @@ mod tests {
         let mut ecef_traj = OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let ecef_state = state_eci_to_ecef(epoch, state_base);
         ecef_traj.add(epoch, ecef_state);
         let eci_from_ecef = ecef_traj.to_eci();
         assert_eq!(eci_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(eci_from_ecef.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(eci_from_ecef.angle_format, RADIANS);
+        assert_eq!(eci_from_ecef.angle_format, None);
         assert_eq!(eci_from_ecef.len(), 1);
         let (epoch_out, state_out) = eci_from_ecef.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2153,14 +2118,14 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
 
         traj.add(epoch, state_base);
         let ecef_traj = traj.to_ecef();
         assert_eq!(ecef_traj.frame, OrbitFrame::ECEF);
         assert_eq!(ecef_traj.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(ecef_traj.angle_format, RADIANS);
+        assert_eq!(ecef_traj.angle_format, None);
         assert_eq!(ecef_traj.len(), 1);
         let (epoch_out, state_out) = ecef_traj.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2172,14 +2137,14 @@ mod tests {
         let mut eci_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let eci_state = state_ecef_to_eci(epoch, state_base);
         eci_traj.add(epoch, eci_state);
         let ecef_from_eci = eci_traj.to_ecef();
         assert_eq!(ecef_from_eci.frame, OrbitFrame::ECEF);
         assert_eq!(ecef_from_eci.representation, OrbitRepresentation::Cartesian);
-        assert_eq!(ecef_from_eci.angle_format, RADIANS);
+        assert_eq!(ecef_from_eci.angle_format, None);
         assert_eq!(ecef_from_eci.len(), 1);
         let (epoch_out, state_out) = ecef_from_eci.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2191,7 +2156,7 @@ mod tests {
         let mut kep_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
         let kep_state_rad = state_cartesian_to_osculating(eci_state, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
@@ -2201,7 +2166,7 @@ mod tests {
             ecef_from_kep_rad.representation,
             OrbitRepresentation::Cartesian
         );
-        assert_eq!(ecef_from_kep_rad.angle_format, RADIANS);
+        assert_eq!(ecef_from_kep_rad.angle_format, None);
         assert_eq!(ecef_from_kep_rad.len(), 1);
         let (epoch_out, state_out) = ecef_from_kep_rad.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2213,7 +2178,7 @@ mod tests {
         let mut kep_traj_deg = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
         let kep_state_deg = state_cartesian_to_osculating(eci_state, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
@@ -2223,7 +2188,7 @@ mod tests {
             ecef_from_kep_deg.representation,
             OrbitRepresentation::Cartesian
         );
-        assert_eq!(ecef_from_kep_deg.angle_format, RADIANS);
+        assert_eq!(ecef_from_kep_deg.angle_format, None);
         assert_eq!(ecef_from_kep_deg.len(), 1);
         let (epoch_out, state_out) = ecef_from_kep_deg.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2244,13 +2209,13 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
         traj.add(epoch, state_kep_deg);
         let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_traj.frame, OrbitFrame::ECI);
         assert_eq!(kep_traj.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_traj.angle_format, AngleFormat::Degrees);
+        assert_eq!(kep_traj.angle_format, Some(AngleFormat::Degrees));
         assert_eq!(kep_traj.len(), 1);
         let (epoch_out, state_out) = kep_traj.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2262,7 +2227,7 @@ mod tests {
         let mut kep_rad_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
         let mut state_kep_rad = state_kep_deg.clone();
         for i in 2..6 {
@@ -2272,7 +2237,7 @@ mod tests {
         let kep_from_rad = kep_rad_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_rad.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_rad.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_rad.angle_format, AngleFormat::Degrees);
+        assert_eq!(kep_from_rad.angle_format, Some(AngleFormat::Degrees));
         assert_eq!(kep_from_rad.len(), 1);
         let (epoch_out, state_out) = kep_from_rad.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2284,14 +2249,14 @@ mod tests {
         let mut cart_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let cart_state = state_osculating_to_cartesian(state_kep_deg, DEGREES);
         cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_cart.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_cart.angle_format, AngleFormat::Degrees);
+        assert_eq!(kep_from_cart.angle_format, Some(AngleFormat::Degrees));
         assert_eq!(kep_from_cart.len(), 1);
         let (epoch_out, state_out) = kep_from_cart.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2303,14 +2268,14 @@ mod tests {
         let mut ecef_traj = OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let ecef_state = state_eci_to_ecef(epoch, cart_state);
         ecef_traj.add(epoch, ecef_state);
         let kep_from_ecef = ecef_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_ecef.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_ecef.angle_format, AngleFormat::Degrees);
+        assert_eq!(kep_from_ecef.angle_format, Some(AngleFormat::Degrees));
         assert_eq!(kep_from_ecef.len(), 1);
         let (epoch_out, state_out) = kep_from_ecef.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2335,13 +2300,13 @@ mod tests {
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Radians,
+            Some(AngleFormat::Radians),
         );
         traj.add(epoch, state_kep_rad);
         let kep_traj = traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_traj.frame, OrbitFrame::ECI);
         assert_eq!(kep_traj.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_traj.angle_format, AngleFormat::Radians);
+        assert_eq!(kep_traj.angle_format, Some(AngleFormat::Radians));
         assert_eq!(kep_traj.len(), 1);
         let (epoch_out, state_out) = kep_traj.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2353,13 +2318,13 @@ mod tests {
         let mut kep_deg_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
-            AngleFormat::Degrees,
+            Some(AngleFormat::Degrees),
         );
         kep_deg_traj.add(epoch, state_kep_deg);
         let kep_from_deg = kep_deg_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_deg.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_deg.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_deg.angle_format, AngleFormat::Radians);
+        assert_eq!(kep_from_deg.angle_format, Some(AngleFormat::Radians));
         assert_eq!(kep_from_deg.len(), 1);
         let (epoch_out, state_out) = kep_from_deg.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2371,14 +2336,14 @@ mod tests {
         let mut cart_traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let cart_state = state_osculating_to_cartesian(state_kep_deg, DEGREES);
         cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_cart.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_cart.angle_format, AngleFormat::Radians);
+        assert_eq!(kep_from_cart.angle_format, Some(AngleFormat::Radians));
         assert_eq!(kep_from_cart.len(), 1);
         let (epoch_out, state_out) = kep_from_cart.get(0).unwrap();
         assert_eq!(epoch_out, epoch);
@@ -2390,14 +2355,14 @@ mod tests {
         let mut ecef_traj = OrbitTrajectory::new(
             OrbitFrame::ECEF,
             OrbitRepresentation::Cartesian,
-            RADIANS,
+            None,
         );
         let ecef_state = state_eci_to_ecef(epoch, cart_state);
         ecef_traj.add(epoch, ecef_state);
         let kep_from_ecef = ecef_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_ecef.frame, OrbitFrame::ECI);
         assert_eq!(kep_from_ecef.representation, OrbitRepresentation::Keplerian);
-        assert_eq!(kep_from_ecef.angle_format, AngleFormat::Radians);
+        assert_eq!(kep_from_ecef.angle_format, Some(AngleFormat::Radians));
         assert_eq!(kep_from_ecef.len(), 1);
         let (epoch_out, state_out) = kep_from_ecef.get(0).unwrap();
         assert_eq!(epoch_out, epoch);

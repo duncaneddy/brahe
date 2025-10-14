@@ -436,7 +436,7 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, angle_format: AngleFormat) -> V
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use crate::constants::{RADIANS, DEGREES};
+    use crate::constants::DEGREES;
     use crate::{position_geocentric_to_ecef, position_geodetic_to_ecef, R_EARTH};
 
     use super::*;

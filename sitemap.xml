@@ -33,6 +33,18 @@
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
+         <loc>https://github.com/duncaneddy/brahe/examples/computing_doppler_shift_for_pass.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/examples/computing_ground_contacts.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/examples/propagating_an_orbit.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/duncaneddy/brahe/learn/index.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
@@ -77,15 +89,7 @@
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/library_api/attitude.html</loc>
-         <lastmod>2025-10-14</lastmod>
-    </url>
-    <url>
          <loc>https://github.com/duncaneddy/brahe/library_api/constants.html</loc>
-         <lastmod>2025-10-14</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
@@ -97,11 +101,43 @@
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/library_api/time.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/library_api/trajectories.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/library_api/trajectories.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude/euler_angles.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude/euler_axis.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude/quaternion.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/attitude/rotation_matrix.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates/cartesian.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates/geodetic.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/coordinates/topocentric.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
@@ -109,7 +145,7 @@
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/orbits.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/library_api/orbits/keplerian.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>
@@ -118,6 +154,18 @@
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/library_api/orbits/tle.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/time/index.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/time/conversions.html</loc>
+         <lastmod>2025-10-14</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/library_api/time/epoch.html</loc>
          <lastmod>2025-10-14</lastmod>
     </url>
     <url>

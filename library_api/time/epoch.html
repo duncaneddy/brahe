@@ -12,28 +12,28 @@
         <meta name="author" content="Duncan Eddy">
       
       
-        <link rel="canonical" href="https://github.com/duncaneddy/brahe/library_api/attitude.html">
+        <link rel="canonical" href="https://github.com/duncaneddy/brahe/library_api/time/epoch.html">
       
       
-        <link rel="prev" href="orbits/index.html">
+        <link rel="prev" href="index.html">
       
       
-        <link rel="next" href="trajectories.html">
+        <link rel="next" href="conversions.html">
       
       
-      <link rel="icon" href="../assets/favicon.png">
+      <link rel="icon" href="../../assets/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.20">
     
     
       
-        <title>Attitude - Brahe</title>
+        <title>Epoch - Brahe</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.e53b48f4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.e53b48f4.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -52,11 +52,11 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#attitude-module" class="md-skip">
+        <a href="#epoch-class" class="md-skip">
           Skip to content
         </a>
       
@@ -108,9 +108,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Brahe" class="md-header__button md-logo" aria-label="Brahe" data-md-component="logo">
+    <a href="../.." title="Brahe" class="md-header__button md-logo" aria-label="Brahe" data-md-component="logo">
       
-  <img src="../assets/icon.png" alt="logo">
+  <img src="../../assets/icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -127,7 +127,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Attitude
+              Epoch
             
           </span>
         </div>
@@ -232,7 +232,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../index.html" class="md-tabs__link">
+      <a href="../../index.html" class="md-tabs__link">
         
   
   
@@ -251,7 +251,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../learn/index.html" class="md-tabs__link">
+      <a href="../../learn/index.html" class="md-tabs__link">
         
   
   
@@ -270,7 +270,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../examples/index.html" class="md-tabs__link">
+      <a href="../../examples/index.html" class="md-tabs__link">
         
   
   
@@ -291,7 +291,7 @@
   
   
     <li class="md-tabs__item md-tabs__item--active">
-      <a href="index.html" class="md-tabs__link">
+      <a href="../index.html" class="md-tabs__link">
         
   
   
@@ -317,25 +317,6 @@
     
   
   Rust API Reference
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../about/index.html" class="md-tabs__link">
-        
-  
-  
-    
-  
-  About
 
       </a>
     </li>
@@ -389,9 +370,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Brahe" class="md-nav__button md-logo" aria-label="Brahe" data-md-component="logo">
+    <a href="../.." title="Brahe" class="md-nav__button md-logo" aria-label="Brahe" data-md-component="logo">
       
-  <img src="../assets/icon.png" alt="logo">
+  <img src="../../assets/icon.png" alt="logo">
 
     </a>
     Brahe
@@ -433,7 +414,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../index.html" class="md-nav__link ">
+            <a href="../../index.html" class="md-nav__link ">
               
   
   
@@ -466,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation.html" class="md-nav__link">
+      <a href="../../installation.html" class="md-nav__link">
         
   
   
@@ -489,12 +470,81 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing.html" class="md-nav__link">
+      <a href="../../contributing.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    About
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/design_decisions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design Decisions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/license.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    License
     
   </span>
   
@@ -519,7 +569,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../learn/index.html" class="md-nav__link">
+      <a href="../../learn/index.html" class="md-nav__link">
         
   
   
@@ -541,7 +591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/index.html" class="md-nav__link">
+      <a href="../../examples/index.html" class="md-nav__link">
         
   
   
@@ -583,7 +633,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="index.html" class="md-nav__link ">
+            <a href="../index.html" class="md-nav__link ">
               
   
   
@@ -616,7 +666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="constants.html" class="md-nav__link">
+      <a href="../constants.html" class="md-nav__link">
         
   
   
@@ -639,7 +689,7 @@
   
   
     <li class="md-nav__item">
-      <a href="eop.html" class="md-nav__link">
+      <a href="../eop.html" class="md-nav__link">
         
   
   
@@ -659,11 +709,28 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="time.html" class="md-nav__link">
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -672,7 +739,91 @@
   </span>
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            Time
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Epoch
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="epoch.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Epoch
+    
+  </span>
+  
+
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#class-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Class Documentation
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -685,12 +836,91 @@
   
   
     <li class="md-nav__item">
-      <a href="coordinates.html" class="md-nav__link">
+      <a href="conversions.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
+    Conversions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../coordinates/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
     Coordinates
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Coordinates
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordinates/cartesian.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cartesian
     
   </span>
   
@@ -708,7 +938,61 @@
   
   
     <li class="md-nav__item">
-      <a href="frames.html" class="md-nav__link">
+      <a href="../coordinates/geodetic.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Geodetic & Geocentric
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordinates/topocentric.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Topocentric
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frames.html" class="md-nav__link">
         
   
   
@@ -746,7 +1030,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="orbits/index.html" class="md-nav__link ">
+            <a href="../orbits/index.html" class="md-nav__link ">
               
   
   
@@ -779,12 +1063,58 @@
   
   
     <li class="md-nav__item">
-      <a href="orbits.md" class="md-nav__link">
+      <a href="../orbits/keplerian.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    None
+    Keplerian Elements
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../orbits/tle.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Two-Line Elements
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../orbits/propagators.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Propagators
     
   </span>
   
@@ -807,20 +1137,26 @@
                 
   
   
+  
+  
     
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
+    
+    
+    
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
       
         
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7" >
+        
           
+          <div class="md-nav__link md-nav__container">
+            <a href="../attitude/index.html" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -829,48 +1165,116 @@
   </span>
   
 
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="attitude.html" class="md-nav__link md-nav__link--active">
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_7" id="__nav_4_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            Attitude
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../attitude/quaternion.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Attitude
+    Quaternion
     
   </span>
   
 
       </a>
-      
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../attitude/rotation_matrix.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Rotation Matrix
     
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#brahe.attitude" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;attitude
-    </span>
-  </a>
   
-</li>
-      
-    </ul>
   
-</nav>
+    <li class="md-nav__item">
+      <a href="../attitude/euler_angles.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Euler Angles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../attitude/euler_axis.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Euler Axis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -884,7 +1288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="trajectories.html" class="md-nav__link">
+      <a href="../trajectories.html" class="md-nav__link">
         
   
   
@@ -925,107 +1329,6 @@
   
 
       </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../about/index.html" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    About
-    
-  </span>
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            About
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../about/design_decisions.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Design Decisions
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../about/license.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    License
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -1079,9 +1382,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#brahe.attitude" class="md-nav__link">
+  <a href="#class-documentation" class="md-nav__link">
     <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;attitude
+      Class Documentation
     </span>
   </a>
   
@@ -1106,69 +1409,26 @@
   
 
 
-<h1 id="attitude-module">Attitude Module<a class="headerlink" href="#attitude-module" title="Permanent link">&para;</a></h1>
-<p>Attitude representations and conversions.</p>
+<h1 id="epoch-class">Epoch Class<a class="headerlink" href="#epoch-class" title="Permanent link">&para;</a></h1>
+<p>The <code>Epoch</code> class is the foundational time representation in Brahe, providing comprehensive support for multiple time systems and high-precision time computations.</p>
+<h2 id="class-documentation">Class Documentation<a class="headerlink" href="#class-documentation" title="Permanent link">&para;</a></h2>
+<p>The <code>Epoch</code> class provides high-precision time representation with support for multiple time systems including UTC, TAI, TT, GPS, and UT1.</p>
+<pre><code class="language-python">from brahe import Epoch
 
+# Create epochs in different ways
+epc1 = Epoch.now()  # Current time
+epc2 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0, &quot;UTC&quot;)  # From date/time
+epc3 = Epoch.from_mjd(60000.0, &quot;TAI&quot;)  # From Modified Julian Date
 
-<div class="doc doc-object doc-module">
+# Convert between time systems
+mjd_utc = epc1.mjd(&quot;UTC&quot;)
+mjd_tai = epc1.mjd(&quot;TAI&quot;)
 
-
-
-<h2 id="brahe.attitude" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">attitude</span>
-
-
-<a href="#brahe.attitude" class="headerlink" title="Permanent link">&para;</a></h2>
-
-    <div class="doc doc-contents first">
-
-        <p>Attitude Module</p>
-<p>Attitude representations and conversions.</p>
-<p>This module provides multiple representations of spacecraft attitude/orientation:</p>
-<p><strong>Quaternion:</strong>
-- Quaternion representation (4-parameter)
-- Quaternion algebra operations
-- Conversions to/from other representations</p>
-<p><strong>Euler Angles:</strong>
-- Multiple Euler angle sequences (3-1-3, 3-2-1, etc.)
-- Conversions to/from other representations</p>
-<p><strong>Euler Axis:</strong>
-- Euler axis-angle representation (rotation vector)
-- Conversions to/from other representations</p>
-<p><strong>Rotation Matrix:</strong>
-- Direction Cosine Matrix (DCM) representation
-- Matrix operations and compositions
-- Conversions to/from other representations</p>
-<p>All attitude representations can be converted between each other, providing
-flexibility in how orientation is specified and computed.</p>
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
+# Time arithmetic
+future_epc = epc1 + 3600  # Add 3600 seconds
+time_diff = epc2 - epc1   # Difference in seconds
+</code></pre>
+<p>For complete API documentation, see the <a href="https://docs.rs/brahe/latest/brahe/time/struct.Epoch.html">Rust API documentation</a>.</p>
 
 
 
@@ -1191,7 +1451,7 @@ flexibility in how orientation is specified and computed.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 20:11:52 UTC">2025-10-14</span>
   </span>
 
     
@@ -1201,7 +1461,7 @@ flexibility in how orientation is specified and computed.</p>
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 20:11:52 UTC">2025-10-14</span>
   </span>
 
     
@@ -1251,10 +1511,10 @@ flexibility in how orientation is specified and computed.</p>
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "toc.follow"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
     
   </body>

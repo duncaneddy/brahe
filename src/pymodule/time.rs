@@ -12,29 +12,29 @@ pub struct PyTimeSystem {
 
 #[pymethods]
 impl PyTimeSystem {
-    /// GPS (Global Positioning System) time system.
+    /// `GPS` (Global Positioning System) time system.
     ///
-    /// Continuous time scale starting from GPS epoch (January 6, 1980, 00:00:00 UTC).
-    /// Does not include leap seconds, making it ahead of UTC by an integer number of seconds.
+    /// Continuous time scale starting from `GPS` epoch (January 6, 1980, 00:00:00 `UTC`).
+    /// Does not include leap seconds, making it ahead of `UTC` by an integer number of seconds.
     #[classattr]
     #[allow(non_snake_case)]
     fn GPS() -> Self {
         PyTimeSystem { ts: time::TimeSystem::GPS }
     }
 
-    /// TAI (International Atomic Time) time system.
+    /// `TAI` (International Atomic Time) time system.
     ///
-    /// Continuous time scale based on atomic clocks. TAI does not include leap seconds
-    /// and is currently 37 seconds ahead of UTC (as of 2024).
+    /// Continuous time scale based on atomic clocks. `TAI` does not include leap seconds
+    /// and is currently 37 seconds ahead of `UTC` (as of 2024).
     #[classattr]
     #[allow(non_snake_case)]
     fn TAI() -> Self {
         PyTimeSystem { ts: time::TimeSystem::TAI }
     }
 
-    /// TT (Terrestrial Time) time system.
+    /// `TT` (Terrestrial Time) time system.
     ///
-    /// Theoretical time scale used for solar system calculations. TT is TAI + 32.184 seconds
+    /// Theoretical time scale used for solar system calculations. `TT` is `TAI` + 32.184 seconds
     /// and represents proper time on Earth's geoid.
     #[classattr]
     #[allow(non_snake_case)]
@@ -42,20 +42,20 @@ impl PyTimeSystem {
         PyTimeSystem { ts: time::TimeSystem::TT }
     }
 
-    /// UTC (Coordinated Universal Time) time system.
+    /// `UTC` (Coordinated Universal Time) time system.
     ///
-    /// Civil time standard used worldwide. UTC includes leap seconds to keep it within
-    /// 0.9 seconds of UT1 (Earth's rotation time).
+    /// Civil time standard used worldwide. `UTC` includes leap seconds to keep it within
+    /// 0.9 seconds of `UT1` (Earth's rotation time).
     #[classattr]
     #[allow(non_snake_case)]
     fn UTC() -> Self {
         PyTimeSystem { ts: time::TimeSystem::UTC }
     }
 
-    /// UT1 (Universal Time 1) time system.
+    /// `UT1` (Universal Time 1) time system.
     ///
-    /// Time scale based on Earth's rotation. UT1 is computed from UTC using Earth
-    /// Orientation Parameters (EOP) and varies irregularly due to changes in Earth's rotation rate.
+    /// Time scale based on Earth's rotation. `UT1` is computed from `UTC` using Earth
+    /// Orientation Parameters (`EOP`) and varies irregularly due to changes in Earth's rotation rate.
     #[classattr]
     #[allow(non_snake_case)]
     fn UT1() -> Self {
@@ -95,7 +95,7 @@ impl PyTimeSystem {
 ///     nanosecond (float): Nanosecond component
 ///
 /// Returns:
-///     float: Julian date of epoch
+///     (float): Julian date of epoch
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_jd")]
@@ -129,7 +129,7 @@ fn py_datetime_to_jd(
 ///     nanosecond (float): Nanosecond component
 ///
 /// Returns:
-///     float: Modified Julian date of epoch
+///     (float): Modified Julian date of epoch
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_mjd")]

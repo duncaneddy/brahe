@@ -9,7 +9,7 @@ use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 ///     a (float): The semi-major axis of the astronomical object in meters.
 ///
 /// Returns:
-///     float: The orbital period of the astronomical object in seconds.
+///     (float): The orbital period of the astronomical object in seconds.
 #[pyfunction]
 #[pyo3(text_signature = "(a)")]
 #[pyo3(name = "orbital_period")]

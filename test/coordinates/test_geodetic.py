@@ -73,9 +73,8 @@ def test_position_geodetic(eop):
     assert geod[1] == approx(geodc[1], abs=tol)
     assert geod[2] == approx(geodc[2], abs=tol)
 
-@pytest.mark.xfail()
 @pytest.mark.parametrize("lat", [90.1, -90.1])
-def test_geocentric_failure(eop, lat):
+def test_geodetic_failure(eop, lat):
     # Test Error Condition
-    with pytest.raises(RuntimeError):
-        brahe.position_geodetic_to_ecef(np.array([0.0,  lat, 0.0]), True)
+    with pytest.raises(ValueError):
+        brahe.position_geodetic_to_ecef(np.array([0.0,  lat, 0.0]), brahe.AngleFormat.DEGREES)

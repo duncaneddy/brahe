@@ -24,9 +24,9 @@ def epoch_from_epochlike(time: str) -> Epoch:
     if t := parse_float(time):
         # If less than 1000000, assume MJD
         if t < 1000000:
-            return Epoch.from_mjd(t, "UTC")
+            return Epoch.from_mjd(t, brahe.TimeSystem.UTC)
         else:
-            return Epoch.from_jd(t, "UTC")
+            return Epoch.from_jd(t, brahe.TimeSystem.UTC)
 
     # Attempt to parse as string
     try:

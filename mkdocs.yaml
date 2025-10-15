@@ -90,15 +90,38 @@ nav:
             - contributing.md
             - About: about/index.md
             - Design Decisions: about/design_decisions.md
+            - Python Deprecation: about/python_deprecation.md
             - License: about/license.md
     -   Learn:
             - learn/index.md
+            - Time: learn/time.md
+            - Constants: learn/constants.md
+            - Coordinate Transformations: learn/coordinate_transformations.md
+            - Frame Transformations: learn/frame_transformations.md
+            - Orbital Properties: learn/orbital_properties.md
+            - Attitude Representation: learn/attitude_representation.md
+            - Orbit Propagation:
+                - learn/orbit_propagation/index.md
+                - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
+                - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
     -   Examples:
             - examples/index.md
+            - Propagating an Orbit: examples/propagating_an_orbit.md
+            - Computing Ground Contacts: examples/computing_ground_contacts.md
+            - Computing Doppler Shift: examples/computing_doppler_shift_for_pass.md
     -   Python API Reference:
             - library_api/index.md
-            - Constants: library_api/constants.md
-            - EOP: library_api/eop.md
+            - Constants:
+                - library_api/constants/index.md
+                - Units: library_api/constants/units.md
+                - Mathematical: library_api/constants/math.md
+                - Time: library_api/constants/time.md
+                - Physical: library_api/constants/physical.md
+            - EOP:
+                - library_api/eop/index.md
+                - FileEOPProvider: library_api/eop/file_provider.md
+                - StaticEOPProvider: library_api/eop/static_provider.md
+                - Functions: library_api/eop/functions.md
             - Time:
                 - library_api/time/index.md
                 - Epoch: library_api/time/epoch.md
@@ -113,14 +136,20 @@ nav:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md
                 - Two-Line Elements: library_api/orbits/tle.md
-                - Propagators: library_api/orbits/propagators.md
+                - KeplerianPropagator: library_api/orbits/keplerian_propagator.md
+                - SGPPropagator: library_api/orbits/sgp_propagator.md
+                - Enumerations: library_api/orbits/enums.md
             - Attitude:
                 - library_api/attitude/index.md
                 - Quaternion: library_api/attitude/quaternion.md
                 - Rotation Matrix: library_api/attitude/rotation_matrix.md
                 - Euler Angles: library_api/attitude/euler_angles.md
                 - Euler Axis: library_api/attitude/euler_axis.md
-            - Trajectories: library_api/trajectories.md
+            - Trajectories:
+                - library_api/trajectories/index.md
+                - DTrajectory: library_api/trajectories/dtrajectory.md
+                - STrajectory6: library_api/trajectories/strajectory6.md
+                - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
     -   Rust API Reference: https://docs.rs/brahe
     -   Blog: https://duncaneddy.com
 

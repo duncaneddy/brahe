@@ -1,6 +1,8 @@
-# Coordinates Module
+# Coordinates
 
-The Coordinates module provides comprehensive coordinate system transformations for satellite dynamics.
+**Module**: `brahe.coordinates`
+
+Comprehensive coordinate system transformations for satellite dynamics.
 
 ## Sub-modules
 

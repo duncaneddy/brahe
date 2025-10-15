@@ -63,11 +63,11 @@ class DTrajectory:
         """
         ...
 
-    def clear(self, *args: Any, **kwargs: Any) -> Any:
+    def clear(self) -> Any:
         """Clear all states from the trajectory."""
         ...
 
-    def dimension(self, *args: Any, **kwargs: Any) -> int:
+    def dimension(self) -> int:
         """Get the trajectory dimension (method form).
 
         Returns:
@@ -75,7 +75,7 @@ class DTrajectory:
         """
         ...
 
-    def end_epoch(self, *args: Any, **kwargs: Any) -> Any:
+    def end_epoch(self) -> Any:
         """Get end epoch of trajectory"""
         ...
 
@@ -90,7 +90,7 @@ class DTrajectory:
         """
         ...
 
-    def first(self, *args: Any, **kwargs: Any) -> Tuple:
+    def first(self) -> Tuple:
         """Get the first (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -109,7 +109,7 @@ class DTrajectory:
         """
         ...
 
-    def get_eviction_policy(self, *args: Any, **kwargs: Any) -> str:
+    def get_eviction_policy(self) -> str:
         """Get current eviction policy.
 
         Returns:
@@ -117,9 +117,7 @@ class DTrajectory:
         """
         ...
 
-    def get_interpolation_method(
-        self, *args: Any, **kwargs: Any
-    ) -> InterpolationMethod:
+    def get_interpolation_method(self) -> InterpolationMethod:
         """Get interpolation method.
 
         Returns:
@@ -171,7 +169,7 @@ class DTrajectory:
         """
         ...
 
-    def is_empty(self, *args: Any, **kwargs: Any) -> bool:
+    def is_empty(self) -> bool:
         """Check if trajectory is empty.
 
         Returns:
@@ -179,7 +177,7 @@ class DTrajectory:
         """
         ...
 
-    def last(self, *args: Any, **kwargs: Any) -> Tuple:
+    def last(self) -> Tuple:
         """Get the last (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -187,7 +185,7 @@ class DTrajectory:
         """
         ...
 
-    def len(self, *args: Any, **kwargs: Any) -> int:
+    def len(self) -> int:
         """Get the number of states in the trajectory (alias for length).
 
         Returns:
@@ -252,7 +250,7 @@ class DTrajectory:
         """
         ...
 
-    def start_epoch(self, *args: Any, **kwargs: Any) -> Any:
+    def start_epoch(self) -> Any:
         """Get start epoch of trajectory"""
         ...
 
@@ -289,11 +287,11 @@ class DTrajectory:
         """
         ...
 
-    def timespan(self, *args: Any, **kwargs: Any) -> Any:
+    def timespan(self) -> Any:
         """Get time span of trajectory in seconds"""
         ...
 
-    def to_matrix(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def to_matrix(self) -> np.ndarray:
         """Get all states as a numpy array"""
         ...
 
@@ -356,15 +354,21 @@ class Epoch:
     All arithmetic operations (addition, subtraction) use seconds as the default unit and return
     time differences in seconds.
 
-    Examples:
-        >>> from brahe import Epoch, TimeSystem
-        >>> epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
-        >>> print(epoch)
-        2024-01-01T12:00:00.000000000 UTC
-        >>> epoch2 = epoch + 3600.0  # Add one hour
-        >>> diff = epoch2 - epoch     # Difference in seconds
-        >>> print(diff)
-        3600.0
+    Example:
+        ```python
+        from brahe import Epoch, TimeSystem
+
+        # Create an epoch
+        epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+        print(epoch)
+        # Output: 2024-01-01T12:00:00.000000000 UTC
+
+        # Perform arithmetic operations
+        epoch2 = epoch + 3600.0  # Add one hour
+        diff = epoch2 - epoch     # Difference in seconds
+        print(diff)
+        # Output: 3600.0
+        ```
     """
 
     def __init__(self) -> None:
@@ -636,7 +640,7 @@ class Epoch:
         """
         ...
 
-    def day(self, *args: Any, **kwargs: Any) -> int:
+    def day(self) -> int:
         """Returns the day component of the epoch in the epoch's time system.
 
         Returns:
@@ -644,7 +648,7 @@ class Epoch:
         """
         ...
 
-    def day_of_year(self, *args: Any, **kwargs: Any) -> float:
+    def day_of_year(self) -> float:
         """Returns the day of year as a floating-point number in the epoch's time system.
 
         The day of year is computed such that January 1st at midnight is 1.0,
@@ -723,7 +727,7 @@ class Epoch:
         """
         ...
 
-    def gps_date(self, *args: Any, **kwargs: Any) -> Tuple:
+    def gps_date(self) -> Tuple:
         """Get the GPS week number and seconds into the week.
 
         Returns:
@@ -740,7 +744,7 @@ class Epoch:
         """
         ...
 
-    def gps_nanoseconds(self, *args: Any, **kwargs: Any) -> float:
+    def gps_nanoseconds(self) -> float:
         """Get the nanoseconds since GPS epoch (January 6, 1980, 00:00:00 UTC).
 
         Returns:
@@ -757,7 +761,7 @@ class Epoch:
         """
         ...
 
-    def gps_seconds(self, *args: Any, **kwargs: Any) -> float:
+    def gps_seconds(self) -> float:
         """Get the seconds since GPS epoch (January 6, 1980, 00:00:00 UTC).
 
         Returns:
@@ -774,7 +778,7 @@ class Epoch:
         """
         ...
 
-    def hour(self, *args: Any, **kwargs: Any) -> int:
+    def hour(self) -> int:
         """Returns the hour component of the epoch in the epoch's time system.
 
         Returns:
@@ -782,7 +786,7 @@ class Epoch:
         """
         ...
 
-    def isostring(self, *args: Any, **kwargs: Any) -> str:
+    def isostring(self) -> str:
         """Convert the epoch to an ISO 8601 formatted string.
 
         Returns:
@@ -822,7 +826,7 @@ class Epoch:
         """
         ...
 
-    def jd(self, *args: Any, **kwargs: Any) -> float:
+    def jd(self) -> float:
         """Get the Julian Date in the epoch's time system.
 
         Returns:
@@ -862,7 +866,7 @@ class Epoch:
         """
         ...
 
-    def minute(self, *args: Any, **kwargs: Any) -> int:
+    def minute(self) -> int:
         """Returns the minute component of the epoch in the epoch's time system.
 
         Returns:
@@ -870,7 +874,7 @@ class Epoch:
         """
         ...
 
-    def mjd(self, *args: Any, **kwargs: Any) -> float:
+    def mjd(self) -> float:
         """Get the Modified Julian Date in the epoch's time system.
 
         Returns:
@@ -910,7 +914,7 @@ class Epoch:
         """
         ...
 
-    def month(self, *args: Any, **kwargs: Any) -> int:
+    def month(self) -> int:
         """Returns the month component of the epoch in the epoch's time system.
 
         Returns:
@@ -918,7 +922,7 @@ class Epoch:
         """
         ...
 
-    def nanosecond(self, *args: Any, **kwargs: Any) -> float:
+    def nanosecond(self) -> float:
         """Returns the nanosecond component of the epoch in the epoch's time system.
 
         Returns:
@@ -926,7 +930,7 @@ class Epoch:
         """
         ...
 
-    def second(self, *args: Any, **kwargs: Any) -> float:
+    def second(self) -> float:
         """Returns the second component of the epoch in the epoch's time system.
 
         Returns:
@@ -934,7 +938,7 @@ class Epoch:
         """
         ...
 
-    def to_datetime(self, *args: Any, **kwargs: Any) -> Tuple:
+    def to_datetime(self) -> Tuple:
         """Convert the epoch to Gregorian calendar date and time in the epoch's time system.
 
         Returns:
@@ -995,7 +999,7 @@ class Epoch:
         """
         ...
 
-    def year(self, *args: Any, **kwargs: Any) -> int:
+    def year(self) -> int:
         """Returns the year component of the epoch in the epoch's time system.
 
         Returns:
@@ -1132,7 +1136,7 @@ class EulerAngle:
         """
         ...
 
-    def to_euler_axis(self, *args: Any, **kwargs: Any) -> EulerAxis:
+    def to_euler_axis(self) -> EulerAxis:
         """Convert to Euler axis representation.
 
         Returns:
@@ -1140,7 +1144,7 @@ class EulerAngle:
         """
         ...
 
-    def to_quaternion(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def to_quaternion(self) -> Quaternion:
         """Convert to quaternion representation.
 
         Returns:
@@ -1148,7 +1152,7 @@ class EulerAngle:
         """
         ...
 
-    def to_rotation_matrix(self, *args: Any, **kwargs: Any) -> RotationMatrix:
+    def to_rotation_matrix(self) -> RotationMatrix:
         """Convert to rotation matrix representation.
 
         Returns:
@@ -1318,7 +1322,7 @@ class EulerAxis:
         """
         ...
 
-    def to_euler_axis(self, *args: Any, **kwargs: Any) -> EulerAxis:
+    def to_euler_axis(self) -> EulerAxis:
         """Convert to Euler axis representation (returns self).
 
         Returns:
@@ -1326,7 +1330,7 @@ class EulerAxis:
         """
         ...
 
-    def to_quaternion(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def to_quaternion(self) -> Quaternion:
         """Convert to quaternion representation.
 
         Returns:
@@ -1334,7 +1338,7 @@ class EulerAxis:
         """
         ...
 
-    def to_rotation_matrix(self, *args: Any, **kwargs: Any) -> RotationMatrix:
+    def to_rotation_matrix(self) -> RotationMatrix:
         """Convert to rotation matrix representation.
 
         Returns:
@@ -1504,7 +1508,7 @@ class FileEOPProvider:
         """
         ...
 
-    def eop_type(self, *args: Any, **kwargs: Any) -> str:
+    def eop_type(self) -> str:
         """Get the EOP data type.
 
         Returns:
@@ -1512,7 +1516,7 @@ class FileEOPProvider:
         """
         ...
 
-    def extrapolation(self, *args: Any, **kwargs: Any) -> str:
+    def extrapolation(self) -> str:
         """Get the extrapolation method.
 
         Returns:
@@ -1575,7 +1579,7 @@ class FileEOPProvider:
         """
         ...
 
-    def interpolation(self, *args: Any, **kwargs: Any) -> bool:
+    def interpolation(self) -> bool:
         """Check if interpolation is enabled.
 
         Returns:
@@ -1583,7 +1587,7 @@ class FileEOPProvider:
         """
         ...
 
-    def is_initialized(self, *args: Any, **kwargs: Any) -> bool:
+    def is_initialized(self) -> bool:
         """Check if the provider is initialized.
 
         Returns:
@@ -1591,7 +1595,7 @@ class FileEOPProvider:
         """
         ...
 
-    def len(self, *args: Any, **kwargs: Any) -> int:
+    def len(self) -> int:
         """Get the number of EOP data points.
 
         Returns:
@@ -1599,7 +1603,7 @@ class FileEOPProvider:
         """
         ...
 
-    def mjd_last_dxdy(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_last_dxdy(self) -> float:
         """Get the last Modified Julian Date with dx/dy data.
 
         Returns:
@@ -1607,7 +1611,7 @@ class FileEOPProvider:
         """
         ...
 
-    def mjd_last_lod(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_last_lod(self) -> float:
         """Get the last Modified Julian Date with LOD data.
 
         Returns:
@@ -1615,7 +1619,7 @@ class FileEOPProvider:
         """
         ...
 
-    def mjd_max(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_max(self) -> float:
         """Get the maximum Modified Julian Date in the dataset.
 
         Returns:
@@ -1623,7 +1627,7 @@ class FileEOPProvider:
         """
         ...
 
-    def mjd_min(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_min(self) -> float:
         """Get the minimum Modified Julian Date in the dataset.
 
         Returns:
@@ -1748,7 +1752,7 @@ class KeplerianPropagator:
         """
         ...
 
-    def current_state(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def current_state(self) -> np.ndarray:
         """Get current state vector.
 
         Returns:
@@ -1756,7 +1760,7 @@ class KeplerianPropagator:
         """
         ...
 
-    def initial_state(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def initial_state(self) -> np.ndarray:
         """Get initial state.
 
         Returns:
@@ -1780,7 +1784,7 @@ class KeplerianPropagator:
         """
         ...
 
-    def reset(self, *args: Any, **kwargs: Any) -> Any:
+    def reset(self) -> Any:
         """Reset propagator to initial conditions."""
         ...
 
@@ -1913,7 +1917,7 @@ class KeplerianPropagator:
         """
         ...
 
-    def step(self, *args: Any, **kwargs: Any) -> Any:
+    def step(self) -> Any:
         """Step forward by the default step size."""
         ...
 
@@ -1979,7 +1983,7 @@ class OrbitFrame:
         """Initialize instance."""
         ...
 
-    def name(self, *args: Any, **kwargs: Any) -> str:
+    def name(self) -> str:
         """Get the full name of the reference frame.
 
         Returns:
@@ -2041,7 +2045,7 @@ class OrbitTrajectory:
         ...
 
     @classmethod
-    def default(cls, *args: Any, **kwargs: Any) -> OrbitTrajectory:
+    def default(cls) -> OrbitTrajectory:
         """Create a default empty orbital trajectory (ECI Cartesian).
 
         Returns:
@@ -2083,11 +2087,11 @@ class OrbitTrajectory:
         """
         ...
 
-    def clear(self, *args: Any, **kwargs: Any) -> Any:
+    def clear(self) -> Any:
         """Clear all states from the trajectory."""
         ...
 
-    def dimension(self, *args: Any, **kwargs: Any) -> int:
+    def dimension(self) -> int:
         """Get trajectory dimension (always 6 for orbital trajectories).
 
         Returns:
@@ -2095,7 +2099,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def end_epoch(self, *args: Any, **kwargs: Any) -> Epoch:
+    def end_epoch(self) -> Epoch:
         """Get end epoch of trajectory.
 
         Returns:
@@ -2114,7 +2118,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def epochs(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def epochs(self) -> np.ndarray:
         """Get all epochs as a numpy array.
 
         Returns:
@@ -2122,7 +2126,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def first(self, *args: Any, **kwargs: Any) -> Tuple:
+    def first(self) -> Tuple:
         """Get the first (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -2141,7 +2145,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def get_eviction_policy(self, *args: Any, **kwargs: Any) -> str:
+    def get_eviction_policy(self) -> str:
         """Get current eviction policy.
 
         Returns:
@@ -2149,9 +2153,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def get_interpolation_method(
-        self, *args: Any, **kwargs: Any
-    ) -> InterpolationMethod:
+    def get_interpolation_method(self) -> InterpolationMethod:
         """Get the current interpolation method.
 
         Returns:
@@ -2203,7 +2205,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def is_empty(self, *args: Any, **kwargs: Any) -> bool:
+    def is_empty(self) -> bool:
         """Check if trajectory is empty.
 
         Returns:
@@ -2211,7 +2213,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def last(self, *args: Any, **kwargs: Any) -> Tuple:
+    def last(self) -> Tuple:
         """Get the last (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -2219,7 +2221,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def len(self, *args: Any, **kwargs: Any) -> int:
+    def len(self) -> int:
         """Get the number of states in the trajectory (alias for length).
 
         Returns:
@@ -2284,7 +2286,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def start_epoch(self, *args: Any, **kwargs: Any) -> Epoch:
+    def start_epoch(self) -> Epoch:
         """Get start epoch of trajectory.
 
         Returns:
@@ -2325,7 +2327,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def states(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def states(self) -> np.ndarray:
         """Get all states as a numpy array.
 
         Returns:
@@ -2333,7 +2335,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def timespan(self, *args: Any, **kwargs: Any) -> float:
+    def timespan(self) -> float:
         """Get time span of trajectory in seconds.
 
         Returns:
@@ -2341,7 +2343,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def to_ecef(self, *args: Any, **kwargs: Any) -> OrbitTrajectory:
+    def to_ecef(self) -> OrbitTrajectory:
         """Convert to ECEF (Earth-Centered Earth-Fixed) frame in Cartesian representation.
 
         Returns:
@@ -2349,7 +2351,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def to_eci(self, *args: Any, **kwargs: Any) -> OrbitTrajectory:
+    def to_eci(self) -> OrbitTrajectory:
         """Convert to ECI (Earth-Centered Inertial) frame in Cartesian representation.
 
         Returns:
@@ -2368,7 +2370,7 @@ class OrbitTrajectory:
         """
         ...
 
-    def to_matrix(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def to_matrix(self) -> np.ndarray:
         """Convert trajectory to matrix representation.
 
         Returns:
@@ -2459,13 +2461,13 @@ class PanicException:
         """Initialize instance."""
         ...
 
-    def add_note(self, *args: Any, **kwargs: Any) -> Any:
+    def add_note(self) -> Any:
         """Exception.add_note(note) --
         add a note to the exception
         """
         ...
 
-    def with_traceback(self, *args: Any, **kwargs: Any) -> Any:
+    def with_traceback(self) -> Any:
         """Exception.with_traceback(tb) --
         set self.__traceback__ to tb and return self.
         """
@@ -2578,7 +2580,7 @@ class Quaternion:
         """
         ...
 
-    def conjugate(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def conjugate(self) -> Quaternion:
         """Compute the conjugate of the quaternion.
 
         Returns:
@@ -2586,7 +2588,7 @@ class Quaternion:
         """
         ...
 
-    def inverse(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def inverse(self) -> Quaternion:
         """Compute the inverse of the quaternion.
 
         Returns:
@@ -2594,7 +2596,7 @@ class Quaternion:
         """
         ...
 
-    def norm(self, *args: Any, **kwargs: Any) -> float:
+    def norm(self) -> float:
         """Calculate the norm (magnitude) of the quaternion.
 
         Returns:
@@ -2602,7 +2604,7 @@ class Quaternion:
         """
         ...
 
-    def normalize(self, *args: Any, **kwargs: Any) -> Any:
+    def normalize(self) -> Any:
         """Normalize the quaternion in-place to unit length."""
         ...
 
@@ -2629,7 +2631,7 @@ class Quaternion:
         """
         ...
 
-    def to_euler_axis(self, *args: Any, **kwargs: Any) -> EulerAxis:
+    def to_euler_axis(self) -> EulerAxis:
         """Convert to Euler axis representation.
 
         Returns:
@@ -2637,7 +2639,7 @@ class Quaternion:
         """
         ...
 
-    def to_quaternion(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def to_quaternion(self) -> Quaternion:
         """Convert to quaternion representation (returns self).
 
         Returns:
@@ -2645,7 +2647,7 @@ class Quaternion:
         """
         ...
 
-    def to_rotation_matrix(self, *args: Any, **kwargs: Any) -> RotationMatrix:
+    def to_rotation_matrix(self) -> RotationMatrix:
         """Convert to rotation matrix representation.
 
         Returns:
@@ -2712,11 +2714,6 @@ class RotationMatrix:
         v = np.array([1.0, 0.0, 0.0])
         v_rot = dcm.rotate_vector(v)
         ```
-
-    Example:
-        >>> from brahe import RotationMatrix
-        >>> r = RotationMatrix(1, 0, 0, 0, 1, 0, 0, 0, 1)  # Identity
-        >>> print(r)
     """
 
     def __init__(
@@ -2847,7 +2844,7 @@ class RotationMatrix:
         """
         ...
 
-    def to_euler_axis(self, *args: Any, **kwargs: Any) -> EulerAxis:
+    def to_euler_axis(self) -> EulerAxis:
         """Convert to Euler axis representation.
 
         Returns:
@@ -2855,7 +2852,7 @@ class RotationMatrix:
         """
         ...
 
-    def to_matrix(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def to_matrix(self) -> np.ndarray:
         """Convert rotation matrix to a 3x3 numpy array.
 
         Returns:
@@ -2863,7 +2860,7 @@ class RotationMatrix:
         """
         ...
 
-    def to_quaternion(self, *args: Any, **kwargs: Any) -> Quaternion:
+    def to_quaternion(self) -> Quaternion:
         """Convert to quaternion representation.
 
         Returns:
@@ -2871,7 +2868,7 @@ class RotationMatrix:
         """
         ...
 
-    def to_rotation_matrix(self, *args: Any, **kwargs: Any) -> RotationMatrix:
+    def to_rotation_matrix(self) -> RotationMatrix:
         """Convert to rotation matrix representation (returns self).
 
         Returns:
@@ -2945,7 +2942,7 @@ class SGPPropagator:
         """
         ...
 
-    def current_state(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def current_state(self) -> np.ndarray:
         """Get current state vector.
 
         Returns:
@@ -2953,7 +2950,7 @@ class SGPPropagator:
         """
         ...
 
-    def initial_state(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def initial_state(self) -> np.ndarray:
         """Get initial state vector.
 
         Returns:
@@ -2977,7 +2974,7 @@ class SGPPropagator:
         """
         ...
 
-    def reset(self, *args: Any, **kwargs: Any) -> Any:
+    def reset(self) -> Any:
         """Reset propagator to initial conditions."""
         ...
 
@@ -3078,7 +3075,7 @@ class SGPPropagator:
         """
         ...
 
-    def step(self, *args: Any, **kwargs: Any) -> Any:
+    def step(self) -> Any:
         """Step forward by the default step size."""
         ...
 
@@ -3193,11 +3190,11 @@ class STrajectory6:
         """
         ...
 
-    def clear(self, *args: Any, **kwargs: Any) -> Any:
+    def clear(self) -> Any:
         """Clear all states from the trajectory."""
         ...
 
-    def dimension(self, *args: Any, **kwargs: Any) -> int:
+    def dimension(self) -> int:
         """Get trajectory dimension (always 6).
 
         Returns:
@@ -3216,7 +3213,7 @@ class STrajectory6:
         """
         ...
 
-    def first(self, *args: Any, **kwargs: Any) -> Tuple:
+    def first(self) -> Tuple:
         """Get the first (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -3235,7 +3232,7 @@ class STrajectory6:
         """
         ...
 
-    def get_eviction_policy(self, *args: Any, **kwargs: Any) -> str:
+    def get_eviction_policy(self) -> str:
         """Get current eviction policy.
 
         Returns:
@@ -3287,7 +3284,7 @@ class STrajectory6:
         """
         ...
 
-    def is_empty(self, *args: Any, **kwargs: Any) -> bool:
+    def is_empty(self) -> bool:
         """Check if trajectory is empty.
 
         Returns:
@@ -3295,7 +3292,7 @@ class STrajectory6:
         """
         ...
 
-    def last(self, *args: Any, **kwargs: Any) -> Tuple:
+    def last(self) -> Tuple:
         """Get the last (epoch, state) tuple in the trajectory, if any exists.
 
         Returns:
@@ -3303,7 +3300,7 @@ class STrajectory6:
         """
         ...
 
-    def len(self, *args: Any, **kwargs: Any) -> int:
+    def len(self) -> int:
         """Get the number of states in the trajectory (alias for length).
 
         Returns:
@@ -3401,7 +3398,7 @@ class STrajectory6:
         """
         ...
 
-    def to_matrix(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def to_matrix(self) -> np.ndarray:
         """Get all states as a numpy array"""
         ...
 
@@ -3533,7 +3530,7 @@ class StaticEOPProvider:
         ...
 
     @classmethod
-    def from_zero(cls, *args: Any, **kwargs: Any) -> StaticEOPProvider:
+    def from_zero(cls) -> StaticEOPProvider:
         """Create a static EOP provider with all values set to zero.
 
         Returns:
@@ -3541,7 +3538,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def eop_type(self, *args: Any, **kwargs: Any) -> str:
+    def eop_type(self) -> str:
         """Get the EOP data type.
 
         Returns:
@@ -3549,7 +3546,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def extrapolation(self, *args: Any, **kwargs: Any) -> str:
+    def extrapolation(self) -> str:
         """Get the extrapolation method.
 
         Returns:
@@ -3612,7 +3609,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def interpolation(self, *args: Any, **kwargs: Any) -> bool:
+    def interpolation(self) -> bool:
         """Check if interpolation is enabled.
 
         Returns:
@@ -3620,7 +3617,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def is_initialized(self, *args: Any, **kwargs: Any) -> bool:
+    def is_initialized(self) -> bool:
         """Check if the provider is initialized.
 
         Returns:
@@ -3628,7 +3625,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def len(self, *args: Any, **kwargs: Any) -> int:
+    def len(self) -> int:
         """Get the number of EOP data points.
 
         Returns:
@@ -3636,7 +3633,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def mjd_last_dxdy(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_last_dxdy(self) -> float:
         """Get the last Modified Julian Date with dx/dy data.
 
         Returns:
@@ -3644,7 +3641,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def mjd_last_lod(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_last_lod(self) -> float:
         """Get the last Modified Julian Date with LOD data.
 
         Returns:
@@ -3652,7 +3649,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def mjd_max(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_max(self) -> float:
         """Get the maximum Modified Julian Date in the dataset.
 
         Returns:
@@ -3660,7 +3657,7 @@ class StaticEOPProvider:
         """
         ...
 
-    def mjd_min(self, *args: Any, **kwargs: Any) -> float:
+    def mjd_min(self) -> float:
         """Get the minimum Modified Julian Date in the dataset.
 
         Returns:
@@ -4168,7 +4165,7 @@ def get_global_eop(mjd: float) -> tuple[float, float, float, float, float, float
     """
     ...
 
-def get_global_eop_extrapolation(*args: Any, **kwargs: Any) -> str:
+def get_global_eop_extrapolation() -> str:
     """Get the extrapolation method of the global EOP provider.
 
     Returns:
@@ -4176,7 +4173,7 @@ def get_global_eop_extrapolation(*args: Any, **kwargs: Any) -> str:
     """
     ...
 
-def get_global_eop_initialization(*args: Any, **kwargs: Any) -> bool:
+def get_global_eop_initialization() -> bool:
     """Check if the global EOP provider is initialized.
 
     Returns:
@@ -4184,7 +4181,7 @@ def get_global_eop_initialization(*args: Any, **kwargs: Any) -> bool:
     """
     ...
 
-def get_global_eop_interpolation(*args: Any, **kwargs: Any) -> bool:
+def get_global_eop_interpolation() -> bool:
     """Check if interpolation is enabled in the global EOP provider.
 
     Returns:
@@ -4192,7 +4189,7 @@ def get_global_eop_interpolation(*args: Any, **kwargs: Any) -> bool:
     """
     ...
 
-def get_global_eop_len(*args: Any, **kwargs: Any) -> int:
+def get_global_eop_len() -> int:
     """Get the number of EOP data points in the global provider.
 
     Returns:
@@ -4200,7 +4197,7 @@ def get_global_eop_len(*args: Any, **kwargs: Any) -> int:
     """
     ...
 
-def get_global_eop_mjd_last_dxdy(*args: Any, **kwargs: Any) -> float:
+def get_global_eop_mjd_last_dxdy() -> float:
     """Get the last Modified Julian Date with dx/dy data in the global provider.
 
     Returns:
@@ -4208,7 +4205,7 @@ def get_global_eop_mjd_last_dxdy(*args: Any, **kwargs: Any) -> float:
     """
     ...
 
-def get_global_eop_mjd_last_lod(*args: Any, **kwargs: Any) -> float:
+def get_global_eop_mjd_last_lod() -> float:
     """Get the last Modified Julian Date with LOD data in the global provider.
 
     Returns:
@@ -4216,7 +4213,7 @@ def get_global_eop_mjd_last_lod(*args: Any, **kwargs: Any) -> float:
     """
     ...
 
-def get_global_eop_mjd_max(*args: Any, **kwargs: Any) -> float:
+def get_global_eop_mjd_max() -> float:
     """Get the maximum Modified Julian Date in the global EOP dataset.
 
     Returns:
@@ -4224,7 +4221,7 @@ def get_global_eop_mjd_max(*args: Any, **kwargs: Any) -> float:
     """
     ...
 
-def get_global_eop_mjd_min(*args: Any, **kwargs: Any) -> float:
+def get_global_eop_mjd_min() -> float:
     """Get the minimum Modified Julian Date in the global EOP dataset.
 
     Returns:
@@ -4232,7 +4229,7 @@ def get_global_eop_mjd_min(*args: Any, **kwargs: Any) -> float:
     """
     ...
 
-def get_global_eop_type(*args: Any, **kwargs: Any) -> str:
+def get_global_eop_type() -> str:
     """Get the EOP data type of the global provider.
 
     Returns:

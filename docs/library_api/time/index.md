@@ -1,6 +1,8 @@
-# Time Module
+# Time
 
-The Time module provides high-precision time system management and conversions.
+**Module**: `brahe.time`
+
+High-precision time system management and conversions.
 
 ## Sub-modules
 

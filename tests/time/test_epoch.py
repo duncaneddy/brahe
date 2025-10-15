@@ -1,4 +1,5 @@
 import math
+from datetime import datetime
 
 import pytest
 
@@ -922,3 +923,171 @@ def test_epoch_from_day_of_year_time_systems(eop):
         assert epoch.month() == 4
         assert epoch.day() == 10
         assert epoch.time_system == time_system
+
+
+# Test __new__ constructor with *args and **kwargs
+def test_epoch_new_from_date_components(eop):
+    """Test Epoch() constructor with year, month, day."""
+    epc = brahe.Epoch(2024, 1, 1)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 0
+    assert minute == 0
+    assert second == 0.0
+    assert nanosecond == 0.0
+    assert epc.time_system == brahe.UTC
+
+
+def test_epoch_new_from_full_datetime(eop):
+    """Test Epoch() constructor with full datetime components."""
+    epc = brahe.Epoch(2024, 1, 1, 12, 30, 45.5, 0.0)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 30
+    # Fractional seconds get split into second + nanosecond
+    assert second == 45.0
+    assert nanosecond == pytest.approx(500000000.0, rel=1e-6)
+    assert epc.time_system == brahe.UTC
+
+
+def test_epoch_new_with_time_system(eop):
+    """Test Epoch() constructor with time_system kwarg."""
+    epc = brahe.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0, time_system=brahe.GPS)
+
+    assert epc.time_system == brahe.GPS
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+
+
+def test_epoch_new_from_string(eop):
+    """Test Epoch() constructor from string."""
+    epc = brahe.Epoch("2024-01-01 12:00:00.000 UTC")
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 0
+    assert second == 0.0
+    assert epc.time_system == brahe.UTC
+
+
+def test_epoch_new_from_string_iso_z(eop):
+    """Test Epoch() constructor from ISO 8601 Z format."""
+    epc = brahe.Epoch("2024-01-01T12:00:00Z")
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 0
+    assert second == 0.0
+
+
+def test_epoch_new_from_datetime(eop):
+    """Test Epoch() constructor from Python datetime."""
+    dt = datetime(2024, 1, 1, 12, 0, 0)
+    epc = brahe.Epoch(dt)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 0
+    assert second == 0.0
+    assert epc.time_system == brahe.UTC
+
+
+def test_epoch_new_from_datetime_with_time_system(eop):
+    """Test Epoch() constructor from Python datetime with custom time system."""
+    dt = datetime(2024, 6, 15, 14, 30, 45)
+    epc = brahe.Epoch(dt, time_system=brahe.TAI)
+
+    assert epc.time_system == brahe.TAI
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 6
+    assert day == 15
+
+
+def test_epoch_new_copy_constructor(eop):
+    """Test Epoch() copy constructor."""
+    epc1 = brahe.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.GPS)
+    epc2 = brahe.Epoch(epc1)
+
+    assert epc2.time_system == brahe.GPS
+    assert epc2 == epc1
+
+
+def test_epoch_new_partial_datetime_4_args(eop):
+    """Test Epoch() with year, month, day, hour."""
+    epc = brahe.Epoch(2024, 1, 1, 12)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 0
+    assert second == 0.0
+
+
+def test_epoch_new_partial_datetime_5_args(eop):
+    """Test Epoch() with year, month, day, hour, minute."""
+    epc = brahe.Epoch(2024, 1, 1, 12, 30)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 30
+    assert second == 0.0
+
+
+def test_epoch_new_partial_datetime_6_args(eop):
+    """Test Epoch() with year, month, day, hour, minute, second."""
+    epc = brahe.Epoch(2024, 1, 1, 12, 30, 45.5)
+
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+    assert year == 2024
+    assert month == 1
+    assert day == 1
+    assert hour == 12
+    assert minute == 30
+    # Fractional seconds get split into second + nanosecond
+    assert second == 45.0
+    assert nanosecond == pytest.approx(500000000.0, rel=1e-6)
+
+
+def test_epoch_new_error_no_args(eop):
+    """Test that Epoch() raises error with no arguments."""
+    with pytest.raises(ValueError, match="No arguments provided"):
+        brahe.Epoch()
+
+
+def test_epoch_new_error_invalid_arg_count(eop):
+    """Test that Epoch() raises error with invalid number of args."""
+    with pytest.raises(TypeError, match="Invalid number of arguments"):
+        brahe.Epoch(2024, 1)  # 2 args is invalid
+
+
+def test_epoch_new_error_invalid_single_arg_type(eop):
+    """Test that Epoch() raises error with invalid single argument type."""
+    with pytest.raises(
+        TypeError, match="Single argument must be str, datetime, or Epoch"
+    ):
+        brahe.Epoch(123.456)  # float is not valid

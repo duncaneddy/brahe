@@ -4,7 +4,7 @@
 ///
 /// Specifies the algorithm used to estimate states at epochs between
 /// discrete trajectory points.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "InterpolationMethod")]
 #[derive(Clone)]
 pub struct PyInterpolationMethod {
@@ -44,7 +44,7 @@ impl PyInterpolationMethod {
 /// Reference frame for orbital trajectory representation.
 ///
 /// Specifies the coordinate reference frame for position and velocity states.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitFrame")]
 #[derive(Clone)]
 pub struct PyOrbitFrame {
@@ -107,7 +107,7 @@ impl PyOrbitFrame {
 /// Orbital state representation format.
 ///
 /// Specifies how orbital states are represented in the trajectory.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitRepresentation")]
 #[derive(Clone)]
 pub struct PyOrbitRepresentation {
@@ -162,7 +162,7 @@ impl PyOrbitRepresentation {
 ///
 /// Stores a sequence of orbital states at specific epochs with support for
 /// interpolation, frame conversions, and representation transformations.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitTrajectory")]
 pub struct PyOrbitalTrajectory {
     pub(crate) trajectory: trajectories::OrbitTrajectory,
@@ -1316,7 +1316,7 @@ impl PyOrbitalTrajectory {
 }
 
 /// Iterator for OrbitTrajectory
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 struct PyOrbitalTrajectoryIterator {
     trajectory: Py<PyOrbitalTrajectory>,
     index: usize,
@@ -1351,7 +1351,7 @@ impl PyOrbitalTrajectoryIterator {
 /// Stores a sequence of N-dimensional states at specific epochs with support
 /// for interpolation and automatic state eviction policies. Dimension is
 /// determined at runtime.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "DTrajectory")]
 pub struct PyTrajectory {
     pub(crate) trajectory: trajectories::DTrajectory,
@@ -2202,7 +2202,7 @@ impl PyTrajectory {
 }
 
 /// Iterator for DTrajectory
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 struct PyTrajectoryIterator {
     trajectory: Py<PyTrajectory>,
     index: usize,
@@ -2236,7 +2236,7 @@ impl PyTrajectoryIterator {
 /// Stores a sequence of 6-dimensional states at specific epochs with support
 /// for interpolation and automatic state eviction policies. Dimension is fixed
 /// at compile time for performance.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "STrajectory6")]
 pub struct PySTrajectory6 {
     pub(crate) trajectory: trajectories::STrajectory6,
@@ -3031,7 +3031,7 @@ impl PySTrajectory6 {
 }
 
 /// Iterator for STrajectory6
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 struct PySTrajectory6Iterator {
     trajectory: Py<PySTrajectory6>,
     index: usize,

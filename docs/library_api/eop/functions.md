@@ -14,16 +14,6 @@ Global EOP management and query functions.
       show_root_full_path: false
       heading_level: 4
 
-Set a file-based EOP provider as the global provider.
-
-**Example**:
-```python
-import brahe as bh
-
-provider = bh.FileEOPProvider.from_default_standard()
-bh.set_global_eop_provider_from_file_provider(provider)
-```
-
 ---
 
 ### set_global_eop_provider_from_static_provider
@@ -33,16 +23,6 @@ bh.set_global_eop_provider_from_file_provider(provider)
       show_root_heading: true
       show_root_full_path: false
       heading_level: 4
-
-Set a static EOP provider as the global provider.
-
-**Example**:
-```python
-import brahe as bh
-
-provider = bh.StaticEOPProvider.from_zero()
-bh.set_global_eop_provider_from_static_provider(provider)
-```
 
 ---
 
@@ -230,19 +210,6 @@ Get MJD of last dX/dY (celestial pole offset) data point.
       show_root_full_path: false
       heading_level: 4
 
-Download latest Standard format EOP file from IERS.
-
-**Example**:
-```python
-import brahe as bh
-
-# Download to specific directory
-filepath = bh.download_standard_eop_file("./eop_data")
-
-# Use downloaded file
-provider = bh.FileEOPProvider.from_standard_file(filepath)
-```
-
 ---
 
 ### download_c04_eop_file
@@ -253,22 +220,9 @@ provider = bh.FileEOPProvider.from_standard_file(filepath)
       show_root_full_path: false
       heading_level: 4
 
-Download latest C04 format EOP file from IERS.
-
-**Example**:
-```python
-import brahe as bh
-
-# Download to specific directory
-filepath = bh.download_c04_eop_file("./eop_data")
-
-# Use downloaded file
-provider = bh.FileEOPProvider.from_c04_file(filepath)
-```
-
 ---
 
-## Complete Example
+## Usage Example
 
 ```python
 import brahe as bh

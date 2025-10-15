@@ -35,6 +35,9 @@ plugins:
                         show_inheritance_diagram: false
                         find_stubs_package: true
                         allow_inspection: true
+                        docstring_options:
+                            ignore_init_summary: true
+                            trim_doctest_flags: true
     - section-index
     -   git-revision-date-localized:
             enable_creation_date: true
@@ -46,11 +49,6 @@ theme:
     name: material
     logo: assets/icon.png
     favicon: assets/favicon.png
-    highlightjs: true
-    hljs_languages:
-        - yaml
-        - rust
-        - python
     language: en
     palette:
         -   media: "(prefers-color-scheme: light)"
@@ -82,6 +80,13 @@ markdown_extensions:
     -   toc:
             permalink: true
             toc_depth: 3
+    -   pymdownx.highlight:
+            anchor_linenums: true
+            line_spans: __span
+            pygments_lang_class: true
+    -   pymdownx.inlinehilite
+    -   pymdownx.snippets
+    -   pymdownx.superfences
 
 nav:
     -   Brahe:

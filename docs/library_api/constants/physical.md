@@ -16,15 +16,6 @@ Physical properties of celestial bodies and universal constants. All values use 
 
 Speed of light in vacuum.
 
-**Example**:
-```python
-import brahe as bh
-
-# Time for light to travel 1 AU
-distance = bh.AU
-time_seconds = distance / bh.C_LIGHT  # ~499.0 seconds (8.3 minutes)
-```
-
 ---
 
 ### AU
@@ -39,15 +30,6 @@ time_seconds = distance / bh.C_LIGHT  # ~499.0 seconds (8.3 minutes)
 
 Astronomical Unit - mean distance of Earth from the Sun. TDB-compatible value.
 
-**Example**:
-```python
-import brahe as bh
-
-# Express orbital radius in AU
-orbital_radius_m = 2.0e11  # meters
-orbital_radius_au = orbital_radius_m / bh.AU  # ~1.34 AU
-```
-
 ---
 
 ### P_SUN
@@ -61,16 +43,6 @@ orbital_radius_au = orbital_radius_m / bh.AU  # ~1.34 AU
 **Value**: `4.56e-6` N/m²
 
 Solar radiation pressure at 1 AU.
-
-**Example**:
-```python
-import brahe as bh
-
-# Solar radiation pressure force on a satellite
-area = 10.0  # m²
-reflectivity = 1.3  # coefficient
-force = bh.P_SUN * area * reflectivity  # Newtons
-```
 
 ---
 
@@ -148,18 +120,6 @@ Earth's first eccentricity (WGS84 value).
 
 Earth's gravitational parameter (μ = G × M).
 
-**Example**:
-```python
-import brahe as bh
-import math
-
-# Calculate orbital period for LEO satellite
-altitude = 400e3  # 400 km altitude
-radius = bh.R_EARTH + altitude
-period = 2 * math.pi * math.sqrt(radius**3 / bh.GM_EARTH)
-print(f"Orbital period: {period/60:.1f} minutes")  # ~92.5 minutes
-```
-
 ---
 
 #### J2_EARTH
@@ -174,14 +134,6 @@ print(f"Orbital period: {period/60:.1f} minutes")  # ~92.5 minutes
 
 Earth's J2 zonal harmonic coefficient (GGM05s gravity model). Represents Earth's oblateness.
 
-**Example**:
-```python
-import brahe as bh
-
-# J2 perturbations are significant for orbit propagation
-# Used in analytical orbit propagators for secular effects
-```
-
 ---
 
 #### OMEGA_EARTH
@@ -195,15 +147,6 @@ import brahe as bh
 **Value**: `7.292115146706979e-05` rad/s
 
 Earth's axial rotation rate.
-
-**Example**:
-```python
-import brahe as bh
-import math
-
-# Sidereal day
-sidereal_day = 2 * math.pi / bh.OMEGA_EARTH  # ~86164.1 seconds
-```
 
 ---
 
@@ -368,24 +311,3 @@ Lunar radius.
 **Value**: `9.77e11` m³/s²
 
 ---
-
-## Usage Example
-
-```python
-import brahe as bh
-import numpy as np
-
-# Third-body perturbation calculation
-def third_body_accel(r_sat, r_body, gm_body):
-    """Calculate third-body gravitational acceleration."""
-    r_sat_body = r_body - r_sat
-    r_sat_body_mag = np.linalg.norm(r_sat_body)
-    r_body_mag = np.linalg.norm(r_body)
-
-    return gm_body * (r_sat_body / r_sat_body_mag**3 - r_body / r_body_mag**3)
-
-# Example: Moon's perturbation on LEO satellite
-r_sat = np.array([bh.R_EARTH + 400e3, 0, 0])  # LEO satellite position
-r_moon = np.array([384400e3, 0, 0])  # Approximate Moon distance
-a_moon = third_body_accel(r_sat, r_moon, bh.GM_MOON)
-```

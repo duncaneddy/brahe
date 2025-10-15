@@ -591,6 +591,14 @@ impl PyFileEOPProvider {
 ///
 /// Args:
 ///     provider (StaticEOPProvider): Static EOP provider to set globally
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     provider = bh.StaticEOPProvider.from_zero()
+///     bh.set_global_eop_provider_from_static_provider(provider)
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(provider)")]
 #[pyo3(name = "set_global_eop_provider_from_static_provider")]
@@ -602,6 +610,14 @@ pub fn py_set_global_eop_provider_from_static_provider(provider: &PyStaticEOPPro
 ///
 /// Args:
 ///     provider (FileEOPProvider): File-based EOP provider to set globally
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     provider = bh.FileEOPProvider.from_default_standard(True, "Hold")
+///     bh.set_global_eop_provider_from_file_provider(provider)
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(provider)")]
 #[pyo3(name = "set_global_eop_provider_from_file_provider")]

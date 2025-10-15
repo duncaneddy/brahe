@@ -102,6 +102,7 @@ email me at duncan.eddy (at) gmail.com.
 pub use attitude::*;
 pub use constants::*;
 pub use coordinates::*;
+pub use datasets::*;
 pub use eop::*;
 pub use frames::*;
 pub use integrators::*;
@@ -117,6 +118,7 @@ mod pymodule;
 pub mod attitude;
 pub mod constants;
 pub mod coordinates;
+pub mod datasets;
 pub mod eop;
 pub mod frames;
 pub mod integrators;

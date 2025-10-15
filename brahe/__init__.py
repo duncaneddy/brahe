@@ -35,6 +35,7 @@ from brahe import (
     attitude,
     trajectories,
     constants,
+    datasets,
 )
 
 # Re-export everything from submodules for backward compatibility
@@ -58,6 +59,7 @@ __all__ = [
     "attitude",
     "trajectories",
     "constants",
+    "datasets",
     # Testing
     "PanicException",
 ]

@@ -14,7 +14,7 @@ plugins:
     -   mkdocstrings:
             handlers:
                 python:
-                    import:
+                    inventories:
                         - https://docs.python.org/3/objects.inv
                         - https://numpy.org/doc/stable/objects.inv
                     paths: [brahe]
@@ -103,15 +103,20 @@ nav:
             - Frame Transformations: learn/frame_transformations.md
             - Orbital Properties: learn/orbital_properties.md
             - Attitude Representation: learn/attitude_representation.md
+            - TLE and SGP: learn/tle_and_sgp.md
             - Orbit Propagation:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
                 - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
+            - Datasets:
+                - learn/datasets/index.md
+                - CelesTrak: learn/datasets/celestrak.md
     -   Examples:
             - examples/index.md
             - Propagating an Orbit: examples/propagating_an_orbit.md
             - Computing Ground Contacts: examples/computing_ground_contacts.md
             - Computing Doppler Shift: examples/computing_doppler_shift_for_pass.md
+            - Downloading Satellite Data: examples/downloading_satellite_data.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:
@@ -155,6 +160,9 @@ nav:
                 - DTrajectory: library_api/trajectories/dtrajectory.md
                 - STrajectory6: library_api/trajectories/strajectory6.md
                 - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
+            - Datasets:
+                - library_api/datasets/index.md
+                - CelesTrak: library_api/datasets/celestrak.md
     -   Rust API Reference: https://docs.rs/brahe
     -   Blog: https://duncaneddy.com
 

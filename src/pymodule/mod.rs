@@ -101,6 +101,7 @@ impl PyAngleFormat {
 // We directly include the contents of the module-definition files as they need to be part of a
 // single module for the Python bindings to work correctly.
 
+include!("datasets.rs");
 include!("eop.rs");
 include!("time.rs");
 include!("frames.rs");
@@ -351,6 +352,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEulerAxis>()?;
     module.add_class::<PyEulerAngle>()?;
     module.add_class::<PyRotationMatrix>()?;
+
+    //* Datasets *//
+    module.add_function(wrap_pyfunction!(py_celestrak_get_ephemeris, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_celestrak_get_ephemeris_as_propagators,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_celestrak_download_ephemeris, module)?)?;
 
     Ok(())
 }

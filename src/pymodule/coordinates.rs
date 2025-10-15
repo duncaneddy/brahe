@@ -1,12 +1,57 @@
-/// Helper function to parse strings into appropriate ellipsoidal conversion type
-fn string_to_ellipsoidal_conversion_type(s: &str) -> Result<coordinates::EllipsoidalConversionType, PyErr> {
-    match s {
-        "Geocentric" => Ok(coordinates::EllipsoidalConversionType::Geocentric),
-        "Geodetic" => Ok(coordinates::EllipsoidalConversionType::Geodetic),
-        _ => Err(exceptions::PyRuntimeError::new_err(format!(
-            "Unknown EllipsoidalConverstionType \"{}\". Can be either \"Geocentric\" or \"Geodetic\".",
-            s
-        ))),
+/// Python wrapper for EllipsoidalConversionType enum
+///
+/// Specifies the type of ellipsoidal conversion used in coordinate transformations.
+#[pyclass]
+#[pyo3(name = "EllipsoidalConversionType")]
+#[derive(Clone)]
+pub struct PyEllipsoidalConversionType {
+    pub(crate) value: coordinates::EllipsoidalConversionType,
+}
+
+#[pymethods]
+impl PyEllipsoidalConversionType {
+    /// Geocentric ellipsoidal conversion.
+    ///
+    /// Uses geocentric latitude where the angle is measured from the center of the Earth.
+    ///
+    /// Returns:
+    ///     EllipsoidalConversionType: Geocentric conversion type
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GEOCENTRIC() -> Self {
+        PyEllipsoidalConversionType {
+            value: coordinates::EllipsoidalConversionType::Geocentric,
+        }
+    }
+
+    /// Geodetic ellipsoidal conversion.
+    ///
+    /// Uses geodetic latitude where the angle is measured perpendicular to the WGS84 ellipsoid.
+    ///
+    /// Returns:
+    ///     EllipsoidalConversionType: Geodetic conversion type
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GEODETIC() -> Self {
+        PyEllipsoidalConversionType {
+            value: coordinates::EllipsoidalConversionType::Geodetic,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("EllipsoidalConversionType.{:?}", self.value)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
     }
 }
 
@@ -301,7 +346,7 @@ unsafe fn py_rotation_enz_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 /// Args:
 ///     location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
 ///     r_ecef (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
-///     conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 ///
 /// Returns:
 ///     (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
@@ -314,11 +359,11 @@ unsafe fn py_rotation_enz_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 ///     # Ground station and satellite positions
 ///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
 ///     sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
-///     enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, "Geodetic")
+///     enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, bh.EllipsoidalConversionType.GEODETIC)
 ///     print(f"ENZ: East={enz[0]/1000:.1f}km, North={enz[1]/1000:.1f}km, Up={enz[2]/1000:.1f}km")
 ///     ```
-unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = coordinates::relative_position_ecef_to_enz(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
+unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &PyEllipsoidalConversionType) -> Bound<'py, PyArray<f64, Ix1>> {
+    let vec = coordinates::relative_position_ecef_to_enz(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), conversion_type.value);
 
     vector_to_numpy!(py, vec, 3, f64)
 }
@@ -334,7 +379,7 @@ unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: 
 /// Args:
 ///     location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
 ///     r_enz (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
-///     conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -347,11 +392,11 @@ unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: 
 ///     # Convert ENZ offset back to ECEF
 ///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
 ///     enz_offset = np.array([50000.0, 30000.0, 100000.0])  # 50km east, 30km north, 100km up
-///     target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, "Geodetic")
+///     target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, bh.EllipsoidalConversionType.GEODETIC)
 ///     print(f"Target ECEF: {target_ecef}")
 ///     ```
-unsafe fn py_relative_position_enz_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_enz: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = coordinates::relative_position_enz_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_enz, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
+unsafe fn py_relative_position_enz_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_enz: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &PyEllipsoidalConversionType) -> Bound<'py, PyArray<f64, Ix1>> {
+    let vec = coordinates::relative_position_enz_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_enz, 3, f64), conversion_type.value);
 
     vector_to_numpy!(py, vec, 3, f64)
 }
@@ -435,7 +480,7 @@ unsafe fn py_rotation_sez_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 /// Args:
 ///     location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
 ///     r_ecef (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
-///     conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 ///
 /// Returns:
 ///     (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
@@ -448,11 +493,11 @@ unsafe fn py_rotation_sez_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 ///     # Ground station and satellite positions
 ///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
 ///     sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
-///     sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, "Geodetic")
+///     sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, bh.EllipsoidalConversionType.GEODETIC)
 ///     print(f"SEZ: South={sez[0]/1000:.1f}km, East={sez[1]/1000:.1f}km, Zenith={sez[2]/1000:.1f}km")
 ///     ```
-unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = coordinates::relative_position_ecef_to_sez(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
+unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &PyEllipsoidalConversionType) -> Bound<'py, PyArray<f64, Ix1>> {
+    let vec = coordinates::relative_position_ecef_to_sez(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), conversion_type.value);
 
     vector_to_numpy!(py, vec, 3, f64)
 }
@@ -468,7 +513,7 @@ unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: 
 /// Args:
 ///     location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
 ///     x_sez (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
-///     conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+///     conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -481,11 +526,11 @@ unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: 
 ///     # Convert SEZ offset back to ECEF
 ///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
 ///     sez_offset = np.array([30000.0, 50000.0, 100000.0])  # 30km south, 50km east, 100km up
-///     target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, "Geodetic")
+///     target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, bh.EllipsoidalConversionType.GEODETIC)
 ///     print(f"Target ECEF: {target_ecef}")
 ///     ```
-unsafe fn py_relative_position_sez_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, x_sez: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = coordinates::relative_position_sez_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(x_sez, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
+unsafe fn py_relative_position_sez_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, x_sez: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &PyEllipsoidalConversionType) -> Bound<'py, PyArray<f64, Ix1>> {
+    let vec = coordinates::relative_position_sez_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(x_sez, 3, f64), conversion_type.value);
 
     vector_to_numpy!(py, vec, 3, f64)
 }

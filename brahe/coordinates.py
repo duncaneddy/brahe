@@ -25,6 +25,8 @@ This module provides transformations between various coordinate representations:
 """
 
 from brahe._brahe import (
+    # Coordinate types
+    EllipsoidalConversionType,
     # Cartesian conversions
     state_osculating_to_cartesian,
     state_cartesian_to_osculating,
@@ -50,6 +52,8 @@ from brahe._brahe import (
 )
 
 __all__ = [
+    # Coordinate types
+    "EllipsoidalConversionType",
     # Cartesian conversions
     "state_osculating_to_cartesian",
     "state_cartesian_to_osculating",

@@ -38,13 +38,13 @@ def test_convert_help():
     assert "Usage: brahe convert [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
 
-def test_space_track_help():
-    result = runner.invoke(app, ["space-track", "--help"])
-    assert result.exit_code == 0
-    assert "Usage: brahe space-track [OPTIONS] COMMAND [ARGS]..." in result.stdout
-
-
 def test_access_help():
     result = runner.invoke(app, ["access", "--help"])
     assert result.exit_code == 0
     assert "Usage: brahe access [OPTIONS] COMMAND [ARGS]..." in result.stdout
+
+
+def test_datasets_help():
+    result = runner.invoke(app, ["datasets", "--help"])
+    assert result.exit_code == 0
+    assert "Usage: brahe datasets [OPTIONS] COMMAND [ARGS]..." in result.stdout

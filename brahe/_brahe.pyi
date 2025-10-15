@@ -8,12 +8,8 @@ import numpy as np
 class AngleFormat:
     """Python wrapper for AngleFormat enum"""
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @property
@@ -34,13 +30,8 @@ class DTrajectory:
     determined at runtime.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> DTrajectory:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -376,7 +367,7 @@ class Epoch:
         3600.0
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
         ...
 
@@ -643,10 +634,6 @@ class Epoch:
             # Output: TimeSystem.TAI
             ```
         """
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     def day(self, *args: Any, **kwargs: Any) -> int:
@@ -1067,11 +1054,6 @@ class EulerAngle:
         ...
 
     @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> EulerAngle:
-        """Create and return a new object.  See help(type) for accurate signature."""
-        ...
-
-    @classmethod
     def from_euler_angle(cls, e: EulerAngle, order: str) -> EulerAngle:
         """Create Euler angles from another Euler angle with different order.
 
@@ -1241,11 +1223,6 @@ class EulerAxis:
         self, axis: np.ndarray, angle: float, angle_format: AngleFormat
     ) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> EulerAxis:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -1431,13 +1408,8 @@ class FileEOPProvider:
         ```
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> FileEOPProvider:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -1667,12 +1639,8 @@ class InterpolationMethod:
     discrete trajectory points.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @property
@@ -1723,13 +1691,8 @@ class KeplerianPropagator:
         ```
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> KeplerianPropagator:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -2012,12 +1975,8 @@ class OrbitFrame:
     Specifies the coordinate reference frame for position and velocity states.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     def name(self, *args: Any, **kwargs: Any) -> str:
@@ -2050,12 +2009,8 @@ class OrbitRepresentation:
     Specifies how orbital states are represented in the trajectory.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @property
@@ -2081,13 +2036,8 @@ class OrbitTrajectory:
     interpolation, frame conversions, and representation transformations.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> OrbitTrajectory:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -2505,12 +2455,8 @@ class PanicException:
     Python interpreter to exit.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     def add_note(self, *args: Any, **kwargs: Any) -> Any:
@@ -2569,11 +2515,6 @@ class Quaternion:
 
     def __init__(self, w: float, x: float, y: float, z: float) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> Quaternion:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -2833,11 +2774,6 @@ class RotationMatrix:
         ...
 
     @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> RotationMatrix:
-        """Create and return a new object.  See help(type) for accurate signature."""
-        ...
-
-    @classmethod
     def from_euler_angle(cls, e: EulerAngle) -> RotationMatrix:
         """Create a rotation matrix from Euler angles.
 
@@ -2974,7 +2910,7 @@ class SGPPropagator:
         ```
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
         ...
 
@@ -3007,10 +2943,6 @@ class SGPPropagator:
         Returns:
             SGPPropagator: New SGP propagator instance.
         """
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     def current_state(self, *args: Any, **kwargs: Any) -> np.ndarray:
@@ -3228,13 +3160,8 @@ class STrajectory6:
     at compile time for performance.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> STrajectory6:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -3582,13 +3509,8 @@ class StaticEOPProvider:
         ```
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> StaticEOPProvider:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @classmethod
@@ -3749,7 +3671,7 @@ class StaticEOPProvider:
 class TLE:
     """Legacy TLE class for backward compatibility."""
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
         ...
 
@@ -3765,10 +3687,6 @@ class TLE:
         Returns:
             TLE: New TLE instance.
         """
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @property
@@ -3814,11 +3732,6 @@ class TimeRange:
         """Initialize instance."""
         ...
 
-    @classmethod
-    def __new__(cls, *args: Any, **kwargs: Any) -> TimeRange:
-        """Create and return a new object.  See help(type) for accurate signature."""
-        ...
-
 class TimeSystem:
     """Enumeration of supported time systems.
 
@@ -3826,12 +3739,8 @@ class TimeSystem:
     Each system has specific uses in astrodynamics and timekeeping applications.
     """
 
-    def __init__(self, /, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         """Initialize instance."""
-        ...
-
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        """Create and return a new object.  See help(type) for accurate signature."""
         ...
 
     @property

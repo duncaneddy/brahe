@@ -340,6 +340,33 @@ fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) 
 // New propagator implementations
 
 /// Python wrapper for SGPPropagator (replaces TLE)
+/// SGP4/SDP4 satellite propagator using TLE data.
+///
+/// The SGP (Simplified General Perturbations) propagator implements the SGP4/SDP4 models
+/// for propagating satellites using Two-Line Element (TLE) orbital data. This is the standard
+/// model used for tracking objects in Earth orbit.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # ISS TLE data (example)
+///     line1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  30000-3 0  9005"
+///     line2 = "2 25544  51.6400 150.0000 0003000 100.0000 260.0000 15.50000000300000"
+///
+///     # Create propagator
+///     prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)
+///
+///     # Propagate to a specific epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 2, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state_eci = prop.state(epc)
+///     print(f"Position: {state_eci[:3]}")
+///     print(f"Velocity: {state_eci[3:]}")
+///
+///     # Propagate multiple epochs
+///     epochs = [epc + i*60.0 for i in range(10)]  # 10 minutes
+///     states = prop.states(epochs)
+///     ```
 #[pyclass]
 #[pyo3(name = "SGPPropagator")]
 pub struct PySGPPropagator {
@@ -654,6 +681,40 @@ impl PySGPPropagator {
 }
 
 /// Python wrapper for KeplerianPropagator (new architecture)
+/// Keplerian orbit propagator using two-body dynamics.
+///
+/// The Keplerian propagator implements ideal two-body orbital mechanics without
+/// perturbations. It's fast and accurate for short time spans but doesn't account
+/// for real-world effects like drag, J2, solar radiation pressure, etc.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Initial epoch and orbital elements
+///     epc0 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     oe = np.array([7000000.0, 0.001, 0.9, 0.0, 0.0, 0.0])  # a, e, i, RAAN, omega, M
+///
+///     # Create propagator from Keplerian elements
+///     prop = bh.KeplerianPropagator.from_keplerian(
+///         epc0, oe, bh.AngleFormat.RADIANS, step_size=60.0
+///     )
+///
+///     # Propagate forward one orbit
+///     period = bh.orbital_period(oe[0])
+///     epc_future = epc0 + period
+///     state = prop.state(epc_future)
+///     print(f"State after one orbit: {state}")
+///
+///     # Create from Cartesian state
+///     x_cart = np.array([7000000.0, 0.0, 0.0, 0.0, 7546.0, 0.0])
+///     prop2 = bh.KeplerianPropagator(
+///         epc0, x_cart, bh.OrbitFrame.ECI,
+///         bh.OrbitRepresentation.CARTESIAN,
+///         bh.AngleFormat.RADIANS, 60.0
+///     )
+///     ```
 #[pyclass]
 #[pyo3(name = "KeplerianPropagator")]
 pub struct PyKeplerianPropagator {

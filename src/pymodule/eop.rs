@@ -56,6 +56,14 @@ fn eop_type_to_string(eop_type: eop::EOPType) -> String {
 ///
 /// Args:
 ///     filepath (str): Path of desired output file
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Download latest C04 EOP data
+///     bh.download_c04_eop_file("./eop_data/finals2000A.all.csv")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(filepath)")]
 #[pyo3(name = "download_c04_eop_file")]
@@ -71,6 +79,14 @@ fn py_download_c04_eop_file(filepath: &str) -> PyResult<()> {
 ///
 /// Args:
 ///     filepath (str): Path of desired output file
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Download latest standard EOP data
+///     bh.download_standard_eop_file("./eop_data/standard_eop.txt")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(filepath)")]
 #[pyo3(name = "download_standard_eop_file")]
@@ -83,6 +99,23 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
 ///
 /// Provides EOP data using fixed values that don't change with time.
 /// Useful for testing or scenarios where time-varying EOP data is not needed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create static EOP provider with default values
+///     eop = bh.StaticEOPProvider()
+///
+///     # Create static EOP provider with zero values
+///     eop_zero = bh.StaticEOPProvider.from_zero()
+///
+///     # Create with custom values
+///     eop_custom = bh.StaticEOPProvider.from_values(0.1, 0.0, 0.0, 0.0, 0.0, 0.0)
+///
+///     # Set as global provider
+///     bh.set_global_eop_provider_from_static_provider(eop_custom)
+///     ```
 #[pyclass]
 #[pyo3(name = "StaticEOPProvider")]
 pub(crate) struct PyStaticEOPProvider {
@@ -274,6 +307,35 @@ impl PyStaticEOPProvider {
 ///
 /// Loads EOP data from files in standard IERS formats and provides
 /// interpolation and extrapolation capabilities.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create from C04 file with interpolation
+///     eop = bh.FileEOPProvider.from_c04_file(
+///         "./eop_data/finals2000A.all.csv",
+///         interpolate=True,
+///         extrapolate="Hold"
+///     )
+///
+///     # Create from standard file
+///     eop = bh.FileEOPProvider.from_standard_file(
+///         "./eop_data/finals.all",
+///         interpolate=True,
+///         extrapolate="Zero"
+///     )
+///
+///     # Use default file location
+///     eop = bh.FileEOPProvider.from_default_c04(True, "Hold")
+///
+///     # Set as global provider
+///     bh.set_global_eop_provider_from_file_provider(eop)
+///
+///     # Get EOP data for a specific MJD
+///     mjd = 60310.0
+///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(mjd)
+///     ```
 #[pyclass]
 #[pyo3(name = "FileEOPProvider")]
 pub(crate) struct PyFileEOPProvider {

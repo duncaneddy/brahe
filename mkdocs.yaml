@@ -14,6 +14,10 @@ plugins:
     -   mkdocstrings:
             handlers:
                 python:
+                    inventories:
+                        - https://docs.python.org/3/objects.inv
+                        - https://numpy.org/doc/stable/objects.inv
+                    paths: [brahe]
                     options:
                         show_source: false
                         docstring_style: google
@@ -26,6 +30,11 @@ plugins:
                         show_root_full_path: false
                         show_symbol_type_heading: true
                         show_symbol_type_toc: true
+                        members_order: source
+                        show_bases: true
+                        show_inheritance_diagram: false
+                        find_stubs_package: true
+                        allow_inspection: true
     - section-index
     -   git-revision-date-localized:
             enable_creation_date: true
@@ -62,6 +71,8 @@ theme:
         - navigation.instant
         - navigation.tabs
         - navigation.tabs.sticky
+        - navigation.expand
+        - navigation.indexes
         - toc.follow
 
 markdown_extensions:

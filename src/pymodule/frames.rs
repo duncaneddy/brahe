@@ -83,6 +83,20 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyA
 ///
 /// Returns:
 ///     (numpy.ndarray): 3x3 rotation matrix transforming `GCRF` -> `ITRF`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Get rotation matrix
+///     R = bh.rotation_eci_to_ecef(epc)
+///     print(f"Rotation matrix shape: {R.shape}")
+///     # Output: Rotation matrix shape: (3, 3)
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_eci_to_ecef")]
@@ -129,6 +143,22 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECEF` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Position vector in ECI (meters)
+///     r_eci = np.array([7000000.0, 0.0, 0.0])
+///
+///     # Transform to ECEF
+///     r_ecef = bh.position_eci_to_ecef(epc, r_eci)
+///     print(f"ECEF position: {r_ecef}")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x)")]
 #[pyo3(name = "position_eci_to_ecef")]

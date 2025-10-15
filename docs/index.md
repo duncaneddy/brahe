@@ -2,7 +2,7 @@
   <a href="https://github.com/duncaneddy/brahe/"><img src="https://raw.githubusercontent.com/duncaneddy/brahe/main/docs/assets/logo-gold.png" alt="Brahe"></a>
 </p>
 <p align="center">
-    <em>Brahe - easy-to-learn, high-performance, and quick-to-deploy</em>
+    <em>Brahe - Practical Astrodynamics</em>
 </p>
 <p align="center">
 <a href="https://github.com/duncaneddy/brahe/actions/workflows/commit.yml" target="_blank">
@@ -52,7 +52,9 @@ or open an issue on the GitHub repository.
 
 ## Quick Start
 
-To install the latest release of brahe, simply run:
+### Python
+
+To install the latest release of brahe for Python, simply run:
 
 ```bash
 pip install brahe
@@ -76,6 +78,130 @@ a = bh.constants.EARTH_RADIUS + 400e3  # 400 km altitude
 T = bh.orbital_period(a)
 
 print(f"Orbital Period: {T / 60:.2f} minutes")
+```
+
+Here are some common operations to get you started:
+
+**Working with Time:**
+```python
+import brahe as bh
+
+# Create an epoch from a specific date and time
+epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0, bh.TimeSystem.UTC)
+
+# Convert between time systems
+mjd_utc = epc.mjd_as_time_system(bh.TimeSystem.UTC)
+mjd_tai = epc.mjd_as_time_system(bh.TimeSystem.TAI)
+
+# Time arithmetic
+future_epc = epc + 3600  # Add 3600 seconds (1 hour)
+time_diff = future_epc - epc  # Difference in seconds
+```
+
+**Propagating an Orbit:**
+```python
+import brahe as bh
+import numpy as np
+
+# Create a Two-Line Element (TLE) for a satellite
+tle = bh.TLE(
+    "ISS (ZARYA)",
+    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
+    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
+)
+
+# Create an SGP4 propagator
+prop = bh.SGPPropagator.from_tle(tle)
+
+# Propagate to a specific epoch
+epc = bh.Epoch.from_datetime(2024, 6, 1, 0, 0, 0.0, 0, "UTC")
+state = prop.propagate(epc)  # Returns [x, y, z, vx, vy, vz] in meters and m/s
+
+print(f"Position: {state[:3] / 1000} km")
+print(f"Velocity: {state[3:] / 1000} km/s")
+```
+
+**Coordinate Transformations:**
+```python
+import brahe as bh
+import numpy as np
+
+# Convert geodetic coordinates (lat, lon, alt) to ECEF
+lat = 40.0  # degrees
+lon = -105.0  # degrees
+alt = 1000.0  # meters
+ecef = bh.sGEODtoECEF(np.array([lat, lon, alt]), use_degrees=True)
+
+# Convert ECEF to ECI at a specific epoch
+epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0, bh.TimeSystem.UTC)
+eci = bh.rECEFtoECI(epc, ecef)
+```
+
+### Rust
+
+To use brahe in your Rust project, add it to your `Cargo.toml`:
+
+```toml
+[dependencies]
+brahe = "0.5"
+```
+
+Here are some common operations to get you started:
+
+**Working with Time:**
+```rust
+use brahe::time::Epoch;
+use brahe::time::TimeSystem;
+
+// Create an epoch from a specific date and time
+let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0, TimeSystem::UTC);
+
+// Convert between time systems
+let mjd_utc = epc.to_mjd(TimeSystem::UTC);
+let mjd_tai = epc.to_mjd(TimeSystem::TAI);
+
+// Time arithmetic
+let future_epc = epc + 3600.0;  // Add 3600 seconds (1 hour)
+let time_diff = future_epc - epc;  // Difference in seconds
+```
+
+**Propagating an Orbit:**
+```rust
+use brahe::orbits::{TLE, SGPPropagator};
+use brahe::time::Epoch;
+
+// Create a Two-Line Element (TLE) for a satellite
+let tle = TLE::from_lines(
+    "ISS (ZARYA)",
+    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
+    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
+).unwrap();
+
+// Create an SGP4 propagator
+let prop = SGPPropagator::from_tle(&tle);
+
+// Propagate to a specific epoch
+let epc = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
+let state = prop.propagate(&epc);  // Returns [x, y, z, vx, vy, vz] in meters and m/s
+
+println!("Position: {:?} km", [state[0]/1000.0, state[1]/1000.0, state[2]/1000.0]);
+println!("Velocity: {:?} km/s", [state[3]/1000.0, state[4]/1000.0, state[5]/1000.0]);
+```
+
+**Coordinate Transformations:**
+```rust
+use brahe::coordinates::{sGEODtoECEF, rECEFtoECI};
+use brahe::time::Epoch;
+
+// Convert geodetic coordinates (lat, lon, alt) to ECEF
+let lat = 40.0_f64.to_radians();  // Radians
+let lon = -105.0_f64.to_radians();  // Radians
+let alt = 1000.0;  // meters
+let ecef = sGEODtoECEF([lat, lon, alt]);
+
+// Convert ECEF to ECI at a specific epoch
+let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
+let eci = rECEFtoECI(&epc, ecef);
 ```
 
 ## Going Further

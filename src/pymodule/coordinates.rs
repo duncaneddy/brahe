@@ -29,6 +29,17 @@ fn string_to_ellipsoidal_conversion_type(s: &str) -> Result<coordinates::Ellipso
 /// Returns:
 ///     (numpy.ndarray): Cartesian state `[x, y, z, vx, vy, vz]` where position is in meters
 ///         and velocity is in meters per second.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Orbital elements for a circular orbit
+///     oe = np.array([7000000.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # a, e, i, RAAN, omega, M
+///     x_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+///     print(f"Cartesian state: {x_cart}")
+///     ```
 unsafe fn py_state_osculating_to_cartesian<'py>(
     py: Python<'py>,
     x_oe: Bound<'py, PyArray<f64, Ix1>>,
@@ -59,6 +70,17 @@ unsafe fn py_state_osculating_to_cartesian<'py>(
 ///         (radians or degrees), `RAAN` is right ascension of ascending node (radians or degrees),
 ///         `omega` is argument of periapsis (radians or degrees), and `M` is mean anomaly
 ///         (radians or degrees).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Cartesian state vector
+///     x_cart = np.array([7000000.0, 0.0, 0.0, 0.0, 7546.0, 0.0])  # [x, y, z, vx, vy, vz]
+///     oe = bh.state_cartesian_to_osculating(x_cart, bh.AngleFormat.RADIANS)
+///     print(f"Orbital elements: a={oe[0]:.0f}m, e={oe[1]:.6f}, i={oe[2]:.6f} rad")
+///     ```
 unsafe fn py_state_cartesian_to_osculating<'py>(
     py: Python<'py>,
     x_cart: Bound<'py, PyArray<f64, Ix1>>,

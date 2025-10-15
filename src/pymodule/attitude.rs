@@ -54,9 +54,27 @@ fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
 ///     z (float): Z component of vector part
 ///
 /// Example:
-///     >>> q = Quaternion(1.0, 0.0, 0.0, 0.0)  # Identity quaternion
-///     >>> q.normalize()
-///     >>> print(q.norm())
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create identity quaternion
+///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+///     print(f"Norm: {q.norm()}")
+///
+///     # Create from array
+///     q_vec = np.array([1.0, 0.0, 0.0, 0.0])
+///     q2 = bh.Quaternion.from_vector(q_vec, scalar_first=True)
+///
+///     # Convert to rotation matrix
+///     dcm = q.to_rotation_matrix()
+///
+///     # Quaternion multiplication
+///     q3 = q * q2
+///
+///     # Normalize
+///     q3.normalize()
+///     ```
 struct PyQuaternion {
     obj: attitude::Quaternion,
 }
@@ -338,9 +356,19 @@ impl PyQuaternion {
 ///     angle_format (AngleFormat): Units of input angles (RADIANS or DEGREES)
 ///
 /// Example:
-///     >>> from brahe import EulerAngle, AngleFormat
-///     >>> e = EulerAngle("XYZ", 0.1, 0.2, 0.3, AngleFormat.RADIANS)
-///     >>> print(e.phi, e.theta, e.psi)
+///     ```python
+///     import brahe as bh
+///
+///     # Create Euler angle rotation (roll, pitch, yaw in ZYX order)
+///     e = bh.EulerAngle("ZYX", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+///     print(f"Roll={e.phi}, Pitch={e.theta}, Yaw={e.psi}")
+///
+///     # Convert to quaternion
+///     q = e.to_quaternion()
+///
+///     # Convert to rotation matrix
+///     dcm = e.to_rotation_matrix()
+///     ```
 struct PyEulerAngle {
     obj: attitude::EulerAngle,
 }
@@ -551,11 +579,18 @@ impl PyEulerAngle {
 ///     angle_format (AngleFormat): Units of input angle (RADIANS or DEGREES)
 ///
 /// Example:
-///     >>> import numpy as np
-///     >>> from brahe import EulerAxis, AngleFormat
-///     >>> axis = np.array([0.0, 0.0, 1.0])
-///     >>> e = EulerAxis(axis, np.pi/2, AngleFormat.RADIANS)
-///     >>> print(e.angle)
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Rotation of 90 degrees about z-axis
+///     axis = np.array([0.0, 0.0, 1.0])
+///     e = bh.EulerAxis(axis, np.pi/2, bh.AngleFormat.RADIANS)
+///     print(f"Angle: {e.angle} rad")
+///
+///     # Convert to quaternion
+///     q = e.to_quaternion()
+///     ```
 struct PyEulerAxis {
     obj: attitude::EulerAxis,
 }
@@ -786,6 +821,26 @@ impl PyEulerAxis {
 ///
 /// Raises:
 ///     BraheError: If the matrix is not a valid rotation matrix
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create identity rotation
+///     dcm = bh.RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+///
+///     # Create from numpy array
+///     R = np.eye(3)
+///     dcm2 = bh.RotationMatrix.from_matrix(R)
+///
+///     # Convert to quaternion
+///     q = dcm.to_quaternion()
+///
+///     # Rotate a vector
+///     v = np.array([1.0, 0.0, 0.0])
+///     v_rot = dcm.rotate_vector(v)
+///     ```
 ///
 /// Example:
 ///     >>> from brahe import RotationMatrix

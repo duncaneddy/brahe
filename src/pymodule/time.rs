@@ -96,6 +96,16 @@ impl PyTimeSystem {
 ///
 /// Returns:
 ///     (float): Julian date of epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert January 1, 2024 noon to Julian Date
+///     jd = bh.datetime_to_jd(2024, 1, 1, 12, 0, 0.0, 0.0)
+///     print(f"JD: {jd:.6f}")
+///     # Output: JD: 2460311.000000
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_jd")]
@@ -130,6 +140,16 @@ fn py_datetime_to_jd(
 ///
 /// Returns:
 ///     (float): Modified Julian date of epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert January 1, 2024 noon to Modified Julian Date
+///     mjd = bh.datetime_to_mjd(2024, 1, 1, 12, 0, 0.0, 0.0)
+///     print(f"MJD: {mjd:.6f}")
+///     # Output: MJD: 60310.500000
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond)")]
 #[pyo3(name = "datetime_to_mjd")]
@@ -158,6 +178,17 @@ fn py_datetime_to_mjd(
 ///
 /// Returns:
 ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert Julian Date to Gregorian calendar
+///     jd = 2460311.0
+///     year, month, day, hour, minute, second, nanosecond = bh.jd_to_datetime(jd)
+///     print(f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
+///     # Output: 2024-01-01 12:00:00.000
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(jd)")]
 #[pyo3(name = "jd_to_datetime")]
@@ -176,6 +207,17 @@ fn py_jd_to_datetime(jd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
 ///
 /// Returns:
 ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert Modified Julian Date to Gregorian calendar
+///     mjd = 60310.5
+///     year, month, day, hour, minute, second, nanosecond = bh.mjd_to_datetime(mjd)
+///     print(f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
+///     # Output: 2024-01-01 12:00:00.000
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "mjd_to_datetime")]
@@ -192,6 +234,17 @@ fn py_mjd_to_datetime(mjd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
 ///
 /// Returns:
 ///     float: Offset between time systems in seconds
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get offset from UTC to TAI at J2000 epoch
+///     mjd_j2000 = 51544.0
+///     offset = bh.time_system_offset_for_mjd(mjd_j2000, bh.TimeSystem.UTC, bh.TimeSystem.TAI)
+///     print(f"UTC to TAI offset: {offset} seconds")
+///     # Output: UTC to TAI offset: 32.0 seconds
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_mjd")]
@@ -212,6 +265,17 @@ fn py_time_system_offset_for_mjd(
 ///
 /// Returns:
 ///     float: Offset between time systems in seconds
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get offset from GPS to UTC at a specific Julian Date
+///     jd = 2460000.0
+///     offset = bh.time_system_offset_for_jd(jd, bh.TimeSystem.GPS, bh.TimeSystem.UTC)
+///     print(f"GPS to UTC offset: {offset} seconds")
+///     # Output: GPS to UTC offset: -18.0 seconds
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(jd, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_jd")]
@@ -238,6 +302,19 @@ fn py_time_system_offset_for_jd(
 ///
 /// Returns:
 ///     float: Offset between time systems in seconds
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get offset from TT to TAI on January 1, 2024
+///     offset = bh.time_system_offset_for_datetime(
+///         2024, 1, 1, 0, 0, 0.0, 0.0,
+///         bh.TimeSystem.TT, bh.TimeSystem.TAI
+///     )
+///     print(f"TT to TAI offset: {offset} seconds")
+///     # Output: TT to TAI offset: -32.184 seconds
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond, time_system_src, time_system_dst)")]
 #[pyo3(name = "time_system_offset_for_datetime")]
@@ -326,6 +403,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing midnight on the specified date
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create an epoch at midnight on January 1, 2024 UTC
+    ///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+    ///     print(epc)
+    ///     # Output: 2024-01-01T00:00:00.000000000 UTC
+    ///
+    ///     # Create epoch in different time system
+    ///     epc_tai = bh.Epoch.from_date(2024, 6, 15, bh.TimeSystem.TAI)
+    ///     print(epc_tai)
+    ///     # Output: 2024-06-15T00:00:00.000000000 TAI
+    ///     ```
     #[classmethod]
     fn from_date(
         _cls: &Bound<'_, PyType>,
@@ -354,6 +446,22 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing the specified day of year
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch for day 100 of 2024 at midnight
+    ///     epc = bh.Epoch.from_day_of_year(2024, 100.0, bh.TimeSystem.UTC)
+    ///     print(epc)
+    ///     # Output: 2024-04-09T00:00:00.000000000 UTC
+    ///
+    ///     # Create epoch for day 100.5 (noon on day 100)
+    ///     epc_noon = bh.Epoch.from_day_of_year(2024, 100.5, bh.TimeSystem.UTC)
+    ///     year, month, day, hour, minute, second, ns = epc_noon.to_datetime()
+    ///     print(f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
+    ///     # Output: 2024-04-09 12:00:00.000
+    ///     ```
     #[classmethod]
     fn from_day_of_year(
         _cls: &Bound<'_, PyType>,
@@ -384,6 +492,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing the specified date and time
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch for January 1, 2024 at 12:30:45.5 UTC
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 30, 45.5, 0.0, bh.TimeSystem.UTC)
+    ///     print(epc)
+    ///     # Output: 2024-01-01T12:30:45.500000000 UTC
+    ///
+    ///     # With nanosecond precision
+    ///     epc_ns = bh.Epoch.from_datetime(2024, 6, 15, 14, 30, 0.0, 123456789.0, bh.TimeSystem.TAI)
+    ///     print(epc_ns)
+    ///     # Output: 2024-06-15T14:30:00.123456789 TAI
+    ///     ```
     #[classmethod]
     #[allow(clippy::too_many_arguments)]
     pub fn from_datetime(
@@ -418,6 +541,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing the parsed date and time
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Parse ISO 8601 string with full precision
+    ///     epc = bh.Epoch.from_string("2024-01-01T12:00:00.000000000 UTC")
+    ///     print(epc)
+    ///     # Output: 2024-01-01T12:00:00.000000000 UTC
+    ///
+    ///     # Parse different time systems
+    ///     epc_tai = bh.Epoch.from_string("2024-06-15T14:30:45.123456789 TAI")
+    ///     print(epc_tai.time_system)
+    ///     # Output: TimeSystem.TAI
+    ///     ```
     #[classmethod]
     pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -433,6 +571,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing the Julian date
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch from Julian Date
+    ///     jd = 2460000.0
+    ///     epc = bh.Epoch.from_jd(jd, bh.TimeSystem.UTC)
+    ///     print(epc)
+    ///
+    ///     # Verify round-trip conversion
+    ///     jd_out = epc.jd()
+    ///     print(f"JD: {jd_out:.10f}")
+    ///     # Output: JD: 2460000.0000000000
+    ///     ```
     #[classmethod]
     pub fn from_jd(_cls: &Bound<'_, PyType>, jd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -448,6 +601,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch representing the Modified Julian date
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch from Modified Julian Date
+    ///     mjd = 60000.0
+    ///     epc = bh.Epoch.from_mjd(mjd, bh.TimeSystem.UTC)
+    ///     print(epc)
+    ///
+    ///     # MJD is commonly used in astronomy
+    ///     mjd_j2000 = 51544.0  # J2000 epoch
+    ///     epc_j2000 = bh.Epoch.from_mjd(mjd_j2000, bh.TimeSystem.TT)
+    ///     print(f"J2000: {epc_j2000}")
+    ///     ```
     #[classmethod]
     pub fn from_mjd(_cls: &Bound<'_, PyType>, mjd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -463,6 +631,21 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch in GPS time system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch from GPS week 2200, day 3, noon
+    ///     week = 2200
+    ///     seconds = 3 * 86400 + 12 * 3600  # 3 days + 12 hours
+    ///     epc = bh.Epoch.from_gps_date(week, seconds)
+    ///     print(epc)
+    ///
+    ///     # Verify GPS week extraction
+    ///     week_out, sec_out = epc.gps_date()
+    ///     print(f"GPS Week: {week_out}, Seconds: {sec_out}")
+    ///     ```
     #[classmethod]
     pub fn from_gps_date(_cls: &Bound<'_, PyType>, week: u32, seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -477,6 +660,17 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch in GPS time system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch from GPS seconds
+    ///     gps_seconds = 1234567890.5
+    ///     epc = bh.Epoch.from_gps_seconds(gps_seconds)
+    ///     print(f"Epoch: {epc}")
+    ///     print(f"GPS seconds: {epc.gps_seconds()}")
+    ///     ```
     #[classmethod]
     pub fn from_gps_seconds(_cls: &Bound<'_, PyType>, gps_seconds: f64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -491,6 +685,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     Epoch: The epoch in GPS time system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch from GPS nanoseconds with high precision
+    ///     gps_ns = 1234567890123456789
+    ///     epc = bh.Epoch.from_gps_nanoseconds(gps_ns)
+    ///     print(f"Epoch: {epc}")
+    ///     ```
     #[classmethod]
     pub fn from_gps_nanoseconds(_cls: &Bound<'_, PyType>, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
@@ -505,6 +709,17 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create epoch in UTC and convert to TAI
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     year, month, day, hour, minute, second, ns = epc.to_datetime_as_time_system(bh.TimeSystem.TAI)
+    ///     print(f"TAI: {year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
+    ///     # Output: TAI: 2024-01-01 12:00:37.000
+    ///     ```
     pub fn to_datetime_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj
             .to_datetime_as_time_system(time_system.ts)
@@ -514,6 +729,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     tuple: A tuple containing (year, month, day, hour, minute, second, nanosecond)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 6, 15, 14, 30, 45.5, 0.0, bh.TimeSystem.UTC)
+    ///     year, month, day, hour, minute, second, ns = epc.to_datetime()
+    ///     print(f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
+    ///     # Output: 2024-06-15 14:30:45.500
+    ///     ```
     pub fn to_datetime(&self) -> (u32, u8, u8, u8, u8, f64, f64) {
         self.obj.to_datetime()
     }
@@ -525,6 +750,17 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: Julian date in the specified time system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     jd_utc = epc.jd()
+    ///     jd_tai = epc.jd_as_time_system(bh.TimeSystem.TAI)
+    ///     print(f"JD UTC: {jd_utc:.10f}")
+    ///     print(f"JD TAI: {jd_tai:.10f}")
+    ///     ```
     pub fn jd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
             .jd_as_time_system(time_system.ts)
@@ -534,6 +770,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: Julian date
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     jd = epc.jd()
+    ///     print(f"JD: {jd:.6f}")
+    ///     # Output: JD: 2460310.500000
+    ///     ```
     pub fn jd(&self) -> f64 {
         self.obj.jd()
     }
@@ -545,6 +791,17 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: Modified Julian date in the specified time system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     mjd_utc = epc.mjd()
+    ///     mjd_gps = epc.mjd_as_time_system(bh.TimeSystem.GPS)
+    ///     print(f"MJD UTC: {mjd_utc:.6f}")
+    ///     print(f"MJD GPS: {mjd_gps:.6f}")
+    ///     ```
     pub fn mjd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj
             .mjd_as_time_system(time_system.ts)
@@ -554,6 +811,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: Modified Julian date
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     mjd = epc.mjd()
+    ///     print(f"MJD: {mjd:.6f}")
+    ///     # Output: MJD: 60310.000000
+    ///     ```
     pub fn mjd(&self) -> f64 {
         self.obj.mjd()
     }
@@ -562,6 +829,15 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     tuple: A tuple containing (week, seconds_into_week)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.GPS)
+    ///     week, seconds = epc.gps_date()
+    ///     print(f"GPS Week: {week}, Seconds: {seconds:.3f}")
+    ///     ```
     pub fn gps_date(&self) -> (u32, f64) {
         self.obj.gps_date()
     }
@@ -570,6 +846,15 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: GPS seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS)
+    ///     gps_sec = epc.gps_seconds()
+    ///     print(f"GPS seconds: {gps_sec:.3f}")
+    ///     ```
     pub fn gps_seconds(&self) -> f64 {
         self.obj.gps_seconds()
     }
@@ -578,6 +863,15 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: GPS nanoseconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 123456789.0, bh.TimeSystem.GPS)
+    ///     gps_ns = epc.gps_nanoseconds()
+    ///     print(f"GPS nanoseconds: {gps_ns:.0f}")
+    ///     ```
     pub fn gps_nanoseconds(&self) -> f64 {
         self.obj.gps_nanoseconds()
     }
@@ -586,6 +880,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     str: ISO 8601 formatted date string with full nanosecond precision
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 30, 45.123456789, 0.0, bh.TimeSystem.UTC)
+    ///     iso = epc.isostring()
+    ///     print(iso)
+    ///     # Output: 2024-01-01T12:30:45.123456789Z
+    ///     ```
     pub fn isostring(&self) -> String {
         self.obj.isostring()
     }
@@ -597,6 +901,17 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     str: ISO 8601 formatted date string
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 30, 45.123456789, 0.0, bh.TimeSystem.UTC)
+    ///     iso3 = epc.isostring_with_decimals(3)
+    ///     iso6 = epc.isostring_with_decimals(6)
+    ///     print(iso3)  # Output: 2024-01-01T12:30:45.123Z
+    ///     print(iso6)  # Output: 2024-01-01T12:30:45.123457Z
+    ///     ```
     pub fn isostring_with_decimals(&self, decimals: usize) -> String {
         self.obj.isostring_with_decimals(decimals)
     }
@@ -608,6 +923,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     str: String representation of the epoch
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     print(epc.to_string_as_time_system(bh.TimeSystem.UTC))
+    ///     print(epc.to_string_as_time_system(bh.TimeSystem.TAI))
+    ///     # Shows same instant in different time systems
+    ///     ```
     pub fn to_string_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> String {
         self.obj
             .to_string_as_time_system(time_system.ts)
@@ -620,6 +945,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: GAST angle
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     gast_rad = epc.gast(bh.AngleFormat.RADIANS)
+    ///     gast_deg = epc.gast(bh.AngleFormat.DEGREES)
+    ///     print(f"GAST: {gast_rad:.6f} rad = {gast_deg:.6f} deg")
+    ///     ```
     pub fn gast(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
         self.obj.gast(angle_format.value)
     }
@@ -631,6 +966,16 @@ impl PyEpoch {
     ///
     /// Returns:
     ///     float: GMST angle
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     gmst_rad = epc.gmst(bh.AngleFormat.RADIANS)
+    ///     gmst_deg = epc.gmst(bh.AngleFormat.DEGREES)
+    ///     print(f"GMST: {gmst_rad:.6f} rad = {gmst_deg:.6f} deg")
+    ///     ```
     pub fn gmst(&self, angle_format: PyRef<PyAngleFormat>) -> f64 {
         self.obj.gmst(angle_format.value)
     }

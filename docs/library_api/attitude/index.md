@@ -1,6 +1,8 @@
-# Attitude Module
+# Attitude
 
-The Attitude module provides classes for representing and converting between different attitude representations.
+**Module**: `brahe.attitude`
+
+Classes for representing and converting between different attitude representations.
 
 ## Sub-modules
 

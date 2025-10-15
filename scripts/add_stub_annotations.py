@@ -191,7 +191,7 @@ def parse_method_params_from_docstring(doc: str) -> str:
     params = parse_params_from_docstring(doc)
 
     if not params:
-        return "self, *args: Any, **kwargs: Any"
+        return "self"
 
     param_strs = []
     for param_name, param_type, is_optional in params:
@@ -208,7 +208,7 @@ def parse_classmethod_params_from_docstring(doc: str) -> str:
     params = parse_params_from_docstring(doc)
 
     if not params:
-        return "cls, *args: Any, **kwargs: Any"
+        return "cls"
 
     param_strs = []
     for param_name, param_type, is_optional in params:
@@ -368,7 +368,7 @@ def parse_function_params_from_docstring(doc: str) -> str:
     params = parse_params_from_docstring(doc)
 
     if not params:
-        return "*args: Any, **kwargs: Any"
+        return ""
 
     param_strs = []
     for param_name, param_type, is_optional in params:

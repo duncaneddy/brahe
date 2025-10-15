@@ -841,11 +841,6 @@ impl PyEulerAxis {
 ///     v = np.array([1.0, 0.0, 0.0])
 ///     v_rot = dcm.rotate_vector(v)
 ///     ```
-///
-/// Example:
-///     >>> from brahe import RotationMatrix
-///     >>> r = RotationMatrix(1, 0, 0, 0, 1, 0, 0, 0, 1)  # Identity
-///     >>> print(r)
 struct PyRotationMatrix {
     obj: attitude::RotationMatrix,
 }

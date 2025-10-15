@@ -357,15 +357,21 @@ fn py_time_system_offset_for_datetime(
 /// All arithmetic operations (addition, subtraction) use seconds as the default unit and return
 /// time differences in seconds.
 ///
-/// Examples:
-///     >>> from brahe import Epoch, TimeSystem
-///     >>> epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
-///     >>> print(epoch)
-///     2024-01-01T12:00:00.000000000 UTC
-///     >>> epoch2 = epoch + 3600.0  # Add one hour
-///     >>> diff = epoch2 - epoch     # Difference in seconds
-///     >>> print(diff)
-///     3600.0
+/// Example:
+///     ```python
+///     from brahe import Epoch, TimeSystem
+///
+///     # Create an epoch
+///     epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+///     print(epoch)
+///     # Output: 2024-01-01T12:00:00.000000000 UTC
+///
+///     # Perform arithmetic operations
+///     epoch2 = epoch + 3600.0  # Add one hour
+///     diff = epoch2 - epoch     # Difference in seconds
+///     print(diff)
+///     # Output: 3600.0
+///     ```
 #[pyclass]
 #[pyo3(name = "Epoch")]
 pub struct PyEpoch {

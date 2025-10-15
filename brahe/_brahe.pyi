@@ -22,6 +22,274 @@ class AngleFormat:
         """Python wrapper for AngleFormat enum"""
         ...
 
+class CachingEOPProvider:
+    """Caching EOP provider that automatically downloads updated files when stale.
+
+    This provider wraps a FileEOPProvider and adds automatic cache management.
+    It checks the age of the EOP file and downloads updated versions when the file
+    exceeds the maximum age threshold. If the file doesn't exist, it will be
+    downloaded on initialization.
+
+    Args:
+        filepath (str): Path to the EOP file (will be created if it doesn't exist)
+        eop_type (str): Type of EOP file - "C04" for IERS C04 format or
+            "StandardBulletinA" for IERS finals2000A.all format
+        max_age_seconds (int): Maximum age of file in seconds before triggering
+            a refresh. Common values: 86400 (1 day), 604800 (7 days)
+        auto_refresh (bool): If True, automatically checks file age and refreshes
+            on every data access. If False, only checks on initialization and
+            manual refresh() calls
+        interpolate (bool): Enable linear interpolation between tabulated EOP
+            values. Recommended: True for smoother data
+        extrapolate (str): Behavior for dates outside EOP data range:
+            "Hold" (use last known value), "Zero" (return 0.0), or "Error" (raise exception)
+
+    Raises:
+        RuntimeError: If file download fails or file is invalid
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Manual refresh mode (recommended for performance)
+        provider = bh.CachingEOPProvider(
+            filepath="./eop_data/finals.all.iau2000.txt",
+            eop_type="StandardBulletinA",
+            max_age_seconds=7 * 86400,  # 7 days
+            auto_refresh=False,
+            interpolate=True,
+            extrapolate="Hold"
+        )
+        bh.set_global_eop_provider_from_caching_provider(provider)
+
+        # Check and refresh as needed
+        provider.refresh()
+
+        # Auto-refresh mode (convenience)
+        auto_provider = bh.CachingEOPProvider(
+            filepath="./eop_data/finals.all.iau2000.txt",
+            eop_type="StandardBulletinA",
+            max_age_seconds=24 * 3600,  # 24 hours
+            auto_refresh=True,  # Checks on every access
+            interpolate=True,
+            extrapolate="Hold"
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        filepath: str,
+        eop_type: str,
+        max_age_seconds: int,
+        auto_refresh: bool,
+        interpolate: bool,
+        extrapolate: str,
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def eop_type(self) -> str:
+        """Get the EOP file type.
+
+        Returns:
+            str: EOP type ("C04", "StandardBulletinA", etc.)
+        """
+        ...
+
+    def extrapolation(self) -> str:
+        """Get the extrapolation method.
+
+        Returns:
+            str: Extrapolation method ("Hold", "Zero", or "Error")
+        """
+        ...
+
+    def file_age(self) -> float:
+        """Get the age of the currently loaded EOP file in seconds.
+
+        Returns:
+            float: Age of the loaded file in seconds
+
+        Example:
+            ```python
+            import brahe as bh
+
+            provider = bh.CachingEOPProvider(
+                "./eop_data/finals.all.iau2000.txt",
+                "StandardBulletinA",
+                7 * 86400,
+                False,
+                True,
+                "Hold"
+            )
+
+            age = provider.file_age()
+            print(f"EOP file age: {age:.2f} seconds")
+            ```
+        """
+        ...
+
+    def file_epoch(self) -> Epoch:
+        """Get the epoch when the EOP file was last loaded.
+
+        Returns:
+            Epoch: Epoch in UTC when file was loaded
+
+        Example:
+            ```python
+            import brahe as bh
+
+            provider = bh.CachingEOPProvider(
+                "./eop_data/finals.all.iau2000.txt",
+                "StandardBulletinA",
+                7 * 86400,
+                False,
+                True,
+                "Hold"
+            )
+
+            file_epoch = provider.file_epoch()
+            print(f"EOP file loaded at: {file_epoch}")
+            ```
+        """
+        ...
+
+    def get_dxdy(self, mjd: float) -> tuple[float, float]:
+        """Get celestial pole offsets for a given MJD.
+
+        Args:
+            mjd (float): Modified Julian Date
+
+        Returns:
+            tuple[float, float]: Celestial pole offsets dx and dy in radians
+        """
+        ...
+
+    def get_eop(self, mjd: float) -> Tuple:
+        """Get all EOP parameters for a given MJD.
+
+        Args:
+            mjd (float): Modified Julian Date
+
+        Returns:
+            tuple: (pm_x, pm_y, ut1_utc, dx, dy, lod)
+        """
+        ...
+
+    def get_lod(self, mjd: float) -> float:
+        """Get length of day offset for a given MJD.
+
+        Args:
+            mjd (float): Modified Julian Date
+
+        Returns:
+            float: Length of day offset in seconds
+        """
+        ...
+
+    def get_pm(self, mjd: float) -> tuple[float, float]:
+        """Get polar motion components for a given MJD.
+
+        Args:
+            mjd (float): Modified Julian Date
+
+        Returns:
+            tuple[float, float]: Polar motion x and y components in radians
+        """
+        ...
+
+    def get_ut1_utc(self, mjd: float) -> float:
+        """Get UT1-UTC time difference for a given MJD.
+
+        Args:
+            mjd (float): Modified Julian Date
+
+        Returns:
+            float: UT1-UTC time difference in seconds
+        """
+        ...
+
+    def interpolation(self) -> bool:
+        """Check if interpolation is enabled.
+
+        Returns:
+            bool: True if interpolation is enabled
+        """
+        ...
+
+    def is_initialized(self) -> bool:
+        """Check if the provider is initialized.
+
+        Returns:
+            bool: True if initialized
+        """
+        ...
+
+    def len(self) -> int:
+        """Get the number of EOP data points.
+
+        Returns:
+            int: Number of EOP data points
+        """
+        ...
+
+    def mjd_last_dxdy(self) -> float:
+        """Get the last MJD with valid celestial pole offset data.
+
+        Returns:
+            float: Last MJD with dX/dY data
+        """
+        ...
+
+    def mjd_last_lod(self) -> float:
+        """Get the last MJD with valid LOD data.
+
+        Returns:
+            float: Last MJD with length of day data
+        """
+        ...
+
+    def mjd_max(self) -> float:
+        """Get the maximum MJD in the dataset.
+
+        Returns:
+            float: Maximum Modified Julian Date
+        """
+        ...
+
+    def mjd_min(self) -> float:
+        """Get the minimum MJD in the dataset.
+
+        Returns:
+            float: Minimum Modified Julian Date
+        """
+        ...
+
+    def refresh(self) -> Any:
+        """Manually refresh the cached EOP data.
+
+        Checks if the file needs updating and downloads a new version if necessary.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            provider = bh.CachingEOPProvider(
+                "./eop_data/finals.all.iau2000.txt",
+                "StandardBulletinA",
+                7 * 86400,
+                False,
+                True,
+                "Hold"
+            )
+
+            # Later, manually force a refresh check
+            provider.refresh()
+            ```
+        """
+        ...
+
 class DTrajectory:
     """Dynamic-dimension trajectory container.
 
@@ -7303,6 +7571,29 @@ def semimajor_axis_general(n: float, gm: float, angle_format: AngleFormat) -> fl
         n = 0.0001  # radians/second
         a = bh.semimajor_axis_general(n, bh.GM_JUPITER, bh.AngleFormat.RADIANS)
         print(f"Semi-major axis: {a/1000:.2f} km")
+        ```
+    """
+    ...
+
+def set_global_eop_provider_from_caching_provider(provider: CachingEOPProvider) -> Any:
+    """Set the global EOP provider using a caching provider.
+
+    Args:
+        provider (CachingEOPProvider): Caching EOP provider to set globally
+
+    Example:
+        ```python
+        import brahe as bh
+
+        provider = bh.CachingEOPProvider(
+            "./eop_data/finals.all.iau2000.txt",
+            "StandardBulletinA",
+            7 * 86400,
+            False,
+            True,
+            "Hold"
+        )
+        bh.set_global_eop_provider_from_caching_provider(provider)
         ```
     """
     ...

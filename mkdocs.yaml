@@ -14,7 +14,7 @@ plugins:
     -   mkdocstrings:
             handlers:
                 python:
-                    inventories:
+                    import:
                         - https://docs.python.org/3/objects.inv
                         - https://numpy.org/doc/stable/objects.inv
                     paths: [brahe]
@@ -32,12 +32,9 @@ plugins:
                         show_symbol_type_toc: true
                         members_order: source
                         show_bases: true
-                        show_inheritance_diagram: false
                         find_stubs_package: true
+                        show_inheritance_diagram: false
                         allow_inspection: true
-                        docstring_options:
-                            ignore_init_summary: true
-                            trim_doctest_flags: true
     - section-index
     -   git-revision-date-localized:
             enable_creation_date: true
@@ -99,6 +96,7 @@ nav:
             - License: about/license.md
     -   Learn:
             - learn/index.md
+            - Earth Orientation Data: learn/earth_orientation_data.md
             - Time: learn/time.md
             - Constants: learn/constants.md
             - Coordinate Transformations: learn/coordinate_transformations.md
@@ -124,6 +122,7 @@ nav:
                 - Physical: library_api/constants/physical.md
             - EOP:
                 - library_api/eop/index.md
+                - CachingEOPProvider: library_api/eop/caching_provider.md
                 - FileEOPProvider: library_api/eop/file_provider.md
                 - StaticEOPProvider: library_api/eop/static_provider.md
                 - Functions: library_api/eop/functions.md

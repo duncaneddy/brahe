@@ -14,13 +14,16 @@ EOP data includes:
 
 ## EOP Providers
 
-Brahe supports two types of EOP providers:
+Brahe supports three types of EOP providers:
+
+### [CachingEOPProvider](caching_provider.md)
+Automatically manage EOP file freshness with cache management and automatic updates.
 
 ### [FileEOPProvider](file_provider.md)
 Load EOP data from files (Standard or C04 format) for production applications with current data.
 
 ### [StaticEOPProvider](static_provider.md)
-Use built-in historical EOP data for testing or when internet access is unavailable.
+Use user-defined fixed data, ideal for testing, offline use, or applications not requiring the most precise transformations.
 
 ## Global EOP Management
 

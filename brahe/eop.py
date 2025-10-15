@@ -17,12 +17,14 @@ from brahe._brahe import (
     # Provider classes
     StaticEOPProvider,
     FileEOPProvider,
+    CachingEOPProvider,
     # Download functions
     download_c04_eop_file,
     download_standard_eop_file,
     # Global provider management
     set_global_eop_provider_from_static_provider,
     set_global_eop_provider_from_file_provider,
+    set_global_eop_provider_from_caching_provider,
     # Global EOP data access
     get_global_ut1_utc,
     get_global_pm,
@@ -45,12 +47,14 @@ __all__ = [
     # Provider classes
     "StaticEOPProvider",
     "FileEOPProvider",
+    "CachingEOPProvider",
     # Download functions
     "download_c04_eop_file",
     "download_standard_eop_file",
     # Global provider management
     "set_global_eop_provider_from_static_provider",
     "set_global_eop_provider_from_file_provider",
+    "set_global_eop_provider_from_caching_provider",
     # Global EOP data access
     "get_global_ut1_utc",
     "get_global_pm",

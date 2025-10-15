@@ -169,6 +169,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // File Provider
     module.add_class::<PyFileEOPProvider>()?;
 
+    // Caching Provider
+    module.add_class::<PyCachingEOPProvider>()?;
+
     // Global
     module.add_function(wrap_pyfunction!(
         py_set_global_eop_provider_from_static_provider,
@@ -176,6 +179,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(
         py_set_global_eop_provider_from_file_provider,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_set_global_eop_provider_from_caching_provider,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(py_get_global_ut1_utc, module)?)?;

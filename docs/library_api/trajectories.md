@@ -2,4 +2,14 @@
 
 Trajectory containers and interpolation for orbit propagation.
 
-::: brahe.trajectories
+## OrbitalTrajectory
+
+::: brahe._brahe.OrbitTrajectory
+
+## DTrajectory
+
+::: brahe._brahe.DTrajectory
+
+## STrajectory6
+
+::: brahe._brahe.STrajectory6

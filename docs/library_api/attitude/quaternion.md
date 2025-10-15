@@ -1,16 +1,5 @@
-# Quaternion
+# Quaternion Class
 
-Quaternion representation for spacecraft attitude.
+The `Quaternion` class provides a compact, singularity-free representation of 3D rotations for spacecraft attitude determination and control.
 
-## Class Documentation
-
-The `Quaternion` class provides a quaternion representation for spacecraft attitude with conversion methods to other attitude representations.
-
-```python
-from brahe import Quaternion
-
-# Create a quaternion
-q = Quaternion(1.0, 0.0, 0.0, 0.0)
-```
-
-For complete API documentation, see the [Rust API documentation](https://docs.rs/brahe/latest/brahe/attitude/struct.Quaternion.html).
+::: brahe._brahe.Quaternion

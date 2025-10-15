@@ -163,3 +163,6 @@ extra:
     analytics:
         provider: google
         property: G-H1DDT6G6K6
+    version:
+        provider: mike
+        default: latest

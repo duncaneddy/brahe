@@ -32,7 +32,7 @@
 
 # Brahe
 
-!!! quote ""'s 
+!!! quote ""
 
     All software is wrong, but some is useful.
 
@@ -87,7 +87,7 @@ Here are some common operations to get you started:
 import brahe as bh
 
 # Create an epoch from a specific date and time
-epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0, bh.TimeSystem.UTC)
+epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, bh.TimeSystem.UTC)
 
 # Convert between time systems
 mjd_utc = epc.mjd_as_time_system(bh.TimeSystem.UTC)
@@ -114,7 +114,7 @@ tle = bh.TLE(
 prop = bh.SGPPropagator.from_tle(tle)
 
 # Propagate to a specific epoch
-epc = bh.Epoch.from_datetime(2024, 6, 1, 0, 0, 0.0, 0, "UTC")
+epc = bh.Epoch(2024, 6, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
 state = prop.propagate(epc)  # Returns [x, y, z, vx, vy, vz] in meters and m/s
 
 print(f"Position: {state[:3] / 1000} km")
@@ -133,7 +133,7 @@ alt = 1000.0  # meters
 ecef = bh.sGEODtoECEF(np.array([lat, lon, alt]), use_degrees=True)
 
 # Convert ECEF to ECI at a specific epoch
-epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0, bh.TimeSystem.UTC)
+epc = bh.Epoch(2024, 1, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
 eci = bh.rECEFtoECI(epc, ecef)
 ```
 

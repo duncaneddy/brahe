@@ -1,0 +1,125 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -81.0333, 26.7333 ] 
+        },
+        "properties": {
+          "name": "Clewiston Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -147.6500, 64.8000 ] 
+        },
+        "properties": {
+          "name": "North Pole Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -155.6667, 19.0167 ] 
+        },
+        "properties": {
+          "name": "South Point Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X", "Ku"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -70.8500, -52.9333 ] 
+        },
+        "properties": {
+          "name": "Punta Arenas Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -70.6667, -33.1333 ] 
+        },
+        "properties": {
+          "name": "Santiago Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "C", "Ka"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ 100.9167, 13.1000 ] 
+        },
+        "properties": {
+          "name": "Siracha Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ 115.5833, -29.0833 ] 
+        },
+        "properties": {
+          "name": "Western Australia Space Center (WASC)",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X", "Ku"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ 21.0667, 67.8833 ] 
+        },
+        "properties": {
+          "name": "Esrange Space Center",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X", "UHF"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ -133.5000, 68.4000 ] 
+        },
+        "properties": {
+          "name": "Inuvik Satellite Station",
+          "provider": "ssc",
+          "frequency_bands": ["S", "X"]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { 
+            "type": "Point", 
+            "coordinates": [ 18.0833, 59.2000 ] 
+        },
+        "properties": {
+          "name": "Stockholm Teleport",
+          "provider": "ssc",
+          "frequency_bands": ["Ku", "Ka"]
+        }
+      }
+    ]
+  }

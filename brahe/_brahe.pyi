@@ -661,20 +661,47 @@ class Epoch:
     All arithmetic operations (addition, subtraction) use seconds as the default unit and return
     time differences in seconds.
 
+    The Epoch constructor accepts multiple input formats for convenience:
+
+    - **Date components**: `Epoch(year, month, day)` - creates epoch at midnight
+    - **Full datetime**: `Epoch(year, month, day, hour, minute, second, nanosecond)` - full precision
+    - **Partial datetime**: `Epoch(year, month, day, hour)` or `Epoch(year, month, day, hour, minute)` etc.
+    - **ISO 8601 string**: `Epoch("2024-01-01T12:00:00Z")` - parse from string
+    - **Python datetime**: `Epoch(datetime_obj)` - convert from Python datetime
+    - **Copy constructor**: `Epoch(other_epoch)` - create a copy
+    - **Time system**: All constructors accept optional `time_system=` keyword argument (default: UTC)
+
     Example:
         ```python
-        from brahe import Epoch, TimeSystem
+        import brahe as bh
+        from datetime import datetime
 
-        # Create an epoch
-        epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
-        print(epoch)
-        # Output: 2024-01-01T12:00:00.000000000 UTC
+        # Multiple ways to create the same epoch
+        epc1 = bh.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0)
+        epc2 = bh.Epoch("2024-01-01 12:00:00.000 UTC")
+        epc3 = bh.Epoch(datetime(2024, 1, 1, 12, 0, 0))
+        print(epc1)
+        # Output: 2024-01-01 12:00:00.000 UTC
+
+        # Create epoch at midnight
+        midnight = bh.Epoch(2024, 1, 1)
+        print(midnight)
+        # Output: 2024-01-01 00:00:00.000 UTC
+
+        # Use different time systems
+        gps_time = bh.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0, time_system=bh.GPS)
+        print(gps_time)
+        # Output: 2024-01-01 12:00:00.000 GPS
 
         # Perform arithmetic operations
-        epoch2 = epoch + 3600.0  # Add one hour
-        diff = epoch2 - epoch     # Difference in seconds
-        print(diff)
-        # Output: 3600.0
+        epoch2 = epc1 + 3600.0  # Add one hour (in seconds)
+        diff = epoch2 - epc1     # Difference in seconds
+        print(f"Time difference: {diff} seconds")
+        # Output: Time difference: 3600.0 seconds
+
+        # Legacy constructors still available
+        epc4 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+        epc5 = bh.Epoch.from_jd(2460310.0, bh.UTC)
         ```
     """
 

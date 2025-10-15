@@ -122,6 +122,18 @@ unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 ///
 /// Returns:
 ///     (numpy.ndarray): 3x3 rotation matrix transforming `ITRF` -> `GCRF`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Get rotation matrix from ECEF to ECI
+///     R = bh.rotation_ecef_to_eci(epc)
+///     print(f"Rotation matrix shape: {R.shape}")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc)")]
 #[pyo3(name = "rotation_ecef_to_eci")]
@@ -185,6 +197,22 @@ unsafe fn py_position_eci_to_ecef<'py>(
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECI` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Position in ECEF (ground station)
+///     r_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+///
+///     # Transform to ECI
+///     r_eci = bh.position_ecef_to_eci(epc, r_ecef)
+///     print(f"ECI position: {r_eci}")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x)")]
 #[pyo3(name = "position_ecef_to_eci")]
@@ -212,6 +240,22 @@ unsafe fn py_position_ecef_to_eci<'py>(
 ///
 /// Returns:
 ///     (numpy.ndarray): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # State vector in ECI [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_eci = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///
+///     # Transform to ECEF
+///     state_ecef = bh.state_eci_to_ecef(epc, state_eci)
+///     print(f"ECEF state: {state_ecef}")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x_eci)")]
 #[pyo3(name = "state_eci_to_ecef")]
@@ -239,6 +283,22 @@ unsafe fn py_state_eci_to_ecef<'py>(
 ///
 /// Returns:
 ///     (numpy.ndarray): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # State vector in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_ecef = np.array([4000000.0, 3000000.0, 4000000.0, 100.0, -50.0, 200.0])
+///
+///     # Transform to ECI
+///     state_eci = bh.state_ecef_to_eci(epc, state_ecef)
+///     print(f"ECI state: {state_eci}")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x_ecef)")]
 #[pyo3(name = "state_ecef_to_eci")]

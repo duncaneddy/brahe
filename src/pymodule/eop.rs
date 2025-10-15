@@ -116,7 +116,7 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
 ///     # Set as global provider
 ///     bh.set_global_eop_provider_from_static_provider(eop_custom)
 ///     ```
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "StaticEOPProvider")]
 pub(crate) struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
@@ -487,7 +487,7 @@ impl PyStaticEOPProvider {
 ///     mjd = 60310.0
 ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(mjd)
 ///     ```
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "FileEOPProvider")]
 pub(crate) struct PyFileEOPProvider {
     obj: eop::FileEOPProvider,

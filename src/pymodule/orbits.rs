@@ -594,7 +594,7 @@ fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) 
 ///     epochs = [epc + i*60.0 for i in range(10)]  # 10 minutes
 ///     states = prop.states(epochs)
 ///     ```
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SGPPropagator")]
 pub struct PySGPPropagator {
     pub(crate) propagator: orbits::SGPPropagator,
@@ -1078,7 +1078,7 @@ impl PySGPPropagator {
 ///         bh.AngleFormat.RADIANS, 60.0
 ///     )
 ///     ```
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "KeplerianPropagator")]
 pub struct PyKeplerianPropagator {
     pub(crate) propagator: orbits::KeplerianPropagator,
@@ -1687,7 +1687,7 @@ impl PyKeplerianPropagator {
 
 // Legacy TLE support (for backward compatibility)
 /// Legacy TLE class for backward compatibility.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TLE")]
 pub struct PyTLE {
     // Minimal implementation using SGPPropagator internally

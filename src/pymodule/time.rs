@@ -3,7 +3,7 @@
 ///
 /// Time systems define different conventions for measuring and representing time.
 /// Each system has specific uses in astrodynamics and timekeeping applications.
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TimeSystem")]
 #[derive(Clone)]
 pub struct PyTimeSystem {
@@ -372,7 +372,7 @@ fn py_time_system_offset_for_datetime(
 ///     print(diff)
 ///     # Output: 3600.0
 ///     ```
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "Epoch")]
 pub struct PyEpoch {
     /// Stored object for underlying EOP
@@ -381,6 +381,167 @@ pub struct PyEpoch {
 
 #[pymethods]
 impl PyEpoch {
+    /// Create a new Epoch from various input formats.
+    ///
+    /// This flexible constructor supports multiple initialization patterns:
+    ///
+    /// Args:
+    ///     *args: Variable positional arguments supporting:
+    ///         - (str): ISO 8601 string (e.g., "2024-01-01T12:00:00.000000000 UTC")
+    ///         - (datetime): Python datetime object
+    ///         - (Epoch): Another Epoch object (copy constructor)
+    ///         - (int, int, int): Year, month, day (midnight)
+    ///         - (int, int, int, int, int, float, float): Year, month, day, hour, minute, second, nanosecond
+    ///     time_system (TimeSystem): Time system, defaults to UTC (can be specified as kwarg or in ISO string)
+    ///
+    /// Returns:
+    ///     Epoch: New epoch object
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from datetime import datetime
+    ///
+    ///     # From date components (midnight)
+    ///     epc1 = bh.Epoch(2024, 1, 1)
+    ///     print(epc1)
+    ///     # Output: 2024-01-01T00:00:00.000000000 UTC
+    ///
+    ///     # From full datetime components
+    ///     epc2 = bh.Epoch(2024, 1, 1, 12, 30, 45.5, 0.0)
+    ///     print(epc2)
+    ///     # Output: 2024-01-01T12:30:45.500000000 UTC
+    ///
+    ///     # With explicit time system
+    ///     epc3 = bh.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0, time_system=bh.TimeSystem.GPS)
+    ///     print(epc3)
+    ///     # Output: 2024-01-01T12:00:00.000000000 GPS
+    ///
+    ///     # From ISO 8601 string
+    ///     epc4 = bh.Epoch("2024-01-01T12:00:00.000000000 UTC")
+    ///     print(epc4)
+    ///     # Output: 2024-01-01T12:00:00.000000000 UTC
+    ///
+    ///     # From Python datetime
+    ///     dt = datetime(2024, 1, 1, 12, 0, 0)
+    ///     epc5 = bh.Epoch(dt)
+    ///     print(epc5)
+    ///     # Output: 2024-01-01T12:00:00.000000000 UTC
+    ///
+    ///     # Copy constructor
+    ///     epc6 = bh.Epoch(epc1)
+    ///     print(epc6)
+    ///     # Output: 2024-01-01T00:00:00.000000000 UTC
+    ///     ```
+    #[new]
+    #[pyo3(signature = (*args, time_system=None))]
+    fn __new__(args: &Bound<'_, PyTuple>, time_system: Option<PyRef<PyTimeSystem>>) -> PyResult<Self> {
+        // Get default time system (UTC)
+        let default_ts = time_system.map(|ts| ts.ts).unwrap_or(TimeSystem::UTC);
+
+        let len = args.len();
+
+        if len == 0 {
+            return Err(exceptions::PyValueError::new_err(
+                "No arguments provided for Epoch initialization"
+            ));
+        }
+
+        // Single argument constructors
+        if len == 1 {
+            let arg = args.get_item(0)?;
+
+            // Try string
+            if let Ok(s) = arg.downcast::<PyString>() {
+                let datestr = s.to_str()?;
+                return match time::Epoch::from_string(datestr) {
+                    Some(epoch) => Ok(PyEpoch { obj: epoch }),
+                    None => Err(exceptions::PyValueError::new_err(
+                        format!("Failed to parse epoch string: {}", datestr)
+                    )),
+                };
+            }
+
+            // Try datetime
+            if let Ok(dt) = arg.downcast::<PyDateTime>() {
+                let year = dt.get_year() as u32;
+                let month = dt.get_month();
+                let day = dt.get_day();
+                let hour = dt.get_hour();
+                let minute = dt.get_minute();
+                let second = dt.get_second() as f64;
+                let microsecond = dt.get_microsecond() as f64;
+                let nanosecond = microsecond * 1000.0;
+
+                return Ok(PyEpoch {
+                    obj: time::Epoch::from_datetime(
+                        year, month, day, hour, minute, second, nanosecond, default_ts
+                    ),
+                });
+            }
+
+            // Try Epoch copy
+            if let Ok(epoch) = arg.extract::<PyRef<PyEpoch>>() {
+                return Ok(PyEpoch {
+                    obj: epoch.obj,
+                });
+            }
+
+            return Err(exceptions::PyTypeError::new_err(
+                "Single argument must be str, datetime, or Epoch"
+            ));
+        }
+
+        // Date constructor (year, month, day)
+        if len == 3 {
+            let year = args.get_item(0)?.extract::<u32>()?;
+            let month = args.get_item(1)?.extract::<u8>()?;
+            let day = args.get_item(2)?.extract::<u8>()?;
+
+            return Ok(PyEpoch {
+                obj: time::Epoch::from_date(year, month, day, default_ts),
+            });
+        }
+
+        // Full datetime constructor (year, month, day, hour, minute, second, nanosecond)
+        if len == 7 {
+            let year = args.get_item(0)?.extract::<u32>()?;
+            let month = args.get_item(1)?.extract::<u8>()?;
+            let day = args.get_item(2)?.extract::<u8>()?;
+            let hour = args.get_item(3)?.extract::<u8>()?;
+            let minute = args.get_item(4)?.extract::<u8>()?;
+            let second = args.get_item(5)?.extract::<f64>()?;
+            let nanosecond = args.get_item(6)?.extract::<f64>()?;
+
+            return Ok(PyEpoch {
+                obj: time::Epoch::from_datetime(
+                    year, month, day, hour, minute, second, nanosecond, default_ts
+                ),
+            });
+        }
+
+        // Partial datetime constructors (4, 5, 6 args)
+        if (4..=6).contains(&len) {
+            let year = args.get_item(0)?.extract::<u32>()?;
+            let month = args.get_item(1)?.extract::<u8>()?;
+            let day = args.get_item(2)?.extract::<u8>()?;
+            let hour = if len >= 4 { args.get_item(3)?.extract::<u8>()? } else { 0 };
+            let minute = if len >= 5 { args.get_item(4)?.extract::<u8>()? } else { 0 };
+            let second = if len >= 6 { args.get_item(5)?.extract::<f64>()? } else { 0.0 };
+            let nanosecond = 0.0;
+
+            return Ok(PyEpoch {
+                obj: time::Epoch::from_datetime(
+                    year, month, day, hour, minute, second, nanosecond, default_ts
+                ),
+            });
+        }
+
+        Err(exceptions::PyTypeError::new_err(
+            format!("Invalid number of arguments ({}). Expected 1, 3-7 arguments", len)
+        ))
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.obj)
     }
@@ -1127,7 +1288,7 @@ impl PyEpoch {
 ///     >>> time_range = TimeRange(start, end, 60.0)  # 60-second steps
 ///     >>> for epoch in time_range:
 ///     ...     print(epoch)
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TimeRange")]
 struct PyTimeRange {
     obj: time::TimeRange,

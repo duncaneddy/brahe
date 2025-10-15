@@ -13,7 +13,7 @@ use numpy::{
 use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::PyType;
+use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess, PyTuple, PyType};
 use pyo3::{exceptions, wrap_pyfunction};
 
 use crate::traits::*;
@@ -54,7 +54,7 @@ macro_rules! numpy_to_vector {
 }
 
 /// Python wrapper for AngleFormat enum
-#[pyclass]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "AngleFormat")]
 #[derive(Clone)]
 pub struct PyAngleFormat {

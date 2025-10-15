@@ -11,3 +11,6 @@ jobs:
     test-python:
         uses: ./.github/workflows/test_python.yml
         needs: [ test-rust ]
+    update-docs:
+        uses: ./.github/workflows/update_docs.yml
+        needs: [ test-rust, test-python ]

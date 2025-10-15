@@ -136,6 +136,7 @@ nav:
                 - Cartesian: library_api/coordinates/cartesian.md
                 - Geodetic & Geocentric: library_api/coordinates/geodetic.md
                 - Topocentric: library_api/coordinates/topocentric.md
+                - Enumerations: library_api/coordinates/enums.md
             - Frames: library_api/frames.md
             - Orbits:
                 - library_api/orbits/index.md

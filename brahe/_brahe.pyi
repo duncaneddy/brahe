@@ -620,6 +620,32 @@ class DTrajectory:
         """
         ...
 
+class EllipsoidalConversionType:
+    """Python wrapper for EllipsoidalConversionType enum
+
+    Specifies the type of ellipsoidal conversion used in coordinate transformations.
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    @property
+    def GEOCENTRIC(self) -> Any:
+        """Python wrapper for EllipsoidalConversionType enum
+
+        Specifies the type of ellipsoidal conversion used in coordinate transformations.
+        """
+        ...
+
+    @property
+    def GEODETIC(self) -> Any:
+        """Python wrapper for EllipsoidalConversionType enum
+
+        Specifies the type of ellipsoidal conversion used in coordinate transformations.
+        """
+        ...
+
 class Epoch:
     """Represents a specific instant in time.
 
@@ -2193,6 +2219,7 @@ class FileEOPProvider:
 
         Returns:
             bool: True if interpolation is enabled
+
         Example:
             ```python
             import brahe as bh
@@ -2208,6 +2235,7 @@ class FileEOPProvider:
 
         Returns:
             bool: True if initialized
+
         Example:
             ```python
             import brahe as bh
@@ -2239,6 +2267,7 @@ class FileEOPProvider:
 
         Returns:
             float: Last MJD with dx/dy data
+
         Example:
             ```python
             import brahe as bh
@@ -2270,6 +2299,7 @@ class FileEOPProvider:
 
         Returns:
             float: Maximum MJD
+
         Example:
             ```python
             import brahe as bh
@@ -6865,7 +6895,9 @@ def position_sez_to_azel(x_sez: np.ndarray, angle_format: AngleFormat) -> Any:
     ...
 
 def relative_position_ecef_to_enz(
-    location_ecef: np.ndarray, r_ecef: np.ndarray, conversion_type: str
+    location_ecef: np.ndarray,
+    r_ecef: np.ndarray,
+    conversion_type: EllipsoidalConversionType,
 ) -> Any:
     """Convert relative position from `ECEF` to East-North-Up (`ENZ`) frame.
 
@@ -6875,7 +6907,7 @@ def relative_position_ecef_to_enz(
     Args:
         location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
         r_ecef (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
-        conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+        conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 
     Returns:
         (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
@@ -6888,14 +6920,16 @@ def relative_position_ecef_to_enz(
         # Ground station and satellite positions
         station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
         sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
-        enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, "Geodetic")
+        enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, bh.EllipsoidalConversionType.GEODETIC)
         print(f"ENZ: East={enz[0]/1000:.1f}km, North={enz[1]/1000:.1f}km, Up={enz[2]/1000:.1f}km")
         ```
     """
     ...
 
 def relative_position_ecef_to_sez(
-    location_ecef: np.ndarray, r_ecef: np.ndarray, conversion_type: str
+    location_ecef: np.ndarray,
+    r_ecef: np.ndarray,
+    conversion_type: EllipsoidalConversionType,
 ) -> Any:
     """Convert relative position from `ECEF` to South-East-Zenith (`SEZ`) frame.
 
@@ -6905,7 +6939,7 @@ def relative_position_ecef_to_sez(
     Args:
         location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
         r_ecef (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
-        conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+        conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 
     Returns:
         (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
@@ -6918,14 +6952,16 @@ def relative_position_ecef_to_sez(
         # Ground station and satellite positions
         station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
         sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
-        sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, "Geodetic")
+        sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, bh.EllipsoidalConversionType.GEODETIC)
         print(f"SEZ: South={sez[0]/1000:.1f}km, East={sez[1]/1000:.1f}km, Zenith={sez[2]/1000:.1f}km")
         ```
     """
     ...
 
 def relative_position_enz_to_ecef(
-    location_ecef: np.ndarray, r_enz: np.ndarray, conversion_type: str
+    location_ecef: np.ndarray,
+    r_enz: np.ndarray,
+    conversion_type: EllipsoidalConversionType,
 ) -> Any:
     """Convert relative position from East-North-Up (`ENZ`) frame to `ECEF`.
 
@@ -6935,7 +6971,7 @@ def relative_position_enz_to_ecef(
     Args:
         location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
         r_enz (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
-        conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+        conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 
     Returns:
         (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -6948,14 +6984,16 @@ def relative_position_enz_to_ecef(
         # Convert ENZ offset back to ECEF
         station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
         enz_offset = np.array([50000.0, 30000.0, 100000.0])  # 50km east, 30km north, 100km up
-        target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, "Geodetic")
+        target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, bh.EllipsoidalConversionType.GEODETIC)
         print(f"Target ECEF: {target_ecef}")
         ```
     """
     ...
 
 def relative_position_sez_to_ecef(
-    location_ecef: np.ndarray, x_sez: np.ndarray, conversion_type: str
+    location_ecef: np.ndarray,
+    x_sez: np.ndarray,
+    conversion_type: EllipsoidalConversionType,
 ) -> Any:
     """Convert relative position from South-East-Zenith (`SEZ`) frame to `ECEF`.
 
@@ -6965,7 +7003,7 @@ def relative_position_sez_to_ecef(
     Args:
         location_ecef (numpy.ndarray): Reference location in `ECEF` coordinates `[x, y, z]` in meters.
         x_sez (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
-        conversion_type (str): Type of ellipsoidal conversion, either `"Geocentric"` or `"Geodetic"`.
+        conversion_type (EllipsoidalConversionType): Type of ellipsoidal conversion (`GEOCENTRIC` or `GEODETIC`).
 
     Returns:
         (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
@@ -6978,7 +7016,7 @@ def relative_position_sez_to_ecef(
         # Convert SEZ offset back to ECEF
         station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
         sez_offset = np.array([30000.0, 50000.0, 100000.0])  # 30km south, 50km east, 100km up
-        target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, "Geodetic")
+        target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, bh.EllipsoidalConversionType.GEODETIC)
         print(f"Target ECEF: {target_ecef}")
         ```
     """

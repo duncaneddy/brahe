@@ -254,6 +254,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* Coordinates *//
 
+    // Coordinate Types
+    module.add_class::<PyEllipsoidalConversionType>()?;
+
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_osculating_to_cartesian, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_cartesian_to_osculating, module)?)?;

@@ -2,7 +2,7 @@ import math
 import brahe
 import numpy as np
 from pytest import approx
-from brahe import AngleFormat
+from brahe import AngleFormat, EllipsoidalConversionType
 
 
 def test_rotation_ellipsoid_to_enz():
@@ -101,7 +101,9 @@ def test_relative_position_ecef_to_enz():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH + 100.0, 0.0, 0.0])
 
-    r_enz = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geocentric")
+    r_enz = brahe.relative_position_ecef_to_enz(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_enz[0] == approx(0.0, abs=tol)
     assert r_enz[1] == approx(0.0, abs=tol)
@@ -111,7 +113,9 @@ def test_relative_position_ecef_to_enz():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH, 0.0, 100.0])
 
-    r_enz = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geocentric")
+    r_enz = brahe.relative_position_ecef_to_enz(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_enz[0] == approx(0.0, abs=tol)
     assert r_enz[1] == approx(100.0, abs=tol)
@@ -121,7 +125,9 @@ def test_relative_position_ecef_to_enz():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH, 100.0, 0.0])
 
-    r_enz = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geocentric")
+    r_enz = brahe.relative_position_ecef_to_enz(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_enz[0] == approx(100.0, abs=tol)
     assert r_enz[1] == approx(0.0, abs=tol)
@@ -132,7 +138,9 @@ def test_relative_position_ecef_to_enz():
     x_geoc = np.array([0.5, 0.5, 0.0])
     r_ecef = brahe.position_geocentric_to_ecef(x_geoc, brahe.AngleFormat.DEGREES)
 
-    r_enz_geoc = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geocentric")
+    r_enz_geoc = brahe.relative_position_ecef_to_enz(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_enz_geoc[0] > 0.0
     assert r_enz_geoc[1] > 0.0
@@ -143,7 +151,9 @@ def test_relative_position_ecef_to_enz():
     x_geod = np.array([0.5, 0.5, 0.0])
     r_ecef = brahe.position_geodetic_to_ecef(x_geod, brahe.AngleFormat.DEGREES)
 
-    r_enz_geod = brahe.relative_position_ecef_to_enz(x_sta, r_ecef, "Geodetic")
+    r_enz_geod = brahe.relative_position_ecef_to_enz(
+        x_sta, r_ecef, EllipsoidalConversionType.GEODETIC
+    )
 
     assert r_enz_geod[0] > 0.0
     assert r_enz_geod[1] > 0.0
@@ -159,7 +169,9 @@ def test_relative_position_enz_to_ecef():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_enz = np.array([0.0, 0.0, 100.0])
 
-    r_ecef = brahe.relative_position_enz_to_ecef(x_sta, r_enz, "Geodetic")
+    r_ecef = brahe.relative_position_enz_to_ecef(
+        x_sta, r_enz, EllipsoidalConversionType.GEODETIC
+    )
 
     assert r_ecef[0] == approx(brahe.R_EARTH + 100.0, abs=tol)
     assert r_ecef[1] == approx(0.0, abs=tol)
@@ -262,7 +274,9 @@ def test_relative_position_ecef_to_sez():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH + 100.0, 0.0, 0.0])
 
-    r_sez = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geocentric")
+    r_sez = brahe.relative_position_ecef_to_sez(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_sez[0] == approx(0.0, abs=tol)
     assert r_sez[1] == approx(0.0, abs=tol)
@@ -272,7 +286,9 @@ def test_relative_position_ecef_to_sez():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH, 0.0, 100.0])
 
-    r_sez = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geocentric")
+    r_sez = brahe.relative_position_ecef_to_sez(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_sez[0] == approx(-100.0, abs=tol)
     assert r_sez[1] == approx(0.0, abs=tol)
@@ -282,7 +298,9 @@ def test_relative_position_ecef_to_sez():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_ecef = np.array([brahe.R_EARTH, 100.0, 0.0])
 
-    r_sez = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geocentric")
+    r_sez = brahe.relative_position_ecef_to_sez(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_sez[0] == approx(0.0, abs=tol)
     assert r_sez[1] == approx(100.0, abs=tol)
@@ -293,7 +311,9 @@ def test_relative_position_ecef_to_sez():
     x_geoc = np.array([0.5, 0.5, 0.0])
     r_ecef = brahe.position_geocentric_to_ecef(x_geoc, brahe.AngleFormat.DEGREES)
 
-    r_sez_geoc = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geocentric")
+    r_sez_geoc = brahe.relative_position_ecef_to_sez(
+        x_sta, r_ecef, EllipsoidalConversionType.GEOCENTRIC
+    )
 
     assert r_sez_geoc[0] < 0.0
     assert r_sez_geoc[1] > 0.0
@@ -304,7 +324,9 @@ def test_relative_position_ecef_to_sez():
     x_geod = np.array([0.5, 0.5, 0.0])
     r_ecef = brahe.position_geodetic_to_ecef(x_geod, brahe.AngleFormat.DEGREES)
 
-    r_sez_geod = brahe.relative_position_ecef_to_sez(x_sta, r_ecef, "Geodetic")
+    r_sez_geod = brahe.relative_position_ecef_to_sez(
+        x_sta, r_ecef, EllipsoidalConversionType.GEODETIC
+    )
 
     assert r_sez_geod[0] < 0.0
     assert r_sez_geod[1] > 0.0
@@ -320,7 +342,9 @@ def test_relative_position_sez_to_ecef():
     x_sta = np.array([brahe.R_EARTH, 0.0, 0.0])
     r_sez = np.array([0.0, 0.0, 100.0])
 
-    r_ecef = brahe.relative_position_sez_to_ecef(x_sta, r_sez, "Geodetic")
+    r_ecef = brahe.relative_position_sez_to_ecef(
+        x_sta, r_sez, EllipsoidalConversionType.GEODETIC
+    )
 
     assert r_ecef[0] == approx(brahe.R_EARTH + 100.0, abs=tol)
     assert r_ecef[1] == approx(0.0, abs=tol)

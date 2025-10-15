@@ -41,6 +41,10 @@
          <lastmod>2025-10-15</lastmod>
     </url>
     <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/downloading_satellite_data.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/duncaneddy/brahe/latest/examples/propagating_an_orbit.html</loc>
          <lastmod>2025-10-15</lastmod>
     </url>
@@ -74,6 +78,18 @@
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/latest/learn/time.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/tle_and_sgp.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/datasets/index.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/datasets/celestrak.html</loc>
          <lastmod>2025-10-15</lastmod>
     </url>
     <url>
@@ -154,6 +170,14 @@
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/latest/library_api/coordinates/topocentric.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/library_api/datasets/index.html</loc>
+         <lastmod>2025-10-15</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/library_api/datasets/celestrak.html</loc>
          <lastmod>2025-10-15</lastmod>
     </url>
     <url>

@@ -264,6 +264,10 @@ def generate_class_stub(name: str, cls: type) -> str:
     if hasattr(cls, "__init__"):
         try:
             init_params = parse_init_params_from_docstring(doc)
+            # If no parameters were found in docstring, use empty signature
+            # This happens for classes without explicit #[new] in PyO3
+            if init_params == "self, /, *args: Any, **kwargs: Any":
+                init_params = "self"
             lines.append(f"    def __init__({init_params}) -> None:")
             lines.append('        """Initialize instance."""')
             lines.append("        ...")
@@ -282,6 +286,11 @@ def generate_class_stub(name: str, cls: type) -> str:
 
         try:
             member = getattr(cls, member_name)
+            # Skip __new__ if it has the default generic docstring
+            if member_name == "__new__":
+                member_doc = inspect.getdoc(member)
+                if member_doc and "Create and return a new object" in member_doc:
+                    continue
             all_members.append((member_name, member))
         except Exception as e:
             print(f"Warning: Could not get {name}.{member_name}: {e}", file=sys.stderr)

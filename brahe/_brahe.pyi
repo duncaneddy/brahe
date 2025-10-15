@@ -60,6 +60,17 @@ class DTrajectory:
         Args:
             epoch (Epoch): Time of the state
             state (numpy.ndarray): N-element state vector where N is the trajectory dimension
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            ```
         """
         ...
 
@@ -72,6 +83,14 @@ class DTrajectory:
 
         Returns:
             int: Dimension of the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            print(f"Dimension: {traj.dimension()}")
+            ```
         """
         ...
 
@@ -87,6 +106,18 @@ class DTrajectory:
 
         Returns:
             Epoch: Epoch at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_epc = traj.epoch(0)
+            ```
         """
         ...
 
@@ -95,6 +126,18 @@ class DTrajectory:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for first state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            first_epc, first_state = traj.first()
+            ```
         """
         ...
 
@@ -106,6 +149,18 @@ class DTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for epoch and state at the index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            ret_epc, ret_state = traj.get(0)
+            ```
         """
         ...
 
@@ -114,6 +169,14 @@ class DTrajectory:
 
         Returns:
             str: String representation of eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            policy = traj.get_eviction_policy()
+            ```
         """
         ...
 
@@ -122,6 +185,14 @@ class DTrajectory:
 
         Returns:
             InterpolationMethod: Current interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            method = traj.get_interpolation_method()
+            ```
         """
         ...
 
@@ -133,6 +204,19 @@ class DTrajectory:
 
         Returns:
             int: Index of the state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -144,6 +228,19 @@ class DTrajectory:
 
         Returns:
             int: Index of the state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -155,6 +252,22 @@ class DTrajectory:
 
         Returns:
             numpy.ndarray: Interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate(epc_mid)
+            ```
         """
         ...
 
@@ -166,6 +279,22 @@ class DTrajectory:
 
         Returns:
             numpy.ndarray: Linearly interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate_linear(epc_mid)
+            ```
         """
         ...
 
@@ -174,6 +303,14 @@ class DTrajectory:
 
         Returns:
             bool: True if trajectory contains no states, False otherwise
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            print(f"Is empty: {traj.is_empty()}")
+            ```
         """
         ...
 
@@ -182,6 +319,18 @@ class DTrajectory:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for last state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            last_epc, last_state = traj.last()
+            ```
         """
         ...
 
@@ -190,6 +339,18 @@ class DTrajectory:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Number of states: {traj.len()}")
+            ```
         """
         ...
 
@@ -201,6 +362,19 @@ class DTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing the nearest state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 30.0, 0.0, bh.TimeSystem.UTC)
+            nearest_epc, nearest_state = traj.nearest_state(epc2)
+            ```
         """
         ...
 
@@ -212,6 +386,18 @@ class DTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for the removed epoch and state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_epc, removed_state = traj.remove(0)
+            ```
         """
         ...
 
@@ -223,6 +409,18 @@ class DTrajectory:
 
         Returns:
             numpy.ndarray: The removed state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_state = traj.remove_epoch(epc)
+            ```
         """
         ...
 
@@ -247,6 +445,15 @@ class DTrajectory:
 
         Args:
             method (InterpolationMethod): New interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            method = bh.InterpolationMethod.LINEAR
+            traj.set_interpolation_method(method)
+            ```
         """
         ...
 
@@ -262,6 +469,18 @@ class DTrajectory:
 
         Returns:
             numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state(0)
+            ```
         """
         ...
 
@@ -273,6 +492,19 @@ class DTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -284,6 +516,19 @@ class DTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -303,6 +548,14 @@ class DTrajectory:
 
         Returns:
             DTrajectory: Self with updated eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            traj = traj.with_eviction_policy_max_age(3600.0)
+            ```
         """
         ...
 
@@ -314,6 +567,14 @@ class DTrajectory:
 
         Returns:
             DTrajectory: Self with updated eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            traj = traj.with_eviction_policy_max_size(1000)
+            ```
         """
         ...
 
@@ -327,6 +588,14 @@ class DTrajectory:
 
         Returns:
             DTrajectory: Self with updated interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            traj = traj.with_interpolation_method(bh.InterpolationMethod.LINEAR)
+            ```
         """
         ...
 
@@ -336,6 +605,18 @@ class DTrajectory:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Trajectory length: {traj.length}")
+            ```
         """
         ...
 
@@ -1067,6 +1348,14 @@ class EulerAngle:
 
         Returns:
             EulerAngle: Equivalent Euler angles with new order
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            e2 = bh.EulerAngle.from_euler_angle(e1, "ZYX")
+            ```
         """
         ...
 
@@ -1080,6 +1369,16 @@ class EulerAngle:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            e = bh.EulerAngle.from_euler_axis(ea, "XYZ")
+            ```
         """
         ...
 
@@ -1093,6 +1392,14 @@ class EulerAngle:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            e = bh.EulerAngle.from_quaternion(q, "XYZ")
+            ```
         """
         ...
 
@@ -1106,6 +1413,15 @@ class EulerAngle:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r = bh.RotationMatrix.from_array(np.eye(3))
+            e = bh.EulerAngle.from_rotation_matrix(r, "XYZ")
+            ```
         """
         ...
 
@@ -1122,6 +1438,15 @@ class EulerAngle:
 
         Returns:
             EulerAngle: New Euler angle instance
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            v = np.array([0.1, 0.2, 0.3])
+            euler = bh.EulerAngle.from_vector(v, "XYZ", bh.AngleFormat.RADIANS)
+            ```
         """
         ...
 
@@ -1133,6 +1458,14 @@ class EulerAngle:
 
         Returns:
             EulerAngle: Equivalent Euler angles with new order
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            e2 = e1.to_euler_angle("ZYX")
+            ```
         """
         ...
 
@@ -1141,6 +1474,14 @@ class EulerAngle:
 
         Returns:
             EulerAxis: Equivalent Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            ea = e.to_euler_axis()
+            ```
         """
         ...
 
@@ -1149,6 +1490,14 @@ class EulerAngle:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            q = e.to_quaternion()
+            ```
         """
         ...
 
@@ -1157,6 +1506,14 @@ class EulerAngle:
 
         Returns:
             RotationMatrix: Equivalent rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            r = e.to_rotation_matrix()
+            ```
         """
         ...
 
@@ -1166,6 +1523,14 @@ class EulerAngle:
 
         Returns:
             str: Rotation sequence (e.g., "XYZ", "ZYX")
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            print(f"Order: {e.order}")
+            ```
         """
         ...
 
@@ -1175,6 +1540,14 @@ class EulerAngle:
 
         Returns:
             float: First rotation angle in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            print(f"Phi: {e.phi}")
+            ```
         """
         ...
 
@@ -1184,6 +1557,14 @@ class EulerAngle:
 
         Returns:
             float: Third rotation angle in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            print(f"Psi: {e.psi}")
+            ```
         """
         ...
 
@@ -1193,6 +1574,14 @@ class EulerAngle:
 
         Returns:
             float: Second rotation angle in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            print(f"Theta: {e.theta}")
+            ```
         """
         ...
 
@@ -1238,6 +1627,14 @@ class EulerAxis:
 
         Returns:
             EulerAxis: Equivalent Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+
+            euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            e = bh.EulerAxis.from_euler_angle(euler)
+            ```
         """
         ...
 
@@ -1250,6 +1647,16 @@ class EulerAxis:
 
         Returns:
             EulerAxis: New Euler axis instance
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e1 = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            e2 = bh.EulerAxis.from_euler_axis(e1)
+            ```
         """
         ...
 
@@ -1262,6 +1669,14 @@ class EulerAxis:
 
         Returns:
             EulerAxis: Equivalent Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            e = bh.EulerAxis.from_quaternion(q)
+            ```
         """
         ...
 
@@ -1274,6 +1689,15 @@ class EulerAxis:
 
         Returns:
             EulerAxis: Equivalent Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r = bh.RotationMatrix.from_array(np.eye(3))
+            e = bh.EulerAxis.from_rotation_matrix(r)
+            ```
         """
         ...
 
@@ -1292,6 +1716,13 @@ class EulerAxis:
 
         Returns:
             EulerAxis: New Euler axis instance
+
+        Example:
+            ```python
+            import brahe as bh
+
+            e = bh.EulerAxis.from_values(0.0, 0.0, 1.0, 1.5708, bh.AngleFormat.RADIANS)
+            ```
         """
         ...
 
@@ -1308,6 +1739,15 @@ class EulerAxis:
 
         Returns:
             EulerAxis: New Euler axis instance
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            v = np.array([0.0, 0.0, 1.0, 1.5708])
+            e = bh.EulerAxis.from_vector(v, bh.AngleFormat.RADIANS, True)
+            ```
         """
         ...
 
@@ -1319,6 +1759,16 @@ class EulerAxis:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            e = ea.to_euler_angle("XYZ")
+            ```
         """
         ...
 
@@ -1327,6 +1777,16 @@ class EulerAxis:
 
         Returns:
             EulerAxis: This Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e1 = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            e2 = e1.to_euler_axis()
+            ```
         """
         ...
 
@@ -1335,6 +1795,16 @@ class EulerAxis:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            q = e.to_quaternion()
+            ```
         """
         ...
 
@@ -1343,6 +1813,16 @@ class EulerAxis:
 
         Returns:
             RotationMatrix: Equivalent rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            r = e.to_rotation_matrix()
+            ```
         """
         ...
 
@@ -1364,6 +1844,16 @@ class EulerAxis:
 
         Returns:
             float: Rotation angle in radians
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            print(f"Angle: {e.angle}")
+            ```
         """
         ...
 
@@ -1373,6 +1863,16 @@ class EulerAxis:
 
         Returns:
             numpy.ndarray: 3-element unit vector specifying rotation axis
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            print(f"Axis: {e.axis}")
+            ```
         """
         ...
 
@@ -1429,6 +1929,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with C04 file data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_c04_file("./eop_data/finals2000A.all.csv", True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1442,6 +1950,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with default C04 file
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_c04(True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1458,6 +1974,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with default file of specified type
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_file("C04", True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1473,6 +1997,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with default standard file
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1489,6 +2021,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with file data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_file("./eop_data/eop.txt", True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1505,6 +2045,14 @@ class FileEOPProvider:
 
         Returns:
             FileEOPProvider: Provider initialized with standard file data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_standard_file("./eop_data/standard_eop.txt", True, "Hold")
+            bh.set_global_eop_provider_from_file_provider(eop)
+            ```
         """
         ...
 
@@ -1513,6 +2061,14 @@ class FileEOPProvider:
 
         Returns:
             str: EOP type string
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"EOP type: {eop.eop_type()}")
+            ```
         """
         ...
 
@@ -1521,6 +2077,14 @@ class FileEOPProvider:
 
         Returns:
             str: Extrapolation method string
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"Extrapolation: {eop.extrapolation()}")
+            ```
         """
         ...
 
@@ -1532,6 +2096,15 @@ class FileEOPProvider:
 
         Returns:
             tuple[float, float]: Celestial pole offsets dx and dy in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            dx, dy = eop.get_dxdy(58849.0)
+            print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
+            ```
         """
         ...
 
@@ -1543,6 +2116,15 @@ class FileEOPProvider:
 
         Returns:
             tuple[float, float, float, float, float, float]: UT1-UTC, pm_x, pm_y, dx, dy, lod
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
+            print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
+            ```
         """
         ...
 
@@ -1554,6 +2136,15 @@ class FileEOPProvider:
 
         Returns:
             float: Length of day offset in seconds
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            lod = eop.get_lod(58849.0)
+            print(f"Length of day offset: {lod} seconds")
+            ```
         """
         ...
 
@@ -1565,6 +2156,15 @@ class FileEOPProvider:
 
         Returns:
             tuple[float, float]: Polar motion x and y components in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            pm_x, pm_y = eop.get_pm(58849.0)
+            print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
+            ```
         """
         ...
 
@@ -1576,6 +2176,15 @@ class FileEOPProvider:
 
         Returns:
             float: UT1-UTC time difference in seconds
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            ut1_utc = eop.get_ut1_utc(58849.0)
+            print(f"UT1-UTC: {ut1_utc} seconds")
+            ```
         """
         ...
 
@@ -1584,6 +2193,13 @@ class FileEOPProvider:
 
         Returns:
             bool: True if interpolation is enabled
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"interpolation: {eop.interpolation()}")
+            ```
         """
         ...
 
@@ -1592,6 +2208,13 @@ class FileEOPProvider:
 
         Returns:
             bool: True if initialized
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"is_initialized: {eop.is_initialized()}")
+            ```
         """
         ...
 
@@ -1600,6 +2223,14 @@ class FileEOPProvider:
 
         Returns:
             int: Number of EOP data points
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"EOP data points: {eop.len()}")
+            ```
         """
         ...
 
@@ -1608,6 +2239,13 @@ class FileEOPProvider:
 
         Returns:
             float: Last MJD with dx/dy data
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"mjd_last_dxdy: {eop.mjd_last_dxdy()}")
+            ```
         """
         ...
 
@@ -1616,6 +2254,14 @@ class FileEOPProvider:
 
         Returns:
             float: Last MJD with LOD data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"Last MJD with LOD: {eop.mjd_last_lod()}")
+            ```
         """
         ...
 
@@ -1624,6 +2270,13 @@ class FileEOPProvider:
 
         Returns:
             float: Maximum MJD
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"mjd_max: {eop.mjd_max()}")
+            ```
         """
         ...
 
@@ -1632,6 +2285,14 @@ class FileEOPProvider:
 
         Returns:
             float: Minimum MJD
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+            print(f"Minimum MJD: {eop.mjd_min()}")
+            ```
         """
         ...
 
@@ -1773,6 +2434,19 @@ class KeplerianPropagator:
 
         Args:
             num_steps (int): Number of steps to take.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
         """
         ...
 
@@ -1781,11 +2455,40 @@ class KeplerianPropagator:
 
         Args:
             target_epoch (Epoch): The epoch to propagate to.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            target = epc + 3600.0  # Propagate to 1 hour ahead
+            prop.propagate_to(target)
+            print(f"Propagated to: {prop.current_epoch}")
+            ```
         """
         ...
 
     def reset(self) -> Any:
-        """Reset propagator to initial conditions."""
+        """Reset propagator to initial conditions.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.propagate_steps(10)
+            prop.reset()  # Return to initial epoch and state
+            print(f"Reset to: {prop.current_epoch}")
+            ```
+        """
         ...
 
     def set_eviction_policy_max_age(self, max_age: float) -> Any:
@@ -1793,6 +2496,20 @@ class KeplerianPropagator:
 
         Args:
             max_age (float): Maximum age in seconds.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.set_eviction_policy_max_age(3600.0)  # Keep only states within 1 hour
+            prop.propagate_to(epc + 7200.0)  # Propagate 2 hours
+            print(f"Trajectory length: {prop.trajectory.len()}")
+            ```
         """
         ...
 
@@ -1801,6 +2518,20 @@ class KeplerianPropagator:
 
         Args:
             max_size (int): Maximum number of states to retain.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.set_eviction_policy_max_size(100)  # Keep only 100 most recent states
+            prop.propagate_steps(200)
+            print(f"Trajectory length: {prop.trajectory.len()}")
+            ```
         """
         ...
 
@@ -1820,6 +2551,24 @@ class KeplerianPropagator:
             frame (OrbitFrame): Reference frame.
             representation (OrbitRepresentation): State representation.
             angle_format (AngleFormat): Angle format.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+
+            # Change initial conditions to a different orbit
+            new_oe = np.array([bh.R_EARTH + 800e3, 0.02, 1.2, 0.5, 0.3, 0.0])
+            new_state = bh.state_osculating_to_cartesian(new_oe, bh.AngleFormat.RADIANS)
+            new_epc = bh.Epoch.from_datetime(2024, 1, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
+            print(f"New initial epoch: {prop.initial_epoch}")
+            ```
         """
         ...
 
@@ -1918,7 +2667,21 @@ class KeplerianPropagator:
         ...
 
     def step(self) -> Any:
-        """Step forward by the default step size."""
+        """Step forward by the default step size.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.step()  # Advance by default step_size (60 seconds)
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
+        """
         ...
 
     def step_by(self, step_size: float) -> Any:
@@ -1926,6 +2689,19 @@ class KeplerianPropagator:
 
         Args:
             step_size (float): Time step in seconds.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.step_by(120.0)  # Advance by 120 seconds
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
         """
         ...
 
@@ -1934,6 +2710,20 @@ class KeplerianPropagator:
 
         Args:
             target_epoch (Epoch): The epoch to step past.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            target = epc + 300.0  # Target 5 minutes ahead
+            prop.step_past(target)
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
         """
         ...
 
@@ -1970,6 +2760,20 @@ class KeplerianPropagator:
 
         Returns:
             OrbitalTrajectory: The accumulated trajectory.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+            prop.propagate_steps(10)
+            traj = prop.trajectory
+            print(f"Trajectory contains {traj.len()} states")
+            ```
         """
         ...
 
@@ -2084,11 +2888,35 @@ class OrbitTrajectory:
         Args:
             epoch (Epoch): Time of the state
             state (numpy.ndarray): 6-element state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            ```
         """
         ...
 
     def clear(self) -> Any:
-        """Clear all states from the trajectory."""
+        """Clear all states from the trajectory.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj.clear()
+            ```
+        """
         ...
 
     def dimension(self) -> int:
@@ -2096,6 +2924,14 @@ class OrbitTrajectory:
 
         Returns:
             int: Dimension of the trajectory (always 6)
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            print(f"Dimension: {traj.dimension()}")
+            ```
         """
         ...
 
@@ -2104,6 +2940,18 @@ class OrbitTrajectory:
 
         Returns:
             Epoch or None: Last epoch if trajectory is not empty, None otherwise
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"End epoch: {traj.end_epoch()}")
+            ```
         """
         ...
 
@@ -2115,6 +2963,18 @@ class OrbitTrajectory:
 
         Returns:
             Epoch: Epoch at given index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            first_epoch = traj.epoch(0)
+            ```
         """
         ...
 
@@ -2123,6 +2983,19 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: 1D array of Julian dates for all epochs
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj.add(epc + 60.0, state)
+            epochs_array = traj.epochs()
+            ```
         """
         ...
 
@@ -2131,6 +3004,18 @@ class OrbitTrajectory:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for first state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            first_epc, first_state = traj.first()
+            ```
         """
         ...
 
@@ -2142,6 +3027,18 @@ class OrbitTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for epoch and state at the index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            ret_epc, ret_state = traj.get(0)
+            ```
         """
         ...
 
@@ -2150,6 +3047,14 @@ class OrbitTrajectory:
 
         Returns:
             str: String representation of eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            policy = traj.get_eviction_policy()
+            ```
         """
         ...
 
@@ -2158,6 +3063,14 @@ class OrbitTrajectory:
 
         Returns:
             InterpolationMethod: Current interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            method = traj.get_interpolation_method()
+            ```
         """
         ...
 
@@ -2169,6 +3082,19 @@ class OrbitTrajectory:
 
         Returns:
             int: Index of the state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -2180,6 +3106,19 @@ class OrbitTrajectory:
 
         Returns:
             int: Index of the state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -2191,6 +3130,22 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: Interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate(epc_mid)
+            ```
         """
         ...
 
@@ -2202,6 +3157,22 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: Linearly interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate_linear(epc_mid)
+            ```
         """
         ...
 
@@ -2210,6 +3181,14 @@ class OrbitTrajectory:
 
         Returns:
             bool: True if trajectory contains no states, False otherwise
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            print(f"Is empty: {traj.is_empty()}")
+            ```
         """
         ...
 
@@ -2218,6 +3197,18 @@ class OrbitTrajectory:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for last state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            last_epc, last_state = traj.last()
+            ```
         """
         ...
 
@@ -2226,6 +3217,18 @@ class OrbitTrajectory:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Number of states: {traj.len()}")
+            ```
         """
         ...
 
@@ -2237,6 +3240,19 @@ class OrbitTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing the nearest state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 30.0, 0.0, bh.TimeSystem.UTC)
+            nearest_epc, nearest_state = traj.nearest_state(epc2)
+            ```
         """
         ...
 
@@ -2248,6 +3264,18 @@ class OrbitTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for the removed epoch and state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_epc, removed_state = traj.remove(0)
+            ```
         """
         ...
 
@@ -2259,6 +3287,18 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: The removed state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_state = traj.remove_epoch(epc)
+            ```
         """
         ...
 
@@ -2267,6 +3307,14 @@ class OrbitTrajectory:
 
         Args:
             max_age (float): Maximum age in seconds relative to most recent state
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj.set_eviction_policy_max_age(3600.0)
+            ```
         """
         ...
 
@@ -2275,6 +3323,14 @@ class OrbitTrajectory:
 
         Args:
             max_size (int): Maximum number of states to retain
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj.set_eviction_policy_max_size(1000)
+            ```
         """
         ...
 
@@ -2283,6 +3339,14 @@ class OrbitTrajectory:
 
         Args:
             method (InterpolationMethod): New interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj.set_interpolation_method(bh.InterpolationMethod.LINEAR)
+            ```
         """
         ...
 
@@ -2291,6 +3355,18 @@ class OrbitTrajectory:
 
         Returns:
             Epoch or None: First epoch if trajectory is not empty, None otherwise
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Start epoch: {traj.start_epoch()}")
+            ```
         """
         ...
 
@@ -2302,6 +3378,18 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: State vector at given index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            first_state = traj.state(0)
+            ```
         """
         ...
 
@@ -2313,6 +3401,19 @@ class OrbitTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -2324,6 +3425,19 @@ class OrbitTrajectory:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -2332,6 +3446,19 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: 2D array of states with shape (6, N) where N is the number of states
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj.add(epc + 60.0, state)
+            states_array = traj.states()
+            ```
         """
         ...
 
@@ -2340,6 +3467,19 @@ class OrbitTrajectory:
 
         Returns:
             float or None: Time span between first and last epochs, or None if less than 2 states
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj.add(epc + 3600.0, state)
+            print(f"Timespan: {traj.timespan()} seconds")
+            ```
         """
         ...
 
@@ -2348,6 +3488,18 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Trajectory in ECEF Cartesian frame
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj_ecef = traj.to_ecef()
+            ```
         """
         ...
 
@@ -2356,6 +3508,18 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Trajectory in ECI Cartesian frame
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
+            traj.add(epc, state)
+            traj_eci = traj.to_eci()
+            ```
         """
         ...
 
@@ -2367,6 +3531,18 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Trajectory in ECI Keplerian representation
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            traj_kep = traj.to_keplerian(bh.AngleFormat.RADIANS)
+            ```
         """
         ...
 
@@ -2375,6 +3551,18 @@ class OrbitTrajectory:
 
         Returns:
             numpy.ndarray: 2D array with shape (6, N) where N is number of states
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            matrix = traj.to_matrix()
+            ```
         """
         ...
 
@@ -2386,6 +3574,14 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Self with updated eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj = traj.with_eviction_policy_max_age(3600.0)
+            ```
         """
         ...
 
@@ -2397,6 +3593,14 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Self with updated eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj = traj.with_eviction_policy_max_size(1000)
+            ```
         """
         ...
 
@@ -2410,6 +3614,14 @@ class OrbitTrajectory:
 
         Returns:
             OrbitTrajectory: Self with updated interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj = traj.with_interpolation_method(bh.InterpolationMethod.LINEAR)
+            ```
         """
         ...
 
@@ -2419,6 +3631,14 @@ class OrbitTrajectory:
 
         Returns:
             AngleFormat or None: Angle format for Keplerian representation, None for Cartesian
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            print(f"Angle format: {traj.angle_format}")
+            ```
         """
         ...
 
@@ -2428,6 +3648,14 @@ class OrbitTrajectory:
 
         Returns:
             OrbitFrame: Reference frame of the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            print(f"Frame: {traj.frame}")
+            ```
         """
         ...
 
@@ -2437,6 +3665,18 @@ class OrbitTrajectory:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Trajectory length: {traj.length}")
+            ```
         """
         ...
 
@@ -2446,6 +3686,14 @@ class OrbitTrajectory:
 
         Returns:
             OrbitRepresentation: State representation format of the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            print(f"Representation: {traj.representation}")
+            ```
         """
         ...
 
@@ -2528,6 +3776,14 @@ class Quaternion:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+
+            euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            q = bh.Quaternion.from_euler_angle(euler)
+            ```
         """
         ...
 
@@ -2540,6 +3796,16 @@ class Quaternion:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            q = bh.Quaternion.from_euler_axis(ea)
+            ```
         """
         ...
 
@@ -2552,6 +3818,14 @@ class Quaternion:
 
         Returns:
             Quaternion: New quaternion instance
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q1 = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            q2 = bh.Quaternion.from_quaternion(q1)
+            ```
         """
         ...
 
@@ -2564,6 +3838,16 @@ class Quaternion:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            mat = np.eye(3)
+            rm = bh.RotationMatrix.from_matrix(mat)
+            q = bh.Quaternion.from_rotation_matrix(rm)
+            ```
         """
         ...
 
@@ -2577,6 +3861,15 @@ class Quaternion:
 
         Returns:
             Quaternion: New quaternion instance
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            v = np.array([1.0, 0.0, 0.0, 0.0])
+            q = bh.Quaternion.from_vector(v, scalar_first=True)
+            ```
         """
         ...
 
@@ -2585,6 +3878,14 @@ class Quaternion:
 
         Returns:
             Quaternion: Conjugate quaternion with negated vector part
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            q_conj = q.conjugate()
+            ```
         """
         ...
 
@@ -2593,6 +3894,14 @@ class Quaternion:
 
         Returns:
             Quaternion: Inverse quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            q_inv = q.inverse()
+            ```
         """
         ...
 
@@ -2601,11 +3910,28 @@ class Quaternion:
 
         Returns:
             float: Euclidean norm of the quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            norm = q.norm()
+            ```
         """
         ...
 
     def normalize(self) -> Any:
-        """Normalize the quaternion in-place to unit length."""
+        """Normalize the quaternion in-place to unit length.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(2.0, 0.0, 0.0, 0.0)
+            q.normalize()
+            ```
+        """
         ...
 
     def slerp(self, other: Quaternion, t: float) -> Quaternion:
@@ -2617,6 +3943,15 @@ class Quaternion:
 
         Returns:
             Quaternion: Interpolated quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q1 = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            q2 = bh.Quaternion(0.707, 0.707, 0.0, 0.0)
+            q_mid = q1.slerp(q2, 0.5)
+            ```
         """
         ...
 
@@ -2628,6 +3963,14 @@ class Quaternion:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            euler = q.to_euler_angle("XYZ")
+            ```
         """
         ...
 
@@ -2663,6 +4006,14 @@ class Quaternion:
 
         Returns:
             numpy.ndarray: 4-element array containing quaternion components
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            v = q.to_vector(scalar_first=True)
+            ```
         """
         ...
 
@@ -2767,6 +4118,13 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: Rotation matrix for Z-axis rotation
+
+        Example:
+            ```python
+            import brahe as bh
+
+            r = bh.RotationMatrix.Rz(1.5708, bh.AngleFormat.RADIANS)
+            ```
         """
         ...
 
@@ -2779,6 +4137,14 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: Equivalent rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+
+            euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+            r = bh.RotationMatrix.from_euler_angle(euler)
+            ```
         """
         ...
 
@@ -2791,6 +4157,16 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: Equivalent rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            axis = np.array([0.0, 0.0, 1.0])
+            ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+            r = bh.RotationMatrix.from_euler_axis(ea)
+            ```
         """
         ...
 
@@ -2806,6 +4182,15 @@ class RotationMatrix:
 
         Raises:
             BraheError: If the matrix is not a valid rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            mat = np.eye(3)
+            r = bh.RotationMatrix.from_matrix(mat)
+            ```
         """
         ...
 
@@ -2818,6 +4203,14 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: Equivalent rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+
+            q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+            r = bh.RotationMatrix.from_quaternion(q)
+            ```
         """
         ...
 
@@ -2830,6 +4223,15 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: New rotation matrix instance
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r1 = bh.RotationMatrix.from_array(np.eye(3))
+            r2 = bh.RotationMatrix.from_rotation_matrix(r1)
+            ```
         """
         ...
 
@@ -2841,6 +4243,15 @@ class RotationMatrix:
 
         Returns:
             EulerAngle: Equivalent Euler angles
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r = bh.RotationMatrix.from_array(np.eye(3))
+            euler = r.to_euler_angle("XYZ")
+            ```
         """
         ...
 
@@ -2849,6 +4260,15 @@ class RotationMatrix:
 
         Returns:
             EulerAxis: Equivalent Euler axis
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r = bh.RotationMatrix.from_array(np.eye(3))
+            e = r.to_euler_axis()
+            ```
         """
         ...
 
@@ -2865,6 +4285,15 @@ class RotationMatrix:
 
         Returns:
             Quaternion: Equivalent quaternion
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r = bh.RotationMatrix.from_array(np.eye(3))
+            q = r.to_quaternion()
+            ```
         """
         ...
 
@@ -2873,6 +4302,15 @@ class RotationMatrix:
 
         Returns:
             RotationMatrix: This rotation matrix
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            r1 = bh.RotationMatrix.from_array(np.eye(3))
+            r2 = r1.to_rotation_matrix()
+            ```
         """
         ...
 
@@ -2963,6 +4401,17 @@ class SGPPropagator:
 
         Args:
             num_steps (int): Number of steps to take.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)
+            prop.propagate_steps(10)  # Advance by 10 steps (600 seconds)
+            print(f"After 10 steps: {prop.current_epoch}")
+            ```
         """
         ...
 
@@ -2971,11 +4420,37 @@ class SGPPropagator:
 
         Args:
             target_epoch (Epoch): The epoch to propagate to.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            target = prop.epoch + 7200.0  # 2 hours later
+            prop.propagate_to(target)
+            print(f"Propagated to: {prop.current_epoch}")
+            ```
         """
         ...
 
     def reset(self) -> Any:
-        """Reset propagator to initial conditions."""
+        """Reset propagator to initial conditions.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            initial_epoch = prop.epoch
+            prop.propagate_steps(100)
+            prop.reset()
+            print(f"Reset to: {prop.current_epoch == initial_epoch}")
+            ```
+        """
         ...
 
     def set_eviction_policy_max_age(self, max_age: float) -> Any:
@@ -2983,6 +4458,17 @@ class SGPPropagator:
 
         Args:
             max_age (float): Maximum age in seconds to keep states in trajectory.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            prop.set_eviction_policy_max_age(86400.0)  # Keep 1 day of history
+            print("Trajectory limited to 24 hours of states")
+            ```
         """
         ...
 
@@ -2991,6 +4477,17 @@ class SGPPropagator:
 
         Args:
             max_size (int): Maximum number of states to keep in trajectory.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            prop.set_eviction_policy_max_size(1000)
+            print("Trajectory limited to 1000 states")
+            ```
         """
         ...
 
@@ -3076,7 +4573,19 @@ class SGPPropagator:
         ...
 
     def step(self) -> Any:
-        """Step forward by the default step size."""
+        """Step forward by the default step size.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            prop.step()  # Advance by default step_size
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
+        """
         ...
 
     def step_by(self, step_size: float) -> Any:
@@ -3084,6 +4593,17 @@ class SGPPropagator:
 
         Args:
             step_size (float): Time step in seconds.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            prop.step_by(120.0)  # Advance by 2 minutes
+            print(f"Advanced to: {prop.current_epoch}")
+            ```
         """
         ...
 
@@ -3092,6 +4612,18 @@ class SGPPropagator:
 
         Args:
             target_epoch (Epoch): The epoch to step past.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            target = prop.epoch + 3600.0  # 1 hour later
+            prop.step_past(target)
+            print(f"Stepped past target")
+            ```
         """
         ...
 
@@ -3101,6 +4633,17 @@ class SGPPropagator:
 
         Returns:
             Epoch: Current propagator epoch.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            propagator = bh.SGPPropagator.from_tle(line1, line2)
+            propagator.step()
+            print(f"Current epoch: {propagator.current_epoch}")
+            ```
         """
         ...
 
@@ -3128,6 +4671,17 @@ class SGPPropagator:
 
         Returns:
             str or None: Satellite name if provided.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            name = "ISS (ZARYA)"
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            propagator = bh.SGPPropagator.from_3le(name, line1, line2)
+            print(f"Satellite: {propagator.satellite_name}")
+            ```
         """
         ...
 
@@ -3137,6 +4691,16 @@ class SGPPropagator:
 
         Returns:
             float: Step size in seconds.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            propagator = bh.SGPPropagator.from_tle(line1, line2)
+            print(f"Step size: {propagator.step_size} seconds")
+            ```
         """
         ...
 
@@ -3146,6 +4710,18 @@ class SGPPropagator:
 
         Returns:
             OrbitalTrajectory: The accumulated trajectory.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+            prop.propagate_steps(100)
+            traj = prop.trajectory
+            print(f"Trajectory has {traj.len()} states")
+            ```
         """
         ...
 
@@ -3178,6 +4754,18 @@ class STrajectory6:
 
         Returns:
             STrajectory6: New 6D trajectory instance populated with data
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            states = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0,
+                               bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj = bh.STrajectory6.from_data([epc1, epc2], states)
+            ```
         """
         ...
 
@@ -3210,6 +4798,18 @@ class STrajectory6:
 
         Returns:
             Epoch: Epoch at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_epc = traj.epoch(0)
+            ```
         """
         ...
 
@@ -3218,6 +4818,18 @@ class STrajectory6:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for first state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            first_epc, first_state = traj.first()
+            ```
         """
         ...
 
@@ -3229,6 +4841,18 @@ class STrajectory6:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for epoch and state at the index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            ret_epc, ret_state = traj.get(0)
+            ```
         """
         ...
 
@@ -3237,6 +4861,14 @@ class STrajectory6:
 
         Returns:
             str: String representation of eviction policy
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            policy = traj.get_eviction_policy()
+            ```
         """
         ...
 
@@ -3248,6 +4880,19 @@ class STrajectory6:
 
         Returns:
             int: Index of the state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -3259,6 +4904,19 @@ class STrajectory6:
 
         Returns:
             int: Index of the state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            index = traj.index_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -3270,6 +4928,22 @@ class STrajectory6:
 
         Returns:
             numpy.ndarray: Interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate(epc_mid)
+            ```
         """
         ...
 
@@ -3281,6 +4955,22 @@ class STrajectory6:
 
         Returns:
             numpy.ndarray: Linearly interpolated state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state1)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
+            state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+            traj.add(epc2, state2)
+            epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            state_interp = traj.interpolate_linear(epc_mid)
+            ```
         """
         ...
 
@@ -3289,6 +4979,14 @@ class STrajectory6:
 
         Returns:
             bool: True if trajectory contains no states, False otherwise
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.DTrajectory(6)
+            print(f"Is empty: {traj.is_empty()}")
+            ```
         """
         ...
 
@@ -3297,6 +4995,18 @@ class STrajectory6:
 
         Returns:
             tuple or None: Tuple of (Epoch, numpy.ndarray) for last state, or None if empty
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            last_epc, last_state = traj.last()
+            ```
         """
         ...
 
@@ -3305,6 +5015,18 @@ class STrajectory6:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Number of states: {traj.len()}")
+            ```
         """
         ...
 
@@ -3316,6 +5038,19 @@ class STrajectory6:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing the nearest state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 30.0, 0.0, bh.TimeSystem.UTC)
+            nearest_epc, nearest_state = traj.nearest_state(epc2)
+            ```
         """
         ...
 
@@ -3327,6 +5062,18 @@ class STrajectory6:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) for the removed epoch and state
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_epc, removed_state = traj.remove(0)
+            ```
         """
         ...
 
@@ -3338,6 +5085,18 @@ class STrajectory6:
 
         Returns:
             numpy.ndarray: The removed state vector
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            removed_state = traj.remove_epoch(epc)
+            ```
         """
         ...
 
@@ -3362,6 +5121,14 @@ class STrajectory6:
 
         Args:
             method (InterpolationMethod): New interpolation method
+
+        Example:
+            ```python
+            import brahe as bh
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            traj.set_interpolation_method(bh.InterpolationMethod.LINEAR)
+            ```
         """
         ...
 
@@ -3373,6 +5140,18 @@ class STrajectory6:
 
         Returns:
             numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state(0)
+            ```
         """
         ...
 
@@ -3384,6 +5163,19 @@ class STrajectory6:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or after the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
         """
         ...
 
@@ -3395,6 +5187,19 @@ class STrajectory6:
 
         Returns:
             tuple: Tuple of (Epoch, numpy.ndarray) containing state at or before the target epoch
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc1, state)
+            epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
+            ret_epc, ret_state = traj.state_before_epoch(epc2)
+            ```
         """
         ...
 
@@ -3461,6 +5266,18 @@ class STrajectory6:
 
         Returns:
             int: Number of states in the trajectory
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            print(f"Trajectory length: {traj.length}")
+            ```
         """
         ...
 
@@ -3526,6 +5343,22 @@ class StaticEOPProvider:
 
         Returns:
             StaticEOPProvider: Provider with specified EOP values
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create EOP provider with custom values
+            eop = bh.StaticEOPProvider.from_values(
+                ut1_utc=0.1,
+                pm_x=1e-6,
+                pm_y=2e-6,
+                dx=1e-7,
+                dy=1e-7,
+                lod=0.001
+            )
+            bh.set_global_eop_provider_from_static_provider(eop)
+            ```
         """
         ...
 
@@ -3535,6 +5368,15 @@ class StaticEOPProvider:
 
         Returns:
             StaticEOPProvider: Provider with all EOP values set to zero
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create EOP provider with all zeros (no corrections)
+            eop = bh.StaticEOPProvider.from_zero()
+            bh.set_global_eop_provider_from_static_provider(eop)
+            ```
         """
         ...
 
@@ -3543,6 +5385,14 @@ class StaticEOPProvider:
 
         Returns:
             str: EOP type string
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"EOP type: {eop.eop_type()}")
+            ```
         """
         ...
 
@@ -3551,6 +5401,14 @@ class StaticEOPProvider:
 
         Returns:
             str: Extrapolation method string
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Extrapolation method: {eop.extrapolation()}")
+            ```
         """
         ...
 
@@ -3562,6 +5420,15 @@ class StaticEOPProvider:
 
         Returns:
             tuple[float, float]: Celestial pole offsets dx and dy in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            dx, dy = eop.get_dxdy(58849.0)
+            print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
+            ```
         """
         ...
 
@@ -3573,6 +5440,15 @@ class StaticEOPProvider:
 
         Returns:
             tuple[float, float, float, float, float, float]: UT1-UTC, pm_x, pm_y, dx, dy, lod
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider()
+            ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
+            print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
+            ```
         """
         ...
 
@@ -3584,6 +5460,15 @@ class StaticEOPProvider:
 
         Returns:
             float: Length of day offset in seconds
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            lod = eop.get_lod(58849.0)
+            print(f"Length of day offset: {lod} seconds")
+            ```
         """
         ...
 
@@ -3595,6 +5480,15 @@ class StaticEOPProvider:
 
         Returns:
             tuple[float, float]: Polar motion x and y components in radians
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            pm_x, pm_y = eop.get_pm(58849.0)
+            print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
+            ```
         """
         ...
 
@@ -3606,6 +5500,15 @@ class StaticEOPProvider:
 
         Returns:
             float: UT1-UTC time difference in seconds
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            ut1_utc = eop.get_ut1_utc(58849.0)
+            print(f"UT1-UTC: {ut1_utc} seconds")
+            ```
         """
         ...
 
@@ -3614,6 +5517,14 @@ class StaticEOPProvider:
 
         Returns:
             bool: True if interpolation is enabled
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Interpolation enabled: {eop.interpolation()}")
+            ```
         """
         ...
 
@@ -3622,6 +5533,14 @@ class StaticEOPProvider:
 
         Returns:
             bool: True if initialized
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Is initialized: {eop.is_initialized()}")
+            ```
         """
         ...
 
@@ -3630,6 +5549,14 @@ class StaticEOPProvider:
 
         Returns:
             int: Number of EOP data points
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"EOP data points: {eop.len()}")
+            ```
         """
         ...
 
@@ -3638,6 +5565,14 @@ class StaticEOPProvider:
 
         Returns:
             float: Last MJD with dx/dy data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Last MJD with dx/dy: {eop.mjd_last_dxdy()}")
+            ```
         """
         ...
 
@@ -3646,6 +5581,14 @@ class StaticEOPProvider:
 
         Returns:
             float: Last MJD with LOD data
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Last MJD with LOD: {eop.mjd_last_lod()}")
+            ```
         """
         ...
 
@@ -3654,6 +5597,14 @@ class StaticEOPProvider:
 
         Returns:
             float: Maximum MJD
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Maximum MJD: {eop.mjd_max()}")
+            ```
         """
         ...
 
@@ -3662,6 +5613,14 @@ class StaticEOPProvider:
 
         Returns:
             float: Minimum MJD
+
+        Example:
+            ```python
+            import brahe as bh
+
+            eop = bh.StaticEOPProvider.from_zero()
+            print(f"Minimum MJD: {eop.mjd_min()}")
+            ```
         """
         ...
 
@@ -3799,6 +5758,18 @@ def anomaly_eccentric_to_mean(
 
     Returns:
         float: Mean anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+        import math
+
+        # Convert eccentric to mean anomaly
+        E = math.pi / 4  # 45 degrees eccentric anomaly
+        e = 0.1  # eccentricity
+        M = bh.anomaly_eccentric_to_mean(E, e, bh.AngleFormat.RADIANS)
+        print(f"Mean anomaly: {M:.4f} radians")
+        ```
     """
     ...
 
@@ -3814,6 +5785,18 @@ def anomaly_eccentric_to_true(
 
     Returns:
         float: True anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+        import math
+
+        # Convert eccentric to true anomaly
+        E = math.pi / 4  # 45 degrees eccentric anomaly
+        e = 0.4  # eccentricity
+        nu = bh.anomaly_eccentric_to_true(E, e, bh.AngleFormat.RADIANS)
+        print(f"True anomaly: {nu:.4f} radians")
+        ```
     """
     ...
 
@@ -3829,6 +5812,17 @@ def anomaly_mean_to_eccentric(
 
     Returns:
         float: Eccentric anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Convert mean to eccentric anomaly (solves Kepler's equation)
+        M = 1.5  # mean anomaly in radians
+        e = 0.3  # eccentricity
+        E = bh.anomaly_mean_to_eccentric(M, e, bh.AngleFormat.RADIANS)
+        print(f"Eccentric anomaly: {E:.4f} radians")
+        ```
     """
     ...
 
@@ -3842,6 +5836,17 @@ def anomaly_mean_to_true(anm_mean: float, e: float, angle_format: AngleFormat) -
 
     Returns:
         float: True anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Convert mean to true anomaly (combines Kepler's equation + eccentric anomaly conversion)
+        M = 2.0  # mean anomaly in radians
+        e = 0.25  # eccentricity
+        nu = bh.anomaly_mean_to_true(M, e, bh.AngleFormat.RADIANS)
+        print(f"True anomaly: {nu:.4f} radians")
+        ```
     """
     ...
 
@@ -3857,6 +5862,18 @@ def anomaly_true_to_eccentric(
 
     Returns:
         float: Eccentric anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+        import math
+
+        # Convert true to eccentric anomaly
+        nu = math.pi / 3  # 60 degrees true anomaly
+        e = 0.2  # eccentricity
+        E = bh.anomaly_true_to_eccentric(nu, e, bh.AngleFormat.RADIANS)
+        print(f"Eccentric anomaly: {E:.4f} radians")
+        ```
     """
     ...
 
@@ -3870,6 +5887,18 @@ def anomaly_true_to_mean(anm_true: float, e: float, angle_format: AngleFormat) -
 
     Returns:
         float: Mean anomaly in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+        import math
+
+        # Convert true to mean anomaly
+        nu = math.pi / 2  # 90 degrees true anomaly
+        e = 0.15  # eccentricity
+        M = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.RADIANS)
+        print(f"Mean anomaly: {M:.4f} radians")
+        ```
     """
     ...
 
@@ -3882,6 +5911,17 @@ def apoapsis_distance(a: float, e: float) -> float:
 
     Returns:
         float: The distance of the object at apoapsis in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate apoapsis distance
+        a = 8000000.0  # 8000 km semi-major axis
+        e = 0.2  # moderate eccentricity
+        r_apo = bh.apoapsis_distance(a, e)
+        print(f"Apoapsis distance: {r_apo/1000:.2f} km")
+        ```
     """
     ...
 
@@ -3895,6 +5935,17 @@ def apoapsis_velocity(a: float, e: float, gm: float) -> float:
 
     Returns:
         float: The magnitude of velocity of the object at apoapsis in m/s.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate apoapsis velocity for a Martian satellite
+        a = 10000000.0  # 10000 km semi-major axis
+        e = 0.3
+        v_apo = bh.apoapsis_velocity(a, e, bh.GM_MARS)
+        print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
+        ```
     """
     ...
 
@@ -3907,6 +5958,17 @@ def apogee_velocity(a: float, e: float) -> float:
 
     Returns:
         float: The magnitude of velocity of the object at apogee in m/s.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate apogee velocity for GTO (Geostationary Transfer Orbit)
+        a = 24400000.0  # meters
+        e = 0.73  # high eccentricity
+        v_apo = bh.apogee_velocity(a, e)
+        print(f"Apogee velocity: {v_apo:.2f} m/s")
+        ```
     """
     ...
 
@@ -4342,6 +6404,16 @@ def mean_motion(a: float, angle_format: AngleFormat) -> float:
 
     Returns:
         float: The mean motion of the astronomical object in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate mean motion for geostationary orbit (35786 km altitude)
+        a = bh.R_EARTH + 35786e3
+        n = bh.mean_motion(a, bh.AngleFormat.DEGREES)
+        print(f"Mean motion: {n:.6f} deg/s")
+        ```
     """
     ...
 
@@ -4356,6 +6428,16 @@ def mean_motion_general(a: float, gm: float, angle_format: AngleFormat) -> float
 
     Returns:
         float: The mean motion of the astronomical object in radians or degrees.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate mean motion for a Mars orbiter
+        a = 4000000.0  # 4000 km semi-major axis
+        n = bh.mean_motion_general(a, bh.GM_MARS, bh.AngleFormat.RADIANS)
+        print(f"Mean motion: {n:.6f} rad/s")
+        ```
     """
     ...
 
@@ -4417,6 +6499,16 @@ def orbital_period(a: float) -> Any:
 
     Returns:
         (float): The orbital period of the astronomical object in seconds.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate orbital period for ISS-like orbit (400 km altitude)
+        a = bh.R_EARTH + 400e3
+        period = bh.orbital_period(a)
+        print(f"Orbital period: {period/60:.2f} minutes")
+        ```
     """
     ...
 
@@ -4429,6 +6521,16 @@ def orbital_period_general(a: float, gm: float) -> float:
 
     Returns:
         float: The orbital period of the astronomical object in seconds.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate orbital period around the Moon
+        a = 1900000.0  # 1900 km semi-major axis
+        period = bh.orbital_period_general(a, bh.GM_MOON)
+        print(f"Lunar orbital period: {period/3600:.2f} hours")
+        ```
     """
     ...
 
@@ -4452,6 +6554,17 @@ def periapsis_distance(a: float, e: float) -> float:
 
     Returns:
         float: The distance of the object at periapsis in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate periapsis distance for an elliptical orbit
+        a = 8000000.0  # 8000 km semi-major axis
+        e = 0.2  # moderate eccentricity
+        r_peri = bh.periapsis_distance(a, e)
+        print(f"Periapsis distance: {r_peri/1000:.2f} km")
+        ```
     """
     ...
 
@@ -4465,6 +6578,17 @@ def periapsis_velocity(a: float, e: float, gm: float) -> float:
 
     Returns:
         float: The magnitude of velocity of the object at periapsis in m/s.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate periapsis velocity for a comet around the Sun
+        a = 5e11  # 5 AU semi-major axis (meters)
+        e = 0.95  # highly elliptical
+        v_peri = bh.periapsis_velocity(a, e, bh.GM_SUN)
+        print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
+        ```
     """
     ...
 
@@ -4477,6 +6601,17 @@ def perigee_velocity(a: float, e: float) -> float:
 
     Returns:
         float: The magnitude of velocity of the object at perigee in m/s.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate perigee velocity for Molniya orbit (highly elliptical)
+        a = 26554000.0  # meters
+        e = 0.72  # high eccentricity
+        v_peri = bh.perigee_velocity(a, e)
+        print(f"Perigee velocity: {v_peri:.2f} m/s")
+        ```
     """
     ...
 
@@ -4510,6 +6645,22 @@ def position_ecef_to_eci(epc: Epoch, x: np.ndarray) -> Any:
 
     Returns:
         (numpy.ndarray): Position vector in `ECI` frame (m), shape `(3,)`
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Create epoch
+        epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+        # Position in ECEF (ground station)
+        r_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+
+        # Transform to ECI
+        r_eci = bh.position_ecef_to_eci(epc, r_ecef)
+        print(f"ECI position: {r_eci}")
+        ```
     """
     ...
 
@@ -4526,6 +6677,17 @@ def position_ecef_to_geocentric(x_ecef: np.ndarray, angle_format: AngleFormat) -
     Returns:
         (numpy.ndarray): Geocentric position `[latitude, longitude, radius]` where latitude
             is in radians or degrees, longitude is in radians or degrees, and radius is in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert ECEF to geocentric coordinates
+        x_ecef = np.array([6378137.0, 0.0, 0.0])  # Point on equator, prime meridian
+        x_geoc = bh.position_ecef_to_geocentric(x_ecef, bh.AngleFormat.DEGREES)
+        print(f"Geocentric: lat={x_geoc[0]:.2f}°, lon={x_geoc[1]:.2f}°, r={x_geoc[2]:.0f}m")
+        ```
     """
     ...
 
@@ -4543,6 +6705,17 @@ def position_ecef_to_geodetic(x_ecef: np.ndarray, angle_format: AngleFormat) -> 
         (numpy.ndarray): Geodetic position `[latitude, longitude, altitude]` where latitude
             is in radians or degrees, longitude is in radians or degrees, and altitude
             is in meters above the `WGS84` ellipsoid.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert ECEF to geodetic coordinates (GPS-like)
+        x_ecef = np.array([-1275936.0, -4797210.0, 4020109.0])  # Example location
+        x_geod = bh.position_ecef_to_geodetic(x_ecef, bh.AngleFormat.DEGREES)
+        print(f"Geodetic: lat={x_geod[0]:.4f}°, lon={x_geod[1]:.4f}°, alt={x_geod[2]:.0f}m")
+        ```
     """
     ...
 
@@ -4592,6 +6765,17 @@ def position_enz_to_azel(x_enz: np.ndarray, angle_format: AngleFormat) -> Any:
     Returns:
         (numpy.ndarray): Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
             and elevation are in radians or degrees, and range is in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert ENZ to azimuth-elevation for satellite tracking
+        enz = np.array([50000.0, 100000.0, 200000.0])  # East, North, Up (meters)
+        azel = bh.position_enz_to_azel(enz, bh.AngleFormat.DEGREES)
+        print(f"Az={azel[0]:.1f}°, El={azel[1]:.1f}°, Range={azel[2]/1000:.1f}km")
+        ```
     """
     ...
 
@@ -4609,6 +6793,18 @@ def position_geocentric_to_ecef(x_geoc: np.ndarray, angle_format: AngleFormat) -
 
     Returns:
         (numpy.ndarray): `ECEF` Cartesian position `[x, y, z]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert geocentric coordinates to ECEF
+        lat, lon, r = 0.0, 0.0, 6378137.0  # Equator, prime meridian, Earth's radius
+        x_geoc = np.array([lat, lon, r])
+        x_ecef = bh.position_geocentric_to_ecef(x_geoc, bh.AngleFormat.RADIANS)
+        print(f"ECEF position: {x_ecef}")
+        ```
     """
     ...
 
@@ -4626,6 +6822,18 @@ def position_geodetic_to_ecef(x_geod: np.ndarray, angle_format: AngleFormat) -> 
 
     Returns:
         (numpy.ndarray): `ECEF` Cartesian position `[x, y, z]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert geodetic coordinates (GPS-like) to ECEF
+        lat, lon, alt = 40.0, -105.0, 1655.0  # Boulder, CO (degrees, meters)
+        x_geod = np.array([lat, lon, alt])
+        x_ecef = bh.position_geodetic_to_ecef(x_geod, bh.AngleFormat.DEGREES)
+        print(f"ECEF position: {x_ecef}")
+        ```
     """
     ...
 
@@ -4642,6 +6850,17 @@ def position_sez_to_azel(x_sez: np.ndarray, angle_format: AngleFormat) -> Any:
     Returns:
         (numpy.ndarray): Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
             and elevation are in radians or degrees, and range is in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert SEZ to azimuth-elevation for satellite tracking
+        sez = np.array([30000.0, 50000.0, 100000.0])  # South, East, Zenith (meters)
+        azel = bh.position_sez_to_azel(sez, bh.AngleFormat.DEGREES)
+        print(f"Az={azel[0]:.1f}°, El={azel[1]:.1f}°, Range={azel[2]/1000:.1f}km")
+        ```
     """
     ...
 
@@ -4660,6 +6879,18 @@ def relative_position_ecef_to_enz(
 
     Returns:
         (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Ground station and satellite positions
+        station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+        sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
+        enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, "Geodetic")
+        print(f"ENZ: East={enz[0]/1000:.1f}km, North={enz[1]/1000:.1f}km, Up={enz[2]/1000:.1f}km")
+        ```
     """
     ...
 
@@ -4678,6 +6909,18 @@ def relative_position_ecef_to_sez(
 
     Returns:
         (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Ground station and satellite positions
+        station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+        sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
+        sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, "Geodetic")
+        print(f"SEZ: South={sez[0]/1000:.1f}km, East={sez[1]/1000:.1f}km, Zenith={sez[2]/1000:.1f}km")
+        ```
     """
     ...
 
@@ -4696,6 +6939,18 @@ def relative_position_enz_to_ecef(
 
     Returns:
         (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert ENZ offset back to ECEF
+        station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+        enz_offset = np.array([50000.0, 30000.0, 100000.0])  # 50km east, 30km north, 100km up
+        target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, "Geodetic")
+        print(f"Target ECEF: {target_ecef}")
+        ```
     """
     ...
 
@@ -4714,6 +6969,18 @@ def relative_position_sez_to_ecef(
 
     Returns:
         (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Convert SEZ offset back to ECEF
+        station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+        sez_offset = np.array([30000.0, 50000.0, 100000.0])  # 30km south, 50km east, 100km up
+        target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, "Geodetic")
+        print(f"Target ECEF: {target_ecef}")
+        ```
     """
     ...
 
@@ -4735,6 +7002,18 @@ def rotation_ecef_to_eci(epc: Epoch) -> Any:
 
     Returns:
         (numpy.ndarray): 3x3 rotation matrix transforming `ITRF` -> `GCRF`
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Create epoch
+        epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+        # Get rotation matrix from ECEF to ECI
+        R = bh.rotation_ecef_to_eci(epc)
+        print(f"Rotation matrix shape: {R.shape}")
+        ```
     """
     ...
 
@@ -4808,6 +7087,18 @@ def rotation_ellipsoid_to_sez(
 
     Returns:
         (numpy.ndarray): 3x3 rotation matrix from ellipsoidal frame to `SEZ` frame.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Get rotation matrix for ground station in SEZ frame
+        lat, lon, alt = 0.7, -1.5, 100.0  # radians, meters
+        x_geod = np.array([lat, lon, alt])
+        R_sez = bh.rotation_ellipsoid_to_sez(x_geod, bh.AngleFormat.RADIANS)
+        print(f"Rotation matrix shape: {R_sez.shape}")
+        ```
     """
     ...
 
@@ -4846,6 +7137,18 @@ def rotation_sez_to_ellipsoid(
 
     Returns:
         (numpy.ndarray): 3x3 rotation matrix from `SEZ` frame to ellipsoidal frame.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Get inverse rotation matrix from SEZ to ellipsoidal
+        lat, lon, alt = 0.7, -1.5, 100.0  # radians, meters
+        x_geod = np.array([lat, lon, alt])
+        R_ellipsoid = bh.rotation_sez_to_ellipsoid(x_geod, bh.AngleFormat.RADIANS)
+        print(f"Rotation matrix shape: {R_ellipsoid.shape}")
+        ```
     """
     ...
 
@@ -4859,6 +7162,16 @@ def semimajor_axis(n: float, angle_format: AngleFormat) -> float:
 
     Returns:
         float: The semi-major axis of the astronomical object in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate semi-major axis from mean motion (typical LEO satellite)
+        n = 0.001027  # radians/second (~15 revolutions/day)
+        a = bh.semimajor_axis(n, bh.AngleFormat.RADIANS)
+        print(f"Semi-major axis: {a/1000:.2f} km")
+        ```
     """
     ...
 
@@ -4870,6 +7183,16 @@ def semimajor_axis_from_orbital_period(period: float) -> float:
 
     Returns:
         float: The semi-major axis in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate semi-major axis for a 90-minute orbit
+        period = 90 * 60.0  # 90 minutes in seconds
+        a = bh.semimajor_axis_from_orbital_period(period)
+        print(f"Semi-major axis: {a/1000:.2f} km")
+        ```
     """
     ...
 
@@ -4882,6 +7205,16 @@ def semimajor_axis_from_orbital_period_general(period: float, gm: float) -> floa
 
     Returns:
         float: The semi-major axis in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate semi-major axis for 2-hour Venus orbit
+        period = 2 * 3600.0  # 2 hours in seconds
+        a = bh.semimajor_axis_from_orbital_period_general(period, bh.GM_VENUS)
+        print(f"Semi-major axis: {a/1000:.2f} km")
+        ```
     """
     ...
 
@@ -4896,6 +7229,16 @@ def semimajor_axis_general(n: float, gm: float, angle_format: AngleFormat) -> fl
 
     Returns:
         float: The semi-major axis of the astronomical object in meters.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate semi-major axis for Jupiter orbiter
+        n = 0.0001  # radians/second
+        a = bh.semimajor_axis_general(n, bh.GM_JUPITER, bh.AngleFormat.RADIANS)
+        print(f"Semi-major axis: {a/1000:.2f} km")
+        ```
     """
     ...
 
@@ -4904,6 +7247,14 @@ def set_global_eop_provider_from_file_provider(provider: FileEOPProvider) -> Any
 
     Args:
         provider (FileEOPProvider): File-based EOP provider to set globally
+
+    Example:
+        ```python
+        import brahe as bh
+
+        provider = bh.FileEOPProvider.from_default_standard(True, "Hold")
+        bh.set_global_eop_provider_from_file_provider(provider)
+        ```
     """
     ...
 
@@ -4912,6 +7263,14 @@ def set_global_eop_provider_from_static_provider(provider: StaticEOPProvider) ->
 
     Args:
         provider (StaticEOPProvider): Static EOP provider to set globally
+
+    Example:
+        ```python
+        import brahe as bh
+
+        provider = bh.StaticEOPProvider.from_zero()
+        bh.set_global_eop_provider_from_static_provider(provider)
+        ```
     """
     ...
 
@@ -4963,6 +7322,22 @@ def state_ecef_to_eci(epc: Epoch, x_ecef: np.ndarray) -> np.ndarray:
 
     Returns:
         (numpy.ndarray): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Create epoch
+        epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+        # State vector in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+        state_ecef = np.array([4000000.0, 3000000.0, 4000000.0, 100.0, -50.0, 200.0])
+
+        # Transform to ECI
+        state_eci = bh.state_ecef_to_eci(epc, state_ecef)
+        print(f"ECI state: {state_eci}")
+        ```
     """
     ...
 
@@ -4981,6 +7356,22 @@ def state_eci_to_ecef(epc: Epoch, x_eci: np.ndarray) -> np.ndarray:
 
     Returns:
         (numpy.ndarray): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Create epoch
+        epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+        # State vector in ECI [x, y, z, vx, vy, vz] (meters, m/s)
+        state_eci = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+
+        # Transform to ECEF
+        state_ecef = bh.state_eci_to_ecef(epc, state_eci)
+        print(f"ECEF state: {state_ecef}")
+        ```
     """
     ...
 
@@ -5028,6 +7419,17 @@ def sun_synchronous_inclination(a: float, e: float, angle_format: AngleFormat) -
 
     Returns:
         float: Inclination for a Sun synchronous orbit in degrees or radians.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Calculate sun-synchronous inclination for typical Earth observation satellite (600 km)
+        a = bh.R_EARTH + 600e3
+        e = 0.001  # nearly circular
+        inc = bh.sun_synchronous_inclination(a, e, bh.AngleFormat.DEGREES)
+        print(f"Sun-synchronous inclination: {inc:.2f} degrees")
+        ```
     """
     ...
 

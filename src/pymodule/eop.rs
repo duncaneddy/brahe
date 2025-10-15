@@ -137,6 +137,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     StaticEOPProvider: New provider with default EOP values
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create static EOP provider with defaults
+    ///     eop = bh.StaticEOPProvider()
+    ///     bh.set_global_eop_provider_from_static_provider(eop)
+    ///     ```
     #[new]
     pub fn new() -> Self {
         PyStaticEOPProvider {
@@ -148,6 +157,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     StaticEOPProvider: Provider with all EOP values set to zero
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create EOP provider with all zeros (no corrections)
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     bh.set_global_eop_provider_from_static_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_zero(_cls: &Bound<'_, PyType>) -> Self {
         PyStaticEOPProvider {
@@ -167,6 +185,22 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     StaticEOPProvider: Provider with specified EOP values
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create EOP provider with custom values
+    ///     eop = bh.StaticEOPProvider.from_values(
+    ///         ut1_utc=0.1,
+    ///         pm_x=1e-6,
+    ///         pm_y=2e-6,
+    ///         dx=1e-7,
+    ///         dy=1e-7,
+    ///         lod=0.001
+    ///     )
+    ///     bh.set_global_eop_provider_from_static_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_values(_cls: &Bound<'_, PyType>, ut1_utc: f64, pm_x: f64, pm_y: f64, dx: f64, dy: f64, lod: f64) -> Self {
         PyStaticEOPProvider {
@@ -178,6 +212,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     bool: True if initialized
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Is initialized: {eop.is_initialized()}")
+    ///     ```
     pub fn is_initialized(&self) -> bool {
         self.obj.is_initialized()
     }
@@ -186,6 +228,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     int: Number of EOP data points
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"EOP data points: {eop.len()}")
+    ///     ```
     pub fn len(&self) -> usize {
         self.obj.len()
     }
@@ -194,6 +244,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     str: EOP type string
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"EOP type: {eop.eop_type()}")
+    ///     ```
     pub fn eop_type(&self) -> String {
         eop_type_to_string(self.obj.eop_type())
     }
@@ -202,6 +260,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     str: Extrapolation method string
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Extrapolation method: {eop.extrapolation()}")
+    ///     ```
     pub fn extrapolation(&self) -> String {
         eop_extrapolation_to_string(self.obj.extrapolation())
     }
@@ -210,6 +276,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     bool: True if interpolation is enabled
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Interpolation enabled: {eop.interpolation()}")
+    ///     ```
     pub fn interpolation(&self) -> bool {
         self.obj.interpolation()
     }
@@ -218,6 +292,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: Minimum MJD
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Minimum MJD: {eop.mjd_min()}")
+    ///     ```
     pub fn mjd_min(&self) -> f64 {
         self.obj.mjd_min()
     }
@@ -226,6 +308,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: Maximum MJD
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Maximum MJD: {eop.mjd_max()}")
+    ///     ```
     pub fn mjd_max(&self) -> f64 {
         self.obj.mjd_max()
     }
@@ -234,6 +324,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: Last MJD with LOD data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Last MJD with LOD: {eop.mjd_last_lod()}")
+    ///     ```
     pub fn mjd_last_lod(&self) -> f64 {
         self.obj.mjd_last_lod()
     }
@@ -242,6 +340,14 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: Last MJD with dx/dy data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     print(f"Last MJD with dx/dy: {eop.mjd_last_dxdy()}")
+    ///     ```
     pub fn mjd_last_dxdy(&self) -> f64 {
         self.obj.mjd_last_dxdy()
     }
@@ -253,6 +359,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: UT1-UTC time difference in seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     ut1_utc = eop.get_ut1_utc(58849.0)
+    ///     print(f"UT1-UTC: {ut1_utc} seconds")
+    ///     ```
     pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
         self.obj.get_ut1_utc(mjd)
     }
@@ -264,6 +379,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Polar motion x and y components in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     pm_x, pm_y = eop.get_pm(58849.0)
+    ///     print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
+    ///     ```
     pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         self.obj.get_pm(mjd)
     }
@@ -275,6 +399,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Celestial pole offsets dx and dy in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     dx, dy = eop.get_dxdy(58849.0)
+    ///     print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
+    ///     ```
     pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         self.obj.get_dxdy(mjd)
     }
@@ -286,6 +419,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     float: Length of day offset in seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider.from_zero()
+    ///     lod = eop.get_lod(58849.0)
+    ///     print(f"Length of day offset: {lod} seconds")
+    ///     ```
     pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
         self.obj.get_lod(mjd)
     }
@@ -297,6 +439,15 @@ impl PyStaticEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float, float, float, float, float]: UT1-UTC, pm_x, pm_y, dx, dy, lod
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.StaticEOPProvider()
+    ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
+    ///     print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
+    ///     ```
     pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
         self.obj.get_eop(mjd)
     }
@@ -373,6 +524,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with C04 file data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_c04_file("./eop_data/finals2000A.all.csv", True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_c04_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -389,6 +548,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with standard file data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_standard_file("./eop_data/standard_eop.txt", True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_standard_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -405,6 +572,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with file data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_file("./eop_data/eop.txt", True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -420,6 +595,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with default C04 file
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_c04(True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_default_c04(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -435,6 +618,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with default standard file
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_default_standard(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -451,6 +642,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     FileEOPProvider: Provider initialized with default file of specified type
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_file("C04", True, "Hold")
+    ///     bh.set_global_eop_provider_from_file_provider(eop)
+    ///     ```
     #[classmethod]
     pub fn from_default_file(_cls: &Bound<'_, PyType>, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
         Ok(PyFileEOPProvider {
@@ -462,6 +661,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     bool: True if initialized
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"is_initialized: {eop.is_initialized()}")
+    ///     ```
     pub fn is_initialized(&self) -> bool {
         self.obj.is_initialized()
     }
@@ -470,6 +677,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     int: Number of EOP data points
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"EOP data points: {eop.len()}")
+    ///     ```
     pub fn len(&self) -> usize {
         self.obj.len()
     }
@@ -478,6 +693,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     str: EOP type string
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"EOP type: {eop.eop_type()}")
+    ///     ```
     pub fn eop_type(&self) -> String {
         eop_type_to_string(self.obj.eop_type())
     }
@@ -486,6 +709,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     str: Extrapolation method string
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"Extrapolation: {eop.extrapolation()}")
+    ///     ```
     pub fn extrapolation(&self) -> String {
         eop_extrapolation_to_string(self.obj.extrapolation())
     }
@@ -494,6 +725,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     bool: True if interpolation is enabled
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"interpolation: {eop.interpolation()}")
+    ///     ```
     pub fn interpolation(&self) -> bool {
         self.obj.interpolation()
     }
@@ -502,6 +741,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: Minimum MJD
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"Minimum MJD: {eop.mjd_min()}")
+    ///     ```
     pub fn mjd_min(&self) -> f64 {
         self.obj.mjd_min()
     }
@@ -510,6 +757,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: Maximum MJD
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"mjd_max: {eop.mjd_max()}")
+    ///     ```
     pub fn mjd_max(&self) -> f64 {
         self.obj.mjd_max()
     }
@@ -518,6 +773,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: Last MJD with LOD data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"Last MJD with LOD: {eop.mjd_last_lod()}")
+    ///     ```
     pub fn mjd_last_lod(&self) -> f64 {
         self.obj.mjd_last_lod()
     }
@@ -526,6 +789,14 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: Last MJD with dx/dy data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     print(f"mjd_last_dxdy: {eop.mjd_last_dxdy()}")
+    ///     ```
     pub fn mjd_last_dxdy(&self) -> f64 {
         self.obj.mjd_last_dxdy()
     }
@@ -537,6 +808,15 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: UT1-UTC time difference in seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     ut1_utc = eop.get_ut1_utc(58849.0)
+    ///     print(f"UT1-UTC: {ut1_utc} seconds")
+    ///     ```
     pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
         self.obj.get_ut1_utc(mjd)
     }
@@ -548,6 +828,15 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Polar motion x and y components in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     pm_x, pm_y = eop.get_pm(58849.0)
+    ///     print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
+    ///     ```
     pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         self.obj.get_pm(mjd)
     }
@@ -559,6 +848,15 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Celestial pole offsets dx and dy in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     dx, dy = eop.get_dxdy(58849.0)
+    ///     print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
+    ///     ```
     pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
         self.obj.get_dxdy(mjd)
     }
@@ -570,6 +868,15 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     float: Length of day offset in seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     lod = eop.get_lod(58849.0)
+    ///     print(f"Length of day offset: {lod} seconds")
+    ///     ```
     pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
         self.obj.get_lod(mjd)
     }
@@ -581,6 +888,15 @@ impl PyFileEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float, float, float, float, float]: UT1-UTC, pm_x, pm_y, dx, dy, lod
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
+    ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
+    ///     print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
+    ///     ```
     pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
         self.obj.get_eop(mjd)
     }

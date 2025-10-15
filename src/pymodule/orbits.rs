@@ -10,6 +10,16 @@ use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 ///
 /// Returns:
 ///     (float): The orbital period of the astronomical object in seconds.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate orbital period for ISS-like orbit (400 km altitude)
+///     a = bh.R_EARTH + 400e3
+///     period = bh.orbital_period(a)
+///     print(f"Orbital period: {period/60:.2f} minutes")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a)")]
 #[pyo3(name = "orbital_period")]
@@ -25,6 +35,16 @@ fn py_orbital_period(a: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The orbital period of the astronomical object in seconds.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate orbital period around the Moon
+///     a = 1900000.0  # 1900 km semi-major axis
+///     period = bh.orbital_period_general(a, bh.GM_MOON)
+///     print(f"Lunar orbital period: {period/3600:.2f} hours")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, gm)")]
 #[pyo3(name = "orbital_period_general")]
@@ -40,6 +60,16 @@ fn py_orbital_period_general(a: f64, gm: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The mean motion of the astronomical object in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate mean motion for geostationary orbit (35786 km altitude)
+///     a = bh.R_EARTH + 35786e3
+///     n = bh.mean_motion(a, bh.AngleFormat.DEGREES)
+///     print(f"Mean motion: {n:.6f} deg/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, angle_format)")]
 #[pyo3(name = "mean_motion")]
@@ -57,6 +87,16 @@ fn py_mean_motion(a: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The mean motion of the astronomical object in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate mean motion for a Mars orbiter
+///     a = 4000000.0  # 4000 km semi-major axis
+///     n = bh.mean_motion_general(a, bh.GM_MARS, bh.AngleFormat.RADIANS)
+///     print(f"Mean motion: {n:.6f} rad/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, gm, angle_format)")]
 #[pyo3(name = "mean_motion_general")]
@@ -73,6 +113,16 @@ fn py_mean_motion_general(a: f64, gm: f64, angle_format: &PyAngleFormat) -> PyRe
 ///
 /// Returns:
 ///     float: The semi-major axis of the astronomical object in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate semi-major axis from mean motion (typical LEO satellite)
+///     n = 0.001027  # radians/second (~15 revolutions/day)
+///     a = bh.semimajor_axis(n, bh.AngleFormat.RADIANS)
+///     print(f"Semi-major axis: {a/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(n, angle_format)")]
 #[pyo3(name = "semimajor_axis")]
@@ -90,6 +140,16 @@ fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The semi-major axis of the astronomical object in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate semi-major axis for Jupiter orbiter
+///     n = 0.0001  # radians/second
+///     a = bh.semimajor_axis_general(n, bh.GM_JUPITER, bh.AngleFormat.RADIANS)
+///     print(f"Semi-major axis: {a/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(n, gm, angle_format)")]
 #[pyo3(name = "semimajor_axis_general")]
@@ -105,6 +165,16 @@ fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> P
 ///
 /// Returns:
 ///     float: The semi-major axis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate semi-major axis for 2-hour Venus orbit
+///     period = 2 * 3600.0  # 2 hours in seconds
+///     a = bh.semimajor_axis_from_orbital_period_general(period, bh.GM_VENUS)
+///     print(f"Semi-major axis: {a/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(period, gm)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period_general")]
@@ -119,6 +189,16 @@ fn py_semimajor_axis_from_orbital_period_general(period: f64, gm: f64) -> PyResu
 ///
 /// Returns:
 ///     float: The semi-major axis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate semi-major axis for a 90-minute orbit
+///     period = 90 * 60.0  # 90 minutes in seconds
+///     a = bh.semimajor_axis_from_orbital_period(period)
+///     print(f"Semi-major axis: {a/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(period)")]
 #[pyo3(name = "semimajor_axis_from_orbital_period")]
@@ -134,6 +214,17 @@ fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at perigee in m/s.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate perigee velocity for Molniya orbit (highly elliptical)
+///     a = 26554000.0  # meters
+///     e = 0.72  # high eccentricity
+///     v_peri = bh.perigee_velocity(a, e)
+///     print(f"Perigee velocity: {v_peri:.2f} m/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "perigee_velocity")]
@@ -150,6 +241,17 @@ fn py_perigee_velocity(a: f64, e: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at periapsis in m/s.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate periapsis velocity for a comet around the Sun
+///     a = 5e11  # 5 AU semi-major axis (meters)
+///     e = 0.95  # highly elliptical
+///     v_peri = bh.periapsis_velocity(a, e, bh.GM_SUN)
+///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e, gm)")]
 #[pyo3(name = "periapsis_velocity")]
@@ -165,6 +267,17 @@ fn py_periapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The distance of the object at periapsis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate periapsis distance for an elliptical orbit
+///     a = 8000000.0  # 8000 km semi-major axis
+///     e = 0.2  # moderate eccentricity
+///     r_peri = bh.periapsis_distance(a, e)
+///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "periapsis_distance")]
@@ -180,6 +293,17 @@ fn py_periapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at apogee in m/s.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate apogee velocity for GTO (Geostationary Transfer Orbit)
+///     a = 24400000.0  # meters
+///     e = 0.73  # high eccentricity
+///     v_apo = bh.apogee_velocity(a, e)
+///     print(f"Apogee velocity: {v_apo:.2f} m/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "apogee_velocity")]
@@ -196,6 +320,17 @@ fn py_apogee_velocity(a: f64, e: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at apoapsis in m/s.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate apoapsis velocity for a Martian satellite
+///     a = 10000000.0  # 10000 km semi-major axis
+///     e = 0.3
+///     v_apo = bh.apoapsis_velocity(a, e, bh.GM_MARS)
+///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e, gm)")]
 #[pyo3(name = "apoapsis_velocity")]
@@ -211,6 +346,17 @@ fn py_apoapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: The distance of the object at apoapsis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate apoapsis distance
+///     a = 8000000.0  # 8000 km semi-major axis
+///     e = 0.2  # moderate eccentricity
+///     r_apo = bh.apoapsis_distance(a, e)
+///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e)")]
 #[pyo3(name = "apoapsis_distance")]
@@ -228,6 +374,17 @@ fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 ///
 /// Returns:
 ///     float: Inclination for a Sun synchronous orbit in degrees or radians.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate sun-synchronous inclination for typical Earth observation satellite (600 km)
+///     a = bh.R_EARTH + 600e3
+///     e = 0.001  # nearly circular
+///     inc = bh.sun_synchronous_inclination(a, e, bh.AngleFormat.DEGREES)
+///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(a, e, angle_format)")]
 #[pyo3(name = "sun_synchronous_inclination")]
@@ -244,6 +401,18 @@ fn py_sun_synchronous_inclination(a: f64, e: f64, angle_format: &PyAngleFormat) 
 ///
 /// Returns:
 ///     float: Mean anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import math
+///
+///     # Convert eccentric to mean anomaly
+///     E = math.pi / 4  # 45 degrees eccentric anomaly
+///     e = 0.1  # eccentricity
+///     M = bh.anomaly_eccentric_to_mean(E, e, bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: {M:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_mean")]
@@ -260,6 +429,17 @@ fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
 ///
 /// Returns:
 ///     float: Eccentric anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert mean to eccentric anomaly (solves Kepler's equation)
+///     M = 1.5  # mean anomaly in radians
+///     e = 0.3  # eccentricity
+///     E = bh.anomaly_mean_to_eccentric(M, e, bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_eccentric")]
@@ -279,6 +459,18 @@ fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFor
 ///
 /// Returns:
 ///     float: Eccentric anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import math
+///
+///     # Convert true to eccentric anomaly
+///     nu = math.pi / 3  # 60 degrees true anomaly
+///     e = 0.2  # eccentricity
+///     E = bh.anomaly_true_to_eccentric(nu, e, bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: {E:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_eccentric")]
@@ -295,6 +487,18 @@ fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: &PyAngleFor
 ///
 /// Returns:
 ///     float: True anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import math
+///
+///     # Convert eccentric to true anomaly
+///     E = math.pi / 4  # 45 degrees eccentric anomaly
+///     e = 0.4  # eccentricity
+///     nu = bh.anomaly_eccentric_to_true(E, e, bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: {nu:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_true")]
@@ -311,6 +515,18 @@ fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
 ///
 /// Returns:
 ///     float: Mean anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import math
+///
+///     # Convert true to mean anomaly
+///     nu = math.pi / 2  # 90 degrees true anomaly
+///     e = 0.15  # eccentricity
+///     M = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: {M:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_true, e, angle_format)")]
 #[pyo3(name = "anomaly_true_to_mean")]
@@ -327,6 +543,17 @@ fn py_anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: &PyAngleFormat) 
 ///
 /// Returns:
 ///     float: True anomaly in radians or degrees.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Convert mean to true anomaly (combines Kepler's equation + eccentric anomaly conversion)
+///     M = 2.0  # mean anomaly in radians
+///     e = 0.25  # eccentricity
+///     nu = bh.anomaly_mean_to_true(M, e, bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: {nu:.4f} radians")
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(anm_mean, e, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_true")]
@@ -427,6 +654,17 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     str or None: Satellite name if provided.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     name = "ISS (ZARYA)"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_3le(name, line1, line2)
+    ///     print(f"Satellite: {propagator.satellite_name}")
+    ///     ```
     #[getter]
     pub fn satellite_name(&self) -> Option<String> {
         self.propagator.satellite_name.clone()
@@ -445,6 +683,17 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     Epoch: Current propagator epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     propagator.step()
+    ///     print(f"Current epoch: {propagator.current_epoch}")
+    ///     ```
     #[getter]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
@@ -454,6 +703,16 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     float: Step size in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     print(f"Step size: {propagator.step_size} seconds")
+    ///     ```
     #[getter]
     pub fn step_size(&self) -> f64 {
         self.propagator.step_size()
@@ -590,6 +849,17 @@ impl PySGPPropagator {
     }
 
     /// Step forward by the default step size.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.step()  # Advance by default step_size
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
         self.propagator.step();
@@ -599,6 +869,17 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     step_size (float): Time step in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.step_by(120.0)  # Advance by 2 minutes
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
         self.propagator.step_by(step_size);
@@ -608,6 +889,18 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to step past.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     target = prop.epoch + 3600.0  # 1 hour later
+    ///     prop.step_past(target)
+    ///     print(f"Stepped past target")
+    ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.step_past(target_epoch.obj);
@@ -617,6 +910,17 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     num_steps (int): Number of steps to take.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)
+    ///     prop.propagate_steps(10)  # Advance by 10 steps (600 seconds)
+    ///     print(f"After 10 steps: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
         self.propagator.propagate_steps(num_steps);
@@ -626,12 +930,37 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to propagate to.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     target = prop.epoch + 7200.0  # 2 hours later
+    ///     prop.propagate_to(target)
+    ///     print(f"Propagated to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.propagate_to(target_epoch.obj);
     }
 
     /// Reset propagator to initial conditions.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     initial_epoch = prop.epoch
+    ///     prop.propagate_steps(100)
+    ///     prop.reset()
+    ///     print(f"Reset to: {prop.current_epoch == initial_epoch}")
+    ///     ```
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
@@ -641,6 +970,17 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     max_size (int): Maximum number of states to keep in trajectory.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.set_eviction_policy_max_size(1000)
+    ///     print("Trajectory limited to 1000 states")
+    ///     ```
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
         self.propagator.set_eviction_policy_max_size(max_size)
@@ -651,6 +991,17 @@ impl PySGPPropagator {
     ///
     /// Args:
     ///     max_age (float): Maximum age in seconds to keep states in trajectory.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.set_eviction_policy_max_age(86400.0)  # Keep 1 day of history
+    ///     print("Trajectory limited to 24 hours of states")
+    ///     ```
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
         self.propagator.set_eviction_policy_max_age(max_age)
@@ -661,6 +1012,18 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     OrbitalTrajectory: The accumulated trajectory.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.propagate_steps(100)
+    ///     traj = prop.trajectory
+    ///     print(f"Trajectory has {traj.len()} states")
+    ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
@@ -931,6 +1294,19 @@ impl PyKeplerianPropagator {
     }
 
     /// Step forward by the default step size.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.step()  # Advance by default step_size (60 seconds)
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
         self.propagator.step();
@@ -940,6 +1316,19 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     step_size (float): Time step in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.step_by(120.0)  # Advance by 120 seconds
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
         self.propagator.step_by(step_size);
@@ -949,6 +1338,20 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to step past.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     target = epc + 300.0  # Target 5 minutes ahead
+    ///     prop.step_past(target)
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.step_past(target_epoch.obj);
@@ -958,6 +1361,19 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     num_steps (int): Number of steps to take.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
+    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
         self.propagator.propagate_steps(num_steps);
@@ -967,12 +1383,40 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     target_epoch (Epoch): The epoch to propagate to.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     target = epc + 3600.0  # Propagate to 1 hour ahead
+    ///     prop.propagate_to(target)
+    ///     print(f"Propagated to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
         self.propagator.propagate_to(target_epoch.obj);
     }
 
     /// Reset propagator to initial conditions.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.propagate_steps(10)
+    ///     prop.reset()  # Return to initial epoch and state
+    ///     print(f"Reset to: {prop.current_epoch}")
+    ///     ```
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
@@ -986,6 +1430,24 @@ impl PyKeplerianPropagator {
     ///     frame (OrbitFrame): Reference frame.
     ///     representation (OrbitRepresentation): State representation.
     ///     angle_format (AngleFormat): Angle format.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///
+    ///     # Change initial conditions to a different orbit
+    ///     new_oe = np.array([bh.R_EARTH + 800e3, 0.02, 1.2, 0.5, 0.3, 0.0])
+    ///     new_state = bh.state_osculating_to_cartesian(new_oe, bh.AngleFormat.RADIANS)
+    ///     new_epc = bh.Epoch.from_datetime(2024, 1, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
+    ///     print(f"New initial epoch: {prop.initial_epoch}")
+    ///     ```
     #[pyo3(text_signature = "(epoch, state, frame, representation, angle_format)")]
     pub fn set_initial_conditions(
         &mut self,
@@ -1019,6 +1481,20 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     max_size (int): Maximum number of states to retain.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.set_eviction_policy_max_size(100)  # Keep only 100 most recent states
+    ///     prop.propagate_steps(200)
+    ///     print(f"Trajectory length: {prop.trajectory.len()}")
+    ///     ```
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
         match self.propagator.set_eviction_policy_max_size(max_size) {
@@ -1031,6 +1507,20 @@ impl PyKeplerianPropagator {
     ///
     /// Args:
     ///     max_age (float): Maximum age in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.set_eviction_policy_max_age(3600.0)  # Keep only states within 1 hour
+    ///     prop.propagate_to(epc + 7200.0)  # Propagate 2 hours
+    ///     print(f"Trajectory length: {prop.trajectory.len()}")
+    ///     ```
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
         match self.propagator.set_eviction_policy_max_age(max_age) {
@@ -1163,6 +1653,20 @@ impl PyKeplerianPropagator {
     ///
     /// Returns:
     ///     OrbitalTrajectory: The accumulated trajectory.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
+    ///     prop.propagate_steps(10)
+    ///     traj = prop.trajectory
+    ///     print(f"Trajectory contains {traj.len()} states")
+    ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }

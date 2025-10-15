@@ -99,6 +99,15 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: New quaternion instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     v = np.array([1.0, 0.0, 0.0, 0.0])
+    ///     q = bh.Quaternion.from_vector(v, scalar_first=True)
+    ///     ```
     pub fn from_vector(
         _cls: &Bound<'_, PyType>,
         v: &Bound<'_, PyArray<f64, Ix1>>,
@@ -117,12 +126,28 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     numpy.ndarray: 4-element array containing quaternion components
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     v = q.to_vector(scalar_first=True)
+    ///     ```
     pub unsafe fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(scalar_first), 4, f64)
     }
 
     #[pyo3(text_signature = "($self)")]
     /// Normalize the quaternion in-place to unit length.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(2.0, 0.0, 0.0, 0.0)
+    ///     q.normalize()
+    ///     ```
     pub fn normalize(&mut self) {
         self.obj.normalize();
     }
@@ -132,6 +157,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     float: Euclidean norm of the quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     norm = q.norm()
+    ///     ```
     pub fn norm(&self) -> f64 {
         self.obj.norm()
     }
@@ -141,6 +174,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Conjugate quaternion with negated vector part
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     q_conj = q.conjugate()
+    ///     ```
     pub fn conjugate(&self) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.conjugate()
@@ -152,6 +193,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Inverse quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     q_inv = q.inverse()
+    ///     ```
     pub fn inverse(&self) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.inverse()
@@ -167,6 +216,15 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Interpolated quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q1 = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     q2 = bh.Quaternion(0.707, 0.707, 0.0, 0.0)
+    ///     q_mid = q1.slerp(q2, 0.5)
+    ///     ```
     pub fn slerp(&self, other: PyQuaternion, t: f64) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.slerp(other.obj, t)
@@ -240,6 +298,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: New quaternion instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q1 = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     q2 = bh.Quaternion.from_quaternion(q1)
+    ///     ```
     pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion) -> PyQuaternion {
         PyQuaternion {
             obj: Quaternion::from_quaternion(q.obj)
@@ -255,6 +321,16 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     q = bh.Quaternion.from_euler_axis(ea)
+    ///     ```
     pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis) -> PyQuaternion {
         PyQuaternion {
             obj: Quaternion::from_euler_axis(e.obj)
@@ -270,6 +346,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     q = bh.Quaternion.from_euler_angle(euler)
+    ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyQuaternion {
         PyQuaternion {
             obj: Quaternion::from_euler_angle(e.obj)
@@ -285,6 +369,16 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     mat = np.eye(3)
+    ///     rm = bh.RotationMatrix.from_matrix(mat)
+    ///     q = bh.Quaternion.from_rotation_matrix(rm)
+    ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix) -> PyQuaternion {
         PyQuaternion {
             obj: Quaternion::from_rotation_matrix(r.obj)
@@ -321,6 +415,14 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     euler = q.to_euler_angle("XYZ")
+    ///     ```
     pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
@@ -396,6 +498,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     float: First rotation angle in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     print(f"Phi: {e.phi}")
+    ///     ```
     pub fn phi(&self) -> f64 {
         self.obj.phi
     }
@@ -405,6 +515,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     float: Second rotation angle in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     print(f"Theta: {e.theta}")
+    ///     ```
     pub fn theta(&self) -> f64 {
         self.obj.theta
     }
@@ -414,6 +532,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     float: Third rotation angle in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     print(f"Psi: {e.psi}")
+    ///     ```
     pub fn psi(&self) -> f64 {
         self.obj.psi
     }
@@ -423,6 +549,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     str: Rotation sequence (e.g., "XYZ", "ZYX")
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     print(f"Order: {e.order}")
+    ///     ```
     pub fn order(&self) -> String {
         euler_angle_order_to_string(self.obj.order)
     }
@@ -446,6 +580,15 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: New Euler angle instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     v = np.array([0.1, 0.2, 0.3])
+    ///     euler = bh.EulerAngle.from_vector(v, "XYZ", bh.AngleFormat.RADIANS)
+    ///     ```
     pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, order: &str, angle_format: &PyAngleFormat) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_vector(numpy_to_vector!(v, 3, f64), string_to_euler_angle_order(order).unwrap(), angle_format.value),
@@ -462,6 +605,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     e = bh.EulerAngle.from_quaternion(q, "XYZ")
+    ///     ```
     pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_quaternion(q.obj, string_to_euler_angle_order(order).unwrap()),
@@ -478,6 +629,16 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle.from_euler_axis(ea, "XYZ")
+    ///     ```
     pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_euler_axis(e.obj, string_to_euler_angle_order(order).unwrap()),
@@ -494,6 +655,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles with new order
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e2 = bh.EulerAngle.from_euler_angle(e1, "ZYX")
+    ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_euler_angle(e.obj, string_to_euler_angle_order(order).unwrap()),
@@ -510,6 +679,15 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     e = bh.EulerAngle.from_rotation_matrix(r, "XYZ")
+    ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: attitude::EulerAngle::from_rotation_matrix(r.obj, string_to_euler_angle_order(order).unwrap()),
@@ -521,6 +699,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     q = e.to_quaternion()
+    ///     ```
     pub fn to_quaternion(&self) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.to_quaternion()
@@ -532,6 +718,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAxis: Equivalent Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     ea = e.to_euler_axis()
+    ///     ```
     pub fn to_euler_axis(&self) -> PyEulerAxis {
         PyEulerAxis {
             obj: self.obj.to_euler_axis()
@@ -546,6 +740,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles with new order
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e2 = e1.to_euler_angle("ZYX")
+    ///     ```
     pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
@@ -557,6 +759,14 @@ impl PyEulerAngle {
     ///
     /// Returns:
     ///     RotationMatrix: Equivalent rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     r = e.to_rotation_matrix()
+    ///     ```
     pub fn to_rotation_matrix(&self) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: self.obj.to_rotation_matrix()
@@ -622,6 +832,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     float: Rotation angle in radians
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     print(f"Angle: {e.angle}")
+    ///     ```
     pub fn angle(&self) -> f64 {
         self.obj.angle
     }
@@ -631,6 +851,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     numpy.ndarray: 3-element unit vector specifying rotation axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     print(f"Axis: {e.axis}")
+    ///     ```
     pub unsafe fn axis<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.axis, 3, f64)
     }
@@ -656,6 +886,13 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: New Euler axis instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.EulerAxis.from_values(0.0, 0.0, 1.0, 1.5708, bh.AngleFormat.RADIANS)
+    ///     ```
     pub fn from_values(_cls: &Bound<'_, PyType>, x: f64, y: f64, z: f64, angle: f64, angle_format: &PyAngleFormat) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_values(x, y, z, angle, angle_format.value),
@@ -673,6 +910,15 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: New Euler axis instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     v = np.array([0.0, 0.0, 1.0, 1.5708])
+    ///     e = bh.EulerAxis.from_vector(v, bh.AngleFormat.RADIANS, True)
+    ///     ```
     pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat, vector_first: bool) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_vector(numpy_to_vector!(v, 4, f64), angle_format.value, vector_first),
@@ -701,6 +947,14 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: Equivalent Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     e = bh.EulerAxis.from_quaternion(q)
+    ///     ```
     pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_quaternion(q.obj)
@@ -716,6 +970,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: New Euler axis instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e1 = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     e2 = bh.EulerAxis.from_euler_axis(e1)
+    ///     ```
     pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_euler_axis(e.obj)
@@ -731,6 +995,14 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: Equivalent Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAxis.from_euler_angle(euler)
+    ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_euler_angle(e.obj)
@@ -746,6 +1018,15 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: Equivalent Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     e = bh.EulerAxis.from_rotation_matrix(r)
+    ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix) -> PyEulerAxis {
         PyEulerAxis {
             obj: attitude::EulerAxis::from_rotation_matrix(r.obj)
@@ -757,6 +1038,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     q = e.to_quaternion()
+    ///     ```
     pub fn to_quaternion(&self) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.to_quaternion()
@@ -768,6 +1059,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAxis: This Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e1 = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     e2 = e1.to_euler_axis()
+    ///     ```
     pub fn to_euler_axis(&self) -> PyEulerAxis {
         PyEulerAxis {
             obj: self.obj.to_euler_axis()
@@ -782,6 +1083,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     e = ea.to_euler_angle("XYZ")
+    ///     ```
     pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
@@ -793,6 +1104,16 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     RotationMatrix: Equivalent rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     r = e.to_rotation_matrix()
+    ///     ```
     pub fn to_rotation_matrix(&self) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: self.obj.to_rotation_matrix()
@@ -898,6 +1219,15 @@ impl PyRotationMatrix {
     ///
     /// Raises:
     ///     BraheError: If the matrix is not a valid rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     mat = np.eye(3)
+    ///     r = bh.RotationMatrix.from_matrix(mat)
+    ///     ```
     pub fn from_matrix(_cls: &Bound<'_, PyType>, m: &Bound<'_, PyArray<f64, Ix2>>) -> Result<PyRotationMatrix, BraheError> {
         Ok(PyRotationMatrix {
             obj: attitude::RotationMatrix::from_matrix(numpy_to_matrix!(m, 3, 3, f64))?,
@@ -958,6 +1288,13 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: Rotation matrix for Z-axis rotation
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     r = bh.RotationMatrix.Rz(1.5708, bh.AngleFormat.RADIANS)
+    ///     ```
     pub fn Rz(_cls: &Bound<'_, PyType>, angle: f64, angle_format: &PyAngleFormat) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: attitude::RotationMatrix::Rz(angle, angle_format.value)
@@ -973,6 +1310,14 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: Equivalent rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    ///     r = bh.RotationMatrix.from_quaternion(q)
+    ///     ```
     pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: attitude::RotationMatrix::from_quaternion(q.obj)
@@ -988,6 +1333,16 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: Equivalent rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     axis = np.array([0.0, 0.0, 1.0])
+    ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
+    ///     r = bh.RotationMatrix.from_euler_axis(ea)
+    ///     ```
     pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: attitude::RotationMatrix::from_euler_axis(e.obj)
@@ -1003,6 +1358,14 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: Equivalent rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     r = bh.RotationMatrix.from_euler_angle(euler)
+    ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: attitude::RotationMatrix::from_euler_angle(e.obj)
@@ -1018,6 +1381,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: New rotation matrix instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r1 = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r2 = bh.RotationMatrix.from_rotation_matrix(r1)
+    ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: attitude::RotationMatrix::from_rotation_matrix(r.obj)
@@ -1029,6 +1401,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     Quaternion: Equivalent quaternion
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     q = r.to_quaternion()
+    ///     ```
     pub fn to_quaternion(&self) -> PyQuaternion {
         PyQuaternion {
             obj: self.obj.to_quaternion()
@@ -1040,6 +1421,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     EulerAxis: Equivalent Euler axis
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     e = r.to_euler_axis()
+    ///     ```
     pub fn to_euler_axis(&self) -> PyEulerAxis {
         PyEulerAxis {
             obj: self.obj.to_euler_axis()
@@ -1054,6 +1444,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     euler = r.to_euler_angle("XYZ")
+    ///     ```
     pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
         PyEulerAngle {
             obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
@@ -1065,6 +1464,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     RotationMatrix: This rotation matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     r1 = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r2 = r1.to_rotation_matrix()
+    ///     ```
     pub fn to_rotation_matrix(&self) -> PyRotationMatrix {
         PyRotationMatrix {
             obj: self.obj.to_rotation_matrix()

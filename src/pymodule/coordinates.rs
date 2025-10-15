@@ -108,6 +108,18 @@ unsafe fn py_state_cartesian_to_osculating<'py>(
 ///
 /// Returns:
 ///     (numpy.ndarray): `ECEF` Cartesian position `[x, y, z]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert geocentric coordinates to ECEF
+///     lat, lon, r = 0.0, 0.0, 6378137.0  # Equator, prime meridian, Earth's radius
+///     x_geoc = np.array([lat, lon, r])
+///     x_ecef = bh.position_geocentric_to_ecef(x_geoc, bh.AngleFormat.RADIANS)
+///     print(f"ECEF position: {x_ecef}")
+///     ```
 unsafe fn py_position_geocentric_to_ecef<'py>(
     py: Python<'py>,
     x_geoc: Bound<'py, PyArray<f64, Ix1>>,
@@ -135,6 +147,17 @@ unsafe fn py_position_geocentric_to_ecef<'py>(
 /// Returns:
 ///     (numpy.ndarray): Geocentric position `[latitude, longitude, radius]` where latitude
 ///         is in radians or degrees, longitude is in radians or degrees, and radius is in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert ECEF to geocentric coordinates
+///     x_ecef = np.array([6378137.0, 0.0, 0.0])  # Point on equator, prime meridian
+///     x_geoc = bh.position_ecef_to_geocentric(x_ecef, bh.AngleFormat.DEGREES)
+///     print(f"Geocentric: lat={x_geoc[0]:.2f}°, lon={x_geoc[1]:.2f}°, r={x_geoc[2]:.0f}m")
+///     ```
 unsafe fn py_position_ecef_to_geocentric<'py>(
     py: Python<'py>,
     x_ecef: Bound<'py, PyArray<f64, Ix1>>,
@@ -162,6 +185,18 @@ unsafe fn py_position_ecef_to_geocentric<'py>(
 ///
 /// Returns:
 ///     (numpy.ndarray): `ECEF` Cartesian position `[x, y, z]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert geodetic coordinates (GPS-like) to ECEF
+///     lat, lon, alt = 40.0, -105.0, 1655.0  # Boulder, CO (degrees, meters)
+///     x_geod = np.array([lat, lon, alt])
+///     x_ecef = bh.position_geodetic_to_ecef(x_geod, bh.AngleFormat.DEGREES)
+///     print(f"ECEF position: {x_ecef}")
+///     ```
 unsafe fn py_position_geodetic_to_ecef<'py>(
     py: Python<'py>,
     x_geod: Bound<'py, PyArray<f64, Ix1>>,
@@ -189,6 +224,17 @@ unsafe fn py_position_geodetic_to_ecef<'py>(
 ///     (numpy.ndarray): Geodetic position `[latitude, longitude, altitude]` where latitude
 ///         is in radians or degrees, longitude is in radians or degrees, and altitude
 ///         is in meters above the `WGS84` ellipsoid.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert ECEF to geodetic coordinates (GPS-like)
+///     x_ecef = np.array([-1275936.0, -4797210.0, 4020109.0])  # Example location
+///     x_geod = bh.position_ecef_to_geodetic(x_ecef, bh.AngleFormat.DEGREES)
+///     print(f"Geodetic: lat={x_geod[0]:.4f}°, lon={x_geod[1]:.4f}°, alt={x_geod[2]:.0f}m")
+///     ```
 unsafe fn py_position_ecef_to_geodetic<'py>(
     py: Python<'py>,
     x_ecef: Bound<'py, PyArray<f64, Ix1>>,
@@ -259,6 +305,18 @@ unsafe fn py_rotation_enz_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 ///
 /// Returns:
 ///     (numpy.ndarray): Relative position in `ENZ` frame `[east, north, up]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Ground station and satellite positions
+///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+///     sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
+///     enz = bh.relative_position_ecef_to_enz(station_ecef, sat_ecef, "Geodetic")
+///     print(f"ENZ: East={enz[0]/1000:.1f}km, North={enz[1]/1000:.1f}km, Up={enz[2]/1000:.1f}km")
+///     ```
 unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::relative_position_ecef_to_enz(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
 
@@ -280,6 +338,18 @@ unsafe fn py_relative_position_ecef_to_enz<'py>(py: Python<'py>, location_ecef: 
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert ENZ offset back to ECEF
+///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+///     enz_offset = np.array([50000.0, 30000.0, 100000.0])  # 50km east, 30km north, 100km up
+///     target_ecef = bh.relative_position_enz_to_ecef(station_ecef, enz_offset, "Geodetic")
+///     print(f"Target ECEF: {target_ecef}")
+///     ```
 unsafe fn py_relative_position_enz_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_enz: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::relative_position_enz_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_enz, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
 
@@ -302,6 +372,18 @@ unsafe fn py_relative_position_enz_to_ecef<'py>(py: Python<'py>, location_ecef: 
 ///
 /// Returns:
 ///     (numpy.ndarray): 3x3 rotation matrix from ellipsoidal frame to `SEZ` frame.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Get rotation matrix for ground station in SEZ frame
+///     lat, lon, alt = 0.7, -1.5, 100.0  # radians, meters
+///     x_geod = np.array([lat, lon, alt])
+///     R_sez = bh.rotation_ellipsoid_to_sez(x_geod, bh.AngleFormat.RADIANS)
+///     print(f"Rotation matrix shape: {R_sez.shape}")
+///     ```
 unsafe fn py_rotation_ellipsoid_to_sez<'py>(py: Python<'py>, x_ellipsoid: Bound<'py, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = coordinates::rotation_ellipsoid_to_sez(numpy_to_vector!(x_ellipsoid, 3, f64), angle_format.value);
 
@@ -324,6 +406,18 @@ unsafe fn py_rotation_ellipsoid_to_sez<'py>(py: Python<'py>, x_ellipsoid: Bound<
 ///
 /// Returns:
 ///     (numpy.ndarray): 3x3 rotation matrix from `SEZ` frame to ellipsoidal frame.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Get inverse rotation matrix from SEZ to ellipsoidal
+///     lat, lon, alt = 0.7, -1.5, 100.0  # radians, meters
+///     x_geod = np.array([lat, lon, alt])
+///     R_ellipsoid = bh.rotation_sez_to_ellipsoid(x_geod, bh.AngleFormat.RADIANS)
+///     print(f"Rotation matrix shape: {R_ellipsoid.shape}")
+///     ```
 unsafe fn py_rotation_sez_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<'py, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix2>> {
     let mat = coordinates::rotation_sez_to_ellipsoid(numpy_to_vector!(x_ellipsoid, 3, f64), angle_format.value);
 
@@ -345,6 +439,18 @@ unsafe fn py_rotation_sez_to_ellipsoid<'py>(py: Python<'py>, x_ellipsoid: Bound<
 ///
 /// Returns:
 ///     (numpy.ndarray): Relative position in `SEZ` frame `[south, east, zenith]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Ground station and satellite positions
+///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+///     sat_ecef = np.array([4100000.0, 3100000.0, 4100000.0])
+///     sez = bh.relative_position_ecef_to_sez(station_ecef, sat_ecef, "Geodetic")
+///     print(f"SEZ: South={sez[0]/1000:.1f}km, East={sez[1]/1000:.1f}km, Zenith={sez[2]/1000:.1f}km")
+///     ```
 unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, r_ecef: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::relative_position_ecef_to_sez(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(r_ecef, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
 
@@ -366,6 +472,18 @@ unsafe fn py_relative_position_ecef_to_sez<'py>(py: Python<'py>, location_ecef: 
 ///
 /// Returns:
 ///     (numpy.ndarray): Position vector in `ECEF` coordinates `[x, y, z]` in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert SEZ offset back to ECEF
+///     station_ecef = np.array([4000000.0, 3000000.0, 4000000.0])
+///     sez_offset = np.array([30000.0, 50000.0, 100000.0])  # 30km south, 50km east, 100km up
+///     target_ecef = bh.relative_position_sez_to_ecef(station_ecef, sez_offset, "Geodetic")
+///     print(f"Target ECEF: {target_ecef}")
+///     ```
 unsafe fn py_relative_position_sez_to_ecef<'py>(py: Python<'py>, location_ecef: Bound<'py, PyArray<f64, Ix1>>, x_sez: Bound<'py, PyArray<f64, Ix1>>, conversion_type: &str) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::relative_position_sez_to_ecef(numpy_to_vector!(location_ecef, 3, f64), numpy_to_vector!(x_sez, 3, f64), string_to_ellipsoidal_conversion_type(conversion_type).unwrap());
 
@@ -387,6 +505,17 @@ unsafe fn py_relative_position_sez_to_ecef<'py>(py: Python<'py>, location_ecef: 
 /// Returns:
 ///     (numpy.ndarray): Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
 ///         and elevation are in radians or degrees, and range is in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert ENZ to azimuth-elevation for satellite tracking
+///     enz = np.array([50000.0, 100000.0, 200000.0])  # East, North, Up (meters)
+///     azel = bh.position_enz_to_azel(enz, bh.AngleFormat.DEGREES)
+///     print(f"Az={azel[0]:.1f}°, El={azel[1]:.1f}°, Range={azel[2]/1000:.1f}km")
+///     ```
 unsafe fn py_position_enz_to_azel<'py>(py: Python<'py>, x_enz: Bound<'py, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::position_enz_to_azel(numpy_to_vector!(x_enz, 3, f64), angle_format.value);
 
@@ -408,6 +537,17 @@ unsafe fn py_position_enz_to_azel<'py>(py: Python<'py>, x_enz: Bound<'py, PyArra
 /// Returns:
 ///     (numpy.ndarray): Azimuth-elevation-range `[azimuth, elevation, range]` where azimuth
 ///         and elevation are in radians or degrees, and range is in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Convert SEZ to azimuth-elevation for satellite tracking
+///     sez = np.array([30000.0, 50000.0, 100000.0])  # South, East, Zenith (meters)
+///     azel = bh.position_sez_to_azel(sez, bh.AngleFormat.DEGREES)
+///     print(f"Az={azel[0]:.1f}°, El={azel[1]:.1f}°, Range={azel[2]/1000:.1f}km")
+///     ```
 unsafe fn py_position_sez_to_azel<'py>(py: Python<'py>, x_sez: Bound<'py, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat) -> Bound<'py, PyArray<f64, Ix1>> {
     let vec = coordinates::position_sez_to_azel(numpy_to_vector!(x_sez, 3, f64), angle_format.value);
 

@@ -6,6 +6,16 @@ Global EOP management and query functions.
 
 ## Setting Global EOP Provider
 
+### set_global_eop_provider_from_caching_provider
+
+::: brahe.set_global_eop_provider_from_caching_provider
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 4
+
+---
+
 ### set_global_eop_provider_from_file_provider
 
 ::: brahe.set_global_eop_provider_from_file_provider

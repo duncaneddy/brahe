@@ -5,6 +5,7 @@ frame transformations.
 */
 
 mod c04_parser;
+mod caching_provider;
 pub mod download;
 mod eop_provider;
 pub mod eop_types;
@@ -13,6 +14,7 @@ mod global;
 mod standard_parser;
 mod static_provider;
 
+pub use caching_provider::*;
 pub use download::*;
 pub use eop_provider::*;
 pub use eop_types::*;

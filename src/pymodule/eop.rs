@@ -903,6 +903,401 @@ impl PyFileEOPProvider {
 
 }
 
+/// Caching EOP provider that automatically downloads updated files when stale.
+///
+/// This provider wraps a FileEOPProvider and adds automatic cache management.
+/// It checks the age of the EOP file and downloads updated versions when the file
+/// exceeds the maximum age threshold. If the file doesn't exist, it will be
+/// downloaded on initialization.
+///
+/// Args:
+///     filepath (str): Path to the EOP file (will be created if it doesn't exist)
+///     eop_type (str): Type of EOP file - "C04" for IERS C04 format or
+///         "StandardBulletinA" for IERS finals2000A.all format
+///     max_age_seconds (int): Maximum age of file in seconds before triggering
+///         a refresh. Common values: 86400 (1 day), 604800 (7 days)
+///     auto_refresh (bool): If True, automatically checks file age and refreshes
+///         on every data access. If False, only checks on initialization and
+///         manual refresh() calls
+///     interpolate (bool): Enable linear interpolation between tabulated EOP
+///         values. Recommended: True for smoother data
+///     extrapolate (str): Behavior for dates outside EOP data range:
+///         "Hold" (use last known value), "Zero" (return 0.0), or "Error" (raise exception)
+///
+/// Raises:
+///     RuntimeError: If file download fails or file is invalid
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Manual refresh mode (recommended for performance)
+///     provider = bh.CachingEOPProvider(
+///         filepath="./eop_data/finals.all.iau2000.txt",
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=7 * 86400,  # 7 days
+///         auto_refresh=False,
+///         interpolate=True,
+///         extrapolate="Hold"
+///     )
+///     bh.set_global_eop_provider_from_caching_provider(provider)
+///
+///     # Check and refresh as needed
+///     provider.refresh()
+///
+///     # Auto-refresh mode (convenience)
+///     auto_provider = bh.CachingEOPProvider(
+///         filepath="./eop_data/finals.all.iau2000.txt",
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=24 * 3600,  # 24 hours
+///         auto_refresh=True,  # Checks on every access
+///         interpolate=True,
+///         extrapolate="Hold"
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CachingEOPProvider")]
+pub(crate) struct PyCachingEOPProvider {
+    obj: eop::CachingEOPProvider,
+}
+
+#[pymethods]
+impl PyCachingEOPProvider {
+    pub fn __repr__(&self) -> String {
+        format!("CachingEOPProvider(type={}, len={}, auto_refresh={})",
+                eop_type_to_string(self.obj.eop_type()),
+                self.obj.len(),
+                self.obj.auto_refresh)
+    }
+
+    pub fn __str__(&self) -> String {
+        format!("CachingEOPProvider with {} data points (auto_refresh: {})",
+                self.obj.len(),
+                self.obj.auto_refresh)
+    }
+
+    /// Initialize a new caching EOP provider with automatic file management.
+    ///
+    /// Creates an EOP provider that automatically monitors file age and downloads
+    /// updated data from IERS when the file exceeds the specified maximum age.
+    /// If the file doesn't exist, it will be downloaded on initialization.
+    ///
+    /// Args:
+    ///     filepath (str): Path to the EOP file (will be created if it doesn't exist)
+    ///     eop_type (str): Type of EOP file - "C04" for IERS C04 format or
+    ///         "StandardBulletinA" for IERS finals2000A.all format
+    ///     max_age_seconds (int): Maximum age of file in seconds before triggering
+    ///         a refresh. Common values: 86400 (1 day), 604800 (7 days)
+    ///     auto_refresh (bool): If True, automatically checks file age and refreshes
+    ///         on every data access. If False, only checks on initialization and
+    ///         manual refresh() calls
+    ///     interpolate (bool): Enable linear interpolation between tabulated EOP
+    ///         values. Recommended: True for smoother data
+    ///     extrapolate (str): Behavior for dates outside EOP data range:
+    ///         - "Hold": Use last known value (recommended)
+    ///         - "Zero": Return 0.0 for all parameters
+    ///         - "Error": Raise an exception
+    ///
+    /// Returns:
+    ///     CachingEOPProvider: Provider with automatic cache management
+    ///
+    /// Raises:
+    ///     Exception: If file download fails or file format is invalid
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Create provider that refreshes files older than 7 days
+    ///     provider = bh.CachingEOPProvider(
+    ///         filepath="./eop_data/finals.all.iau2000.txt",
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=7 * 86400,  # 7 days in seconds
+    ///         auto_refresh=False,          # Manual refresh only
+    ///         interpolate=True,            # Smooth interpolation
+    ///         extrapolate="Hold"           # Hold last value
+    ///     )
+    ///
+    ///     # Set as global provider for frame transformations
+    ///     bh.set_global_eop_provider_from_caching_provider(provider)
+    ///
+    ///     # Check file status
+    ///     print(f"File loaded at: {provider.file_epoch()}")
+    ///     print(f"File age: {provider.file_age() / 86400:.1f} days")
+    ///     ```
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Long-running service with auto-refresh
+    ///     provider = bh.CachingEOPProvider(
+    ///         filepath="/var/lib/app/eop_data/finals.txt",
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=24 * 3600,  # 24 hours
+    ///         auto_refresh=True,           # Check on every access
+    ///         interpolate=True,
+    ///         extrapolate="Hold"
+    ///     )
+    ///     bh.set_global_eop_provider_from_caching_provider(provider)
+    ///
+    ///     # Service runs continuously with always-current EOP data
+    ///     while True:
+    ///         # EOP data automatically refreshed if stale
+    ///         perform_calculations()
+    ///     ```
+    #[new]
+    #[pyo3(signature = (filepath, eop_type, max_age_seconds, auto_refresh, interpolate, extrapolate))]
+    pub fn new(
+        filepath: &str,
+        eop_type: &str,
+        max_age_seconds: u64,
+        auto_refresh: bool,
+        interpolate: bool,
+        extrapolate: &str,
+    ) -> Result<Self, BraheError> {
+        Ok(PyCachingEOPProvider {
+            obj: eop::CachingEOPProvider::new(
+                Path::new(filepath),
+                string_to_eop_type(eop_type)?,
+                max_age_seconds,
+                auto_refresh,
+                interpolate,
+                string_to_eop_extrapolation(extrapolate)?,
+            )?,
+        })
+    }
+
+    /// Manually refresh the cached EOP data.
+    ///
+    /// Checks if the file needs updating and downloads a new version if necessary.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     provider = bh.CachingEOPProvider(
+    ///         "./eop_data/finals.all.iau2000.txt",
+    ///         "StandardBulletinA",
+    ///         7 * 86400,
+    ///         False,
+    ///         True,
+    ///         "Hold"
+    ///     )
+    ///
+    ///     # Later, manually force a refresh check
+    ///     provider.refresh()
+    ///     ```
+    pub fn refresh(&self) -> Result<(), BraheError> {
+        self.obj.refresh()
+    }
+
+    /// Get the epoch when the EOP file was last loaded.
+    ///
+    /// Returns:
+    ///     Epoch: Epoch in UTC when file was loaded
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     provider = bh.CachingEOPProvider(
+    ///         "./eop_data/finals.all.iau2000.txt",
+    ///         "StandardBulletinA",
+    ///         7 * 86400,
+    ///         False,
+    ///         True,
+    ///         "Hold"
+    ///     )
+    ///
+    ///     file_epoch = provider.file_epoch()
+    ///     print(f"EOP file loaded at: {file_epoch}")
+    ///     ```
+    pub fn file_epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.obj.file_epoch(),
+        }
+    }
+
+    /// Get the age of the currently loaded EOP file in seconds.
+    ///
+    /// Returns:
+    ///     float: Age of the loaded file in seconds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     provider = bh.CachingEOPProvider(
+    ///         "./eop_data/finals.all.iau2000.txt",
+    ///         "StandardBulletinA",
+    ///         7 * 86400,
+    ///         False,
+    ///         True,
+    ///         "Hold"
+    ///     )
+    ///
+    ///     age = provider.file_age()
+    ///     print(f"EOP file age: {age:.2f} seconds")
+    ///     ```
+    pub fn file_age(&self) -> f64 {
+        self.obj.file_age()
+    }
+
+    /// Check if the provider is initialized.
+    ///
+    /// Returns:
+    ///     bool: True if initialized
+    pub fn is_initialized(&self) -> bool {
+        self.obj.is_initialized()
+    }
+
+    /// Get the number of EOP data points.
+    ///
+    /// Returns:
+    ///     int: Number of EOP data points
+    pub fn len(&self) -> usize {
+        self.obj.len()
+    }
+
+    /// Get the EOP file type.
+    ///
+    /// Returns:
+    ///     str: EOP type ("C04", "StandardBulletinA", etc.)
+    pub fn eop_type(&self) -> String {
+        eop_type_to_string(self.obj.eop_type())
+    }
+
+    /// Get the extrapolation method.
+    ///
+    /// Returns:
+    ///     str: Extrapolation method ("Hold", "Zero", or "Error")
+    pub fn extrapolation(&self) -> String {
+        eop_extrapolation_to_string(self.obj.extrapolation())
+    }
+
+    /// Check if interpolation is enabled.
+    ///
+    /// Returns:
+    ///     bool: True if interpolation is enabled
+    pub fn interpolation(&self) -> bool {
+        self.obj.interpolation()
+    }
+
+    /// Get the minimum MJD in the dataset.
+    ///
+    /// Returns:
+    ///     float: Minimum Modified Julian Date
+    pub fn mjd_min(&self) -> f64 {
+        self.obj.mjd_min()
+    }
+
+    /// Get the maximum MJD in the dataset.
+    ///
+    /// Returns:
+    ///     float: Maximum Modified Julian Date
+    pub fn mjd_max(&self) -> f64 {
+        self.obj.mjd_max()
+    }
+
+    /// Get the last MJD with valid LOD data.
+    ///
+    /// Returns:
+    ///     float: Last MJD with length of day data
+    pub fn mjd_last_lod(&self) -> f64 {
+        self.obj.mjd_last_lod()
+    }
+
+    /// Get the last MJD with valid celestial pole offset data.
+    ///
+    /// Returns:
+    ///     float: Last MJD with dX/dY data
+    pub fn mjd_last_dxdy(&self) -> f64 {
+        self.obj.mjd_last_dxdy()
+    }
+
+    /// Get UT1-UTC time difference for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: UT1-UTC time difference in seconds
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_ut1_utc(mjd)
+    }
+
+    /// Get polar motion components for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     tuple[float, float]: Polar motion x and y components in radians
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_pm(mjd)
+    }
+
+    /// Get celestial pole offsets for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     tuple[float, float]: Celestial pole offsets dx and dy in radians
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.obj.get_dxdy(mjd)
+    }
+
+    /// Get length of day offset for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: Length of day offset in seconds
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.obj.get_lod(mjd)
+    }
+
+    /// Get all EOP parameters for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     tuple: (pm_x, pm_y, ut1_utc, dx, dy, lod)
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+        self.obj.get_eop(mjd)
+    }
+}
+
+/// Set the global EOP provider using a caching provider.
+///
+/// Args:
+///     provider (CachingEOPProvider): Caching EOP provider to set globally
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     provider = bh.CachingEOPProvider(
+///         "./eop_data/finals.all.iau2000.txt",
+///         "StandardBulletinA",
+///         7 * 86400,
+///         False,
+///         True,
+///         "Hold"
+///     )
+///     bh.set_global_eop_provider_from_caching_provider(provider)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(provider)")]
+#[pyo3(name = "set_global_eop_provider_from_caching_provider")]
+pub fn py_set_global_eop_provider_from_caching_provider(provider: &PyCachingEOPProvider) {
+    eop::set_global_eop_provider(provider.obj.clone());
+}
+
 /// Set the global EOP provider using a static provider.
 ///
 /// Args:

@@ -3,7 +3,14 @@
 
 name: Update Docs
 
-on: [ workflow_call ]
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v0.1.0). If not provided, deploys as "latest"'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   publish-docs:
@@ -13,12 +20,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Fetch all history for accurate git revision dates
+          fetch-depth: 0  # Fetch all history for accurate git revision dates and mike versioning
 
-      -   name: Install Rust
-          run: rustup update nightly
-      -   run: rustup default nightly
-      
+      - name: Configure Git for mike
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+      - name: Install Rust
+        run: rustup update nightly
+      - run: rustup default nightly
+
       - name: Install the latest version of uv and set the python version
         uses: astral-sh/setup-uv@v6
         with:
@@ -33,8 +45,10 @@ jobs:
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh
 
-      - name: Build documentation
-        run: uv run --frozen mkdocs build
+      - name: Deploy documentation (versioned release)
+        if: inputs.version != ''
+        run: uv run --frozen mike deploy --push --update-aliases ${{ inputs.version }} stable
 
-      - name: Deploy documentation
-        run: uv run --frozen mkdocs gh-deploy --force
+      - name: Deploy documentation (latest from main)
+        if: inputs.version == ''
+        run: uv run --frozen mike deploy --push --update-aliases latest

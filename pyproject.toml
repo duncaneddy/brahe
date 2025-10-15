@@ -50,6 +50,7 @@ build-backend = "maturin"
 [dependency-groups]
 dev = [
     "matplotlib>=3.9.4",
+    "mike>=2.0.0",
     "mkdocs-git-revision-date-localized-plugin>=1.4.7",
     "mkdocs-material>=9.6.20",
     "mkdocs-section-index>=0.3.10",

@@ -18,6 +18,8 @@ jobs:
   update-docs:
     uses: ./.github/workflows/update_docs.yml
     needs: [ test-python ]
+    with:
+      version: ${{ github.ref_name }}
 
   python-build-source:
     needs: [update-docs]

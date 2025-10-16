@@ -1070,6 +1070,172 @@ impl PySGPPropagator {
         }
     }
 
+    // Identity methods
+
+    /// Set the name and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     name (str): Name to assign to this propagator.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Self with name set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_name("My Satellite")
+    ///     print(f"Name: {prop.name}")
+    ///     ```
+    pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_name(&name);
+        slf
+    }
+
+    /// Set the UUID and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     uuid_str (str): UUID string to assign to this propagator.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Self with UUID set.
+    pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
+        use crate::utils::Identifiable;
+        let uuid = uuid::Uuid::parse_str(&uuid_str)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+        slf.propagator = slf.propagator.clone().with_uuid(uuid);
+        Ok(slf)
+    }
+
+    /// Generate a new UUID, set it, and return self (consuming constructor pattern).
+    ///
+    /// Returns:
+    ///     SGPPropagator: Self with new UUID set.
+    pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_new_uuid();
+        slf
+    }
+
+    /// Set the numeric ID and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign to this propagator.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Self with ID set.
+    pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_id(id);
+        slf
+    }
+
+    /// Set all identity fields at once and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Self with identity set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import uuid
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     my_uuid = str(uuid.uuid4())
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_identity("ISS", my_uuid, 25544)
+    ///     print(f"Name: {prop.name}, ID: {prop.id}, UUID: {prop.uuid}")
+    ///     ```
+    pub fn with_identity(mut slf: PyRefMut<'_, Self>, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<PyRefMut<'_, Self>> {
+        use crate::utils::Identifiable;
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        slf.propagator = slf.propagator.clone().with_identity(name.as_deref(), uuid, id);
+        Ok(slf)
+    }
+
+    /// Set all identity fields in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    pub fn set_identity(&mut self, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<()> {
+        use crate::utils::Identifiable;
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        self.propagator.set_identity(name.as_deref(), uuid, id);
+        Ok(())
+    }
+
+    /// Set the numeric ID in-place (mutating).
+    ///
+    /// Args:
+    ///     id (int or None): Numeric ID to assign, or None to clear.
+    pub fn set_id(&mut self, id: Option<u64>) {
+        use crate::utils::Identifiable;
+        self.propagator.set_id(id);
+    }
+
+    /// Set the name in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Name to assign, or None to clear.
+    pub fn set_name(&mut self, name: Option<String>) {
+        use crate::utils::Identifiable;
+        self.propagator.set_name(name.as_deref());
+    }
+
+    /// Generate a new UUID and set it in-place (mutating).
+    pub fn generate_uuid(&mut self) {
+        use crate::utils::Identifiable;
+        self.propagator.generate_uuid();
+    }
+
+    /// Get the current numeric ID.
+    ///
+    /// Returns:
+    ///     int or None: The numeric ID, or None if not set.
+    #[getter]
+    pub fn id(&self) -> Option<u64> {
+        use crate::utils::Identifiable;
+        self.propagator.get_id()
+    }
+
+    /// Get the current name.
+    ///
+    /// Returns:
+    ///     str or None: The name, or None if not set.
+    #[getter]
+    pub fn name(&self) -> Option<String> {
+        use crate::utils::Identifiable;
+        self.propagator.get_name().map(|s| s.to_string())
+    }
+
+    /// Get the current UUID.
+    ///
+    /// Returns:
+    ///     str or None: The UUID as a string, or None if not set.
+    #[getter]
+    pub fn uuid(&self) -> Option<String> {
+        use crate::utils::Identifiable;
+        self.propagator.get_uuid().map(|u| u.to_string())
+    }
+
     /// String representation.
     fn __repr__(&self) -> String {
         format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",
@@ -1711,6 +1877,163 @@ impl PyKeplerianPropagator {
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
+    }
+
+    // Identity methods
+
+    /// Set the name and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     name (str): Name to assign to this propagator.
+    ///
+    /// Returns:
+    ///     KeplerianPropagator: Self with name set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([7000e3, 0.001, 0.9, 0.0, 0.0, 0.0])
+    ///     prop = bh.KeplerianPropagator.from_keplerian(
+    ///         epc, oe, bh.AngleFormat.RADIANS, 60.0
+    ///     ).with_name("My Orbit")
+    ///     print(f"Name: {prop.name}")
+    ///     ```
+    pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_name(&name);
+        slf
+    }
+
+    /// Set the UUID and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     uuid_str (str): UUID string to assign to this propagator.
+    ///
+    /// Returns:
+    ///     KeplerianPropagator: Self with UUID set.
+    pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
+        use crate::utils::Identifiable;
+        let uuid = uuid::Uuid::parse_str(&uuid_str)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+        slf.propagator = slf.propagator.clone().with_uuid(uuid);
+        Ok(slf)
+    }
+
+    /// Generate a new UUID, set it, and return self (consuming constructor pattern).
+    ///
+    /// Returns:
+    ///     KeplerianPropagator: Self with new UUID set.
+    pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_new_uuid();
+        slf
+    }
+
+    /// Set the numeric ID and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign to this propagator.
+    ///
+    /// Returns:
+    ///     KeplerianPropagator: Self with ID set.
+    pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
+        use crate::utils::Identifiable;
+        slf.propagator = slf.propagator.clone().with_id(id);
+        slf
+    }
+
+    /// Set all identity fields at once and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    ///
+    /// Returns:
+    ///     KeplerianPropagator: Self with identity set.
+    pub fn with_identity(mut slf: PyRefMut<'_, Self>, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<PyRefMut<'_, Self>> {
+        use crate::utils::Identifiable;
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        slf.propagator = slf.propagator.clone().with_identity(name.as_deref(), uuid, id);
+        Ok(slf)
+    }
+
+    /// Set all identity fields in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    pub fn set_identity(&mut self, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<()> {
+        use crate::utils::Identifiable;
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        self.propagator.set_identity(name.as_deref(), uuid, id);
+        Ok(())
+    }
+
+    /// Set the numeric ID in-place (mutating).
+    ///
+    /// Args:
+    ///     id (int or None): Numeric ID to assign, or None to clear.
+    pub fn set_id(&mut self, id: Option<u64>) {
+        use crate::utils::Identifiable;
+        self.propagator.set_id(id);
+    }
+
+    /// Set the name in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Name to assign, or None to clear.
+    pub fn set_name(&mut self, name: Option<String>) {
+        use crate::utils::Identifiable;
+        self.propagator.set_name(name.as_deref());
+    }
+
+    /// Generate a new UUID and set it in-place (mutating).
+    pub fn generate_uuid(&mut self) {
+        use crate::utils::Identifiable;
+        self.propagator.generate_uuid();
+    }
+
+    /// Get the current numeric ID.
+    ///
+    /// Returns:
+    ///     int or None: The numeric ID, or None if not set.
+    #[getter]
+    pub fn id(&self) -> Option<u64> {
+        use crate::utils::Identifiable;
+        self.propagator.get_id()
+    }
+
+    /// Get the current name.
+    ///
+    /// Returns:
+    ///     str or None: The name, or None if not set.
+    #[getter]
+    pub fn name(&self) -> Option<String> {
+        use crate::utils::Identifiable;
+        self.propagator.get_name().map(|s| s.to_string())
+    }
+
+    /// Get the current UUID.
+    ///
+    /// Returns:
+    ///     str or None: The UUID as a string, or None if not set.
+    #[getter]
+    pub fn uuid(&self) -> Option<String> {
+        use crate::utils::Identifiable;
+        self.propagator.get_uuid().map(|u| u.to_string())
     }
 
     /// String representation.

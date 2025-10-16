@@ -42,7 +42,7 @@ use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
-use crate::utils::BraheError;
+use crate::utils::{BraheError, Identifiable};
 use nalgebra::{Vector3, Vector6};
 
 /// Helper functions
@@ -170,6 +170,15 @@ pub struct SGPPropagator {
 
     /// Output angle format (default: Radians)
     pub angle_format: Option<AngleFormat>,
+
+    /// Optional user-defined name for identification
+    pub name: Option<String>,
+
+    /// Optional user-defined numeric ID for identification
+    pub id: Option<u64>,
+
+    /// Optional UUID for unique identification
+    pub uuid: Option<uuid::Uuid>,
 }
 
 impl SGPPropagator {
@@ -315,6 +324,9 @@ impl SGPPropagator {
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
+            name: None,
+            id: None,
+            uuid: None,
         })
     }
 
@@ -567,6 +579,70 @@ impl AnalyticPropagator for SGPPropagator {
     // - states_eci()
     // - states_ecef()
     // - states_as_osculating_elements()
+}
+
+impl Identifiable for SGPPropagator {
+    fn with_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+
+    fn with_uuid(mut self, uuid: uuid::Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self
+    }
+
+    fn with_new_uuid(mut self) -> Self {
+        self.uuid = Some(uuid::Uuid::new_v4());
+        self
+    }
+
+    fn with_id(mut self, id: u64) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    fn with_identity(
+        mut self,
+        name: Option<&str>,
+        uuid: Option<uuid::Uuid>,
+        id: Option<u64>,
+    ) -> Self {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+        self
+    }
+
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<uuid::Uuid>, id: Option<u64>) {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+    }
+
+    fn set_id(&mut self, id: Option<u64>) {
+        self.id = id;
+    }
+
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(|s| s.to_string());
+    }
+
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(uuid::Uuid::new_v4());
+    }
+
+    fn get_id(&self) -> Option<u64> {
+        self.id
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<uuid::Uuid> {
+        self.uuid
+    }
 }
 
 #[cfg(test)]
@@ -850,6 +926,146 @@ mod tests {
         assert_abs_diff_eq!(elements[3], 247.4627, epsilon = 1e-10); // raan [deg]
         assert_abs_diff_eq!(elements[4], 130.5360, epsilon = 1e-10); // argp [deg]
         assert_abs_diff_eq!(elements[5], 325.0288, epsilon = 1e-10); // M [deg]
+    }
+
+    // Identifiable Trait Tests
+
+    #[test]
+    fn test_sgppropagator_identifiable_with_name() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_name("My Satellite");
+
+        assert_eq!(prop.get_name(), Some("My Satellite"));
+        assert_eq!(prop.get_id(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_with_id() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_id(12345);
+
+        assert_eq!(prop.get_id(), Some(12345));
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_with_uuid() {
+        setup_global_test_eop();
+        let test_uuid = uuid::Uuid::new_v4();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_uuid(test_uuid);
+
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_with_new_uuid() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_new_uuid();
+
+        assert!(prop.get_uuid().is_some());
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_with_identity() {
+        setup_global_test_eop();
+        let test_uuid = uuid::Uuid::new_v4();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_identity(Some("Satellite A"), Some(test_uuid), Some(999));
+
+        assert_eq!(prop.get_name(), Some("Satellite A"));
+        assert_eq!(prop.get_id(), Some(999));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_set_name() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        prop.set_name(Some("Test Name"));
+        assert_eq!(prop.get_name(), Some("Test Name"));
+
+        prop.set_name(None);
+        assert_eq!(prop.get_name(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_set_id() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        prop.set_id(Some(42));
+        assert_eq!(prop.get_id(), Some(42));
+
+        prop.set_id(None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_generate_uuid() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        assert_eq!(prop.get_uuid(), None);
+
+        prop.generate_uuid();
+        let uuid1 = prop.get_uuid();
+        assert!(uuid1.is_some());
+
+        // Generate another UUID and verify it's different
+        prop.generate_uuid();
+        let uuid2 = prop.get_uuid();
+        assert!(uuid2.is_some());
+        assert_ne!(uuid1, uuid2);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_set_identity() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let test_uuid = uuid::Uuid::new_v4();
+
+        prop.set_identity(Some("Updated Name"), Some(test_uuid), Some(777));
+
+        assert_eq!(prop.get_name(), Some("Updated Name"));
+        assert_eq!(prop.get_id(), Some(777));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+
+        // Clear all
+        prop.set_identity(None, None, None);
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_sgppropagator_identifiable_chaining() {
+        setup_global_test_eop();
+        let test_uuid = uuid::Uuid::new_v4();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_name("Chained Satellite")
+            .with_id(123)
+            .with_uuid(test_uuid);
+
+        assert_eq!(prop.get_name(), Some("Chained Satellite"));
+        assert_eq!(prop.get_id(), Some(123));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
     }
 
     // AnalyticPropagator Trait Tests

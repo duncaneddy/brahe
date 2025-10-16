@@ -676,7 +676,7 @@ impl PySGPPropagator {
     ///     Epoch: Epoch of the TLE data.
     #[getter]
     pub fn epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.propagator.initial_epoch() }
+        PyEpoch { obj: self.propagator.epoch }
     }
 
     /// Get current epoch.
@@ -1029,12 +1029,53 @@ impl PySGPPropagator {
         PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
     }
 
+    /// Get Keplerian orbital elements from TLE data.
+    ///
+    /// Extracts the Keplerian elements directly from the TLE lines used to
+    /// initialize this propagator.
+    ///
+    /// Args:
+    ///     angle_format (AngleFormat): Format for angular elements (DEGREES or RADIANS).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Keplerian elements [a, e, i, Ω, ω, M] where:
+    ///         - a: semi-major axis [m]
+    ///         - e: eccentricity [dimensionless]
+    ///         - i: inclination [rad or deg]
+    ///         - Ω: right ascension of ascending node [rad or deg]
+    ///         - ω: argument of periapsis [rad or deg]
+    ///         - M: mean anomaly [rad or deg]
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Get elements in degrees
+    ///     oe_deg = prop.get_elements(bh.AngleFormat.DEGREES)
+    ///     print(f"Inclination: {oe_deg[2]:.4f} degrees")
+    ///
+    ///     # Get elements in radians
+    ///     oe_rad = prop.get_elements(bh.AngleFormat.RADIANS)
+    ///     print(f"Inclination: {oe_rad[2]:.4f} radians")
+    ///     ```
+    #[pyo3(text_signature = "(angle_format)")]
+    pub fn get_elements<'a>(&self, py: Python<'a>, angle_format: &PyAngleFormat) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        match self.propagator.get_elements(angle_format.value) {
+            Ok(elements) => Ok(elements.as_slice().to_pyarray(py).to_owned()),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
     /// String representation.
     fn __repr__(&self) -> String {
         format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",
                 self.propagator.norad_id,
                 self.propagator.satellite_name,
-                self.propagator.initial_epoch())
+                self.propagator.epoch)
     }
 
     /// String conversion.
@@ -1682,55 +1723,6 @@ impl PyKeplerianPropagator {
     /// String conversion.
     fn __str__(&self) -> String {
         self.__repr__()
-    }
-}
-
-// Legacy TLE support (for backward compatibility)
-/// Legacy TLE class for backward compatibility.
-#[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "TLE")]
-pub struct PyTLE {
-    // Minimal implementation using SGPPropagator internally
-    propagator: orbits::SGPPropagator,
-}
-
-#[pymethods]
-impl PyTLE {
-    /// Create a TLE from lines (legacy compatibility).
-    ///
-    /// Args:
-    ///     line1 (str): First line of TLE data.
-    ///     line2 (str): Second line of TLE data.
-    ///     step_size (float): Step size in seconds for propagation. Defaults to 60.0.
-    ///
-    /// Returns:
-    ///     TLE: New TLE instance.
-    #[classmethod]
-    #[pyo3(signature = (line1, line2, step_size=60.0))]
-    pub fn from_lines(_cls: &Bound<'_, PyType>, line1: String, line2: String, step_size: Option<f64>) -> PyResult<Self> {
-        let step_size = step_size.unwrap_or(60.0);
-        match orbits::SGPPropagator::from_tle(&line1, &line2, step_size) {
-            Ok(propagator) => Ok(PyTLE { propagator }),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get NORAD ID.
-    ///
-    /// Returns:
-    ///     int: NORAD catalog ID.
-    #[getter]
-    pub fn norad_id(&self) -> u32 {
-        self.propagator.norad_id
-    }
-
-    /// Get TLE epoch.
-    ///
-    /// Returns:
-    ///     Epoch: Epoch of the TLE data.
-    #[getter]
-    pub fn epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.propagator.initial_epoch() }
     }
 }
 

@@ -4713,6 +4713,43 @@ class SGPPropagator:
         """
         ...
 
+    def get_elements(self, angle_format: AngleFormat) -> np.ndarray:
+        """Get Keplerian orbital elements from TLE data.
+
+        Extracts the Keplerian elements directly from the TLE lines used to
+        initialize this propagator.
+
+        Args:
+            angle_format (AngleFormat): Format for angular elements (DEGREES or RADIANS).
+
+        Returns:
+            numpy.ndarray: Keplerian elements [a, e, i, Ω, ω, M] where:
+                - a: semi-major axis [m]
+                - e: eccentricity [dimensionless]
+                - i: inclination [rad or deg]
+                - Ω: right ascension of ascending node [rad or deg]
+                - ω: argument of periapsis [rad or deg]
+                - M: mean anomaly [rad or deg]
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+            line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+            prop = bh.SGPPropagator.from_tle(line1, line2)
+
+            # Get elements in degrees
+            oe_deg = prop.get_elements(bh.AngleFormat.DEGREES)
+            print(f"Inclination: {oe_deg[2]:.4f} degrees")
+
+            # Get elements in radians
+            oe_rad = prop.get_elements(bh.AngleFormat.RADIANS)
+            print(f"Inclination: {oe_rad[2]:.4f} radians")
+            ```
+        """
+        ...
+
     def initial_state(self) -> np.ndarray:
         """Get initial state vector.
 
@@ -5946,45 +5983,6 @@ class StaticEOPProvider:
             eop = bh.StaticEOPProvider.from_zero()
             print(f"Minimum MJD: {eop.mjd_min()}")
             ```
-        """
-        ...
-
-class TLE:
-    """Legacy TLE class for backward compatibility."""
-
-    def __init__(self) -> None:
-        """Initialize instance."""
-        ...
-
-    @classmethod
-    def from_lines(cls, line1: str, line2: str, step_size: float) -> TLE:
-        """Create a TLE from lines (legacy compatibility).
-
-        Args:
-            line1 (str): First line of TLE data.
-            line2 (str): Second line of TLE data.
-            step_size (float): Step size in seconds for propagation. Defaults to 60.0.
-
-        Returns:
-            TLE: New TLE instance.
-        """
-        ...
-
-    @property
-    def epoch(self) -> Epoch:
-        """Get TLE epoch.
-
-        Returns:
-            Epoch: Epoch of the TLE data.
-        """
-        ...
-
-    @property
-    def norad_id(self) -> int:
-        """Get NORAD ID.
-
-        Returns:
-            int: NORAD catalog ID.
         """
         ...
 

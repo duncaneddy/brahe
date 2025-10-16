@@ -103,15 +103,10 @@ time_diff = future_epc - epc  # Difference in seconds
 import brahe as bh
 import numpy as np
 
-# Create a Two-Line Element (TLE) for a satellite
-tle = bh.TLE(
-    "ISS (ZARYA)",
-    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
-    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-)
-
-# Create an SGP4 propagator
-prop = bh.SGPPropagator.from_tle(tle)
+# Create an SGP4 propagator from Two-Line Element (TLE) data
+line1 = "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990"
+line2 = "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
+prop = bh.SGPPropagator.from_tle(line1, line2)
 
 # Propagate to a specific epoch
 epc = bh.Epoch(2024, 6, 1, 0, 0, 0.0, bh.TimeSystem.UTC)

@@ -48,19 +48,19 @@ print(f"\nSatellite: {name}")
 print(f"Line 1: {line1}")
 print(f"Line 2: {line2}")
 
-# Create TLE object
-tle = bh.TLE(name, line1, line2)
+# Create SGP propagator
+prop = bh.SGPPropagator.from_tle(line1, line2)
 
 # Extract epoch
-epoch = bh.epoch_from_tle(tle)
+epoch = bh.epoch_from_tle(line1)
 print(f"Epoch: {epoch}")
 
 # Convert to Keplerian elements
-keplerian = bh.keplerian_elements_from_tle(tle)
+epoch_tle, keplerian = bh.keplerian_elements_from_tle(line1, line2)
 a, e, i, raan, argp, M = keplerian
 print(f"Semi-major axis: {a/1000:.1f} km")
 print(f"Eccentricity: {e:.6f}")
-print(f"Inclination: {np.rad2deg(i):.2f} deg")
+print(f"Inclination: {i:.2f} deg")  # Already in degrees
 ```
 
 ## Save Ephemeris to Files
@@ -199,11 +199,11 @@ all_sats = bh.datasets.celestrak.get_ephemeris("active")
 leo_sats = []
 for name, line1, line2 in all_sats:
     # Extract mean-Keplerian elements at epoch
-    elements = bh.keplerian_elements_from_tle(tle)
+    epoch_tle, elements = bh.keplerian_elements_from_tle(line1, line2)
 
     # Calculate orbital period
     a = elements[0]  # Semi-major axis in meters
-    period = bh.orbital_period(a, bh.GM_EARTH)  # Period in seconds
+    period = bh.orbital_period(a)  # Period in seconds
 
     if period < 128 * 60:  # 128 minutes in seconds
         leo_sats.append((name, line1, line2))

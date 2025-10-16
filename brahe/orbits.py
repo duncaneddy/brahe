@@ -29,8 +29,6 @@ from brahe._brahe import (
     # Propagators
     SGPPropagator,
     KeplerianPropagator,
-    # TLE class (legacy support)
-    TLE,
     # Orbital element calculations
     orbital_period,
     orbital_period_general,
@@ -75,8 +73,6 @@ __all__ = [
     # Propagators
     "SGPPropagator",
     "KeplerianPropagator",
-    # TLE class
-    "TLE",
     # Orbital element calculations
     "orbital_period",
     "orbital_period_general",

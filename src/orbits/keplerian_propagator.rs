@@ -17,7 +17,7 @@ use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
-use crate::utils::BraheError;
+use crate::utils::{BraheError, Identifiable};
 
 /// Keplerian propagator for analytical two-body orbital motion
 #[derive(Debug, Clone)]
@@ -48,6 +48,15 @@ pub struct KeplerianPropagator {
 
     /// Mean motion in radians per second
     n: f64,
+
+    /// Optional user-defined name for identification
+    pub name: Option<String>,
+
+    /// Optional user-defined numeric ID for identification
+    pub id: Option<u64>,
+
+    /// Optional UUID for unique identification
+    pub uuid: Option<uuid::Uuid>,
 }
 
 impl KeplerianPropagator {
@@ -135,6 +144,9 @@ impl KeplerianPropagator {
             trajectory,
             step_size,
             n,
+            name: None,
+            id: None,
+            uuid: None,
         }
     }
 
@@ -538,6 +550,70 @@ impl AnalyticPropagator for KeplerianPropagator {
     // - states_eci()
     // - states_ecef()
     // - states_as_osculating_elements()
+}
+
+impl Identifiable for KeplerianPropagator {
+    fn with_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+
+    fn with_uuid(mut self, uuid: uuid::Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self
+    }
+
+    fn with_new_uuid(mut self) -> Self {
+        self.uuid = Some(uuid::Uuid::new_v4());
+        self
+    }
+
+    fn with_id(mut self, id: u64) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    fn with_identity(
+        mut self,
+        name: Option<&str>,
+        uuid: Option<uuid::Uuid>,
+        id: Option<u64>,
+    ) -> Self {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+        self
+    }
+
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<uuid::Uuid>, id: Option<u64>) {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+    }
+
+    fn set_id(&mut self, id: Option<u64>) {
+        self.id = id;
+    }
+
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(|s| s.to_string());
+    }
+
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(uuid::Uuid::new_v4());
+    }
+
+    fn get_id(&self) -> Option<u64> {
+        self.id
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<uuid::Uuid> {
+        self.uuid
+    }
 }
 
 #[cfg(test)]
@@ -1214,5 +1290,163 @@ mod tests {
                 assert_abs_diff_eq!(state[i] * RAD2DEG, elements[i], epsilon = 1e-6);
             }
         }
+    }
+
+    // Identifiable Trait Tests
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_with_name() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_name("My Orbit");
+
+        assert_eq!(prop.get_name(), Some("My Orbit"));
+        assert_eq!(prop.get_id(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_with_id() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_id(54321);
+
+        assert_eq!(prop.get_id(), Some(54321));
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_with_uuid() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let test_uuid = uuid::Uuid::new_v4();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_uuid(test_uuid);
+
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_with_new_uuid() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_new_uuid();
+
+        assert!(prop.get_uuid().is_some());
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_with_identity() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let test_uuid = uuid::Uuid::new_v4();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_identity(Some("Orbit X"), Some(test_uuid), Some(888));
+
+        assert_eq!(prop.get_name(), Some("Orbit X"));
+        assert_eq!(prop.get_id(), Some(888));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_set_name() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let mut prop =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        prop.set_name(Some("Name 1"));
+        assert_eq!(prop.get_name(), Some("Name 1"));
+
+        prop.set_name(None);
+        assert_eq!(prop.get_name(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_set_id() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let mut prop =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        prop.set_id(Some(100));
+        assert_eq!(prop.get_id(), Some(100));
+
+        prop.set_id(None);
+        assert_eq!(prop.get_id(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_generate_uuid() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let mut prop =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        assert_eq!(prop.get_uuid(), None);
+
+        prop.generate_uuid();
+        let uuid1 = prop.get_uuid();
+        assert!(uuid1.is_some());
+
+        // Generate another UUID and verify it's different
+        prop.generate_uuid();
+        let uuid2 = prop.get_uuid();
+        assert!(uuid2.is_some());
+        assert_ne!(uuid1, uuid2);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_set_identity() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let test_uuid = uuid::Uuid::new_v4();
+
+        let mut prop =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        prop.set_identity(Some("ID Test"), Some(test_uuid), Some(555));
+
+        assert_eq!(prop.get_name(), Some("ID Test"));
+        assert_eq!(prop.get_id(), Some(555));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
+
+        // Clear all
+        prop.set_identity(None, None, None);
+        assert_eq!(prop.get_name(), None);
+        assert_eq!(prop.get_id(), None);
+        assert_eq!(prop.get_uuid(), None);
+    }
+
+    #[test]
+    fn test_keplerianpropagator_identifiable_chaining() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let test_uuid = uuid::Uuid::new_v4();
+
+        let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
+            .with_name("Chained Orbit")
+            .with_id(999)
+            .with_uuid(test_uuid);
+
+        assert_eq!(prop.get_name(), Some("Chained Orbit"));
+        assert_eq!(prop.get_id(), Some(999));
+        assert_eq!(prop.get_uuid(), Some(test_uuid));
     }
 }

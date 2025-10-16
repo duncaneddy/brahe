@@ -480,3 +480,31 @@ class TestOldBraheTLEFunctions:
         assert state[3] == pytest.approx(2704.171077071122, abs=1.5e-1)
         assert state[4] == pytest.approx(7840.6666110244705, abs=1.5e-1)
         assert state[5] == pytest.approx(-586.3906587951877, abs=1.5e-1)
+
+    def test_sgppropagator_get_elements_radians(self, iss_tle):
+        """Test get_elements method with radians."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        elements = prop.get_elements(brahe.AngleFormat.RADIANS)
+
+        # Expected values from ISS TLE
+        assert elements[0] == pytest.approx(6730960.676936833, abs=1.0)  # a [m]
+        assert elements[1] == pytest.approx(0.0006703, abs=1e-10)  # e
+        assert elements[2] == pytest.approx(0.9013159509979036, abs=1e-10)  # i [rad]
+        assert elements[3] == pytest.approx(4.319038890874972, abs=1e-10)  # raan [rad]
+        assert elements[4] == pytest.approx(2.278282992383318, abs=1e-10)  # argp [rad]
+        assert elements[5] == pytest.approx(5.672822723806145, abs=1e-10)  # M [rad]
+
+    def test_sgppropagator_get_elements_degrees(self, iss_tle):
+        """Test get_elements method with degrees."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        elements = prop.get_elements(brahe.AngleFormat.DEGREES)
+
+        # Expected values from ISS TLE
+        assert elements[0] == pytest.approx(6730960.676936833, abs=1.0)  # a [m]
+        assert elements[1] == pytest.approx(0.0006703, abs=1e-10)  # e
+        assert elements[2] == pytest.approx(51.6416, abs=1e-10)  # i [deg]
+        assert elements[3] == pytest.approx(247.4627, abs=1e-10)  # raan [deg]
+        assert elements[4] == pytest.approx(130.5360, abs=1e-10)  # argp [deg]
+        assert elements[5] == pytest.approx(325.0288, abs=1e-10)  # M [deg]

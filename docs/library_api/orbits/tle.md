@@ -1,28 +1,8 @@
 # Two-Line Element (TLE)
 
-Classes and functions for working with Two-Line Element sets.
+Functions for parsing, validating, and converting Two-Line Element sets.
 
-## TLE Class
-
-The `TLE` class represents a Two-Line Element set for satellite orbit description.
-
-```python
-from brahe import TLE
-
-# Create TLE from strings
-tle = TLE(
-    "ISS (ZARYA)",
-    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
-    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-)
-
-# Access TLE properties
-print(f"Satellite: {tle.name}")
-print(f"NORAD ID: {tle.norad_id}")
-print(f"Inclination: {tle.inclination} deg")
-```
-
-For complete API documentation, see the [Rust API documentation](https://docs.rs/brahe/latest/brahe/orbits/struct.TLE.html).
+For propagating orbits from TLE data, use the [`SGPPropagator`](sgp_propagator.md) class.
 
 ## TLE Utility Functions
 

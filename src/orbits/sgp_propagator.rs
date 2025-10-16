@@ -150,8 +150,8 @@ pub struct SGPPropagator {
     /// SGP4 propagation constants
     constants: sgp4::Constants,
 
-    /// Initial epoch from TLE
-    initial_epoch: Epoch,
+    /// Epoch from TLE
+    pub epoch: Epoch,
 
     /// Initial state vector (always ECI Cartesian from SGP4)
     initial_state: Vector6<f64>,
@@ -267,8 +267,8 @@ impl SGPPropagator {
         let constants = sgp4::Constants::from_elements(&elements)
             .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
 
-        // Extract initial epoch
-        let initial_epoch = epoch_from_tle(line1)?;
+        // Extract epoch
+        let epoch = epoch_from_tle(line1)?;
 
         // Compute initial state in ECI
         let prediction = constants
@@ -287,7 +287,7 @@ impl SGPPropagator {
 
         // Convert initial state to ECI Cartesian
         let initial_state = convert_state_from_spg4_frame(
-            initial_epoch,
+            epoch,
             tle_state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
@@ -298,7 +298,7 @@ impl SGPPropagator {
         let mut trajectory =
             OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
-        trajectory.add(initial_epoch, initial_state);
+        trajectory.add(epoch, initial_state);
 
         Ok(SGPPropagator {
             line1: line1.to_string(),
@@ -308,7 +308,7 @@ impl SGPPropagator {
             norad_id_string,
             norad_id,
             constants,
-            initial_epoch,
+            epoch,
             initial_state,
             trajectory,
             step_size,
@@ -361,13 +361,13 @@ impl SGPPropagator {
         );
 
         let initial_state = convert_state_from_spg4_frame(
-            self.initial_epoch,
+            self.epoch,
             tle_state,
             frame,
             representation,
             angle_format,
         );
-        self.trajectory.add(self.initial_epoch, initial_state);
+        self.trajectory.add(self.epoch, initial_state);
 
         self
     }
@@ -376,7 +376,7 @@ impl SGPPropagator {
     /// TEME frame that is the output of SGP4.
     fn propagate_internal(&self, target_epoch: Epoch) -> Vector6<f64> {
         // Calculate minutes since TLE epoch
-        let dt = (target_epoch - self.initial_epoch) / 60.0; // Convert seconds to minutes
+        let dt = (target_epoch - self.epoch) / 60.0; // Convert seconds to minutes
 
         // Propagate using SGP4
         let prediction = self
@@ -412,6 +412,42 @@ impl SGPPropagator {
 
         Vector6::new(r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2])
     }
+
+    /// Get Keplerian orbital elements from TLE data
+    ///
+    /// Extracts the Keplerian elements directly from the TLE lines used to initialize
+    /// this propagator. This method uses the `keplerian_elements_from_tle` function
+    /// to parse the TLE data.
+    ///
+    /// # Arguments
+    /// * `angle_format` - Format for angular elements (degrees or radians)
+    ///
+    /// # Returns
+    /// * `Result<Vector6<f64>, BraheError>` - Keplerian elements [a, e, i, Ω, ω, M]
+    ///
+    /// Elements are returned in the specified angle format:
+    /// - a: semi-major axis [m]
+    /// - e: eccentricity [dimensionless]
+    /// - i: inclination [radians or degrees]
+    /// - Ω: right ascension of ascending node [radians or degrees]
+    /// - ω: argument of periapsis [radians or degrees]
+    /// - M: mean anomaly [radians or degrees]
+    pub fn get_elements(&self, angle_format: AngleFormat) -> Result<Vector6<f64>, BraheError> {
+        use crate::orbits::keplerian_elements_from_tle;
+
+        // Extract elements from TLE (returns in degrees)
+        let (_epoch, mut elements) = keplerian_elements_from_tle(&self.line1, &self.line2)?;
+
+        // Convert angular elements to radians if requested
+        if angle_format == AngleFormat::Radians {
+            elements[2] *= DEG2RAD; // inclination
+            elements[3] *= DEG2RAD; // RAAN
+            elements[4] *= DEG2RAD; // argument of periapsis
+            elements[5] *= DEG2RAD; // mean anomaly
+        }
+
+        Ok(elements)
+    }
 }
 
 impl OrbitPropagator for SGPPropagator {
@@ -437,7 +473,7 @@ impl OrbitPropagator for SGPPropagator {
     // - propagate_to()
 
     fn initial_epoch(&self) -> Epoch {
-        self.initial_epoch
+        self.epoch
     }
 
     fn initial_state(&self) -> Vector6<f64> {
@@ -462,7 +498,7 @@ impl OrbitPropagator for SGPPropagator {
 
     fn reset(&mut self) {
         self.trajectory.clear();
-        self.trajectory.add(self.initial_epoch, self.initial_state);
+        self.trajectory.add(self.epoch, self.initial_state);
     }
 
     fn set_initial_conditions(
@@ -782,6 +818,38 @@ mod tests {
         // Plus current state: 3 previous + current = 4 states max
         assert!(prop.trajectory.len() <= 4);
         assert!(prop.trajectory.len() > 0);
+    }
+
+    #[test]
+    fn test_sgppropagator_get_elements_radians() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let elements = prop.get_elements(RADIANS).unwrap();
+
+        // Expected values from ISS TLE
+        assert_abs_diff_eq!(elements[0], 6730960.676936833, epsilon = 1.0); // a [m]
+        assert_abs_diff_eq!(elements[1], 0.0006703, epsilon = 1e-10); // e
+        assert_abs_diff_eq!(elements[2], 0.9013159509979036, epsilon = 1e-10); // i [rad]
+        assert_abs_diff_eq!(elements[3], 4.319038890874972, epsilon = 1e-10); // raan [rad]
+        assert_abs_diff_eq!(elements[4], 2.278282992383318, epsilon = 1e-10); // argp [rad]
+        assert_abs_diff_eq!(elements[5], 5.672822723806145, epsilon = 1e-10); // M [rad]
+    }
+
+    #[test]
+    fn test_sgppropagator_get_elements_degrees() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let elements = prop.get_elements(AngleFormat::Degrees).unwrap();
+
+        // Expected values from ISS TLE
+        assert_abs_diff_eq!(elements[0], 6730960.676936833, epsilon = 1.0); // a [m]
+        assert_abs_diff_eq!(elements[1], 0.0006703, epsilon = 1e-10); // e
+        assert_abs_diff_eq!(elements[2], 51.6416, epsilon = 1e-10); // i [deg]
+        assert_abs_diff_eq!(elements[3], 247.4627, epsilon = 1e-10); // raan [deg]
+        assert_abs_diff_eq!(elements[4], 130.5360, epsilon = 1e-10); // argp [deg]
+        assert_abs_diff_eq!(elements[5], 325.0288, epsilon = 1e-10); // M [deg]
     }
 
     // AnalyticPropagator Trait Tests

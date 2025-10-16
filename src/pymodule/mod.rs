@@ -322,9 +322,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
 
-    // Legacy TLE Support (for backward compatibility)
-    module.add_class::<PyTLE>()?;
-
+    // TLE Support
     module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_validate_tle_line, module)?)?;
     module.add_function(wrap_pyfunction!(py_calculate_tle_line_checksum, module)?)?;

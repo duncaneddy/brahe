@@ -459,6 +459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_check_file_age_stale() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("stale.txt");
@@ -502,23 +503,25 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_new_creates_missing_file() {
         // This test requires network access and is marked to skip in normal test runs
         // Uncomment the line below to run it manually
-        // let dir = tempdir().unwrap();
-        // let filepath = dir.path().join("downloaded_eop.txt");
-        //
-        // let provider = CachingEOPProvider::new(
-        //     &filepath,
-        //     EOPType::StandardBulletinA,
-        //     7 * 86400,
-        //     true,
-        //     EOPExtrapolation::Hold,
-        // )
-        // .unwrap();
-        //
-        // assert!(filepath.exists());
-        // assert!(provider.is_initialized());
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("downloaded_eop.txt");
+
+        let provider = CachingEOPProvider::new(
+            &filepath,
+            EOPType::StandardBulletinA,
+            7 * 86400,
+            true,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        assert!(filepath.exists());
+        assert!(provider.is_initialized());
     }
 
     #[test]

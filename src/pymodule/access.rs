@@ -2105,6 +2105,9 @@ impl PyAccessWindow {
                 satellite_name: None,
                 satellite_id: None,
                 satellite_uuid: None,
+                name: None,
+                id: None,
+                uuid: None,
                 properties: AccessProperties {
                     azimuth_open: 0.0,
                     azimuth_close: 0.0,
@@ -2121,18 +2124,40 @@ impl PyAccessWindow {
         }
     }
 
-    /// Get the start time of the access window.
+    // ===== Time properties (as getters) =====
+
+    /// Get the window opening time.
+    ///
+    /// Returns:
+    ///     Epoch: Window opening time
+    #[getter]
+    fn window_open(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.window_open }
+    }
+
+    /// Get the window closing time.
+    ///
+    /// Returns:
+    ///     Epoch: Window closing time
+    #[getter]
+    fn window_close(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.window_close }
+    }
+
+    /// Get the start time of the access window (alias for window_open).
     ///
     /// Returns:
     ///     Epoch: Opening time of the window
+    #[getter]
     fn start(&self) -> PyEpoch {
         PyEpoch { obj: self.window.start() }
     }
 
-    /// Get the end time of the access window.
+    /// Get the end time of the access window (alias for window_close).
     ///
     /// Returns:
     ///     Epoch: Closing time of the window
+    #[getter]
     fn end(&self) -> PyEpoch {
         PyEpoch { obj: self.window.end() }
     }
@@ -2141,6 +2166,7 @@ impl PyAccessWindow {
     ///
     /// Returns:
     ///     Epoch: Midpoint time (average of start and end)
+    #[getter]
     fn midtime(&self) -> PyEpoch {
         PyEpoch { obj: self.window.midtime() }
     }
@@ -2149,9 +2175,41 @@ impl PyAccessWindow {
     ///
     /// Returns:
     ///     float: Duration in seconds
+    #[getter]
     fn duration(&self) -> f64 {
         self.window.duration()
     }
+
+    // ===== Identifiable properties =====
+
+    /// Get the access window name (auto-generated or user-set).
+    ///
+    /// Returns:
+    ///     Optional[str]: Window name, or None if not set
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.window.name.clone()
+    }
+
+    /// Get the access window numeric ID.
+    ///
+    /// Returns:
+    ///     Optional[int]: Window ID, or None if not set
+    #[getter]
+    fn id(&self) -> Option<u64> {
+        self.window.id
+    }
+
+    /// Get the access window UUID.
+    ///
+    /// Returns:
+    ///     Optional[str]: UUID as string, or None if not set
+    #[getter]
+    fn uuid(&self) -> Option<String> {
+        self.window.uuid.map(|u| u.to_string())
+    }
+
+    // ===== Location/Satellite identification =====
 
     /// Get the location name if available.
     ///
@@ -2189,7 +2247,27 @@ impl PyAccessWindow {
         self.window.satellite_id
     }
 
-    /// Get the access properties.
+    /// Get the location UUID if available.
+    ///
+    /// Returns:
+    ///     Optional[str]: UUID of the location as string, or None if not set
+    #[getter]
+    fn location_uuid(&self) -> Option<String> {
+        self.window.location_uuid.map(|u| u.to_string())
+    }
+
+    /// Get the satellite UUID if available.
+    ///
+    /// Returns:
+    ///     Optional[str]: UUID of the satellite as string, or None if not set
+    #[getter]
+    fn satellite_uuid(&self) -> Option<String> {
+        self.window.satellite_uuid.map(|u| u.to_string())
+    }
+
+    // ===== Access properties (convenience getters) =====
+
+    /// Get the access properties object.
     ///
     /// Returns:
     ///     AccessProperties: Computed properties for this access window
@@ -2198,6 +2276,87 @@ impl PyAccessWindow {
         PyAccessProperties {
             properties: self.window.properties.clone(),
         }
+    }
+
+    /// Get azimuth angle at window opening (degrees, 0-360).
+    ///
+    /// Returns:
+    ///     float: Azimuth at window open
+    #[getter]
+    fn azimuth_open(&self) -> f64 {
+        self.window.properties.azimuth_open
+    }
+
+    /// Get azimuth angle at window closing (degrees, 0-360).
+    ///
+    /// Returns:
+    ///     float: Azimuth at window close
+    #[getter]
+    fn azimuth_close(&self) -> f64 {
+        self.window.properties.azimuth_close
+    }
+
+    /// Get minimum elevation angle during access (degrees).
+    ///
+    /// Returns:
+    ///     float: Minimum elevation angle
+    #[getter]
+    fn elevation_min(&self) -> f64 {
+        self.window.properties.elevation_min
+    }
+
+    /// Get maximum elevation angle during access (degrees).
+    ///
+    /// Returns:
+    ///     float: Maximum elevation angle
+    #[getter]
+    fn elevation_max(&self) -> f64 {
+        self.window.properties.elevation_max
+    }
+
+    /// Get minimum off-nadir angle during access (degrees).
+    ///
+    /// Returns:
+    ///     float: Minimum off-nadir angle
+    #[getter]
+    fn off_nadir_min(&self) -> f64 {
+        self.window.properties.off_nadir_min
+    }
+
+    /// Get maximum off-nadir angle during access (degrees).
+    ///
+    /// Returns:
+    ///     float: Maximum off-nadir angle
+    #[getter]
+    fn off_nadir_max(&self) -> f64 {
+        self.window.properties.off_nadir_max
+    }
+
+    /// Get local solar time at window midpoint (seconds since midnight, 0-86400).
+    ///
+    /// Returns:
+    ///     float: Local time in seconds
+    #[getter]
+    fn local_time(&self) -> f64 {
+        self.window.properties.local_time
+    }
+
+    /// Get look direction (Left or Right).
+    ///
+    /// Returns:
+    ///     LookDirection: Look direction enum value
+    #[getter]
+    fn look_direction(&self) -> PyLookDirection {
+        PyLookDirection { value: self.window.properties.look_direction }
+    }
+
+    /// Get ascending/descending pass type.
+    ///
+    /// Returns:
+    ///     AscDsc: Pass type enum value
+    #[getter]
+    fn asc_dsc(&self) -> PyAscDsc {
+        PyAscDsc { value: self.window.properties.asc_dsc }
     }
 
     fn __repr__(&self) -> String {

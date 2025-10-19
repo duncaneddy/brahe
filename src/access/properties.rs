@@ -601,6 +601,9 @@ mod tests {
             satellite_name: None,
             satellite_id: None,
             satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
             properties: crate::access::AccessProperties::new(
                 0.0,
                 0.0,

@@ -402,7 +402,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         self.apply_eviction_policy();
     }
 
-    fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
+    fn epoch_at_idx(&self, index: usize) -> Result<Epoch, BraheError> {
         if index >= self.epochs.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} epochs",
@@ -414,7 +414,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         Ok(self.epochs[index])
     }
 
-    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError> {
+    fn state_at_idx(&self, index: usize) -> Result<Self::StateVector, BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -916,17 +916,17 @@ mod tests {
         let trajectory = create_test_trajectory();
 
         // Test valid indices
-        let state0 = trajectory.state(0).unwrap();
+        let state0 = trajectory.state_at_idx(0).unwrap();
         assert_eq!(state0[0], 7000e3);
 
-        let state1 = trajectory.state(1).unwrap();
+        let state1 = trajectory.state_at_idx(1).unwrap();
         assert_eq!(state1[0], 7100e3);
 
-        let state2 = trajectory.state(2).unwrap();
+        let state2 = trajectory.state_at_idx(2).unwrap();
         assert_eq!(state2[0], 7200e3);
 
         // Test invalid index
-        assert!(trajectory.state(10).is_err());
+        assert!(trajectory.state_at_idx(10).is_err());
     }
 
     #[test]
@@ -934,17 +934,17 @@ mod tests {
         let trajectory = create_test_trajectory();
 
         // Test valid indices
-        let epoch0 = trajectory.epoch(0).unwrap();
+        let epoch0 = trajectory.epoch_at_idx(0).unwrap();
         assert_eq!(epoch0.jd(), 2451545.0);
 
-        let epoch1 = trajectory.epoch(1).unwrap();
+        let epoch1 = trajectory.epoch_at_idx(1).unwrap();
         assert_eq!(epoch1.jd(), 2451545.1);
 
-        let epoch2 = trajectory.epoch(2).unwrap();
+        let epoch2 = trajectory.epoch_at_idx(2).unwrap();
         assert_eq!(epoch2.jd(), 2451545.2);
 
         // Test invalid index
-        assert!(trajectory.epoch(10).is_err());
+        assert!(trajectory.epoch_at_idx(10).is_err());
     }
 
     #[test]
@@ -1404,7 +1404,7 @@ mod tests {
         assert_eq!(traj.len(), 3);
 
         // First state should be the 3rd original state (oldest 2 evicted)
-        let first_state = traj.state(0).unwrap();
+        let first_state = traj.state_at_idx(0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
 
         // Add another state - should still maintain max size
@@ -1413,7 +1413,7 @@ mod tests {
         traj.add(new_epoch, new_state);
 
         assert_eq!(traj.len(), 3);
-        assert_eq!(traj.state(0).unwrap()[0], 7000e3 + 3000.0);
+        assert_eq!(traj.state_at_idx(0).unwrap()[0], 7000e3 + 3000.0);
 
         // Test error case
         assert!(traj.set_eviction_policy_max_size(0).is_err());
@@ -1436,14 +1436,14 @@ mod tests {
         // Set max age to 240 seconds
         traj.set_eviction_policy_max_age(240.0).unwrap();
         assert_eq!(traj.len(), 5);
-        assert_eq!(traj.epoch(0).unwrap(), t0 + 60.0);
-        assert_eq!(traj.state(0).unwrap()[0], 7000e3 + 1000.0);
+        assert_eq!(traj.epoch_at_idx(0).unwrap(), t0 + 60.0);
+        assert_eq!(traj.state_at_idx(0).unwrap()[0], 7000e3 + 1000.0);
 
         // Set max age to 239 seconds
         traj.set_eviction_policy_max_age(239.0).unwrap();
         assert_eq!(traj.len(), 4);
-        assert_eq!(traj.epoch(0).unwrap(), t0 + 120.0);
-        assert_eq!(traj.state(0).unwrap()[0], 7000e3 + 2000.0);
+        assert_eq!(traj.epoch_at_idx(0).unwrap(), t0 + 120.0);
+        assert_eq!(traj.state_at_idx(0).unwrap()[0], 7000e3 + 2000.0);
 
         // Test error case
         assert!(traj.set_eviction_policy_max_age(0.0).is_err());

@@ -1,20 +1,19 @@
 """Type stubs for brahe._brahe module - AUTO-GENERATED"""
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Optional, Union
 import numpy as np
 
-# Forward declarations for type aliases
-# AccessConstraint is a union of all constraint types
+# Type aliases for access constraints
 AccessConstraint = Union[
-    "ElevationConstraint",
-    "ElevationMaskConstraint",
-    "OffNadirConstraint",
-    "LocalTimeConstraint",
-    "LookDirectionConstraint",
     "AscDscConstraint",
     "ConstraintAll",
     "ConstraintAny",
     "ConstraintNot",
+    "ElevationConstraint",
+    "ElevationMaskConstraint",
+    "LocalTimeConstraint",
+    "LookDirectionConstraint",
+    "OffNadirConstraint",
 ]
 
 # Classes
@@ -1128,7 +1127,7 @@ class DTrajectory:
         """Get end epoch of trajectory"""
         ...
 
-    def epoch(self, index: int) -> Epoch:
+    def epoch_at_idx(self, index: int) -> Epoch:
         """Get epoch at a specific index
 
         Arguments:
@@ -1146,7 +1145,7 @@ class DTrajectory:
             epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
             state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
             traj.add(epc, state)
-            retrieved_epc = traj.epoch(0)
+            retrieved_epc = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -1491,29 +1490,6 @@ class DTrajectory:
         """Get start epoch of trajectory"""
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at a specific index
-
-        Arguments:
-            index (int): Index of the state
-
-        Returns:
-            numpy.ndarray: State vector at index
-
-        Example:
-            ```python
-            import brahe as bh
-            import numpy as np
-
-            traj = bh.DTrajectory(6)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            retrieved_state = traj.state(0)
-            ```
-        """
-        ...
-
     def state_after_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or after the given epoch.
 
@@ -1534,6 +1510,29 @@ class DTrajectory:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get state at a specific index
+
+        Arguments:
+            index (int): Index of the state
+
+        Returns:
+            numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state_at_idx(0)
             ```
         """
         ...
@@ -4573,14 +4572,14 @@ class OrbitTrajectory:
         """
         ...
 
-    def epoch(self, index: int) -> Epoch:
-        """Get epoch at specific index.
+    def epoch_at_idx(self, index: int) -> Epoch:
+        """Get the epoch at a specific index.
 
         Args:
-            index (int): Index of the epoch
+            index (int): Index of the epoch to retrieve
 
         Returns:
-            Epoch: Epoch at given index
+            Epoch: Epoch at the specified index
 
         Example:
             ```python
@@ -4588,10 +4587,12 @@ class OrbitTrajectory:
             import numpy as np
 
             traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
             traj.add(epc, state)
-            first_epoch = traj.epoch(0)
+
+            # Get epoch at index
+            epoch_0 = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -4988,25 +4989,28 @@ class OrbitTrajectory:
         """
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at specific index.
+    def state(self, epoch: Epoch) -> np.ndarray:
+        """Get state at specified epoch (in native frame/representation).
 
         Args:
-            index (int): Index of the state
+            epoch (Epoch): Time for state query
 
         Returns:
-            numpy.ndarray: State vector at given index
+            numpy.ndarray: State vector in trajectory's native frame and representation
 
         Example:
             ```python
             import brahe as bh
             import numpy as np
 
+            # Create ECI Cartesian trajectory
             traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            first_state = traj.state(0)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc1, state1)
+
+            # Query state at epoch
+            state = traj.state(epc1)
             ```
         """
         ...
@@ -5035,6 +5039,62 @@ class OrbitTrajectory:
         """
         ...
 
+    def state_as_osculating_elements(
+        self, epoch: Epoch, angle_format: AngleFormat
+    ) -> np.ndarray:
+        """Get state as osculating Keplerian elements at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+            angle_format (AngleFormat): Desired angle format for output
+
+        Returns:
+            numpy.ndarray: Osculating Keplerian elements [a, e, i, raan, argp, M]
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create Cartesian trajectory
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state_cart)
+
+            # Get osculating elements in degrees
+            elements = traj.state_as_osculating_elements(epc, bh.AngleFormat.DEGREES)
+            print(f"Semi-major axis: {elements[0]/1000:.2f} km")
+            print(f"Inclination: {elements[2]:.2f} degrees")
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get the state vector at a specific index.
+
+        Args:
+            index (int): Index of the state to retrieve
+
+        Returns:
+            numpy.ndarray: State vector at the specified index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state)
+
+            # Get state at index
+            state_0 = traj.state_at_idx(0)
+            ```
+        """
+        ...
+
     def state_before_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or before the given epoch.
 
@@ -5055,6 +5115,58 @@ class OrbitTrajectory:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_before_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_ecef(self, epoch: Epoch) -> np.ndarray:
+        """Get state in ECEF Cartesian frame at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+
+        Returns:
+            numpy.ndarray: State vector in ECEF Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create ECI trajectory
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state_eci)
+
+            # Get ECEF state (automatically converted from ECI)
+            state_ecef = traj.state_ecef(epc)
+            ```
+        """
+        ...
+
+    def state_eci(self, epoch: Epoch) -> np.ndarray:
+        """Get state in ECI Cartesian frame at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+
+        Returns:
+            numpy.ndarray: State vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create trajectory in any frame/representation
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+            traj.add(epc, oe)
+
+            # Get ECI Cartesian state (automatically converted from Keplerian)
+            state_eci = traj.state_eci(epc)
             ```
         """
         ...
@@ -7251,7 +7363,7 @@ class STrajectory6:
         """
         ...
 
-    def epoch(self, index: int) -> Epoch:
+    def epoch_at_idx(self, index: int) -> Epoch:
         """Get epoch at a specific index
 
         Arguments:
@@ -7269,7 +7381,7 @@ class STrajectory6:
             epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
             state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
             traj.add(epc, state)
-            retrieved_epc = traj.epoch(0)
+            retrieved_epc = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -7593,29 +7705,6 @@ class STrajectory6:
         """
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at a specific index
-
-        Arguments:
-            index (int): Index of the state
-
-        Returns:
-            numpy.ndarray: State vector at index
-
-        Example:
-            ```python
-            import brahe as bh
-            import numpy as np
-
-            traj = bh.DTrajectory(6)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            retrieved_state = traj.state(0)
-            ```
-        """
-        ...
-
     def state_after_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or after the given epoch.
 
@@ -7636,6 +7725,29 @@ class STrajectory6:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get state at a specific index
+
+        Arguments:
+            index (int): Index of the state
+
+        Returns:
+            numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state_at_idx(0)
             ```
         """
         ...

@@ -51,6 +51,53 @@ pub fn orbital_period_general(a: f64, gm: f64) -> f64 {
     2.0 * PI * (a.powi(3) / gm).sqrt()
 }
 
+/// Computes orbital period from an ECI state vector using the vis-viva equation.
+///
+/// This function uses the vis-viva equation to compute the semi-major axis from
+/// the position and velocity, then calculates the orbital period. This is useful
+/// when you have a state vector but don't know the orbital elements.
+///
+/// # Arguments
+///
+/// * `state_eci` - ECI state vector [x, y, z, vx, vy, vz] in meters and m/s
+/// * `gm` - Standard gravitational parameter of primary body (m³/s²)
+///
+/// # Returns
+///
+/// * `period` - Orbital period in seconds
+///
+/// # Note
+///
+/// This assumes a two-body Keplerian orbit. For highly eccentric orbits (e ≥ 1)
+/// or escape trajectories, the result may not be meaningful.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::constants::GM_EARTH;
+/// use brahe::orbits::orbital_period_from_state;
+/// use nalgebra::Vector6;
+///
+/// // State vector for a 500 km circular orbit
+/// let state = Vector6::new(
+///     6878137.0, 0.0, 0.0,  // Position (m)
+///     0.0, 7612.5, 0.0      // Velocity (m/s)
+/// );
+/// let period = orbital_period_from_state(&state, GM_EARTH);
+/// ```
+pub fn orbital_period_from_state(state_eci: &nalgebra::Vector6<f64>, gm: f64) -> f64 {
+    // Compute position and velocity magnitudes
+    let r = (state_eci[0].powi(2) + state_eci[1].powi(2) + state_eci[2].powi(2)).sqrt();
+    let v_sq = state_eci[3].powi(2) + state_eci[4].powi(2) + state_eci[5].powi(2);
+
+    // Compute semi-major axis from vis-viva equation: v² = GM(2/r - 1/a)
+    // Rearranged: a = 1 / (2/r - v²/GM)
+    let a = 1.0 / (2.0 / r - v_sq / gm);
+
+    // Compute orbital period
+    orbital_period_general(a, gm)
+}
+
 /// Computes the semi-major axis of an astronomical object from its orbital period.
 ///
 /// # Arguments
@@ -654,6 +701,60 @@ mod tests {
             5676.977164028288,
             epsilon = 1e-12
         );
+    }
+
+    #[test]
+    fn test_orbital_period_from_state_circular() {
+        // Create a circular orbit at 500 km altitude
+        // For a circular orbit: v = sqrt(GM/r)
+        let r = R_EARTH + 500e3;
+        let v = (GM_EARTH / r).sqrt();
+
+        // Create ECI state vector (circular equatorial orbit)
+        let state_eci = nalgebra::Vector6::new(r, 0.0, 0.0, 0.0, v, 0.0);
+
+        // Compute period from state
+        let period = orbital_period_from_state(&state_eci, GM_EARTH);
+
+        // Should match the period from semi-major axis
+        let expected_period = orbital_period_general(r, GM_EARTH);
+        assert_abs_diff_eq!(period, expected_period, epsilon = 1e-8);
+        assert_abs_diff_eq!(period, 5676.977164028288, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_orbital_period_from_state_elliptical() {
+        // Create an elliptical orbit with known semi-major axis
+        let a = R_EARTH + 500e3;
+        let e = 0.1;
+
+        // Compute position and velocity at perigee
+        let r_perigee = a * (1.0 - e);
+        let v_perigee = (GM_EARTH * (2.0 / r_perigee - 1.0 / a)).sqrt();
+
+        // Create ECI state vector at perigee
+        let state_eci = nalgebra::Vector6::new(r_perigee, 0.0, 0.0, 0.0, v_perigee, 0.0);
+
+        // Compute period from state
+        let period = orbital_period_from_state(&state_eci, GM_EARTH);
+
+        // Should match the period from semi-major axis
+        let expected_period = orbital_period_general(a, GM_EARTH);
+        assert_abs_diff_eq!(period, expected_period, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_orbital_period_from_state_different_gm() {
+        // Test with lunar orbit
+        let r = R_MOON + 100e3;
+        let v = (constants::GM_MOON / r).sqrt();
+
+        let state_eci = nalgebra::Vector6::new(r, 0.0, 0.0, 0.0, v, 0.0);
+
+        let period = orbital_period_from_state(&state_eci, constants::GM_MOON);
+        let expected_period = orbital_period_general(r, constants::GM_MOON);
+
+        assert_abs_diff_eq!(period, expected_period, epsilon = 1e-8);
     }
 
     #[test]

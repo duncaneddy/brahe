@@ -32,6 +32,7 @@ from brahe._brahe import (
     # Orbital element calculations
     orbital_period,
     orbital_period_general,
+    orbital_period_from_state,
     mean_motion,
     mean_motion_general,
     semimajor_axis,
@@ -76,6 +77,7 @@ __all__ = [
     # Orbital element calculations
     "orbital_period",
     "orbital_period_general",
+    "orbital_period_from_state",
     "mean_motion",
     "mean_motion_general",
     "semimajor_axis",

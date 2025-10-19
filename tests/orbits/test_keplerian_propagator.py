@@ -554,7 +554,7 @@ def test_keplerianpropagator_orbitpropagator_set_eviction_policy_max_age():
     assert len(propagator.trajectory) > 0
 
 
-# AnalyticPropagator Trait Tests
+# StateProvider Trait Tests
 
 
 def test_keplerianpropagator_analyticpropagator_state():

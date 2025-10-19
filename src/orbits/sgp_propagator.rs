@@ -38,7 +38,7 @@ use crate::frames::{polar_motion, state_ecef_to_eci};
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
 };
-use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+use crate::orbits::traits::{OrbitPropagator, StateProvider};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -536,7 +536,7 @@ impl OrbitPropagator for SGPPropagator {
     }
 }
 
-impl AnalyticPropagator for SGPPropagator {
+impl StateProvider for SGPPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
         self.propagate_internal(epoch)
     }
@@ -1068,7 +1068,7 @@ mod tests {
         assert_eq!(prop.get_uuid(), Some(test_uuid));
     }
 
-    // AnalyticPropagator Trait Tests
+    // StateProvider Trait Tests
 
     #[test]
     fn test_sgppropagator_analyticpropagator_state_as_osculating_elements() {

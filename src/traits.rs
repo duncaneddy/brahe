@@ -13,7 +13,8 @@
  *
  * ## Orbital Propagation
  * - `OrbitPropagator` - Core trait for orbit propagators with clean interface
- * - `AnalyticPropagator` - Trait for analytic orbital propagators (SGP4, TLE)
+ * - `StateProvider` - Trait for analytic orbital propagators (SGP4, TLE)
+ * - `IdentifiableStateProvider` - Combined trait for state providers with identity tracking
  *
  * ## Trajectories
  * - `Trajectory` - Core trajectory functionality for storing and managing state data
@@ -30,10 +31,13 @@
  * ## Numerical Integration
  * - `NumericalIntegrator` - Generic numerical integrator trait
  * - `StateInterpolator` - State interpolation for numerical integrators
+ *
+ * ## Identification
+ * - `Identifiable` - Trait for objects that can be identified by name, ID, and/or UUID
  */
 
 // Orbit propagator traits
-pub use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+pub use crate::orbits::traits::{IdentifiableStateProvider, OrbitPropagator, StateProvider};
 
 // Trajectory traits and types
 pub use crate::trajectories::traits::{
@@ -57,3 +61,6 @@ pub use crate::eop::EarthOrientationProvider;
 // Numerical integration traits
 pub use crate::integrators::numerical_integrator::NumericalIntegrator;
 pub use crate::utils::interpolation::StateInterpolator;
+
+// Identification trait
+pub use crate::utils::identifiable::Identifiable;

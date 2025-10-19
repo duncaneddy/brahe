@@ -416,7 +416,7 @@ def main():
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
     output_lines.append("")
-    output_lines.append("from typing import Any, List, Tuple")
+    output_lines.append("from typing import Any, List, Tuple, Optional, Union")
     output_lines.append("import numpy as np")
     output_lines.append("")
 

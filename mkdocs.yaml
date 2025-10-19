@@ -111,12 +111,11 @@ nav:
             - Datasets:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
+                - Groundstations: learn/datasets/groundstations.md
     -   Examples:
             - examples/index.md
-            - Propagating an Orbit: examples/propagating_an_orbit.md
-            - Computing Ground Contacts: examples/computing_ground_contacts.md
-            - Computing Doppler Shift: examples/computing_doppler_shift_for_pass.md
             - Downloading Satellite Data: examples/downloading_satellite_data.md
+            - Loading Groundstations: examples/loading_groundstations.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:
@@ -163,6 +162,7 @@ nav:
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md
+                - Groundstations: library_api/datasets/groundstations.md
     -   Rust API Reference: https://docs.rs/brahe
     -   Blog: https://duncaneddy.com
 

@@ -72,7 +72,7 @@ And do something fun like calculate the orbital-period of a satellite in low Ear
 import brahe as bh
 
 # Define the semi-major axis of a low Earth orbit (in meters)
-a = bh.constants.EARTH_RADIUS + 400e3  # 400 km altitude
+a = bh.R_EARTH + 400e3  # 400 km altitude
 
 # Calculate the orbital period using Kepler's third law
 T = bh.orbital_period(a)
@@ -121,15 +121,16 @@ print(f"Velocity: {state[3:] / 1000} km/s")
 import brahe as bh
 import numpy as np
 
-# Convert geodetic coordinates (lat, lon, alt) to ECEF
-lat = 40.0  # degrees
-lon = -105.0  # degrees
-alt = 1000.0  # meters
-ecef = bh.sGEODtoECEF(np.array([lat, lon, alt]), use_degrees=True)
+# Convert geodetic coordinates to ECEF
+lat = 40.0  # degrees North
+lon = -105.0  # degrees East
+alt = 1000.0  # meters above ellipsoid
+geod = np.array([lat, lon, alt])  # [latitude, longitude, altitude]
+ecef = bh.position_geodetic_to_ecef(geod, bh.AngleFormat.DEGREES)
 
 # Convert ECEF to ECI at a specific epoch
 epc = bh.Epoch(2024, 1, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
-eci = bh.rECEFtoECI(epc, ecef)
+eci = bh.position_ecef_to_eci(epc, ecef)
 ```
 
 ### Rust
@@ -185,18 +186,24 @@ println!("Velocity: {:?} km/s", [state[3]/1000.0, state[4]/1000.0, state[5]/1000
 
 **Coordinate Transformations:**
 ```rust
-use brahe::coordinates::{sGEODtoECEF, rECEFtoECI};
+use brahe::coordinates::position_geodetic_to_ecef;
+use brahe::frames::position_ecef_to_eci;
 use brahe::time::Epoch;
+use brahe::time::TimeSystem;
+use brahe::constants::AngleFormat;
+use nalgebra::Vector3;
 
 // Convert geodetic coordinates (lat, lon, alt) to ECEF
-let lat = 40.0_f64.to_radians();  // Radians
-let lon = -105.0_f64.to_radians();  // Radians
-let alt = 1000.0;  // meters
-let ecef = sGEODtoECEF([lat, lon, alt]);
+let geod = Vector3::new(
+    40.0_f64.to_radians(),   // latitude in radians
+    -105.0_f64.to_radians(), // longitude in radians
+    1000.0                   // altitude in meters
+);
+let ecef = position_geodetic_to_ecef(geod, AngleFormat::Radians);
 
 // Convert ECEF to ECI at a specific epoch
 let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
-let eci = rECEFtoECI(&epc, ecef);
+let eci = position_ecef_to_eci(epc, ecef);
 ```
 
 ## Going Further

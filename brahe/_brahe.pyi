@@ -3,7 +3,7 @@
 from typing import Any, List, Tuple, Optional, Union
 import numpy as np
 
-# Type aliases for access constraints
+# Type aliases
 AccessConstraint = Union[
     "AscDscConstraint",
     "ConstraintAll",
@@ -8966,6 +8966,109 @@ def get_global_ut1_utc(mjd: float) -> float:
 
     Returns:
         float: UT1-UTC time difference in seconds
+    """
+    ...
+
+def groundstations_list_providers() -> list[str]:
+    """Get list of available groundstation providers
+
+    Returns:
+        list[str]: List of provider names that can be used with load().
+
+    Example:
+        ```python
+        import brahe as bh
+
+        providers = bh.datasets.groundstations.list_providers()
+        print(f"Available: {', '.join(providers)}")
+        ```
+    """
+    ...
+
+def groundstations_load(provider: str) -> list[PointLocation]:
+    """Load groundstation locations for a specific provider
+
+    Loads groundstation locations from embedded data. The data is compiled into
+    the binary and does not require external files or internet connection.
+
+    Args:
+        provider (str): Provider name (case-insensitive). Available providers:
+            - "atlas": Atlas Space Operations
+            - "aws": Amazon Web Services Ground Station
+            - "ksat": Kongsberg Satellite Services
+            - "leaf": Leaf Space
+            - "ssc": Swedish Space Corporation
+            - "viasat": Viasat
+
+    Returns:
+        list[PointLocation]: List of PointLocation objects with properties:
+            - name: Groundstation name
+            - provider: Provider name
+            - frequency_bands: List of supported frequency bands
+
+    Raises:
+        RuntimeError: If provider is unknown or data cannot be loaded.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Load KSAT groundstations
+        ksat_stations = bh.datasets.groundstations.load("ksat")
+
+        for station in ksat_stations:
+            print(f"{station.name}: ({station.lon():.2f}, {station.lat():.2f})")
+
+        # Check properties
+        props = ksat_stations[0].properties()
+        print(f"Frequency bands: {props['frequency_bands']}")
+        ```
+    """
+    ...
+
+def groundstations_load_all() -> list[PointLocation]:
+    """Load all groundstations from all providers
+
+    Convenience function to load groundstations from all available providers.
+
+    Returns:
+        list[PointLocation]: Combined list of all groundstations.
+
+    Raises:
+        RuntimeError: If no groundstations can be loaded.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        all_stations = bh.datasets.groundstations.load_all()
+        print(f"Loaded {len(all_stations)} total groundstations")
+        ```
+    """
+    ...
+
+def groundstations_load_from_file(filepath: str) -> list[PointLocation]:
+    """Load groundstations from a custom GeoJSON file
+
+    Loads groundstation locations from a user-provided GeoJSON file.
+    The file must be a FeatureCollection with Point geometries.
+
+    Args:
+        filepath (str): Path to GeoJSON file.
+
+    Returns:
+        list[PointLocation]: List of PointLocation objects.
+
+    Raises:
+        RuntimeError: If file cannot be read or parsed.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Load custom groundstations
+        stations = bh.datasets.groundstations.load_from_file("my_stations.geojson")
+        ```
     """
     ...
 

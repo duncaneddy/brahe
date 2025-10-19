@@ -109,6 +109,7 @@ include!("coordinates.rs");
 include!("orbits.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
+include!("access.rs");
 
 // Define Module
 
@@ -358,6 +359,30 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(py_celestrak_download_ephemeris, module)?)?;
+
+    //* Access *//
+
+    // Enums
+    module.add_class::<PyLookDirection>()?;
+    module.add_class::<PyAscDsc>()?;
+
+    // Constraints
+    module.add_class::<PyElevationConstraint>()?;
+    module.add_class::<PyElevationMaskConstraint>()?;
+    module.add_class::<PyOffNadirConstraint>()?;
+    module.add_class::<PyLocalTimeConstraint>()?;
+    module.add_class::<PyLookDirectionConstraint>()?;
+    module.add_class::<PyAscDscConstraint>()?;
+
+    // Constraint Composition
+    module.add_class::<PyConstraintAll>()?;
+    module.add_class::<PyConstraintAny>()?;
+    module.add_class::<PyConstraintNot>()?;
+
+    // Locations
+    module.add_class::<PyPointLocation>()?;
+    module.add_class::<PyPolygonLocation>()?;
+    module.add_class::<PyPropertiesDict>()?;
 
     Ok(())
 }

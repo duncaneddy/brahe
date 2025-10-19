@@ -22,30 +22,13 @@ def create_test_trajectory():
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
 
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
 
-    return STrajectory6.from_data(epochs, states)
+    return STrajectory6.from_data(epochs, np.concatenate(states))
 
 
 # STrajectory Trait Tests
@@ -294,9 +277,9 @@ def test_strajectory_trajectory_add():
     trajectory.add(epoch2, state2)
 
     assert len(trajectory) == 3
-    assert trajectory.epoch(0).jd() == 2451545.0
-    assert trajectory.epoch(1).jd() == 2451545.1
-    assert trajectory.epoch(2).jd() == 2451545.2
+    assert trajectory.epoch_at_idx(0).jd() == 2451545.0
+    assert trajectory.epoch_at_idx(1).jd() == 2451545.1
+    assert trajectory.epoch_at_idx(2).jd() == 2451545.2
 
 
 def test_strajectory_trajectory_state():
@@ -304,18 +287,18 @@ def test_strajectory_trajectory_state():
     trajectory = create_test_trajectory()
 
     # Test valid indices
-    state0 = trajectory.state(0)
+    state0 = trajectory.state_at_idx(0)
     assert state0[0] == 7000e3
 
-    state1 = trajectory.state(1)
+    state1 = trajectory.state_at_idx(1)
     assert state1[0] == 7100e3
 
-    state2 = trajectory.state(2)
+    state2 = trajectory.state_at_idx(2)
     assert state2[0] == 7200e3
 
     # Test invalid index
     with pytest.raises(Exception):
-        trajectory.state(10)
+        trajectory.state_at_idx(10)
 
 
 def test_strajectory_trajectory_epoch():
@@ -323,18 +306,18 @@ def test_strajectory_trajectory_epoch():
     trajectory = create_test_trajectory()
 
     # Test valid indices
-    epoch0 = trajectory.epoch(0)
+    epoch0 = trajectory.epoch_at_idx(0)
     assert epoch0.jd() == 2451545.0
 
-    epoch1 = trajectory.epoch(1)
+    epoch1 = trajectory.epoch_at_idx(1)
     assert epoch1.jd() == 2451545.1
 
-    epoch2 = trajectory.epoch(2)
+    epoch2 = trajectory.epoch_at_idx(2)
     assert epoch2.jd() == 2451545.2
 
     # Test invalid index
     with pytest.raises(Exception):
-        trajectory.epoch(10)
+        trajectory.epoch_at_idx(10)
 
 
 def test_strajectory_trajectory_nearest_state():
@@ -870,7 +853,7 @@ def test_strajectory_set_eviction_policy_max_size():
     assert len(traj) == 3
 
     # First state should be the 3rd original state (oldest 2 evicted)
-    first_state = traj.state(0)
+    first_state = traj.state_at_idx(0)
     assert abs(first_state[0] - (7000e3 + 2000.0)) < 1.0
 
     # Add another state - should still maintain max size
@@ -879,7 +862,7 @@ def test_strajectory_set_eviction_policy_max_size():
     traj.add(new_epoch, new_state)
 
     assert len(traj) == 3
-    assert traj.state(0)[0] == 7000e3 + 3000.0
+    assert traj.state_at_idx(0)[0] == 7000e3 + 3000.0
 
     # Test error case
     with pytest.raises(Exception):
@@ -902,14 +885,14 @@ def test_strajectory_set_eviction_policy_max_age():
     # Set max age to 240 seconds
     traj.set_eviction_policy_max_age(240.0)
     assert len(traj) == 5
-    assert traj.epoch(0) == t0 + 60.0
-    assert traj.state(0)[0] == 7000e3 + 1000.0
+    assert traj.epoch_at_idx(0) == t0 + 60.0
+    assert traj.state_at_idx(0)[0] == 7000e3 + 1000.0
 
     # Set max age to 239 seconds
     traj.set_eviction_policy_max_age(239.0)
     assert len(traj) == 4
-    assert traj.epoch(0) == t0 + 120.0
-    assert traj.state(0)[0] == 7000e3 + 2000.0
+    assert traj.epoch_at_idx(0) == t0 + 120.0
+    assert traj.state_at_idx(0)[0] == 7000e3 + 2000.0
 
     # Test error case
     with pytest.raises(Exception):

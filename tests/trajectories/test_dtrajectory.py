@@ -186,7 +186,9 @@ def test_dtrajectory_apply_eviction_policy_keep_count():
 
     # Should only have 3 states due to eviction policy
     assert len(traj) == 3
-    assert traj.epoch(0) == t0 + 2.0 * 60.0  # First state should be the third added
+    assert (
+        traj.epoch_at_idx(0) == t0 + 2.0 * 60.0
+    )  # First state should be the third added
 
 
 def test_dtrajectory_apply_eviction_policy_keep_within_duration():
@@ -201,7 +203,9 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
 
     # Should only have 7 states due to eviction policy
     assert len(traj) == 7
-    assert traj.epoch(0) == t0 + 3.0 * 86400.0  # First state should be the fourth added
+    assert (
+        traj.epoch_at_idx(0) == t0 + 3.0 * 86400.0
+    )  # First state should be the fourth added
 
     # Repeat with an exact 7 days limit
     traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0)  # 7 days
@@ -212,7 +216,9 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
 
     # Should still have 8 states due to exact 7 days limit
     assert len(traj) == 8
-    assert traj.epoch(0) == t0 + 2.0 * 86400.0  # First state should be the third added
+    assert (
+        traj.epoch_at_idx(0) == t0 + 2.0 * 86400.0
+    )  # First state should be the third added
 
 
 # Default Trait Tests
@@ -362,8 +368,8 @@ def test_dtrajectory_trajectory_add():
     trajectory.add(epoch2, state2)
     assert len(trajectory) == 2
 
-    np.testing.assert_array_equal(trajectory.state(0), state1)
-    np.testing.assert_array_equal(trajectory.state(1), state2)
+    np.testing.assert_array_equal(trajectory.state_at_idx(0), state1)
+    np.testing.assert_array_equal(trajectory.state_at_idx(1), state2)
 
 
 def test_dtrajectory_trajectory_add_out_of_order():
@@ -374,17 +380,17 @@ def test_dtrajectory_trajectory_add_out_of_order():
 
     trajectory.add(epoch1, state1)
     assert len(trajectory) == 1
-    assert trajectory.epoch(0) == epoch1
-    np.testing.assert_array_equal(trajectory.state(0), state1)
+    assert trajectory.epoch_at_idx(0) == epoch1
+    np.testing.assert_array_equal(trajectory.state_at_idx(0), state1)
 
     epoch2 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state2 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     trajectory.add(epoch2, state2)
     assert len(trajectory) == 2
-    assert trajectory.epoch(0) == epoch2
-    np.testing.assert_array_equal(trajectory.state(0), state2)
-    assert trajectory.epoch(1) == epoch1
-    np.testing.assert_array_equal(trajectory.state(1), state1)
+    assert trajectory.epoch_at_idx(0) == epoch2
+    np.testing.assert_array_equal(trajectory.state_at_idx(0), state2)
+    assert trajectory.epoch_at_idx(1) == epoch1
+    np.testing.assert_array_equal(trajectory.state_at_idx(1), state1)
 
 
 def test_dtrajectory_trajectory_add_dimension_mismatch():
@@ -405,13 +411,13 @@ def test_dtrajectory_trajectory_add_replace():
 
     trajectory.add(epoch, state1)
     assert len(trajectory) == 1
-    np.testing.assert_array_equal(trajectory.state(0), state1)
+    np.testing.assert_array_equal(trajectory.state_at_idx(0), state1)
 
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
     trajectory.add(epoch, state2)
     assert len(trajectory) == 1  # Length should remain the same
     np.testing.assert_array_equal(
-        trajectory.state(0), state2
+        trajectory.state_at_idx(0), state2
     )  # State should be replaced
 
 
@@ -419,10 +425,10 @@ def test_dtrajectory_trajectory_epoch():
     """Rust: test_dtrajectory_trajectory_epoch"""
     traj = create_test_trajectory()
 
-    epoch = traj.epoch(0)
+    epoch = traj.epoch_at_idx(0)
     assert epoch == Epoch.from_jd(2451545.0, brahe.UTC)
 
-    epoch = traj.epoch(1)
+    epoch = traj.epoch_at_idx(1)
     assert epoch == Epoch.from_jd(2451545.1, brahe.UTC)
 
 
@@ -430,10 +436,10 @@ def test_dtrajectory_trajectory_state():
     """Rust: test_dtrajectory_trajectory_state"""
     traj = create_test_trajectory()
 
-    state = traj.state(0)
+    state = traj.state_at_idx(0)
     assert state[0] == pytest.approx(7000e3, abs=1.0)
 
-    state = traj.state(1)
+    state = traj.state_at_idx(1)
     assert state[0] == pytest.approx(7100e3, abs=1.0)
 
 

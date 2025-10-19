@@ -9,12 +9,14 @@ import numpy as np
 import brahe
 from brahe import (
     Epoch,
+    TimeSystem,
     OrbitTrajectory,
     OrbitFrame,
     OrbitRepresentation,
     AngleFormat,
     InterpolationMethod,
     R_EARTH,
+    DEG2RAD,
     state_osculating_to_cartesian,
     state_cartesian_to_osculating,
     state_eci_to_ecef,
@@ -139,31 +141,14 @@ def test_orbittrajectory_to_matrix():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -229,9 +214,9 @@ def test_orbittrajectory_trajectory_add():
     traj.add(epoch2, state2)
 
     assert len(traj) == 3
-    assert traj.epoch(0).jd() == 2451545.0
-    assert traj.epoch(1).jd() == 2451545.1
-    assert traj.epoch(2).jd() == 2451545.2
+    assert traj.epoch_at_idx(0).jd() == 2451545.0
+    assert traj.epoch_at_idx(1).jd() == 2451545.1
+    assert traj.epoch_at_idx(2).jd() == 2451545.2
 
 
 def test_orbittrajectory_trajectory_state():
@@ -241,49 +226,32 @@ def test_orbittrajectory_trajectory_state():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
     )
 
     # Test valid indices
-    state0 = traj.state(0)
+    state0 = traj.state_at_idx(0)
     assert state0[0] == 7000e3
 
-    state1 = traj.state(1)
+    state1 = traj.state_at_idx(1)
     assert state1[0] == 7100e3
 
-    state2 = traj.state(2)
+    state2 = traj.state_at_idx(2)
     assert state2[0] == 7200e3
 
     # Test invalid index
     with pytest.raises(Exception):
-        traj.state(10)
+        traj.state_at_idx(10)
 
 
 def test_orbittrajectory_trajectory_epoch():
@@ -293,49 +261,32 @@ def test_orbittrajectory_trajectory_epoch():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
     )
 
     # Test valid indices
-    epoch0 = traj.epoch(0)
+    epoch0 = traj.epoch_at_idx(0)
     assert epoch0.jd() == 2451545.0
 
-    epoch1 = traj.epoch(1)
+    epoch1 = traj.epoch_at_idx(1)
     assert epoch1.jd() == 2451545.1
 
-    epoch2 = traj.epoch(2)
+    epoch2 = traj.epoch_at_idx(2)
     assert epoch2.jd() == 2451545.2
 
     # Test invalid index
     with pytest.raises(Exception):
-        traj.epoch(10)
+        traj.epoch_at_idx(10)
 
 
 def test_orbittrajectory_trajectory_nearest_state():
@@ -345,31 +296,14 @@ def test_orbittrajectory_trajectory_nearest_state():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -978,7 +912,7 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_size():
     assert len(traj) == 3
 
     # First state should be the 3rd original state (oldest 2 evicted)
-    first_state = traj.state(0)
+    first_state = traj.state_at_idx(0)
     assert first_state[0] == pytest.approx(7000e3 + 2000.0, abs=1.0)
 
     # Add another state - should still maintain max size
@@ -1014,14 +948,14 @@ def test_orbittrajectory_trajectory_set_eviction_policy_max_age():
     traj.set_eviction_policy_max_age(240.0)
     assert len(traj) == 5
 
-    first_state = traj.state(0)
+    first_state = traj.state_at_idx(0)
     assert first_state[0] == pytest.approx(7000e3 + 1000.0, abs=1.0)
 
     # Set max age to 239 seconds
     traj.set_eviction_policy_max_age(239.0)
 
     assert len(traj) == 4
-    first_state = traj.state(0)
+    first_state = traj.state_at_idx(0)
     assert first_state[0] == pytest.approx(7000e3 + 2000.0, abs=1.0)
 
     # Test error case
@@ -1048,31 +982,14 @@ def test_orbittrajectory_index_index():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1112,31 +1029,14 @@ def test_orbittrajectory_intoiterator_into_iter():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1180,31 +1080,14 @@ def test_orbittrajectory_iterator_iterator_len():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = np.array(
-        [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
-            7200e3,
-            2000e3,
-            1000e3,
-            200.0,
-            7.7e3,
-            100.0,
-        ]
-    )
+    states = [
+        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
+        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
+    ]
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        states,
+        np.concatenate(states),
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1735,3 +1618,210 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
     assert epoch_out.jd() == epoch.jd()
     for i in range(6):
         assert state_out[i] == pytest.approx(state_kep_rad[i], abs=tol)
+
+
+# StateProvider Tests
+
+
+def test_orbittrajectory_stateprovider_state_eci_cartesian():
+    """Test state() for ECI Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch1 = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch1, state1)
+
+    epoch2 = Epoch.from_jd(2451545.5, TimeSystem.UTC)
+    state2 = np.array([7200e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0])
+    traj.add(epoch2, state2)
+
+    # Query at exact epoch
+    state_at_1 = traj.state(epoch1)
+    for i in range(6):
+        assert state_at_1[i] == pytest.approx(state1[i], abs=1e-6)
+
+    # Query at interpolated epoch
+    epoch_mid = Epoch.from_jd(2451545.25, TimeSystem.UTC)
+    state_mid = traj.state(epoch_mid)
+    # Should be interpolated between state1 and state2
+    assert state1[0] < state_mid[0] < state2[0]
+
+
+def test_orbittrajectory_stateprovider_state_eci():
+    """Test state_eci() for ECI Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_eci)
+
+    # Query ECI state
+    result = traj.state_eci(epoch)
+    for i in range(6):
+        assert result[i] == pytest.approx(state_eci[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_eci_from_keplerian():
+    """Test state_eci() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep)
+
+    # Query ECI Cartesian state
+    result = traj.state_eci(epoch)
+
+    # Convert Keplerian to Cartesian manually for comparison
+    expected = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_eci_from_ecef():
+    """Test state_eci() for ECEF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECEF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_ecef = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_ecef)
+
+    # Query ECI state
+    result = traj.state_eci(epoch)
+
+    # Convert ECEF to ECI manually for comparison
+    expected = state_ecef_to_eci(epoch, state_ecef)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_ecef():
+    """Test state_ecef() for ECEF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECEF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_ecef = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_ecef)
+
+    # Query ECEF state
+    result = traj.state_ecef(epoch)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(state_ecef[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_ecef_from_eci():
+    """Test state_ecef() for ECI Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_eci)
+
+    # Query ECEF state
+    result = traj.state_ecef(epoch)
+
+    # Convert ECI to ECEF manually for comparison
+    expected = state_eci_to_ecef(epoch, state_eci)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_ecef_from_keplerian():
+    """Test state_ecef() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep)
+
+    # Query ECEF state
+    result = traj.state_ecef(epoch)
+
+    # Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
+    state_eci_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    expected = state_eci_to_ecef(epoch, state_eci_cart)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_as_osculating_elements_from_cartesian():
+    """Test state_as_osculating_elements() for ECI Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_cart)
+
+    # Query osculating elements in degrees
+    result_deg = traj.state_as_osculating_elements(epoch, AngleFormat.DEGREES)
+
+    # Convert Cartesian to Keplerian manually for comparison
+    expected_deg = state_cartesian_to_osculating(state_cart, AngleFormat.DEGREES)
+
+    for i in range(6):
+        assert result_deg[i] == pytest.approx(expected_deg[i], abs=1e-3)
+
+    # Query osculating elements in radians
+    result_rad = traj.state_as_osculating_elements(epoch, AngleFormat.RADIANS)
+    expected_rad = state_cartesian_to_osculating(state_cart, AngleFormat.RADIANS)
+
+    for i in range(6):
+        assert result_rad[i] == pytest.approx(expected_rad[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_as_osculating_elements_from_keplerian():
+    """Test state_as_osculating_elements() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep_deg = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep_deg)
+
+    # Query osculating elements in degrees (same as native format)
+    result_deg = traj.state_as_osculating_elements(epoch, AngleFormat.DEGREES)
+
+    for i in range(6):
+        assert result_deg[i] == pytest.approx(state_kep_deg[i], abs=1e-6)
+
+    # Query osculating elements in radians (requires conversion)
+    result_rad = traj.state_as_osculating_elements(epoch, AngleFormat.RADIANS)
+
+    # First two elements unchanged (a, e)
+    assert result_rad[0] == pytest.approx(state_kep_deg[0], abs=1e-6)
+    assert result_rad[1] == pytest.approx(state_kep_deg[1], abs=1e-9)
+
+    # Angle elements converted
+    assert result_rad[2] == pytest.approx(state_kep_deg[2] * DEG2RAD, abs=1e-9)
+    assert result_rad[3] == pytest.approx(state_kep_deg[3] * DEG2RAD, abs=1e-9)
+    assert result_rad[4] == pytest.approx(state_kep_deg[4] * DEG2RAD, abs=1e-9)
+    assert result_rad[5] == pytest.approx(state_kep_deg[5] * DEG2RAD, abs=1e-9)
+
+
+def test_orbittrajectory_stateprovider_state_as_osculating_elements_from_ecef():
+    """Test state_as_osculating_elements() for ECEF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ECEF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_ecef = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_ecef)
+
+    # Query osculating elements
+    result = traj.state_as_osculating_elements(epoch, AngleFormat.DEGREES)
+
+    # Convert ECEF -> ECI -> Keplerian manually for comparison
+    state_eci = state_ecef_to_eci(epoch, state_ecef)
+    expected = state_cartesian_to_osculating(state_eci, AngleFormat.DEGREES)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)

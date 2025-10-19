@@ -1,20 +1,7 @@
 """Type stubs for brahe._brahe module - AUTO-GENERATED"""
 
-from typing import Any, List, Tuple, Optional, Union
+from typing import Any, List, Tuple, Optional
 import numpy as np
-
-# Type aliases
-AccessConstraint = Union[
-    "AscDscConstraint",
-    "ConstraintAll",
-    "ConstraintAny",
-    "ConstraintNot",
-    "ElevationConstraint",
-    "ElevationMaskConstraint",
-    "LocalTimeConstraint",
-    "LookDirectionConstraint",
-    "OffNadirConstraint",
-]
 
 # Classes
 
@@ -332,6 +319,34 @@ class AccessWindow:
         """Initialize instance."""
         ...
 
+    @property
+    def asc_dsc(self) -> AscDsc:
+        """Get ascending/descending pass type.
+
+        Returns:
+            AscDsc: Pass type enum value
+        """
+        ...
+
+    @property
+    def azimuth_close(self) -> float:
+        """Get azimuth angle at window closing (degrees, 0-360).
+
+        Returns:
+            float: Azimuth at window close
+        """
+        ...
+
+    @property
+    def azimuth_open(self) -> float:
+        """Get azimuth angle at window opening (degrees, 0-360).
+
+        Returns:
+            float: Azimuth at window open
+        """
+        ...
+
+    @property
     def duration(self) -> float:
         """Get the duration of the access window in seconds.
 
@@ -340,27 +355,48 @@ class AccessWindow:
         """
         ...
 
+    @property
+    def elevation_max(self) -> float:
+        """Get maximum elevation angle during access (degrees).
+
+        Returns:
+            float: Maximum elevation angle
+        """
+        ...
+
+    @property
+    def elevation_min(self) -> float:
+        """Get minimum elevation angle during access (degrees).
+
+        Returns:
+            float: Minimum elevation angle
+        """
+        ...
+
+    @property
     def end(self) -> Epoch:
-        """Get the end time of the access window.
+        """Get the end time of the access window (alias for window_close).
 
         Returns:
             Epoch: Closing time of the window
         """
         ...
 
-    def midtime(self) -> Epoch:
-        """Get the midpoint time of the access window.
+    @property
+    def id(self) -> Optional[int]:
+        """Get the access window numeric ID.
 
         Returns:
-            Epoch: Midpoint time (average of start and end)
+            Optional[int]: Window ID, or None if not set
         """
         ...
 
-    def start(self) -> Epoch:
-        """Get the start time of the access window.
+    @property
+    def local_time(self) -> float:
+        """Get local solar time at window midpoint (seconds since midnight, 0-86400).
 
         Returns:
-            Epoch: Opening time of the window
+            float: Local time in seconds
         """
         ...
 
@@ -383,8 +419,62 @@ class AccessWindow:
         ...
 
     @property
+    def location_uuid(self) -> Optional[str]:
+        """Get the location UUID if available.
+
+        Returns:
+            Optional[str]: UUID of the location as string, or None if not set
+        """
+        ...
+
+    @property
+    def look_direction(self) -> LookDirection:
+        """Get look direction (Left or Right).
+
+        Returns:
+            LookDirection: Look direction enum value
+        """
+        ...
+
+    @property
+    def midtime(self) -> Epoch:
+        """Get the midpoint time of the access window.
+
+        Returns:
+            Epoch: Midpoint time (average of start and end)
+        """
+        ...
+
+    @property
+    def name(self) -> Optional[str]:
+        """Get the access window name (auto-generated or user-set).
+
+        Returns:
+            Optional[str]: Window name, or None if not set
+        """
+        ...
+
+    @property
+    def off_nadir_max(self) -> float:
+        """Get maximum off-nadir angle during access (degrees).
+
+        Returns:
+            float: Maximum off-nadir angle
+        """
+        ...
+
+    @property
+    def off_nadir_min(self) -> float:
+        """Get minimum off-nadir angle during access (degrees).
+
+        Returns:
+            float: Minimum off-nadir angle
+        """
+        ...
+
+    @property
     def properties(self) -> AccessProperties:
-        """Get the access properties.
+        """Get the access properties object.
 
         Returns:
             AccessProperties: Computed properties for this access window
@@ -406,6 +496,51 @@ class AccessWindow:
 
         Returns:
             Optional[str]: Name of the satellite, or None if not set
+        """
+        ...
+
+    @property
+    def satellite_uuid(self) -> Optional[str]:
+        """Get the satellite UUID if available.
+
+        Returns:
+            Optional[str]: UUID of the satellite as string, or None if not set
+        """
+        ...
+
+    @property
+    def start(self) -> Epoch:
+        """Get the start time of the access window (alias for window_open).
+
+        Returns:
+            Epoch: Opening time of the window
+        """
+        ...
+
+    @property
+    def uuid(self) -> Optional[str]:
+        """Get the access window UUID.
+
+        Returns:
+            Optional[str]: UUID as string, or None if not set
+        """
+        ...
+
+    @property
+    def window_close(self) -> Epoch:
+        """Get the window closing time.
+
+        Returns:
+            Epoch: Window closing time
+        """
+        ...
+
+    @property
+    def window_open(self) -> Epoch:
+        """Get the window opening time.
+
+        Returns:
+            Epoch: Window opening time
         """
         ...
 
@@ -9142,7 +9277,15 @@ def location_accesses(
     | List[SGPPropagator | KeplerianPropagator],
     search_start: Epoch,
     search_end: Epoch,
-    constraint: AccessConstraint,
+    constraint: ElevationConstraint
+    | OffNadirConstraint
+    | LocalTimeConstraint
+    | LookDirectionConstraint
+    | AscDscConstraint
+    | ElevationMaskConstraint
+    | ConstraintAll
+    | ConstraintAny
+    | ConstraintNot,
     property_computers: [List[AccessPropertyComputer]] = ...,
     config: [AccessSearchConfig] = ...,
     time_tolerance: [float] = ...,

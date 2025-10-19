@@ -16,7 +16,11 @@ use crate::orbits::keplerian::orbital_period_from_state;
 use crate::orbits::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::traits::Identifiable;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
+
+// Static counter for auto-generating AccessWindow names
+static ACCESS_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 // ================================
 // AccessWindow Structure
@@ -25,7 +29,21 @@ use uuid::Uuid;
 /// An access window between a satellite and a location
 ///
 /// Contains timing information, location/satellite identification,
-/// and computed access properties.
+/// and computed access properties. Implements `Identifiable` trait
+/// with auto-generated names.
+///
+/// # Auto-generated Names
+/// When created via `new()`, names are automatically generated as:
+/// - If both location and satellite have names: `"{location}-{satellite}-Access-{counter:03}"`
+/// - Otherwise: `"Access-{counter:03}"`
+///
+/// The counter increments sequentially for each access window created.
+///
+/// # Examples
+/// ```
+/// // With named location and satellite: "Svalbard-Sentinel1-Access-001"
+/// // Without names: "Access-042"
+/// ```
 #[derive(Debug, Clone)]
 pub struct AccessWindow {
     /// Start of access window
@@ -54,13 +72,23 @@ pub struct AccessWindow {
     /// Satellite UUID (from Identifiable trait)
     pub satellite_uuid: Option<Uuid>,
 
+    // ===== AccessWindow identification (Identifiable trait) =====
+    /// Access window name (auto-generated or user-set)
+    pub name: Option<String>,
+
+    /// Access window numeric ID
+    pub id: Option<u64>,
+
+    /// Access window UUID
+    pub uuid: Option<Uuid>,
+
     // ===== Computed properties =====
     /// Access properties (geometric + custom)
     pub properties: AccessProperties,
 }
 
 impl AccessWindow {
-    /// Create a new access window
+    /// Create a new access window with auto-generated name
     ///
     /// # Arguments
     /// * `window_open` - Start time
@@ -68,6 +96,12 @@ impl AccessWindow {
     /// * `location` - Location being accessed
     /// * `satellite` - Satellite/object with Identifiable trait
     /// * `properties` - Computed access properties
+    ///
+    /// # Auto-generated Name
+    /// - If both location and satellite have names: `"{location}-{satellite}-Access-{counter:03}"`
+    /// - Otherwise: `"Access-{counter:03}"`
+    ///
+    /// Counter increments atomically for each window created.
     pub fn new<L: AccessibleLocation, S: Identifiable>(
         window_open: Epoch,
         window_close: Epoch,
@@ -75,15 +109,31 @@ impl AccessWindow {
         satellite: &S,
         properties: AccessProperties,
     ) -> Self {
+        // Get counter value and increment atomically
+        let counter = ACCESS_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+        // Extract identification from location and satellite
+        let loc_name = location.get_name().map(|s| s.to_string());
+        let sat_name = satellite.get_name().map(|s| s.to_string());
+
+        // Generate access window name
+        let name = match (&loc_name, &sat_name) {
+            (Some(loc), Some(sat)) => Some(format!("{}-{}-Access-{:03}", loc, sat, counter)),
+            _ => Some(format!("Access-{:03}", counter)),
+        };
+
         Self {
             window_open,
             window_close,
-            location_name: location.get_name().map(|s| s.to_string()),
+            location_name: loc_name,
             location_id: location.get_id(),
             location_uuid: location.get_uuid(),
-            satellite_name: satellite.get_name().map(|s| s.to_string()),
+            satellite_name: sat_name,
             satellite_id: satellite.get_id(),
             satellite_uuid: satellite.get_uuid(),
+            name,
+            id: None,
+            uuid: None,
             properties,
         }
     }
@@ -106,6 +156,75 @@ impl AccessWindow {
     /// Get window duration in seconds
     pub fn duration(&self) -> f64 {
         self.window_close - self.window_open
+    }
+}
+
+// ================================
+// Identifiable Trait Implementation
+// ================================
+
+impl Identifiable for AccessWindow {
+    fn with_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+
+    fn with_uuid(mut self, uuid: Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self
+    }
+
+    fn with_new_uuid(mut self) -> Self {
+        self.uuid = Some(Uuid::new_v4());
+        self
+    }
+
+    fn with_id(mut self, id: u64) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    fn with_identity(mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) -> Self {
+        if let Some(n) = name {
+            self.name = Some(n.to_string());
+        }
+        self.uuid = uuid;
+        self.id = id;
+        self
+    }
+
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) {
+        if let Some(n) = name {
+            self.name = Some(n.to_string());
+        } else {
+            self.name = None;
+        }
+        self.uuid = uuid;
+        self.id = id;
+    }
+
+    fn set_id(&mut self, id: Option<u64>) {
+        self.id = id;
+    }
+
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(|s| s.to_string());
+    }
+
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(Uuid::new_v4());
+    }
+
+    fn get_id(&self) -> Option<u64> {
+        self.id
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<Uuid> {
+        self.uuid
     }
 }
 
@@ -452,6 +571,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
     // Call custom property computers if provided
     if let Some(computers) = property_computers {
         // Create temporary AccessWindow for property computation
+        // Note: This is temporary and won't increment the counter
         let temp_window = AccessWindow {
             window_open,
             window_close,
@@ -461,6 +581,9 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
             satellite_name: propagator.get_name().map(|s| s.to_string()),
             satellite_id: propagator.get_id(),
             satellite_uuid: propagator.get_uuid(),
+            name: None, // Temporary window, no name needed
+            id: None,
+            uuid: None,
             properties: properties.clone(),
         };
 
@@ -819,5 +942,186 @@ mod tests {
             assert!((0.0..=360.0).contains(&window.properties.azimuth_open));
             assert!((-90.0..=90.0).contains(&window.properties.elevation_max));
         }
+    }
+
+    #[test]
+    fn test_access_window_implements_identifiable() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 45.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Test that Identifiable trait methods work
+        assert!(window.get_name().is_some());
+        assert!(window.get_id().is_none());
+        assert!(window.get_uuid().is_none());
+
+        // Test builder methods
+        let window_with_id = window.clone().with_id(123);
+        assert_eq!(window_with_id.get_id(), Some(123));
+
+        let window_with_uuid = window.clone().with_new_uuid();
+        assert!(window_with_uuid.get_uuid().is_some());
+
+        let window_with_custom_name = window.clone().with_name("CustomAccess");
+        assert_eq!(window_with_custom_name.get_name(), Some("CustomAccess"));
+    }
+
+    #[test]
+    fn test_access_window_auto_naming_with_location_and_satellite() {
+        setup_global_test_eop();
+
+        // Create location and satellite with names
+        let location = PointLocation::new(15.4, 78.2, 0.0).with_name("Svalbard");
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+        propagator.set_name(Some("Sentinel1"));
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Should have format: "{location}-{satellite}-Access-{counter:03}"
+        let name = window.get_name().unwrap();
+        assert!(name.starts_with("Svalbard-Sentinel1-Access-"));
+        assert!(name.contains("-Access-"));
+    }
+
+    #[test]
+    fn test_access_window_auto_naming_without_names() {
+        setup_global_test_eop();
+
+        // Create location and satellite WITHOUT names
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Should have format: "Access-{counter:03}"
+        let name = window.get_name().unwrap();
+        assert!(name.starts_with("Access-"));
+        assert!(!name.contains("-Access-")); // Should NOT have the double dash pattern
+    }
+
+    #[test]
+    fn test_access_window_counter_increments() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        // Create multiple windows and verify counter increments
+        let window1 = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties.clone(),
+        );
+        let window2 = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties.clone(),
+        );
+        let window3 = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        let name1 = window1.get_name().unwrap();
+        let name2 = window2.get_name().unwrap();
+        let name3 = window3.get_name().unwrap();
+
+        // All should be different due to counter
+        assert_ne!(name1, name2);
+        assert_ne!(name2, name3);
+        assert_ne!(name1, name3);
+
+        // All should have the "Access-" prefix
+        assert!(name1.starts_with("Access-"));
+        assert!(name2.starts_with("Access-"));
+        assert!(name3.starts_with("Access-"));
     }
 }

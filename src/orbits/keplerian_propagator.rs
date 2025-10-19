@@ -13,7 +13,7 @@ use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
 use crate::orbits::keplerian::mean_motion;
-use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+use crate::orbits::traits::{OrbitPropagator, StateProvider};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -506,7 +506,7 @@ impl OrbitPropagator for KeplerianPropagator {
     }
 }
 
-impl AnalyticPropagator for KeplerianPropagator {
+impl StateProvider for KeplerianPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
         // Get state in original format
         let internal_state = self.propagate_internal(epoch);
@@ -1085,7 +1085,7 @@ mod tests {
         assert!(propagator.trajectory.len() > 0);
     }
 
-    // AnalyticPropagator Trait Tests
+    // StateProvider Trait Tests
 
     #[test]
     fn test_keplerianpropagator_analyticpropagator_state() {

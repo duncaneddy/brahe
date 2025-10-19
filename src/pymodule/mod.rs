@@ -17,7 +17,6 @@ use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess, PyTuple, PyT
 use pyo3::{exceptions, wrap_pyfunction};
 
 use crate::traits::*;
-use crate::utils::errors::*;
 use crate::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
@@ -293,6 +292,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Orbits *//
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
+    module.add_function(wrap_pyfunction!(py_orbital_period_from_state, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;
@@ -383,6 +383,16 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPointLocation>()?;
     module.add_class::<PyPolygonLocation>()?;
     module.add_class::<PyPropertiesDict>()?;
+
+    // Access Properties
+    module.add_class::<PyAccessWindow>()?;
+    module.add_class::<PyAccessProperties>()?;
+    module.add_class::<PyAccessSearchConfig>()?;
+    module.add_class::<PyAdditionalPropertiesDict>()?;
+    module.add_class::<PyAccessPropertyComputer>()?;
+
+    // Access Computation
+    module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
 
     Ok(())
 }

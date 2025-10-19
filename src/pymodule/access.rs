@@ -8,10 +8,16 @@ use crate::access::constraints::{
     ElevationMaskConstraint, LocalTimeConstraint, LookDirection, LookDirectionConstraint,
     OffNadirConstraint,
 };
-use crate::access::location::{PointLocation, PolygonLocation};
+use crate::access::location::{AccessibleLocation, PointLocation, PolygonLocation};
+use crate::access::properties::{
+    AccessProperties, AccessPropertyComputer, PropertyValue,
+};
+use crate::access::windows::{AccessSearchConfig, AccessWindow};
 use crate::utils::identifiable::Identifiable;
+use crate::utils::BraheError;
 use nalgebra::Vector3;
 use pyo3::types::PyDict;
+use std::collections::HashMap;
 
 // ================================
 // Properties Dict Wrapper
@@ -391,7 +397,7 @@ impl PyAscDsc {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ElevationConstraint")]
 pub struct PyElevationConstraint {
-    pub(crate) constraint: ElevationConstraint,
+    pub constraint: ElevationConstraint,
 }
 
 #[pymethods]
@@ -466,7 +472,7 @@ impl PyElevationConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ElevationMaskConstraint")]
 pub struct PyElevationMaskConstraint {
-    pub(crate) constraint: ElevationMaskConstraint,
+    pub constraint: ElevationMaskConstraint,
 }
 
 #[pymethods]
@@ -538,7 +544,7 @@ impl PyElevationMaskConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OffNadirConstraint")]
 pub struct PyOffNadirConstraint {
-    pub(crate) constraint: OffNadirConstraint,
+    pub constraint: OffNadirConstraint,
 }
 
 #[pymethods]
@@ -616,7 +622,7 @@ impl PyOffNadirConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "LocalTimeConstraint")]
 pub struct PyLocalTimeConstraint {
-    pub(crate) constraint: LocalTimeConstraint,
+    pub constraint: LocalTimeConstraint,
 }
 
 #[pymethods]
@@ -709,7 +715,7 @@ impl PyLocalTimeConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "LookDirectionConstraint")]
 pub struct PyLookDirectionConstraint {
-    pub(crate) constraint: LookDirectionConstraint,
+    pub constraint: LookDirectionConstraint,
 }
 
 #[pymethods]
@@ -777,7 +783,7 @@ impl PyLookDirectionConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "AscDscConstraint")]
 pub struct PyAscDscConstraint {
-    pub(crate) constraint: AscDscConstraint,
+    pub constraint: AscDscConstraint,
 }
 
 #[pymethods]
@@ -847,7 +853,7 @@ impl PyAscDscConstraint {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ConstraintAll")]
 pub struct PyConstraintAll {
-    pub(crate) composite: ConstraintComposite,
+    pub composite: ConstraintComposite,
 }
 
 #[pymethods]
@@ -945,7 +951,7 @@ impl PyConstraintAll {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ConstraintAny")]
 pub struct PyConstraintAny {
-    pub(crate) composite: ConstraintComposite,
+    pub composite: ConstraintComposite,
 }
 
 #[pymethods]
@@ -1034,7 +1040,7 @@ impl PyConstraintAny {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ConstraintNot")]
 pub struct PyConstraintNot {
-    pub(crate) composite: ConstraintComposite,
+    pub composite: ConstraintComposite,
 }
 
 #[pymethods]
@@ -1140,7 +1146,7 @@ impl PyConstraintNot {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "PointLocation")]
 pub struct PyPointLocation {
-    pub(crate) location: PointLocation,
+    pub location: PointLocation,
 }
 
 #[pymethods]
@@ -1555,7 +1561,7 @@ impl PyPointLocation {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "PolygonLocation")]
 pub struct PyPolygonLocation {
-    pub(crate) location: PolygonLocation,
+    pub location: PolygonLocation,
 }
 
 #[pymethods]
@@ -1942,4 +1948,1305 @@ impl PyPolygonLocation {
     fn __repr__(&self) -> String {
         self.__str__()
     }
+}
+
+// ================================
+// Access Properties
+// ================================
+
+/// A flexible value type for access properties.
+///
+/// PropertyValue can store different types of data associated with access windows,
+/// including scalars, vectors, time series, booleans, strings, and arbitrary JSON.
+///
+/// Args:
+///     value: The value to store (int, float, list, bool, str, or dict)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Scalar value
+///     prop1 = bh.PropertyValue(42.5)
+///
+///     # Vector value
+///     prop2 = bh.PropertyValue([1.0, 2.0, 3.0])
+///
+///     # Boolean value
+///     prop3 = bh.PropertyValue(True)
+///
+///     # String value
+///     prop4 = bh.PropertyValue("visible")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "PropertyValue")]
+pub struct PyPropertyValue {
+    pub(crate) value: PropertyValue,
+}
+
+#[pymethods]
+impl PyPropertyValue {
+    #[new]
+    fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        // Check bool BEFORE f64, since bool is a subclass of int in Python
+        let property_value = if let Ok(v) = value.extract::<bool>() {
+            PropertyValue::Boolean(v)
+        } else if let Ok(v) = value.extract::<f64>() {
+            PropertyValue::Scalar(v)
+        } else if let Ok(v) = value.extract::<Vec<f64>>() {
+            PropertyValue::Vector(v)
+        } else if let Ok(v) = value.extract::<String>() {
+            PropertyValue::String(v)
+        } else if let Ok(dict) = value.downcast::<PyDict>() {
+            // Convert dict to JSON
+            let json_module = value.py().import("json")?;
+            let dumps = json_module.getattr("dumps")?;
+            let json_str: String = dumps.call1((dict,))?.extract()?;
+            let json_value: serde_json::Value = serde_json::from_str(&json_str)
+                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+            PropertyValue::Json(json_value)
+        } else {
+            return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                "PropertyValue must be a number, list, bool, str, or dict"
+            ));
+        };
+
+        Ok(Self { value: property_value })
+    }
+
+    /// Convert the property value to a Python object.
+    ///
+    /// Returns:
+    ///     The value as a Python object (int, float, list, bool, or str)
+    fn to_python(&self, py: Python) -> PyResult<Py<PyAny>> {
+        use pyo3::types::{PyFloat, PyList, PyString};
+
+        match &self.value {
+            PropertyValue::Scalar(v) => {
+                let float_obj = PyFloat::new(py, *v);
+                Ok(float_obj.unbind().into())
+            }
+            PropertyValue::Vector(v) => {
+                let list = PyList::new(py, v.iter())?;
+                Ok(list.unbind().into())
+            }
+            PropertyValue::TimeSeries { times, values } => {
+                let dict = PyDict::new(py);
+                dict.set_item("times", times)?;
+                dict.set_item("values", values)?;
+                Ok(dict.into())
+            }
+            PropertyValue::Boolean(v) => {
+                // Use Python's builtin bool function
+                let builtins = py.import("builtins")?;
+                let bool_func = builtins.getattr("bool")?;
+                Ok(bool_func.call1((*v,))?.into())
+            }
+            PropertyValue::String(v) => {
+                let str_obj = PyString::new(py, v);
+                Ok(str_obj.unbind().into())
+            }
+            PropertyValue::Json(v) => {
+                // Convert JSON to Python via json module
+                let json_module = py.import("json")?;
+                let loads = json_module.getattr("loads")?;
+                let json_str = serde_json::to_string(v)
+                    .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+                Ok(loads.call1((json_str,))?.into())
+            }
+        }
+    }
+
+    fn __repr__(&self, py: Python) -> PyResult<String> {
+        let value_str = self.to_python(py)?;
+        Ok(format!("PropertyValue({})", value_str))
+    }
+}
+
+/// An access window representing a period of time when access constraints are satisfied.
+///
+/// AccessWindow stores the opening and closing times of an access period, along with
+/// computed properties for that window.
+///
+/// Args:
+///     window_open (Epoch): Opening time of the access window
+///     window_close (Epoch): Closing time of the access window
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create an access window
+///     t_open = bh.Epoch(2024, 1, 1, 12, 0, 0.0)
+///     t_close = bh.Epoch(2024, 1, 1, 12, 10, 0.0)
+///     window = bh.AccessWindow(t_open, t_close)
+///
+///     # Access window properties
+///     print(f"Duration: {window.duration()} seconds")
+///     print(f"Midpoint: {window.midtime()}")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AccessWindow")]
+pub struct PyAccessWindow {
+    pub(crate) window: AccessWindow,
+}
+
+#[pymethods]
+impl PyAccessWindow {
+    #[new]
+    fn new(window_open: &PyEpoch, window_close: &PyEpoch) -> Self {
+        Self {
+            window: AccessWindow {
+                window_open: window_open.obj,
+                window_close: window_close.obj,
+                location_name: None,
+                location_id: None,
+                location_uuid: None,
+                satellite_name: None,
+                satellite_id: None,
+                satellite_uuid: None,
+                properties: AccessProperties {
+                    azimuth_open: 0.0,
+                    azimuth_close: 0.0,
+                    elevation_min: 0.0,
+                    elevation_max: 0.0,
+                    off_nadir_min: 0.0,
+                    off_nadir_max: 0.0,
+                    local_time: 0.0,
+                    look_direction: LookDirection::Either,
+                    asc_dsc: AscDsc::Either,
+                    additional: std::collections::HashMap::new(),
+                },
+            },
+        }
+    }
+
+    /// Get the start time of the access window.
+    ///
+    /// Returns:
+    ///     Epoch: Opening time of the window
+    fn start(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.start() }
+    }
+
+    /// Get the end time of the access window.
+    ///
+    /// Returns:
+    ///     Epoch: Closing time of the window
+    fn end(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.end() }
+    }
+
+    /// Get the midpoint time of the access window.
+    ///
+    /// Returns:
+    ///     Epoch: Midpoint time (average of start and end)
+    fn midtime(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.midtime() }
+    }
+
+    /// Get the duration of the access window in seconds.
+    ///
+    /// Returns:
+    ///     float: Duration in seconds
+    fn duration(&self) -> f64 {
+        self.window.duration()
+    }
+
+    /// Get the location name if available.
+    ///
+    /// Returns:
+    ///     Optional[str]: Name of the location, or None if not set
+    #[getter]
+    fn location_name(&self) -> Option<String> {
+        self.window.location_name.clone()
+    }
+
+    /// Get the location ID if available.
+    ///
+    /// Returns:
+    ///     Optional[int]: ID of the location, or None if not set
+    #[getter]
+    fn location_id(&self) -> Option<u64> {
+        self.window.location_id
+    }
+
+    /// Get the satellite/object name if available.
+    ///
+    /// Returns:
+    ///     Optional[str]: Name of the satellite, or None if not set
+    #[getter]
+    fn satellite_name(&self) -> Option<String> {
+        self.window.satellite_name.clone()
+    }
+
+    /// Get the satellite/object ID if available.
+    ///
+    /// Returns:
+    ///     Optional[int]: ID of the satellite, or None if not set
+    #[getter]
+    fn satellite_id(&self) -> Option<u64> {
+        self.window.satellite_id
+    }
+
+    /// Get the access properties.
+    ///
+    /// Returns:
+    ///     AccessProperties: Computed properties for this access window
+    #[getter]
+    fn properties(&self) -> PyAccessProperties {
+        PyAccessProperties {
+            properties: self.window.properties.clone(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AccessWindow(start={}, end={}, duration={:.2}s)",
+            self.window.start(),
+            self.window.end(),
+            self.window.duration()
+        )
+    }
+}
+
+/// Properties computed for an access window.
+///
+/// AccessProperties contains geometric properties (azimuth, elevation, off-nadir angles,
+/// local time, look direction, ascending/descending) computed over an access window,
+/// plus a dictionary of additional custom properties.
+///
+/// Attributes:
+///     azimuth_open (float): Azimuth angle at window opening (degrees, 0-360)
+///     azimuth_close (float): Azimuth angle at window closing (degrees, 0-360)
+///     elevation_min (float): Minimum elevation angle (degrees)
+///     elevation_max (float): Maximum elevation angle (degrees)
+///     off_nadir_min (float): Minimum off-nadir angle (degrees)
+///     off_nadir_max (float): Maximum off-nadir angle (degrees)
+///     local_time (float): Local solar time (seconds since midnight, 0-86400)
+///     look_direction (LookDirection): Required look direction (Left or Right)
+///     asc_dsc (AscDsc): Pass type (Ascending or Descending)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Access properties are typically computed by the access computation system
+///     # This example shows accessing the properties
+///     props = ...  # From access computation
+///
+///     print(f"Azimuth at open: {props.azimuth_open}°")
+///     print(f"Max elevation: {props.elevation_max}°")
+///     print(f"Look direction: {props.look_direction}")
+///
+///     # Access additional custom properties
+///     if "signal_strength" in props.additional:
+///         print(f"Signal: {props.additional['signal_strength']}")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AccessProperties")]
+pub struct PyAccessProperties {
+    pub(crate) properties: AccessProperties,
+}
+
+#[pymethods]
+impl PyAccessProperties {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        azimuth_open: f64,
+        azimuth_close: f64,
+        elevation_min: f64,
+        elevation_max: f64,
+        off_nadir_min: f64,
+        off_nadir_max: f64,
+        local_time: f64,
+        look_direction: &PyLookDirection,
+        asc_dsc: &PyAscDsc,
+    ) -> Self {
+        Self {
+            properties: AccessProperties {
+                azimuth_open,
+                azimuth_close,
+                elevation_min,
+                elevation_max,
+                off_nadir_min,
+                off_nadir_max,
+                local_time,
+                look_direction: look_direction.value,
+                asc_dsc: asc_dsc.value,
+                additional: std::collections::HashMap::new(),
+            },
+        }
+    }
+
+    #[getter]
+    fn azimuth_open(&self) -> f64 {
+        self.properties.azimuth_open
+    }
+
+    #[getter]
+    fn azimuth_close(&self) -> f64 {
+        self.properties.azimuth_close
+    }
+
+    #[getter]
+    fn elevation_min(&self) -> f64 {
+        self.properties.elevation_min
+    }
+
+    #[getter]
+    fn elevation_max(&self) -> f64 {
+        self.properties.elevation_max
+    }
+
+    #[getter]
+    fn off_nadir_min(&self) -> f64 {
+        self.properties.off_nadir_min
+    }
+
+    #[getter]
+    fn off_nadir_max(&self) -> f64 {
+        self.properties.off_nadir_max
+    }
+
+    #[getter]
+    fn local_time(&self) -> f64 {
+        self.properties.local_time
+    }
+
+    #[getter]
+    fn look_direction(&self) -> PyLookDirection {
+        PyLookDirection { value: self.properties.look_direction }
+    }
+
+    #[getter]
+    fn asc_dsc(&self) -> PyAscDsc {
+        PyAscDsc { value: self.properties.asc_dsc }
+    }
+
+    /// Get additional properties as a dict-like wrapper.
+    ///
+    /// Returns a dictionary-like object that automatically converts between
+    /// Python types and internal PropertyValue representation.
+    ///
+    /// Supported Python types:
+    /// - float -> Scalar
+    /// - list[float] -> Vector
+    /// - bool -> Boolean
+    /// - str -> String
+    /// - dict -> Json
+    ///
+    /// Returns:
+    ///     AdditionalPropertiesDict: Dict-like wrapper for additional properties
+    ///
+    /// Example:
+    ///     ```python
+    ///     # Dict-style assignment
+    ///     props.additional["doppler_shift"] = 2500.0
+    ///     props.additional["snr_values"] = [10.5, 12.3, 15.1]
+    ///     props.additional["has_eclipse"] = False
+    ///
+    ///     # Dict-style access
+    ///     print(props.additional["doppler_shift"])  # 2500.0
+    ///
+    ///     # Dict methods
+    ///     if "doppler_shift" in props.additional:
+    ///         del props.additional["doppler_shift"]
+    ///
+    ///     # Iteration
+    ///     for key in props.additional.keys():
+    ///         print(key, props.additional[key])
+    ///     ```
+    #[getter]
+    fn additional(slf: Bound<'_, Self>) -> PyResult<Py<PyAdditionalPropertiesDict>> {
+        let py = slf.py();
+        let dict = PyAdditionalPropertiesDict::new(slf.into_any().unbind());
+        Py::new(py, dict)
+    }
+
+    // Internal methods for AdditionalPropertiesDict to call back into
+    fn _get_additional_properties_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        use pyo3::types::{PyFloat, PyList, PyString};
+
+        let dict = PyDict::new(py);
+        for (key, value) in &self.properties.additional {
+            let py_value: Py<PyAny> = match value {
+                PropertyValue::Scalar(v) => {
+                    let float_obj = PyFloat::new(py, *v);
+                    float_obj.unbind().into()
+                }
+                PropertyValue::Vector(v) => {
+                    let list = PyList::new(py, v.iter())?;
+                    list.unbind().into()
+                }
+                PropertyValue::TimeSeries { times, values } => {
+                    let ts_dict = PyDict::new(py);
+                    ts_dict.set_item("times", times)?;
+                    ts_dict.set_item("values", values)?;
+                    ts_dict.into()
+                }
+                PropertyValue::Boolean(v) => {
+                    // Use Python's builtin bool function
+                    let builtins = py.import("builtins")?;
+                    let bool_func = builtins.getattr("bool")?;
+                    bool_func.call1((*v,))?.into()
+                }
+                PropertyValue::String(v) => {
+                    let str_obj = PyString::new(py, v);
+                    str_obj.unbind().into()
+                }
+                PropertyValue::Json(v) => {
+                    let json_module = py.import("json")?;
+                    let loads = json_module.getattr("loads")?;
+                    let json_str = serde_json::to_string(v)
+                        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+                    loads.call1((json_str,))?.into()
+                }
+            };
+            dict.set_item(key, py_value)?;
+        }
+        Ok(dict.into())
+    }
+
+    fn _set_additional_property(&mut self, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Check bool BEFORE f64, since bool is a subclass of int in Python
+        let property_value = if let Ok(v) = value.extract::<bool>() {
+            PropertyValue::Boolean(v)
+        } else if let Ok(v) = value.extract::<f64>() {
+            PropertyValue::Scalar(v)
+        } else if let Ok(v) = value.extract::<Vec<f64>>() {
+            // Handle regular Python lists
+            PropertyValue::Vector(v)
+        } else if value.hasattr("tolist")? {
+            // Handle numpy arrays by converting to list
+            let as_list = value.call_method0("tolist")?;
+            if let Ok(v) = as_list.extract::<Vec<f64>>() {
+                PropertyValue::Vector(v)
+            } else {
+                return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                    "Numpy array must contain numeric values"
+                ));
+            }
+        } else if let Ok(v) = value.extract::<String>() {
+            PropertyValue::String(v)
+        } else if let Ok(dict) = value.downcast::<PyDict>() {
+            // Convert dict to JSON
+            let json_module = value.py().import("json")?;
+            let dumps = json_module.getattr("dumps")?;
+            let json_str: String = dumps.call1((dict,))?.extract()?;
+            let json_value: serde_json::Value = serde_json::from_str(&json_str)
+                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+            PropertyValue::Json(json_value)
+        } else {
+            return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                "Property value must be a number, list, numpy array, bool, str, or dict"
+            ));
+        };
+
+        self.properties.additional.insert(key, property_value);
+        Ok(())
+    }
+
+    fn _remove_additional_property(&mut self, key: String) -> PyResult<()> {
+        self.properties.additional.remove(&key)
+            .ok_or_else(|| exceptions::PyKeyError::new_err(format!("Key '{}' not found", key)))?;
+        Ok(())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AccessProperties(az=[{:.1}°, {:.1}°], el=[{:.1}°, {:.1}°], off_nadir=[{:.1}°, {:.1}°])",
+            self.properties.azimuth_open,
+            self.properties.azimuth_close,
+            self.properties.elevation_min,
+            self.properties.elevation_max,
+            self.properties.off_nadir_min,
+            self.properties.off_nadir_max
+        )
+    }
+}
+
+// ================================
+// AdditionalPropertiesDict
+// ================================
+
+/// Python dictionary interface for additional access properties.
+///
+/// Provides dict-like access to additional properties with automatic type conversion.
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AdditionalPropertiesDict")]
+pub struct PyAdditionalPropertiesDict {
+    parent: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyAdditionalPropertiesDict {
+    /// Get a property value by key.
+    fn __getitem__(&self, key: String, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        props_dict
+            .get_item(&key)?
+            .ok_or_else(|| exceptions::PyKeyError::new_err(format!("Key '{}' not found", key)))
+            .map(|item| item.into())
+    }
+
+    /// Set a property value by key.
+    fn __setitem__(&self, key: String, value: &Bound<'_, PyAny>, py: Python) -> PyResult<()> {
+        // Call the parent's _set_additional_property method which handles type conversion
+        self.set_additional_property(py, key, value)?;
+        Ok(())
+    }
+
+    /// Delete a property by key.
+    fn __delitem__(&self, key: String, py: Python) -> PyResult<()> {
+        self.remove_additional_property(py, key)
+    }
+
+    /// Return the number of properties.
+    fn __len__(&self, py: Python) -> PyResult<usize> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(props_dict.len())
+    }
+
+    /// Check if a key exists in properties.
+    fn __contains__(&self, key: String, py: Python) -> PyResult<bool> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        props_dict.contains(&key)
+    }
+
+    /// Return an iterator over property keys.
+    fn __iter__(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(props_dict.call_method0("__iter__")?.into())
+    }
+
+    /// String representation.
+    fn __repr__(&self, py: Python) -> PyResult<String> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(format!("AdditionalPropertiesDict({})", props_dict.repr()?))
+    }
+
+    /// Get property value with optional default.
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, key: String, default: Option<Py<PyAny>>, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        match props_dict.get_item(&key)? {
+            Some(value) => Ok(value.into()),
+            None => Ok(default.unwrap_or_else(|| py.None())),
+        }
+    }
+
+    /// Return a list of property keys.
+    fn keys(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(props_dict.call_method0("keys")?.into())
+    }
+
+    /// Return a list of property values.
+    fn values(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(props_dict.call_method0("values")?.into())
+    }
+
+    /// Return a list of (key, value) tuples.
+    fn items(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self.get_additional_properties_dict(py)?;
+        Ok(props_dict.call_method0("items")?.into())
+    }
+
+    /// Remove all properties.
+    fn clear(&self, py: Python) -> PyResult<()> {
+        // Get all keys first (to avoid modifying during iteration)
+        let props_dict = self.get_additional_properties_dict(py)?;
+        let keys_view = props_dict.call_method0("keys")?;
+
+        // Convert dict_keys to list before extracting
+        let builtins = py.import("builtins")?;
+        let list_fn = builtins.getattr("list")?;
+        let keys_list = list_fn.call1((keys_view,))?;
+        let keys: Vec<String> = keys_list.extract()?;
+
+        // Remove each key
+        for key in keys {
+            self.remove_additional_property(py, key)?;
+        }
+        Ok(())
+    }
+
+    /// Update properties from another dict.
+    fn update(&self, other: &Bound<'_, PyDict>, py: Python) -> PyResult<()> {
+        for (key, value) in other.iter() {
+            let key_str: String = key.extract()?;
+            self.__setitem__(key_str, &value, py)?;
+        }
+        Ok(())
+    }
+}
+
+impl PyAdditionalPropertiesDict {
+    /// Create a new AdditionalPropertiesDict wrapping a parent AccessProperties.
+    fn new(parent: Py<PyAny>) -> Self {
+        Self { parent }
+    }
+
+    /// Get the additional properties as a Python dict.
+    fn get_additional_properties_dict<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyDict>> {
+        // Call the parent's internal _get_additional_properties_dict method
+        let parent_obj = self.parent.bind(py);
+        let props_obj = parent_obj.call_method0("_get_additional_properties_dict")?;
+        props_obj.downcast::<PyDict>().cloned().map_err(|e| e.into())
+    }
+
+    /// Set a property on the parent AccessProperties.
+    fn set_additional_property(&self, py: Python, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        let parent_obj = self.parent.bind(py);
+        parent_obj.call_method1("_set_additional_property", (key, value))?;
+        Ok(())
+    }
+
+    /// Remove a property from the parent AccessProperties.
+    fn remove_additional_property(&self, py: Python, key: String) -> PyResult<()> {
+        let parent_obj = self.parent.bind(py);
+        parent_obj.call_method1("_remove_additional_property", (key,))?;
+        Ok(())
+    }
+}
+
+// ================================
+// AccessPropertyComputer
+// ================================
+
+/// Base class for custom access property computers.
+///
+/// Subclass this class and implement the `compute` and `property_names` methods
+/// to create custom property calculations that can be applied to access windows.
+///
+/// The compute method is called for each access window and should return a dictionary
+/// of property names to values. Properties can be scalars, vectors, time series,
+/// booleans, strings, or any JSON-serializable value.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     class DopplerComputer(bh.AccessPropertyComputer):
+///         '''Computes Doppler shift at window midtime.'''
+///
+///         def compute(self, window, satellite_state_ecef, location_ecef):
+///             '''
+///             Args:
+///                 window: AccessWindow with timing information
+///                 satellite_state_ecef: Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+///                 location_ecef: Location position [x,y,z] in ECEF (m)
+///
+///             Returns:
+///                 dict: Property name -> value
+///             '''
+///             # Extract velocity
+///             vx, vy, vz = satellite_state_ecef[3:6]
+///
+///             # Line-of-sight vector
+///             sat_pos = satellite_state_ecef[:3]
+///             los = location_ecef - sat_pos
+///             los_unit = los / np.linalg.norm(los)
+///
+///             # Radial velocity
+///             sat_vel = np.array([vx, vy, vz])
+///             radial_velocity = np.dot(sat_vel, los_unit)
+///
+///             # Doppler shift (L-band)
+///             freq_hz = 1.57542e9  # GPS L1
+///             doppler_hz = -radial_velocity * freq_hz / bh.C_LIGHT
+///
+///             return {"doppler_shift": doppler_hz}
+///
+///         def property_names(self):
+///             '''Return list of property names this computer produces.'''
+///             return ["doppler_shift"]
+///
+///     # Use with access computation (future)
+///     computer = DopplerComputer()
+///     # accesses = bh.compute_accesses(..., property_computers=[computer])
+///     ```
+///
+/// Notes:
+///     - The `compute` method receives ECEF coordinates in SI units (meters, m/s)
+///     - Property values are automatically converted to appropriate Rust types
+///     - The window parameter provides access to timing via:
+///       - `window.window_open`: Start epoch
+///       - `window.window_close`: End epoch
+///       - `window.midtime()`: Midpoint epoch
+///       - `window.duration()`: Duration in seconds
+#[pyclass(module = "brahe._brahe", subclass)]
+#[pyo3(name = "AccessPropertyComputer")]
+pub struct PyAccessPropertyComputer {
+    // No internal state - subclasses will override methods
+}
+
+#[pymethods]
+impl PyAccessPropertyComputer {
+    #[new]
+    fn new() -> Self {
+        PyAccessPropertyComputer {}
+    }
+
+    /// Compute custom properties for an access window.
+    ///
+    /// Override this method in your subclass to implement custom property calculations.
+    ///
+    /// Args:
+    ///     window (AccessWindow): Access window with timing information
+    ///     satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
+    ///     location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+    ///
+    /// Returns:
+    ///     dict: Dictionary mapping property names (str) to values (scalar, list, dict, etc.)
+    fn compute(
+        &self,
+        _window: &PyAccessWindow,
+        _satellite_state_ecef: PyReadonlyArray1<f64>,
+        _location_ecef: PyReadonlyArray1<f64>,
+    ) -> PyResult<Py<PyDict>> {
+        Err(exceptions::PyNotImplementedError::new_err(
+            "Subclasses must implement compute() method",
+        ))
+    }
+
+    /// Return list of property names this computer will produce.
+    ///
+    /// Override this method to return the list of property names that your
+    /// compute() method will include in its returned dictionary.
+    ///
+    /// Returns:
+    ///     list[str]: List of property names
+    fn property_names(&self) -> PyResult<Vec<String>> {
+        Err(exceptions::PyNotImplementedError::new_err(
+            "Subclasses must implement property_names() method",
+        ))
+    }
+}
+
+// Internal wrapper that implements the Rust AccessPropertyComputer trait
+// by calling Python methods
+#[allow(dead_code)]
+pub(crate) struct RustAccessPropertyComputerWrapper {
+    py_computer: Py<PyAny>,
+}
+
+#[allow(dead_code)]
+impl RustAccessPropertyComputerWrapper {
+    pub fn new(py_computer: Py<PyAny>) -> Self {
+        RustAccessPropertyComputerWrapper { py_computer }
+    }
+}
+
+impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
+    fn compute(
+        &self,
+        window: &AccessWindow,
+        state_provider: &dyn crate::orbits::traits::StateProvider,
+        location_ecef: &nalgebra::Vector3<f64>,
+        _location_geodetic: &nalgebra::Vector3<f64>,
+    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+        Python::attach(|py| {
+            // Get satellite state at midtime
+            let midtime = window.midtime();
+            let sat_state = state_provider.state_ecef(midtime);
+
+            // Convert to numpy arrays
+            let sat_state_array = sat_state.as_slice().to_pyarray(py).to_owned();
+            let loc_array = location_ecef.as_slice().to_pyarray(py).to_owned();
+
+            // Create Python AccessWindow
+            let py_window = Py::new(
+                py,
+                PyAccessWindow {
+                    window: window.clone(),
+                },
+            )
+            .map_err(|e| BraheError::Error(format!("Failed to create PyAccessWindow: {}", e)))?;
+
+            // Call Python compute method
+            let py_obj = self.py_computer.bind(py);
+            let result_dict = py_obj
+                .call_method1("compute", (py_window, sat_state_array, loc_array))
+                .map_err(|e| {
+                    BraheError::Error(format!("Python compute() method failed: {}", e))
+                })?;
+
+            // Convert Python dict to Rust HashMap<String, PropertyValue>
+            let dict: &Bound<'_, PyDict> = result_dict
+                .downcast()
+                .map_err(|e| BraheError::Error(format!("compute() must return a dict: {}", e)))?;
+
+            let mut props = HashMap::new();
+            for (key, value) in dict.iter() {
+                let key_str: String = key.extract().map_err(|e| {
+                    BraheError::Error(format!("Property keys must be strings: {}", e))
+                })?;
+
+                // Convert Python value to PropertyValue
+                let prop_value = python_value_to_property_value(&value)?;
+                props.insert(key_str, prop_value);
+            }
+
+            Ok(props)
+        })
+    }
+
+    fn property_names(&self) -> Vec<String> {
+        Python::attach(|py| {
+            let py_obj = self.py_computer.bind(py);
+            py_obj
+                .call_method0("property_names")
+                .and_then(|result| result.extract())
+                .unwrap_or_else(|_| Vec::new())
+        })
+    }
+}
+
+// Helper function to convert Python values to PropertyValue
+#[allow(dead_code)]
+fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyValue, BraheError> {
+    // Try bool first (before int/float, since bool is a subclass of int in Python)
+    if let Ok(b) = value.extract::<bool>() {
+        return Ok(PropertyValue::Boolean(b));
+    }
+
+    // Try float/int
+    if let Ok(f) = value.extract::<f64>() {
+        return Ok(PropertyValue::Scalar(f));
+    }
+
+    // Try string
+    if let Ok(s) = value.extract::<String>() {
+        return Ok(PropertyValue::String(s));
+    }
+
+    // Try list/array
+    if let Ok(vec) = value.extract::<Vec<f64>>() {
+        return Ok(PropertyValue::Vector(vec));
+    }
+
+    // Try dict (could be TimeSeries or generic JSON)
+    if let Ok(dict) = value.downcast::<PyDict>() {
+        // Check if it's a time series format
+        let has_times = dict.contains("times").map_err(|e| {
+            BraheError::Error(format!("Failed to check for 'times' key: {}", e))
+        })?;
+        let has_values = dict.contains("values").map_err(|e| {
+            BraheError::Error(format!("Failed to check for 'values' key: {}", e))
+        })?;
+
+        if has_times && has_values {
+            let times: Vec<f64> = dict
+                .get_item("times")
+                .map_err(|e| BraheError::Error(format!("Failed to get 'times': {}", e)))?
+                .ok_or_else(|| BraheError::Error("Missing 'times' key".to_string()))?
+                .extract()
+                .map_err(|e| BraheError::Error(format!("Failed to extract 'times': {}", e)))?;
+            let values: Vec<f64> = dict
+                .get_item("values")
+                .map_err(|e| BraheError::Error(format!("Failed to get 'values': {}", e)))?
+                .ok_or_else(|| BraheError::Error("Missing 'values' key".to_string()))?
+                .extract()
+                .map_err(|e| BraheError::Error(format!("Failed to extract 'values': {}", e)))?;
+            return Ok(PropertyValue::TimeSeries { times, values });
+        }
+
+        // Otherwise, convert to JSON
+        let json_module = value.py().import("json").map_err(|e| {
+            BraheError::Error(format!("Failed to import json module: {}", e))
+        })?;
+        let dumps = json_module.getattr("dumps").map_err(|e| {
+            BraheError::Error(format!("Failed to get json.dumps: {}", e))
+        })?;
+        let json_str: String = dumps
+            .call1((value,))
+            .and_then(|s| s.extract::<String>())
+            .map_err(|e| BraheError::Error(format!("Failed to serialize to JSON: {}", e)))?;
+
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+
+        return Ok(PropertyValue::Json(json_value));
+    }
+
+    // Fallback: try to convert to JSON
+    Python::attach(|py| {
+        let json_module = py
+            .import("json")
+            .map_err(|e| BraheError::Error(format!("Failed to import json: {}", e)))?;
+        let dumps = json_module
+            .getattr("dumps")
+            .map_err(|e| BraheError::Error(format!("Failed to get json.dumps: {}", e)))?;
+        let json_str: String = dumps
+            .call1((value,))
+            .and_then(|s| s.extract::<String>())
+            .map_err(|e| BraheError::Error(format!("Failed to serialize value: {}", e)))?;
+
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+
+        Ok(PropertyValue::Json(json_value))
+    })
+}
+
+// ================================
+// Access Computation Functions
+// ================================
+
+/// Configuration for access search grid parameters.
+///
+/// Controls the time step and adaptive stepping behavior for access window finding.
+///
+/// Args:
+///     initial_time_step (float): Initial time step in seconds for grid search (default: 60.0)
+///     adaptive_step (bool): Enable adaptive stepping after first access (default: False)
+///     adaptive_fraction (float): Fraction of orbital period to use for adaptive step (default: 0.75)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create a config with custom parameters
+///     config = bh.AccessSearchConfig(
+///         initial_time_step=30.0,
+///         adaptive_step=True,
+///         adaptive_fraction=0.5
+///     )
+///
+///     # Use config with location_accesses
+///     windows = bh.location_accesses(
+///         station, prop, search_start, search_end,
+///         constraint, config=config
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AccessSearchConfig")]
+#[derive(Clone)]
+pub struct PyAccessSearchConfig {
+    pub(crate) config: AccessSearchConfig,
+}
+
+#[pymethods]
+impl PyAccessSearchConfig {
+    #[new]
+    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75))]
+    fn new(initial_time_step: f64, adaptive_step: bool, adaptive_fraction: f64) -> Self {
+        Self {
+            config: AccessSearchConfig {
+                initial_time_step,
+                adaptive_step,
+                adaptive_fraction,
+            },
+        }
+    }
+
+    /// Get the initial time step in seconds.
+    ///
+    /// Returns:
+    ///     float: Initial time step
+    #[getter]
+    fn initial_time_step(&self) -> f64 {
+        self.config.initial_time_step
+    }
+
+    /// Set the initial time step in seconds.
+    ///
+    /// Args:
+    ///     value (float): New initial time step
+    #[setter]
+    fn set_initial_time_step(&mut self, value: f64) {
+        self.config.initial_time_step = value;
+    }
+
+    /// Get whether adaptive stepping is enabled.
+    ///
+    /// Returns:
+    ///     bool: Adaptive stepping flag
+    #[getter]
+    fn adaptive_step(&self) -> bool {
+        self.config.adaptive_step
+    }
+
+    /// Set whether adaptive stepping is enabled.
+    ///
+    /// Args:
+    ///     value (bool): Enable/disable adaptive stepping
+    #[setter]
+    fn set_adaptive_step(&mut self, value: bool) {
+        self.config.adaptive_step = value;
+    }
+
+    /// Get the adaptive fraction (fraction of orbital period).
+    ///
+    /// Returns:
+    ///     float: Adaptive fraction
+    #[getter]
+    fn adaptive_fraction(&self) -> f64 {
+        self.config.adaptive_fraction
+    }
+
+    /// Set the adaptive fraction (fraction of orbital period).
+    ///
+    /// Args:
+    ///     value (float): New adaptive fraction
+    #[setter]
+    fn set_adaptive_fraction(&mut self, value: f64) {
+        self.config.adaptive_fraction = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={})",
+            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction
+        )
+    }
+}
+
+/// Compute access windows for locations and satellites.
+///
+/// This function accepts either single items or lists for both locations and propagators,
+/// automatically handling all combinations. All location-satellite pairs are computed
+/// and results are returned sorted by window start time.
+///
+/// Args:
+///     locations (PointLocation | PolygonLocation | List[PointLocation | PolygonLocation]):
+///         Single location or list of locations
+///     propagators (SGPPropagator | KeplerianPropagator | List[SGPPropagator | KeplerianPropagator]):
+///         Single propagator or list of propagators
+///     search_start (Epoch): Start of search window
+///     search_end (Epoch): End of search window
+///     constraint (AccessConstraint): Access constraints to evaluate
+///     property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
+///     config (Optional[AccessSearchConfig]): Search configuration (default: 60s fixed grid, no adaptation)
+///     time_tolerance (Optional[float]): Bisection search tolerance in seconds (default: 0.01)
+///
+/// Returns:
+///     List[AccessWindow]: List of access windows sorted by start time
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create a ground station
+///     station = bh.PointLocation(-75.0, 40.0, 0.0)  # Philadelphia
+///
+///     # Create satellite propagators
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///     prop1 = bh.KeplerianPropagator(epoch, state)
+///
+///     # Define access constraints
+///     constraint = bh.ElevationConstraint(10.0)  # 10 degree minimum elevation
+///
+///     # Single location, single propagator
+///     search_end = epoch + 86400.0  # 1 day
+///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint)
+///
+///     # Single location, multiple propagators
+///     prop2 = bh.KeplerianPropagator(epoch, state)  # Different satellite
+///     windows = bh.location_accesses(station, [prop1, prop2], epoch, search_end, constraint)
+///
+///     # Multiple locations, single propagator
+///     station2 = bh.PointLocation(-122.0, 37.0, 0.0)  # San Francisco
+///     windows = bh.location_accesses([station, station2], prop1, epoch, search_end, constraint)
+///
+///     # Multiple locations, multiple propagators
+///     windows = bh.location_accesses([station, station2], [prop1, prop2], epoch, search_end, constraint)
+///
+///     # Custom search configuration
+///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True)
+///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint, config=config)
+///     ```
+#[pyfunction(name = "location_accesses")]
+#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, _property_computers=None, config=None, time_tolerance=None))]
+#[allow(clippy::too_many_arguments)]
+fn py_location_accesses(
+    _py: Python,
+    locations: &Bound<'_, PyAny>,
+    propagators: &Bound<'_, PyAny>,
+    search_start: &PyEpoch,
+    search_end: &PyEpoch,
+    constraint: &Bound<'_, PyAny>,
+    _property_computers: Option<Vec<Py<PyAny>>>,
+    config: Option<&PyAccessSearchConfig>,
+    time_tolerance: Option<f64>,
+) -> PyResult<Vec<PyAccessWindow>> {
+    use crate::access::compute::location_accesses;
+    use pyo3::types::PyList;
+
+    // Use provided config or create default
+    let search_config = config.map(|c| c.config).unwrap_or_default();
+
+    // Extract constraint as trait object
+    let constraint_trait: &dyn AccessConstraint = if let Ok(c) = constraint.downcast::<PyElevationConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyOffNadirConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyLocalTimeConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyLookDirectionConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyAscDscConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyElevationMaskConstraint>() {
+        &c.borrow().constraint
+    } else if let Ok(c) = constraint.downcast::<PyConstraintAll>() {
+        &c.borrow().composite
+    } else if let Ok(c) = constraint.downcast::<PyConstraintAny>() {
+        &c.borrow().composite
+    } else if let Ok(c) = constraint.downcast::<PyConstraintNot>() {
+        &c.borrow().composite
+    } else {
+        return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "constraint must be an AccessConstraint type"
+        ));
+    };
+
+    // Process locations - check if it's a list or single item
+    let loc_is_list = locations.is_instance_of::<PyList>();
+
+    // Process propagators - check if it's a list or single item
+    let prop_is_list = propagators.is_instance_of::<PyList>();
+
+    // Extract locations as vectors of references
+    enum LocationVec {
+        Point(Vec<PointLocation>),
+        Polygon(Vec<PolygonLocation>),
+    }
+
+    let locations_vec = if loc_is_list {
+        let list = locations.downcast::<PyList>()?;
+        let mut point_locs = Vec::new();
+        let mut polygon_locs = Vec::new();
+        let mut is_point = true;
+
+        for item in list.iter() {
+            if let Ok(loc) = item.downcast::<PyPointLocation>() {
+                point_locs.push(loc.borrow().location.clone());
+            } else if let Ok(loc) = item.downcast::<PyPolygonLocation>() {
+                polygon_locs.push(loc.borrow().location.clone());
+                is_point = false;
+            } else {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "locations list must contain only PointLocation or PolygonLocation objects"
+                ));
+            }
+        }
+
+        if is_point {
+            LocationVec::Point(point_locs)
+        } else {
+            LocationVec::Polygon(polygon_locs)
+        }
+    } else if let Ok(loc) = locations.downcast::<PyPointLocation>() {
+        LocationVec::Point(vec![loc.borrow().location.clone()])
+    } else if let Ok(loc) = locations.downcast::<PyPolygonLocation>() {
+        LocationVec::Polygon(vec![loc.borrow().location.clone()])
+    } else {
+        return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "locations must be PointLocation, PolygonLocation, or a list of these types"
+        ));
+    };
+
+    // Extract propagators as vectors
+    enum PropagatorVec {
+        Sgp(Vec<crate::orbits::sgp_propagator::SGPPropagator>),
+        Keplerian(Vec<crate::orbits::keplerian_propagator::KeplerianPropagator>),
+    }
+
+    let propagators_vec = if prop_is_list {
+        let list = propagators.downcast::<PyList>()?;
+        let mut sgp_props = Vec::new();
+        let mut kep_props = Vec::new();
+        let mut is_sgp = true;
+
+        for item in list.iter() {
+            if let Ok(prop) = item.downcast::<PySGPPropagator>() {
+                sgp_props.push(prop.borrow().propagator.clone());
+            } else if let Ok(prop) = item.downcast::<PyKeplerianPropagator>() {
+                kep_props.push(prop.borrow().propagator.clone());
+                is_sgp = false;
+            } else {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "propagators list must contain only SGPPropagator or KeplerianPropagator objects"
+                ));
+            }
+        }
+
+        if is_sgp {
+            PropagatorVec::Sgp(sgp_props)
+        } else {
+            PropagatorVec::Keplerian(kep_props)
+        }
+    } else if let Ok(prop) = propagators.downcast::<PySGPPropagator>() {
+        PropagatorVec::Sgp(vec![prop.borrow().propagator.clone()])
+    } else if let Ok(prop) = propagators.downcast::<PyKeplerianPropagator>() {
+        PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
+    } else {
+        return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "propagators must be SGPPropagator, KeplerianPropagator, or a list of these types"
+        ));
+    };
+
+    // Call the Rust function with the extracted types
+    let windows = match (&locations_vec, &propagators_vec) {
+        (LocationVec::Point(locs), PropagatorVec::Sgp(props)) => {
+            location_accesses(
+                locs,
+                props,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                None,  // property_computers
+                Some(&search_config),
+                time_tolerance,
+            )
+        }
+        (LocationVec::Point(locs), PropagatorVec::Keplerian(props)) => {
+            location_accesses(
+                locs,
+                props,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                None,  // property_computers
+                Some(&search_config),
+                time_tolerance,
+            )
+        }
+        (LocationVec::Polygon(locs), PropagatorVec::Sgp(props)) => {
+            location_accesses(
+                locs,
+                props,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                None,  // property_computers
+                Some(&search_config),
+                time_tolerance,
+            )
+        }
+        (LocationVec::Polygon(locs), PropagatorVec::Keplerian(props)) => {
+            location_accesses(
+                locs,
+                props,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                None,  // property_computers
+                Some(&search_config),
+                time_tolerance,
+            )
+        }
+    };
+
+    // Convert to Python windows
+    Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect())
 }

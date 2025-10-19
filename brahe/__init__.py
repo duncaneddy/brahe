@@ -39,7 +39,7 @@ from brahe import (
     access,
 )
 
-# Re-export everything from submodules for backward compatibility
+# Re-export everything from submodules
 from brahe.time import *
 from brahe.orbits import *
 from brahe.coordinates import *

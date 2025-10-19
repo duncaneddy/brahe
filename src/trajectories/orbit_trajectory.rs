@@ -45,6 +45,7 @@ use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
+use crate::orbits::traits::StateProvider;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -874,6 +875,102 @@ impl OrbitalTrajectory for OrbitTrajectory {
     }
 }
 
+impl StateProvider for OrbitTrajectory {
+    fn state(&self, epoch: Epoch) -> Vector6<f64> {
+        // Interpolate state in native frame/representation
+        self.interpolate(&epoch)
+            .unwrap_or_else(|_| Vector6::zeros())
+    }
+
+    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+        // Get state in native format then convert to ECI Cartesian
+        let state = self
+            .interpolate(&epoch)
+            .unwrap_or_else(|_| Vector6::zeros());
+
+        match (self.frame, self.representation) {
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format.unwrap_or(AngleFormat::Radians),
+            ),
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_ecef_to_eci(epoch, state),
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                // This shouldn't happen per validation, but handle gracefully
+                Vector6::zeros()
+            }
+        }
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        // Get state in native format then convert to ECEF Cartesian
+        let state = self
+            .interpolate(&epoch)
+            .unwrap_or_else(|_| Vector6::zeros());
+
+        match (self.frame, self.representation) {
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                let state_eci_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format.unwrap_or(AngleFormat::Radians),
+                );
+                state_eci_to_ecef(epoch, state_eci_cart)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                // This shouldn't happen per validation, but handle gracefully
+                Vector6::zeros()
+            }
+        }
+    }
+
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Vector6<f64> {
+        // Get state in native format then convert to osculating elements
+        let state = self
+            .interpolate(&epoch)
+            .unwrap_or_else(|_| Vector6::zeros());
+
+        match (self.frame, self.representation) {
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                // Already in Keplerian, just convert angle format if needed
+                let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
+                if native_format == angle_format {
+                    state
+                } else {
+                    // Convert angles
+                    let mut converted = state;
+                    let factor = if angle_format == AngleFormat::Degrees {
+                        RAD2DEG
+                    } else {
+                        DEG2RAD
+                    };
+                    converted[2] *= factor; // inclination
+                    converted[3] *= factor; // RAAN
+                    converted[4] *= factor; // arg periapsis
+                    converted[5] *= factor; // mean anomaly
+                    converted
+                }
+            }
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => {
+                state_cartesian_to_osculating(state, angle_format)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
+                let state_eci = state_ecef_to_eci(epoch, state);
+                state_cartesian_to_osculating(state_eci, angle_format)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                // This shouldn't happen per validation, but handle gracefully
+                Vector6::zeros()
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1076,18 +1173,18 @@ mod tests {
             None,
         );
 
-        // Test valid indices
-        let state0 = traj.state(0).unwrap();
+        // Test valid indices (use Trajectory::state to disambiguate from StateProvider::state)
+        let state0 = Trajectory::state(&traj, 0).unwrap();
         assert_eq!(state0[0], 7000e3);
 
-        let state1 = traj.state(1).unwrap();
+        let state1 = Trajectory::state(&traj, 1).unwrap();
         assert_eq!(state1[0], 7100e3);
 
-        let state2 = traj.state(2).unwrap();
+        let state2 = Trajectory::state(&traj, 2).unwrap();
         assert_eq!(state2[0], 7200e3);
 
         // Test invalid index
-        assert!(traj.state(10).is_err());
+        assert!(Trajectory::state(&traj, 10).is_err());
     }
 
     #[test]
@@ -1578,7 +1675,7 @@ mod tests {
         assert_eq!(traj.len(), 3);
 
         // First state should be the 3rd original state (oldest 2 evicted)
-        let first_state = traj.state(0).unwrap();
+        let first_state = Trajectory::state(&traj, 0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
 
         // Add another state - should still maintain max size
@@ -1610,14 +1707,14 @@ mod tests {
         traj.set_eviction_policy_max_age(240.0).unwrap();
         assert_eq!(traj.len(), 5);
 
-        let first_state = traj.state(0).unwrap();
+        let first_state = Trajectory::state(&traj, 0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 1000.0, epsilon = 1.0);
 
         // Set max age to 239 seconds
         traj.set_eviction_policy_max_age(239.0).unwrap();
 
         assert_eq!(traj.len(), 4);
-        let first_state = traj.state(0).unwrap();
+        let first_state = Trajectory::state(&traj, 0).unwrap();
         assert_abs_diff_eq!(first_state[0], 7000e3 + 2000.0, epsilon = 1.0);
 
         // Test error case

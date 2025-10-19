@@ -8,12 +8,14 @@
  * - Custom (user-defined in Rust or Python)
  */
 
-use crate::coordinates::coordinate_types::EllipsoidalConversionType;
-use crate::coordinates::topocentric::relative_position_ecef_to_enz;
-use crate::coordinates::{position_ecef_to_geodetic, position_enz_to_azel};
+use crate::coordinates::position_ecef_to_geodetic;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 use nalgebra::{Vector3, Vector6};
+
+use super::geometry::{
+    compute_asc_dsc, compute_azimuth, compute_elevation, compute_look_direction, compute_off_nadir,
+};
 
 /// Core trait for defining access constraints
 ///
@@ -131,24 +133,6 @@ impl ElevationConstraint {
             name,
         })
     }
-
-    /// Compute elevation angle (degrees)
-    fn compute_elevation(&self, sat_pos_ecef: &Vector3<f64>, location_ecef: &Vector3<f64>) -> f64 {
-        use crate::constants::AngleFormat;
-
-        // Compute relative position in ENZ frame
-        let rel_enz = relative_position_ecef_to_enz(
-            *location_ecef,
-            *sat_pos_ecef,
-            EllipsoidalConversionType::Geodetic,
-        );
-
-        // Convert to azimuth/elevation (returns [azimuth, elevation, range])
-        let azel = position_enz_to_azel(rel_enz, AngleFormat::Radians);
-        let elevation_rad = azel.y; // elevation is second component
-
-        elevation_rad.to_degrees()
-    }
 }
 
 impl AccessConstraint for ElevationConstraint {
@@ -159,7 +143,7 @@ impl AccessConstraint for ElevationConstraint {
         location_ecef: &Vector3<f64>,
     ) -> bool {
         let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
-        let elevation = self.compute_elevation(&sat_pos, location_ecef);
+        let elevation = compute_elevation(&sat_pos, location_ecef);
 
         let min_satisfied = self.min_elevation_deg.is_none_or(|min| elevation >= min);
         let max_satisfied = self.max_elevation_deg.is_none_or(|max| elevation <= max);
@@ -268,27 +252,6 @@ impl ElevationMaskConstraint {
         let t = (az - az1) / (az2 - az1);
         el1 + t * (el2 - el1)
     }
-
-    /// Compute azimuth and elevation angles
-    fn compute_az_el(
-        &self,
-        sat_pos_ecef: &Vector3<f64>,
-        location_ecef: &Vector3<f64>,
-    ) -> (f64, f64) {
-        use crate::constants::AngleFormat;
-
-        // Compute relative position in ENZ frame
-        let rel_enz = relative_position_ecef_to_enz(
-            *location_ecef,
-            *sat_pos_ecef,
-            EllipsoidalConversionType::Geodetic,
-        );
-
-        // Convert to azimuth/elevation (returns [azimuth, elevation, range])
-        let azel = position_enz_to_azel(rel_enz, AngleFormat::Degrees);
-
-        (azel.x, azel.y)
-    }
 }
 
 impl AccessConstraint for ElevationMaskConstraint {
@@ -299,7 +262,8 @@ impl AccessConstraint for ElevationMaskConstraint {
         location_ecef: &Vector3<f64>,
     ) -> bool {
         let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
-        let (azimuth, elevation) = self.compute_az_el(&sat_pos, location_ecef);
+        let azimuth = compute_azimuth(&sat_pos, location_ecef);
+        let elevation = compute_elevation(&sat_pos, location_ecef);
 
         let min_elevation = self.interpolate_min_elevation(azimuth);
 
@@ -397,19 +361,6 @@ impl OffNadirConstraint {
             name,
         })
     }
-
-    /// Compute off-nadir angle (degrees)
-    fn compute_off_nadir(&self, sat_pos_ecef: &Vector3<f64>, location_ecef: &Vector3<f64>) -> f64 {
-        // Vector from satellite to location
-        let sat_to_loc = location_ecef - sat_pos_ecef;
-
-        // Nadir vector (from satellite to Earth center)
-        let nadir = -sat_pos_ecef.normalize();
-
-        // Off-nadir angle
-        let cos_angle = sat_to_loc.normalize().dot(&nadir);
-        cos_angle.acos().to_degrees()
-    }
 }
 
 impl AccessConstraint for OffNadirConstraint {
@@ -420,7 +371,7 @@ impl AccessConstraint for OffNadirConstraint {
         location_ecef: &Vector3<f64>,
     ) -> bool {
         let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
-        let off_nadir = self.compute_off_nadir(&sat_pos, location_ecef);
+        let off_nadir = compute_off_nadir(&sat_pos, location_ecef);
 
         let min_satisfied = self.min_off_nadir_deg.is_none_or(|min| off_nadir >= min);
         let max_satisfied = self.max_off_nadir_deg.is_none_or(|max| off_nadir <= max);
@@ -758,7 +709,7 @@ impl AccessConstraint for LocalTimeConstraint {
 }
 
 /// Look direction for satellite imaging
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LookDirection {
     /// Left-looking (counterclockwise from velocity vector)
     Left,
@@ -804,33 +755,6 @@ impl LookDirectionConstraint {
             name: format!("LookDirectionConstraint({})", direction_str),
         }
     }
-
-    /// Determine look direction
-    fn compute_look_direction(
-        &self,
-        sat_pos_ecef: &Vector3<f64>,
-        sat_vel_ecef: &Vector3<f64>,
-        location_ecef: &Vector3<f64>,
-    ) -> LookDirection {
-        // Vector from satellite to location
-        let sat_to_loc = location_ecef - sat_pos_ecef;
-
-        // Compute cross product of velocity and sat-to-location vector
-        // Computes (v × los) · r, which equals los · (r × v) by cyclic property
-        // Negative dot = right looking
-        // Positive dot = left looking
-        let cross = sat_vel_ecef.cross(&sat_to_loc);
-        let dot = cross.dot(sat_pos_ecef);
-
-        if dot < 0.0 {
-            LookDirection::Right
-        } else if dot > 0.0 {
-            LookDirection::Left
-        } else {
-            // Exactly nadir or zenith, ambiguous
-            LookDirection::Either
-        }
-    }
 }
 
 impl AccessConstraint for LookDirectionConstraint {
@@ -840,10 +764,7 @@ impl AccessConstraint for LookDirectionConstraint {
         sat_state_ecef: &Vector6<f64>,
         location_ecef: &Vector3<f64>,
     ) -> bool {
-        let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
-        let sat_vel = sat_state_ecef.fixed_rows::<3>(3).into_owned();
-
-        let look_dir = self.compute_look_direction(&sat_pos, &sat_vel, location_ecef);
+        let look_dir = compute_look_direction(sat_state_ecef, location_ecef);
 
         match self.allowed {
             LookDirection::Either => true,
@@ -857,7 +778,7 @@ impl AccessConstraint for LookDirectionConstraint {
 }
 
 /// Ascending/descending pass type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AscDsc {
     /// Ascending (moving from south to north)
     Ascending,
@@ -903,18 +824,6 @@ impl AscDscConstraint {
             name: format!("AscDscConstraint({})", type_str),
         }
     }
-
-    /// Determine if pass is ascending or descending
-    fn compute_asc_dsc(&self, sat_vel_ecef: &Vector3<f64>) -> AscDsc {
-        // In ECEF, Z-component of velocity indicates north/south motion
-        // Positive vz = moving north (ascending)
-        // Negative vz = moving south (descending)
-        if sat_vel_ecef.z > 0.0 {
-            AscDsc::Ascending
-        } else {
-            AscDsc::Descending
-        }
-    }
 }
 
 impl AccessConstraint for AscDscConstraint {
@@ -924,8 +833,7 @@ impl AccessConstraint for AscDscConstraint {
         sat_state_ecef: &Vector6<f64>,
         _location_ecef: &Vector3<f64>,
     ) -> bool {
-        let sat_vel = sat_state_ecef.fixed_rows::<3>(3).into_owned();
-        let pass_type = self.compute_asc_dsc(&sat_vel);
+        let pass_type = compute_asc_dsc(sat_state_ecef);
 
         match self.allowed {
             AscDsc::Either => true,
@@ -1113,6 +1021,7 @@ fn format_constraint(constraint: &dyn AccessConstraint) -> String {
 mod tests {
     use super::*;
     use crate::constants::{AngleFormat, R_EARTH};
+    use crate::coordinates::coordinate_types::EllipsoidalConversionType;
     use crate::coordinates::{position_geodetic_to_ecef, state_osculating_to_cartesian};
     use crate::frames::state_eci_to_ecef;
     use crate::time::{Epoch, TimeSystem};

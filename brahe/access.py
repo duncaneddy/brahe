@@ -39,6 +39,14 @@ from brahe._brahe import (
     PointLocation,
     PolygonLocation,
     PropertiesDict,
+    # Access Properties
+    AccessWindow,
+    AccessProperties,
+    AccessSearchConfig,
+    # Property Computers
+    AccessPropertyComputer,
+    # Access Computation
+    location_accesses,
 )
 
 __all__ = [
@@ -60,4 +68,12 @@ __all__ = [
     "PointLocation",
     "PolygonLocation",
     "PropertiesDict",
+    # Access Properties
+    "AccessWindow",
+    "AccessProperties",
+    "AccessSearchConfig",
+    # Property Computers
+    "AccessPropertyComputer",
+    # Access Computation
+    "location_accesses",
 ]

@@ -11,13 +11,17 @@
  * - Parallel computation with configurable threading
  */
 
+pub mod compute;
 pub mod constraints;
+pub mod geometry;
 pub mod location;
+pub mod properties;
+pub mod windows;
 
 // Re-exports
-pub use constraints::{
-    AccessConstraint, AscDsc, AscDscConstraint, ConstraintComposite, ElevationConstraint,
-    ElevationMaskConstraint, LocalTimeConstraint, LookDirection, LookDirectionConstraint,
-    OffNadirConstraint,
-};
-pub use location::{AccessibleLocation, PointLocation, PolygonLocation};
+pub use compute::*;
+pub use constraints::*;
+pub use geometry::*;
+pub use location::*;
+pub use properties::*;
+pub use windows::*;

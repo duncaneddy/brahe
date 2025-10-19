@@ -8,6 +8,7 @@ use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 use crate::utils::BraheError;
+use crate::utils::identifiable::Identifiable;
 
 /// Core trait for orbit propagators with clean interface
 pub trait OrbitPropagator {
@@ -128,7 +129,7 @@ pub trait OrbitPropagator {
 /// Trait for analytic orbital propagators that can compute states directly at any epoch
 /// without requiring numerical integration. This trait is designed for propagators like
 /// SGP4/TLE that have closed-form solutions.
-pub trait AnalyticPropagator {
+pub trait StateProvider {
     /// Returns the state at the given epoch as a 6-element vector in the propagator's
     /// native coordinate frame and representation.
     ///
@@ -226,3 +227,30 @@ pub trait AnalyticPropagator {
             .collect()
     }
 }
+
+/// Combined trait for state providers with identity tracking.
+///
+/// This supertrait combines `StateProvider` and `Identifiable`, used primarily
+/// in access computation where satellite identity needs to be tracked alongside
+/// orbital state computation.
+///
+/// # Automatic Implementation
+///
+/// This trait is automatically implemented for any type that implements both
+/// `StateProvider` and `Identifiable` via a blanket implementation.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbits::{KeplerianPropagator, SGPPropagator};
+/// use brahe::traits::IdentifiableStateProvider;
+///
+/// // Both propagators implement IdentifiableStateProvider automatically
+/// fn accepts_identified_provider<P: IdentifiableStateProvider>(provider: &P) {
+///     // Can use both StateProvider and Identifiable methods
+/// }
+/// ```
+pub trait IdentifiableStateProvider: StateProvider + Identifiable {}
+
+// Blanket implementation for any type implementing both traits
+impl<T: StateProvider + Identifiable> IdentifiableStateProvider for T {}

@@ -2746,6 +2746,10 @@ class KeplerianPropagator:
         """
         ...
 
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID and set it in-place (mutating)."""
+        ...
+
     def initial_state(self) -> np.ndarray:
         """Get initial state.
 
@@ -2860,6 +2864,26 @@ class KeplerianPropagator:
         """
         ...
 
+    def set_id(self, id: int or None) -> Any:
+        """Set the numeric ID in-place (mutating).
+
+        Args:
+            id (int or None): Numeric ID to assign, or None to clear.
+        """
+        ...
+
+    def set_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> Any:
+        """Set all identity fields in-place (mutating).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+        """
+        ...
+
     def set_initial_conditions(
         self,
         epoch: Epoch,
@@ -2894,6 +2918,14 @@ class KeplerianPropagator:
             prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
             print(f"New initial epoch: {prop.initial_epoch}")
             ```
+        """
+        ...
+
+    def set_name(self, name: str or None) -> Any:
+        """Set the name in-place (mutating).
+
+        Args:
+            name (str or None): Name to assign, or None to clear.
         """
         ...
 
@@ -3052,6 +3084,75 @@ class KeplerianPropagator:
         """
         ...
 
+    def with_id(self, id: int) -> KeplerianPropagator:
+        """Set the numeric ID and return self (consuming constructor pattern).
+
+        Args:
+            id (int): Numeric ID to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with ID set.
+        """
+        ...
+
+    def with_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> KeplerianPropagator:
+        """Set all identity fields at once and return self (consuming constructor pattern).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+
+        Returns:
+            KeplerianPropagator: Self with identity set.
+        """
+        ...
+
+    def with_name(self, name: str) -> KeplerianPropagator:
+        """Set the name and return self (consuming constructor pattern).
+
+        Args:
+            name (str): Name to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with name set.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([7000e3, 0.001, 0.9, 0.0, 0.0, 0.0])
+            prop = bh.KeplerianPropagator.from_keplerian(
+                epc, oe, bh.AngleFormat.RADIANS, 60.0
+            ).with_name("My Orbit")
+            print(f"Name: {prop.name}")
+            ```
+        """
+        ...
+
+    def with_new_uuid(self) -> KeplerianPropagator:
+        """Generate a new UUID, set it, and return self (consuming constructor pattern).
+
+        Returns:
+            KeplerianPropagator: Self with new UUID set.
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> KeplerianPropagator:
+        """Set the UUID and return self (consuming constructor pattern).
+
+        Args:
+            uuid_str (str): UUID string to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with UUID set.
+        """
+        ...
+
     @property
     def current_epoch(self) -> Epoch:
         """Get current epoch.
@@ -3062,11 +3163,29 @@ class KeplerianPropagator:
         ...
 
     @property
+    def id(self) -> int:
+        """Get the current numeric ID.
+
+        Returns:
+            int or None: The numeric ID, or None if not set.
+        """
+        ...
+
+    @property
     def initial_epoch(self) -> Epoch:
         """Get initial epoch.
 
         Returns:
             Epoch: Initial propagator epoch.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the current name.
+
+        Returns:
+            str or None: The name, or None if not set.
         """
         ...
 
@@ -3099,6 +3218,15 @@ class KeplerianPropagator:
             traj = prop.trajectory
             print(f"Trajectory contains {traj.len()} states")
             ```
+        """
+        ...
+
+    @property
+    def uuid(self) -> str:
+        """Get the current UUID.
+
+        Returns:
+            str or None: The UUID as a string, or None if not set.
         """
         ...
 
@@ -4713,6 +4841,10 @@ class SGPPropagator:
         """
         ...
 
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID and set it in-place (mutating)."""
+        ...
+
     def get_elements(self, angle_format: AngleFormat) -> np.ndarray:
         """Get Keplerian orbital elements from TLE data.
 
@@ -4853,6 +4985,34 @@ class SGPPropagator:
         """
         ...
 
+    def set_id(self, id: int or None) -> Any:
+        """Set the numeric ID in-place (mutating).
+
+        Args:
+            id (int or None): Numeric ID to assign, or None to clear.
+        """
+        ...
+
+    def set_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> Any:
+        """Set all identity fields in-place (mutating).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+        """
+        ...
+
+    def set_name(self, name: str or None) -> Any:
+        """Set the name in-place (mutating).
+
+        Args:
+            name (str or None): Name to assign, or None to clear.
+        """
+        ...
+
     def set_output_format(
         self,
         frame: OrbitFrame,
@@ -4989,6 +5149,84 @@ class SGPPropagator:
         """
         ...
 
+    def with_id(self, id: int) -> SGPPropagator:
+        """Set the numeric ID and return self (consuming constructor pattern).
+
+        Args:
+            id (int): Numeric ID to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with ID set.
+        """
+        ...
+
+    def with_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> SGPPropagator:
+        """Set all identity fields at once and return self (consuming constructor pattern).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+
+        Returns:
+            SGPPropagator: Self with identity set.
+
+        Example:
+            ```python
+            import brahe as bh
+            import uuid
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            my_uuid = str(uuid.uuid4())
+            prop = bh.SGPPropagator.from_tle(line1, line2).with_identity("ISS", my_uuid, 25544)
+            print(f"Name: {prop.name}, ID: {prop.id}, UUID: {prop.uuid}")
+            ```
+        """
+        ...
+
+    def with_name(self, name: str) -> SGPPropagator:
+        """Set the name and return self (consuming constructor pattern).
+
+        Args:
+            name (str): Name to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with name set.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2).with_name("My Satellite")
+            print(f"Name: {prop.name}")
+            ```
+        """
+        ...
+
+    def with_new_uuid(self) -> SGPPropagator:
+        """Generate a new UUID, set it, and return self (consuming constructor pattern).
+
+        Returns:
+            SGPPropagator: Self with new UUID set.
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> SGPPropagator:
+        """Set the UUID and return self (consuming constructor pattern).
+
+        Args:
+            uuid_str (str): UUID string to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with UUID set.
+        """
+        ...
+
     @property
     def current_epoch(self) -> Epoch:
         """Get current epoch.
@@ -5015,6 +5253,24 @@ class SGPPropagator:
 
         Returns:
             Epoch: Epoch of the TLE data.
+        """
+        ...
+
+    @property
+    def id(self) -> int:
+        """Get the current numeric ID.
+
+        Returns:
+            int or None: The numeric ID, or None if not set.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the current name.
+
+        Returns:
+            str or None: The name, or None if not set.
         """
         ...
 
@@ -5084,6 +5340,15 @@ class SGPPropagator:
             traj = prop.trajectory
             print(f"Trajectory has {traj.len()} states")
             ```
+        """
+        ...
+
+    @property
+    def uuid(self) -> str:
+        """Get the current UUID.
+
+        Returns:
+            str or None: The UUID as a string, or None if not set.
         """
         ...
 

@@ -42,7 +42,7 @@ static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
 /// set_global_gravity_model(gravity_model);
 /// ```
 pub fn set_global_gravity_model(gravity_model: GravityModel) {
-    *GLOBAL_GRAVITY_MODEL.write().unwrap() = Box::new(gravity_model);
+    **GLOBAL_GRAVITY_MODEL.write().unwrap() = gravity_model;
 }
 
 /// Get the global gravity model.

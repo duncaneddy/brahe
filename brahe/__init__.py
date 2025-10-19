@@ -36,6 +36,7 @@ from brahe import (
     trajectories,
     constants,
     datasets,
+    access,
 )
 
 # Re-export everything from submodules for backward compatibility
@@ -47,6 +48,7 @@ from brahe.eop import *
 from brahe.attitude import *
 from brahe.trajectories import *
 from brahe.constants import *
+from brahe.access import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -60,6 +62,7 @@ __all__ = [
     "trajectories",
     "constants",
     "datasets",
+    "access",
     # Testing
     "PanicException",
 ]
@@ -73,6 +76,7 @@ __all__.extend(eop.__all__)
 __all__.extend(attitude.__all__)
 __all__.extend(trajectories.__all__)
 __all__.extend(constants.__all__)
+__all__.extend(access.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

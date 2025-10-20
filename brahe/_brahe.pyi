@@ -5,6 +5,94 @@ import numpy as np
 
 # Classes
 
+class AccessConstraintComputer:
+    """Base class for custom access constraint computers.
+
+    Subclass this class and implement the `evaluate` and `name` methods
+    to create custom constraint logic that can be applied to access computation.
+
+    The evaluate method is called at each time step during access search to determine
+    if the constraint is satisfied. Return True if the constraint is satisfied (access
+    is allowed), False otherwise.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        class NorthernHemisphereConstraint(bh.AccessConstraintComputer):
+            '''Only allows access when satellite is in northern hemisphere.'''
+
+            def evaluate(self, epoch: bh.Epoch, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> bool:
+                '''
+                Args:
+                    epoch (Epoch): Current evaluation time
+                    satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+                    location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
+
+                Returns:
+                    bool: True if constraint is satisfied, False otherwise
+                '''
+                # Check if satellite Z-coordinate (ECEF) is positive (northern hemisphere)
+                return satellite_state_ecef[2] >= 0.0
+
+            def name(self) -> str:
+                '''Return name of this constraint.'''
+                return "NorthernHemisphereConstraint"
+
+        # Use with access computation
+        custom_constraint = NorthernHemisphereConstraint()
+        # Then combine with other constraints using ConstraintAll or ConstraintAny
+        ```
+
+    Notes:
+        - The `evaluate` method receives ECEF coordinates in SI units (meters, m/s)
+        - Return True to allow access, False to reject
+        - The constraint is checked at each time step during access search
+        - Custom constraints can be combined with built-in constraints using ConstraintAll/ConstraintAny
+    """
+
+    def __init__(
+        self, epoch: Epoch, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Override this method in your subclass to implement custom constraint logic.
+
+        Args:
+            epoch (Epoch): Current evaluation time
+            satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
+            location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied (access allowed), False otherwise
+        """
+        ...
+
+    def name(self) -> str:
+        """Return name of this constraint computer.
+
+        Override this method to return a descriptive name for your constraint.
+
+        Returns:
+            str: Constraint name
+        """
+        ...
+
 class AccessProperties:
     """Properties computed for an access window.
 
@@ -5965,9 +6053,10 @@ class PointLocation:
             .add_property("country", "Norway") \\
             .add_property("min_elevation_deg", 5.0)
     
-        # Access coordinates
-        lon = svalbard.lon()  # Quick accessor (always degrees)
-        lat_rad = svalbard.latitude(bh.AngleFormat.RADIANS)  # Format-aware
+        # Access coordinates as properties
+        lon = svalbard.lon  # Property (always degrees)
+        lat = svalbard.lat  # Property (always degrees)
+        lat_rad = svalbard.latitude(bh.AngleFormat.RADIANS)  # Method for format conversion
         ```
     """
 
@@ -6037,14 +6126,6 @@ class PointLocation:
         """
         ...
 
-    def alt(self) -> float:
-        """Get altitude in meters (quick accessor).
-
-        Returns:
-            float: Altitude in meters
-        """
-        ...
-
     def altitude(self) -> float:
         """Get altitude in meters.
 
@@ -6097,14 +6178,6 @@ class PointLocation:
         """
         ...
 
-    def lat(self) -> float:
-        """Get latitude in degrees (quick accessor).
-
-        Returns:
-            float: Latitude in degrees
-        """
-        ...
-
     def latitude(self, angle_format: AngleFormat) -> float:
         """Get latitude with angle format conversion.
 
@@ -6113,14 +6186,6 @@ class PointLocation:
 
         Returns:
             float: Latitude in specified format
-        """
-        ...
-
-    def lon(self) -> float:
-        """Get longitude in degrees (quick accessor).
-
-        Returns:
-            float: Longitude in degrees
         """
         ...
 
@@ -6221,6 +6286,33 @@ class PointLocation:
 
         Raises:
             ValueError: If UUID string is invalid
+        """
+        ...
+
+    @property
+    def alt(self) -> float:
+        """Get altitude in meters.
+
+        Returns:
+            float: Altitude in meters
+        """
+        ...
+
+    @property
+    def lat(self) -> float:
+        """Get latitude in degrees.
+
+        Returns:
+            float: Latitude in degrees
+        """
+        ...
+
+    @property
+    def lon(self) -> float:
+        """Get longitude in degrees.
+
+        Returns:
+            float: Longitude in degrees
         """
         ...
 
@@ -6353,14 +6445,6 @@ class PolygonLocation:
         """
         ...
 
-    def alt(self) -> float:
-        """Get center altitude in meters (quick accessor).
-
-        Returns:
-            float: Center altitude in meters
-        """
-        ...
-
     def altitude(self) -> float:
         """Get center altitude in meters.
 
@@ -6413,14 +6497,6 @@ class PolygonLocation:
         """
         ...
 
-    def lat(self) -> float:
-        """Get center latitude in degrees (quick accessor).
-
-        Returns:
-            float: Center latitude in degrees
-        """
-        ...
-
     def latitude(self, angle_format: AngleFormat) -> float:
         """Get center latitude with angle format conversion.
 
@@ -6432,14 +6508,6 @@ class PolygonLocation:
         """
         ...
 
-    def lon(self) -> float:
-        """Get center longitude in degrees (quick accessor).
-
-        Returns:
-            float: Center longitude in degrees
-        """
-        ...
-
     def longitude(self, angle_format: AngleFormat) -> float:
         """Get center longitude with angle format conversion.
 
@@ -6448,14 +6516,6 @@ class PolygonLocation:
 
         Returns:
             float: Center longitude in specified format
-        """
-        ...
-
-    def num_vertices(self) -> int:
-        """Get number of unique vertices (excluding closure).
-
-        Returns:
-            int: Number of unique vertices
         """
         ...
 
@@ -6480,16 +6540,6 @@ class PolygonLocation:
 
         Returns:
             dict: GeoJSON Feature object
-        """
-        ...
-
-    def vertices(self) -> np.ndarray:
-        """Get polygon vertices.
-
-        Returns all vertices including the closure vertex (first == last).
-
-        Returns:
-            ndarray: Vertices as Nx3 array [[lon, lat, alt], ...]
         """
         ...
 
@@ -6538,6 +6588,42 @@ class PolygonLocation:
         ...
 
     @property
+    def alt(self) -> float:
+        """Get center altitude in meters.
+
+        Returns:
+            float: Center altitude in meters
+        """
+        ...
+
+    @property
+    def lat(self) -> float:
+        """Get center latitude in degrees.
+
+        Returns:
+            float: Center latitude in degrees
+        """
+        ...
+
+    @property
+    def lon(self) -> float:
+        """Get center longitude in degrees.
+
+        Returns:
+            float: Center longitude in degrees
+        """
+        ...
+
+    @property
+    def num_vertices(self) -> int:
+        """Get number of unique vertices (excluding closure).
+
+        Returns:
+            int: Number of unique vertices
+        """
+        ...
+
+    @property
     def properties(self) -> PropertiesDict:
         """Get custom properties dictionary.
 
@@ -6562,6 +6648,17 @@ class PolygonLocation:
             if "area_km2" in poly.properties:
                 del poly.properties["area_km2"]
             ```
+        """
+        ...
+
+    @property
+    def vertices(self) -> np.ndarray:
+        """Get polygon vertices.
+
+        Returns all vertices including the closure vertex (first == last).
+
+        Returns:
+            ndarray: Vertices as Nx3 array [[lon, lat, alt], ...]
         """
         ...
 

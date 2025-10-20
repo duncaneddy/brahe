@@ -11,7 +11,7 @@ import brahe as bh
 
 def create_test_propagator(epoch):
     """Create a test Keplerian propagator."""
-    oe = np.array([bh.R_EARTH + 500e3, 0.0, np.radians(45.0), 0.0, 0.0, 0.0])
+    oe = np.array([bh.R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0])
     return bh.KeplerianPropagator(
         epoch,
         oe,
@@ -53,7 +53,7 @@ def test_location_accesses_single():
 
     # Verify windows are sorted
     for i in range(1, len(windows)):
-        assert windows[i - 1].start() <= windows[i].start()
+        assert windows[i - 1].start <= windows[i].start
 
 
 def test_location_accesses_multiple_sats():
@@ -70,15 +70,15 @@ def test_location_accesses_multiple_sats():
                 [
                     bh.R_EARTH + 500e3,
                     0.0,
-                    np.radians(45.0),
-                    np.radians(60.0),  # Different RAAN
+                    45.0,
+                    60.0,  # Different RAAN
                     0.0,
                     0.0,
                 ]
             ),
             frame=bh.OrbitFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
-            angle_format=bh.AngleFormat.RADIANS,
+            angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
         ),
         bh.KeplerianPropagator(
@@ -87,15 +87,15 @@ def test_location_accesses_multiple_sats():
                 [
                     bh.R_EARTH + 500e3,
                     0.0,
-                    np.radians(45.0),
-                    np.radians(120.0),  # Different RAAN
+                    45.0,
+                    120.0,  # Different RAAN
                     0.0,
                     0.0,
                 ]
             ),
             frame=bh.OrbitFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
-            angle_format=bh.AngleFormat.RADIANS,
+            angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
         ),
     ]
@@ -125,7 +125,7 @@ def test_location_accesses_multiple_sats():
 
     # Verify windows are sorted
     for i in range(1, len(windows)):
-        assert windows[i - 1].start() <= windows[i].start()
+        assert windows[i - 1].start <= windows[i].start
 
 
 def test_location_accesses_multiple_locations():
@@ -163,7 +163,7 @@ def test_location_accesses_multiple_locations():
 
     # Verify windows are sorted
     for i in range(1, len(windows)):
-        assert windows[i - 1].start() <= windows[i].start()
+        assert windows[i - 1].start <= windows[i].start
 
 
 def test_location_accesses_multiple():
@@ -183,15 +183,15 @@ def test_location_accesses_multiple():
                 [
                     bh.R_EARTH + 500e3,
                     0.0,
-                    np.radians(45.0),
-                    np.radians(60.0),
+                    45.0,
+                    60.0,
                     0.0,
                     0.0,
                 ]
             ),
             frame=bh.OrbitFrame.ECI,
             representation=bh.OrbitRepresentation.KEPLERIAN,
-            angle_format=bh.AngleFormat.RADIANS,
+            angle_format=bh.AngleFormat.DEGREES,
             step_size=60.0,
         ),
     ]
@@ -221,4 +221,4 @@ def test_location_accesses_multiple():
 
     # Verify windows are sorted
     for i in range(1, len(windows)):
-        assert windows[i - 1].start() <= windows[i].start()
+        assert windows[i - 1].start <= windows[i].start

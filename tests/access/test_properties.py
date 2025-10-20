@@ -28,8 +28,8 @@ def test_access_window_creation():
     assert window is not None
 
     # Check start and end
-    start = window.start()
-    end = window.end()
+    start = window.start
+    end = window.end
 
     # Start should equal epoch1
     assert start.jd_as_time_system(bh.TimeSystem.UTC) == pytest.approx(
@@ -42,7 +42,7 @@ def test_access_window_creation():
     )
 
     # Duration should be 5 minutes = 300 seconds
-    duration = window.duration()
+    duration = window.duration
     assert duration == pytest.approx(300.0)
 
 
@@ -56,7 +56,7 @@ def test_access_window_midtime():
     window = bh.AccessWindow(epoch1, epoch2)
 
     # Midtime should be 5 seconds after start
-    midtime = window.midtime()
+    midtime = window.midtime
     expected_mid = bh.Epoch.from_datetime(
         2024, 1, 1, 12, 0, 5.0, 0.0, bh.TimeSystem.UTC
     )

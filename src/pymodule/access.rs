@@ -3504,7 +3504,7 @@ impl PyAccessSearchConfig {
 #[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None, time_tolerance=None))]
 #[allow(clippy::too_many_arguments)]
 fn py_location_accesses(
-    _py: Python,
+    py: Python,
     locations: &Bound<'_, PyAny>,
     propagators: &Bound<'_, PyAny>,
     search_start: &PyEpoch,
@@ -3655,7 +3655,9 @@ fn py_location_accesses(
     };
 
     // Call the Rust function with the extracted types
-    let windows = match (&locations_vec, &propagators_vec) {
+    // Release GIL to allow parallel execution and Python callbacks from threads
+    #[allow(deprecated)]
+    let windows = py.allow_threads(|| match (&locations_vec, &propagators_vec) {
         (LocationVec::Point(locs), PropagatorVec::Sgp(props)) => {
             location_accesses(
                 locs,
@@ -3704,7 +3706,7 @@ fn py_location_accesses(
                 time_tolerance,
             )
         }
-    };
+    });
 
     // Convert to Python windows
     Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect())

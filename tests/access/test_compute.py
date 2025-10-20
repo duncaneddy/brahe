@@ -17,7 +17,7 @@ def create_test_propagator(epoch):
         oe,
         frame=bh.OrbitFrame.ECI,
         representation=bh.OrbitRepresentation.KEPLERIAN,
-        angle_format=bh.AngleFormat.RADIANS,
+        angle_format=bh.AngleFormat.DEGREES,
         step_size=60.0,
     )
 

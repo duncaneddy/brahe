@@ -1,0 +1,41 @@
+name: Test Examples
+
+on:
+  workflow_call:
+
+jobs:
+  test-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        run: rustup update stable
+      - run: rustup default stable
+
+      - name: Install rust-script for Rust examples
+        run: cargo install rust-script
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: 3.14
+
+      - name: Install dependencies
+        run: uv sync --all-extras --frozen
+
+      - name: Build Python extension
+        run: uv pip install -e .
+
+      - name: Test examples (including CI-ONLY)
+        run: make test-examples-all
+
+      - name: Generate documentation figures
+        run: make figures
+
+      - name: Upload figures as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doc-figures
+          path: docs/figures/
+          retention-days: 1

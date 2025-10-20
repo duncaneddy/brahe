@@ -9,6 +9,10 @@ use_directory_urls: false
 extra_css:
     - stylesheets/extra.css
 
+extra_javascript:
+    - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+    - https://cdn.plot.ly/plotly-latest.min.js
+
 plugins:
     - search
     -   mkdocstrings:
@@ -84,6 +88,11 @@ markdown_extensions:
     -   pymdownx.inlinehilite
     -   pymdownx.snippets
     -   pymdownx.superfences
+    -   pymdownx.tabbed:
+            alternate_style: true
+    -   pymdownx.details
+    -   pymdownx.arithmatex:
+            generic: true
 
 nav:
     -   Brahe:

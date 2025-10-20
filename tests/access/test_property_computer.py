@@ -58,7 +58,7 @@ class MultiPropertyComputer(bh.AccessPropertyComputer):
         altitude_m = np.linalg.norm(sat_pos) - bh.R_EARTH
 
         # Window duration
-        duration_s = window.duration()
+        duration_s = window.duration
 
         # Is high elevation (example boolean)
         # This would need actual elevation calculation, simplified here

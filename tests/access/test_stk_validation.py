@@ -187,9 +187,9 @@ def test_access_svalbard_stk_validation(spacecraft_polar, station_svalbard):
         stk_start, stk_end, stk_duration = STK_SVALBARD_ACCESS[idx]
 
         # Get window times
-        window_start = window.start()
-        window_end = window.end()
-        window_duration = window.duration()
+        window_start = window.start
+        window_end = window.end
+        window_duration = window.duration
 
         # Compute time differences in seconds (direct Epoch subtraction)
         start_diff = abs(window_start - stk_start)
@@ -251,7 +251,7 @@ def test_access_svalbard_stk_with_5deg_elevation(spacecraft_polar, station_svalb
 
     # Verify all windows have reasonable durations
     for idx, window in enumerate(windows):
-        duration = window.duration()
+        duration = window.duration
 
         # Each window should be shorter than the 0-degree case
         stk_duration = STK_SVALBARD_ACCESS[idx][2]

@@ -50,3 +50,6 @@ docs/site/*
 
 # Figures
 docs/figures/*
+
+# Pyting Annotations for docstrings
+brahe/_brahe.pyi

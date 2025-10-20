@@ -28,10 +28,10 @@ jobs:
         run: uv pip install -e .
 
       - name: Test examples (including CI-ONLY)
-        run: make test-examples-all
+        run: uv run python make.py test-examples --ci-only
 
       - name: Generate documentation figures
-        run: make figures
+        run: uv run python make.py figures
 
       - name: Upload figures as artifact
         uses: actions/upload-artifact@v4

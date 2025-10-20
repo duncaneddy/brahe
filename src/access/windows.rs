@@ -241,7 +241,7 @@ impl Identifiable for AccessWindow {
 /// ```
 /// use brahe::access::AccessSearchConfig;
 ///
-/// // Default configuration: 60 second fixed grid, no adaptation
+/// // Default configuration: 60 second fixed grid, no adaptation, parallel enabled
 /// let config = AccessSearchConfig::default();
 ///
 /// // Adaptive configuration: starts at 60s, then uses 3/4 orbital period
@@ -249,6 +249,17 @@ impl Identifiable for AccessWindow {
 ///     initial_time_step: 60.0,
 ///     adaptive_step: true,
 ///     adaptive_fraction: 0.75,
+///     parallel: true,
+///     num_threads: None,
+/// };
+///
+/// // Sequential (non-parallel) with custom threads
+/// let config = AccessSearchConfig {
+///     initial_time_step: 60.0,
+///     adaptive_step: false,
+///     adaptive_fraction: 0.75,
+///     parallel: false,
+///     num_threads: Some(4),
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]
@@ -276,6 +287,26 @@ pub struct AccessSearchConfig {
     ///
     /// Recommended: 0.75 (3T/4) provides good balance of speed and coverage.
     pub adaptive_fraction: f64,
+
+    /// Enable parallel computation
+    ///
+    /// When true (default), access computation for multiple locations
+    /// and/or propagators will be parallelized using rayon. When false,
+    /// computation is sequential.
+    ///
+    /// Parallel computation is typically faster for multiple locations/satellites,
+    /// but sequential may be preferred for debugging or when managing threads
+    /// externally.
+    pub parallel: bool,
+
+    /// Number of threads for parallel computation
+    ///
+    /// When `Some(n)`, uses exactly n threads for this computation.
+    /// When `None` (default), uses the global thread pool setting
+    /// (see `set_max_threads()`, defaults to 90% of available cores).
+    ///
+    /// Only applies when `parallel = true`.
+    pub num_threads: Option<usize>,
 }
 
 impl Default for AccessSearchConfig {
@@ -284,6 +315,8 @@ impl Default for AccessSearchConfig {
             initial_time_step: 60.0,
             adaptive_step: false,
             adaptive_fraction: 0.75,
+            parallel: true,
+            num_threads: None,
         }
     }
 }
@@ -321,6 +354,8 @@ impl Default for AccessSearchConfig {
 ///     initial_time_step: 60.0,
 ///     adaptive_step: true,
 ///     adaptive_fraction: 0.75,
+///     parallel: true,
+///     num_threads: None,
 /// };
 /// let windows = find_access_candidates(&location, &prop, start, end, &constraint, &config);
 /// ```
@@ -652,6 +687,8 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         initial_time_step: time_step.unwrap_or(60.0),
         adaptive_step: false, // Default: no adaptation
         adaptive_fraction: 0.75,
+        parallel: true,    // Default: parallel enabled (not used in this function)
+        num_threads: None, // Default: use global setting (not used in this function)
     };
 
     // Find candidate windows
@@ -717,7 +754,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
             coarse_end
         };
 
-        // Compute properties (propagate errors)
+        // Compute properties (with error reporting)
         let properties = match compute_window_properties_internal(
             refined_start,
             refined_end,
@@ -726,7 +763,16 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
             property_computers,
         ) {
             Ok(props) => props,
-            Err(_) => continue, // Skip windows that fail property computation
+            Err(e) => {
+                // Log error and skip this window
+                eprintln!(
+                    "Warning: Skipping access window due to property computation error: {}",
+                    e
+                );
+                eprintln!("  Window start: {:?}", refined_start);
+                eprintln!("  Window end: {:?}", refined_end);
+                continue;
+            }
         };
 
         // Create complete window

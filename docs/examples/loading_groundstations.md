@@ -354,5 +354,5 @@ plt.show()
 
 ## See Also
 
-- [Computing Ground Contacts](computing_ground_contacts.md)
+- [Computing Ground Contacts](svalbard_ground_contacts.md)
 - [Groundstation Functions Reference](../library_api/datasets/groundstations.md)

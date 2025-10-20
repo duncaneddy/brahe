@@ -67,6 +67,10 @@ impl PyPropertiesDict {
     }
 
     /// Set a property value by key.
+    ///
+    /// Args:
+    ///     key (str): Property name
+    ///     value (Any): Property value (must be JSON-serializable)
     fn __setitem__(&self, key: String, value: &Bound<'_, PyAny>, py: Python) -> PyResult<()> {
         // Convert Python value to JSON via serialization
         let json_module = py.import("json")?;
@@ -111,6 +115,13 @@ impl PyPropertiesDict {
     }
 
     /// Get property value with optional default.
+    ///
+    /// Args:
+    ///     key (str): Property name
+    ///     default (optional): Value to return if key not found
+    ///
+    /// Returns:
+    ///     Any: Property value if key exists, otherwise default value
     #[pyo3(signature = (key, default=None))]
     fn get(&self, key: String, default: Option<Py<PyAny>>, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_properties_dict(py)?;
@@ -121,24 +132,36 @@ impl PyPropertiesDict {
     }
 
     /// Return a list of property keys.
+    ///
+    /// Returns:
+    ///     List of property key strings
     fn keys(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_properties_dict(py)?;
         Ok(props_dict.call_method0("keys")?.into())
     }
 
     /// Return a list of property values.
+    ///
+    /// Returns:
+    ///     List of property values
     fn values(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_properties_dict(py)?;
         Ok(props_dict.call_method0("values")?.into())
     }
 
     /// Return a list of (key, value) tuples.
+    ///
+    /// Returns:
+    ///     List of (key, value) tuples
     fn items(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_properties_dict(py)?;
         Ok(props_dict.call_method0("items")?.into())
     }
 
     /// Remove all properties.
+    ///
+    /// Returns:
+    ///     None
     fn clear(&self, py: Python) -> PyResult<()> {
         // Get all keys first (to avoid modifying during iteration)
         let props_dict = self.get_properties_dict(py)?;
@@ -153,6 +176,12 @@ impl PyPropertiesDict {
     }
 
     /// Update properties from another dict.
+    ///
+    /// Args:
+    ///     other (dict): Dictionary to merge into properties
+    ///
+    /// Returns:
+    ///     None
     fn update(&self, other: &Bound<'_, PyDict>, py: Python) -> PyResult<()> {
         for (key, value) in other.iter() {
             let key_str: String = key.extract()?;
@@ -1139,9 +1168,10 @@ impl PyConstraintNot {
 ///         .add_property("country", "Norway") \\
 ///         .add_property("min_elevation_deg", 5.0)
 ///
-///     # Access coordinates
-///     lon = svalbard.lon()  # Quick accessor (always degrees)
-///     lat_rad = svalbard.latitude(bh.AngleFormat.RADIANS)  # Format-aware
+///     # Access coordinates as properties
+///     lon = svalbard.lon  # Property (always degrees)
+///     lat = svalbard.lat  # Property (always degrees)
+///     lat_rad = svalbard.latitude(bh.AngleFormat.RADIANS)  # Method for format conversion
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "PointLocation")]
@@ -1205,26 +1235,29 @@ impl PyPointLocation {
             .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Get longitude in degrees (quick accessor).
+    /// Get longitude in degrees.
     ///
     /// Returns:
     ///     float: Longitude in degrees
+    #[getter]
     fn lon(&self) -> f64 {
         self.location.lon()
     }
 
-    /// Get latitude in degrees (quick accessor).
+    /// Get latitude in degrees.
     ///
     /// Returns:
     ///     float: Latitude in degrees
+    #[getter]
     fn lat(&self) -> f64 {
         self.location.lat()
     }
 
-    /// Get altitude in meters (quick accessor).
+    /// Get altitude in meters.
     ///
     /// Returns:
     ///     float: Altitude in meters
+    #[getter]
     fn alt(&self) -> f64 {
         self.location.alt()
     }
@@ -1642,6 +1675,7 @@ impl PyPolygonLocation {
     ///
     /// Returns:
     ///     ndarray: Vertices as Nx3 array [[lon, lat, alt], ...]
+    #[getter]
     fn vertices(&self, py: Python) -> Py<PyAny> {
         let verts = self.location.vertices();
         let n = verts.len();
@@ -1656,30 +1690,34 @@ impl PyPolygonLocation {
     ///
     /// Returns:
     ///     int: Number of unique vertices
+    #[getter]
     fn num_vertices(&self) -> usize {
         self.location.num_vertices()
     }
 
-    /// Get center longitude in degrees (quick accessor).
+    /// Get center longitude in degrees.
     ///
     /// Returns:
     ///     float: Center longitude in degrees
+    #[getter]
     fn lon(&self) -> f64 {
         self.location.lon()
     }
 
-    /// Get center latitude in degrees (quick accessor).
+    /// Get center latitude in degrees.
     ///
     /// Returns:
     ///     float: Center latitude in degrees
+    #[getter]
     fn lat(&self) -> f64 {
         self.location.lat()
     }
 
-    /// Get center altitude in meters (quick accessor).
+    /// Get center altitude in meters.
     ///
     /// Returns:
     ///     float: Center altitude in meters
+    #[getter]
     fn alt(&self) -> f64 {
         self.location.alt()
     }
@@ -2651,6 +2689,10 @@ impl PyAdditionalPropertiesDict {
     }
 
     /// Set a property value by key.
+    ///
+    /// Args:
+    ///     key (str): Property name
+    ///     value (Any): Property value (must be JSON-serializable)
     fn __setitem__(&self, key: String, value: &Bound<'_, PyAny>, py: Python) -> PyResult<()> {
         // Call the parent's _set_additional_property method which handles type conversion
         self.set_additional_property(py, key, value)?;
@@ -2687,6 +2729,13 @@ impl PyAdditionalPropertiesDict {
     }
 
     /// Get property value with optional default.
+    ///
+    /// Args:
+    ///     key (str): Property name
+    ///     default (optional): Value to return if key not found
+    ///
+    /// Returns:
+    ///     Any: Property value if key exists, otherwise default value
     #[pyo3(signature = (key, default=None))]
     fn get(&self, key: String, default: Option<Py<PyAny>>, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_additional_properties_dict(py)?;
@@ -2697,24 +2746,36 @@ impl PyAdditionalPropertiesDict {
     }
 
     /// Return a list of property keys.
+    ///
+    /// Returns:
+    ///     List of property key strings
     fn keys(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_additional_properties_dict(py)?;
         Ok(props_dict.call_method0("keys")?.into())
     }
 
     /// Return a list of property values.
+    ///
+    /// Returns:
+    ///     List of property values
     fn values(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_additional_properties_dict(py)?;
         Ok(props_dict.call_method0("values")?.into())
     }
 
     /// Return a list of (key, value) tuples.
+    ///
+    /// Returns:
+    ///     List of (key, value) tuples
     fn items(&self, py: Python) -> PyResult<Py<PyAny>> {
         let props_dict = self.get_additional_properties_dict(py)?;
         Ok(props_dict.call_method0("items")?.into())
     }
 
     /// Remove all properties.
+    ///
+    /// Returns:
+    ///     None
     fn clear(&self, py: Python) -> PyResult<()> {
         // Get all keys first (to avoid modifying during iteration)
         let props_dict = self.get_additional_properties_dict(py)?;
@@ -2734,6 +2795,12 @@ impl PyAdditionalPropertiesDict {
     }
 
     /// Update properties from another dict.
+    ///
+    /// Args:
+    ///     other (dict): Dictionary to merge into properties
+    ///
+    /// Returns:
+    ///     None
     fn update(&self, other: &Bound<'_, PyDict>, py: Python) -> PyResult<()> {
         for (key, value) in other.iter() {
             let key_str: String = key.extract()?;
@@ -2793,12 +2860,12 @@ impl PyAdditionalPropertiesDict {
 ///     class DopplerComputer(bh.AccessPropertyComputer):
 ///         '''Computes Doppler shift at window midtime.'''
 ///
-///         def compute(self, window, satellite_state_ecef, location_ecef):
+///         def compute(self, window: bh.AccessWindow, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> dict:
 ///             '''
 ///             Args:
-///                 window: AccessWindow with timing information
-///                 satellite_state_ecef: Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
-///                 location_ecef: Location position [x,y,z] in ECEF (m)
+///                 window (AccessWindow): AccessWindow with timing information
+///                 satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+///                 location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
 ///
 ///             Returns:
 ///                 dict: Property name -> value
@@ -2821,7 +2888,7 @@ impl PyAdditionalPropertiesDict {
 ///
 ///             return {"doppler_shift": doppler_hz}
 ///
-///         def property_names(self):
+///         def property_names(self) -> list:
 ///             '''Return list of property names this computer produces.'''
 ///             return ["doppler_shift"]
 ///
@@ -3054,6 +3121,172 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
 }
 
 // ================================
+// AccessConstraintComputer
+// ================================
+
+/// Base class for custom access constraint computers.
+///
+/// Subclass this class and implement the `evaluate` and `name` methods
+/// to create custom constraint logic that can be applied to access computation.
+///
+/// The evaluate method is called at each time step during access search to determine
+/// if the constraint is satisfied. Return True if the constraint is satisfied (access
+/// is allowed), False otherwise.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     class NorthernHemisphereConstraint(bh.AccessConstraintComputer):
+///         '''Only allows access when satellite is in northern hemisphere.'''
+///
+///         def evaluate(self, epoch: bh.Epoch, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> bool:
+///             '''
+///             Args:
+///                 epoch (Epoch): Current evaluation time
+///                 satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+///                 location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
+///
+///             Returns:
+///                 bool: True if constraint is satisfied, False otherwise
+///             '''
+///             # Check if satellite Z-coordinate (ECEF) is positive (northern hemisphere)
+///             return satellite_state_ecef[2] >= 0.0
+///
+///         def name(self) -> str:
+///             '''Return name of this constraint.'''
+///             return "NorthernHemisphereConstraint"
+///
+///     # Use with access computation
+///     custom_constraint = NorthernHemisphereConstraint()
+///     # Then combine with other constraints using ConstraintAll or ConstraintAny
+///     ```
+///
+/// Notes:
+///     - The `evaluate` method receives ECEF coordinates in SI units (meters, m/s)
+///     - Return True to allow access, False to reject
+///     - The constraint is checked at each time step during access search
+///     - Custom constraints can be combined with built-in constraints using ConstraintAll/ConstraintAny
+#[pyclass(module = "brahe._brahe", subclass)]
+#[pyo3(name = "AccessConstraintComputer")]
+pub struct PyAccessConstraintComputer {
+    // No internal state - subclasses will override methods
+}
+
+#[pymethods]
+impl PyAccessConstraintComputer {
+    #[new]
+    fn new() -> Self {
+        PyAccessConstraintComputer {}
+    }
+
+    /// Evaluate whether the constraint is satisfied.
+    ///
+    /// Override this method in your subclass to implement custom constraint logic.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Current evaluation time
+    ///     satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
+    ///     location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+    ///
+    /// Returns:
+    ///     bool: True if constraint is satisfied (access allowed), False otherwise
+    fn evaluate(
+        &self,
+        _epoch: &PyEpoch,
+        _satellite_state_ecef: PyReadonlyArray1<f64>,
+        _location_ecef: PyReadonlyArray1<f64>,
+    ) -> PyResult<bool> {
+        Err(exceptions::PyNotImplementedError::new_err(
+            "Subclasses must implement evaluate() method",
+        ))
+    }
+
+    /// Return name of this constraint computer.
+    ///
+    /// Override this method to return a descriptive name for your constraint.
+    ///
+    /// Returns:
+    ///     str: Constraint name
+    fn name(&self) -> PyResult<String> {
+        Err(exceptions::PyNotImplementedError::new_err(
+            "Subclasses must implement name() method",
+        ))
+    }
+}
+
+// Internal wrapper that implements the Rust AccessConstraintComputer trait
+// by calling Python methods
+use crate::access::constraints::AccessConstraintComputer;
+
+#[allow(dead_code)]
+pub(crate) struct RustAccessConstraintComputerWrapper {
+    py_computer: Py<PyAny>,
+}
+
+#[allow(dead_code)]
+impl RustAccessConstraintComputerWrapper {
+    pub fn new(py_computer: Py<PyAny>) -> Self {
+        RustAccessConstraintComputerWrapper { py_computer }
+    }
+}
+
+impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
+    fn evaluate(
+        &self,
+        epoch: &Epoch,
+        sat_state_ecef: &nalgebra::Vector6<f64>,
+        location_ecef: &nalgebra::Vector3<f64>,
+    ) -> bool {
+        Python::attach(|py| {
+            // Convert to numpy arrays
+            let sat_state_array = sat_state_ecef.as_slice().to_pyarray(py).to_owned();
+            let loc_array = location_ecef.as_slice().to_pyarray(py).to_owned();
+
+            // Create Python Epoch
+            let py_epoch = Py::new(
+                py,
+                PyEpoch {
+                    obj: *epoch,
+                },
+            );
+
+            // If epoch creation failed, return false (constraint not satisfied)
+            let py_epoch = match py_epoch {
+                Ok(e) => e,
+                Err(e) => {
+                    eprintln!("Warning: Failed to create PyEpoch: {}", e);
+                    return false;
+                }
+            };
+
+            // Call Python evaluate method
+            let py_obj = self.py_computer.bind(py);
+            let result = py_obj
+                .call_method1("evaluate", (py_epoch, sat_state_array, loc_array));
+
+            // If call failed or didn't return bool, return false (constraint not satisfied)
+            match result {
+                Ok(val) => val.extract::<bool>().unwrap_or_else(|e| {
+                    eprintln!("Warning: evaluate() must return bool: {}", e);
+                    false
+                }),
+                Err(e) => {
+                    eprintln!("Warning: Python evaluate() method failed: {}", e);
+                    false
+                }
+            }
+        })
+    }
+
+    fn name(&self) -> &str {
+        // Return a static string - we can't return Python strings from this trait method
+        "PythonConstraintComputer"
+    }
+}
+
+// ================================
 // Access Computation Functions
 // ================================
 
@@ -3093,13 +3326,21 @@ pub struct PyAccessSearchConfig {
 #[pymethods]
 impl PyAccessSearchConfig {
     #[new]
-    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75))]
-    fn new(initial_time_step: f64, adaptive_step: bool, adaptive_fraction: f64) -> Self {
+    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75, parallel=true, num_threads=None))]
+    fn new(
+        initial_time_step: f64,
+        adaptive_step: bool,
+        adaptive_fraction: f64,
+        parallel: bool,
+        num_threads: Option<usize>,
+    ) -> Self {
         Self {
             config: AccessSearchConfig {
                 initial_time_step,
                 adaptive_step,
                 adaptive_fraction,
+                parallel,
+                num_threads,
             },
         }
     }
@@ -3158,10 +3399,46 @@ impl PyAccessSearchConfig {
         self.config.adaptive_fraction = value;
     }
 
+    /// Get whether parallel computation is enabled.
+    ///
+    /// Returns:
+    ///     bool: Parallel computation flag (default: True)
+    #[getter]
+    fn parallel(&self) -> bool {
+        self.config.parallel
+    }
+
+    /// Set whether parallel computation is enabled.
+    ///
+    /// Args:
+    ///     value (bool): Enable/disable parallel computation
+    #[setter]
+    fn set_parallel(&mut self, value: bool) {
+        self.config.parallel = value;
+    }
+
+    /// Get the number of threads for parallel computation.
+    ///
+    /// Returns:
+    ///     Optional[int]: Number of threads, or None to use global setting
+    #[getter]
+    fn num_threads(&self) -> Option<usize> {
+        self.config.num_threads
+    }
+
+    /// Set the number of threads for parallel computation.
+    ///
+    /// Args:
+    ///     value (Optional[int]): Number of threads, or None to use global setting
+    #[setter]
+    fn set_num_threads(&mut self, value: Option<usize>) {
+        self.config.num_threads = value;
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={})",
-            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction
+            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={}, parallel={}, num_threads={:?})",
+            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction, self.config.parallel, self.config.num_threads
         )
     }
 }
@@ -3224,7 +3501,7 @@ impl PyAccessSearchConfig {
 ///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint, config=config)
 ///     ```
 #[pyfunction(name = "location_accesses")]
-#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, _property_computers=None, config=None, time_tolerance=None))]
+#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None, time_tolerance=None))]
 #[allow(clippy::too_many_arguments)]
 fn py_location_accesses(
     _py: Python,
@@ -3233,7 +3510,7 @@ fn py_location_accesses(
     search_start: &PyEpoch,
     search_end: &PyEpoch,
     constraint: &Bound<'_, PyAny>,
-    _property_computers: Option<Vec<Py<PyAny>>>,
+    property_computers: Option<Vec<Py<PyAny>>>,
     config: Option<&PyAccessSearchConfig>,
     time_tolerance: Option<f64>,
 ) -> PyResult<Vec<PyAccessWindow>> {
@@ -3354,6 +3631,29 @@ fn py_location_accesses(
         ));
     };
 
+    // Process property computers if provided
+    let rust_property_computers: Vec<RustAccessPropertyComputerWrapper> = if let Some(computers) = property_computers {
+        computers
+            .into_iter()
+            .map(RustAccessPropertyComputerWrapper::new)
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    // Create vector of trait object references
+    let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
+        .iter()
+        .map(|c| c as &dyn AccessPropertyComputer)
+        .collect();
+
+    // Prepare optional slice
+    let property_computers_option = if property_computer_refs.is_empty() {
+        None
+    } else {
+        Some(property_computer_refs.as_slice())
+    };
+
     // Call the Rust function with the extracted types
     let windows = match (&locations_vec, &propagators_vec) {
         (LocationVec::Point(locs), PropagatorVec::Sgp(props)) => {
@@ -3363,7 +3663,7 @@ fn py_location_accesses(
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
-                None,  // property_computers
+                property_computers_option,
                 Some(&search_config),
                 time_tolerance,
             )
@@ -3375,7 +3675,7 @@ fn py_location_accesses(
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
-                None,  // property_computers
+                property_computers_option,
                 Some(&search_config),
                 time_tolerance,
             )
@@ -3387,7 +3687,7 @@ fn py_location_accesses(
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
-                None,  // property_computers
+                property_computers_option,
                 Some(&search_config),
                 time_tolerance,
             )
@@ -3399,7 +3699,7 @@ fn py_location_accesses(
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
-                None,  // property_computers
+                property_computers_option,
                 Some(&search_config),
                 time_tolerance,
             )

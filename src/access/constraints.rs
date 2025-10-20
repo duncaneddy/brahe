@@ -47,6 +47,94 @@ pub trait AccessConstraint: Send + Sync + std::any::Any {
     }
 }
 
+/// Trait for computing custom access constraints
+///
+/// Implement this trait to create user-defined constraints in Rust or Python.
+/// The evaluate method is called at each time step during access computation
+/// to determine if the constraint is satisfied.
+///
+/// This trait is similar to `AccessConstraint` but allows for more complex
+/// constraint logic that may need to maintain internal state or compute
+/// values that aren't part of the standard geometric constraints.
+///
+/// # Examples
+/// ```no_run
+/// use brahe::access::AccessConstraintComputer;
+/// use brahe::time::Epoch;
+/// use nalgebra::{Vector3, Vector6};
+///
+/// struct CustomConstraint;
+///
+/// impl AccessConstraintComputer for CustomConstraint {
+///     fn evaluate(
+///         &self,
+///         epoch: &Epoch,
+///         sat_state_ecef: &Vector6<f64>,
+///         location_ecef: &Vector3<f64>,
+///     ) -> bool {
+///         // Custom constraint logic here
+///         // For example, check if satellite is in northern hemisphere
+///         sat_state_ecef[2] >= 0.0
+///     }
+///
+///     fn name(&self) -> &str {
+///         "CustomConstraint"
+///     }
+/// }
+/// ```
+pub trait AccessConstraintComputer: Send + Sync {
+    /// Evaluate whether the custom constraint is satisfied
+    ///
+    /// # Arguments
+    /// - `epoch`: Time of evaluation
+    /// - `sat_state_ecef`: Satellite state in ECEF frame [x, y, z, vx, vy, vz] (meters, m/s)
+    /// - `location_ecef`: Ground location in ECEF frame [x, y, z] (meters)
+    ///
+    /// # Returns
+    /// `true` if constraint is satisfied, `false` otherwise
+    fn evaluate(
+        &self,
+        epoch: &Epoch,
+        sat_state_ecef: &Vector6<f64>,
+        location_ecef: &Vector3<f64>,
+    ) -> bool;
+
+    /// Human-readable name for this constraint computer
+    fn name(&self) -> &str;
+}
+
+/// Wrapper that adapts an `AccessConstraintComputer` to implement `AccessConstraint`
+///
+/// This allows constraint computers (which can be user-defined in Python or Rust)
+/// to be used anywhere an `AccessConstraint` is expected.
+pub struct AccessConstraintComputerWrapper<T: AccessConstraintComputer> {
+    computer: T,
+}
+
+impl<T: AccessConstraintComputer> AccessConstraintComputerWrapper<T> {
+    /// Create a new wrapper around an `AccessConstraintComputer`
+    pub fn new(computer: T) -> Self {
+        Self { computer }
+    }
+}
+
+impl<T: AccessConstraintComputer + 'static> AccessConstraint
+    for AccessConstraintComputerWrapper<T>
+{
+    fn evaluate(
+        &self,
+        epoch: &Epoch,
+        sat_state_ecef: &Vector6<f64>,
+        location_ecef: &Vector3<f64>,
+    ) -> bool {
+        self.computer.evaluate(epoch, sat_state_ecef, location_ecef)
+    }
+
+    fn name(&self) -> &str {
+        self.computer.name()
+    }
+}
+
 /// Elevation angle constraint
 ///
 /// Constrains access based on the elevation angle of the satellite above

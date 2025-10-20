@@ -105,13 +105,13 @@ def test_groundstation_coordinates():
 
     for station in stations:
         # Should have valid longitude
-        assert -180.0 <= station.lon() <= 180.0
+        assert -180.0 <= station.lon <= 180.0
 
         # Should have valid latitude
-        assert -90.0 <= station.lat() <= 90.0
+        assert -90.0 <= station.lat <= 90.0
 
         # Altitude should be reasonable (not all zeros or negatives)
-        assert station.alt() >= -500.0  # Allow some below sea level
+        assert station.alt >= -500.0  # Allow some below sea level
 
 
 def test_groundstation_properties():

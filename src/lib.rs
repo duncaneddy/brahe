@@ -99,6 +99,7 @@ email me at duncan.eddy (at) gmail.com.
 #![feature(btree_cursors)]
 
 // Re-export commonly used types
+pub use access::*;
 pub use attitude::*;
 pub use constants::*;
 pub use coordinates::*;
@@ -115,6 +116,7 @@ pub use trajectories::*;
 #[cfg(feature = "python")]
 mod pymodule;
 
+pub mod access;
 pub mod attitude;
 pub mod constants;
 pub mod coordinates;

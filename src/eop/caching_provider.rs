@@ -476,6 +476,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_new_with_existing_file() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -525,6 +526,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_refresh() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -556,6 +558,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_eop_provider_delegation() {
         // Test that EarthOrientationProvider methods are properly delegated
         let dir = tempdir().unwrap();

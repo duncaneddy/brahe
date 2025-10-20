@@ -100,7 +100,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(epoch)` - Epoch at the index
     /// * `Err(BraheError)` - If index is out of bounds
-    fn epoch(&self, index: usize) -> Result<Epoch, BraheError>;
+    fn epoch_at_idx(&self, index: usize) -> Result<Epoch, BraheError>;
 
     /// Get the state vector at a specific index
     ///
@@ -110,7 +110,7 @@ pub trait Trajectory {
     /// # Returns
     /// * `Ok(state)` - State vector at the index
     /// * `Err(BraheError)` - If index is out of bounds
-    fn state(&self, index: usize) -> Result<Self::StateVector, BraheError>;
+    fn state_at_idx(&self, index: usize) -> Result<Self::StateVector, BraheError>;
 
     /// Find the nearest state to a given epoch
     ///
@@ -347,7 +347,7 @@ pub trait Interpolatable: Trajectory {
 
         // If indices are the same, we have an exact match
         if idx1 == idx2 {
-            return self.state(idx1);
+            return self.state_at_idx(idx1);
         }
 
         // Get the bracketing epochs and states

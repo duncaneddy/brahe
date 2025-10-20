@@ -1,5 +1,5 @@
 // Import traits needed by propagator methods
-use crate::orbits::traits::{AnalyticPropagator, OrbitPropagator};
+use crate::orbits::traits::{StateProvider, OrbitPropagator};
 
 /// Computes the orbital period of an object around Earth.
 ///
@@ -50,6 +50,51 @@ fn py_orbital_period(a: f64) -> PyResult<f64> {
 #[pyo3(name = "orbital_period_general")]
 fn py_orbital_period_general(a: f64, gm: f64) -> PyResult<f64> {
     Ok(orbits::orbital_period_general(a, gm))
+}
+
+/// Computes orbital period from an ECI state vector using the vis-viva equation.
+///
+/// This function uses the vis-viva equation to compute the semi-major axis from the
+/// position and velocity, then calculates the orbital period.
+///
+/// Args:
+///     state_eci (np.ndarray): ECI state vector [x, y, z, vx, vy, vz] in meters and meters/second.
+///     gm (float): Gravitational parameter in m³/s². Use GM_EARTH for Earth orbits.
+///
+/// Returns:
+///     float: Orbital period in seconds.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create a circular orbit state at 500 km altitude
+///     r = bh.R_EARTH + 500e3
+///     v = np.sqrt(bh.GM_EARTH / r)
+///     state_eci = np.array([r, 0, 0, 0, v, 0])
+///
+///     # Compute orbital period from state
+///     period = bh.orbital_period_from_state(state_eci, bh.GM_EARTH)
+///     print(f"Period: {period/60:.2f} minutes")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(state_eci, gm)")]
+#[pyo3(name = "orbital_period_from_state")]
+fn py_orbital_period_from_state(
+    _py: Python,
+    state_eci: PyReadonlyArray1<f64>,
+    gm: f64,
+) -> PyResult<f64> {
+    let state = state_eci.as_array();
+    if state.len() != 6 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "state_eci must be a 6-element array [x, y, z, vx, vy, vz]",
+        ));
+    }
+
+    let state_vec = nalgebra::Vector6::from_iterator(state.iter().copied());
+    Ok(orbits::orbital_period_from_state(&state_vec, gm))
 }
 
 /// Computes the mean motion of an astronomical object around Earth.
@@ -597,7 +642,7 @@ fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) 
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SGPPropagator")]
 pub struct PySGPPropagator {
-    pub(crate) propagator: orbits::SGPPropagator,
+    pub propagator: orbits::SGPPropagator,
 }
 
 #[pymethods]
@@ -1288,7 +1333,7 @@ impl PySGPPropagator {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "KeplerianPropagator")]
 pub struct PyKeplerianPropagator {
-    pub(crate) propagator: orbits::KeplerianPropagator,
+    pub propagator: orbits::KeplerianPropagator,
 }
 
 #[pymethods]

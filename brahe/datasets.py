@@ -1,15 +1,11 @@
 """
 Datasets Module
 
-Provides access to satellite ephemeris data from various sources.
+Provides access to satellite ephemeris and groundstation location data from various sources.
 
 This module provides a source-specific API organized by data provider:
-- celestrak: CelesTrak data source functions
-
-Each source provides:
-- Download and parse ephemeris data as 3LE tuples (name, line1, line2)
-- Create ready-to-use SGP propagators from ephemeris data
-- Save data in various file formats (txt, csv, json)
+- celestrak: CelesTrak satellite ephemeris data
+- groundstations: Curated groundstation location datasets
 
 Example:
     ```python
@@ -23,6 +19,10 @@ Example:
 
     # Save to file
     datasets.celestrak.download_ephemeris("gnss", "gnss.json", "3le", "json")
+
+    # Load groundstations
+    ksat_stations = datasets.groundstations.load("ksat")
+    all_stations = datasets.groundstations.load_all()
     ```
 """
 
@@ -31,6 +31,11 @@ from brahe._brahe import (
     celestrak_get_ephemeris,
     celestrak_get_ephemeris_as_propagators,
     celestrak_download_ephemeris,
+    # Groundstation functions
+    groundstations_load,
+    groundstations_load_from_file,
+    groundstations_load_all,
+    groundstations_list_providers,
 )
 
 
@@ -46,6 +51,21 @@ class _CelesTrakNamespace:
 # Create celestrak namespace instance
 celestrak = _CelesTrakNamespace()
 
+
+# Create a groundstations namespace object
+class _GroundstationsNamespace:
+    """Groundstation datasets namespace"""
+
+    load = staticmethod(groundstations_load)
+    load_from_file = staticmethod(groundstations_load_from_file)
+    load_all = staticmethod(groundstations_load_all)
+    list_providers = staticmethod(groundstations_list_providers)
+
+
+# Create groundstations namespace instance
+groundstations = _GroundstationsNamespace()
+
 __all__ = [
     "celestrak",
+    "groundstations",
 ]

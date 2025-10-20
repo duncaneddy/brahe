@@ -1,5 +1,6 @@
 import pytest
 import math
+import numpy as np
 import brahe
 from brahe import AngleFormat
 
@@ -23,6 +24,68 @@ def test_orbital_period_general_moon():
     T = brahe.orbital_period_general(a, gm)
 
     assert T == pytest.approx(9500.531451174307, abs=1e-12)
+
+
+def test_orbital_period_from_state_circular():
+    """Test orbital_period_from_state with a circular orbit"""
+    # Create a circular orbit at 500 km altitude
+    r = brahe.R_EARTH + 500e3
+    v = np.sqrt(brahe.GM_EARTH / r)
+
+    # Create ECI state vector (circular equatorial orbit)
+    state_eci = np.array([r, 0.0, 0.0, 0.0, v, 0.0])
+
+    # Compute period from state
+    period = brahe.orbital_period_from_state(state_eci, brahe.GM_EARTH)
+
+    # Should match the period from semi-major axis
+    expected_period = brahe.orbital_period_general(r, brahe.GM_EARTH)
+    assert period == pytest.approx(expected_period, abs=1e-8)
+    assert period == pytest.approx(5676.977164028288, abs=1e-8)
+
+
+def test_orbital_period_from_state_elliptical():
+    """Test orbital_period_from_state with an elliptical orbit"""
+    # Create an elliptical orbit with known semi-major axis
+    a = brahe.R_EARTH + 500e3
+    e = 0.1
+
+    # Compute position and velocity at perigee
+    r_perigee = a * (1.0 - e)
+    v_perigee = np.sqrt(brahe.GM_EARTH * (2.0 / r_perigee - 1.0 / a))
+
+    # Create ECI state vector at perigee
+    state_eci = np.array([r_perigee, 0.0, 0.0, 0.0, v_perigee, 0.0])
+
+    # Compute period from state
+    period = brahe.orbital_period_from_state(state_eci, brahe.GM_EARTH)
+
+    # Should match the period from semi-major axis
+    expected_period = brahe.orbital_period_general(a, brahe.GM_EARTH)
+    assert period == pytest.approx(expected_period, abs=1e-8)
+
+
+def test_orbital_period_from_state_different_gm():
+    """Test orbital_period_from_state with lunar gravitational parameter"""
+    # Test with lunar orbit
+    r = brahe.R_MOON + 100e3
+    v = np.sqrt(brahe.GM_MOON / r)
+
+    state_eci = np.array([r, 0.0, 0.0, 0.0, v, 0.0])
+
+    period = brahe.orbital_period_from_state(state_eci, brahe.GM_MOON)
+    expected_period = brahe.orbital_period_general(r, brahe.GM_MOON)
+
+    assert period == pytest.approx(expected_period, abs=1e-8)
+
+
+def test_orbital_period_from_state_invalid_length():
+    """Test that orbital_period_from_state raises error for invalid state length"""
+    # Test with wrong length array
+    state_invalid = np.array([1.0, 2.0, 3.0])  # Only 3 elements instead of 6
+
+    with pytest.raises(ValueError, match="state_eci must be a 6-element array"):
+        brahe.orbital_period_from_state(state_invalid, brahe.GM_EARTH)
 
 
 def test_mean_motion():

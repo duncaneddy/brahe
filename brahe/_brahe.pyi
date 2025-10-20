@@ -1,15 +1,714 @@
 """Type stubs for brahe._brahe module - AUTO-GENERATED"""
 
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional, Union
 import numpy as np
 
 # Classes
+
+class AccessProperties:
+    """Properties computed for an access window.
+
+    AccessProperties contains geometric properties (azimuth, elevation, off-nadir angles,
+    local time, look direction, ascending/descending) computed over an access window,
+    plus a dictionary of additional custom properties.
+
+    Attributes:
+        azimuth_open (float): Azimuth angle at window opening (degrees, 0-360)
+        azimuth_close (float): Azimuth angle at window closing (degrees, 0-360)
+        elevation_min (float): Minimum elevation angle (degrees)
+        elevation_max (float): Maximum elevation angle (degrees)
+        off_nadir_min (float): Minimum off-nadir angle (degrees)
+        off_nadir_max (float): Maximum off-nadir angle (degrees)
+        local_time (float): Local solar time (seconds since midnight, 0-86400)
+        look_direction (LookDirection): Required look direction (Left or Right)
+        asc_dsc (AscDsc): Pass type (Ascending or Descending)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Access properties are typically computed by the access computation system
+        # This example shows accessing the properties
+        props = ...  # From access computation
+
+        print(f"Azimuth at open: {props.azimuth_open}°")
+        print(f"Max elevation: {props.elevation_max}°")
+        print(f"Look direction: {props.look_direction}")
+
+        # Access additional custom properties
+        if "signal_strength" in props.additional:
+            print(f"Signal: {props.additional['signal_strength']}")
+        ```
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    @property
+    def additional(self) -> AdditionalPropertiesDict:
+        """Get additional properties as a dict-like wrapper.
+
+        Returns a dictionary-like object that automatically converts between
+        Python types and internal PropertyValue representation.
+
+        Supported Python types:
+        - float -> Scalar
+        - list[float] -> Vector
+        - bool -> Boolean
+        - str -> String
+        - dict -> Json
+
+        Returns:
+            AdditionalPropertiesDict: Dict-like wrapper for additional properties
+
+        Example:
+            ```python
+            # Dict-style assignment
+            props.additional["doppler_shift"] = 2500.0
+            props.additional["snr_values"] = [10.5, 12.3, 15.1]
+            props.additional["has_eclipse"] = False
+
+            # Dict-style access
+            print(props.additional["doppler_shift"])  # 2500.0
+
+            # Dict methods
+            if "doppler_shift" in props.additional:
+                del props.additional["doppler_shift"]
+
+            # Iteration
+            for key in props.additional.keys():
+                print(key, props.additional[key])
+            ```
+        """
+        ...
+
+    @property
+    def asc_dsc(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def azimuth_close(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def azimuth_open(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def elevation_max(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def elevation_min(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def local_time(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def look_direction(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def off_nadir_max(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+    @property
+    def off_nadir_min(self) -> Any:
+        """TODO: Add docstring"""
+        ...
+
+class AccessPropertyComputer:
+    """Base class for custom access property computers.
+
+    Subclass this class and implement the `compute` and `property_names` methods
+    to create custom property calculations that can be applied to access windows.
+
+    The compute method is called for each access window and should return a dictionary
+    of property names to values. Properties can be scalars, vectors, time series,
+    booleans, strings, or any JSON-serializable value.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        class DopplerComputer(bh.AccessPropertyComputer):
+            '''Computes Doppler shift at window midtime.'''
+
+            def compute(self, window: bh.AccessWindow, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> dict:
+                '''
+                Args:
+                    window (AccessWindow): AccessWindow with timing information
+                    satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+                    location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
+
+                Returns:
+                    dict: Property name -> value
+                '''
+                # Extract velocity
+                vx, vy, vz = satellite_state_ecef[3:6]
+
+                # Line-of-sight vector
+                sat_pos = satellite_state_ecef[:3]
+                los = location_ecef - sat_pos
+                los_unit = los / np.linalg.norm(los)
+
+                # Radial velocity
+                sat_vel = np.array([vx, vy, vz])
+                radial_velocity = np.dot(sat_vel, los_unit)
+
+                # Doppler shift (L-band)
+                freq_hz = 1.57542e9  # GPS L1
+                doppler_hz = -radial_velocity * freq_hz / bh.C_LIGHT
+
+                return {"doppler_shift": doppler_hz}
+
+            def property_names(self) -> list:
+                '''Return list of property names this computer produces.'''
+                return ["doppler_shift"]
+
+        # Use with access computation (future)
+        computer = DopplerComputer()
+        # accesses = bh.compute_accesses(..., property_computers=[computer])
+        ```
+
+    Notes:
+        - The `compute` method receives ECEF coordinates in SI units (meters, m/s)
+        - Property values are automatically converted to appropriate Rust types
+        - The window parameter provides access to timing via:
+          - `window.window_open`: Start epoch
+          - `window.window_close`: End epoch
+          - `window.midtime()`: Midpoint epoch
+          - `window.duration()`: Duration in seconds
+    """
+
+    def __init__(
+        self,
+        window: AccessWindow,
+        satellite_state_ecef: np.ndarray,
+        location_ecef: np.ndarray,
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def compute(
+        self,
+        window: AccessWindow,
+        satellite_state_ecef: np.ndarray,
+        location_ecef: np.ndarray,
+    ) -> dict:
+        """Compute custom properties for an access window.
+
+        Override this method in your subclass to implement custom property calculations.
+
+        Args:
+            window (AccessWindow): Access window with timing information
+            satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
+            location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+
+        Returns:
+            dict: Dictionary mapping property names (str) to values (scalar, list, dict, etc.)
+        """
+        ...
+
+    def property_names(self) -> list[str]:
+        """Return list of property names this computer will produce.
+
+        Override this method to return the list of property names that your
+        compute() method will include in its returned dictionary.
+
+        Returns:
+            list[str]: List of property names
+        """
+        ...
+
+class AccessSearchConfig:
+    """Configuration for access search grid parameters.
+
+    Controls the time step and adaptive stepping behavior for access window finding.
+
+    Args:
+        initial_time_step (float): Initial time step in seconds for grid search (default: 60.0)
+        adaptive_step (bool): Enable adaptive stepping after first access (default: False)
+        adaptive_fraction (float): Fraction of orbital period to use for adaptive step (default: 0.75)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Create a config with custom parameters
+        config = bh.AccessSearchConfig(
+            initial_time_step=30.0,
+            adaptive_step=True,
+            adaptive_fraction=0.5
+        )
+
+        # Use config with location_accesses
+        windows = bh.location_accesses(
+            station, prop, search_start, search_end,
+            constraint, config=config
+        )
+        ```
+    """
+
+    def __init__(
+        self, initial_time_step: float, adaptive_step: bool, adaptive_fraction: float
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    @property
+    def adaptive_fraction(self) -> float:
+        """Get the adaptive fraction (fraction of orbital period).
+
+        Returns:
+            float: Adaptive fraction
+        """
+        ...
+
+    @property
+    def adaptive_step(self) -> bool:
+        """Get whether adaptive stepping is enabled.
+
+        Returns:
+            bool: Adaptive stepping flag
+        """
+        ...
+
+    @property
+    def initial_time_step(self) -> float:
+        """Get the initial time step in seconds.
+
+        Returns:
+            float: Initial time step
+        """
+        ...
+
+    @property
+    def num_threads(self) -> Optional[int]:
+        """Get the number of threads for parallel computation.
+
+        Returns:
+            Optional[int]: Number of threads, or None to use global setting
+        """
+        ...
+
+    @property
+    def parallel(self) -> bool:
+        """Get whether parallel computation is enabled.
+
+        Returns:
+            bool: Parallel computation flag (default: True)
+        """
+        ...
+
+class AccessWindow:
+    """An access window representing a period of time when access constraints are satisfied.
+
+    AccessWindow stores the opening and closing times of an access period, along with
+    computed properties for that window.
+
+    Args:
+        window_open (Epoch): Opening time of the access window
+        window_close (Epoch): Closing time of the access window
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Create an access window
+        t_open = bh.Epoch(2024, 1, 1, 12, 0, 0.0)
+        t_close = bh.Epoch(2024, 1, 1, 12, 10, 0.0)
+        window = bh.AccessWindow(t_open, t_close)
+
+        # Access window properties
+        print(f"Duration: {window.duration()} seconds")
+        print(f"Midpoint: {window.midtime()}")
+        ```
+    """
+
+    def __init__(self, window_open: Epoch, window_close: Epoch) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    @property
+    def asc_dsc(self) -> AscDsc:
+        """Get ascending/descending pass type.
+
+        Returns:
+            AscDsc: Pass type enum value
+        """
+        ...
+
+    @property
+    def azimuth_close(self) -> float:
+        """Get azimuth angle at window closing (degrees, 0-360).
+
+        Returns:
+            float: Azimuth at window close
+        """
+        ...
+
+    @property
+    def azimuth_open(self) -> float:
+        """Get azimuth angle at window opening (degrees, 0-360).
+
+        Returns:
+            float: Azimuth at window open
+        """
+        ...
+
+    @property
+    def duration(self) -> float:
+        """Get the duration of the access window in seconds.
+
+        Returns:
+            float: Duration in seconds
+        """
+        ...
+
+    @property
+    def elevation_max(self) -> float:
+        """Get maximum elevation angle during access (degrees).
+
+        Returns:
+            float: Maximum elevation angle
+        """
+        ...
+
+    @property
+    def elevation_min(self) -> float:
+        """Get minimum elevation angle during access (degrees).
+
+        Returns:
+            float: Minimum elevation angle
+        """
+        ...
+
+    @property
+    def end(self) -> Epoch:
+        """Get the end time of the access window (alias for window_close).
+
+        Returns:
+            Epoch: Closing time of the window
+        """
+        ...
+
+    @property
+    def id(self) -> Optional[int]:
+        """Get the access window numeric ID.
+
+        Returns:
+            Optional[int]: Window ID, or None if not set
+        """
+        ...
+
+    @property
+    def local_time(self) -> float:
+        """Get local solar time at window midpoint (seconds since midnight, 0-86400).
+
+        Returns:
+            float: Local time in seconds
+        """
+        ...
+
+    @property
+    def location_id(self) -> Optional[int]:
+        """Get the location ID if available.
+
+        Returns:
+            Optional[int]: ID of the location, or None if not set
+        """
+        ...
+
+    @property
+    def location_name(self) -> Optional[str]:
+        """Get the location name if available.
+
+        Returns:
+            Optional[str]: Name of the location, or None if not set
+        """
+        ...
+
+    @property
+    def location_uuid(self) -> Optional[str]:
+        """Get the location UUID if available.
+
+        Returns:
+            Optional[str]: UUID of the location as string, or None if not set
+        """
+        ...
+
+    @property
+    def look_direction(self) -> LookDirection:
+        """Get look direction (Left or Right).
+
+        Returns:
+            LookDirection: Look direction enum value
+        """
+        ...
+
+    @property
+    def midtime(self) -> Epoch:
+        """Get the midpoint time of the access window.
+
+        Returns:
+            Epoch: Midpoint time (average of start and end)
+        """
+        ...
+
+    @property
+    def name(self) -> Optional[str]:
+        """Get the access window name (auto-generated or user-set).
+
+        Returns:
+            Optional[str]: Window name, or None if not set
+        """
+        ...
+
+    @property
+    def off_nadir_max(self) -> float:
+        """Get maximum off-nadir angle during access (degrees).
+
+        Returns:
+            float: Maximum off-nadir angle
+        """
+        ...
+
+    @property
+    def off_nadir_min(self) -> float:
+        """Get minimum off-nadir angle during access (degrees).
+
+        Returns:
+            float: Minimum off-nadir angle
+        """
+        ...
+
+    @property
+    def properties(self) -> AccessProperties:
+        """Get the access properties object.
+
+        Returns:
+            AccessProperties: Computed properties for this access window
+        """
+        ...
+
+    @property
+    def satellite_id(self) -> Optional[int]:
+        """Get the satellite/object ID if available.
+
+        Returns:
+            Optional[int]: ID of the satellite, or None if not set
+        """
+        ...
+
+    @property
+    def satellite_name(self) -> Optional[str]:
+        """Get the satellite/object name if available.
+
+        Returns:
+            Optional[str]: Name of the satellite, or None if not set
+        """
+        ...
+
+    @property
+    def satellite_uuid(self) -> Optional[str]:
+        """Get the satellite UUID if available.
+
+        Returns:
+            Optional[str]: UUID of the satellite as string, or None if not set
+        """
+        ...
+
+    @property
+    def start(self) -> Epoch:
+        """Get the start time of the access window (alias for window_open).
+
+        Returns:
+            Epoch: Opening time of the window
+        """
+        ...
+
+    @property
+    def uuid(self) -> Optional[str]:
+        """Get the access window UUID.
+
+        Returns:
+            Optional[str]: UUID as string, or None if not set
+        """
+        ...
+
+    @property
+    def window_close(self) -> Epoch:
+        """Get the window closing time.
+
+        Returns:
+            Epoch: Window closing time
+        """
+        ...
+
+    @property
+    def window_open(self) -> Epoch:
+        """Get the window opening time.
+
+        Returns:
+            Epoch: Window opening time
+        """
+        ...
+
+class AdditionalPropertiesDict:
+    """Python dictionary interface for additional access properties.
+
+    Provides dict-like access to additional properties with automatic type conversion.
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __contains__(self, key: str) -> bool:
+        """Return bool(key in self)."""
+        ...
+
+    def __delitem__(self, key: str) -> None:
+        """Delete self[key]."""
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set self[key] to value."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all properties.
+
+        Returns:
+            None
+        """
+        ...
+
+    def get(self, key: str, default: Any = ...) -> Any:
+        """Get property value with optional default.
+
+        Args:
+            key (str): Property name
+            default (optional): Value to return if key not found
+
+        Returns:
+            Any: Property value if key exists, otherwise default value
+        """
+        ...
+
+    def items(self) -> List:
+        """Return a list of (key, value) tuples.
+
+        Returns:
+            List of (key, value) tuples
+        """
+        ...
+
+    def keys(self) -> List:
+        """Return a list of property keys.
+
+        Returns:
+            List of property key strings
+        """
+        ...
+
+    def update(self, other: dict) -> None:
+        """Update properties from another dict.
+
+        Args:
+            other (dict): Dictionary to merge into properties
+
+        Returns:
+            None
+        """
+        ...
+
+    def values(self) -> List:
+        """Return a list of property values.
+
+        Returns:
+            List of property values
+        """
+        ...
 
 class AngleFormat:
     """Python wrapper for AngleFormat enum"""
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -20,6 +719,220 @@ class AngleFormat:
     @property
     def RADIANS(self) -> Any:
         """Python wrapper for AngleFormat enum"""
+        ...
+
+class AscDsc:
+    """Ascending or descending pass type for satellite orbits.
+
+    Indicates whether a satellite is moving from south to north (ascending) or
+    north to south (descending) in its orbit. This is determined by the sign of
+    the Z-component of the velocity vector in ECEF coordinates.
+
+    This is useful for:
+    - Sun-synchronous orbits that prefer specific pass types
+    - Minimizing lighting variation between passes
+    - Coordinating multi-satellite observations
+
+    Attributes:
+        ASCENDING: Satellite moving from south to north (vz > 0 in ECEF)
+        DESCENDING: Satellite moving from north to south (vz < 0 in ECEF)
+        EITHER: Either ascending or descending is acceptable
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Create a constraint for ascending passes only
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+
+        # Create a constraint for descending passes only
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING)
+
+        # Accept either type
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.EITHER)
+
+        # Compare pass types
+        assert bh.AscDsc.ASCENDING != bh.AscDsc.DESCENDING
+        assert bh.AscDsc.ASCENDING == bh.AscDsc.ASCENDING
+        ```
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    @property
+    def ASCENDING(self) -> Any:
+        """Ascending or descending pass type for satellite orbits.
+
+        Indicates whether a satellite is moving from south to north (ascending) or
+        north to south (descending) in its orbit. This is determined by the sign of
+        the Z-component of the velocity vector in ECEF coordinates.
+
+        This is useful for:
+        - Sun-synchronous orbits that prefer specific pass types
+        - Minimizing lighting variation between passes
+        - Coordinating multi-satellite observations
+
+        Attributes:
+            ASCENDING: Satellite moving from south to north (vz > 0 in ECEF)
+            DESCENDING: Satellite moving from north to south (vz < 0 in ECEF)
+            EITHER: Either ascending or descending is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for ascending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+
+            # Create a constraint for descending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING)
+
+            # Accept either type
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.EITHER)
+
+            # Compare pass types
+            assert bh.AscDsc.ASCENDING != bh.AscDsc.DESCENDING
+            assert bh.AscDsc.ASCENDING == bh.AscDsc.ASCENDING
+            ```
+        """
+        ...
+
+    @property
+    def DESCENDING(self) -> Any:
+        """Ascending or descending pass type for satellite orbits.
+
+        Indicates whether a satellite is moving from south to north (ascending) or
+        north to south (descending) in its orbit. This is determined by the sign of
+        the Z-component of the velocity vector in ECEF coordinates.
+
+        This is useful for:
+        - Sun-synchronous orbits that prefer specific pass types
+        - Minimizing lighting variation between passes
+        - Coordinating multi-satellite observations
+
+        Attributes:
+            ASCENDING: Satellite moving from south to north (vz > 0 in ECEF)
+            DESCENDING: Satellite moving from north to south (vz < 0 in ECEF)
+            EITHER: Either ascending or descending is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for ascending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+
+            # Create a constraint for descending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING)
+
+            # Accept either type
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.EITHER)
+
+            # Compare pass types
+            assert bh.AscDsc.ASCENDING != bh.AscDsc.DESCENDING
+            assert bh.AscDsc.ASCENDING == bh.AscDsc.ASCENDING
+            ```
+        """
+        ...
+
+    @property
+    def EITHER(self) -> Any:
+        """Ascending or descending pass type for satellite orbits.
+
+        Indicates whether a satellite is moving from south to north (ascending) or
+        north to south (descending) in its orbit. This is determined by the sign of
+        the Z-component of the velocity vector in ECEF coordinates.
+
+        This is useful for:
+        - Sun-synchronous orbits that prefer specific pass types
+        - Minimizing lighting variation between passes
+        - Coordinating multi-satellite observations
+
+        Attributes:
+            ASCENDING: Satellite moving from south to north (vz > 0 in ECEF)
+            DESCENDING: Satellite moving from north to south (vz < 0 in ECEF)
+            EITHER: Either ascending or descending is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for ascending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+
+            # Create a constraint for descending passes only
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING)
+
+            # Accept either type
+            constraint = bh.AscDscConstraint(allowed=bh.AscDsc.EITHER)
+
+            # Compare pass types
+            assert bh.AscDsc.ASCENDING != bh.AscDsc.DESCENDING
+            assert bh.AscDsc.ASCENDING == bh.AscDsc.ASCENDING
+            ```
+        """
+        ...
+
+class AscDscConstraint:
+    """Ascending/descending pass constraint.
+
+    Constrains access based on whether the satellite is on an ascending or
+    descending pass (moving north or south).
+
+    Args:
+        allowed (AscDsc): Required pass type (ASCENDING, DESCENDING, or EITHER)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Only ascending passes
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+
+        # Either type is acceptable
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.EITHER)
+        ```
+    """
+
+    def __init__(self, allowed: AscDsc) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
         ...
 
 class CachingEOPProvider:
@@ -87,6 +1000,14 @@ class CachingEOPProvider:
         extrapolate: str,
     ) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def eop_type(self) -> str:
@@ -290,6 +1211,155 @@ class CachingEOPProvider:
         """
         ...
 
+class ConstraintAll:
+    """Composite constraint combining multiple constraints with AND logic.
+
+    All constraints must be satisfied for the composite to evaluate to true.
+
+    Args:
+        constraints (list): List of constraint objects to combine with AND logic
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Ground station with multiple requirements
+        elev = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=None)
+        time = bh.LocalTimeConstraint(time_windows=[(600, 1800)])
+        combined = bh.ConstraintAll(constraints=[elev, time])
+        ```
+    """
+
+    def __init__(self, constraints: List) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if ALL constraints are satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
+class ConstraintAny:
+    """Composite constraint combining multiple constraints with OR logic.
+
+    At least one constraint must be satisfied for the composite to evaluate to true.
+
+    Args:
+        constraints (list): List of constraint objects to combine with OR logic
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Accept either high elevation or specific time window
+        elev = bh.ElevationConstraint(min_elevation_deg=60.0, max_elevation_deg=None)
+        time = bh.LocalTimeConstraint(time_windows=[(1200, 1400)])
+        combined = bh.ConstraintAny(constraints=[elev, time])
+        ```
+    """
+
+    def __init__(self, constraints: List) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if AT LEAST ONE constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
+class ConstraintNot:
+    """Composite constraint negating another constraint with NOT logic.
+
+    The negated constraint must NOT be satisfied for this to evaluate to true.
+
+    Args:
+        constraint: Constraint object to negate
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Avoid low elevation angles (i.e., require high elevation)
+        low_elev = bh.ElevationConstraint(min_elevation_deg=None, max_elevation_deg=10.0)
+        high_elev = bh.ConstraintNot(constraint=low_elev)
+        ```
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if the negated constraint is NOT satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
 class DTrajectory:
     """Dynamic-dimension trajectory container.
 
@@ -320,6 +1390,26 @@ class DTrajectory:
         Returns:
             DTrajectory: New trajectory instance populated with data
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
@@ -366,7 +1456,7 @@ class DTrajectory:
         """Get end epoch of trajectory"""
         ...
 
-    def epoch(self, index: int) -> Epoch:
+    def epoch_at_idx(self, index: int) -> Epoch:
         """Get epoch at a specific index
 
         Arguments:
@@ -384,7 +1474,7 @@ class DTrajectory:
             epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
             state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
             traj.add(epc, state)
-            retrieved_epc = traj.epoch(0)
+            retrieved_epc = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -729,29 +1819,6 @@ class DTrajectory:
         """Get start epoch of trajectory"""
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at a specific index
-
-        Arguments:
-            index (int): Index of the state
-
-        Returns:
-            numpy.ndarray: State vector at index
-
-        Example:
-            ```python
-            import brahe as bh
-            import numpy as np
-
-            traj = bh.DTrajectory(6)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            retrieved_state = traj.state(0)
-            ```
-        """
-        ...
-
     def state_after_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or after the given epoch.
 
@@ -772,6 +1839,29 @@ class DTrajectory:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get state at a specific index
+
+        Arguments:
+            index (int): Index of the state
+
+        Returns:
+            numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state_at_idx(0)
             ```
         """
         ...
@@ -888,6 +1978,125 @@ class DTrajectory:
         """
         ...
 
+class ElevationConstraint:
+    """Elevation angle constraint for satellite visibility.
+
+    Constrains access based on the elevation angle of the satellite above
+    the local horizon at the ground location.
+
+    Args:
+        min_elevation_deg (float | None): Minimum elevation angle in degrees, or None for no minimum
+        max_elevation_deg (float | None): Maximum elevation angle in degrees, or None for no maximum
+
+    Raises:
+        ValueError: If both min and max are None (unbounded constraint is meaningless)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Typical ground station constraint: 5° minimum elevation
+        constraint = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=None)
+
+        # Both bounds specified
+        constraint = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=85.0)
+
+        # Only maximum (e.g., avoid zenith)
+        constraint = bh.ElevationConstraint(min_elevation_deg=None, max_elevation_deg=85.0)
+        ```
+    """
+
+    def __init__(
+        self, min_elevation_deg: float | None, max_elevation_deg: float | None
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
+class ElevationMaskConstraint:
+    """Azimuth-dependent elevation mask constraint.
+
+    Constrains access based on azimuth-dependent elevation masks.
+    Useful for ground stations with terrain obstructions or antenna limitations.
+
+    The mask is defined as a list of (azimuth, elevation) pairs in degrees.
+    Linear interpolation is used between points, and the mask wraps at 0°/360°.
+
+    Args:
+        mask (list[tuple[float, float]]): List of (azimuth_deg, min_elevation_deg) pairs
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Ground station with terrain obstruction to the north
+        mask = [
+            (0.0, 15.0),     # North: 15° minimum
+            (90.0, 5.0),     # East: 5° minimum
+            (180.0, 5.0),    # South: 5° minimum
+            (270.0, 5.0),    # West: 5° minimum
+        ]
+        constraint = bh.ElevationMaskConstraint(mask)
+        ```
+    """
+
+    def __init__(self, mask: list[tuple[float, float]]) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
 class EllipsoidalConversionType:
     """Python wrapper for EllipsoidalConversionType enum
 
@@ -896,6 +2105,14 @@ class EllipsoidalConversionType:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -1240,6 +2457,14 @@ class Epoch:
             # Output: TimeSystem.TAI
             ```
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def day(self) -> int:
@@ -1771,6 +2996,14 @@ class EulerAngle:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def to_euler_angle(self, order: str) -> EulerAngle:
         """Convert to Euler angles with different rotation sequence.
 
@@ -2070,6 +3303,18 @@ class EulerAxis:
             e = bh.EulerAxis.from_vector(v, bh.AngleFormat.RADIANS, True)
             ```
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def to_euler_angle(self, order: str) -> EulerAngle:
@@ -2377,6 +3622,14 @@ class FileEOPProvider:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def eop_type(self) -> str:
         """Get the EOP data type.
 
@@ -2633,6 +3886,14 @@ class InterpolationMethod:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     @property
     def LINEAR(self) -> Any:
         """Python bindings for the new trajectory architecture
@@ -2738,12 +3999,24 @@ class KeplerianPropagator:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def current_state(self) -> np.ndarray:
         """Get current state vector.
 
         Returns:
             numpy.ndarray: Current state vector.
         """
+        ...
+
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID and set it in-place (mutating)."""
         ...
 
     def initial_state(self) -> np.ndarray:
@@ -2860,6 +4133,26 @@ class KeplerianPropagator:
         """
         ...
 
+    def set_id(self, id: int or None) -> Any:
+        """Set the numeric ID in-place (mutating).
+
+        Args:
+            id (int or None): Numeric ID to assign, or None to clear.
+        """
+        ...
+
+    def set_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> Any:
+        """Set all identity fields in-place (mutating).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+        """
+        ...
+
     def set_initial_conditions(
         self,
         epoch: Epoch,
@@ -2894,6 +4187,14 @@ class KeplerianPropagator:
             prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
             print(f"New initial epoch: {prop.initial_epoch}")
             ```
+        """
+        ...
+
+    def set_name(self, name: str or None) -> Any:
+        """Set the name in-place (mutating).
+
+        Args:
+            name (str or None): Name to assign, or None to clear.
         """
         ...
 
@@ -3052,6 +4353,75 @@ class KeplerianPropagator:
         """
         ...
 
+    def with_id(self, id: int) -> KeplerianPropagator:
+        """Set the numeric ID and return self (consuming constructor pattern).
+
+        Args:
+            id (int): Numeric ID to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with ID set.
+        """
+        ...
+
+    def with_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> KeplerianPropagator:
+        """Set all identity fields at once and return self (consuming constructor pattern).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+
+        Returns:
+            KeplerianPropagator: Self with identity set.
+        """
+        ...
+
+    def with_name(self, name: str) -> KeplerianPropagator:
+        """Set the name and return self (consuming constructor pattern).
+
+        Args:
+            name (str): Name to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with name set.
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            oe = np.array([7000e3, 0.001, 0.9, 0.0, 0.0, 0.0])
+            prop = bh.KeplerianPropagator.from_keplerian(
+                epc, oe, bh.AngleFormat.RADIANS, 60.0
+            ).with_name("My Orbit")
+            print(f"Name: {prop.name}")
+            ```
+        """
+        ...
+
+    def with_new_uuid(self) -> KeplerianPropagator:
+        """Generate a new UUID, set it, and return self (consuming constructor pattern).
+
+        Returns:
+            KeplerianPropagator: Self with new UUID set.
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> KeplerianPropagator:
+        """Set the UUID and return self (consuming constructor pattern).
+
+        Args:
+            uuid_str (str): UUID string to assign to this propagator.
+
+        Returns:
+            KeplerianPropagator: Self with UUID set.
+        """
+        ...
+
     @property
     def current_epoch(self) -> Epoch:
         """Get current epoch.
@@ -3062,11 +4432,29 @@ class KeplerianPropagator:
         ...
 
     @property
+    def id(self) -> int:
+        """Get the current numeric ID.
+
+        Returns:
+            int or None: The numeric ID, or None if not set.
+        """
+        ...
+
+    @property
     def initial_epoch(self) -> Epoch:
         """Get initial epoch.
 
         Returns:
             Epoch: Initial propagator epoch.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the current name.
+
+        Returns:
+            str or None: The name, or None if not set.
         """
         ...
 
@@ -3102,6 +4490,347 @@ class KeplerianPropagator:
         """
         ...
 
+    @property
+    def uuid(self) -> str:
+        """Get the current UUID.
+
+        Returns:
+            str or None: The UUID as a string, or None if not set.
+        """
+        ...
+
+class LocalTimeConstraint:
+    """Local solar time constraint.
+
+    Constrains access based on the local solar time at the ground location.
+    Useful for sun-synchronous orbits or daytime-only imaging.
+
+    Time windows are specified in military time format (HHMM).
+    Wrap-around windows (e.g., 2200-0200) are supported.
+
+    Args:
+        time_windows (list[tuple[int, int]]): List of (start_military, end_military) tuples (0-2400)
+
+    Raises:
+        ValueError: If any military time is invalid (>2400 or minutes >=60)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Only daytime (6 AM to 6 PM local time)
+        constraint = bh.LocalTimeConstraint(time_windows=[(600, 1800)])
+
+        # Two windows: morning (6-9 AM) and evening (4-7 PM)
+        constraint = bh.LocalTimeConstraint(time_windows=[(600, 900), (1600, 1900)])
+
+        # Overnight window (10 PM to 2 AM) - handles wrap-around
+        constraint = bh.LocalTimeConstraint(time_windows=[(2200, 200)])
+        ```
+    """
+
+    def __init__(self, time_windows: list[tuple[int, int]]) -> None:
+        """Initialize instance."""
+        ...
+
+    @classmethod
+    def from_hours(cls, time_windows: list[tuple[float, float]]) -> LocalTimeConstraint:
+        """Create from decimal hour windows instead of military time.
+
+        Args:
+            time_windows (list[tuple[float, float]]): List of (start_hour, end_hour) tuples [0, 24)
+
+        Returns:
+            LocalTimeConstraint: The constraint instance
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Only daytime (6 AM to 6 PM local time)
+            constraint = bh.LocalTimeConstraint.from_hours([(6.0, 18.0)])
+
+            # Overnight window (10 PM to 2 AM)
+            constraint = bh.LocalTimeConstraint.from_hours([(22.0, 2.0)])
+            ```
+        """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
+class LookDirection:
+    """Look direction of a satellite relative to its velocity vector.
+
+    Indicates whether a satellite is looking to the left (counterclockwise from velocity),
+    right (clockwise from velocity), or either direction.
+
+    This is commonly used for imaging satellites with side-looking sensors or SAR systems
+    that have a preferred look direction.
+
+    Attributes:
+        LEFT: Left-looking (counterclockwise from velocity vector)
+        RIGHT: Right-looking (clockwise from velocity vector)
+        EITHER: Either left or right is acceptable
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Create a constraint for right-looking only satellites
+        constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+
+        # Create a constraint accepting either direction
+        constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.EITHER)
+
+        # Compare look directions
+        assert bh.LookDirection.LEFT != bh.LookDirection.RIGHT
+        assert bh.LookDirection.LEFT == bh.LookDirection.LEFT
+        ```
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    @property
+    def EITHER(self) -> Any:
+        """Look direction of a satellite relative to its velocity vector.
+
+        Indicates whether a satellite is looking to the left (counterclockwise from velocity),
+        right (clockwise from velocity), or either direction.
+
+        This is commonly used for imaging satellites with side-looking sensors or SAR systems
+        that have a preferred look direction.
+
+        Attributes:
+            LEFT: Left-looking (counterclockwise from velocity vector)
+            RIGHT: Right-looking (clockwise from velocity vector)
+            EITHER: Either left or right is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for right-looking only satellites
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+
+            # Create a constraint accepting either direction
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.EITHER)
+
+            # Compare look directions
+            assert bh.LookDirection.LEFT != bh.LookDirection.RIGHT
+            assert bh.LookDirection.LEFT == bh.LookDirection.LEFT
+            ```
+        """
+        ...
+
+    @property
+    def LEFT(self) -> Any:
+        """Look direction of a satellite relative to its velocity vector.
+
+        Indicates whether a satellite is looking to the left (counterclockwise from velocity),
+        right (clockwise from velocity), or either direction.
+
+        This is commonly used for imaging satellites with side-looking sensors or SAR systems
+        that have a preferred look direction.
+
+        Attributes:
+            LEFT: Left-looking (counterclockwise from velocity vector)
+            RIGHT: Right-looking (clockwise from velocity vector)
+            EITHER: Either left or right is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for right-looking only satellites
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+
+            # Create a constraint accepting either direction
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.EITHER)
+
+            # Compare look directions
+            assert bh.LookDirection.LEFT != bh.LookDirection.RIGHT
+            assert bh.LookDirection.LEFT == bh.LookDirection.LEFT
+            ```
+        """
+        ...
+
+    @property
+    def RIGHT(self) -> Any:
+        """Look direction of a satellite relative to its velocity vector.
+
+        Indicates whether a satellite is looking to the left (counterclockwise from velocity),
+        right (clockwise from velocity), or either direction.
+
+        This is commonly used for imaging satellites with side-looking sensors or SAR systems
+        that have a preferred look direction.
+
+        Attributes:
+            LEFT: Left-looking (counterclockwise from velocity vector)
+            RIGHT: Right-looking (clockwise from velocity vector)
+            EITHER: Either left or right is acceptable
+
+        Example:
+            ```python
+            import brahe as bh
+
+            # Create a constraint for right-looking only satellites
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+
+            # Create a constraint accepting either direction
+            constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.EITHER)
+
+            # Compare look directions
+            assert bh.LookDirection.LEFT != bh.LookDirection.RIGHT
+            assert bh.LookDirection.LEFT == bh.LookDirection.LEFT
+            ```
+        """
+        ...
+
+class LookDirectionConstraint:
+    """Look direction constraint (left/right relative to velocity).
+
+    Constrains access based on the look direction of the satellite relative
+    to its velocity vector.
+
+    Args:
+        allowed (LookDirection): Required look direction (LEFT, RIGHT, or EITHER)
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Satellite can only look right
+        constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+
+        # Either direction is acceptable
+        constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.EITHER)
+        ```
+    """
+
+    def __init__(self, allowed: LookDirection) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
+class OffNadirConstraint:
+    """Off-nadir angle constraint for satellite imaging.
+
+    Constrains access based on the off-nadir angle (angle between the satellite's
+    nadir vector and the line-of-sight to the location).
+
+    Args:
+        min_off_nadir_deg (float | None): Minimum off-nadir angle in degrees, or None for no minimum
+        max_off_nadir_deg (float | None): Maximum off-nadir angle in degrees, or None for no maximum
+
+    Raises:
+        ValueError: If both min and max are None, or if any angle is negative
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Imaging satellite with 45° maximum slew angle
+        constraint = bh.OffNadirConstraint(min_off_nadir_deg=None, max_off_nadir_deg=45.0)
+
+        # Minimum 10° to avoid nadir (e.g., for oblique imaging)
+        constraint = bh.OffNadirConstraint(min_off_nadir_deg=10.0, max_off_nadir_deg=45.0)
+        ```
+    """
+
+    def __init__(
+        self, min_off_nadir_deg: float | None, max_off_nadir_deg: float | None
+    ) -> None:
+        """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def evaluate(
+        self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
+    ) -> bool:
+        """Evaluate whether the constraint is satisfied.
+
+        Args:
+            epoch (Epoch): Time of evaluation
+            sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+            location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+
+        Returns:
+            bool: True if constraint is satisfied, False otherwise
+        """
+        ...
+
+    def name(self) -> Any:
+        """Get the constraint name"""
+        ...
+
 class OrbitFrame:
     """Reference frame for orbital trajectory representation.
 
@@ -3110,6 +4839,14 @@ class OrbitFrame:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def name(self) -> str:
@@ -3144,6 +4881,14 @@ class OrbitRepresentation:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -3205,6 +4950,26 @@ class OrbitTrajectory:
         Returns:
             OrbitTrajectory: New trajectory instance populated with data
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
@@ -3280,14 +5045,14 @@ class OrbitTrajectory:
         """
         ...
 
-    def epoch(self, index: int) -> Epoch:
-        """Get epoch at specific index.
+    def epoch_at_idx(self, index: int) -> Epoch:
+        """Get the epoch at a specific index.
 
         Args:
-            index (int): Index of the epoch
+            index (int): Index of the epoch to retrieve
 
         Returns:
-            Epoch: Epoch at given index
+            Epoch: Epoch at the specified index
 
         Example:
             ```python
@@ -3295,10 +5060,12 @@ class OrbitTrajectory:
             import numpy as np
 
             traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
             traj.add(epc, state)
-            first_epoch = traj.epoch(0)
+
+            # Get epoch at index
+            epoch_0 = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -3695,25 +5462,28 @@ class OrbitTrajectory:
         """
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at specific index.
+    def state(self, epoch: Epoch) -> np.ndarray:
+        """Get state at specified epoch (in native frame/representation).
 
         Args:
-            index (int): Index of the state
+            epoch (Epoch): Time for state query
 
         Returns:
-            numpy.ndarray: State vector at given index
+            numpy.ndarray: State vector in trajectory's native frame and representation
 
         Example:
             ```python
             import brahe as bh
             import numpy as np
 
+            # Create ECI Cartesian trajectory
             traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            first_state = traj.state(0)
+            epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc1, state1)
+
+            # Query state at epoch
+            state = traj.state(epc1)
             ```
         """
         ...
@@ -3742,6 +5512,62 @@ class OrbitTrajectory:
         """
         ...
 
+    def state_as_osculating_elements(
+        self, epoch: Epoch, angle_format: AngleFormat
+    ) -> np.ndarray:
+        """Get state as osculating Keplerian elements at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+            angle_format (AngleFormat): Desired angle format for output
+
+        Returns:
+            numpy.ndarray: Osculating Keplerian elements [a, e, i, raan, argp, M]
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create Cartesian trajectory
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state_cart)
+
+            # Get osculating elements in degrees
+            elements = traj.state_as_osculating_elements(epc, bh.AngleFormat.DEGREES)
+            print(f"Semi-major axis: {elements[0]/1000:.2f} km")
+            print(f"Inclination: {elements[2]:.2f} degrees")
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get the state vector at a specific index.
+
+        Args:
+            index (int): Index of the state to retrieve
+
+        Returns:
+            numpy.ndarray: State vector at the specified index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state)
+
+            # Get state at index
+            state_0 = traj.state_at_idx(0)
+            ```
+        """
+        ...
+
     def state_before_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or before the given epoch.
 
@@ -3762,6 +5588,58 @@ class OrbitTrajectory:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_before_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_ecef(self, epoch: Epoch) -> np.ndarray:
+        """Get state in ECEF Cartesian frame at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+
+        Returns:
+            numpy.ndarray: State vector in ECEF Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create ECI trajectory
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+            traj.add(epc, state_eci)
+
+            # Get ECEF state (automatically converted from ECI)
+            state_ecef = traj.state_ecef(epc)
+            ```
+        """
+        ...
+
+    def state_eci(self, epoch: Epoch) -> np.ndarray:
+        """Get state in ECI Cartesian frame at specified epoch.
+
+        Args:
+            epoch (Epoch): Time for state query
+
+        Returns:
+            numpy.ndarray: State vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            # Create trajectory in any frame/representation
+            traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+            oe = np.array([bh.R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+            traj.add(epc, oe)
+
+            # Get ECI Cartesian state (automatically converted from Keplerian)
+            state_eci = traj.state_eci(epc)
             ```
         """
         ...
@@ -4034,6 +5912,14 @@ class PanicException:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def add_note(self) -> Any:
         """Exception.add_note(note) --
         add a note to the exception
@@ -4049,6 +5935,754 @@ class PanicException:
     @property
     def args(self) -> Any:
         """TODO: Add docstring"""
+        ...
+
+class PointLocation:
+    """A single point location on Earth's surface.
+    
+    Represents a discrete point with geodetic coordinates (longitude, latitude, altitude).
+    Commonly used for ground stations, imaging targets, or tessellated polygon tiles.
+    
+    Args:
+        lon (float): Longitude in degrees (-180 to 180)
+        lat (float): Latitude in degrees (-90 to 90)
+        alt (float): Altitude above ellipsoid in meters (default: 0.0)
+    
+    Example:
+        ```python
+        import brahe as bh
+    
+        # Create a ground station in Svalbard
+        svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0)
+    
+        # With identity
+        svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
+            .with_name("Svalbard Ground Station") \\
+            .with_id(1)
+    
+        # With custom properties
+        svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
+            .add_property("country", "Norway") \\
+            .add_property("min_elevation_deg", 5.0)
+    
+        # Access coordinates
+        lon = svalbard.lon()  # Quick accessor (always degrees)
+        lat_rad = svalbard.latitude(bh.AngleFormat.RADIANS)  # Format-aware
+        ```
+    """
+
+    def __init__(self, lon: float, lat: float, alt: float) -> None:
+        """Initialize instance."""
+        ...
+
+    @classmethod
+    def from_geojson(cls, geojson: dict) -> PointLocation:
+        """Create from GeoJSON Point Feature.
+
+        Args:
+            geojson (dict): GeoJSON Feature object with Point geometry
+
+        Returns:
+            PointLocation: New location instance
+
+        Raises:
+            ValueError: If GeoJSON is invalid or not a Point Feature
+
+        Example:
+            ```python
+            import brahe as bh
+
+            geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [15.4, 78.2, 0.0]
+                },
+                "properties": {
+                    "name": "Svalbard"
+                }
+            }
+
+            location = bh.PointLocation.from_geojson(geojson)
+            ```
+        """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def add_property(self, key: str) -> PointLocation:
+        """Add a custom property (builder pattern).
+        
+        Args:
+            key (str): Property name
+            value: Property value (must be JSON-serializable)
+        
+        Returns:
+            PointLocation: Self for chaining
+        
+        Example:
+            ```python
+            import brahe as bh
+        
+            location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
+                .add_property("country", "Norway") \\
+                .add_property("elevation_mask_deg", 5.0)
+            ```
+        """
+        ...
+
+    def alt(self) -> float:
+        """Get altitude in meters (quick accessor).
+
+        Returns:
+            float: Altitude in meters
+        """
+        ...
+
+    def altitude(self) -> float:
+        """Get altitude in meters.
+
+        Returns:
+            float: Altitude in meters
+        """
+        ...
+
+    def center_ecef(self) -> np.ndarray:
+        """Get center position in ECEF coordinates [x, y, z].
+
+        Returns:
+            ndarray: ECEF position in meters [x, y, z]
+        """
+        ...
+
+    def center_geodetic(self) -> np.ndarray:
+        """Get center coordinates in geodetic format [lon, lat, alt].
+
+        Returns:
+            ndarray: Geodetic coordinates [longitude_deg, latitude_deg, altitude_m]
+        """
+        ...
+
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID (mutating)."""
+        ...
+
+    def get_id(self) -> int:
+        """Get the numeric ID.
+
+        Returns:
+            int | None: ID if set, None otherwise
+        """
+        ...
+
+    def get_name(self) -> str:
+        """Get the name.
+
+        Returns:
+            str | None: Name if set, None otherwise
+        """
+        ...
+
+    def get_uuid(self) -> str:
+        """Get the UUID as a string.
+
+        Returns:
+            str | None: UUID string if set, None otherwise
+        """
+        ...
+
+    def lat(self) -> float:
+        """Get latitude in degrees (quick accessor).
+
+        Returns:
+            float: Latitude in degrees
+        """
+        ...
+
+    def latitude(self, angle_format: AngleFormat) -> float:
+        """Get latitude with angle format conversion.
+
+        Args:
+            angle_format (AngleFormat): Desired output format (DEGREES or RADIANS)
+
+        Returns:
+            float: Latitude in specified format
+        """
+        ...
+
+    def lon(self) -> float:
+        """Get longitude in degrees (quick accessor).
+
+        Returns:
+            float: Longitude in degrees
+        """
+        ...
+
+    def longitude(self, angle_format: AngleFormat) -> float:
+        """Get longitude with angle format conversion.
+
+        Args:
+            angle_format (AngleFormat): Desired output format (DEGREES or RADIANS)
+
+        Returns:
+            float: Longitude in specified format
+        """
+        ...
+
+    def set_id(self, id: int | None) -> Any:
+        """Set the numeric ID (mutating).
+
+        Args:
+            id (int | None): ID to set, or None to clear
+        """
+        ...
+
+    def set_name(self, name: str | None) -> Any:
+        """Set the name (mutating).
+
+        Args:
+            name (str | None): Name to set, or None to clear
+        """
+        ...
+
+    def to_geojson(self) -> dict:
+        """Export to GeoJSON Feature format.
+        
+        Returns:
+            dict: GeoJSON Feature object
+        
+        Example:
+            ```python
+            import brahe as bh
+        
+            location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
+                .with_name("Svalbard")
+        
+            geojson = location.to_geojson()
+            # Returns:
+            # {
+            #     "type": "Feature",
+            #     "geometry": {
+            #         "type": "Point",
+            #         "coordinates": [15.4, 78.2, 0.0]
+            #     },
+            #     "properties": {
+            #         "name": "Svalbard"
+            #     }
+            # }
+            ```
+        """
+        ...
+
+    def with_id(self, id: int) -> PointLocation:
+        """Set the numeric ID (builder pattern).
+
+        Args:
+            id (int): Numeric identifier
+
+        Returns:
+            PointLocation: Self for chaining
+        """
+        ...
+
+    def with_name(self, name: str) -> PointLocation:
+        """Set the name (builder pattern).
+
+        Args:
+            name (str): Human-readable name
+
+        Returns:
+            PointLocation: Self for chaining
+        """
+        ...
+
+    def with_new_uuid(self) -> PointLocation:
+        """Generate a new UUID (builder pattern).
+
+        Returns:
+            PointLocation: Self for chaining
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> PointLocation:
+        """Set the UUID from a string (builder pattern).
+
+        Args:
+            uuid_str (str): UUID string
+
+        Returns:
+            PointLocation: Self for chaining
+
+        Raises:
+            ValueError: If UUID string is invalid
+        """
+        ...
+
+    @property
+    def properties(self) -> PropertiesDict:
+        """Get custom properties dictionary.
+
+        Returns:
+            PropertiesDict: Dictionary-like wrapper for properties that supports assignment
+
+        Example:
+            ```python
+            import brahe as bh
+
+            loc = bh.PointLocation(15.4, 78.2, 0.0)
+
+            # Dict-style assignment
+            loc.properties["climate"] = "Arctic"
+            loc.properties["country"] = "Norway"
+
+            # Dict-style access
+            print(loc.properties["climate"])  # "Arctic"
+
+            # Dict methods
+            if "country" in loc.properties:
+                del loc.properties["country"]
+
+            # Iteration
+            for key in loc.properties.keys():
+                print(key, loc.properties[key])
+            ```
+        """
+        ...
+
+class PolygonLocation:
+    """A polygonal area on Earth's surface.
+    
+    Represents a closed polygon with multiple vertices.
+    Commonly used for areas of interest, no-fly zones, or imaging footprints.
+    
+    The polygon is automatically closed if the first and last vertices don't match.
+    
+    Args:
+        vertices (list[list[float]]): List of [lon, lat, alt] vertices in degrees and meters
+    
+    Raises:
+        ValueError: If polygon has fewer than 4 vertices or has validation errors
+    
+    Example:
+        ```python
+        import brahe as bh
+    
+        # Define a rectangular area
+        vertices = [
+            [10.0, 50.0, 0.0],  # lon, lat, alt
+            [11.0, 50.0, 0.0],
+            [11.0, 51.0, 0.0],
+            [10.0, 51.0, 0.0],
+            [10.0, 50.0, 0.0],  # Closed (first == last)
+        ]
+        polygon = bh.PolygonLocation(vertices)
+    
+        # With identity
+        polygon = bh.PolygonLocation(vertices) \\
+            .with_name("AOI-1") \\
+            .add_property("region", "Europe")
+        ```
+    """
+
+    def __init__(self, vertices: list[list[float]]) -> None:
+        """Initialize instance."""
+        ...
+
+    @classmethod
+    def from_geojson(cls, geojson: dict) -> PolygonLocation:
+        """Create from GeoJSON Polygon Feature.
+
+        Args:
+            geojson (dict): GeoJSON Feature object with Polygon geometry
+
+        Returns:
+            PolygonLocation: New polygon instance
+
+        Raises:
+            ValueError: If GeoJSON is invalid or not a Polygon Feature
+
+        Example:
+            ```python
+            import brahe as bh
+
+            geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [10.0, 50.0, 0.0],
+                        [11.0, 50.0, 0.0],
+                        [11.0, 51.0, 0.0],
+                        [10.0, 51.0, 0.0],
+                        [10.0, 50.0, 0.0]
+                    ]]
+                },
+                "properties": {
+                    "name": "AOI-1"
+                }
+            }
+
+            polygon = bh.PolygonLocation.from_geojson(geojson)
+            ```
+        """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def add_property(self, key: str) -> PolygonLocation:
+        """Add a custom property (builder pattern).
+
+        Args:
+            key (str): Property name
+            value: Property value (must be JSON-serializable)
+
+        Returns:
+            PolygonLocation: Self for chaining
+        """
+        ...
+
+    def alt(self) -> float:
+        """Get center altitude in meters (quick accessor).
+
+        Returns:
+            float: Center altitude in meters
+        """
+        ...
+
+    def altitude(self) -> float:
+        """Get center altitude in meters.
+
+        Returns:
+            float: Center altitude in meters
+        """
+        ...
+
+    def center_ecef(self) -> np.ndarray:
+        """Get center position in ECEF coordinates [x, y, z].
+
+        Returns:
+            ndarray: ECEF position in meters [x, y, z]
+        """
+        ...
+
+    def center_geodetic(self) -> np.ndarray:
+        """Get center coordinates in geodetic format [lon, lat, alt].
+
+        Returns:
+            ndarray: Geodetic coordinates [longitude_deg, latitude_deg, altitude_m]
+        """
+        ...
+
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID (mutating)."""
+        ...
+
+    def get_id(self) -> int:
+        """Get the numeric ID.
+
+        Returns:
+            int | None: ID if set, None otherwise
+        """
+        ...
+
+    def get_name(self) -> str:
+        """Get the name.
+
+        Returns:
+            str | None: Name if set, None otherwise
+        """
+        ...
+
+    def get_uuid(self) -> str:
+        """Get the UUID as a string.
+
+        Returns:
+            str | None: UUID string if set, None otherwise
+        """
+        ...
+
+    def lat(self) -> float:
+        """Get center latitude in degrees (quick accessor).
+
+        Returns:
+            float: Center latitude in degrees
+        """
+        ...
+
+    def latitude(self, angle_format: AngleFormat) -> float:
+        """Get center latitude with angle format conversion.
+
+        Args:
+            angle_format (AngleFormat): Desired output format (DEGREES or RADIANS)
+
+        Returns:
+            float: Center latitude in specified format
+        """
+        ...
+
+    def lon(self) -> float:
+        """Get center longitude in degrees (quick accessor).
+
+        Returns:
+            float: Center longitude in degrees
+        """
+        ...
+
+    def longitude(self, angle_format: AngleFormat) -> float:
+        """Get center longitude with angle format conversion.
+
+        Args:
+            angle_format (AngleFormat): Desired output format (DEGREES or RADIANS)
+
+        Returns:
+            float: Center longitude in specified format
+        """
+        ...
+
+    def num_vertices(self) -> int:
+        """Get number of unique vertices (excluding closure).
+
+        Returns:
+            int: Number of unique vertices
+        """
+        ...
+
+    def set_id(self, id: int | None) -> Any:
+        """Set the numeric ID (mutating).
+
+        Args:
+            id (int | None): ID to set, or None to clear
+        """
+        ...
+
+    def set_name(self, name: str | None) -> Any:
+        """Set the name (mutating).
+
+        Args:
+            name (str | None): Name to set, or None to clear
+        """
+        ...
+
+    def to_geojson(self) -> dict:
+        """Export to GeoJSON Feature format.
+
+        Returns:
+            dict: GeoJSON Feature object
+        """
+        ...
+
+    def vertices(self) -> np.ndarray:
+        """Get polygon vertices.
+
+        Returns all vertices including the closure vertex (first == last).
+
+        Returns:
+            ndarray: Vertices as Nx3 array [[lon, lat, alt], ...]
+        """
+        ...
+
+    def with_id(self, id: int) -> PolygonLocation:
+        """Set the numeric ID (builder pattern).
+
+        Args:
+            id (int): Numeric identifier
+
+        Returns:
+            PolygonLocation: Self for chaining
+        """
+        ...
+
+    def with_name(self, name: str) -> PolygonLocation:
+        """Set the name (builder pattern).
+
+        Args:
+            name (str): Human-readable name
+
+        Returns:
+            PolygonLocation: Self for chaining
+        """
+        ...
+
+    def with_new_uuid(self) -> PolygonLocation:
+        """Generate a new UUID (builder pattern).
+
+        Returns:
+            PolygonLocation: Self for chaining
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> PolygonLocation:
+        """Set the UUID from a string (builder pattern).
+
+        Args:
+            uuid_str (str): UUID string
+
+        Returns:
+            PolygonLocation: Self for chaining
+
+        Raises:
+            ValueError: If UUID string is invalid
+        """
+        ...
+
+    @property
+    def properties(self) -> PropertiesDict:
+        """Get custom properties dictionary.
+
+        Returns:
+            PropertiesDict: Dictionary-like wrapper for properties that supports assignment
+
+        Example:
+            ```python
+            import brahe as bh
+
+            verts = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]]
+            poly = bh.PolygonLocation(verts)
+
+            # Dict-style assignment
+            poly.properties["region"] = "Test Area"
+            poly.properties["area_km2"] = 123.45
+
+            # Dict-style access
+            print(poly.properties["region"])  # "Test Area"
+
+            # Dict methods
+            if "area_km2" in poly.properties:
+                del poly.properties["area_km2"]
+            ```
+        """
+        ...
+
+class PropertiesDict:
+    """A dictionary-like wrapper for Location properties that supports dict-style assignment.
+
+    This class provides a Pythonic dict interface for accessing and modifying location properties.
+    Changes are automatically synchronized with the underlying Location object.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        loc = bh.PointLocation(15.4, 78.2, 0.0)
+
+        # Dict-style assignment
+        loc.properties["climate"] = "Arctic"
+        loc.properties["country"] = "Norway"
+
+        # Dict-style access
+        climate = loc.properties["climate"]
+
+        # Dict methods work
+        if "country" in loc.properties:
+            print(loc.properties["country"])
+
+        # Iteration
+        for key in loc.properties:
+            print(key, loc.properties[key])
+        ```
+    """
+
+    def __init__(self) -> None:
+        """Initialize instance."""
+        ...
+
+    def __contains__(self, key: str) -> bool:
+        """Return bool(key in self)."""
+        ...
+
+    def __delitem__(self, key: str) -> None:
+        """Delete self[key]."""
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set self[key] to value."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all properties.
+
+        Returns:
+            None
+        """
+        ...
+
+    def get(self, key: str, default: Any = ...) -> Any:
+        """Get property value with optional default.
+
+        Args:
+            key (str): Property name
+            default (optional): Value to return if key not found
+
+        Returns:
+            Any: Property value if key exists, otherwise default value
+        """
+        ...
+
+    def items(self) -> List:
+        """Return a list of (key, value) tuples.
+
+        Returns:
+            List of (key, value) tuples
+        """
+        ...
+
+    def keys(self) -> List:
+        """Return a list of property keys.
+
+        Returns:
+            List of property key strings
+        """
+        ...
+
+    def update(self, other: dict) -> None:
+        """Update properties from another dict.
+
+        Args:
+            other (dict): Dictionary to merge into properties
+
+        Returns:
+            None
+        """
+        ...
+
+    def values(self) -> List:
+        """Return a list of property values.
+
+        Returns:
+            List of property values
+        """
         ...
 
 class Quaternion:
@@ -4196,6 +6830,18 @@ class Quaternion:
             q = bh.Quaternion.from_vector(v, scalar_first=True)
             ```
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def conjugate(self) -> Quaternion:
@@ -4560,6 +7206,18 @@ class RotationMatrix:
         """
         ...
 
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def to_euler_angle(self, order: str) -> EulerAngle:
         """Convert to Euler angle representation.
 
@@ -4705,12 +7363,24 @@ class SGPPropagator:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def current_state(self) -> np.ndarray:
         """Get current state vector.
 
         Returns:
             numpy.ndarray: Current state vector in the propagator's output format.
         """
+        ...
+
+    def generate_uuid(self) -> Any:
+        """Generate a new UUID and set it in-place (mutating)."""
         ...
 
     def get_elements(self, angle_format: AngleFormat) -> np.ndarray:
@@ -4853,6 +7523,34 @@ class SGPPropagator:
         """
         ...
 
+    def set_id(self, id: int or None) -> Any:
+        """Set the numeric ID in-place (mutating).
+
+        Args:
+            id (int or None): Numeric ID to assign, or None to clear.
+        """
+        ...
+
+    def set_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> Any:
+        """Set all identity fields in-place (mutating).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+        """
+        ...
+
+    def set_name(self, name: str or None) -> Any:
+        """Set the name in-place (mutating).
+
+        Args:
+            name (str or None): Name to assign, or None to clear.
+        """
+        ...
+
     def set_output_format(
         self,
         frame: OrbitFrame,
@@ -4989,6 +7687,84 @@ class SGPPropagator:
         """
         ...
 
+    def with_id(self, id: int) -> SGPPropagator:
+        """Set the numeric ID and return self (consuming constructor pattern).
+
+        Args:
+            id (int): Numeric ID to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with ID set.
+        """
+        ...
+
+    def with_identity(
+        self, name: str or None, uuid_str: str or None, id: int or None
+    ) -> SGPPropagator:
+        """Set all identity fields at once and return self (consuming constructor pattern).
+
+        Args:
+            name (str or None): Optional name to assign.
+            uuid_str (str or None): Optional UUID string to assign.
+            id (int or None): Optional numeric ID to assign.
+
+        Returns:
+            SGPPropagator: Self with identity set.
+
+        Example:
+            ```python
+            import brahe as bh
+            import uuid
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            my_uuid = str(uuid.uuid4())
+            prop = bh.SGPPropagator.from_tle(line1, line2).with_identity("ISS", my_uuid, 25544)
+            print(f"Name: {prop.name}, ID: {prop.id}, UUID: {prop.uuid}")
+            ```
+        """
+        ...
+
+    def with_name(self, name: str) -> SGPPropagator:
+        """Set the name and return self (consuming constructor pattern).
+
+        Args:
+            name (str): Name to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with name set.
+
+        Example:
+            ```python
+            import brahe as bh
+
+            line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+            line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+            prop = bh.SGPPropagator.from_tle(line1, line2).with_name("My Satellite")
+            print(f"Name: {prop.name}")
+            ```
+        """
+        ...
+
+    def with_new_uuid(self) -> SGPPropagator:
+        """Generate a new UUID, set it, and return self (consuming constructor pattern).
+
+        Returns:
+            SGPPropagator: Self with new UUID set.
+        """
+        ...
+
+    def with_uuid(self, uuid_str: str) -> SGPPropagator:
+        """Set the UUID and return self (consuming constructor pattern).
+
+        Args:
+            uuid_str (str): UUID string to assign to this propagator.
+
+        Returns:
+            SGPPropagator: Self with UUID set.
+        """
+        ...
+
     @property
     def current_epoch(self) -> Epoch:
         """Get current epoch.
@@ -5015,6 +7791,24 @@ class SGPPropagator:
 
         Returns:
             Epoch: Epoch of the TLE data.
+        """
+        ...
+
+    @property
+    def id(self) -> int:
+        """Get the current numeric ID.
+
+        Returns:
+            int or None: The numeric ID, or None if not set.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the current name.
+
+        Returns:
+            str or None: The name, or None if not set.
         """
         ...
 
@@ -5087,6 +7881,15 @@ class SGPPropagator:
         """
         ...
 
+    @property
+    def uuid(self) -> str:
+        """Get the current UUID.
+
+        Returns:
+            str or None: The UUID as a string, or None if not set.
+        """
+        ...
+
 class STrajectory6:
     """Static-dimension 6D trajectory container.
 
@@ -5131,6 +7934,26 @@ class STrajectory6:
         """
         ...
 
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
         """Add a state to the trajectory.
 
@@ -5152,7 +7975,7 @@ class STrajectory6:
         """
         ...
 
-    def epoch(self, index: int) -> Epoch:
+    def epoch_at_idx(self, index: int) -> Epoch:
         """Get epoch at a specific index
 
         Arguments:
@@ -5170,7 +7993,7 @@ class STrajectory6:
             epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
             state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
             traj.add(epc, state)
-            retrieved_epc = traj.epoch(0)
+            retrieved_epc = traj.epoch_at_idx(0)
             ```
         """
         ...
@@ -5494,29 +8317,6 @@ class STrajectory6:
         """
         ...
 
-    def state(self, index: int) -> np.ndarray:
-        """Get state at a specific index
-
-        Arguments:
-            index (int): Index of the state
-
-        Returns:
-            numpy.ndarray: State vector at index
-
-        Example:
-            ```python
-            import brahe as bh
-            import numpy as np
-
-            traj = bh.DTrajectory(6)
-            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-            traj.add(epc, state)
-            retrieved_state = traj.state(0)
-            ```
-        """
-        ...
-
     def state_after_epoch(self, epoch: Epoch) -> Tuple:
         """Get the state at or after the given epoch.
 
@@ -5537,6 +8337,29 @@ class STrajectory6:
             traj.add(epc1, state)
             epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
             ret_epc, ret_state = traj.state_after_epoch(epc2)
+            ```
+        """
+        ...
+
+    def state_at_idx(self, index: int) -> np.ndarray:
+        """Get state at a specific index
+
+        Arguments:
+            index (int): Index of the state
+
+        Returns:
+            numpy.ndarray: State vector at index
+
+        Example:
+            ```python
+            import brahe as bh
+            import numpy as np
+
+            traj = bh.DTrajectory(6)
+            epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+            state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+            traj.add(epc, state)
+            retrieved_state = traj.state_at_idx(0)
             ```
         """
         ...
@@ -5740,6 +8563,14 @@ class StaticEOPProvider:
             bh.set_global_eop_provider_from_static_provider(eop)
             ```
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def eop_type(self) -> str:
@@ -6011,6 +8842,18 @@ class TimeRange:
         """Initialize instance."""
         ...
 
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
 class TimeSystem:
     """Enumeration of supported time systems.
 
@@ -6020,6 +8863,14 @@ class TimeSystem:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -6758,6 +9609,139 @@ def get_global_ut1_utc(mjd: float) -> float:
     """
     ...
 
+def get_max_threads() -> int:
+    """Get the current maximum number of threads for parallel computation.
+
+    Returns the number of threads configured for the global thread pool.
+    If the thread pool hasn't been initialized yet, this initializes it
+    with the default (90% of available cores) and returns that value.
+
+    Returns:
+        int: Number of threads currently configured.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Get default thread count (90% of cores)
+        threads = bh.get_max_threads()
+        print(f"Using {threads} threads")
+
+        # Or set explicitly first
+        bh.set_max_threads(4)
+        assert bh.get_max_threads() == 4
+        ```
+
+    Note:
+        Calling this function will initialize the thread pool with default
+        settings if it hasn't been initialized yet. After that, set_max_threads()
+        can no longer be called.
+    """
+    ...
+
+def groundstations_list_providers() -> list[str]:
+    """Get list of available groundstation providers
+
+    Returns:
+        list[str]: List of provider names that can be used with load().
+
+    Example:
+        ```python
+        import brahe as bh
+
+        providers = bh.datasets.groundstations.list_providers()
+        print(f"Available: {', '.join(providers)}")
+        ```
+    """
+    ...
+
+def groundstations_load(provider: str) -> list[PointLocation]:
+    """Load groundstation locations for a specific provider
+
+    Loads groundstation locations from embedded data. The data is compiled into
+    the binary and does not require external files or internet connection.
+
+    Args:
+        provider (str): Provider name (case-insensitive). Available providers:
+            - "atlas": Atlas Space Operations
+            - "aws": Amazon Web Services Ground Station
+            - "ksat": Kongsberg Satellite Services
+            - "leaf": Leaf Space
+            - "ssc": Swedish Space Corporation
+            - "viasat": Viasat
+
+    Returns:
+        list[PointLocation]: List of PointLocation objects with properties:
+            - name: Groundstation name
+            - provider: Provider name
+            - frequency_bands: List of supported frequency bands
+
+    Raises:
+        RuntimeError: If provider is unknown or data cannot be loaded.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Load KSAT groundstations
+        ksat_stations = bh.datasets.groundstations.load("ksat")
+
+        for station in ksat_stations:
+            print(f"{station.name}: ({station.lon():.2f}, {station.lat():.2f})")
+
+        # Check properties
+        props = ksat_stations[0].properties()
+        print(f"Frequency bands: {props['frequency_bands']}")
+        ```
+    """
+    ...
+
+def groundstations_load_all() -> list[PointLocation]:
+    """Load all groundstations from all providers
+
+    Convenience function to load groundstations from all available providers.
+
+    Returns:
+        list[PointLocation]: Combined list of all groundstations.
+
+    Raises:
+        RuntimeError: If no groundstations can be loaded.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        all_stations = bh.datasets.groundstations.load_all()
+        print(f"Loaded {len(all_stations)} total groundstations")
+        ```
+    """
+    ...
+
+def groundstations_load_from_file(filepath: str) -> list[PointLocation]:
+    """Load groundstations from a custom GeoJSON file
+
+    Loads groundstation locations from a user-provided GeoJSON file.
+    The file must be a FeatureCollection with Point geometries.
+
+    Args:
+        filepath (str): Path to GeoJSON file.
+
+    Returns:
+        list[PointLocation]: List of PointLocation objects.
+
+    Raises:
+        RuntimeError: If file cannot be read or parsed.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Load custom groundstations
+        stations = bh.datasets.groundstations.load_from_file("my_stations.geojson")
+        ```
+    """
+    ...
+
 def jd_to_datetime(jd: float) -> Tuple:
     """Convert a Julian Date to the equivalent Gregorian calendar date.
 
@@ -6818,6 +9802,88 @@ def keplerian_elements_to_tle(
 
     Returns:
         tuple: A tuple containing (line1, line2) - the two TLE lines as strings.
+    """
+    ...
+
+def location_accesses(
+    locations: PointLocation | PolygonLocation | List[PointLocation | PolygonLocation],
+    propagators: SGPPropagator
+    | KeplerianPropagator
+    | List[SGPPropagator | KeplerianPropagator],
+    search_start: Epoch,
+    search_end: Epoch,
+    constraint: Union[
+        ElevationConstraint,
+        OffNadirConstraint,
+        LocalTimeConstraint,
+        LookDirectionConstraint,
+        AscDscConstraint,
+        ElevationMaskConstraint,
+        ConstraintAll,
+        ConstraintAny,
+        ConstraintNot,
+    ],
+    property_computers: [List[AccessPropertyComputer]] = ...,
+    config: [AccessSearchConfig] = ...,
+    time_tolerance: [float] = ...,
+) -> List[AccessWindow]:
+    """Compute access windows for locations and satellites.
+
+    This function accepts either single items or lists for both locations and propagators,
+    automatically handling all combinations. All location-satellite pairs are computed
+    and results are returned sorted by window start time.
+
+    Args:
+        locations (PointLocation | PolygonLocation | List[PointLocation | PolygonLocation]):
+            Single location or list of locations
+        propagators (SGPPropagator | KeplerianPropagator | List[SGPPropagator | KeplerianPropagator]):
+            Single propagator or list of propagators
+        search_start (Epoch): Start of search window
+        search_end (Epoch): End of search window
+        constraint (AccessConstraint): Access constraints to evaluate
+        property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
+        config (Optional[AccessSearchConfig]): Search configuration (default: 60s fixed grid, no adaptation)
+        time_tolerance (Optional[float]): Bisection search tolerance in seconds (default: 0.01)
+
+    Returns:
+        List[AccessWindow]: List of access windows sorted by start time
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Create a ground station
+        station = bh.PointLocation(-75.0, 40.0, 0.0)  # Philadelphia
+
+        # Create satellite propagators
+        epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+        oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+        state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+        prop1 = bh.KeplerianPropagator(epoch, state)
+
+        # Define access constraints
+        constraint = bh.ElevationConstraint(10.0)  # 10 degree minimum elevation
+
+        # Single location, single propagator
+        search_end = epoch + 86400.0  # 1 day
+        windows = bh.location_accesses(station, prop1, epoch, search_end, constraint)
+
+        # Single location, multiple propagators
+        prop2 = bh.KeplerianPropagator(epoch, state)  # Different satellite
+        windows = bh.location_accesses(station, [prop1, prop2], epoch, search_end, constraint)
+
+        # Multiple locations, single propagator
+        station2 = bh.PointLocation(-122.0, 37.0, 0.0)  # San Francisco
+        windows = bh.location_accesses([station, station2], prop1, epoch, search_end, constraint)
+
+        # Multiple locations, multiple propagators
+        windows = bh.location_accesses([station, station2], [prop1, prop2], epoch, search_end, constraint)
+
+        # Custom search configuration
+        config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True)
+        windows = bh.location_accesses(station, prop1, epoch, search_end, constraint, config=config)
+        ```
     """
     ...
 
@@ -6934,6 +10000,36 @@ def orbital_period(a: float) -> Any:
         a = bh.R_EARTH + 400e3
         period = bh.orbital_period(a)
         print(f"Orbital period: {period/60:.2f} minutes")
+        ```
+    """
+    ...
+
+def orbital_period_from_state(state_eci: np.ndarray, gm: float) -> float:
+    """Computes orbital period from an ECI state vector using the vis-viva equation.
+
+    This function uses the vis-viva equation to compute the semi-major axis from the
+    position and velocity, then calculates the orbital period.
+
+    Args:
+        state_eci (np.ndarray): ECI state vector [x, y, z, vx, vy, vz] in meters and meters/second.
+        gm (float): Gravitational parameter in m³/s². Use GM_EARTH for Earth orbits.
+
+    Returns:
+        float: Orbital period in seconds.
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Create a circular orbit state at 500 km altitude
+        r = bh.R_EARTH + 500e3
+        v = np.sqrt(bh.GM_EARTH / r)
+        state_eci = np.array([r, 0, 0, 0, v, 0])
+
+        # Compute orbital period from state
+        period = bh.orbital_period_from_state(state_eci, bh.GM_EARTH)
+        print(f"Period: {period/60:.2f} minutes")
         ```
     """
     ...
@@ -7728,6 +10824,38 @@ def set_global_eop_provider_from_static_provider(provider: StaticEOPProvider) ->
         provider = bh.StaticEOPProvider.from_zero()
         bh.set_global_eop_provider_from_static_provider(provider)
         ```
+    """
+    ...
+
+def set_max_threads(n: int) -> Any:
+    """Set the maximum number of threads for parallel access computation.
+
+    Configures the global thread pool used by Brahe for parallel operations.
+    Must be called before any parallel operations begin, otherwise the default
+    (90% of available cores) will be used.
+
+    Args:
+        n (int): Number of threads to use. Must be at least 1.
+
+    Raises:
+        RuntimeError: If called after the thread pool has already been initialized,
+            or if n < 1.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Use 4 threads for all parallel access computations
+        bh.set_max_threads(4)
+
+        # Now all location_accesses calls will use 4 threads
+        # (unless overridden with AccessSearchConfig.num_threads)
+        ```
+
+    Note:
+        This function should be called early in your program, before any
+        access computations are performed. Once the thread pool is initialized,
+        it cannot be changed.
     """
     ...
 

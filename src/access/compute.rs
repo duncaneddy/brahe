@@ -13,6 +13,8 @@ use crate::access::properties::AccessPropertyComputer;
 use crate::access::windows::{AccessSearchConfig, AccessWindow, find_access_windows};
 use crate::orbits::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
+use crate::utils::threading::get_thread_pool;
+use rayon::prelude::*;
 
 // ================================
 // Conversion Traits for Ergonomic API
@@ -74,6 +76,103 @@ impl<P: IdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
     fn to_refs(&self) -> Vec<&P> {
         self.iter().collect()
     }
+}
+
+// ================================
+// Internal Computation Functions
+// ================================
+
+/// Sequential access computation (for debugging or single-threaded operation)
+#[allow(clippy::too_many_arguments)]
+fn compute_accesses_sequential<L, P>(
+    locations: &[&L],
+    propagators: &[&P],
+    search_start: Epoch,
+    search_end: Epoch,
+    constraint: &dyn AccessConstraint,
+    property_computers: Option<&[&dyn AccessPropertyComputer]>,
+    search_config: &AccessSearchConfig,
+    time_tolerance: Option<f64>,
+) -> Vec<AccessWindow>
+where
+    L: AccessibleLocation,
+    P: IdentifiableStateProvider,
+{
+    let mut all_windows = Vec::new();
+
+    for location in locations {
+        for propagator in propagators {
+            let mut windows = find_access_windows(
+                *location,
+                *propagator,
+                search_start,
+                search_end,
+                constraint,
+                property_computers,
+                Some(search_config.initial_time_step),
+                time_tolerance,
+            );
+            all_windows.append(&mut windows);
+        }
+    }
+
+    // Sort by window start time
+    all_windows.sort_by(|a, b| {
+        a.window_open
+            .partial_cmp(&b.window_open)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    all_windows
+}
+
+/// Parallel access computation using rayon
+#[allow(clippy::too_many_arguments)]
+fn compute_accesses_parallel<L, P>(
+    locations: &[&L],
+    propagators: &[&P],
+    search_start: Epoch,
+    search_end: Epoch,
+    constraint: &dyn AccessConstraint,
+    property_computers: Option<&[&dyn AccessPropertyComputer]>,
+    search_config: &AccessSearchConfig,
+    time_tolerance: Option<f64>,
+) -> Vec<AccessWindow>
+where
+    L: AccessibleLocation + Sync,
+    P: IdentifiableStateProvider + Sync,
+{
+    // Create all location-propagator pairs
+    let pairs: Vec<(&L, &P)> = locations
+        .iter()
+        .flat_map(|loc| propagators.iter().map(move |prop| (*loc, *prop)))
+        .collect();
+
+    // Compute windows in parallel
+    let mut all_windows: Vec<AccessWindow> = pairs
+        .par_iter()
+        .flat_map(|(location, propagator)| {
+            find_access_windows(
+                *location,
+                *propagator,
+                search_start,
+                search_end,
+                constraint,
+                property_computers,
+                Some(search_config.initial_time_step),
+                time_tolerance,
+            )
+        })
+        .collect();
+
+    // Sort by window start time
+    all_windows.sort_by(|a, b| {
+        a.window_open
+            .partial_cmp(&b.window_open)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    all_windows
 }
 
 // ================================
@@ -174,8 +273,8 @@ pub fn location_accesses<L, P, Locs, Props>(
     time_tolerance: Option<f64>,
 ) -> Vec<AccessWindow>
 where
-    L: AccessibleLocation,
-    P: IdentifiableStateProvider,
+    L: AccessibleLocation + Sync,
+    P: IdentifiableStateProvider + Sync,
     Locs: ToLocationRefs<L> + ?Sized,
     Props: ToPropagatorRefs<P> + ?Sized,
 {
@@ -185,32 +284,56 @@ where
     let prop_refs = propagators.to_refs();
 
     // Process all location-propagator combinations
-    let mut all_windows = Vec::new();
 
-    for location in &loc_refs {
-        for propagator in &prop_refs {
-            let mut windows = find_access_windows(
-                *location,
-                *propagator,
-                search_start,
-                search_end,
-                constraint,
-                property_computers,
-                Some(search_config.initial_time_step),
-                time_tolerance,
-            );
-            all_windows.append(&mut windows);
+    if search_config.parallel {
+        // Parallel computation using rayon
+        if let Some(n_threads) = search_config.num_threads {
+            // Use custom thread pool with specific thread count
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(n_threads)
+                .build()
+                .expect("Failed to build thread pool");
+
+            pool.install(|| {
+                compute_accesses_parallel(
+                    &loc_refs,
+                    &prop_refs,
+                    search_start,
+                    search_end,
+                    constraint,
+                    property_computers,
+                    &search_config,
+                    time_tolerance,
+                )
+            })
+        } else {
+            // Use global thread pool (default: 90% of cores)
+            get_thread_pool().install(|| {
+                compute_accesses_parallel(
+                    &loc_refs,
+                    &prop_refs,
+                    search_start,
+                    search_end,
+                    constraint,
+                    property_computers,
+                    &search_config,
+                    time_tolerance,
+                )
+            })
         }
+    } else {
+        // Sequential computation
+        compute_accesses_sequential(
+            &loc_refs,
+            &prop_refs,
+            search_start,
+            search_end,
+            constraint,
+            property_computers,
+            &search_config,
+            time_tolerance,
+        )
     }
-
-    // Sort by window start time
-    all_windows.sort_by(|a, b| {
-        a.window_open
-            .partial_cmp(&b.window_open)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
-    all_windows
 }
 
 // ================================
@@ -257,6 +380,8 @@ mod tests {
             initial_time_step: 60.0,
             adaptive_step: false,
             adaptive_fraction: 0.75,
+            parallel: true,
+            num_threads: None,
         };
 
         let windows = location_accesses(
@@ -340,6 +465,8 @@ mod tests {
             initial_time_step: 60.0,
             adaptive_step: false,
             adaptive_fraction: 0.75,
+            parallel: true,
+            num_threads: None,
         };
 
         let windows = location_accesses(
@@ -387,6 +514,8 @@ mod tests {
             initial_time_step: 60.0,
             adaptive_step: false,
             adaptive_fraction: 0.75,
+            parallel: true,
+            num_threads: None,
         };
 
         let windows = location_accesses(
@@ -452,6 +581,8 @@ mod tests {
             initial_time_step: 60.0,
             adaptive_step: false,
             adaptive_fraction: 0.75,
+            parallel: true,
+            num_threads: None,
         };
 
         let windows = location_accesses(

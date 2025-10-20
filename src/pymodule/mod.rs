@@ -109,6 +109,7 @@ include!("orbits.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
+include!("utils.rs");
 
 // Define Module
 
@@ -394,9 +395,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyAccessSearchConfig>()?;
     module.add_class::<PyAdditionalPropertiesDict>()?;
     module.add_class::<PyAccessPropertyComputer>()?;
+    module.add_class::<PyAccessConstraintComputer>()?;
 
     // Access Computation
     module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
+
+    // Threading
+    module.add_function(wrap_pyfunction!(py_set_max_threads, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_max_threads, module)?)?;
 
     Ok(())
 }

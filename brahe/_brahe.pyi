@@ -1,6 +1,6 @@
 """Type stubs for brahe._brahe module - AUTO-GENERATED"""
 
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Tuple, Optional, Union
 import numpy as np
 
 # Classes
@@ -43,6 +43,14 @@ class AccessProperties:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -146,12 +154,12 @@ class AccessPropertyComputer:
         class DopplerComputer(bh.AccessPropertyComputer):
             '''Computes Doppler shift at window midtime.'''
 
-            def compute(self, window, satellite_state_ecef, location_ecef):
+            def compute(self, window: bh.AccessWindow, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> dict:
                 '''
                 Args:
-                    window: AccessWindow with timing information
-                    satellite_state_ecef: Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
-                    location_ecef: Location position [x,y,z] in ECEF (m)
+                    window (AccessWindow): AccessWindow with timing information
+                    satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+                    location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
 
                 Returns:
                     dict: Property name -> value
@@ -174,7 +182,7 @@ class AccessPropertyComputer:
 
                 return {"doppler_shift": doppler_hz}
 
-            def property_names(self):
+            def property_names(self) -> list:
                 '''Return list of property names this computer produces.'''
                 return ["doppler_shift"]
 
@@ -193,8 +201,21 @@ class AccessPropertyComputer:
           - `window.duration()`: Duration in seconds
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        window: AccessWindow,
+        satellite_state_ecef: np.ndarray,
+        location_ecef: np.ndarray,
+    ) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def compute(
@@ -263,6 +284,14 @@ class AccessSearchConfig:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     @property
     def adaptive_fraction(self) -> float:
         """Get the adaptive fraction (fraction of orbital period).
@@ -287,6 +316,24 @@ class AccessSearchConfig:
 
         Returns:
             float: Initial time step
+        """
+        ...
+
+    @property
+    def num_threads(self) -> Optional[int]:
+        """Get the number of threads for parallel computation.
+
+        Returns:
+            Optional[int]: Number of threads, or None to use global setting
+        """
+        ...
+
+    @property
+    def parallel(self) -> bool:
+        """Get whether parallel computation is enabled.
+
+        Returns:
+            bool: Parallel computation flag (default: True)
         """
         ...
 
@@ -317,6 +364,14 @@ class AccessWindow:
 
     def __init__(self, window_open: Epoch, window_close: Epoch) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -554,28 +609,91 @@ class AdditionalPropertiesDict:
         """Initialize instance."""
         ...
 
-    def clear(self) -> Any:
-        """Remove all properties."""
+    def __contains__(self, key: str) -> bool:
+        """Return bool(key in self)."""
         ...
 
-    def get(self) -> Any:
-        """Get property value with optional default."""
+    def __delitem__(self, key: str) -> None:
+        """Delete self[key]."""
         ...
 
-    def items(self) -> Any:
-        """Return a list of (key, value) tuples."""
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
         ...
 
-    def keys(self) -> Any:
-        """Return a list of property keys."""
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
         ...
 
-    def update(self) -> Tuple[int, ...]:
-        """Update properties from another dict."""
+    def __len__(self) -> int:
+        """Return len(self)."""
         ...
 
-    def values(self) -> Any:
-        """Return a list of property values."""
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set self[key] to value."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all properties.
+
+        Returns:
+            None
+        """
+        ...
+
+    def get(self, key: str, default: Any = ...) -> Any:
+        """Get property value with optional default.
+
+        Args:
+            key (str): Property name
+            default (optional): Value to return if key not found
+
+        Returns:
+            Any: Property value if key exists, otherwise default value
+        """
+        ...
+
+    def items(self) -> List:
+        """Return a list of (key, value) tuples.
+
+        Returns:
+            List of (key, value) tuples
+        """
+        ...
+
+    def keys(self) -> List:
+        """Return a list of property keys.
+
+        Returns:
+            List of property key strings
+        """
+        ...
+
+    def update(self, other: dict) -> None:
+        """Update properties from another dict.
+
+        Args:
+            other (dict): Dictionary to merge into properties
+
+        Returns:
+            None
+        """
+        ...
+
+    def values(self) -> List:
+        """Return a list of property values.
+
+        Returns:
+            List of property values
+        """
         ...
 
 class AngleFormat:
@@ -583,6 +701,14 @@ class AngleFormat:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -633,6 +759,14 @@ class AscDsc:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -774,6 +908,14 @@ class AscDscConstraint:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -858,6 +1000,14 @@ class CachingEOPProvider:
         extrapolate: str,
     ) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def eop_type(self) -> str:
@@ -1084,6 +1234,14 @@ class ConstraintAll:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -1126,6 +1284,14 @@ class ConstraintAny:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -1165,6 +1331,14 @@ class ConstraintNot:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def evaluate(
@@ -1216,6 +1390,26 @@ class DTrajectory:
         Returns:
             DTrajectory: New trajectory instance populated with data
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
@@ -1818,6 +2012,14 @@ class ElevationConstraint:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -1868,6 +2070,14 @@ class ElevationMaskConstraint:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -1895,6 +2105,14 @@ class EllipsoidalConversionType:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -2239,6 +2457,14 @@ class Epoch:
             # Output: TimeSystem.TAI
             ```
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def day(self) -> int:
@@ -2770,6 +2996,14 @@ class EulerAngle:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def to_euler_angle(self, order: str) -> EulerAngle:
         """Convert to Euler angles with different rotation sequence.
 
@@ -3069,6 +3303,18 @@ class EulerAxis:
             e = bh.EulerAxis.from_vector(v, bh.AngleFormat.RADIANS, True)
             ```
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def to_euler_angle(self, order: str) -> EulerAngle:
@@ -3376,6 +3622,14 @@ class FileEOPProvider:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def eop_type(self) -> str:
         """Get the EOP data type.
 
@@ -3632,6 +3886,14 @@ class InterpolationMethod:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     @property
     def LINEAR(self) -> Any:
         """Python bindings for the new trajectory architecture
@@ -3735,6 +3997,14 @@ class KeplerianPropagator:
         Returns:
             KeplerianPropagator: New propagator instance.
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def current_state(self) -> np.ndarray:
@@ -4286,6 +4556,14 @@ class LocalTimeConstraint:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -4337,6 +4615,14 @@ class LookDirection:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -4460,6 +4746,14 @@ class LookDirectionConstraint:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -4510,6 +4804,14 @@ class OffNadirConstraint:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def evaluate(
         self, epoch: Epoch, sat_state_ecef: np.ndarray, location_ecef: np.ndarray
     ) -> bool:
@@ -4537,6 +4839,14 @@ class OrbitFrame:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def name(self) -> str:
@@ -4571,6 +4881,14 @@ class OrbitRepresentation:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -4632,6 +4950,26 @@ class OrbitTrajectory:
         Returns:
             OrbitTrajectory: New trajectory instance populated with data
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
@@ -5574,6 +5912,14 @@ class PanicException:
         """Initialize instance."""
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def add_note(self) -> Any:
         """Exception.add_note(note) --
         add a note to the exception
@@ -5660,6 +6006,14 @@ class PointLocation:
             location = bh.PointLocation.from_geojson(geojson)
             ```
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add_property(self, key: str) -> PointLocation:
@@ -5979,6 +6333,14 @@ class PolygonLocation:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def add_property(self, key: str) -> PolygonLocation:
         """Add a custom property (builder pattern).
 
@@ -6236,28 +6598,91 @@ class PropertiesDict:
         """Initialize instance."""
         ...
 
-    def clear(self) -> Any:
-        """Remove all properties."""
+    def __contains__(self, key: str) -> bool:
+        """Return bool(key in self)."""
         ...
 
-    def get(self) -> Any:
-        """Get property value with optional default."""
+    def __delitem__(self, key: str) -> None:
+        """Delete self[key]."""
         ...
 
-    def items(self) -> Any:
-        """Return a list of (key, value) tuples."""
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
         ...
 
-    def keys(self) -> Any:
-        """Return a list of property keys."""
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
         ...
 
-    def update(self) -> Tuple[int, ...]:
-        """Update properties from another dict."""
+    def __len__(self) -> int:
+        """Return len(self)."""
         ...
 
-    def values(self) -> Any:
-        """Return a list of property values."""
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set self[key] to value."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all properties.
+
+        Returns:
+            None
+        """
+        ...
+
+    def get(self, key: str, default: Any = ...) -> Any:
+        """Get property value with optional default.
+
+        Args:
+            key (str): Property name
+            default (optional): Value to return if key not found
+
+        Returns:
+            Any: Property value if key exists, otherwise default value
+        """
+        ...
+
+    def items(self) -> List:
+        """Return a list of (key, value) tuples.
+
+        Returns:
+            List of (key, value) tuples
+        """
+        ...
+
+    def keys(self) -> List:
+        """Return a list of property keys.
+
+        Returns:
+            List of property key strings
+        """
+        ...
+
+    def update(self, other: dict) -> None:
+        """Update properties from another dict.
+
+        Args:
+            other (dict): Dictionary to merge into properties
+
+        Returns:
+            None
+        """
+        ...
+
+    def values(self) -> List:
+        """Return a list of property values.
+
+        Returns:
+            List of property values
+        """
         ...
 
 class Quaternion:
@@ -6405,6 +6830,18 @@ class Quaternion:
             q = bh.Quaternion.from_vector(v, scalar_first=True)
             ```
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def conjugate(self) -> Quaternion:
@@ -6769,6 +7206,18 @@ class RotationMatrix:
         """
         ...
 
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def to_euler_angle(self, order: str) -> EulerAngle:
         """Convert to Euler angle representation.
 
@@ -6912,6 +7361,14 @@ class SGPPropagator:
         Returns:
             SGPPropagator: New SGP propagator instance.
         """
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def current_state(self) -> np.ndarray:
@@ -7475,6 +7932,26 @@ class STrajectory6:
             traj = bh.STrajectory6.from_data([epc1, epc2], states)
             ```
         """
+        ...
+
+    def __getitem__(self, key: str) -> Any:
+        """Return self[key]."""
+        ...
+
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __len__(self) -> int:
+        """Return len(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     def add(self, epoch: Epoch, state: np.ndarray) -> Any:
@@ -8088,6 +8565,14 @@ class StaticEOPProvider:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
     def eop_type(self) -> str:
         """Get the EOP data type.
 
@@ -8357,6 +8842,18 @@ class TimeRange:
         """Initialize instance."""
         ...
 
+    def __iter__(self) -> Any:
+        """Implement iter(self)."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        ...
+
 class TimeSystem:
     """Enumeration of supported time systems.
 
@@ -8366,6 +8863,14 @@ class TimeSystem:
 
     def __init__(self) -> None:
         """Initialize instance."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+    def __str__(self) -> str:
+        """Return str(self)."""
         ...
 
     @property
@@ -9104,6 +9609,36 @@ def get_global_ut1_utc(mjd: float) -> float:
     """
     ...
 
+def get_max_threads() -> int:
+    """Get the current maximum number of threads for parallel computation.
+
+    Returns the number of threads configured for the global thread pool.
+    If the thread pool hasn't been initialized yet, this initializes it
+    with the default (90% of available cores) and returns that value.
+
+    Returns:
+        int: Number of threads currently configured.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Get default thread count (90% of cores)
+        threads = bh.get_max_threads()
+        print(f"Using {threads} threads")
+
+        # Or set explicitly first
+        bh.set_max_threads(4)
+        assert bh.get_max_threads() == 4
+        ```
+
+    Note:
+        Calling this function will initialize the thread pool with default
+        settings if it hasn't been initialized yet. After that, set_max_threads()
+        can no longer be called.
+    """
+    ...
+
 def groundstations_list_providers() -> list[str]:
     """Get list of available groundstation providers
 
@@ -9277,15 +9812,17 @@ def location_accesses(
     | List[SGPPropagator | KeplerianPropagator],
     search_start: Epoch,
     search_end: Epoch,
-    constraint: ElevationConstraint
-    | OffNadirConstraint
-    | LocalTimeConstraint
-    | LookDirectionConstraint
-    | AscDscConstraint
-    | ElevationMaskConstraint
-    | ConstraintAll
-    | ConstraintAny
-    | ConstraintNot,
+    constraint: Union[
+        ElevationConstraint,
+        OffNadirConstraint,
+        LocalTimeConstraint,
+        LookDirectionConstraint,
+        AscDscConstraint,
+        ElevationMaskConstraint,
+        ConstraintAll,
+        ConstraintAny,
+        ConstraintNot,
+    ],
     property_computers: [List[AccessPropertyComputer]] = ...,
     config: [AccessSearchConfig] = ...,
     time_tolerance: [float] = ...,
@@ -10287,6 +10824,38 @@ def set_global_eop_provider_from_static_provider(provider: StaticEOPProvider) ->
         provider = bh.StaticEOPProvider.from_zero()
         bh.set_global_eop_provider_from_static_provider(provider)
         ```
+    """
+    ...
+
+def set_max_threads(n: int) -> Any:
+    """Set the maximum number of threads for parallel access computation.
+
+    Configures the global thread pool used by Brahe for parallel operations.
+    Must be called before any parallel operations begin, otherwise the default
+    (90% of available cores) will be used.
+
+    Args:
+        n (int): Number of threads to use. Must be at least 1.
+
+    Raises:
+        RuntimeError: If called after the thread pool has already been initialized,
+            or if n < 1.
+
+    Example:
+        ```python
+        import brahe as bh
+
+        # Use 4 threads for all parallel access computations
+        bh.set_max_threads(4)
+
+        # Now all location_accesses calls will use 4 threads
+        # (unless overridden with AccessSearchConfig.num_threads)
+        ```
+
+    Note:
+        This function should be called early in your program, before any
+        access computations are performed. Once the thread pool is initialized,
+        it cannot be changed.
     """
     ...
 

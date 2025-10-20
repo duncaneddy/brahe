@@ -22,9 +22,9 @@ class TestPointLocationBasic:
         """Test creating a new point location."""
         loc = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0)
 
-        assert loc.lon() == 15.4
-        assert loc.lat() == 78.2
-        assert loc.alt() == 0.0
+        assert loc.lon == 15.4
+        assert loc.lat == 78.2
+        assert loc.alt == 0.0
 
         # ECEF should be computed
         ecef = loc.center_ecef()
@@ -33,7 +33,7 @@ class TestPointLocationBasic:
     def test_point_location_default_altitude(self):
         """Test that altitude defaults to 0.0."""
         loc = bh.PointLocation(lon=15.4, lat=78.2)
-        assert loc.alt() == 0.0
+        assert loc.alt == 0.0
 
     def test_point_location_identifiable(self):
         """Test Identifiable trait methods."""
@@ -77,9 +77,9 @@ class TestPointLocationCoordinates:
         loc = bh.PointLocation(lon=15.4, lat=78.2, alt=500.0)
 
         # Quick accessors (always degrees/meters)
-        assert loc.lon() == 15.4
-        assert loc.lat() == 78.2
-        assert loc.alt() == 500.0
+        assert loc.lon == 15.4
+        assert loc.lat == 78.2
+        assert loc.alt == 500.0
         assert loc.altitude() == 500.0
 
     def test_coordinate_accessors_format_aware(self):
@@ -168,9 +168,9 @@ class TestPointLocationGeoJSON:
         }
 
         loc = bh.PointLocation.from_geojson(geojson)
-        assert loc.lon() == 15.4
-        assert loc.lat() == 78.2
-        assert loc.alt() == 0.0  # Default altitude
+        assert loc.lon == 15.4
+        assert loc.lat == 78.2
+        assert loc.alt == 0.0  # Default altitude
 
     def test_from_geojson_with_altitude(self):
         """Test creating from GeoJSON with altitude."""
@@ -181,7 +181,7 @@ class TestPointLocationGeoJSON:
         }
 
         loc = bh.PointLocation.from_geojson(geojson)
-        assert loc.alt() == 500.0
+        assert loc.alt == 500.0
 
     def test_from_geojson_with_properties(self):
         """Test creating from GeoJSON with properties."""
@@ -206,9 +206,9 @@ class TestPointLocationGeoJSON:
         geojson = original.to_geojson()
         reconstructed = bh.PointLocation.from_geojson(geojson)
 
-        assert reconstructed.lon() == 15.4
-        assert reconstructed.lat() == 78.2
-        assert reconstructed.alt() == 100.0
+        assert reconstructed.lon == 15.4
+        assert reconstructed.lat == 78.2
+        assert reconstructed.alt == 100.0
         assert reconstructed.get_name() == "Svalbard"
         assert reconstructed.properties["country"] == "Norway"
 
@@ -317,8 +317,8 @@ class TestPolygonLocationBasic:
 
         poly = bh.PolygonLocation(vertices)
 
-        assert poly.num_vertices() == 4
-        verts = poly.vertices()
+        assert poly.num_vertices == 4
+        verts = poly.vertices
         assert verts.shape == (5, 3)  # Including closure
 
         # Check centroid
@@ -339,7 +339,7 @@ class TestPolygonLocationBasic:
         poly = bh.PolygonLocation(vertices)
 
         # Should auto-close
-        verts = poly.vertices()
+        verts = poly.vertices
         assert verts.shape[0] == 5
         assert np.allclose(verts[0], verts[4])
 
@@ -374,9 +374,9 @@ class TestPolygonLocationCoordinates:
         poly = bh.PolygonLocation(vertices)
 
         # Center should be centroid
-        assert poly.lon() == pytest.approx(10.5, abs=0.01)
-        assert poly.lat() == pytest.approx(50.5, abs=0.01)
-        assert poly.alt() == pytest.approx(100.0, abs=0.01)
+        assert poly.lon == pytest.approx(10.5, abs=0.01)
+        assert poly.lat == pytest.approx(50.5, abs=0.01)
+        assert poly.alt == pytest.approx(100.0, abs=0.01)
         assert poly.altitude() == pytest.approx(100.0, abs=0.01)
 
     def test_coordinate_accessors_format_aware(self):
@@ -414,7 +414,7 @@ class TestPolygonLocationCoordinates:
         poly = bh.PolygonLocation(vertices)
 
         # Test vertices() getter
-        verts = poly.vertices()
+        verts = poly.vertices
         assert verts.shape == (5, 3)
         assert np.allclose(verts[0], [10.0, 50.0, 0.0])
         assert np.allclose(verts[4], [10.0, 50.0, 0.0])
@@ -432,7 +432,7 @@ class TestPolygonLocationCoordinates:
         poly = bh.PolygonLocation(vertices)
 
         # Should exclude the closure vertex
-        assert poly.num_vertices() == 4
+        assert poly.num_vertices == 4
 
     def test_center_geodetic(self):
         """Test center_geodetic() method."""
@@ -553,7 +553,7 @@ class TestPolygonLocationGeoJSON:
         }
 
         poly = bh.PolygonLocation.from_geojson(geojson)
-        assert poly.num_vertices() == 4
+        assert poly.num_vertices == 4
 
     def test_from_geojson_with_altitude(self):
         """Test creating from GeoJSON with altitude."""
@@ -575,7 +575,7 @@ class TestPolygonLocationGeoJSON:
         }
 
         poly = bh.PolygonLocation.from_geojson(geojson)
-        assert poly.alt() == pytest.approx(100.0, abs=0.01)
+        assert poly.alt == pytest.approx(100.0, abs=0.01)
 
     def test_geojson_roundtrip(self):
         """Test GeoJSON round-trip preserves data."""
@@ -596,7 +596,7 @@ class TestPolygonLocationGeoJSON:
         geojson = original.to_geojson()
         reconstructed = bh.PolygonLocation.from_geojson(geojson)
 
-        assert reconstructed.num_vertices() == 4
+        assert reconstructed.num_vertices == 4
         assert reconstructed.get_name() == "AOI-1"
         assert reconstructed.properties["region"] == "Europe"
 

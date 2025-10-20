@@ -14,6 +14,7 @@ locations or imaging targets. Key features include:
 - Look direction constraints (left/right looking)
 - Ascending/descending pass constraints
 - Constraint composition (AND/OR/NOT logic)
+- Custom constraint computers (user-defined constraint logic)
 
 **Enums:**
 - LookDirection: Left, Right, or Either relative to velocity vector
@@ -45,8 +46,12 @@ from brahe._brahe import (
     AccessSearchConfig,
     # Property Computers
     AccessPropertyComputer,
+    AccessConstraintComputer,
     # Access Computation
     location_accesses,
+    # Threading
+    set_max_threads,
+    get_max_threads,
 )
 
 __all__ = [
@@ -74,6 +79,10 @@ __all__ = [
     "AccessSearchConfig",
     # Property Computers
     "AccessPropertyComputer",
+    "AccessConstraintComputer",
     # Access Computation
     "location_accesses",
+    # Threading
+    "set_max_threads",
+    "get_max_threads",
 ]

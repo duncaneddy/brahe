@@ -67,7 +67,7 @@ print(f"Inclination: {i:.2f} deg")  # Already in degrees
 
 ### Save as Plain Text
 
-Standard TLE format for compatibility with other tools:
+Use standard TLE format for compatibility with other tools:
 
 ```python
 # Download and save GPS satellites as text

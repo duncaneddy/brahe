@@ -53,6 +53,22 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
     if doc_type != "Any":
         return doc_type
 
+    # Special dunder methods
+    if name == "__setitem__":
+        return "None"
+    if name == "__getitem__":
+        return "Any"
+    if name == "__delitem__":
+        return "None"
+    if name == "__contains__":
+        return "bool"
+    if name == "__len__":
+        return "int"
+    if name == "__iter__":
+        return "Any"  # Iterator type
+    if name in ["__repr__", "__str__"]:
+        return "str"
+
     # Special case: trajectory property returns OrbitTrajectory (not OrbitalTrajectory)
     if name == "trajectory":
         return "OrbitTrajectory"
@@ -161,9 +177,16 @@ def parse_params_from_docstring(doc: str) -> list:
                 "Epoch": "Epoch",
                 "list": "List",
                 "tuple": "Tuple",
+                "dict": "dict",
+                # AccessConstraint is a union of all constraint types
+                "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
             }
 
             py_type = type_map.get(param_type, param_type)
+
+            # If param_type is empty or just whitespace, default to Any
+            if not param_type or not param_type.strip():
+                py_type = "Any"
             params.append((param_name, py_type, is_optional))
 
     return params
@@ -278,8 +301,21 @@ def generate_class_stub(name: str, cls: type) -> str:
 
     # Get all members and sort them
     all_members = []
+    # Include common dunder methods for dict-like and container classes
+    special_methods = [
+        "__init__",
+        "__new__",
+        "__setitem__",
+        "__getitem__",
+        "__delitem__",
+        "__contains__",
+        "__len__",
+        "__iter__",
+        "__repr__",
+        "__str__",
+    ]
     for member_name in dir(cls):
-        if member_name.startswith("_") and member_name not in ["__init__", "__new__"]:
+        if member_name.startswith("_") and member_name not in special_methods:
             continue
         if member_name in added_members:
             continue
@@ -334,6 +370,17 @@ def generate_class_stub(name: str, cls: type) -> str:
                 return_type = infer_return_type_from_name(member_name, member_doc or "")
                 # Parse parameters from docstring
                 params_str = parse_method_params_from_docstring(member_doc or "")
+
+                # Special handling for dunder methods with known signatures
+                if member_name == "__setitem__" and params_str == "self":
+                    params_str = "self, key: str, value: Any"
+                elif member_name == "__getitem__" and params_str == "self":
+                    params_str = "self, key: str"
+                elif member_name == "__delitem__" and params_str == "self":
+                    params_str = "self, key: str"
+                elif member_name == "__contains__" and params_str == "self":
+                    params_str = "self, key: str"
+
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
                 if member_doc:
                     lines.append(format_docstring(member_doc, indent=8))
@@ -416,7 +463,7 @@ def main():
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
     output_lines.append("")
-    output_lines.append("from typing import Any, List, Tuple")
+    output_lines.append("from typing import Any, List, Tuple, Optional, Union")
     output_lines.append("import numpy as np")
     output_lines.append("")
 

@@ -286,8 +286,8 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         assert prop.trajectory.length > 0
 
 
-class TestSGPPropagatorAnalyticPropagatorTrait:
-    """Test SGPPropagator AnalyticPropagator trait methods."""
+class TestSGPPropagatorStateProviderTrait:
+    """Test SGPPropagator StateProvider trait methods."""
 
     def test_sgppropagator_analyticpropagator_state(self, iss_tle):
         """Test state method."""

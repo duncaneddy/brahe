@@ -428,7 +428,7 @@ impl Trajectory for DTrajectory {
         self.apply_eviction_policy();
     }
 
-    fn epoch(&self, index: usize) -> Result<Epoch, BraheError> {
+    fn epoch_at_idx(&self, index: usize) -> Result<Epoch, BraheError> {
         if index >= self.epochs.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} epochs",
@@ -440,7 +440,7 @@ impl Trajectory for DTrajectory {
         Ok(self.epochs[index])
     }
 
-    fn state(&self, index: usize) -> Result<DVector<f64>, BraheError> {
+    fn state_at_idx(&self, index: usize) -> Result<DVector<f64>, BraheError> {
         if index >= self.states.len() {
             return Err(BraheError::Error(format!(
                 "Index {} out of bounds for trajectory with {} states",
@@ -1104,10 +1104,10 @@ mod tests {
     fn test_dtrajectory_trajectory_epoch() {
         let traj = create_test_trajectory();
 
-        let epoch = traj.epoch(0).unwrap();
+        let epoch = traj.epoch_at_idx(0).unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.0, TimeSystem::UTC));
 
-        let epoch = traj.epoch(1).unwrap();
+        let epoch = traj.epoch_at_idx(1).unwrap();
         assert_eq!(epoch, Epoch::from_jd(2451545.1, TimeSystem::UTC));
     }
 
@@ -1115,10 +1115,10 @@ mod tests {
     fn test_dtrajectory_trajectory_state() {
         let traj = create_test_trajectory();
 
-        let state = traj.state(0).unwrap();
+        let state = traj.state_at_idx(0).unwrap();
         assert_abs_diff_eq!(state[0], 7000e3, epsilon = 1.0);
 
-        let state = traj.state(1).unwrap();
+        let state = traj.state_at_idx(1).unwrap();
         assert_abs_diff_eq!(state[0], 7100e3, epsilon = 1.0);
     }
 

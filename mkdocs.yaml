@@ -111,12 +111,18 @@ nav:
             - Datasets:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
+                - Groundstations: learn/datasets/groundstations.md
+            - Access Computation:
+                - learn/access_computation/index.md
+                - Locations: learn/access_computation/locations.md
+                - Constraints: learn/access_computation/constraints.md
+                - Computation: learn/access_computation/computation.md
     -   Examples:
             - examples/index.md
-            - Propagating an Orbit: examples/propagating_an_orbit.md
-            - Computing Ground Contacts: examples/computing_ground_contacts.md
-            - Computing Doppler Shift: examples/computing_doppler_shift_for_pass.md
             - Downloading Satellite Data: examples/downloading_satellite_data.md
+            - Loading Groundstations: examples/loading_groundstations.md
+            - Svalbard Ground Contacts: examples/svalbard_ground_contacts.md
+            - Point Imaging Opportunities: examples/point_imaging_opportunities.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:
@@ -163,6 +169,13 @@ nav:
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md
+                - Groundstations: library_api/datasets/groundstations.md
+            - Access:
+                - library_api/access/index.md
+                - Locations: library_api/access/locations.md
+                - Constraints: library_api/access/constraints.md
+                - Windows: library_api/access/windows.md
+                - Enumerations: library_api/access/enums.md
     -   Rust API Reference: https://docs.rs/brahe
     -   Blog: https://duncaneddy.com
 

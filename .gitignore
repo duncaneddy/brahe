@@ -47,3 +47,6 @@ docs/site/*
 /*.md
 !README.md
 !CHANGELOG.md
+
+# Figures
+docs/figures/*

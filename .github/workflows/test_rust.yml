@@ -31,3 +31,20 @@ jobs:
             -   run: rustup default nightly
             -   name: Test Rust doc examples
                 run: cargo test --doc --features ci
+    pre-cache-python:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        steps:
+            -   uses: actions/checkout@v5
+            -   name: Install Rust
+                run: rustup update nightly
+            -   run: rustup default nightly
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v6
+                with:
+                    python-version: ${{ matrix.python-version }}
+                    enable-cache: true
+            -   name: Install dependencies
+                run: uv sync --all-extras --frozen

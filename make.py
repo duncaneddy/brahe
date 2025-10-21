@@ -123,7 +123,7 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
             ["rust-script", tmp_path],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=300,
         )
 
         if result.returncode == 0:

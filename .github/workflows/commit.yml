@@ -10,7 +10,7 @@ jobs:
         uses: ./.github/workflows/test_rust.yml
     test-python:
         uses: ./.github/workflows/test_python.yml
-        needs: [ test-rust ]
+        needs: [ test-rust ]  # Depends on test-rust which includes pre-cache-python
     test-examples:
         uses: ./.github/workflows/test_examples.yml
         needs: [ test-rust, test-python ]

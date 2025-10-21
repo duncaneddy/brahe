@@ -42,4 +42,4 @@ def epoch_from_epochlike(time: str) -> Epoch:
 
 def set_cli_eop():
     eop = brahe.FileEOPProvider.from_default_standard(True, "Error")
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)

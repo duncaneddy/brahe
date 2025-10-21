@@ -30,12 +30,12 @@ def eop(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Hold"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
 
 @pytest.fixture(scope="function")
 def eop_original_brahe(brahe_original_eop_filepath):
     """EOP provider using the original brahe EOP file for reference TLE tests."""
     eop = brahe.FileEOPProvider.from_file(brahe_original_eop_filepath, True, "Hold")
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     yield eop

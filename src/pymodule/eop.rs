@@ -1343,6 +1343,59 @@ pub fn py_set_global_eop_provider_from_file_provider(provider: &PyFileEOPProvide
     eop::set_global_eop_provider(provider.obj.clone());
 }
 
+/// Set the global EOP provider using any supported provider type.
+///
+/// This function accepts any of the three EOP provider types: StaticEOPProvider,
+/// FileEOPProvider, or CachingEOPProvider. This is the recommended way to set
+/// the global EOP provider.
+///
+/// Args:
+///     provider (StaticEOPProvider | FileEOPProvider | CachingEOPProvider): EOP provider to set globally
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Use with StaticEOPProvider
+///     provider = bh.StaticEOPProvider.from_zero()
+///     bh.set_global_eop_provider(provider)
+///
+///     # Use with FileEOPProvider
+///     provider = bh.FileEOPProvider.from_default_standard(True, "Hold")
+///     bh.set_global_eop_provider(provider)
+///
+///     # Use with CachingEOPProvider
+///     provider = bh.CachingEOPProvider(
+///         "./eop_data/finals.all.iau2000.txt",
+///         "StandardBulletinA",
+///         7 * 86400,
+///         False,
+///         True,
+///         "Hold"
+///     )
+///     bh.set_global_eop_provider(provider)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(provider)")]
+#[pyo3(name = "set_global_eop_provider")]
+pub fn py_set_global_eop_provider(provider: &Bound<'_, PyAny>) -> PyResult<()> {
+    // Try to extract each type of provider
+    if let Ok(static_provider) = provider.extract::<PyRef<PyStaticEOPProvider>>() {
+        eop::set_global_eop_provider(static_provider.obj);
+        Ok(())
+    } else if let Ok(file_provider) = provider.extract::<PyRef<PyFileEOPProvider>>() {
+        eop::set_global_eop_provider(file_provider.obj.clone());
+        Ok(())
+    } else if let Ok(caching_provider) = provider.extract::<PyRef<PyCachingEOPProvider>>() {
+        eop::set_global_eop_provider(caching_provider.obj.clone());
+        Ok(())
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Provider must be StaticEOPProvider, FileEOPProvider, or CachingEOPProvider"
+        ))
+    }
+}
+
 /// Get UT1-UTC time difference from the global EOP provider.
 ///
 /// Args:

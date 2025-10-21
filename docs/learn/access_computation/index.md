@@ -105,7 +105,7 @@ import numpy as np
 
 # Initialize EOP provider
 eop = bh.StaticEOPProvider.from_values(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-bh.set_global_eop_provider_from_static_provider(eop)
+bh.set_global_eop_provider(eop)
 
 # Define ground station
 svalbard = bh.PointLocation(15.4, 78.2, 0.0).with_name("Svalbard")

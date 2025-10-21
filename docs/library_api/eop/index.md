@@ -40,12 +40,12 @@ EOP data is managed globally to avoid passing providers through every function c
 import brahe as bh
 
 # Option 1: Use file-based EOP (recommended for production)
-bh.set_global_eop_provider_from_file_provider(
+bh.set_global_eop_provider(
     bh.FileEOPProvider.from_default_standard()
 )
 
 # Option 2: Use static EOP (for testing/offline use)
-bh.set_global_eop_provider_from_static_provider(
+bh.set_global_eop_provider(
     bh.StaticEOPProvider.from_zero()
 )
 

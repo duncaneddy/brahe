@@ -6,33 +6,15 @@ Global EOP management and query functions.
 
 ## Setting Global EOP Provider
 
-### set_global_eop_provider_from_caching_provider
+### set_global_eop_provider
 
-::: brahe.set_global_eop_provider_from_caching_provider
+::: brahe.set_global_eop_provider
     options:
       show_root_heading: true
       show_root_full_path: false
       heading_level: 4
 
----
-
-### set_global_eop_provider_from_file_provider
-
-::: brahe.set_global_eop_provider_from_file_provider
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      heading_level: 4
-
----
-
-### set_global_eop_provider_from_static_provider
-
-::: brahe.set_global_eop_provider_from_static_provider
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      heading_level: 4
+Set the global EOP provider using any supported provider type (StaticEOPProvider, FileEOPProvider, or CachingEOPProvider).
 
 ---
 
@@ -244,7 +226,7 @@ provider = bh.FileEOPProvider.from_standard_file(
     interpolate=True,
     extrapolate="Hold"
 )
-bh.set_global_eop_provider_from_file_provider(provider)
+bh.set_global_eop_provider(provider)
 
 # Check provider status
 print(f"EOP Type: {bh.get_global_eop_type()}")

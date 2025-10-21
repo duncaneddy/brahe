@@ -81,7 +81,7 @@ provider = bh.FileEOPProvider.from_default_standard(
 )
 
 # Set as global provider
-bh.set_global_eop_provider_from_file_provider(provider)
+bh.set_global_eop_provider(provider)
 
 # Now all frame transformations use this EOP data
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

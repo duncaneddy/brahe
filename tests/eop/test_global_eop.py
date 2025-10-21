@@ -6,7 +6,7 @@ import brahe
 def test_set_global_eop_from_static_zeros():
     eop = brahe.StaticEOPProvider.from_zero()
 
-    brahe.set_global_eop_provider_from_static_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     assert brahe.get_global_eop_initialization() is True
     assert eop.is_initialized() is True
@@ -23,7 +23,7 @@ def test_set_global_eop_from_static_zeros():
 def test_set_global_eop_from_static_values():
     eop = brahe.StaticEOPProvider.from_values(0.001, 0.002, 0.003, 0.004, 0.005, 0.006)
 
-    brahe.set_global_eop_provider_from_static_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     assert brahe.get_global_eop_initialization() is True
     assert eop.is_initialized() is True
@@ -40,14 +40,14 @@ def test_set_global_eop_from_static_values():
 def test_set_global_eop_from_default_c04_file():
     eop = brahe.FileEOPProvider.from_default_c04(True, "Hold")
 
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_eop_initialization() is True
 
 
 def test_set_global_eop_from_c04_file(iau2000_c04_20_filepath):
     eop = brahe.FileEOPProvider.from_c04_file(iau2000_c04_20_filepath, True, "Hold")
 
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_eop_initialization() is True
 
 
@@ -56,14 +56,14 @@ def test_set_global_eop_from_standard_file(iau2000_standard_filepath):
         iau2000_standard_filepath, True, "Hold"
     )
 
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_eop_initialization() is True
 
 
 def test_set_global_eop_from_default_standard_file():
     eop = brahe.FileEOPProvider.from_default_standard(True, "Hold")
 
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_eop_initialization() is True
 
 
@@ -71,7 +71,7 @@ def test_get_ut1_utc(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Hold"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     # Test getting exact point in table
     assert brahe.get_global_ut1_utc(59569.0) == -0.1079939
@@ -86,7 +86,7 @@ def test_get_ut1_utc(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Zero"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_ut1_utc(99999.0) == 0.0
 
 
@@ -94,7 +94,7 @@ def test_get_pm_xy(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Hold"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     # Test getting exact point in table
     pm_x, pm_y = brahe.get_global_pm(59569.0)
@@ -115,7 +115,7 @@ def test_get_pm_xy(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Zero"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     pm_x, pm_y = brahe.get_global_pm(99999.0)
     assert pm_x == 0.0
     assert pm_y == 0.0
@@ -125,7 +125,7 @@ def test_get_dxdy(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Hold"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     # Test getting exact point in table
     dX, dY = brahe.get_global_dxdy(59569.0)
@@ -150,7 +150,7 @@ def test_get_dxdy(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Zero"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     dX, dY = brahe.get_global_dxdy(99999.0)
     assert dX == 0.0
     assert dY == 0.0
@@ -160,7 +160,7 @@ def test_get_lod(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Hold"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     # Test getting exact point in table
     assert brahe.get_global_lod(59569.0) == -0.3999 * 1.0e-3
@@ -176,5 +176,5 @@ def test_get_lod(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(
         iau2000_standard_filepath, True, "Zero"
     )
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
     assert brahe.get_global_lod(99999.0) == 0.0

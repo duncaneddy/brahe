@@ -36,7 +36,7 @@ import brahe as bh
 provider = bh.StaticEOPProvider.from_zero()
 
 # Set as global provider
-bh.set_global_eop_provider_from_static_provider(provider)
+bh.set_global_eop_provider(provider)
 ```
 
 ### Custom Values
@@ -70,7 +70,7 @@ provider = bh.StaticEOPProvider()
 import brahe as bh
 
 # Set up static EOP for testing
-bh.set_global_eop_provider_from_static_provider(
+bh.set_global_eop_provider(
     bh.StaticEOPProvider.from_zero()
 )
 

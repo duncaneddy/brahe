@@ -12,7 +12,7 @@ def static_eop():
     dX = 0.0001750 * brahe.AS2RAD * 1.0e-3
     dY = -0.0002259 * brahe.AS2RAD * 1.0e-3
     eop = brahe.StaticEOPProvider.from_values(pm_x, pm_y, ut1_utc, dX, dY, 0.0)
-    brahe.set_global_eop_provider_from_static_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
 
 def test_bias_precession_nutation(static_eop):

@@ -26,7 +26,7 @@ from datetime import datetime
 
 # Initialize EOP provider (required for ECEF transformations)
 eop = bh.StaticEOPProvider.from_values(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-bh.set_global_eop_provider_from_static_provider(eop)
+bh.set_global_eop_provider(eop)
 
 # Define analysis period
 epoch = bh.Epoch.from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

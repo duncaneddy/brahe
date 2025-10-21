@@ -76,7 +76,7 @@ def get_utc_ut1(
 ):
     # Set EOP Data
     eop = get_global_eop_source(product, source, filepath)
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     epc = epoch_from_epochlike(epoch)
     try:
@@ -101,7 +101,7 @@ def get_polar_motion(
 ):
     # Set EOP Data
     eop = get_global_eop_source(product, source, filepath)
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     epc = epoch_from_epochlike(epoch)
     try:
@@ -127,7 +127,7 @@ def get_cip_offset(
 ):
     # Set EOP Data
     eop = get_global_eop_source(product, source, filepath)
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     epc = epoch_from_epochlike(epoch)
     try:
@@ -153,7 +153,7 @@ def get_lod(
 ):
     # Set EOP Data
     eop = get_global_eop_source(product, source, filepath)
-    brahe.set_global_eop_provider_from_file_provider(eop)
+    brahe.set_global_eop_provider(eop)
 
     epc = epoch_from_epochlike(epoch)
     try:

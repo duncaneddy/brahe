@@ -251,7 +251,7 @@ def main():
     # Initialize EOP provider (required for frame transformations)
     print("\nInitializing EOP provider...")
     eop = bh.StaticEOPProvider.from_values(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    bh.set_global_eop_provider_from_static_provider(eop)
+    bh.set_global_eop_provider(eop)
     print("  ✓ EOP provider initialized")
 
     print("\nSystem info:")

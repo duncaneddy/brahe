@@ -28,7 +28,7 @@ import brahe as bh
 
 # Use built-in static data
 provider = bh.StaticEOPProvider.from_zero() # Sets all EOP values to zero
-bh.set_global_eop_provider_from_static_provider(provider)
+bh.set_global_eop_provider(provider)
 ```
 
 **When to use**:
@@ -53,7 +53,7 @@ provider = bh.FileEOPProvider.from_file(
     interpolate=True,
     extrapolate="Hold"
 )
-bh.set_global_eop_provider_from_file_provider(provider)
+bh.set_global_eop_provider(provider)
 ```
 
 **When to use**:
@@ -79,7 +79,7 @@ provider = bh.CachingEOPProvider(
     interpolate=True,
     extrapolate="Hold"
 )
-bh.set_global_eop_provider_from_caching_provider(provider)
+bh.set_global_eop_provider(provider)
 ```
 
 **When to use**:
@@ -361,7 +361,7 @@ provider = bh.CachingEOPProvider(
 )
 
 # Set as global provider
-bh.set_global_eop_provider_from_caching_provider(provider)
+bh.set_global_eop_provider(provider)
 
 print("Service started with EOP caching")
 print(f"Initial EOP age: {provider.file_age() / 86400:.1f} days")

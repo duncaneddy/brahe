@@ -22,6 +22,7 @@ from brahe._brahe import (
     download_c04_eop_file,
     download_standard_eop_file,
     # Global provider management
+    set_global_eop_provider,
     set_global_eop_provider_from_static_provider,
     set_global_eop_provider_from_file_provider,
     set_global_eop_provider_from_caching_provider,
@@ -52,6 +53,7 @@ __all__ = [
     "download_c04_eop_file",
     "download_standard_eop_file",
     # Global provider management
+    "set_global_eop_provider",
     "set_global_eop_provider_from_static_provider",
     "set_global_eop_provider_from_file_provider",
     "set_global_eop_provider_from_caching_provider",

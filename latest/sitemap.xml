@@ -9,23 +9,15 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/design.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/duncaneddy/brahe/latest/installation.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/about/index.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/about/design_decisions.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/about/license.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/about/python_deprecation.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/license.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
@@ -33,19 +25,23 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/examples/downloading_satellite_data.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/doppler_complementation.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/examples/loading_groundstations.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/downloading_tle_data.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/examples/point_imaging_opportunities.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/ground_contacts.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/examples/svalbard_ground_contacts.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/imaging_opportunities.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/examples/visualizing_orbital_trajectories.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
@@ -53,19 +49,7 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representation.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
          <loc>https://github.com/duncaneddy/brahe/latest/learn/constants.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/learn/coordinate_transformations.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/learn/earth_orientation_data.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
@@ -77,11 +61,7 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/learn/time.html</loc>
-         <lastmod>2025-10-21</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/duncaneddy/brahe/latest/learn/tle_and_sgp.html</loc>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/two_line_elements.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
@@ -101,6 +81,46 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/access_computation/properties.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representations/index.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representations/euler_angles.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representations/euler_axis.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representations/quaternions.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/attitude_representations/rotation_matrices.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/coordinates/index.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/coordinates/cartesean_transformations.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/coordinates/geocentric_transformations.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/coordinates/topocentric_transformations.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/duncaneddy/brahe/latest/learn/datasets/index.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
@@ -113,6 +133,18 @@
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/eop/index.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/eop/managing_eop_data.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/eop/what_is_eop_data.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/duncaneddy/brahe/latest/learn/orbit_propagation/index.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
@@ -122,6 +154,38 @@
     </url>
     <url>
          <loc>https://github.com/duncaneddy/brahe/latest/learn/orbit_propagation/sgp_propagation.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/time/index.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/time/epoch.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/time/time_conversions.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/time/time_systems.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/trajectories/index.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/trajectories/dtrajectory.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/trajectories/orbit_trajectory.html</loc>
+         <lastmod>2025-10-21</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/duncaneddy/brahe/latest/learn/trajectories/strajectory6.html</loc>
          <lastmod>2025-10-21</lastmod>
     </url>
     <url>

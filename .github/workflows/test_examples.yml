@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --frozen
 
+      - name: Build rust package
+        run: cargo build
+        
       - name: Build Python extension
         run: uv pip install -e .
 

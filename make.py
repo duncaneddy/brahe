@@ -56,6 +56,7 @@ class TestResults:
         self.failed = 0
         self.skipped = 0
         self.failures: List[str] = []
+        self.error_details: List[tuple[str, str, str]] = []  # (file, stdout, stderr)
 
 
 def run_command(
@@ -108,8 +109,8 @@ def check_flags(
     return False, ""
 
 
-def test_rust_example(file_path: Path, verbose: bool = False) -> bool:
-    """Test a single Rust example."""
+def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str, str]:
+    """Test a single Rust example. Returns (success, stdout, stderr)."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as tmp:
         deps = RUST_DEPS.replace("%REPO_ROOT%", str(REPO_ROOT))
         tmp.write(deps)
@@ -128,28 +129,32 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> bool:
         if result.returncode == 0:
             if verbose:
                 console.print(result.stdout, style="dim")
-            return True
+            return True, result.stdout, result.stderr
         else:
             if verbose:
                 console.print("[red]STDOUT:[/red]")
                 console.print(result.stdout)
                 console.print("[red]STDERR:[/red]")
                 console.print(result.stderr)
-            return False
+            return False, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
+        error_msg = "Test timed out after 60 seconds"
         if verbose:
-            console.print("[red]Test timed out after 60 seconds[/red]")
-        return False
+            console.print(f"[red]{error_msg}[/red]")
+        return False, "", error_msg
     except Exception as e:
+        error_msg = str(e)
         if verbose:
-            console.print(f"[red]Error: {e}[/red]")
-        return False
+            console.print(f"[red]Error: {error_msg}[/red]")
+        return False, "", error_msg
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-def test_python_example(file_path: Path, verbose: bool = False) -> bool:
-    """Test a single Python example."""
+def test_python_example(
+    file_path: Path, verbose: bool = False
+) -> tuple[bool, str, str]:
+    """Test a single Python example. Returns (success, stdout, stderr)."""
     try:
         result = subprocess.run(
             ["uv", "run", "python", str(file_path)],
@@ -162,22 +167,24 @@ def test_python_example(file_path: Path, verbose: bool = False) -> bool:
         if result.returncode == 0:
             if verbose:
                 console.print(result.stdout, style="dim")
-            return True
+            return True, result.stdout, result.stderr
         else:
             if verbose:
                 console.print("[red]STDOUT:[/red]")
                 console.print(result.stdout)
                 console.print("[red]STDERR:[/red]")
                 console.print(result.stderr)
-            return False
+            return False, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
+        error_msg = "Test timed out after 60 seconds"
         if verbose:
-            console.print("[red]Test timed out after 60 seconds[/red]")
-        return False
+            console.print(f"[red]{error_msg}[/red]")
+        return False, "", error_msg
     except Exception as e:
+        error_msg = str(e)
         if verbose:
-            console.print(f"[red]Error: {e}[/red]")
-        return False
+            console.print(f"[red]Error: {error_msg}[/red]")
+        return False, "", error_msg
 
 
 # ===== Testing Commands =====
@@ -291,7 +298,7 @@ def test_examples(
                 if verbose:
                     console.print(f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]")
             else:
-                passed = test_rust_example(rust_file, verbose)
+                passed, stdout, stderr = test_rust_example(rust_file, verbose)
 
                 if passed:
                     rust_results.passed += 1
@@ -300,6 +307,7 @@ def test_examples(
                 else:
                     rust_results.failed += 1
                     rust_results.failures.append(str(rel_path))
+                    rust_results.error_details.append((str(rel_path), stdout, stderr))
                     console.print(f"  {rel_path}...[red]FAIL[/red]")
 
             progress.update(task, advance=1)
@@ -334,7 +342,7 @@ def test_examples(
                 if verbose:
                     console.print(f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]")
             else:
-                passed = test_python_example(py_file, verbose)
+                passed, stdout, stderr = test_python_example(py_file, verbose)
 
                 if passed:
                     python_results.passed += 1
@@ -343,6 +351,7 @@ def test_examples(
                 else:
                     python_results.failed += 1
                     python_results.failures.append(str(rel_path))
+                    python_results.error_details.append((str(rel_path), stdout, stderr))
                     console.print(f"  {rel_path}...[red]FAIL[/red]")
 
             progress.update(task, advance=1)
@@ -408,6 +417,23 @@ def test_examples(
         console.print("\n[bold red]Failed Examples:[/bold red]")
         for failure in rust_results.failures + python_results.failures:
             console.print(f"  [red]✗[/red] {failure}")
+
+        # Print detailed error information
+        console.print("\n[bold red]Error Details:[/bold red]")
+        all_errors = rust_results.error_details + python_results.error_details
+        for file_path, stdout, stderr in all_errors:
+            console.print(f"\n[bold yellow]{'=' * 80}[/bold yellow]")
+            console.print(f"[bold cyan]{file_path}[/bold cyan]")
+            console.print(f"[bold yellow]{'=' * 80}[/bold yellow]")
+
+            if stdout.strip():
+                console.print("\n[bold]STDOUT:[/bold]")
+                console.print(stdout)
+
+            if stderr.strip():
+                console.print("\n[bold]STDERR:[/bold]")
+                console.print(stderr)
+
         console.print()
         raise typer.Exit(1)
 
@@ -433,6 +459,7 @@ def test_example(
     test_rust_lang = lang in (None, "both", "rust")
     test_python_lang = lang in (None, "both", "python")
     all_passed = True
+    error_details = []
 
     if test_rust_lang:
         rust_file = base_path.with_suffix(".rs")
@@ -443,11 +470,15 @@ def test_example(
             raise typer.Exit(1)
 
         console.print(f"[blue]Testing Rust: {rust_file.relative_to(REPO_ROOT)}[/blue]")
-        if test_rust_example(rust_file, verbose):
+        passed, stdout, stderr = test_rust_example(rust_file, verbose)
+        if passed:
             console.print("[green]✓ PASS[/green]")
         else:
             console.print("[red]✗ FAIL[/red]")
             all_passed = False
+            error_details.append(
+                (str(rust_file.relative_to(REPO_ROOT)), stdout, stderr)
+            )
 
     if test_python_lang:
         py_file = base_path.with_suffix(".py")
@@ -458,13 +489,31 @@ def test_example(
             raise typer.Exit(1)
 
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
-        if test_python_example(py_file, verbose):
+        passed, stdout, stderr = test_python_example(py_file, verbose)
+        if passed:
             console.print("[green]✓ PASS[/green]")
         else:
             console.print("[red]✗ FAIL[/red]")
             all_passed = False
+            error_details.append((str(py_file.relative_to(REPO_ROOT)), stdout, stderr))
 
     if not all_passed:
+        # Print detailed error information
+        console.print("\n[bold red]Error Details:[/bold red]")
+        for file_path, stdout, stderr in error_details:
+            console.print(f"\n[bold yellow]{'=' * 80}[/bold yellow]")
+            console.print(f"[bold cyan]{file_path}[/bold cyan]")
+            console.print(f"[bold yellow]{'=' * 80}[/bold yellow]")
+
+            if stdout.strip():
+                console.print("\n[bold]STDOUT:[/bold]")
+                console.print(stdout)
+
+            if stderr.strip():
+                console.print("\n[bold]STDERR:[/bold]")
+                console.print(stderr)
+
+        console.print()
         raise typer.Exit(1)
 
 

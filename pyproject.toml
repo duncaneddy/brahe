@@ -33,12 +33,20 @@ dependencies = [
     "numpy>=2.0.2",
     "rich>=14.1.0",
     "typer>=0.16.0",
+    "matplotlib>=3.9.0",
+    "plotly>=5.0.0",
+    "cartopy>=0.23.0",
+    "shapely>=2.0.0",
+    "requests>=2.31.0",
 ]
 
 [project.urls]
 Documentation = "https://duncaneddy.github.io/brahe/"
 Repository = "https://github.com/duncaneddy/brahe"
 Issues = "https://github.com/duncaneddy/brahe/pulls"
+
+[project.optional-dependencies]
+plots = ["scienceplots>=2.0.0"]
 
 [project.scripts]
 brahe = "brahe.cli.__main__:main"

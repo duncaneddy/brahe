@@ -1,9 +1,49 @@
 // Utils module Python bindings
 //
-// This file contains Python bindings for utility functions including threading
+// This file contains Python bindings for utility functions including threading and cache management
 
 // NOTE: No imports needed here as all pyo3 items are imported in mod.rs
 // where this file is included
+
+// ================================
+// Cache Management Functions
+// ================================
+
+/// Get the brahe cache directory path.
+///
+/// The cache directory is determined by the `BRAHE_CACHE` environment variable.
+/// If not set, defaults to `~/.cache/brahe`.
+///
+/// The directory is created if it doesn't exist.
+///
+/// Returns:
+///     str: The full path to the cache directory.
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     cache_dir = bh.get_brahe_cache_dir()
+///     print(f"Cache directory: {cache_dir}")
+///
+///     # You can also override with environment variable
+///     import os
+///     os.environ['BRAHE_CACHE'] = '/custom/cache/path'
+///     cache_dir = bh.get_brahe_cache_dir()
+///     ```
+///
+/// Note:
+///     The directory will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_brahe_cache_dir")]
+pub fn py_get_brahe_cache_dir() -> PyResult<String> {
+    use crate::utils::cache::get_brahe_cache_dir;
+
+    get_brahe_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
 
 // ================================
 // Threading Functions

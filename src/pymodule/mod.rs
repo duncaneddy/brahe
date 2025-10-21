@@ -401,6 +401,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Access Computation
     module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
 
+    //* Utils *//
+    // Cache Management
+    module.add_function(wrap_pyfunction!(py_get_brahe_cache_dir, module)?)?;
+
     // Threading
     module.add_function(wrap_pyfunction!(py_set_max_threads, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_max_threads, module)?)?;

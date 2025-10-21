@@ -13,10 +13,15 @@ The library is organized into submodules that mirror the Rust core structure:
 - eop: Earth Orientation Parameters
 - attitude: Attitude representations (quaternions, Euler angles, etc.)
 - trajectories: Trajectory containers and interpolation
+- access: Access window computation and constraints
+- plots: Visualization tools (matplotlib/plotly backends)
 
 All functionality is re-exported at the top level for convenience, so you can use either:
     from brahe import Epoch
     from brahe.time import Epoch
+
+    from brahe import plot_groundtrack
+    from brahe.plots import plot_groundtrack
 """
 
 # Import core native module
@@ -37,6 +42,8 @@ from brahe import (
     constants,
     datasets,
     access,
+    utils,
+    plots,
 )
 
 # Re-export everything from submodules
@@ -49,6 +56,8 @@ from brahe.attitude import *
 from brahe.trajectories import *
 from brahe.constants import *
 from brahe.access import *
+from brahe.utils import *
+from brahe.plots import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -63,6 +72,8 @@ __all__ = [
     "constants",
     "datasets",
     "access",
+    "utils",
+    "plots",
     # Testing
     "PanicException",
 ]
@@ -77,6 +88,8 @@ __all__.extend(attitude.__all__)
 __all__.extend(trajectories.__all__)
 __all__.extend(constants.__all__)
 __all__.extend(access.__all__)
+__all__.extend(utils.__all__)
+__all__.extend(plots.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

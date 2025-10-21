@@ -207,7 +207,7 @@ nav:
                 - Windows: library_api/access/windows.md
                 - Enumerations: library_api/access/enums.md
     -   Rust API Reference: https://docs.rs/brahe
-    -   Blog: https://duncaneddy.com
+    -   About Me: https://duncaneddy.com
 
 extra:
     analytics:

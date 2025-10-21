@@ -10,8 +10,8 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust
-        run: rustup update stable
-      - run: rustup default stable
+        run: rustup update nightly
+      - run: rustup default nightly
 
       - name: Install rust-script for Rust examples
         run: cargo install rust-script

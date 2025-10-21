@@ -379,5 +379,5 @@ All use the same access computation code—no special-casing required.
 - [Locations](locations.md) - Ground location types and properties
 - [Constraints](constraints.md) - Constraint system and composition
 - [Access Computation Index](index.md) - Overview and usage examples
-- [Example: Svalbard Ground Contacts](../../examples/svalbard_ground_contacts.md) - Complete workflow
+- [Example: Predicting Ground Contacts](../../examples/ground_contacts.md) - Complete workflow
 - [API Reference: Access Module](../../library_api/access/index.md) - Complete API documentation

@@ -18,5 +18,3 @@ The module is organized by data source, with each source providing a consistent 
 
 - [Datasets Overview](../../learn/datasets/index.md) - Understanding datasets module
 - [CelesTrak Details](../../learn/datasets/celestrak.md) - CelesTrak data source specifics
-- [Downloading Satellite Data](../../examples/downloading_satellite_data.md) - How-to guide
-- [Loading Groundstations](../../examples/loading_groundstations.md) - Groundstation datasets guide

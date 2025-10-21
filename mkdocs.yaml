@@ -99,39 +99,60 @@ nav:
             - index.md
             - installation.md
             - contributing.md
-            - About: about/index.md
-            - Design Decisions: about/design_decisions.md
-            - Python Deprecation: about/python_deprecation.md
-            - License: about/license.md
+            - Design Philosophy & Decisions: design.md
+            - License: license.md
     -   Learn:
             - learn/index.md
-            - Earth Orientation Data: learn/earth_orientation_data.md
-            - Time: learn/time.md
             - Constants: learn/constants.md
-            - Coordinate Transformations: learn/coordinate_transformations.md
-            - Frame Transformations: learn/frame_transformations.md
+            - Earth Orientation Data:
+                - learn/eop/index.md
+                - learn/eop/managing_eop_data.md
+                - learn/eop/what_is_eop_data.md
+            - Time: 
+                - learn/time/index.md
+                - learn/time/time_systems.md
+                - learn/time/time_conversions.md
+                - learn/time/epoch.md
+            - Coordinate Transformations:
+                - learn/coordinates/index.md
+                - learn/coordinates/cartesean_transformations.md
+                - learn/coordinates/geocentric_transformations.md
+                - learn/coordinates/topocentric_transformations.md
+            - Reference Frame Transformations: learn/frame_transformations.md
             - Orbital Properties: learn/orbital_properties.md
-            - Attitude Representation: learn/attitude_representation.md
-            - TLE and SGP: learn/tle_and_sgp.md
+            - Attitude Representation: 
+                - learn/attitude_representations/index.md
+                - learn/attitude_representations/quaternions.md
+                - learn/attitude_representations/rotation_matrices.md
+                - learn/attitude_representations/euler_angles.md
+                - learn/attitude_representations/euler_axis.md
+            - Trajectories:
+                - learn/trajectories/index.md
+                - learn/trajectories/dtrajectory.md
+                - learn/trajectories/strajectory6.md
+                - learn/trajectories/orbit_trajectory.md
+            - Two-Line Elements (TLEs): learn/two_line_elements.md
             - Orbit Propagation:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
                 - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
-            - Datasets:
-                - learn/datasets/index.md
-                - CelesTrak: learn/datasets/celestrak.md
-                - Groundstations: learn/datasets/groundstations.md
             - Access Computation:
                 - learn/access_computation/index.md
                 - Locations: learn/access_computation/locations.md
                 - Constraints: learn/access_computation/constraints.md
+                - Properties: learn/access_computation/properties.md
                 - Computation: learn/access_computation/computation.md
+            - Datasets:
+                - learn/datasets/index.md
+                - CelesTrak: learn/datasets/celestrak.md
+                - Groundstations: learn/datasets/groundstations.md
     -   Examples:
             - examples/index.md
-            - Downloading Satellite Data: examples/downloading_satellite_data.md
-            - Loading Groundstations: examples/loading_groundstations.md
-            - Svalbard Ground Contacts: examples/svalbard_ground_contacts.md
-            - Point Imaging Opportunities: examples/point_imaging_opportunities.md
+            - Downloading TLE Data: examples/downloading_tle_data.md
+            - Predicting Ground Contacts: examples/ground_contacts.md
+            - Calculating Doppler Complensation: examples/doppler_complementation.md
+            - Visualizing Orbital Trajectories: examples/visualizing_orbital_trajectories.md
+            - Computing Imaging Opportunities: examples/imaging_opportunities.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:

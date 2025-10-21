@@ -28,7 +28,7 @@
 
 !!! warning "Pure-Python Brahe Deprecation Notice"
     
-    The older pure-Python implementaiton of brahe is currently being deprecated in favor of an improved Rust-based implementation. There will be breaking changes during this period that include breaking changes. You can read more about this change in the [deprecation notice](about/python_deprecation.md).
+    The older pure-Python implementaiton of brahe is currently being deprecated in favor of an improved Rust-based implementation. There will be breaking changes during this period.
 
 # Brahe
 

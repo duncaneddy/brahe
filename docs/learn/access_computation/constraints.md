@@ -547,5 +547,5 @@ For million-evaluation problems, minimize custom constraint complexity.
 - [Locations](locations.md) - Ground location types
 - [Computation](computation.md) - How constraints are evaluated during access search
 - [API Reference: Constraints](../../library_api/access/constraints.md)
-- [Example: Svalbard Ground Contacts](../../examples/svalbard_ground_contacts.md)
-- [Example: Point Imaging Opportunities](../../examples/point_imaging_opportunities.md)
+- [Example: Predicting Ground Contacts](../../examples/ground_contacts.md)
+- [Example: Computing Imaging Opportunities](../../examples/imaging_opportunities.md)

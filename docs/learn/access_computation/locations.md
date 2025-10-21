@@ -468,4 +468,4 @@ for loc in locations:
 - [Constraints](constraints.md) - Defining access criteria for locations
 - [Computation](computation.md) - Access algorithms and property computation
 - [API Reference: Locations](../../library_api/access/locations.md)
-- [Example: Svalbard Ground Contacts](../../examples/svalbard_ground_contacts.md)
+- [Example: Predicting Ground Contacts](../../examples/ground_contacts.md)

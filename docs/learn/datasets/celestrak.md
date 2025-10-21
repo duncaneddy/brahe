@@ -244,6 +244,6 @@ ephemeris = get_cached_ephemeris("gnss", max_age_hours=6)
 ## See Also
 
 - [Datasets Overview](index.md) - Understanding satellite ephemeris datasets
-- [TLE and SGP](../tle_and_sgp.md) - TLE and 3LE format details
-- [Downloading Satellite Data](../../examples/downloading_satellite_data.md) - Practical examples
+- [TLE and SGP](../two_line_elements.md) - TLE and 3LE format details
+- [Downloading TLE Data](../../examples/downloading_tle_data.md) - Practical examples
 - [CelesTrak API Reference](../../library_api/datasets/celestrak.md) - Function documentation

@@ -27,15 +27,15 @@ jobs:
 
       - name: Build rust package
         run: cargo build
-        
+
       - name: Build Python extension
         run: uv pip install -e .
 
       - name: Test examples (including CI-ONLY)
         run: uv run python make.py test-examples --ci-only
 
-      - name: Generate documentation figures
-        run: uv run python make.py figures
+      - name: Generate documentation plots
+        run: uv run python make.py make-plots
 
       - name: Upload figures as artifact
         uses: actions/upload-artifact@v4

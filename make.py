@@ -521,11 +521,9 @@ def test_example(
 
 
 @app.command()
-def figures(verbose: bool = typer.Option(False, "--verbose", "-v")):
+def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
     """
-    Generate all documentation figures.
-
-    Equivalent to: make figures
+    Generate all documentation plots and figures.
     """
     console.print("\n[bold blue]Generating Documentation Figures[/bold blue]\n")
 

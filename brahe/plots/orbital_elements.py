@@ -5,6 +5,9 @@ Provides 2D plots of Keplerian and Cartesian orbital elements over time.
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
@@ -180,8 +183,6 @@ def _cartesian_elements_matplotlib(
     traj_groups, time_range, position_units, velocity_units
 ):
     """Matplotlib implementation of Cartesian elements plot."""
-    import matplotlib.pyplot as plt
-
     # Apply scienceplots if available
     apply_scienceplots_style()
 
@@ -283,9 +284,6 @@ def _cartesian_elements_matplotlib(
 
 def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity_units):
     """Plotly implementation of Cartesian elements plot."""
-    from plotly.subplots import make_subplots
-    import plotly.graph_objects as go
-
     # Create 2x3 subplot layout
     fig = make_subplots(
         rows=2,
@@ -457,8 +455,6 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
 
 def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_units):
     """Matplotlib implementation of Keplerian elements plot."""
-    import matplotlib.pyplot as plt
-
     # Apply scienceplots if available
     apply_scienceplots_style()
 
@@ -575,9 +571,6 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
 
 def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
     """Plotly implementation of Keplerian elements plot."""
-    from plotly.subplots import make_subplots
-    import plotly.graph_objects as go
-
     # Create 2x3 subplot layout
     fig = make_subplots(
         rows=2,

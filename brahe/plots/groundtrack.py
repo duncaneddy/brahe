@@ -7,12 +7,16 @@ ground stations, and polygon zones.
 
 import math
 import numpy as np
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import shapely.geometry
+import plotly.graph_objects as go
+import shapefile as shp
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, is_scienceplots_available
-
-# Plotting backend imports will be done conditionally in functions
-# to avoid requiring both backends to be installed
+from shapely.geometry import shape
 
 
 def plot_groundtrack(
@@ -248,11 +252,6 @@ def _groundtrack_matplotlib(
     extent,
 ):
     """Matplotlib implementation of ground track plot."""
-    import matplotlib.pyplot as plt
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
-    import shapely.geometry
-
     # Apply scienceplots if available
     if is_scienceplots_available():
         try:
@@ -329,8 +328,6 @@ def _groundtrack_plotly(
     extent,
 ):
     """Plotly implementation of ground track plot."""
-    import plotly.graph_objects as go
-
     fig = go.Figure()
 
     # Configure geo layout
@@ -662,8 +659,6 @@ def _plot_trajectory_group_matplotlib(ax, group):
 
 def _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation):
     """Plot a group of ground stations with communication cones (plotly)."""
-    import plotly.graph_objects as go
-
     stations = group.get("stations", [])
     color = group.get("color", "blue")
 
@@ -696,8 +691,6 @@ def _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation):
 
 def _plot_zone_group_plotly(fig, group):
     """Plot a polygon zone group (plotly)."""
-    import plotly.graph_objects as go
-
     zone = group.get("zone")
     fill_color = group.get("fill_color", "blue")
 
@@ -743,8 +736,6 @@ def _plot_zone_group_plotly(fig, group):
 
 def _plot_trajectory_group_plotly(fig, group):
     """Plot a trajectory group (plotly)."""
-    import plotly.graph_objects as go
-
     trajectory = group.get("trajectory")
     color = group.get("color", "red")
     line_width = group.get("line_width", 2.0)
@@ -804,8 +795,6 @@ def _load_shapefile(shapefile_path):
     Returns:
         list: List of shapely geometries
     """
-    import shapefile as shp
-    from shapely.geometry import shape
 
     sf = shp.Reader(shapefile_path)
     return [shape(record.shape.__geo_interface__) for record in sf.shapeRecords()]

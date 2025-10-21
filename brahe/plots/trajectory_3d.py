@@ -5,6 +5,8 @@ Provides 3D plots of orbital trajectories with optional Earth sphere.
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
@@ -138,8 +140,6 @@ def _trajectory_3d_matplotlib(
     earth_texture,
 ):
     """Matplotlib implementation of 3D trajectory plot."""
-    import matplotlib.pyplot as plt
-
     # Apply scienceplots if available
     apply_scienceplots_style()
 
@@ -230,8 +230,6 @@ def _trajectory_3d_plotly(
     earth_texture,
 ):
     """Plotly implementation of 3D trajectory plot."""
-    import plotly.graph_objects as go
-
     fig = go.Figure()
 
     # Unit conversion
@@ -337,8 +335,6 @@ def _plot_earth_sphere_matplotlib(ax, scale, texture):
 
 def _plot_earth_sphere_plotly(fig, scale, texture):
     """Plot Earth sphere on plotly 3D figure."""
-    import plotly.graph_objects as go
-
     # Create sphere
     u = np.linspace(0, 2 * np.pi, 50)
     v = np.linspace(0, np.pi, 50)

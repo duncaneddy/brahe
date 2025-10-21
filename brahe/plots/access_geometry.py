@@ -5,6 +5,8 @@ Provides polar plots (azimuth/elevation) and elevation profile plots for access 
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
 
@@ -159,8 +161,6 @@ def _normalize_access_window_groups(access_windows):
 
 def _access_polar_matplotlib(window_groups, min_elevation):
     """Matplotlib implementation of access polar plot."""
-    import matplotlib.pyplot as plt
-
     # Apply scienceplots if available
     apply_scienceplots_style()
 
@@ -217,8 +217,6 @@ def _access_polar_matplotlib(window_groups, min_elevation):
 
 def _access_polar_plotly(window_groups, min_elevation):
     """Plotly implementation of access polar plot."""
-    import plotly.graph_objects as go
-
     fig = go.Figure()
 
     # Plot each window
@@ -294,8 +292,6 @@ def _access_polar_plotly(window_groups, min_elevation):
 
 def _access_elevation_matplotlib(window_groups):
     """Matplotlib implementation of elevation vs time plot."""
-    import matplotlib.pyplot as plt
-
     # Apply scienceplots if available
     apply_scienceplots_style()
 
@@ -336,8 +332,6 @@ def _access_elevation_matplotlib(window_groups):
 
 def _access_elevation_plotly(window_groups):
     """Plotly implementation of elevation vs time plot."""
-    import plotly.graph_objects as go
-
     fig = go.Figure()
 
     # Plot each window elevation profile

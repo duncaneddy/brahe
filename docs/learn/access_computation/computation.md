@@ -317,8 +317,14 @@ config = bh.AccessSearchConfig(parallel=False)
 
 **Thread pool management**:
 ```python
-# Set global default (must be called before any parallel operations)
-bh.set_max_threads(8)
+# Set specific number of threads (must be called before any parallel operations)
+bh.set_num_threads(8)
+
+# Use all available CPU cores
+bh.set_max_threads()
+
+# Or go LUDICROUS SPEED (alias for set_max_threads)
+bh.set_ludicrous_speed()
 
 # Query current setting
 num_threads = bh.get_max_threads()

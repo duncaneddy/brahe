@@ -175,10 +175,16 @@ windows = bh.location_accesses(
 Control parallelization globally or per-computation:
 
 ```python
-# Set global thread pool (must be called before any parallel operations)
-bh.set_max_threads(4)
+# Set specific number of threads (must be called before any parallel operations)
+bh.set_num_threads(4)
 
-# Or configure per-computation
+# Or use all available CPU cores
+bh.set_max_threads()
+
+# Or go LUDICROUS SPEED (alias for set_max_threads)
+bh.set_ludicrous_speed()
+
+# Configure per-computation
 config = bh.AccessSearchConfig(
     parallel=True,
     num_threads=8  # Use 8 threads for this computation

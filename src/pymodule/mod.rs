@@ -411,7 +411,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_get_brahe_cache_dir, module)?)?;
 
     // Threading
+    module.add_function(wrap_pyfunction!(py_set_num_threads, module)?)?;
     module.add_function(wrap_pyfunction!(py_set_max_threads, module)?)?;
+    module.add_function(wrap_pyfunction!(py_set_ludicrous_speed, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_max_threads, module)?)?;
 
     Ok(())

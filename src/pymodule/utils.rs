@@ -49,7 +49,7 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
 // Threading Functions
 // ================================
 
-/// Set the maximum number of threads for parallel access computation.
+/// Set the number of threads for parallel computation.
 ///
 /// Configures the global thread pool used by Brahe for parallel operations.
 /// Must be called before any parallel operations begin, otherwise the default
@@ -67,7 +67,7 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
 ///     import brahe as bh
 ///
 ///     # Use 4 threads for all parallel access computations
-///     bh.set_max_threads(4)
+///     bh.set_num_threads(4)
 ///
 ///     # Now all location_accesses calls will use 4 threads
 ///     # (unless overridden with AccessSearchConfig.num_threads)
@@ -78,19 +78,86 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
 ///     access computations are performed. Once the thread pool is initialized,
 ///     it cannot be changed.
 #[pyfunction]
-#[pyo3(name = "set_max_threads")]
-pub fn py_set_max_threads(n: usize) -> PyResult<()> {
-    use crate::utils::threading::set_max_threads;
+#[pyo3(name = "set_num_threads")]
+pub fn py_set_num_threads(n: usize) -> PyResult<()> {
+    use crate::utils::threading::set_num_threads;
 
     // Use panic::catch_unwind to handle Rust panics
-    match std::panic::catch_unwind(|| set_max_threads(n)) {
+    match std::panic::catch_unwind(|| set_num_threads(n)) {
         Ok(_) => Ok(()),
         Err(_) => Err(exceptions::PyRuntimeError::new_err(
             "Thread pool already initialized or invalid thread count. \
-             set_max_threads() must be called before any parallel operations \
+             set_num_threads() must be called before any parallel operations \
              and n must be at least 1."
         )),
     }
+}
+
+/// Set the thread pool to use all available CPU cores.
+///
+/// This is a convenience function that sets the number of threads to 100%
+/// of available CPU cores. Must be called before any parallel operations begin.
+///
+/// Raises:
+///     RuntimeError: If called after the thread pool has already been initialized.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Use all available CPU cores
+///     bh.set_max_threads()
+///
+///     # Now all parallel operations will use maximum threads
+///     ```
+///
+/// Note:
+///     This function should be called early in your program, before any
+///     access computations are performed. Once the thread pool is initialized,
+///     it cannot be changed.
+#[pyfunction]
+#[pyo3(name = "set_max_threads")]
+pub fn py_set_max_threads() -> PyResult<()> {
+    use crate::utils::threading::set_max_threads;
+
+    // Use panic::catch_unwind to handle Rust panics
+    match std::panic::catch_unwind(set_max_threads) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(exceptions::PyRuntimeError::new_err(
+            "Thread pool already initialized. \
+             set_max_threads() must be called before any parallel operations."
+        )),
+    }
+}
+
+/// Set the thread pool to use all available CPU cores (alias for `set_max_threads`).
+///
+/// This is a fun alias for `set_max_threads()` that sets the number of threads
+/// to 100% of available CPU cores for maximum performance. Must be called before
+/// any parallel operations begin.
+///
+/// Raises:
+///     RuntimeError: If called after the thread pool has already been initialized.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # MAXIMUM POWER! Use all available CPU cores
+///     bh.set_ludicrous_speed()
+///
+///     # Now all parallel operations will use maximum threads
+///     ```
+///
+/// Note:
+///     This function should be called early in your program, before any
+///     access computations are performed. Once the thread pool is initialized,
+///     it cannot be changed.
+#[pyfunction]
+#[pyo3(name = "set_ludicrous_speed")]
+pub fn py_set_ludicrous_speed() -> PyResult<()> {
+    // Just call set_max_threads - it's an alias
+    py_set_max_threads()
 }
 
 /// Get the current maximum number of threads for parallel computation.

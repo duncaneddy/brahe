@@ -12,6 +12,10 @@ The access computation module provides comprehensive tools for determining when 
 
 ## Threading Control
 
+::: brahe.set_num_threads
+
 ::: brahe.set_max_threads
+
+::: brahe.set_ludicrous_speed
 
 ::: brahe.get_max_threads

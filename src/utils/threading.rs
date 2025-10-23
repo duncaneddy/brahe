@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 // Global thread pool singleton
 static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
 
-/// Set the maximum number of threads for parallel computation.
+/// Set the number of threads for parallel computation.
 ///
 /// This function configures the global thread pool used by Brahe for
 /// parallel operations (e.g., access computation). Must be called before
@@ -27,12 +27,12 @@ static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
 ///
 /// # Examples
 /// ```
-/// use brahe::utils::threading::set_max_threads;
+/// use brahe::utils::threading::set_num_threads;
 ///
 /// // Use 4 threads for parallel computation
-/// set_max_threads(4);
+/// set_num_threads(4);
 /// ```
-pub fn set_max_threads(n: usize) {
+pub fn set_num_threads(n: usize) {
     if n == 0 {
         panic!("Number of threads must be at least 1");
     }
@@ -46,9 +46,49 @@ pub fn set_max_threads(n: usize) {
 
     if result.is_err() {
         panic!(
-            "Thread pool already initialized. set_max_threads() must be called before any parallel operations."
+            "Thread pool already initialized. set_num_threads() must be called before any parallel operations."
         );
     }
+}
+
+/// Set the thread pool to use all available CPU cores.
+///
+/// This is a convenience function that sets the number of threads to 100%
+/// of available CPU cores. Must be called before any parallel operations begin.
+///
+/// # Panics
+/// Panics if called after the thread pool has already been initialized.
+///
+/// # Examples
+/// ```
+/// use brahe::utils::threading::set_max_threads;
+///
+/// // Use all available CPU cores
+/// set_max_threads();
+/// ```
+pub fn set_max_threads() {
+    set_num_threads(num_cpus::get());
+}
+
+/// LUDICROUS SPEED! GO!
+///
+/// Set the thread pool to use all available CPU cores (alias for `set_max_threads`).
+///
+/// This is a fun alias for `set_max_threads()`. Must be called before
+/// any parallel operations begin.
+///
+/// # Panics
+/// Panics if called after the thread pool has already been initialized.
+///
+/// # Examples
+/// ```
+/// use brahe::utils::threading::set_ludicrous_speed;
+///
+/// // MAXIMUM POWER! Use all available CPU cores
+/// set_ludicrous_speed();
+/// ```
+pub fn set_ludicrous_speed() {
+    set_max_threads();
 }
 
 /// Get the global thread pool, creating it with default settings if needed.
@@ -89,10 +129,10 @@ pub(crate) fn get_thread_pool() -> &'static ThreadPool {
 /// ```
 ///
 /// ```
-/// use brahe::utils::threading::{set_max_threads, get_max_threads};
+/// use brahe::utils::threading::{set_num_threads, get_max_threads};
 ///
 /// // Set explicitly before any operations
-/// set_max_threads(4);
+/// set_num_threads(4);
 /// assert_eq!(get_max_threads(), 4);
 /// ```
 pub fn get_max_threads() -> usize {

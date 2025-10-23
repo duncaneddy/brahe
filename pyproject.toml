@@ -9,7 +9,7 @@ and answer questions quickly, easily, and correctly.
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = { file = "LICENSE.md" }
 keywords = ["space", "astrodynamics", "satellite", "research"]
 authors = [
     { name = "Duncan Eddy", email = "duncan.eddy@gmail.com" }
@@ -38,6 +38,7 @@ dependencies = [
     "cartopy>=0.23.0",
     "shapely>=2.0.0",
     "requests>=2.31.0",
+    "loguru>=0.7.0",
 ]
 
 [project.urls]

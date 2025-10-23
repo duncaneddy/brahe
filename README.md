@@ -44,7 +44,9 @@ Finally, we also try to make the software library easy to understand and extend.
 
 If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
 
-If you find a bug, have a feature request, or want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it.
+If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
+
+We hope you find Brahe useful for your work!
 
 ## Quick Start
 
@@ -242,3 +244,14 @@ If you want to learn more about how to use the package the documentation is stru
 - **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
 
+## License
+
+The project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
+
+<!-- ## Citation / Acknowledgement
+
+If you use Brahe in your work, please cite it as:
+
+``` -->

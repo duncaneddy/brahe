@@ -26,6 +26,14 @@
 
 ----
 
+Documentation: https://duncaneddy.github.io/brahe
+
+Rust Library Reference: https://docs.rs/crate/brahe/latest
+
+Source Code: https://github.com/duncaneddy/brahe
+
+----
+
 # Brahe
 
 Brahe is a modern satellite dynamics library for research and engineering applications. It is designed to be easy-to-learn, quick-to-deploy, and easy to build on. The north-star of the development is enabling users to solve meaningful problems quickly and correctly.
@@ -36,7 +44,9 @@ Finally, we also try to make the software library easy to understand and extend.
 
 If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
 
-If you find a bug, have a feature request, or want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it.
+If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
+
+We hope you find Brahe useful for your work!
 
 ## Quick Start
 
@@ -225,22 +235,23 @@ println!("Velocity: {:?} km/s", [state[3]/1000.0, state[4]/1000.0, state[5]/1000
 ```rust
 ```
 
-
 ## Going Further
 
 If you want to learn more about how to use the package the documentation is structured in the following way:
 
-- [Learn](learn/index.md): Provides short-form documentation of major concepts of the package.
-- [Examples](examples/index.md): Provides longer-form examples of how-to examples of accomplish common tasks.
-- [Library API](library_api/index.md): Provides detailed reference documentation of the Python API.
-- [Rust API](https://docs.rs/brahe): Provides detailed reference documentation of the Rust API.
+- **[Learn](https://duncaneddy.github.io/brahe/learn/)**: Provides short-form documentation of major concepts of the package.
+- **[Examples](https://duncaneddy.github.io/brahe/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
+- **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
+- **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
 
+## License
 
-## Support and Acknowledgement
+The project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Brahe is currently being developed primarily for my own enjoyment and
-because I find having these tools helpful in professional and hobby work. I plan to
-continue developing it for the time being regardless of greater adoption as time permitting.
+We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
 
-That being said, it's incredibly encouraging and useful to know if the
-software is being adopted or found useful in wider practice.
+<!-- ## Citation / Acknowledgement
+
+If you use Brahe in your work, please cite it as:
+
+``` -->

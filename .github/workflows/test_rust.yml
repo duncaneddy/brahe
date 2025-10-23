@@ -83,6 +83,13 @@ jobs:
                     path: target/debug/
             -   name: Run Rust network tests
                 run: cargo test --features network
+            -   name: Upload Brahe cache directory
+                uses: actions/upload-artifact@v4
+                with:
+                    name: brahe-cache
+                    path: ~/.cache/brahe/
+                    retention-days: 7
+                    if-no-files-found: ignore
     pre-cache-python:
         runs-on: ubuntu-latest
         strategy:

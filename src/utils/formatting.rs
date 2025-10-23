@@ -27,8 +27,8 @@
 /// assert_eq!(format_time_string(3665.0, false), "1 hours, 1 minutes, and 5.00 seconds");
 /// assert_eq!(format_time_string(86400.0, false), "1 days, 0 hours, 0 minutes, and 0.00 seconds");
 ///
-/// // Short format
-/// assert_eq!(format_time_string(45.5, true), "46s");
+/// // Short format (note: fractional seconds are floored)
+/// assert_eq!(format_time_string(45.5, true), "45s");
 /// assert_eq!(format_time_string(90.0, true), "1m 30s");
 /// assert_eq!(format_time_string(3665.0, true), "1h 1m 5s");
 /// assert_eq!(format_time_string(86400.0, true), "1d");

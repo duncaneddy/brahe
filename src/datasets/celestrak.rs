@@ -11,7 +11,7 @@ use crate::datasets::serializers::{
 };
 use crate::propagators::SGPPropagator;
 use crate::utils::BraheError;
-use crate::utils::cache::get_brahe_cache_dir;
+use crate::utils::cache::get_celestrak_cache_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -115,7 +115,7 @@ fn fetch_3le_data(group: &str) -> Result<String, BraheError> {
 /// ```
 pub fn get_ephemeris(group: &str) -> Result<Vec<(String, String, String)>, BraheError> {
     // Determine cache filepath
-    let cache_dir = get_brahe_cache_dir()?;
+    let cache_dir = get_celestrak_cache_dir()?;
     let cache_path = PathBuf::from(&cache_dir).join(format!("{}_gp.txt", group));
 
     // Check if we need to download fresh data
@@ -312,7 +312,7 @@ pub fn get_tle_by_id(
     group: Option<&str>,
 ) -> Result<(String, String, String), BraheError> {
     // Determine cache filepath
-    let cache_dir = get_brahe_cache_dir()?;
+    let cache_dir = get_celestrak_cache_dir()?;
     let cache_path = PathBuf::from(&cache_dir).join(format!("tle_{}.txt", norad_id));
 
     // Check if we need to download fresh data
@@ -455,6 +455,183 @@ pub fn get_tle_by_id_as_propagator(
     let (name, line1, line2) = get_tle_by_id(norad_id, group)?;
 
     SGPPropagator::from_3le(Some(&name), &line1, &line2, step_size)
+}
+
+/// Get TLE data for a specific satellite by name
+///
+/// Searches for a satellite by name using a cascading search strategy:
+/// 1. If a group is provided, search within that group first
+/// 2. Fall back to searching the "active" group
+/// 3. Fall back to using CelesTrak's NAME API
+///
+/// Uses cached data if available and less than 6 hours old.
+///
+/// # Arguments
+/// * `name` - Satellite name (case-insensitive, partial matches supported)
+/// * `group` - Optional satellite group to search first
+///
+/// # Returns
+/// * `Result<(String, String, String), BraheError>` - Tuple of (name, line1, line2)
+///
+/// # Example
+/// ```no_run
+/// use brahe::datasets::celestrak::get_tle_by_name;
+///
+/// // Search for ISS with group hint
+/// let (name, line1, line2) = get_tle_by_name("ISS", Some("stations")).unwrap();
+/// println!("Found: {}", name);
+///
+/// // Search without group (uses cascading search)
+/// let tle = get_tle_by_name("STARLINK-1234", None).unwrap();
+/// ```
+///
+/// # Notes
+/// - Name matching is case-insensitive
+/// - Partial names are supported (e.g., "ISS" will match "ISS (ZARYA)")
+/// - If multiple satellites match, returns the first match
+/// - Search order: specified group → "active" → NAME API
+pub fn get_tle_by_name(
+    name: &str,
+    group: Option<&str>,
+) -> Result<(String, String, String), BraheError> {
+    let name_upper = name.to_uppercase();
+
+    // Helper function to search within a group
+    let search_in_group = |grp: &str| -> Result<(String, String, String), BraheError> {
+        let ephemeris = get_ephemeris(grp)?;
+
+        for (sat_name, line1, line2) in ephemeris {
+            if sat_name.to_uppercase().contains(&name_upper) {
+                return Ok((sat_name, line1, line2));
+            }
+        }
+
+        Err(BraheError::Error(format!(
+            "Satellite '{}' not found in group '{}'",
+            name, grp
+        )))
+    };
+
+    // Strategy 1: Search in specified group if provided
+    if let Some(grp) = group
+        && let Ok(result) = search_in_group(grp)
+    {
+        return Ok(result);
+        // Otherwise, continue to fallback strategies
+    }
+
+    // Strategy 2: Search in "active" group
+    if let Ok(result) = search_in_group("active") {
+        return Ok(result);
+    }
+
+    // Strategy 3: Use CelesTrak NAME API
+    let cache_dir = get_celestrak_cache_dir()?;
+    let cache_path = PathBuf::from(&cache_dir).join(format!("name_{}.txt", name.replace(' ', "_")));
+
+    let text = if should_refresh_file(&cache_path, DEFAULT_MAX_CACHE_AGE_SECONDS) {
+        let url = format!(
+            "{}?NAME={}&FORMAT=3le",
+            CELESTRAK_BASE_URL,
+            name.replace(' ', "%20")
+        );
+
+        let result = ureq::get(&url).call();
+
+        let data = match result {
+            Ok(mut response) => {
+                let body = response
+                    .body_mut()
+                    .read_to_string()
+                    .map_err(|e| BraheError::Error(format!("Failed to read response: {}", e)))?;
+
+                if body.trim().is_empty() {
+                    return Err(BraheError::Error(format!(
+                        "No TLE data found for satellite name '{}'. Try specifying a group or check the name.",
+                        name
+                    )));
+                }
+
+                body
+            }
+            Err(e) => {
+                return Err(BraheError::Error(format!(
+                    "Failed to download TLE for satellite name '{}': {}",
+                    name, e
+                )));
+            }
+        };
+
+        // Cache it for future use
+        if let Err(e) = fs::write(&cache_path, &data) {
+            eprintln!(
+                "Warning: Failed to cache TLE data to {}: {}",
+                cache_path.display(),
+                e
+            );
+        }
+
+        data
+    } else {
+        // Use cached data
+        fs::read_to_string(&cache_path).map_err(|e| {
+            BraheError::Error(format!(
+                "Failed to read cached TLE from {}: {}",
+                cache_path.display(),
+                e
+            ))
+        })?
+    };
+
+    // Parse and return the TLE
+    let tles = parse_3le_text(&text)?;
+
+    if tles.is_empty() {
+        return Err(BraheError::Error(format!(
+            "No TLE found in response for satellite name '{}'",
+            name
+        )));
+    }
+
+    Ok(tles[0].clone())
+}
+
+/// Get TLE data for a specific satellite by name as an SGP propagator
+///
+/// Searches for a satellite by name and creates an SGP4/SDP4 propagator.
+/// Uses cascading search strategy (specified group → active → NAME API).
+/// Uses cached data if available and less than 6 hours old.
+///
+/// # Arguments
+/// * `name` - Satellite name (case-insensitive, partial matches supported)
+/// * `group` - Optional satellite group to search first
+/// * `step_size` - Default step size for propagator in seconds
+///
+/// # Returns
+/// * `Result<SGPPropagator, BraheError>` - Configured SGP propagator
+///
+/// # Example
+/// ```no_run
+/// use brahe::datasets::celestrak::get_tle_by_name_as_propagator;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::propagators::traits::StateProvider;
+///
+/// // Get ISS as propagator with 60-second step size
+/// let propagator = get_tle_by_name_as_propagator("ISS", Some("stations"), 60.0).unwrap();
+///
+/// // Propagate to a specific epoch
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = propagator.state_eci(epoch);
+/// println!("Position: x={}, y={}, z={}", state[0], state[1], state[2]);
+/// ```
+pub fn get_tle_by_name_as_propagator(
+    name: &str,
+    group: Option<&str>,
+    step_size: f64,
+) -> Result<SGPPropagator, BraheError> {
+    let (sat_name, line1, line2) = get_tle_by_name(name, group)?;
+
+    SGPPropagator::from_3le(Some(&sat_name), &line1, &line2, step_size)
 }
 
 #[cfg(test)]
@@ -735,7 +912,7 @@ mod tests {
         use std::time::Duration;
 
         // Clear cache for this test
-        let cache_dir = get_brahe_cache_dir().unwrap();
+        let cache_dir = get_celestrak_cache_dir().unwrap();
         let cache_path = PathBuf::from(&cache_dir).join("tle_25544.txt");
         let _ = fs::remove_file(&cache_path);
 

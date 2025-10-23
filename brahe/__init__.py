@@ -61,6 +61,7 @@ from brahe.constants import *
 from brahe.access import *
 from brahe.utils import *
 from brahe.plots import *
+from brahe.datasets import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -95,6 +96,7 @@ __all__.extend(constants.__all__)
 __all__.extend(access.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(plots.__all__)
+__all__.extend(datasets.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

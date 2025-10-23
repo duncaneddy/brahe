@@ -349,4 +349,98 @@ fn py_celestrak_get_tle_by_id_as_propagator(
     Ok(PySGPPropagator { propagator })
 }
 
+/// Get TLE data for a specific satellite by name
+///
+/// Searches for a satellite by name using a cascading search strategy:
+/// 1. If a group is provided, search within that group first
+/// 2. Fall back to searching the "active" group
+/// 3. Fall back to using CelesTrak's NAME API
+///
+/// Uses cached data if available and less than 6 hours old.
+///
+/// Args:
+///     name (str): Satellite name (case-insensitive, partial matches supported).
+///     group (str, optional): Satellite group to search first.
+///         Available groups can be found at https://celestrak.org/NORAD/elements/
+///
+/// Returns:
+///     tuple[str, str, str]: Tuple of (name, line1, line2) containing satellite
+///         name and TLE lines.
+///
+/// Raises:
+///     RuntimeError: If download fails or satellite not found.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Search for ISS with group hint
+///     name, line1, line2 = bh.datasets.celestrak.get_tle_by_name("ISS", group="stations")
+///     print(f"Found: {name}")
+///
+///     # Search without group (uses cascading search)
+///     tle = bh.datasets.celestrak.get_tle_by_name("STARLINK-1234")
+///     ```
+///
+/// Note:
+///     - Name matching is case-insensitive
+///     - Partial names are supported (e.g., "ISS" will match "ISS (ZARYA)")
+///     - If multiple satellites match, returns the first match
+///     - Search order: specified group → "active" → NAME API
+///     - Data is cached for 6 hours to reduce server load
+#[pyfunction]
+#[pyo3(name = "celestrak_get_tle_by_name", signature = (name, group=None))]
+fn py_celestrak_get_tle_by_name(
+    name: &str,
+    group: Option<&str>,
+) -> PyResult<(String, String, String)> {
+    celestrak::get_tle_by_name(name, group)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+}
+
+/// Get TLE data for a specific satellite by name as an SGP propagator
+///
+/// Searches for a satellite by name and creates an SGP4/SDP4 propagator.
+/// Uses cascading search strategy (specified group → active → NAME API).
+/// Uses cached data if available and less than 6 hours old.
+///
+/// Args:
+///     name (str): Satellite name (case-insensitive, partial matches supported).
+///     step_size (float): Default step size for propagator in seconds.
+///     group (str, optional): Satellite group to search first.
+///
+/// Returns:
+///     SGPPropagator: Configured SGP propagator (PySGPPropagator) ready to use.
+///
+/// Raises:
+///     RuntimeError: If download fails, satellite not found, or TLE is invalid.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get ISS as propagator with 60-second step size
+///     propagator = bh.datasets.celestrak.get_tle_by_name_as_propagator("ISS", 60.0, group="stations")
+///
+///     # Propagate to current epoch
+///     epoch = bh.Epoch.now()
+///     state = propagator.propagate(epoch)
+///     print(f"Position: {state[:3]}")
+///     ```
+///
+/// Note:
+///     Data is cached for 6 hours to reduce server load and improve performance.
+#[pyfunction]
+#[pyo3(name = "celestrak_get_tle_by_name_as_propagator", signature = (name, step_size, group=None))]
+fn py_celestrak_get_tle_by_name_as_propagator(
+    name: &str,
+    step_size: f64,
+    group: Option<&str>,
+) -> PyResult<PySGPPropagator> {
+    let propagator = celestrak::get_tle_by_name_as_propagator(name, group, step_size)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    Ok(PySGPPropagator { propagator })
+}
+
 // Functions are registered in mod.rs via add_function() calls

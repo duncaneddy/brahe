@@ -406,6 +406,112 @@ fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
     Ok(orbits::apoapsis_distance(a, e))
 }
 
+/// Calculate the altitude above a body's surface at periapsis.
+///
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     r_body (float): The radius of the central body in meters.
+///
+/// Returns:
+///     float: The altitude above the body's surface at periapsis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate periapsis altitude for Earth satellite
+///     a = bh.R_EARTH + 500e3  # 500 km mean altitude
+///     e = 0.01  # slight eccentricity
+///     alt_peri = bh.periapsis_altitude(a, e, bh.R_EARTH)
+///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a, e, r_body)")]
+#[pyo3(name = "periapsis_altitude")]
+fn py_periapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
+    Ok(orbits::periapsis_altitude(a, e, r_body))
+}
+
+/// Calculate the altitude above Earth's surface at perigee.
+///
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///
+/// Returns:
+///     float: The altitude above Earth's surface at perigee in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate perigee altitude for ISS-like orbit
+///     a = bh.R_EARTH + 420e3  # 420 km mean altitude
+///     e = 0.0005  # very nearly circular
+///     alt = bh.perigee_altitude(a, e)
+///     print(f"Perigee altitude: {alt/1000:.2f} km")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a, e)")]
+#[pyo3(name = "perigee_altitude")]
+fn py_perigee_altitude(a: f64, e: f64) -> PyResult<f64> {
+    Ok(orbits::perigee_altitude(a, e))
+}
+
+/// Calculate the altitude above a body's surface at apoapsis.
+///
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     r_body (float): The radius of the central body in meters.
+///
+/// Returns:
+///     float: The altitude above the body's surface at apoapsis in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate apoapsis altitude for Moon satellite
+///     a = bh.R_MOON + 100e3  # 100 km mean altitude
+///     e = 0.05  # moderate eccentricity
+///     alt_apo = bh.apoapsis_altitude(a, e, bh.R_MOON)
+///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a, e, r_body)")]
+#[pyo3(name = "apoapsis_altitude")]
+fn py_apoapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
+    Ok(orbits::apoapsis_altitude(a, e, r_body))
+}
+
+/// Calculate the altitude above Earth's surface at apogee.
+///
+/// Args:
+///     a (float): The semi-major axis of the astronomical object in meters.
+///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///
+/// Returns:
+///     float: The altitude above Earth's surface at apogee in meters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Calculate apogee altitude for Molniya-type orbit
+///     a = 26554000.0  # ~26554 km semi-major axis
+///     e = 0.7  # highly eccentric
+///     alt = bh.apogee_altitude(a, e)
+///     print(f"Apogee altitude: {alt/1000:.2f} km")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a, e)")]
+#[pyo3(name = "apogee_altitude")]
+fn py_apogee_altitude(a: f64, e: f64) -> PyResult<f64> {
+    Ok(orbits::apogee_altitude(a, e))
+}
+
 /// Computes the inclination for a Sun-synchronous orbit around Earth based on
 /// the J2 gravitational perturbation.
 ///

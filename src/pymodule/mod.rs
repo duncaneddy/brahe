@@ -315,6 +315,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_apogee_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_apoapsis_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_apoapsis_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_periapsis_altitude, module)?)?;
+    module.add_function(wrap_pyfunction!(py_perigee_altitude, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apoapsis_altitude, module)?)?;
+    module.add_function(wrap_pyfunction!(py_apogee_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_sun_synchronous_inclination, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_eccentric, module)?)?;
@@ -366,6 +370,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_id, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_celestrak_get_tle_by_id_as_propagator,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_name, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_celestrak_get_tle_by_name_as_propagator,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;

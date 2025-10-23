@@ -87,8 +87,8 @@ impl CachingEOPProvider {
     /// # Arguments
     ///
     /// * `filepath` - Optional path to the EOP file. If `None`, uses default cache location:
-    ///   - StandardBulletinA: `~/.cache/brahe/finals.all.iau2000.txt`
-    ///   - C04: `~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt`
+    ///   - StandardBulletinA: `~/.cache/brahe/eop/finals.all.iau2000.txt`
+    ///   - C04: `~/.cache/brahe/eop/EOP_20_C04_one_file_1962-now.txt`
     /// * `eop_type` - Type of EOP file (C04 or StandardBulletinA)
     /// * `max_age_seconds` - Maximum age of the file in seconds before triggering a download
     /// * `auto_refresh` - If true, automatically check file age on each access and refresh if needed
@@ -138,7 +138,7 @@ impl CachingEOPProvider {
             path.to_path_buf()
         } else {
             // Use default cache location
-            let cache_dir = crate::utils::get_brahe_cache_dir()?;
+            let cache_dir = crate::utils::cache::get_eop_cache_dir()?;
             let filename = match eop_type {
                 EOPType::StandardBulletinA => "finals.all.iau2000.txt",
                 EOPType::C04 => "EOP_20_C04_one_file_1962-now.txt",
@@ -583,7 +583,7 @@ mod tests {
         assert!(provider.len() > 0);
 
         // Verify the file was created in the cache directory
-        let cache_dir = crate::utils::get_brahe_cache_dir().unwrap();
+        let cache_dir = crate::utils::cache::get_eop_cache_dir().unwrap();
         let expected_path = PathBuf::from(cache_dir).join("finals.all.iau2000.txt");
         assert!(expected_path.exists());
     }

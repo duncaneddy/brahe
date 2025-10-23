@@ -52,7 +52,7 @@ def test_caching_provider_with_default_filepath():
 
     # Verify file was created in cache directory
     cache_dir = brahe.get_brahe_cache_dir()
-    expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
+    expected_path = os.path.join(cache_dir, "eop", "finals.all.iau2000.txt")
     assert os.path.exists(expected_path)
 
 
@@ -74,7 +74,7 @@ def test_caching_provider_c04_default_filepath():
 
     # Verify file was created in cache directory
     cache_dir = brahe.get_brahe_cache_dir()
-    expected_path = os.path.join(cache_dir, "EOP_20_C04_one_file_1962-now.txt")
+    expected_path = os.path.join(cache_dir, "eop", "EOP_20_C04_one_file_1962-now.txt")
     assert os.path.exists(expected_path)
 
 

@@ -370,6 +370,94 @@ pub fn apoapsis_distance(a: f64, e: f64) -> f64 {
     a * (1.0 + e)
 }
 
+/// Calculate the altitude above a body's surface at periapsis
+///
+/// # Arguments
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
+/// * `r_body`: The radius of the central body. Units: (_m_)
+///
+/// # Returns
+///
+/// * `altitude`: The altitude above the body's surface at periapsis. Units: (_m_)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, R_MOON};
+/// use brahe::orbits::periapsis_altitude;
+/// let alt_earth = periapsis_altitude(R_EARTH + 500e3, 0.01, R_EARTH);
+/// let alt_moon = periapsis_altitude(R_MOON + 100e3, 0.05, R_MOON);
+/// ```
+pub fn periapsis_altitude(a: f64, e: f64, r_body: f64) -> f64 {
+    a * (1.0 - e) - r_body
+}
+
+/// Calculate the altitude above Earth's surface at perigee
+///
+/// # Arguments
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
+///
+/// # Returns
+///
+/// * `altitude`: The altitude above Earth's surface at perigee. Units: (_m_)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::orbits::perigee_altitude;
+/// let alt = perigee_altitude(R_EARTH + 500e3, 0.01);
+/// ```
+pub fn perigee_altitude(a: f64, e: f64) -> f64 {
+    periapsis_altitude(a, e, R_EARTH)
+}
+
+/// Calculate the altitude above a body's surface at apoapsis
+///
+/// # Arguments
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
+/// * `r_body`: The radius of the central body. Units: (_m_)
+///
+/// # Returns
+///
+/// * `altitude`: The altitude above the body's surface at apoapsis. Units: (_m_)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, R_MOON};
+/// use brahe::orbits::apoapsis_altitude;
+/// let alt_earth = apoapsis_altitude(R_EARTH + 500e3, 0.01, R_EARTH);
+/// let alt_moon = apoapsis_altitude(R_MOON + 100e3, 0.05, R_MOON);
+/// ```
+pub fn apoapsis_altitude(a: f64, e: f64, r_body: f64) -> f64 {
+    a * (1.0 + e) - r_body
+}
+
+/// Calculate the altitude above Earth's surface at apogee
+///
+/// # Arguments
+///
+/// * `a`: The semi-major axis of the astronomical object. Units: (_m_)
+/// * `e`: The eccentricity of the astronomical object's orbit. Dimensionless
+///
+/// # Returns
+///
+/// * `altitude`: The altitude above Earth's surface at apogee. Units: (_m_)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::R_EARTH;
+/// use brahe::orbits::apogee_altitude;
+/// let alt = apogee_altitude(R_EARTH + 500e3, 0.01);
+/// ```
+pub fn apogee_altitude(a: f64, e: f64) -> f64 {
+    apoapsis_altitude(a, e, R_EARTH)
+}
+
 /// Computes the inclination for a Sun-synchronous orbit around Earth based on
 /// the J2 gravitational perturbation.
 ///
@@ -1133,5 +1221,93 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_periapsis_altitude() {
+        // Test with Earth
+        let a = R_EARTH + 500e3; // 500 km mean altitude orbit
+        let e = 0.01; // slight eccentricity
+        let alt = periapsis_altitude(a, e, R_EARTH);
+
+        // Periapsis distance should be a(1-e), altitude is that minus R_EARTH
+        let expected = a * (1.0 - e) - R_EARTH;
+        assert_abs_diff_eq!(alt, expected, epsilon = 1.0);
+
+        // Verify it's less than mean altitude
+        assert!(alt < 500e3);
+    }
+
+    #[test]
+    fn test_perigee_altitude() {
+        // Test Earth-specific function
+        let a = R_EARTH + 420e3; // ISS-like orbit (420 km mean altitude)
+        let e = 0.0005; // very small eccentricity
+        let alt = perigee_altitude(a, e);
+
+        // Should match general function with R_EARTH
+        let expected = periapsis_altitude(a, e, R_EARTH);
+        assert_abs_diff_eq!(alt, expected, epsilon = 1e-6);
+
+        // For very small eccentricity, should be close to mean altitude
+        assert!(alt > 416e3 && alt < 420e3);
+    }
+
+    #[test]
+    fn test_apoapsis_altitude() {
+        // Test with Moon
+        let a = R_MOON + 100e3; // 100 km altitude orbit
+        let e = 0.05; // moderate eccentricity
+        let alt = apoapsis_altitude(a, e, R_MOON);
+
+        // Apoapsis distance should be a(1+e), altitude is that minus R_MOON
+        let expected = a * (1.0 + e) - R_MOON;
+        assert_abs_diff_eq!(alt, expected, epsilon = 1.0);
+
+        // Should be higher than mean altitude
+        assert!(alt > 100e3);
+    }
+
+    #[test]
+    fn test_apogee_altitude() {
+        // Test Earth-specific function with highly eccentric orbit (Molniya-type)
+        let a = 26554e3; // ~26554 km semi-major axis
+        let e = 0.7; // highly eccentric
+        let alt = apogee_altitude(a, e);
+
+        // Should match general function with R_EARTH
+        let expected = apoapsis_altitude(a, e, R_EARTH);
+        assert_abs_diff_eq!(alt, expected, epsilon = 1e-6);
+
+        // For highly eccentric orbit, apogee should be much higher than mean
+        assert!(alt > 30000e3); // > 30000 km altitude
+    }
+
+    #[test]
+    fn test_altitude_symmetry() {
+        // Test that periapsis and apoapsis are symmetric around semi-major axis
+        let a = R_EARTH + 1000e3;
+        let e = 0.1;
+
+        let peri_alt = perigee_altitude(a, e);
+        let apo_alt = apogee_altitude(a, e);
+
+        // Mean altitude should be approximately average of peri and apo
+        let mean_alt = (peri_alt + apo_alt) / 2.0;
+        let expected_mean = a - R_EARTH;
+        assert_abs_diff_eq!(mean_alt, expected_mean, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_circular_orbit_altitudes() {
+        // For circular orbit (e=0), perigee and apogee should be equal
+        let a = R_EARTH + 600e3;
+        let e = 0.0;
+
+        let peri_alt = perigee_altitude(a, e);
+        let apo_alt = apogee_altitude(a, e);
+
+        assert_abs_diff_eq!(peri_alt, apo_alt, epsilon = 1e-6);
+        assert_abs_diff_eq!(peri_alt, 600e3, epsilon = 1.0);
     }
 }

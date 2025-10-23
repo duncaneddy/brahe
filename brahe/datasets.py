@@ -33,6 +33,8 @@ from brahe._brahe import (
     celestrak_download_ephemeris,
     celestrak_get_tle_by_id,
     celestrak_get_tle_by_id_as_propagator,
+    celestrak_get_tle_by_name,
+    celestrak_get_tle_by_name_as_propagator,
     # Groundstation functions
     groundstations_load,
     groundstations_load_from_file,
@@ -50,6 +52,10 @@ class _CelesTrakNamespace:
     download_ephemeris = staticmethod(celestrak_download_ephemeris)
     get_tle_by_id = staticmethod(celestrak_get_tle_by_id)
     get_tle_by_id_as_propagator = staticmethod(celestrak_get_tle_by_id_as_propagator)
+    get_tle_by_name = staticmethod(celestrak_get_tle_by_name)
+    get_tle_by_name_as_propagator = staticmethod(
+        celestrak_get_tle_by_name_as_propagator
+    )
 
 
 # Create celestrak namespace instance

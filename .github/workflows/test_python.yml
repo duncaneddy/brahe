@@ -17,7 +17,7 @@ jobs:
                 uses: astral-sh/setup-uv@v6
                 with:
                     python-version: ${{ matrix.python-version }}
-                    enable-cache: true
+                    enable-cache: trueuv 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
 
@@ -26,3 +26,23 @@ jobs:
 
             -   name: Generate coverage report
                 run: uv run --frozen coverage report
+
+    test-python-network:
+        runs-on: ubuntu-latest
+        needs: test-python
+        steps:
+            # TODO: Remove this when the nightly BTreeCursor is stabilized and released
+            -   name: Install Rust
+                run: rustup update nightly
+            -   run: rustup default nightly
+            -   uses: actions/checkout@v5
+            -   name: Install the latest version of uv and set the python version
+                uses: astral-sh/setup-uv@v6
+                with:
+                    python-version: '3.14'
+                    enable-cache: true
+            -   name: Install dependencies
+                run: uv sync --all-extras --frozen
+
+            -   name: Test network-dependent tests with Python 3.14
+                run: uv run --frozen pytest -m network

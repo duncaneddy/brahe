@@ -911,7 +911,6 @@ impl PyFileEOPProvider {
 /// downloaded on initialization.
 ///
 /// Args:
-///     filepath (str): Path to the EOP file (will be created if it doesn't exist)
 ///     eop_type (str): Type of EOP file - "C04" for IERS C04 format or
 ///         "StandardBulletinA" for IERS finals2000A.all format
 ///     max_age_seconds (int): Maximum age of file in seconds before triggering
@@ -923,6 +922,10 @@ impl PyFileEOPProvider {
 ///         values. Recommended: True for smoother data
 ///     extrapolate (str): Behavior for dates outside EOP data range:
 ///         "Hold" (use last known value), "Zero" (return 0.0), or "Error" (raise exception)
+///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
+///         If None, uses default cache location:
+///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
+///         - C04: ~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt
 ///
 /// Raises:
 ///     RuntimeError: If file download fails or file is invalid
@@ -931,9 +934,8 @@ impl PyFileEOPProvider {
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Manual refresh mode (recommended for performance)
+///     # Using default cache location (recommended)
 ///     provider = bh.CachingEOPProvider(
-///         filepath="./eop_data/finals.all.iau2000.txt",
 ///         eop_type="StandardBulletinA",
 ///         max_age_seconds=7 * 86400,  # 7 days
 ///         auto_refresh=False,
@@ -945,9 +947,18 @@ impl PyFileEOPProvider {
 ///     # Check and refresh as needed
 ///     provider.refresh()
 ///
+///     # With explicit filepath
+///     provider = bh.CachingEOPProvider(
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=7 * 86400,
+///         auto_refresh=False,
+///         interpolate=True,
+///         extrapolate="Hold",
+///         filepath="./eop_data/finals.all.iau2000.txt"
+///     )
+///
 ///     # Auto-refresh mode (convenience)
 ///     auto_provider = bh.CachingEOPProvider(
-///         filepath="./eop_data/finals.all.iau2000.txt",
 ///         eop_type="StandardBulletinA",
 ///         max_age_seconds=24 * 3600,  # 24 hours
 ///         auto_refresh=True,  # Checks on every access
@@ -983,7 +994,6 @@ impl PyCachingEOPProvider {
     /// If the file doesn't exist, it will be downloaded on initialization.
     ///
     /// Args:
-    ///     filepath (str): Path to the EOP file (will be created if it doesn't exist)
     ///     eop_type (str): Type of EOP file - "C04" for IERS C04 format or
     ///         "StandardBulletinA" for IERS finals2000A.all format
     ///     max_age_seconds (int): Maximum age of file in seconds before triggering
@@ -997,6 +1007,10 @@ impl PyCachingEOPProvider {
     ///         - "Hold": Use last known value (recommended)
     ///         - "Zero": Return 0.0 for all parameters
     ///         - "Error": Raise an exception
+    ///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
+    ///         If None, uses default cache location:
+    ///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
+    ///         - C04: ~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt
     ///
     /// Returns:
     ///     CachingEOPProvider: Provider with automatic cache management
@@ -1008,9 +1022,8 @@ impl PyCachingEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     # Create provider that refreshes files older than 7 days
+    ///     # Using default cache location (recommended)
     ///     provider = bh.CachingEOPProvider(
-    ///         filepath="./eop_data/finals.all.iau2000.txt",
     ///         eop_type="StandardBulletinA",
     ///         max_age_seconds=7 * 86400,  # 7 days in seconds
     ///         auto_refresh=False,          # Manual refresh only
@@ -1030,9 +1043,18 @@ impl PyCachingEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
+    ///     # With explicit filepath
+    ///     provider = bh.CachingEOPProvider(
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=7 * 86400,
+    ///         auto_refresh=False,
+    ///         interpolate=True,
+    ///         extrapolate="Hold",
+    ///         filepath="./eop_data/finals.all.iau2000.txt"
+    ///     )
+    ///
     ///     # Long-running service with auto-refresh
     ///     provider = bh.CachingEOPProvider(
-    ///         filepath="/var/lib/app/eop_data/finals.txt",
     ///         eop_type="StandardBulletinA",
     ///         max_age_seconds=24 * 3600,  # 24 hours
     ///         auto_refresh=True,           # Check on every access
@@ -1047,18 +1069,18 @@ impl PyCachingEOPProvider {
     ///         perform_calculations()
     ///     ```
     #[new]
-    #[pyo3(signature = (filepath, eop_type, max_age_seconds, auto_refresh, interpolate, extrapolate))]
+    #[pyo3(signature = (eop_type, max_age_seconds, auto_refresh, interpolate, extrapolate, filepath=None))]
     pub fn new(
-        filepath: &str,
         eop_type: &str,
         max_age_seconds: u64,
         auto_refresh: bool,
         interpolate: bool,
         extrapolate: &str,
+        filepath: Option<&str>,
     ) -> Result<Self, BraheError> {
         Ok(PyCachingEOPProvider {
             obj: eop::CachingEOPProvider::new(
-                Path::new(filepath),
+                filepath.map(Path::new),
                 string_to_eop_type(eop_type)?,
                 max_age_seconds,
                 auto_refresh,
@@ -1077,12 +1099,11 @@ impl PyCachingEOPProvider {
     ///     import brahe as bh
     ///
     ///     provider = bh.CachingEOPProvider(
-    ///         "./eop_data/finals.all.iau2000.txt",
-    ///         "StandardBulletinA",
-    ///         7 * 86400,
-    ///         False,
-    ///         True,
-    ///         "Hold"
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=7 * 86400,
+    ///         auto_refresh=False,
+    ///         interpolate=True,
+    ///         extrapolate="Hold"
     ///     )
     ///
     ///     # Later, manually force a refresh check
@@ -1102,12 +1123,11 @@ impl PyCachingEOPProvider {
     ///     import brahe as bh
     ///
     ///     provider = bh.CachingEOPProvider(
-    ///         "./eop_data/finals.all.iau2000.txt",
-    ///         "StandardBulletinA",
-    ///         7 * 86400,
-    ///         False,
-    ///         True,
-    ///         "Hold"
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=7 * 86400,
+    ///         auto_refresh=False,
+    ///         interpolate=True,
+    ///         extrapolate="Hold"
     ///     )
     ///
     ///     file_epoch = provider.file_epoch()
@@ -1129,12 +1149,11 @@ impl PyCachingEOPProvider {
     ///     import brahe as bh
     ///
     ///     provider = bh.CachingEOPProvider(
-    ///         "./eop_data/finals.all.iau2000.txt",
-    ///         "StandardBulletinA",
-    ///         7 * 86400,
-    ///         False,
-    ///         True,
-    ///         "Hold"
+    ///         eop_type="StandardBulletinA",
+    ///         max_age_seconds=7 * 86400,
+    ///         auto_refresh=False,
+    ///         interpolate=True,
+    ///         extrapolate="Hold"
     ///     )
     ///
     ///     age = provider.file_age()
@@ -1282,12 +1301,11 @@ impl PyCachingEOPProvider {
 ///     import brahe as bh
 ///
 ///     provider = bh.CachingEOPProvider(
-///         "./eop_data/finals.all.iau2000.txt",
-///         "StandardBulletinA",
-///         7 * 86400,
-///         False,
-///         True,
-///         "Hold"
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=7 * 86400,
+///         auto_refresh=False,
+///         interpolate=True,
+///         extrapolate="Hold"
 ///     )
 ///     bh.set_global_eop_provider_from_caching_provider(provider)
 ///     ```
@@ -1366,12 +1384,11 @@ pub fn py_set_global_eop_provider_from_file_provider(provider: &PyFileEOPProvide
 ///
 ///     # Use with CachingEOPProvider
 ///     provider = bh.CachingEOPProvider(
-///         "./eop_data/finals.all.iau2000.txt",
-///         "StandardBulletinA",
-///         7 * 86400,
-///         False,
-///         True,
-///         "Hold"
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=7 * 86400,
+///         auto_refresh=False,
+///         interpolate=True,
+///         extrapolate="Hold"
 ///     )
 ///     bh.set_global_eop_provider(provider)
 ///     ```

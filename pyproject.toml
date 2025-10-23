@@ -84,6 +84,13 @@ features = ["pyo3/extension-module", "python"]
 # Include type stub file in distribution
 include = ["brahe/_brahe.pyi"]
 
+[tool.pytest.ini_options]
+markers = [
+    "network: marks tests that require network access to download external data",
+]
+# By default, exclude network tests unless explicitly requested with -m network
+addopts = "-m 'not network'"
+
 [tool.ruff.lint]
 # Ignore F403 (import * used) in __init__.py for backward compatibility pattern
 extend-ignore = ["F403"]

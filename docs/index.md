@@ -26,29 +26,17 @@
 
 ----
 
-!!! warning "Pure-Python Brahe Deprecation Notice"
-    
-    The older pure-Python implementaiton of brahe is currently being deprecated in favor of an improved Rust-based implementation. There will be breaking changes during this period.
-
 # Brahe
 
-!!! quote ""
+Brahe is a modern satellite dynamics library for research and engineering applications. It is designed to be easy-to-learn, quick-to-deploy, and easy to build on. The north-star of the development is enabling users to solve meaningful problems quickly and correctly.
 
-    All software is wrong, but some is useful.
+Brahe is permissively licensed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to encourage enable people to use and build on the work without worrying about licensing restrictions. We want people to be able to stop reinventing the astrodynamics wheel because commercial licenses are expensive, or open-source options are hard to use or incomplete.
 
-Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, quick-to-deploy, and easy to build on.
-The north-star of the development is enabling users to solve meaningful problems
-and answer questions quickly and correctly.
+Finally, we also try to make the software library easy to understand and extend. Many astrodynamics libraries are written in a way that makes them hard to read, understand, or modify. Brahe is written in a modern style with an emphasis on code clarity and modularity to make it easier to understand how algorithms are implemented and to make it easier to extend the library to support new use-cases. This also has the added benefit of making it easier to verify and validate the correctness of the implementation.
 
-The Brahe permissively licensed and distributed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to encourage adoption and enable the
-broader community to build on the work.
+If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
 
-If you do find it useful, please consider starring the repository on GitHub to help
-increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
-You can find my contact information on my [personal website](https://duncaneddy.com), 
-or open an issue on the GitHub repository.
-
+If you find a bug, have a feature request, or want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it.
 
 ## Quick Start
 
@@ -72,7 +60,7 @@ And do something fun like calculate the orbital-period of a satellite in low Ear
 import brahe as bh
 
 # Define the semi-major axis of a low Earth orbit (in meters)
-a = bh.R_EARTH + 400e3  # 400 km altitude
+a = bh.constants.EARTH_RADIUS + 400e3  # 400 km altitude
 
 # Calculate the orbital period using Kepler's third law
 T = bh.orbital_period(a)
@@ -98,15 +86,55 @@ future_epc = epc + 3600  # Add 3600 seconds (1 hour)
 time_diff = future_epc - epc  # Difference in seconds
 ```
 
+**Coordinate Transformations:**
+```python
+import brahe as bh
+import numpy as np
+
+# Convert Orbital Elements to ECI State Vector
+elements = [
+    7000e3,    # Semi-major axis in meters
+    0.001,     # Eccentricity
+    98.7,      # Inclination in degrees
+    0.0,       # RAAN in degrees
+    0.0,       # Argument of perigee in degrees
+    0.0        # True anomaly in degrees
+]
+eci_satellite = bh.state_osculating_to_cartesian(elements, bh.AngleFormat.DEGREES)
+
+# Convert ECI State Vector to ECEF State Vector
+epc = bh.Epoch(2024, 1, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
+ecef_satellite = bh.state_eci_to_ecef(epc, eci_state)
+
+# Convert geodetic coordinates to ECEF
+lat = 40.0  # degrees North
+lon = -105.0  # degrees East
+alt = 1000.0  # meters above ellipsoid
+geod = np.array([lat, lon, alt])  # [latitude, longitude, altitude]
+ecef_location = bh.position_geodetic_to_ecef(geod, bh.AngleFormat.DEGREES)
+
+# Compute Topocentric-Horizon Coordinates of Satellite from Observer Location
+enz = bh.relative_position_ecef_to_topocentric(ecef_location, ecef_satellite, angle_format=bh.AngleFormat.DEGREES)
+
+print(f'Azimuth: {enz[0]:.2f} degrees')
+print(f'Elevation: {enz[1]:.2f} degrees')
+print(f'Range: {enz[2] / 1000:.2f} km')
+```
+
 **Propagating an Orbit:**
 ```python
 import brahe as bh
 import numpy as np
 
-# Create an SGP4 propagator from Two-Line Element (TLE) data
-line1 = "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990"
-line2 = "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-prop = bh.SGPPropagator.from_tle(line1, line2)
+# Create a Two-Line Element (TLE) for a satellite
+tle = bh.TLE(
+    "ISS (ZARYA)",
+    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
+    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
+)
+
+# Create an SGP4 propagator
+prop = bh.SGPPropagator.from_tle(tle)
 
 # Propagate to a specific epoch
 epc = bh.Epoch(2024, 6, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
@@ -116,21 +144,8 @@ print(f"Position: {state[:3] / 1000} km")
 print(f"Velocity: {state[3:] / 1000} km/s")
 ```
 
-**Coordinate Transformations:**
+**Computing ISS Access Windows:**
 ```python
-import brahe as bh
-import numpy as np
-
-# Convert geodetic coordinates to ECEF
-lat = 40.0  # degrees North
-lon = -105.0  # degrees East
-alt = 1000.0  # meters above ellipsoid
-geod = np.array([lat, lon, alt])  # [latitude, longitude, altitude]
-ecef = bh.position_geodetic_to_ecef(geod, bh.AngleFormat.DEGREES)
-
-# Convert ECEF to ECI at a specific epoch
-epc = bh.Epoch(2024, 1, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
-eci = bh.position_ecef_to_eci(epc, ecef)
 ```
 
 ### Rust
@@ -161,6 +176,28 @@ let future_epc = epc + 3600.0;  // Add 3600 seconds (1 hour)
 let time_diff = future_epc - epc;  // Difference in seconds
 ```
 
+**Coordinate Transformations:**
+```rust
+use brahe::coordinates::position_geodetic_to_ecef;
+use brahe::frames::position_ecef_to_eci;
+use brahe::time::Epoch;
+use brahe::time::TimeSystem;
+use brahe::constants::AngleFormat;
+use nalgebra::Vector3;
+
+// Convert geodetic coordinates (lat, lon, alt) to ECEF
+let geod = Vector3::new(
+    40.0_f64.to_radians(),   // latitude in radians
+    -105.0_f64.to_radians(), // longitude in radians
+    1000.0                   // altitude in meters
+);
+let ecef = position_geodetic_to_ecef(geod, AngleFormat::Radians);
+
+// Convert ECEF to ECI at a specific epoch
+let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
+let eci = position_ecef_to_eci(epc, ecef);
+```
+
 **Propagating an Orbit:**
 ```rust
 use brahe::orbits::{TLE, SGPPropagator};
@@ -184,27 +221,10 @@ println!("Position: {:?} km", [state[0]/1000.0, state[1]/1000.0, state[2]/1000.0
 println!("Velocity: {:?} km/s", [state[3]/1000.0, state[4]/1000.0, state[5]/1000.0]);
 ```
 
-**Coordinate Transformations:**
+**Computing ISS Access Windows:**
 ```rust
-use brahe::coordinates::position_geodetic_to_ecef;
-use brahe::frames::position_ecef_to_eci;
-use brahe::time::Epoch;
-use brahe::time::TimeSystem;
-use brahe::constants::AngleFormat;
-use nalgebra::Vector3;
-
-// Convert geodetic coordinates (lat, lon, alt) to ECEF
-let geod = Vector3::new(
-    40.0_f64.to_radians(),   // latitude in radians
-    -105.0_f64.to_radians(), // longitude in radians
-    1000.0                   // altitude in meters
-);
-let ecef = position_geodetic_to_ecef(geod, AngleFormat::Radians);
-
-// Convert ECEF to ECI at a specific epoch
-let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
-let eci = position_ecef_to_eci(epc, ecef);
 ```
+
 
 ## Going Further
 

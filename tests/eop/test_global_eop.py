@@ -1,5 +1,6 @@
 import pytest
 import sys
+import os
 import brahe
 
 
@@ -178,3 +179,89 @@ def test_get_lod(iau2000_standard_filepath):
     )
     brahe.set_global_eop_provider(eop)
     assert brahe.get_global_lod(99999.0) == 0.0
+
+
+def test_set_global_eop_from_caching_provider_with_file(iau2000_standard_filepath):
+    """Test setting global EOP provider with CachingEOPProvider using explicit filepath."""
+    import tempfile
+    import shutil
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest_path = os.path.join(tmpdir, "test_eop.txt")
+        shutil.copy(iau2000_standard_filepath, dest_path)
+
+        provider = brahe.CachingEOPProvider(
+            eop_type="StandardBulletinA",
+            max_age_seconds=365 * 86400,
+            auto_refresh=False,
+            interpolate=True,
+            extrapolate="Hold",
+            filepath=dest_path,
+        )
+
+        brahe.set_global_eop_provider_from_caching_provider(provider)
+
+        assert brahe.get_global_eop_initialization() is True
+        assert brahe.get_global_eop_type() == "StandardBulletinA"
+        assert brahe.get_global_eop_extrapolation() == "Hold"
+        assert brahe.get_global_eop_interpolation() is True
+        assert brahe.get_global_eop_len() > 0
+
+        # Test data retrieval
+        ut1_utc = brahe.get_global_ut1_utc(59569.0)
+        assert ut1_utc == -0.1079939
+
+
+def test_set_global_eop_from_caching_provider_with_set_global_eop_provider(
+    iau2000_standard_filepath,
+):
+    """Test setting global EOP provider with CachingEOPProvider using generic set_global_eop_provider."""
+    import tempfile
+    import shutil
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest_path = os.path.join(tmpdir, "test_eop.txt")
+        shutil.copy(iau2000_standard_filepath, dest_path)
+
+        provider = brahe.CachingEOPProvider(
+            eop_type="StandardBulletinA",
+            max_age_seconds=365 * 86400,
+            auto_refresh=False,
+            interpolate=True,
+            extrapolate="Hold",
+            filepath=dest_path,
+        )
+
+        # Use generic set_global_eop_provider
+        brahe.set_global_eop_provider(provider)
+
+        assert brahe.get_global_eop_initialization() is True
+        assert brahe.get_global_eop_type() == "StandardBulletinA"
+
+        # Test data retrieval
+        pm_x, pm_y = brahe.get_global_pm(59569.0)
+        assert pm_x == 0.075382 * brahe.AS2RAD
+        assert pm_y == 0.263451 * brahe.AS2RAD
+
+
+@pytest.mark.network
+def test_set_global_eop_from_caching_provider_default():
+    """Test setting global EOP provider with CachingEOPProvider using default filepath."""
+    provider = brahe.CachingEOPProvider(
+        eop_type="StandardBulletinA",
+        max_age_seconds=7 * 86400,
+        auto_refresh=False,
+        interpolate=True,
+        extrapolate="Hold",
+    )
+
+    brahe.set_global_eop_provider_from_caching_provider(provider)
+
+    assert brahe.get_global_eop_initialization() is True
+    assert brahe.get_global_eop_type() == "StandardBulletinA"
+    assert brahe.get_global_eop_len() > 0
+
+    # Verify file was created in cache directory
+    cache_dir = brahe.get_brahe_cache_dir()
+    expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
+    assert os.path.exists(expected_path)

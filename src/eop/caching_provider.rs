@@ -41,13 +41,23 @@ use crate::utils::BraheError;
 /// use std::path::Path;
 /// use brahe::eop::{CachingEOPProvider, EOPType, EOPExtrapolation};
 ///
-/// // Create a caching provider that refreshes files older than 7 days
+/// // Create a caching provider with explicit filepath
 /// let filepath = Path::new("/tmp/finals.all.iau2000.txt");
 /// let max_age_days = 7;
 /// let max_age_seconds = max_age_days * 86400;
 ///
 /// let provider = CachingEOPProvider::new(
-///     filepath,
+///     Some(filepath),
+///     EOPType::StandardBulletinA,
+///     max_age_seconds,
+///     false,
+///     true,
+///     EOPExtrapolation::Hold
+/// ).unwrap();
+///
+/// // Or use default cache location
+/// let provider = CachingEOPProvider::new(
+///     None,
 ///     EOPType::StandardBulletinA,
 ///     max_age_seconds,
 ///     false,
@@ -76,7 +86,9 @@ impl CachingEOPProvider {
     ///
     /// # Arguments
     ///
-    /// * `filepath` - Path to the EOP file
+    /// * `filepath` - Optional path to the EOP file. If `None`, uses default cache location:
+    ///   - StandardBulletinA: `~/.cache/brahe/finals.all.iau2000.txt`
+    ///   - C04: `~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt`
     /// * `eop_type` - Type of EOP file (C04 or StandardBulletinA)
     /// * `max_age_seconds` - Maximum age of the file in seconds before triggering a download
     /// * `auto_refresh` - If true, automatically check file age on each access and refresh if needed
@@ -93,25 +105,52 @@ impl CachingEOPProvider {
     /// use std::path::Path;
     /// use brahe::eop::{CachingEOPProvider, EOPType, EOPExtrapolation};
     ///
+    /// // With explicit filepath
     /// let filepath = Path::new("/tmp/finals.all.iau2000.txt");
     /// let provider = CachingEOPProvider::new(
-    ///     filepath,
+    ///     Some(filepath),
     ///     EOPType::StandardBulletinA,
     ///     7 * 86400, // 7 days
     ///     false,     // auto_refresh
     ///     true,
     ///     EOPExtrapolation::Hold
     /// ).unwrap();
+    ///
+    /// // With default cache location
+    /// let provider = CachingEOPProvider::new(
+    ///     None,
+    ///     EOPType::StandardBulletinA,
+    ///     7 * 86400,
+    ///     false,
+    ///     true,
+    ///     EOPExtrapolation::Hold
+    /// ).unwrap();
     /// ```
     pub fn new(
-        filepath: &Path,
+        filepath: Option<&Path>,
         eop_type: EOPType,
         max_age_seconds: u64,
         auto_refresh: bool,
         interpolate: bool,
         extrapolate: EOPExtrapolation,
     ) -> Result<Self, BraheError> {
-        let filepath = filepath.to_path_buf();
+        let filepath = if let Some(path) = filepath {
+            path.to_path_buf()
+        } else {
+            // Use default cache location
+            let cache_dir = crate::utils::get_brahe_cache_dir()?;
+            let filename = match eop_type {
+                EOPType::StandardBulletinA => "finals.all.iau2000.txt",
+                EOPType::C04 => "EOP_20_C04_one_file_1962-now.txt",
+                _ => {
+                    return Err(BraheError::EOPError(format!(
+                        "Unsupported EOP type for caching: {:?}. Only C04 and StandardBulletinA are supported.",
+                        eop_type
+                    )));
+                }
+            };
+            PathBuf::from(cache_dir).join(filename)
+        };
 
         // Check if file needs to be downloaded
         let needs_download = Self::check_file_age(&filepath, max_age_seconds)?;
@@ -245,7 +284,7 @@ impl CachingEOPProvider {
     ///
     /// let filepath = Path::new("/tmp/finals.all.iau2000.txt");
     /// let mut provider = CachingEOPProvider::new(
-    ///     filepath,
+    ///     Some(filepath),
     ///     EOPType::StandardBulletinA,
     ///     7 * 86400,
     ///     false,
@@ -286,7 +325,7 @@ impl CachingEOPProvider {
     ///
     /// let filepath = Path::new("/tmp/finals.all.iau2000.txt");
     /// let provider = CachingEOPProvider::new(
-    ///     filepath,
+    ///     Some(filepath),
     ///     EOPType::StandardBulletinA,
     ///     7 * 86400,
     ///     false,
@@ -331,7 +370,7 @@ impl CachingEOPProvider {
     ///
     /// let filepath = Path::new("/tmp/finals.all.iau2000.txt");
     /// let provider = CachingEOPProvider::new(
-    ///     filepath,
+    ///     Some(filepath),
     ///     EOPType::StandardBulletinA,
     ///     7 * 86400,
     ///     false,
@@ -489,7 +528,7 @@ mod tests {
 
         // Create provider with large max age (file should be used as-is)
         let provider = CachingEOPProvider::new(
-            &dest_path,
+            Some(&dest_path),
             EOPType::StandardBulletinA,
             365 * 86400, // 1 year
             false,       // auto_refresh
@@ -512,7 +551,7 @@ mod tests {
         let filepath = dir.path().join("downloaded_eop.txt");
 
         let provider = CachingEOPProvider::new(
-            &filepath,
+            Some(&filepath),
             EOPType::StandardBulletinA,
             7 * 86400,
             true,
@@ -523,6 +562,30 @@ mod tests {
 
         assert!(filepath.exists());
         assert!(provider.is_initialized());
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_new_with_default_path() {
+        // This test requires network access and writes to default cache directory
+        let provider = CachingEOPProvider::new(
+            None,
+            EOPType::StandardBulletinA,
+            7 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        assert!(provider.is_initialized());
+        assert_eq!(provider.eop_type(), EOPType::StandardBulletinA);
+        assert!(provider.len() > 0);
+
+        // Verify the file was created in the cache directory
+        let cache_dir = crate::utils::get_brahe_cache_dir().unwrap();
+        let expected_path = PathBuf::from(cache_dir).join("finals.all.iau2000.txt");
+        assert!(expected_path.exists());
     }
 
     #[test]
@@ -539,7 +602,7 @@ mod tests {
 
         // Create provider
         let provider = CachingEOPProvider::new(
-            &dest_path,
+            Some(&dest_path),
             EOPType::StandardBulletinA,
             365 * 86400,
             false,
@@ -570,7 +633,7 @@ mod tests {
         fs::copy(&src_path, &dest_path).unwrap();
 
         let provider = CachingEOPProvider::new(
-            &dest_path,
+            Some(&dest_path),
             EOPType::StandardBulletinA,
             365 * 86400,
             false,

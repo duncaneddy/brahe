@@ -1211,7 +1211,7 @@ class TestEpochFloatJD:
         assert epc.jd() == pytest.approx(jd_j2000)
 
 
-def test_epoch_float_mjd_jd_equivalence(self):
+def test_epoch_float_mjd_jd_equivalence():
     """Test that same epoch can be created via MJD or JD."""
     # MJD = JD - 2400000.5
     mjd = 60310.5
@@ -1226,7 +1226,7 @@ def test_epoch_float_mjd_jd_equivalence(self):
     assert epc_jd.jd() == pytest.approx(jd)
 
 
-def test_epoch_float_roundtrip_mjd(self):
+def test_epoch_float_roundtrip_mjd():
     """Test roundtrip: Epoch(mjd) -> jd() -> Epoch(jd) -> mjd()."""
     original_mjd = 60310.5
 
@@ -1239,7 +1239,7 @@ def test_epoch_float_roundtrip_mjd(self):
     assert epc1 == epc2
 
 
-def test_epoch_float_defaults_to_utc(self):
+def test_epoch_float_defaults_to_utc():
     """Test that float initialization defaults to UTC time system."""
     mjd = 60310.5
     epc = bh.Epoch(mjd)
@@ -1247,7 +1247,7 @@ def test_epoch_float_defaults_to_utc(self):
     assert epc.time_system == bh.TimeSystem.UTC
 
 
-def test_epoch_float_negative_mjd(self):
+def test_epoch_float_negative_mjd():
     """Test that negative values are treated as MJD (< 1000000)."""
     mjd = -100.0  # Valid MJD before MJD epoch
     epc1 = bh.Epoch(mjd)
@@ -1257,7 +1257,7 @@ def test_epoch_float_negative_mjd(self):
     assert epc1.mjd() == pytest.approx(mjd)
 
 
-def test_epoch_float_zero(self):
+def test_epoch_float_zero():
     """Test that 0.0 is treated as MJD."""
     epc1 = bh.Epoch(0.0)
     epc2 = bh.Epoch.from_mjd(0.0, bh.TimeSystem.UTC)
@@ -1266,7 +1266,7 @@ def test_epoch_float_zero(self):
     assert epc1.mjd() == pytest.approx(0.0)
 
 
-def test_epoch_float_very_large_jd(self):
+def test_epoch_float_very_large_jd():
     """Test very large JD values."""
     jd = 3000000.0  # Far future
     epc1 = bh.Epoch(jd)
@@ -1276,7 +1276,7 @@ def test_epoch_float_very_large_jd(self):
     assert epc1.jd() == pytest.approx(jd)
 
 
-def test_epoch_compatibility_float_vs_string(self):
+def test_epoch_compatibility_float_vs_string():
     """Test that float and string initialization give same result."""
     # 2024-01-01 12:00:00 UTC
     mjd = 60310.5
@@ -1289,7 +1289,7 @@ def test_epoch_compatibility_float_vs_string(self):
     assert abs(epc_float.mjd() - epc_string.mjd()) < 1e-6
 
 
-def test_epoch_compatibility_float_vs_datetime_components(self):
+def test_epoch_compatibility_float_vs_datetime_components():
     """Test that float and datetime component initialization match."""
     # 2024-01-01 00:00:00 UTC = MJD 60310.0
     mjd = 60310.0

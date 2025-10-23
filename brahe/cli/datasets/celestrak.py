@@ -4,6 +4,7 @@ CLI commands for CelesTrak datasets
 
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 import typer
 from typing_extensions import Annotated
 from loguru import logger
@@ -117,7 +118,7 @@ def download(
 def lookup(
     name: Annotated[str, typer.Argument(help="Satellite name to search for")],
     group: Annotated[
-        str | None, typer.Option(help="Optional satellite group to search first")
+        Optional[str], typer.Option(help="Optional satellite group to search first")
     ] = None,
 ):
     """
@@ -159,7 +160,7 @@ def show(
         str, typer.Argument(help="Satellite identifier (NORAD ID or name)")
     ],
     group: Annotated[
-        str | None, typer.Option(help="Optional satellite group to search")
+        Optional[str], typer.Option(help="Optional satellite group to search")
     ] = None,
     compact: Annotated[
         bool, typer.Option("--compact", "-c", help="Show only TLE lines")
@@ -430,7 +431,7 @@ def search(
         bool, typer.Option("--table", "-t", help="Display results as table")
     ] = False,
     columns: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help="Columns to display: 'minimal', 'default', 'all', or comma-separated list (e.g., 'name,norad_id,sma,inc')"
         ),

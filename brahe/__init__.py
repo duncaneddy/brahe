@@ -7,7 +7,8 @@ dynamics computations.
 
 The library is organized into submodules that mirror the Rust core structure:
 - time: Time systems, epochs, and conversions
-- orbits: Orbital mechanics, propagators, and TLE handling
+- orbits: Orbital mechanics and TLE handling
+- propagators: Orbit propagators (SGP4, Keplerian)
 - coordinates: Coordinate system transformations
 - frames: Reference frame transformations (ECI/ECEF)
 - eop: Earth Orientation Parameters
@@ -34,6 +35,7 @@ from brahe._brahe import PanicException
 from brahe import (
     time,
     orbits,
+    propagators,
     coordinates,
     frames,
     eop,
@@ -49,6 +51,7 @@ from brahe import (
 # Re-export everything from submodules
 from brahe.time import *
 from brahe.orbits import *
+from brahe.propagators import *
 from brahe.coordinates import *
 from brahe.frames import *
 from brahe.eop import *
@@ -64,6 +67,7 @@ __all__ = [
     # Submodules
     "time",
     "orbits",
+    "propagators",
     "coordinates",
     "frames",
     "eop",
@@ -81,6 +85,7 @@ __all__ = [
 # Extend __all__ with exports from submodules
 __all__.extend(time.__all__)
 __all__.extend(orbits.__all__)
+__all__.extend(propagators.__all__)
 __all__.extend(coordinates.__all__)
 __all__.extend(frames.__all__)
 __all__.extend(eop.__all__)

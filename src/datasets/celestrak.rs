@@ -9,7 +9,7 @@ use crate::datasets::parsers::parse_3le_text;
 use crate::datasets::serializers::{
     serialize_3le_to_csv, serialize_3le_to_json, serialize_3le_to_txt,
 };
-use crate::orbits::SGPPropagator;
+use crate::propagators::SGPPropagator;
 use crate::utils::BraheError;
 use crate::utils::cache::get_brahe_cache_dir;
 use std::fs;

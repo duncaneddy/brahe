@@ -2972,7 +2972,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
     fn compute(
         &self,
         window: &AccessWindow,
-        state_provider: &dyn crate::orbits::traits::StateProvider,
+        state_provider: &dyn crate::propagators::traits::StateProvider,
         location_ecef: &nalgebra::Vector3<f64>,
         _location_geodetic: &nalgebra::Vector3<f64>,
     ) -> Result<HashMap<String, PropertyValue>, BraheError> {
@@ -3593,8 +3593,8 @@ fn py_location_accesses(
 
     // Extract propagators as vectors
     enum PropagatorVec {
-        Sgp(Vec<crate::orbits::sgp_propagator::SGPPropagator>),
-        Keplerian(Vec<crate::orbits::keplerian_propagator::KeplerianPropagator>),
+        Sgp(Vec<crate::propagators::sgp_propagator::SGPPropagator>),
+        Keplerian(Vec<crate::propagators::keplerian_propagator::KeplerianPropagator>),
     }
 
     let propagators_vec = if prop_is_list {

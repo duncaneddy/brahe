@@ -1331,7 +1331,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::orbits::traits::StateProvider;
+        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -1360,7 +1360,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::orbits::traits::StateProvider;
+        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_eci(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -1389,7 +1389,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::orbits::traits::StateProvider;
+        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_ecef(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -1426,7 +1426,7 @@ impl PyOrbitalTrajectory {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::orbits::traits::StateProvider;
+        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value);
         state.as_slice().to_pyarray(py).to_owned()
     }

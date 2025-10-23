@@ -11,7 +11,7 @@ use crate::access::constraints::AccessConstraint;
 use crate::access::location::AccessibleLocation;
 use crate::access::properties::AccessPropertyComputer;
 use crate::access::windows::{AccessSearchConfig, AccessWindow, find_access_windows};
-use crate::orbits::traits::IdentifiableStateProvider;
+use crate::propagators::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::utils::threading::get_thread_pool;
 use rayon::prelude::*;
@@ -346,7 +346,7 @@ mod tests {
     use crate::access::constraints::ElevationConstraint;
     use crate::access::location::PointLocation;
     use crate::constants::{AngleFormat, R_EARTH};
-    use crate::orbits::keplerian_propagator::KeplerianPropagator;
+    use crate::propagators::keplerian_propagator::KeplerianPropagator;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;

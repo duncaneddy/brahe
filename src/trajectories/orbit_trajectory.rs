@@ -45,7 +45,7 @@ use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
-use crate::orbits::traits::StateProvider;
+use crate::propagators::traits::StateProvider;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -2389,7 +2389,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eci_cartesian() {
-        use crate::orbits::traits::StateProvider;
+        use crate::propagators::traits::StateProvider;
 
         // Test StateProvider::state() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);

@@ -13,7 +13,7 @@ use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
 use crate::orbits::keplerian::mean_motion;
-use crate::orbits::traits::{OrbitPropagator, StateProvider};
+use crate::propagators::traits::{OrbitPropagator, StateProvider};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};

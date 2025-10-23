@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::orbits::traits::StateProvider;
+use crate::propagators::traits::StateProvider;
 use crate::utils::BraheError;
 
 use super::constraints::{AscDsc, LookDirection};
@@ -298,7 +298,7 @@ mod tests {
 
     use crate::constants::AngleFormat;
     use crate::coordinates::position_geodetic_to_ecef;
-    use crate::orbits::KeplerianPropagator;
+    use crate::propagators::KeplerianPropagator;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
 

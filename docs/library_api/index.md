@@ -24,12 +24,19 @@ Coordinate transformation functions for converting between various coordinate sy
 Reference frame transformations between Earth-Centered Inertial (ECI) and Earth-Centered Earth-Fixed (ECEF) coordinate frames using IAU 2006/2000A models.
 
 ### Orbits
-Orbital mechanics representations and propagators for satellite trajectory computation.
+Orbital mechanics representations and Two-Line Element handling.
 
 **Key Components:**
 - Keplerian orbital elements
-- Two-Line Element (TLE) format parsing
-- Analytical propagators (Keplerian, SGP4/SDP4)
+- Two-Line Element (TLE) format parsing and validation
+- Orbital property calculations
+
+### Propagators
+Orbit propagators for predicting satellite positions over time.
+
+**Key Components:**
+- Keplerian propagator (analytical two-body dynamics)
+- SGP4/SDP4 propagator (TLE-based orbit prediction)
 
 ### Attitude
 Attitude representation and conversion between different rotation parameterizations.

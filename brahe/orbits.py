@@ -1,7 +1,7 @@
 """
 Orbits Module
 
-Orbital mechanics, propagators, and Two-Line Element (TLE) handling.
+Orbital mechanics and Two-Line Element (TLE) handling.
 
 This module provides:
 
@@ -11,10 +11,6 @@ This module provides:
 - Periapsis and apoapsis calculations
 - Sun-synchronous orbit calculations
 
-**Propagators:**
-- SGPPropagator: SGP4/SDP4 propagator for TLE-based orbit prediction
-- KeplerianPropagator: Analytical Keplerian propagation
-
 **Two-Line Element (TLE) Support:**
 - TLE parsing and validation
 - TLE line creation and manipulation
@@ -23,12 +19,12 @@ This module provides:
 
 Standard orbital element order: [a, e, i, raan, argp, anomaly]
 where anomaly is mean anomaly unless otherwise specified.
+
+Note: Orbit propagators (SGPPropagator, KeplerianPropagator) have been moved
+to the `brahe.propagators` module.
 """
 
 from brahe._brahe import (
-    # Propagators
-    SGPPropagator,
-    KeplerianPropagator,
     # Orbital element calculations
     orbital_period,
     orbital_period_general,
@@ -71,9 +67,6 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    # Propagators
-    "SGPPropagator",
-    "KeplerianPropagator",
     # Orbital element calculations
     "orbital_period",
     "orbital_period_general",

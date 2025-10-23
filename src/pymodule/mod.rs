@@ -106,6 +106,7 @@ include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
+include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");

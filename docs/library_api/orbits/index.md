@@ -2,12 +2,12 @@
 
 **Module**: `brahe.orbits`
 
-Comprehensive tools for orbital mechanics computations.
+Comprehensive tools for orbital mechanics computations and TLE handling.
 
 ## Sub-modules
 
 - **[Keplerian Elements](keplerian.md)** - Functions for computing orbital properties and converting between anomaly types
 - **[Two-Line Elements (TLE)](tle.md)** - TLE parsing, validation, and conversion utilities
-- **[KeplerianPropagator](keplerian_propagator.md)** - Analytical two-body orbit propagator
-- **[SGPPropagator](sgp_propagator.md)** - SGP4/SDP4 orbit propagator for TLE data
 - **[Enumerations](enums.md)** - Orbit-related enumerations (OrbitRepresentation, OrbitFrame, etc.)
+
+**Note**: Orbit propagators have been moved to the [`brahe.propagators`](../propagators/index.md) module.

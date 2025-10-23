@@ -46,6 +46,7 @@ from brahe import (
     access,
     utils,
     plots,
+    logging,
 )
 
 # Re-export everything from submodules
@@ -79,6 +80,7 @@ __all__ = [
     "access",
     "utils",
     "plots",
+    "logging",
     # Testing
     "PanicException",
 ]

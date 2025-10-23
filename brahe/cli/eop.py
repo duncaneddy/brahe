@@ -2,6 +2,7 @@ from enum import Enum
 from pathlib import Path
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import brahe
 
@@ -46,6 +47,7 @@ def download(
         ProductType, typer.Option(..., help="Type of data product to download")
     ],
 ):
+    logger.info(f"Downloading EOP {product.value} product to {filepath}")
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

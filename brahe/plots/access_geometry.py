@@ -4,9 +4,11 @@ Access window geometry visualization.
 Provides polar plots (azimuth/elevation) and elevation profile plots for access windows.
 """
 
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from loguru import logger
 
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
 
@@ -64,6 +66,10 @@ def plot_access_polar(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting access polar geometry with backend={backend}")
+    logger.debug(f"Windows: {len(access_windows)}, min_elevation={min_elevation}°")
+
     validate_backend(backend)
 
     # Normalize inputs
@@ -71,9 +77,13 @@ def plot_access_polar(
 
     # Dispatch to backend
     if backend == "matplotlib":
-        return _access_polar_matplotlib(window_groups, min_elevation)
+        result = _access_polar_matplotlib(window_groups, min_elevation)
     else:  # plotly
-        return _access_polar_plotly(window_groups, min_elevation)
+        result = _access_polar_plotly(window_groups, min_elevation)
+
+    elapsed = time.time() - start_time
+    logger.info(f"Access polar plot completed in {elapsed:.2f}s")
+    return result
 
 
 def plot_access_elevation(
@@ -121,6 +131,10 @@ def plot_access_elevation(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting access elevation profile with backend={backend}")
+    logger.debug(f"Windows: {len(access_windows)}")
+
     validate_backend(backend)
 
     # Normalize inputs
@@ -128,9 +142,13 @@ def plot_access_elevation(
 
     # Dispatch to backend
     if backend == "matplotlib":
-        return _access_elevation_matplotlib(window_groups)
+        result = _access_elevation_matplotlib(window_groups)
     else:  # plotly
-        return _access_elevation_plotly(window_groups)
+        result = _access_elevation_plotly(window_groups)
+
+    elapsed = time.time() - start_time
+    logger.info(f"Access elevation plot completed in {elapsed:.2f}s")
+    return result
 
 
 def _normalize_access_window_groups(access_windows):

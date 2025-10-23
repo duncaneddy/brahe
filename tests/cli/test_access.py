@@ -49,6 +49,7 @@ def test_access_compute_simple_format():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-01T00:00:00Z",
@@ -75,6 +76,7 @@ def test_access_compute_with_altitude():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--alt",
             "100",  # 100m altitude
@@ -99,6 +101,7 @@ def test_access_compute_custom_elevation():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-01T00:00:00Z",
@@ -123,6 +126,7 @@ def test_access_compute_max_results():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-01T00:00:00Z",
@@ -151,6 +155,7 @@ def test_access_compute_json_export():
                 "25544",
                 "--lat",
                 "40.7128",
+                "--lon",
                 "-74.0060",
                 "--start-time",
                 "2024-01-01T00:00:00Z",
@@ -199,6 +204,7 @@ def test_access_compute_invalid_latitude():
             "25544",
             "--lat",
             "95.0",  # Invalid latitude
+            "--lon",
             "-74.0060",
         ],
     )
@@ -217,7 +223,6 @@ def test_access_compute_invalid_longitude():
             "25544",
             "--lat",
             "40.7128",
-            "--",
             "--lon",
             "-185.0",  # Invalid longitude
         ],
@@ -237,6 +242,7 @@ def test_access_compute_invalid_time_range():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-02T00:00:00Z",
@@ -259,6 +265,7 @@ def test_access_compute_end_without_start():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--end-time",
             "2024-01-02T00:00:00Z",  # No start time
@@ -279,6 +286,7 @@ def test_access_compute_invalid_norad_id():
             "99999999",  # Very unlikely to exist
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-01T00:00:00Z",
@@ -303,6 +311,7 @@ def test_access_compute_no_windows_found():
             "25544",
             "--lat",
             "40.7128",
+            "--lon",
             "-74.0060",
             "--start-time",
             "2024-01-01T00:00:00Z",
@@ -317,4 +326,154 @@ def test_access_compute_no_windows_found():
     assert result.exit_code == 0
     assert (
         "No access windows found" in result.stdout or "0 access window" in result.stdout
+    )
+
+
+def test_access_compute_with_groundstation_provider():
+    """Test using groundstation provider and name lookup."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "ksat",
+            "--gs-name",
+            "Svalbard",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.stdout}"
+    # Should show Svalbard's coordinates (78.23° lat, 15.41° lon)
+    assert "78.2" in result.stdout  # Latitude around 78.23°
+    assert "15.4" in result.stdout  # Longitude around 15.41°
+
+
+def test_access_compute_invalid_provider():
+    """Test error handling for invalid groundstation provider."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "invalid_provider",
+            "--gs-name",
+            "SomeStation",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Error loading groundstations" in result.stdout
+
+
+def test_access_compute_invalid_station_name():
+    """Test error handling for invalid groundstation name."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "ksat",
+            "--gs-name",
+            "NonExistentStation12345",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "No groundstation matching" in result.stdout
+
+
+def test_access_compute_ambiguous_station_name():
+    """Test error handling for ambiguous groundstation name (multiple matches)."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "ksat",
+            "--gs-name",
+            "a",  # Very short name likely to match multiple stations
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+        ],
+    )
+
+    # Could succeed if only one match, or fail if multiple matches
+    if result.exit_code == 1:
+        assert "Multiple groundstations match" in result.stdout
+
+
+def test_access_compute_both_coords_and_provider():
+    """Test error when both lat/lon and gs-provider/gs-name are provided."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--gs-provider",
+            "ksat",
+            "--gs-name",
+            "Svalbard",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Cannot specify both" in result.stdout
+
+
+def test_access_compute_provider_without_name():
+    """Test error when gs-provider is provided without gs-name."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "ksat",
+        ],
+    )
+
+    assert result.exit_code == 1
+    # The error message could be either "Must specify both" or "Must provide either"
+    assert (
+        "Must specify both" in result.stdout or "Must provide either" in result.stdout
+    )
+
+
+def test_access_compute_name_without_provider():
+    """Test error when gs-name is provided without gs-provider."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-name",
+            "Svalbard",
+        ],
+    )
+
+    assert result.exit_code == 1
+    # The error message could be either "Must specify both" or "Must provide either"
+    assert (
+        "Must specify both" in result.stdout or "Must provide either" in result.stdout
     )

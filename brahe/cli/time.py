@@ -1,6 +1,7 @@
 from enum import Enum
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 
 import brahe
 
@@ -41,6 +42,8 @@ def convert(
         TimeSystem, typer.Option(help="Time system of the output epoch")
     ] = None,
 ):
+    logger.info(f"Converting epoch from {input_format.value} to {output_format.value}")
+    logger.debug(f"Input: {epoch}")
     if input_time_system and input_format in [
         EpochFormat.gps_date,
         EpochFormat.gps_nanoseconds,

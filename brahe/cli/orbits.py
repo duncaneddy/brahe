@@ -1,6 +1,7 @@
 from enum import Enum
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 
 import brahe
 
@@ -36,6 +37,7 @@ def orbital_period(
         str, typer.Option("--format", help="The format of the output")
     ] = "f",
 ):
+    logger.info(f"Computing orbital period for semi-major axis {semi_major_axis}m")
     divisor = 1.0
     if units == TimeUnit.seconds:
         divisor = 1.0

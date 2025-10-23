@@ -5,6 +5,7 @@ CLI commands for groundstation datasets
 from typing import Optional
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 from rich.console import Console
 from rich.table import Table
 import brahe.datasets as datasets
@@ -26,7 +27,9 @@ def list_providers(
         brahe datasets groundstations list-providers
         brahe datasets groundstations list-providers -t
     """
+    logger.info("Listing groundstation providers")
     providers = datasets.groundstations.list_providers()
+    logger.debug(f"Found {len(providers)} providers")
 
     if not table:
         # Simple text output

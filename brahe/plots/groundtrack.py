@@ -6,6 +6,7 @@ ground stations, and polygon zones.
 """
 
 import math
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -13,6 +14,7 @@ import cartopy.feature as cfeature
 import shapely.geometry
 import plotly.graph_objects as go
 import shapefile as shp
+from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, is_scienceplots_available
@@ -116,16 +118,26 @@ def plot_groundtrack(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting ground track with backend={backend}")
+    logger.debug(
+        f"Trajectories: {len(trajectories) if trajectories else 0}, Stations: {len(ground_stations) if ground_stations else 0}, Zones: {len(zones) if zones else 0}"
+    )
+
     validate_backend(backend)
 
     # Normalize inputs to per-group configuration
     trajectory_groups = _normalize_trajectory_groups(trajectories)
     station_groups = _normalize_station_groups(ground_stations)
     zone_groups = _normalize_zone_groups(zones)
+    logger.debug(
+        f"Normalized: {len(trajectory_groups)} trajectory groups, {len(station_groups)} station groups, {len(zone_groups)} zone groups"
+    )
 
     # Dispatch to backend-specific implementation
+    logger.debug(f"Rendering with {backend} backend")
     if backend == "matplotlib":
-        return _groundtrack_matplotlib(
+        result = _groundtrack_matplotlib(
             trajectory_groups,
             station_groups,
             zone_groups,
@@ -140,7 +152,7 @@ def plot_groundtrack(
             extent,
         )
     else:  # plotly
-        return _groundtrack_plotly(
+        result = _groundtrack_plotly(
             trajectory_groups,
             station_groups,
             zone_groups,
@@ -154,6 +166,10 @@ def plot_groundtrack(
             show_ticks,
             extent,
         )
+
+    elapsed = time.time() - start_time
+    logger.info(f"Ground track plot completed in {elapsed:.2f}s")
+    return result
 
 
 def _normalize_trajectory_groups(trajectories):

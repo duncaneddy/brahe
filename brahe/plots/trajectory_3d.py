@@ -4,9 +4,11 @@
 Provides 3D plots of orbital trajectories with optional Earth sphere.
 """
 
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
@@ -71,6 +73,10 @@ def plot_trajectory_3d(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting 3D trajectory with backend={backend}")
+    logger.debug(f"Units: {units}, normalize={normalize}, show_earth={show_earth}")
+
     validate_backend(backend)
 
     # Normalize inputs
@@ -78,7 +84,7 @@ def plot_trajectory_3d(
 
     # Dispatch to backend
     if backend == "matplotlib":
-        return _trajectory_3d_matplotlib(
+        result = _trajectory_3d_matplotlib(
             traj_groups,
             time_range,
             units,
@@ -90,7 +96,7 @@ def plot_trajectory_3d(
             earth_texture,
         )
     else:  # plotly
-        return _trajectory_3d_plotly(
+        result = _trajectory_3d_plotly(
             traj_groups,
             time_range,
             units,
@@ -101,6 +107,10 @@ def plot_trajectory_3d(
             show_earth,
             earth_texture,
         )
+
+    elapsed = time.time() - start_time
+    logger.info(f"3D trajectory plot completed in {elapsed:.2f}s")
+    return result
 
 
 def _normalize_trajectory_groups(trajectories):

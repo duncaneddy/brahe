@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.console import Console
 from rich.panel import Panel
@@ -90,6 +91,8 @@ def download(
         brahe datasets celestrak download data.json --group gnss --content-format 3le --file-format json
         brahe datasets celestrak download sats.txt --group active --content-format tle --file-format txt
     """
+    logger.info(f"Downloading CelesTrak {group} group to {filepath}")
+    logger.debug(f"Format: {content_format.value}, File format: {file_format.value}")
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

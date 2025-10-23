@@ -4,10 +4,12 @@ Orbital element time series visualization.
 Provides 2D plots of Keplerian and Cartesian orbital elements over time.
 """
 
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
@@ -67,6 +69,10 @@ def plot_cartesian_trajectory(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting Cartesian trajectory with backend={backend}")
+    logger.debug(f"Units: position={position_units}, velocity={velocity_units}")
+
     validate_backend(backend)
 
     # Normalize inputs
@@ -74,13 +80,17 @@ def plot_cartesian_trajectory(
 
     # Dispatch to backend
     if backend == "matplotlib":
-        return _cartesian_elements_matplotlib(
+        result = _cartesian_elements_matplotlib(
             traj_groups, time_range, position_units, velocity_units
         )
     else:  # plotly
-        return _cartesian_elements_plotly(
+        result = _cartesian_elements_plotly(
             traj_groups, time_range, position_units, velocity_units
         )
+
+    elapsed = time.time() - start_time
+    logger.info(f"Cartesian trajectory plot completed in {elapsed:.2f}s")
+    return result
 
 
 def plot_keplerian_trajectory(
@@ -137,6 +147,10 @@ def plot_keplerian_trajectory(
         )
         ```
     """
+    start_time = time.time()
+    logger.info(f"Plotting Keplerian trajectory with backend={backend}")
+    logger.debug(f"Units: angle={angle_units}, sma={sma_units}")
+
     validate_backend(backend)
 
     # Normalize inputs
@@ -144,13 +158,17 @@ def plot_keplerian_trajectory(
 
     # Dispatch to backend
     if backend == "matplotlib":
-        return _keplerian_elements_matplotlib(
+        result = _keplerian_elements_matplotlib(
             traj_groups, time_range, angle_units, sma_units
         )
     else:  # plotly
-        return _keplerian_elements_plotly(
+        result = _keplerian_elements_plotly(
             traj_groups, time_range, angle_units, sma_units
         )
+
+    elapsed = time.time() - start_time
+    logger.info(f"Keplerian trajectory plot completed in {elapsed:.2f}s")
+    return result
 
 
 def _normalize_trajectory_groups(trajectories):

@@ -1,6 +1,7 @@
 from enum import Enum
 import typer
 from typing_extensions import Annotated, Tuple
+from loguru import logger
 import numpy as np
 
 import brahe
@@ -51,6 +52,10 @@ def frame(
         str, typer.Option("--format", help="The format of the output")
     ] = "f",
 ):
+    logger.info(
+        f"Converting state between frames: {from_frame.value} -> {to_frame.value}"
+    )
+    logger.debug(f"Epoch: {epoch}, State: {state}")
     set_cli_eop()
     epc = brahe.Epoch(epoch)
 
@@ -107,6 +112,8 @@ def coordinates(
     ] = "f",
 ):
     """Convert between state representations (keplerian, cartesian, geodetic, geocentric)."""
+    logger.info(f"Converting coordinates: {from_system.value} -> {to_system.value}")
+    logger.debug(f"State: {state}, Frames: {from_frame.value} -> {to_frame.value}")
     set_cli_eop()
 
     x = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])

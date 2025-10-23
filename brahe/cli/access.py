@@ -1,10 +1,12 @@
 import json
 import math
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 import typer
 from typing_extensions import Annotated
+from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
@@ -87,7 +89,11 @@ def compute(
         # Use groundstation lookup
         brahe access compute 25544 --gs-provider ksat --gs-name "Svalbard"
     """
+    logger.info(f"Computing access windows for NORAD ID {norad_id}")
+    start_time_compute = time.time()
+
     # Initialize EOP
+    logger.debug("Initializing EOP provider")
     set_cli_eop()
 
     # Validate input: either lat/lon or gs_provider/gs_name
@@ -113,6 +119,9 @@ def compute(
     # Handle groundstation lookup
     location_name = None
     if has_gs_lookup:
+        logger.debug(
+            f"Looking up groundstation '{gs_name}' from provider '{gs_provider}'"
+        )
         try:
             stations = brahe.datasets.groundstations.load(gs_provider)
         except Exception as e:
@@ -148,6 +157,9 @@ def compute(
         lon = station.lon
         alt = station.alt
         location_name = station.get_name()
+        logger.info(
+            f"Found groundstation: {location_name} ({lat:.4f}°, {lon:.4f}°, {alt:.0f}m)"
+        )
 
     # Validate latitude and longitude
     if not (-90 <= lat <= 90):
@@ -183,16 +195,17 @@ def compute(
         raise typer.Exit(code=1)
 
     # Fetch TLE from CelesTrak
+    logger.debug(f"Fetching TLE for NORAD ID {norad_id} from CelesTrak")
     try:
         sat_name, line1, line2 = brahe.datasets.celestrak.get_tle_by_id(norad_id)
+        logger.info(f"Retrieved TLE for {sat_name}")
     except Exception as e:
         typer.echo(f"Error fetching TLE for NORAD ID {norad_id}: {e}")
         raise typer.Exit(code=1)
 
     # Create propagator from TLE
     try:
-        tle = brahe.TLE(sat_name, line1, line2)
-        propagator = brahe.SGPPropagator(tle, 60.0)
+        propagator = brahe.SGPPropagator.from_3le(sat_name, line1, line2, 60.0)
     except Exception as e:
         typer.echo(f"Error creating propagator: {e}")
         raise typer.Exit(code=1)
@@ -211,10 +224,17 @@ def compute(
     constraint = brahe.ElevationConstraint(min_elevation_deg=min_elevation)
 
     # Compute access windows
+    duration_days = (epoch_end - epoch_start) / 86400.0
+    logger.info(
+        f"Computing access windows from {epoch_start} to {epoch_end} ({duration_days:.1f} days)"
+    )
+    logger.debug(f"Constraint: min_elevation={min_elevation}°")
     try:
         windows = brahe.location_accesses(
             location, propagator, epoch_start, epoch_end, constraint
         )
+        elapsed = time.time() - start_time_compute
+        logger.info(f"Found {len(windows)} access windows in {elapsed:.2f}s")
     except Exception as e:
         typer.echo(f"Error computing access windows: {e}")
         raise typer.Exit(code=1)
@@ -238,10 +258,12 @@ def compute(
 
     # Export to JSON if requested
     if output_file:
+        logger.debug(f"Exporting results to {output_file}")
         try:
             _export_json(
                 windows, output_file, sat_name, norad_id, lat, lon, alt, min_elevation
             )
+            logger.info(f"Exported {len(windows)} windows to {output_file}")
             typer.echo(f"\n✓ Exported {len(windows)} access windows to {output_file}")
         except Exception as e:
             typer.echo(f"\nError exporting to JSON: {e}", err=True)

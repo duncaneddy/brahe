@@ -432,15 +432,16 @@ fn get_tle_by_id_from_group(
 /// # Example
 /// ```no_run
 /// use brahe::datasets::celestrak::get_tle_by_id_as_propagator;
-/// use brahe::Epoch;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::propagators::traits::StateProvider;
 ///
 /// // Get ISS as propagator with 60-second step size
 /// let propagator = get_tle_by_id_as_propagator(25544, None, 60.0).unwrap();
 ///
-/// // Propagate to current epoch
-/// let epoch = Epoch::now();
-/// let state = propagator.propagate(&epoch).unwrap();
-/// println!("ISS position: {:?}", &state[0..3]);
+/// // Compute state at a specific epoch
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = propagator.state_eci(epoch);
+/// println!("ISS position: x={}, y={}, z={}", state[0], state[1], state[2]);
 /// ```
 ///
 /// # Notes

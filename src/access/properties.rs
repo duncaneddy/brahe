@@ -221,7 +221,7 @@ impl AccessProperties {
 /// # Examples
 /// ```no_run
 /// use brahe::access::{AccessPropertyComputer, AccessWindow, PropertyValue};
-/// use brahe::orbits::traits::StateProvider;
+/// use brahe::propagators::traits::StateProvider;
 /// use brahe::utils::BraheError;
 /// use std::collections::HashMap;
 /// use nalgebra::Vector3;

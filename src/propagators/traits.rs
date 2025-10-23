@@ -242,7 +242,7 @@ pub trait StateProvider {
 /// # Examples
 ///
 /// ```
-/// use brahe::orbits::{KeplerianPropagator, SGPPropagator};
+/// use brahe::propagators::{KeplerianPropagator, SGPPropagator};
 /// use brahe::traits::IdentifiableStateProvider;
 ///
 /// // Both propagators implement IdentifiableStateProvider automatically

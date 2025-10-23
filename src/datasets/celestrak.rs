@@ -638,6 +638,7 @@ pub fn get_tle_by_name_as_propagator(
 mod tests {
     use super::*;
     use httpmock::prelude::*;
+    use serial_test::serial;
     use tempfile::tempdir;
 
     fn get_test_3le_data() -> String {
@@ -827,6 +828,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "network"), ignore)]
+    #[serial]
     fn test_get_ephemeris_as_propagators_network() {
         use crate::utils::testing::setup_global_test_eop;
 
@@ -889,6 +891,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "network"), ignore)]
+    #[serial]
     fn test_get_tle_by_id_as_propagator_network() {
         use crate::utils::testing::setup_global_test_eop;
 

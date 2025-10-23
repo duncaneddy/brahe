@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 import brahe
-from brahe.cli.utils import set_cli_eop, get_time_string
+from brahe.cli.utils import set_cli_eop
 
 app = typer.Typer()
 
@@ -199,7 +199,7 @@ def _display_rich(
         table.add_row(
             str(window.window_open),
             str(window.window_close),
-            get_time_string(duration),
+            brahe.format_time_string(duration),
             f"{window.properties.elevation_max:.1f}°",
             f"{window.properties.azimuth_open:.0f}°",
             f"{window.properties.azimuth_close:.0f}°",
@@ -227,7 +227,7 @@ def _display_simple(
         duration = window.window_close - window.window_open
         typer.echo(
             f"{i}. {window.window_open} | {window.window_close} | "
-            f"{get_time_string(duration, short=True)} | "
+            f"{brahe.format_time_string(duration, short=True)} | "
             f"Max Elev: {window.properties.elevation_max:.1f}° | "
             f"Az: {window.properties.azimuth_open:.0f}°-{window.properties.azimuth_close:.0f}°"
         )

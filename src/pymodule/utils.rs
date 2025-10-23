@@ -192,3 +192,44 @@ pub fn py_get_max_threads() -> PyResult<usize> {
     use crate::utils::threading::get_max_threads;
     Ok(get_max_threads())
 }
+
+// ================================
+// Formatting Functions
+// ================================
+
+/// Format a time duration in seconds to a human-readable string.
+///
+/// Converts a duration in seconds to either a long format (e.g., "6 minutes and 2.00 seconds")
+/// or a short format (e.g., "6m 2s").
+///
+/// Args:
+///     seconds (float): Time duration in seconds
+///     short (bool): If True, use short format; otherwise use long format (default: False)
+///
+/// Returns:
+///     str: Human-readable string representation of the time duration
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Long format (default)
+///     print(bh.format_time_string(90.0))
+///     # Output: "1 minutes and 30.00 seconds"
+///
+///     print(bh.format_time_string(3665.0))
+///     # Output: "1 hours, 1 minutes, and 5.00 seconds"
+///
+///     # Short format
+///     print(bh.format_time_string(90.0, short=True))
+///     # Output: "1m 30s"
+///
+///     print(bh.format_time_string(3665.0, short=True))
+///     # Output: "1h 1m 5s"
+///     ```
+#[pyfunction]
+#[pyo3(name = "format_time_string", signature = (seconds, short=false))]
+pub fn py_format_time_string(seconds: f64, short: bool) -> PyResult<String> {
+    use crate::utils::formatting::format_time_string;
+    Ok(format_time_string(seconds, short))
+}

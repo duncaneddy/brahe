@@ -418,5 +418,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_set_ludicrous_speed, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_max_threads, module)?)?;
 
+    // Formatting
+    module.add_function(wrap_pyfunction!(py_format_time_string, module)?)?;
+
     Ok(())
 }

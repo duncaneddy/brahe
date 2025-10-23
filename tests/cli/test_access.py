@@ -17,7 +17,6 @@ def test_access_compute_basic():
         app,
         [
             "access",
-            "access",
             "compute",
             "25544",  # ISS
             "40.7128",  # NYC lat

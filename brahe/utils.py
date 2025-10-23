@@ -1,7 +1,7 @@
 """
 Utils Module
 
-Utility functions for cache management and system configuration.
+Utility functions for cache management, system configuration, and formatting.
 """
 
 from brahe._brahe import (
@@ -12,6 +12,8 @@ from brahe._brahe import (
     set_max_threads,
     set_ludicrous_speed,
     get_max_threads,
+    # Formatting
+    format_time_string,
 )
 
 __all__ = [
@@ -22,4 +24,6 @@ __all__ = [
     "set_max_threads",
     "set_ludicrous_speed",
     "get_max_threads",
+    # Formatting
+    "format_time_string",
 ]

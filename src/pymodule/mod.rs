@@ -361,6 +361,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(py_celestrak_download_ephemeris, module)?)?;
+    module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_id, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_celestrak_get_tle_by_id_as_propagator,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;

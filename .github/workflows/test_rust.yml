@@ -31,6 +31,16 @@ jobs:
             -   run: rustup default nightly
             -   name: Test Rust doc examples
                 run: cargo test --doc --features ci
+    test-rust-network:
+        runs-on: ubuntu-latest
+        needs: test-rust
+        steps:
+            -   uses: actions/checkout@v5
+            -   name: Install Rust
+                run: rustup update nightly
+            -   run: rustup default nightly
+            -   name: Test Rust network tests
+                run: cargo test --features network
     pre-cache-python:
         runs-on: ubuntu-latest
         strategy:

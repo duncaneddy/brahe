@@ -57,6 +57,7 @@ tempfile = "3.13.0"
 [features]
 ci = []
 python = []
+network = []
 
 # Build Profiles
 [profile.dev]

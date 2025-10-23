@@ -251,4 +251,102 @@ fn py_groundstations_list_providers() -> Vec<String> {
     groundstations::list_providers()
 }
 
+/// Get TLE data for a specific satellite by NORAD catalog number
+///
+/// Downloads 3LE data from CelesTrak for a single satellite identified by its
+/// NORAD catalog number. Uses cached data if available and less than 6 hours old.
+///
+/// Args:
+///     norad_id (int): NORAD catalog number (1-9 digits).
+///     group (str, optional): Satellite group for fallback search if direct ID lookup fails.
+///         Available groups can be found at https://celestrak.org/NORAD/elements/
+///
+/// Returns:
+///     tuple[str, str, str]: Tuple of (name, line1, line2) containing satellite
+///         name and TLE lines.
+///
+/// Raises:
+///     RuntimeError: If download fails or satellite not found.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get ISS TLE by NORAD ID (25544)
+///     name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544)
+///     print(f"Satellite: {name}")
+///     print(f"Line 1: {line1}")
+///     print(f"Line 2: {line2}")
+///
+///     # With group fallback
+///     tle = bh.datasets.celestrak.get_tle_by_id(25544, group="stations")
+///     ```
+///
+/// Note:
+///     You can find which group contains a specific NORAD ID at:
+///     https://celestrak.org/NORAD/elements/master-gp-index.php
+///
+///     Data is cached for 6 hours to reduce server load and improve performance.
+#[pyfunction]
+#[pyo3(name = "celestrak_get_tle_by_id", signature = (norad_id, group=None))]
+fn py_celestrak_get_tle_by_id(
+    norad_id: u32,
+    group: Option<&str>,
+) -> PyResult<(String, String, String)> {
+    celestrak::get_tle_by_id(norad_id, group)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+}
+
+/// Get TLE data for a specific satellite as an SGP propagator
+///
+/// Downloads TLE data from CelesTrak for a single satellite and creates an
+/// SGP4/SDP4 propagator. Uses cached data if available and less than 6 hours old.
+///
+/// Args:
+///     norad_id (int): NORAD catalog number (1-9 digits).
+///     step_size (float): Default step size for propagator in seconds.
+///     group (str, optional): Satellite group for fallback search if direct ID lookup fails.
+///
+/// Returns:
+///     SGPPropagator: Configured SGP propagator (PySGPPropagator) ready to use.
+///
+/// Raises:
+///     RuntimeError: If download fails, satellite not found, or TLE is invalid.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get ISS as propagator with 60-second step size
+///     propagator = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
+///
+///     # Propagate to current epoch
+///     epoch = bh.Epoch.now()
+///     state = propagator.propagate(epoch)
+///     print(f"ISS position: {state[:3]}")
+///
+///     # With group fallback
+///     prop = bh.datasets.celestrak.get_tle_by_id_as_propagator(
+///         25544, 60.0, group="stations"
+///     )
+///     ```
+///
+/// Note:
+///     You can find which group contains a specific NORAD ID at:
+///     https://celestrak.org/NORAD/elements/master-gp-index.php
+///
+///     Data is cached for 6 hours to reduce server load and improve performance.
+#[pyfunction]
+#[pyo3(name = "celestrak_get_tle_by_id_as_propagator", signature = (norad_id, step_size, group=None))]
+fn py_celestrak_get_tle_by_id_as_propagator(
+    norad_id: u32,
+    step_size: f64,
+    group: Option<&str>,
+) -> PyResult<PySGPPropagator> {
+    let propagator = celestrak::get_tle_by_id_as_propagator(norad_id, group, step_size)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    Ok(PySGPPropagator { propagator })
+}
+
 // Functions are registered in mod.rs via add_function() calls

@@ -24,11 +24,27 @@ class OutputFormat(str, Enum):
 @app.command()
 def compute(
     norad_id: Annotated[int, typer.Argument(help="NORAD catalog ID of the satellite")],
-    lat: Annotated[float, typer.Argument(help="Latitude in degrees (-90 to 90)")],
-    lon: Annotated[float, typer.Argument(help="Longitude in degrees (-180 to 180)")],
+    lat: Annotated[
+        Optional[float],
+        typer.Option(help="Latitude in degrees (-90 to 90). Use with --lon."),
+    ] = None,
+    lon: Annotated[
+        Optional[float],
+        typer.Option(help="Longitude in degrees (-180 to 180). Use with --lat."),
+    ] = None,
     alt: Annotated[
         float, typer.Option(help="Altitude above WGS84 ellipsoid in meters")
     ] = 0.0,
+    gs_provider: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Groundstation provider (e.g., 'ksat', 'atlas', 'aws'). Use with --gs-name."
+        ),
+    ] = None,
+    gs_name: Annotated[
+        Optional[str],
+        typer.Option(help="Groundstation name to lookup. Use with --gs-provider."),
+    ] = None,
     start_time: Annotated[
         Optional[str],
         typer.Option(
@@ -60,16 +76,78 @@ def compute(
     Examples:
 
         # Compute next 7 days of ISS passes over New York City
-        brahe access compute 25544 40.7128 -74.0060
+        brahe access compute 25544 --lat 40.7128 --lon -74.0060
 
         # Custom time range and elevation for GPS satellite
-        brahe access compute 32260 40.7128 -74.0060 --start-time "2024-01-01T00:00:00" --duration 1 --min-elevation 15
+        brahe access compute 32260 --lat 40.7128 --lon -74.0060 --start-time "2024-01-01T00:00:00" --duration 1 --min-elevation 15
 
         # Simple output and export to JSON
-        brahe access compute 25544 40.7128 -74.0060 --output-format simple --output-file passes.json
+        brahe access compute 25544 --lat 40.7128 --lon -74.0060 --output-format simple --output-file passes.json
+
+        # Use groundstation lookup
+        brahe access compute 25544 --gs-provider ksat --gs-name "Svalbard"
     """
     # Initialize EOP
     set_cli_eop()
+
+    # Validate input: either lat/lon or gs_provider/gs_name
+    has_coords = lat is not None and lon is not None
+    has_gs_lookup = gs_provider is not None and gs_name is not None
+
+    if not has_coords and not has_gs_lookup:
+        typer.echo(
+            "Error: Must provide either lat/lon coordinates OR --gs-provider and --gs-name"
+        )
+        raise typer.Exit(code=1)
+
+    if has_coords and has_gs_lookup:
+        typer.echo(
+            "Error: Cannot specify both lat/lon coordinates AND --gs-provider/--gs-name. Choose one."
+        )
+        raise typer.Exit(code=1)
+
+    if (gs_provider is None) != (gs_name is None):
+        typer.echo("Error: Must specify both --gs-provider and --gs-name together")
+        raise typer.Exit(code=1)
+
+    # Handle groundstation lookup
+    location_name = None
+    if has_gs_lookup:
+        try:
+            stations = brahe.datasets.groundstations.load(gs_provider)
+        except Exception as e:
+            typer.echo(
+                f"Error loading groundstations from provider '{gs_provider}': {e}"
+            )
+            raise typer.Exit(code=1)
+
+        # Find station by name (case-insensitive)
+        gs_name_upper = gs_name.upper()
+        matching_stations = [
+            s
+            for s in stations
+            if s.get_name() and gs_name_upper in s.get_name().upper()
+        ]
+
+        if not matching_stations:
+            typer.echo(
+                f"Error: No groundstation matching '{gs_name}' found in provider '{gs_provider}'"
+            )
+            raise typer.Exit(code=1)
+
+        if len(matching_stations) > 1:
+            typer.echo(f"Error: Multiple groundstations match '{gs_name}':")
+            for station in matching_stations:
+                typer.echo(f"  - {station.get_name()}")
+            typer.echo("\nPlease provide a more specific name.")
+            raise typer.Exit(code=1)
+
+        station = matching_stations[0]
+        # Extract coordinates (already in degrees)
+        lat = station.lat
+        lon = station.lon
+        alt = station.alt
+        location_name = station.get_name()
 
     # Validate latitude and longitude
     if not (-90 <= lat <= 90):
@@ -120,9 +198,14 @@ def compute(
         raise typer.Exit(code=1)
 
     # Create location (convert degrees to radians)
-    location = brahe.PointLocation(math.radians(lon), math.radians(lat), alt).with_name(
-        f"Location ({lat:.4f}°, {lon:.4f}°)"
-    )
+    if location_name:
+        location = brahe.PointLocation(
+            math.radians(lon), math.radians(lat), alt
+        ).with_name(location_name)
+    else:
+        location = brahe.PointLocation(
+            math.radians(lon), math.radians(lat), alt
+        ).with_name(f"Location ({lat:.4f}°, {lon:.4f}°)")
 
     # Create constraint
     constraint = brahe.ElevationConstraint(min_elevation_deg=min_elevation)

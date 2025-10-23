@@ -9,9 +9,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Rust
-        run: rustup update nightly
-      - run: rustup default nightly
+      - name: Set up Rust toolchain with cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
 
       - name: Install rust-script for Rust examples
         run: cargo install rust-script
@@ -25,11 +26,39 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --frozen
 
-      - name: Build rust package
+      # Try to download pre-built Rust artifacts
+      - name: Download Rust build artifacts
+        id: download-rust
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-build-artifacts
+          path: target/debug/
+
+      - name: Build Rust package (if no cached artifacts)
+        if: steps.download-rust.outcome == 'failure'
         run: cargo build
 
-      - name: Build Python extension
-        run: uv pip install -e .
+      # Try to download pre-built Python extension
+      - name: Download Python extension artifact
+        id: download-extension
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: python-extension
+          path: ./cached-extension
+
+      - name: Use cached extension or build new one
+        run: |
+          if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
+              echo "Using cached Python extension"
+              mkdir -p target/release
+              cp ./cached-extension/libbrahe* target/release/
+              uv pip install -e . --no-build-isolation
+          else
+              echo "Building Python extension (no cache available)"
+              uv pip install -e .
+          fi
 
       - name: Test examples (including CI-ONLY)
         run: uv run python make.py test-examples --ci-only

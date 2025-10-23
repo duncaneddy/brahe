@@ -17,9 +17,30 @@ jobs:
                 uses: astral-sh/setup-uv@v6
                 with:
                     python-version: ${{ matrix.python-version }}
-                    enable-cache: trueuv 
+                    enable-cache: trueuv
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
+
+            # Try to download pre-built Python extension
+            -   name: Download Python extension artifact
+                id: download-extension
+                continue-on-error: true
+                uses: actions/download-artifact@v4
+                with:
+                    name: python-extension
+                    path: ./cached-extension
+
+            -   name: Use cached extension or build new one
+                run: |
+                    if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
+                        echo "Using cached Python extension"
+                        mkdir -p target/release
+                        cp ./cached-extension/libbrahe* target/release/
+                        uv pip install -e . --no-build-isolation
+                    else
+                        echo "Building Python extension (no cache available)"
+                        uv pip install -e .
+                    fi
 
             -   name: Test with python ${{ matrix.python-version }}
                 run: uv run --frozen coverage run -m pytest
@@ -43,6 +64,27 @@ jobs:
                     enable-cache: true
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
+
+            # Try to download pre-built Python extension
+            -   name: Download Python extension artifact
+                id: download-extension
+                continue-on-error: true
+                uses: actions/download-artifact@v4
+                with:
+                    name: python-extension
+                    path: ./cached-extension
+
+            -   name: Use cached extension or build new one
+                run: |
+                    if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
+                        echo "Using cached Python extension"
+                        mkdir -p target/release
+                        cp ./cached-extension/libbrahe* target/release/
+                        uv pip install -e . --no-build-isolation
+                    else
+                        echo "Building Python extension (no cache available)"
+                        uv pip install -e .
+                    fi
 
             -   name: Test network-dependent tests with Python 3.14
                 run: uv run --frozen pytest -m network

@@ -4,16 +4,22 @@ on:
     push:
         branches:
             - main
+        # Only run if files outside docs/examples/plots changed
+        paths-ignore:
+            - 'docs/**'
+            - 'examples/**'
+            - 'plots/**'
+            - 'mkdocs.yaml'
 
 jobs:
     test-rust:
         uses: ./.github/workflows/test_rust.yml
     test-python:
+        needs: [ test-rust ]
         uses: ./.github/workflows/test_python.yml
-        needs: [ test-rust ]  # Depends on test-rust which includes pre-cache-python
     test-examples:
-        uses: ./.github/workflows/test_examples.yml
         needs: [ test-rust, test-python ]
+        uses: ./.github/workflows/test_examples.yml
     update-docs:
-        uses: ./.github/workflows/update_docs.yml
         needs: [ test-rust, test-python, test-examples ]
+        uses: ./.github/workflows/update_docs.yml

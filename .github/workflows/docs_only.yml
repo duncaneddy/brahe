@@ -1,0 +1,77 @@
+# Fast-path workflow for documentation-only changes
+# Triggers only when changes are exclusively in docs/, examples/, plots/, or mkdocs.yaml
+# The 'paths' filter ensures this only runs for docs changes
+# The 'paths-ignore' in commit.yml ensures full CI doesn't run for docs-only changes
+
+name: Documentation Only
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'examples/**'
+      - 'plots/**'
+      - 'mkdocs.yaml'
+
+jobs:
+  build-and-deploy-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Fetch all history for accurate git revision dates and mike versioning
+
+      - name: Configure Git for mike
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+      - name: Set up Rust toolchain with cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Install rust-script for Rust examples
+        run: cargo install rust-script
+
+      - name: Install the latest version of uv and set the python version
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: 3.14
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --frozen
+
+      # Build Python extension
+      - name: Build Python extension
+        run: uv pip install -e .
+
+      - name: Generate type stubs
+        run: ./scripts/generate_stubs.sh
+
+      - name: Test examples (including CI-ONLY)
+        run: uv run python make.py test-examples --ci-only
+
+      - name: Generate documentation plots
+        run: uv run python make.py make-plots
+
+      - name: Upload figures as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doc-figures
+          path: docs/figures/
+          retention-days: 1
+
+      - name: Download figures artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: doc-figures
+          path: docs/figures/
+
+      - name: Deploy documentation (latest from main)
+        run: uv run --frozen mike deploy --push --update-aliases latest

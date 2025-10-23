@@ -13,7 +13,7 @@ import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
 
 
-def plot_cartesian_elements(
+def plot_cartesian_trajectory(
     trajectories,
     time_range=None,
     position_units="km",
@@ -59,7 +59,7 @@ def plot_cartesian_elements(
         traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
 
         # Plot Cartesian elements
-        fig = bh.plot_cartesian_elements(
+        fig = bh.plot_cartesian_trajectory(
             [{"trajectory": traj, "label": "LEO Orbit"}],
             position_units='km',
             velocity_units='km/s',
@@ -83,7 +83,7 @@ def plot_cartesian_elements(
         )
 
 
-def plot_keplerian_elements(
+def plot_keplerian_trajectory(
     trajectories,
     time_range=None,
     angle_units="deg",
@@ -129,7 +129,7 @@ def plot_keplerian_elements(
         traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
 
         # Plot Keplerian elements
-        fig = bh.plot_keplerian_elements(
+        fig = bh.plot_keplerian_trajectory(
             [{"trajectory": traj, "label": "LEO Orbit"}],
             angle_units='deg',
             sma_units='km',

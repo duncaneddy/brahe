@@ -265,3 +265,31 @@ def test_set_global_eop_from_caching_provider_default():
     cache_dir = brahe.get_brahe_cache_dir()
     expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
     assert os.path.exists(expected_path)
+
+
+@pytest.mark.network
+def test_initialize_eop():
+    """Test the convenience initialize_eop() function."""
+    # Call the convenience function
+    brahe.initialize_eop()
+
+    # Verify global provider is properly initialized
+    assert brahe.get_global_eop_initialization() is True
+    assert brahe.get_global_eop_type() == "StandardBulletinA"
+    assert brahe.get_global_eop_extrapolation() == "Hold"
+    assert brahe.get_global_eop_interpolation() is True
+    assert brahe.get_global_eop_len() > 0
+
+    # Verify we can retrieve EOP data
+    mjd = 60000.0
+    ut1_utc = brahe.get_global_ut1_utc(mjd)
+    assert isinstance(ut1_utc, float)
+
+    pm_x, pm_y = brahe.get_global_pm(mjd)
+    assert isinstance(pm_x, float)
+    assert isinstance(pm_y, float)
+
+    # Verify file was created in the expected cache location
+    cache_dir = brahe.get_brahe_cache_dir()
+    expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
+    assert os.path.exists(expected_path)

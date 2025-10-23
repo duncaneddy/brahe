@@ -91,5 +91,5 @@ Use `OrbitRepresentation` to specify element type:
 ## See Also
 
 - [SGPPropagator](sgp_propagator.md) - SGP4/SDP4 propagator for TLE data
-- [Keplerian Elements](keplerian.md) - Orbital element conversion functions
-- [OrbitRepresentation](enums.md#orbitrepresentation) - Element type specification
+- [Keplerian Elements](../orbits/keplerian.md) - Orbital element conversion functions
+- [OrbitRepresentation](../orbits/enums.md#orbitrepresentation) - Element type specification

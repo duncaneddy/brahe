@@ -232,11 +232,7 @@ fn main() {
 
 Test examples locally:
 ```bash
-# Test all examples (warns on parity issues)
-make test-examples
-
-# Test in strict mode (fails on parity issues)
-make test-examples-strict
+uv run make.py test-examples
 ```
 
 The build system will:
@@ -347,7 +343,7 @@ print(f"✓ Generated {OUTFILE}")
 
 Generate all plots:
 ```bash
-make figures
+uv run make.py make-plots
 ```
 
 Plots are written to `docs/figures/` as partial HTML files for embedding.

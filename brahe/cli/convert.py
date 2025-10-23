@@ -4,29 +4,25 @@ from typing_extensions import Annotated, Tuple
 import numpy as np
 
 import brahe
-from brahe.cli.utils import epoch_from_epochlike, set_cli_eop
+from brahe.cli.utils import set_cli_eop
 
 app = typer.Typer()
 
 
-class ReferenceFrame(str, Enum):
+class OrbitFrame(str, Enum):
+    """Reference frame for orbital states (matches brahe.OrbitFrame)"""
+
     ECI = "ECI"
     ECEF = "ECEF"
-    # ITRF = "ITRF"
-    # ICRF = "ICRF"
-    # TOD = "TOD"
-    # MOD = "MOD"
-    # TEME = "TEME"
-    # GCRF = "GCRF"
 
 
-class CoordinateSystem(str, Enum):
-    keplerian = "keplerian"
-    cartesian = "cartesian"
-    eci = "eci"
-    ecef = "ecef"
-    geodetic = "geodetic"
-    geocentric = "geocentric"
+class StateRepresentation(str, Enum):
+    """State representation format (extends brahe.OrbitRepresentation with geodetic/geocentric)"""
+
+    keplerian = "keplerian"  # Keplerian orbital elements [a, e, i, Ω, ω, ν]
+    cartesian = "cartesian"  # Cartesian state [x, y, z, vx, vy, vz]
+    geodetic = "geodetic"  # Geodetic coordinates [lat, lon, alt, 0, 0, 0]
+    geocentric = "geocentric"  # Geocentric coordinates [lat, lon, radius, 0, 0, 0]
 
 
 class AttitudeRepresentation(str, Enum):
@@ -46,17 +42,17 @@ def frame(
         typer.Argument(..., help="The state to convert"),
     ],
     from_frame: Annotated[
-        ReferenceFrame, typer.Argument(help="The reference frame to convert from")
+        OrbitFrame, typer.Argument(help="The reference frame to convert from")
     ],
     to_frame: Annotated[
-        ReferenceFrame, typer.Argument(help="The reference frame to convert to")
+        OrbitFrame, typer.Argument(help="The reference frame to convert to")
     ],
     format_string: Annotated[
         str, typer.Option("--format", help="The format of the output")
     ] = "f",
 ):
     set_cli_eop()
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
 
     x = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])
 
@@ -65,13 +61,13 @@ def frame(
             f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
         )
 
-    if from_frame == ReferenceFrame.ECI and to_frame == ReferenceFrame.ECEF:
+    if from_frame == OrbitFrame.ECI and to_frame == OrbitFrame.ECEF:
         x = brahe.state_eci_to_ecef(epc, x)
         typer.echo(
             f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
         )
 
-    if from_frame == ReferenceFrame.ECEF and to_frame == ReferenceFrame.ECI:
+    if from_frame == OrbitFrame.ECEF and to_frame == OrbitFrame.ECI:
         x = brahe.state_ecef_to_eci(epc, x)
         typer.echo(
             f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
@@ -85,14 +81,24 @@ def coordinates(
         typer.Argument(..., help="The state to convert"),
     ],
     from_system: Annotated[
-        CoordinateSystem, typer.Argument(help="The coordinate system to convert from")
+        StateRepresentation,
+        typer.Argument(help="The state representation to convert from"),
     ],
     to_system: Annotated[
-        CoordinateSystem, typer.Argument(help="The coordinate system to convert to")
+        StateRepresentation,
+        typer.Argument(help="The state representation to convert to"),
     ],
     epoch: Annotated[
         str, typer.Option(help="Epoch to perform the conversion at if required")
     ] = "",
+    from_frame: Annotated[
+        OrbitFrame,
+        typer.Option(help="Reference frame for cartesian input (ECI or ECEF)"),
+    ] = OrbitFrame.ECI,
+    to_frame: Annotated[
+        OrbitFrame,
+        typer.Option(help="Reference frame for cartesian output (ECI or ECEF)"),
+    ] = OrbitFrame.ECI,
     as_degrees: Annotated[
         bool, typer.Option(help="Output format in degrees if applicable")
     ] = True,
@@ -100,187 +106,127 @@ def coordinates(
         str, typer.Option("--format", help="The format of the output")
     ] = "f",
 ):
-    # Set the EOP provider - Technically not needed for all conversions but we do it
-    # anyways to reduce the number of times we need to set it.
+    """Convert between state representations (keplerian, cartesian, geodetic, geocentric)."""
     set_cli_eop()
 
     x = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])
+    angle_format = (
+        brahe.AngleFormat.DEGREES if as_degrees else brahe.AngleFormat.RADIANS
+    )
 
-    if from_system == to_system:
+    # Same system, just return
+    if from_system == to_system and (
+        from_system != StateRepresentation.cartesian or from_frame == to_frame
+    ):
         typer.echo(
             f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
         )
         return
 
-    # Conversions starting from Keplerian elements
-    if from_system == CoordinateSystem.keplerian:
-        x_eci = brahe.state_osculating_to_cartesian(x, as_degrees)
+    # === Conversions FROM Keplerian ===
+    if from_system == StateRepresentation.keplerian:
+        x_eci = brahe.state_osculating_to_cartesian(x, angle_format)
 
-        if to_system == CoordinateSystem.cartesian or to_system == CoordinateSystem.eci:
-            x = x_eci
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
+        if to_system == StateRepresentation.cartesian:
+            if to_frame == OrbitFrame.ECEF:
+                if not epoch:
+                    typer.echo("ERROR: --epoch required for frame conversion to ECEF")
+                    raise typer.Exit(code=1)
+                x = brahe.state_eci_to_ecef(brahe.Epoch(epoch), x_eci)
+            else:
+                x = x_eci
+        elif to_system == StateRepresentation.geodetic:
+            if not epoch:
+                typer.echo("ERROR: --epoch required for geodetic conversion")
+                raise typer.Exit(code=1)
+            x_ecef = brahe.state_eci_to_ecef(brahe.Epoch(epoch), x_eci)
+            x = brahe.position_ecef_to_geodetic(x_ecef[0:3], angle_format)
+        elif to_system == StateRepresentation.geocentric:
+            if not epoch:
+                typer.echo("ERROR: --epoch required for geocentric conversion")
+                raise typer.Exit(code=1)
+            x_ecef = brahe.state_eci_to_ecef(brahe.Epoch(epoch), x_eci)
+            x = brahe.position_ecef_to_geocentric(x_ecef[0:3], angle_format)
+
+    # === Conversions FROM Cartesian ===
+    elif from_system == StateRepresentation.cartesian:
+        if to_system == StateRepresentation.keplerian:
+            # Need ECI for Keplerian
+            x_eci = (
+                x
+                if from_frame == OrbitFrame.ECI
+                else brahe.state_ecef_to_eci(brahe.Epoch(epoch), x)
             )
-            return
-
-        epc = epoch_from_epochlike(epoch)
-
-        x_ecef = brahe.state_eci_to_ecef(epc, x_eci)
-
-        if to_system == CoordinateSystem.ecef:
-            x = x_ecef
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
+            x = brahe.state_cartesian_to_osculating(x_eci, angle_format)
+        elif to_system == StateRepresentation.cartesian:
+            # Frame conversion
+            epc = brahe.Epoch(epoch)
+            if from_frame == OrbitFrame.ECI and to_frame == OrbitFrame.ECEF:
+                x = brahe.state_eci_to_ecef(epc, x)
+            elif from_frame == OrbitFrame.ECEF and to_frame == OrbitFrame.ECI:
+                x = brahe.state_ecef_to_eci(epc, x)
+        elif to_system in (
+            StateRepresentation.geodetic,
+            StateRepresentation.geocentric,
+        ):
+            # Need ECEF for geodetic/geocentric
+            x_ecef = (
+                brahe.state_eci_to_ecef(brahe.Epoch(epoch), x)
+                if from_frame == OrbitFrame.ECI
+                else x
             )
-            return
+            if to_system == StateRepresentation.geodetic:
+                x = brahe.position_ecef_to_geodetic(x_ecef[0:3], angle_format)
+            else:
+                x = brahe.position_ecef_to_geocentric(x_ecef[0:3], angle_format)
 
-        if to_system == CoordinateSystem.geocentric:
-            x = brahe.position_ecef_to_geocentric(x_ecef[0:3], as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}"
+    # === Conversions FROM Geocentric ===
+    elif from_system == StateRepresentation.geocentric:
+        x_ecef = brahe.position_geocentric_to_ecef(x[0:3], angle_format)
+
+        if to_system == StateRepresentation.geodetic:
+            x = brahe.position_ecef_to_geodetic(x_ecef, angle_format)
+        elif to_system == StateRepresentation.cartesian:
+            # Geodetic->ECEF gives position only
+            x = (
+                brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
+                if to_frame == OrbitFrame.ECI
+                else x_ecef
             )
-            return
-
-        if to_system == CoordinateSystem.geodetic:
-            x = brahe.position_ecef_to_geodetic(x_ecef[0:3], as_degrees)
+        elif to_system == StateRepresentation.keplerian:
             typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
+                "ERROR: Cannot convert from Geocentric to Keplerian (position-only to orbit elements)"
             )
-            return
+            raise typer.Exit(code=1)
 
-    # Conversions starting from Cartesian / ECI coordinates
-    if from_system == CoordinateSystem.cartesian or from_system == CoordinateSystem.eci:
-        if to_system == CoordinateSystem.keplerian:
-            x = brahe.state_cartesian_to_osculating(x, as_degrees)
+    # === Conversions FROM Geodetic ===
+    elif from_system == StateRepresentation.geodetic:
+        x_ecef = brahe.position_geodetic_to_ecef(x[0:3], angle_format)
+
+        if to_system == StateRepresentation.geocentric:
+            x = brahe.position_ecef_to_geocentric(x_ecef, angle_format)
+        elif to_system == StateRepresentation.cartesian:
+            # Geodetic->ECEF gives position only
+            x = (
+                brahe.position_ecef_to_eci(brahe.Epoch(epoch), x_ecef)
+                if to_frame == OrbitFrame.ECI
+                else x_ecef
+            )
+        elif to_system == StateRepresentation.keplerian:
             typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
+                "ERROR: Cannot convert from Geodetic to Keplerian (position-only to orbit elements)"
             )
-            return
+            raise typer.Exit(code=1)
 
-        if to_system == CoordinateSystem.eci:
-            # Already addressed
-            return
-
-        epc = epoch_from_epochlike(epoch)
-        x_ecef = brahe.state_eci_to_ecef(epc, x)
-
-        if to_system == CoordinateSystem.ecef:
-            x = x_ecef
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.geocentric:
-            x = brahe.position_ecef_to_geocentric(x_ecef[0:3], as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}"
-            )
-            return
-
-        if to_system == CoordinateSystem.geodetic:
-            x = brahe.position_ecef_to_geodetic(x_ecef[0:3], as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-    # Conversions starting from ECEF coordinates
-    if from_system == CoordinateSystem.ecef:
-        if to_system == CoordinateSystem.geocentric:
-            x = brahe.position_ecef_to_geocentric(x[0:3], as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}"
-            )
-            return
-
-        if to_system == CoordinateSystem.geodetic:
-            x = brahe.position_ecef_to_geodetic(x[0:3], as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        epc = epoch_from_epochlike(epoch)
-        x_eci = brahe.state_ecef_to_eci(epc, x)
-
-        if to_system == CoordinateSystem.cartesian or to_system == CoordinateSystem.eci:
-            x = x_eci
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.keplerian:
-            x = brahe.state_cartesian_to_osculating(x_eci, as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
-            )
-            return
-
-    # Conversions starting from Geocentric coordinates
-    if from_system == CoordinateSystem.geocentric:
-        x_ecef = brahe.position_geocentric_to_ecef(x, as_degrees)
-
-        if to_system == CoordinateSystem.geodetic:
-            x = brahe.position_ecef_to_geodetic(x_ecef, as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.ecef:
-            x = brahe.position_geocentric_to_ecef(x, as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.cartesian or to_system == CoordinateSystem.eci:
-            epc = epoch_from_epochlike(epoch)
-            x = brahe.position_ecef_to_eci(epc, x_ecef)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.keplerian:
-            typer.echo(
-                "ERROR: Unable to convert from Geocentric to Keplerian elements directly"
-            )
-            typer.Exit(code=1)
-
-    # Conversions starting from Geodetic coordinates
-    if from_system == CoordinateSystem.geodetic:
-        x_ecef = brahe.position_geodetic_to_ecef(x, as_degrees)
-
-        if to_system == CoordinateSystem.geocentric:
-            x = brahe.position_ecef_to_geocentric(x_ecef, as_degrees)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}"
-            )
-            return
-
-        if to_system == CoordinateSystem.ecef:
-            x = x_ecef
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.cartesian or to_system == CoordinateSystem.eci:
-            epc = epoch_from_epochlike(epoch)
-            x = brahe.position_ecef_to_eci(epc, x_ecef)
-            typer.echo(
-                f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
-            )
-            return
-
-        if to_system == CoordinateSystem.keplerian:
-            typer.echo(
-                "ERROR: Unable to convert from Geodetic to Keplerian elements directly"
-            )
-            typer.Exit(code=1)
+    # Output result
+    if len(x) == 3:
+        typer.echo(
+            f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}]"
+        )
+    else:
+        typer.echo(
+            f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
+        )
 
 
 @app.command()

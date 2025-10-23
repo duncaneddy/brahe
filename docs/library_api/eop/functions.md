@@ -6,6 +6,18 @@ Global EOP management and query functions.
 
 ## Setting Global EOP Provider
 
+### initialize_eop
+
+::: brahe.initialize_eop
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 4
+
+**Recommended**: Initialize the global EOP provider with sensible defaults. This is the easiest way to get started with EOP data for most applications.
+
+---
+
 ### set_global_eop_provider
 
 ::: brahe.set_global_eop_provider
@@ -214,12 +226,34 @@ Get MJD of last dX/dY (celestial pole offset) data point.
 
 ---
 
-## Usage Example
+## Usage Examples
+
+### Quick Start (Recommended)
 
 ```python
 import brahe as bh
 
-# Download and set up file-based EOP
+# Initialize EOP with recommended defaults - easiest way to get started!
+bh.initialize_eop()
+
+# Query EOP for specific epoch
+epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+mjd = epoch.mjd()
+
+ut1_utc, pm_x, pm_y, dx, dy, lod = bh.get_global_eop(mjd)
+print(f"EOP for MJD {mjd}:")
+print(f"  UT1-UTC: {ut1_utc:.6f} s")
+print(f"  Polar Motion: ({pm_x*1e6:.3f}, {pm_y*1e6:.3f}) μrad")
+print(f"  dX, dY: ({dx*1e6:.3f}, {dy*1e6:.3f}) μrad")
+print(f"  LOD: {lod*1e3:.6f} ms")
+```
+
+### Custom Provider Setup
+
+```python
+import brahe as bh
+
+# Download and set up file-based EOP with custom settings
 eop_file = bh.download_standard_eop_file("./data")
 provider = bh.FileEOPProvider.from_standard_file(
     eop_file,
@@ -234,17 +268,6 @@ print(f"Data points: {bh.get_global_eop_len()}")
 print(f"Date range: MJD {bh.get_global_eop_mjd_min():.1f} to {bh.get_global_eop_mjd_max():.1f}")
 print(f"Interpolation: {bh.get_global_eop_interpolation()}")
 print(f"Extrapolation: {bh.get_global_eop_extrapolation()}")
-
-# Query EOP for specific epoch
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-mjd = epoch.mjd()
-
-ut1_utc, pm_x, pm_y, dx, dy, lod = bh.get_global_eop(mjd)
-print(f"\nEOP for MJD {mjd}:")
-print(f"  UT1-UTC: {ut1_utc:.6f} s")
-print(f"  Polar Motion: ({pm_x*1e6:.3f}, {pm_y*1e6:.3f}) μrad")
-print(f"  dX, dY: ({dx*1e6:.3f}, {dy*1e6:.3f}) μrad")
-print(f"  LOD: {lod*1e3:.6f} ms")
 ```
 
 ## See Also

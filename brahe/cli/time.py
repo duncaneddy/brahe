@@ -3,7 +3,6 @@ import typer
 from typing_extensions import Annotated
 
 import brahe
-from brahe.cli.utils import epoch_from_epochlike
 
 app = typer.Typer()
 
@@ -104,7 +103,7 @@ def add(
         TimeSystem, typer.Option(help="Time system of the output epoch")
     ] = TimeSystem.UTC,
 ):
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
 
     epc += seconds
 
@@ -133,7 +132,7 @@ def time_system_offset(
         TimeSystem, typer.Argument(..., help="Time system to convert to")
     ],
 ):
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
 
     offset = brahe.time_system_offset_for_mjd(epc.mjd(), source.value, target.value)
 
@@ -150,8 +149,8 @@ def time_range(
     ],
     step: Annotated[float, typer.Argument(..., help="Step size in seconds")],
 ):
-    epc_start = epoch_from_epochlike(epoch_start)
-    epc_end = epoch_from_epochlike(epoch_end)
+    epc_start = brahe.Epoch(epoch_start)
+    epc_end = brahe.Epoch(epoch_end)
 
     for epc in brahe.TimeRange(epc_start, epc_end, step):
         typer.echo(epc)

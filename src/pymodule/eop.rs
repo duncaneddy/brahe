@@ -1581,3 +1581,55 @@ pub fn py_get_global_eop_mjd_last_lod() -> f64 {
 pub fn py_get_global_eop_mjd_last_dxdy() -> f64 {
     eop::get_global_eop_mjd_last_dxdy()
 }
+
+/// Initialize the global EOP provider with recommended default settings.
+///
+/// This convenience function creates a CachingEOPProvider with sensible defaults
+/// and sets it as the global provider. The provider will:
+///
+/// - Use StandardBulletinA EOP data format
+/// - Automatically download/update EOP files when older than 7 days
+/// - Use the default cache location (~/.cache/brahe/finals.all.iau2000.txt)
+/// - Enable interpolation for smooth EOP data transitions
+/// - Hold the last known EOP value when extrapolating beyond available data
+/// - NOT auto-refresh on every access (manual refresh required)
+///
+/// This is the recommended way to initialize EOP data for most applications,
+/// balancing accuracy, performance, and ease of use.
+///
+/// Raises:
+///     Exception: If file download or loading failed
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Initialize with recommended defaults
+///     bh.initialize_eop()
+///
+///     # Now you can perform frame transformations that require EOP data
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     pos_eci = [bh.R_EARTH + 500e3, 0.0, 0.0]
+///     pos_ecef = bh.position_eci_to_ecef(epoch, pos_eci)
+///     ```
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # This is equivalent to:
+///     provider = bh.CachingEOPProvider(
+///         eop_type="StandardBulletinA",
+///         max_age_seconds=7 * 86400,
+///         auto_refresh=False,
+///         interpolate=True,
+///         extrapolate="Hold"
+///     )
+///     bh.set_global_eop_provider(provider)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "initialize_eop")]
+pub fn py_initialize_eop() -> Result<(), BraheError> {
+    eop::initialize_eop()
+}

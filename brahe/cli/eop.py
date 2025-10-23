@@ -5,8 +5,6 @@ from typing_extensions import Annotated
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import brahe
 
-from brahe.cli.utils import epoch_from_epochlike
-
 
 class ProductType(str, Enum):
     standard = "standard"
@@ -78,7 +76,7 @@ def get_utc_ut1(
     eop = get_global_eop_source(product, source, filepath)
     brahe.set_global_eop_provider(eop)
 
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
     try:
         typer.echo(brahe.get_global_ut1_utc(epc.mjd()))
     except OSError:
@@ -103,7 +101,7 @@ def get_polar_motion(
     eop = get_global_eop_source(product, source, filepath)
     brahe.set_global_eop_provider(eop)
 
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
     try:
         pm_x, pm_y = brahe.get_global_pm(epc.mjd())
         typer.echo(f"{pm_x}, {pm_y}")
@@ -129,7 +127,7 @@ def get_cip_offset(
     eop = get_global_eop_source(product, source, filepath)
     brahe.set_global_eop_provider(eop)
 
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
     try:
         dX, dY = brahe.get_global_dxdy(epc.mjd())
         typer.echo(f"{dX}, {dY}")
@@ -155,7 +153,7 @@ def get_lod(
     eop = get_global_eop_source(product, source, filepath)
     brahe.set_global_eop_provider(eop)
 
-    epc = epoch_from_epochlike(epoch)
+    epc = brahe.Epoch(epoch)
     try:
         typer.echo(brahe.get_global_lod(epc.mjd()))
     except OSError:

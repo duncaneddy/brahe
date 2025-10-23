@@ -75,5 +75,5 @@ interpolated_state = traj_static.interpolate(query_epoch)
 
 - [InterpolationMethod](../orbits/enums.md#interpolationmethod) - Interpolation options
 - [OrbitFrame](../orbits/enums.md#orbitframe) - Frame specifications
-- [KeplerianPropagator](../orbits/keplerian_propagator.md) - Analytical orbit propagation
-- [SGPPropagator](../orbits/sgp_propagator.md) - SGP4/SDP4 orbit propagation
+- [KeplerianPropagator](../propagators/keplerian_propagator.md) - Analytical orbit propagation
+- [SGPPropagator](../propagators/sgp_propagator.md) - SGP4/SDP4 orbit propagation

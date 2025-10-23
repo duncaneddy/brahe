@@ -49,5 +49,5 @@ states = prop.propagate_multiple(epochs)  # Returns array of states
 ## See Also
 
 - [KeplerianPropagator](keplerian_propagator.md) - Analytical two-body propagator
-- [TLE](tle.md) - Two-Line Element format details
-- [Keplerian Elements](keplerian.md) - Orbital element functions
+- [TLE](../orbits/tle.md) - Two-Line Element format details
+- [Keplerian Elements](../orbits/keplerian.md) - Orbital element functions

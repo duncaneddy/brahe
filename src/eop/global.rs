@@ -476,6 +476,66 @@ pub fn get_global_eop_mjd_last_dxdy() -> f64 {
     GLOBAL_EOP.read().unwrap().mjd_last_dxdy()
 }
 
+/// Initialize the global EOP provider with recommended default settings.
+///
+/// This convenience function creates a `CachingEOPProvider` with sensible defaults
+/// and sets it as the global provider. The provider will:
+/// - Use StandardBulletinA EOP data format
+/// - Automatically download/update EOP files when older than 7 days
+/// - Use the default cache location (~/.cache/brahe/finals.all.iau2000.txt)
+/// - Enable interpolation for smooth EOP data transitions
+/// - Hold the last known EOP value when extrapolating beyond available data
+/// - NOT auto-refresh on every access (manual refresh required)
+///
+/// This is the recommended way to initialize EOP data for most applications,
+/// balancing accuracy, performance, and ease of use.
+///
+/// # Returns
+///
+/// - `Result<(), BraheError>`: Ok if initialization succeeded, Error if file download or loading failed
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::eop::initialize_eop;
+///
+/// // Initialize with recommended defaults
+/// initialize_eop().unwrap();
+///
+/// // Now you can perform frame transformations that require EOP data
+/// ```
+///
+/// # Equivalent To
+///
+/// ```no_run
+/// use brahe::eop::*;
+///
+/// let provider = CachingEOPProvider::new(
+///     None,  // Use default cache location
+///     EOPType::StandardBulletinA,
+///     7 * 86400,  // 7 days max age
+///     false,      // auto_refresh off
+///     true,       // interpolate on
+///     EOPExtrapolation::Hold,
+/// ).unwrap();
+/// set_global_eop_provider(provider);
+/// ```
+pub fn initialize_eop() -> Result<(), BraheError> {
+    use crate::eop::caching_provider::CachingEOPProvider;
+
+    let provider = CachingEOPProvider::new(
+        None, // Use default cache location
+        EOPType::StandardBulletinA,
+        7 * 86400, // 7 days in seconds
+        false,     // auto_refresh
+        true,      // interpolate
+        EOPExtrapolation::Hold,
+    )?;
+
+    set_global_eop_provider(provider);
+    Ok(())
+}
+
 #[cfg(test)]
 #[serial]
 mod tests {
@@ -858,5 +918,33 @@ mod tests {
         assert!(get_global_eop_initialization());
 
         assert_eq!(get_global_eop_mjd_last_dxdy(), 60373.0);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_initialize_eop() {
+        // Clear any existing global EOP
+        clear_test_global_eop();
+        assert!(!get_global_eop_initialization());
+
+        // Call the convenience function
+        initialize_eop().unwrap();
+
+        // Verify global provider is properly initialized
+        assert!(get_global_eop_initialization());
+        assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);
+        assert_eq!(get_global_eop_extrapolation(), EOPExtrapolation::Hold);
+        assert!(get_global_eop_interpolation());
+        assert!(get_global_eop_len() > 0);
+
+        // Verify we can retrieve EOP data
+        let mjd = 60000.0;
+        let ut1_utc = get_global_ut1_utc(mjd).unwrap();
+        assert!(ut1_utc.is_finite());
+
+        let (pm_x, pm_y) = get_global_pm(mjd).unwrap();
+        assert!(pm_x.is_finite());
+        assert!(pm_y.is_finite());
     }
 }

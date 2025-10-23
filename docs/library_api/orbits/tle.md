@@ -2,7 +2,7 @@
 
 Functions for parsing, validating, and converting Two-Line Element sets.
 
-For propagating orbits from TLE data, use the [`SGPPropagator`](sgp_propagator.md) class.
+For propagating orbits from TLE data, use the [`SGPPropagator`](../propagators/sgp_propagator.md) class.
 
 ## TLE Utility Functions
 

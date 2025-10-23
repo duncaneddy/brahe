@@ -119,7 +119,10 @@ nav:
                 - learn/coordinates/geocentric_transformations.md
                 - learn/coordinates/topocentric_transformations.md
             - Reference Frame Transformations: learn/frame_transformations.md
-            - Orbital Properties: learn/orbital_properties.md
+            - Orbits: 
+                - learn/orbits/index.md
+                - learn/orbits/orbital_properties.md
+                - learn/orbits/two_line_elements.md
             - Attitude Representation: 
                 - learn/attitude_representations/index.md
                 - learn/attitude_representations/quaternions.md
@@ -131,7 +134,6 @@ nav:
                 - learn/trajectories/dtrajectory.md
                 - learn/trajectories/strajectory6.md
                 - learn/trajectories/orbit_trajectory.md
-            - Two-Line Elements (TLEs): learn/two_line_elements.md
             - Orbit Propagation:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
@@ -146,6 +148,20 @@ nav:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
                 - Groundstations: learn/datasets/groundstations.md
+            - Command Line Interface:
+                - learn/cli/index.md
+                - EOP: learn/cli/eop.md
+                - Time: learn/cli/time.md
+                - Orbits: learn/cli/orbits.md
+                - Convert: learn/cli/convert.md
+                - Datasets: learn/cli/datasets.md
+                - Access: learn/cli/access.md
+            - Plots:
+                - learn/plots/index.md
+                - Ground Tracks: learn/plots/ground_tracks.md
+                - Orbital Trajectories: learn/plots/orbital_trajectories.md
+                - 3D Trajectory: learn/plots/3d_trajectory.md
+                - Access Geometry: learn/plots/access_geometry.md
     -   Examples:
             - examples/index.md
             - Downloading TLE Data: examples/downloading_tle_data.md
@@ -182,8 +198,6 @@ nav:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md
                 - Two-Line Elements: library_api/orbits/tle.md
-                - KeplerianPropagator: library_api/orbits/keplerian_propagator.md
-                - SGPPropagator: library_api/orbits/sgp_propagator.md
                 - Enumerations: library_api/orbits/enums.md
             - Attitude:
                 - library_api/attitude/index.md
@@ -196,6 +210,10 @@ nav:
                 - DTrajectory: library_api/trajectories/dtrajectory.md
                 - STrajectory6: library_api/trajectories/strajectory6.md
                 - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
+            - Propagators:
+                - library_api/propagators/index.md
+                - KeplerianPropagator: library_api/propagators/keplerian_propagator.md
+                - SGPPropagator: library_api/propagators/sgp_propagator.md
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md
@@ -206,6 +224,12 @@ nav:
                 - Constraints: library_api/access/constraints.md
                 - Windows: library_api/access/windows.md
                 - Enumerations: library_api/access/enums.md
+            - Plots:
+                - library_api/plots/index.md
+                - Ground Tracks: library_api/plots/ground_tracks.md
+                - Orbital Trajectories: library_api/plots/orbital_trajectories.md
+                - 3D Trajectory: library_api/plots/3d_trajectory.md
+                - Access Geometry: library_api/plots/access_geometry.md
     -   Rust API Reference: https://docs.rs/brahe
     -   About Me: https://duncaneddy.com
 

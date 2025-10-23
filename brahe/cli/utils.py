@@ -1,45 +1,54 @@
-import typer
+import math
 import brahe
-from brahe import Epoch
-
-
-def parse_float(s):
-    try:
-        num = float(s)
-        return num
-    except ValueError:
-        return None
-
-
-def epoch_from_epochlike(time: str) -> Epoch:
-    """Attempts to convert a string to an Epoch object. Accepts any Epoch-like format.
-    In particular can be a string, a modified Julian date, or a Julian date.
-
-    Args:
-        time (str): The string to convert to an Epoch object.
-
-    Returns:
-        brahe.Epoch: The Epoch object.
-    """
-
-    # Attempt to parse as MJD or JD
-    if t := parse_float(time):
-        # If less than 1000000, assume MJD
-        if t < 1000000:
-            return Epoch.from_mjd(t, brahe.TimeSystem.UTC)
-        else:
-            return Epoch.from_jd(t, brahe.TimeSystem.UTC)
-
-    # Attempt to parse as string
-    try:
-        return Epoch.from_string(time)
-    except ValueError:
-        pass
-
-    typer.echo(f'Could not parse "{time}" as an Epoch-like object')
-    raise typer.Exit(code=1)
 
 
 def set_cli_eop():
-    eop = brahe.FileEOPProvider.from_default_standard(True, "Error")
-    brahe.set_global_eop_provider(eop)
+    """Initialize EOP data for CLI commands that require frame transformations."""
+    brahe.initialize_eop()
+
+
+def get_time_string(t: float, short: bool = False) -> str:
+    """
+    Convert a time in seconds to a human-readable string.
+
+    Args:
+        t: Time duration in seconds
+        short: Use short format (e.g., "6m 2s") instead of long format
+
+    Returns:
+        Human-readable time string
+    """
+    if short:
+        # Short format: e.g., "6m 2s", "1h 30m 15s", "2d 3h 45m"
+        days = math.floor(t / 86400)
+        hours = math.floor(t / 3600) % 24
+        minutes = math.floor(t / 60) % 60
+        seconds = t % 60
+
+        parts = []
+        if days > 0:
+            parts.append(f"{days}d")
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        if seconds > 0 or len(parts) == 0:
+            parts.append(f"{seconds:.0f}s")
+
+        return " ".join(parts)
+    else:
+        # Long format: e.g., "6 minutes and 2.00 seconds"
+        if t < 60:
+            return f"{t:.2f} seconds"
+        elif t < 3600:
+            return f"{math.floor(t / 60)} minutes and {t % 60:.2f} seconds"
+        elif t < 86400:
+            return (
+                f"{math.floor(t / 3600)} hours, {math.floor(t / 60) % 60} minutes, "
+                f"and {t % 60:.2f} seconds"
+            )
+        else:
+            return (
+                f"{math.floor(t / 86400)} days, {math.floor(t / 3600) % 24} hours, "
+                f"{math.floor(t / 60) % 60} minutes, and {t % 60:.2f} seconds"
+            )

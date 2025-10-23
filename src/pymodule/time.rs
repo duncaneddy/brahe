@@ -415,6 +415,7 @@ impl PyEpoch {
     /// Args:
     ///     *args: Variable positional arguments supporting:
     ///         - (str): Date/time string (e.g., "2024-01-01 12:00:00.000 UTC" or "2024-01-01T12:00:00Z")
+    ///         - (float/int): Julian Date or Modified Julian Date (auto-detected: < 1000000 is MJD, >= 1000000 is JD)
     ///         - (datetime): Python datetime object
     ///         - (Epoch): Another Epoch object (copy constructor)
     ///         - (int, int, int): Year, month, day (midnight)
@@ -459,6 +460,16 @@ impl PyEpoch {
     ///     epc6 = bh.Epoch(epc1)
     ///     print(epc6)
     ///     # Output: 2024-01-01T00:00:00.000000000 UTC
+    ///
+    ///     # From Modified Julian Date (auto-detected, value < 1000000)
+    ///     epc7 = bh.Epoch(60310.5)
+    ///     print(epc7)
+    ///     # Output: 2024-01-01 12:00:00.000 UTC
+    ///
+    ///     # From Julian Date (auto-detected, value >= 1000000)
+    ///     epc8 = bh.Epoch(2460310.5)
+    ///     print(epc8)
+    ///     # Output: 2024-01-01 12:00:00.000 UTC
     ///     ```
     #[new]
     #[pyo3(signature = (*args, time_system=None))]
@@ -514,8 +525,23 @@ impl PyEpoch {
                 });
             }
 
+            // Try float (MJD or JD - auto-detect based on magnitude)
+            if let Ok(value) = arg.extract::<f64>() {
+                // Values < 1000000 are treated as Modified Julian Date
+                // Values >= 1000000 are treated as Julian Date
+                if value < 1000000.0 {
+                    return Ok(PyEpoch {
+                        obj: time::Epoch::from_mjd(value, default_ts),
+                    });
+                } else {
+                    return Ok(PyEpoch {
+                        obj: time::Epoch::from_jd(value, default_ts),
+                    });
+                }
+            }
+
             return Err(exceptions::PyTypeError::new_err(
-                "Single argument must be str, datetime, or Epoch"
+                "Single argument must be str, float/int (MJD/JD), datetime, or Epoch"
             ));
         }
 

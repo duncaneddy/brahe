@@ -1,6 +1,7 @@
 import json
 import math
 import time
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -19,8 +20,28 @@ app = typer.Typer()
 class OutputFormat(str, Enum):
     """Output format for access window display."""
 
+    table = "table"
     rich = "rich"
     simple = "simple"
+
+
+class SortBy(str, Enum):
+    """Sort field for access windows."""
+
+    contact_number = "contact_number"
+    start_time = "start_time"
+    end_time = "end_time"
+    duration = "duration"
+    max_elevation = "max_elevation"
+    start_azimuth = "start_azimuth"
+    end_azimuth = "end_azimuth"
+
+
+class SortOrder(str, Enum):
+    """Sort order for access windows."""
+
+    ascending = "ascending"
+    descending = "descending"
 
 
 @app.command()
@@ -66,8 +87,14 @@ def compute(
         Optional[int], typer.Option(help="Maximum number of access windows to display")
     ] = None,
     output_format: Annotated[
-        OutputFormat, typer.Option(help="Output format: 'rich' or 'simple'")
-    ] = OutputFormat.rich,
+        OutputFormat, typer.Option(help="Output format: 'table', 'rich', or 'simple'")
+    ] = OutputFormat.table,
+    sort_by: Annotated[
+        SortBy, typer.Option(help="Sort windows by field")
+    ] = SortBy.start_time,
+    sort_order: Annotated[
+        SortOrder, typer.Option(help="Sort order: 'ascending' or 'descending'")
+    ] = SortOrder.ascending,
     output_file: Annotated[
         Optional[Path], typer.Option(help="Path to export results as JSON")
     ] = None,
@@ -178,7 +205,18 @@ def compute(
         if start_time:
             epoch_start = brahe.Epoch(start_time)
         else:
-            epoch_start = brahe.Epoch.now()
+            # Get current time
+            dt = datetime.now(timezone.utc)
+            epoch_start = brahe.Epoch.from_datetime(
+                dt.year,
+                dt.month,
+                dt.day,
+                dt.hour,
+                dt.minute,
+                dt.second,
+                0.0,
+                brahe.TimeSystem.UTC,
+            )
 
         if end_time:
             epoch_end = brahe.Epoch(end_time)
@@ -239,6 +277,22 @@ def compute(
         typer.echo(f"Error computing access windows: {e}")
         raise typer.Exit(code=1)
 
+    # Sort windows based on user preference
+    reverse = sort_order == SortOrder.descending
+    if sort_by == SortBy.start_time:
+        windows.sort(key=lambda w: w.window_open, reverse=reverse)
+    elif sort_by == SortBy.end_time:
+        windows.sort(key=lambda w: w.window_close, reverse=reverse)
+    elif sort_by == SortBy.duration:
+        windows.sort(key=lambda w: w.window_close - w.window_open, reverse=reverse)
+    elif sort_by == SortBy.max_elevation:
+        windows.sort(key=lambda w: w.properties.elevation_max, reverse=reverse)
+    elif sort_by == SortBy.start_azimuth:
+        windows.sort(key=lambda w: w.properties.azimuth_open, reverse=reverse)
+    elif sort_by == SortBy.end_azimuth:
+        windows.sort(key=lambda w: w.properties.azimuth_close, reverse=reverse)
+    # contact_number doesn't require sorting as it's the original order
+
     # Limit results if requested
     if max_results is not None and len(windows) > max_results:
         windows = windows[:max_results]
@@ -251,7 +305,9 @@ def compute(
         typer.echo(f"  Minimum elevation: {min_elevation:.1f}°")
         return
 
-    if output_format == OutputFormat.rich:
+    if output_format == OutputFormat.table:
+        _display_table(windows, sat_name, norad_id, lat, lon, alt, min_elevation)
+    elif output_format == OutputFormat.rich:
         _display_rich(windows, sat_name, norad_id, lat, lon, alt, min_elevation)
     else:
         _display_simple(windows, sat_name, norad_id, lat, lon, alt, min_elevation)
@@ -268,6 +324,51 @@ def compute(
         except Exception as e:
             typer.echo(f"\nError exporting to JSON: {e}", err=True)
             raise typer.Exit(code=1)
+
+
+def _display_table(
+    windows: list,
+    sat_name: str,
+    norad_id: int,
+    lat: float,
+    lon: float,
+    alt: float,
+    min_elevation: float,
+):
+    """Display access windows in table format with contact numbers."""
+    console = Console()
+
+    # Header
+    console.print(
+        f"\n[bold]Access Windows for {sat_name} (NORAD ID: {norad_id})[/bold]"
+    )
+    console.print(f"Location: {lat:.4f}° lat, {lon:.4f}° lon, {alt:.0f} m alt")
+    console.print(f"Minimum elevation: {min_elevation:.1f}°")
+    console.print(f"Found {len(windows)} access window(s)\n")
+
+    # Create table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Contact #", justify="right", style="cyan")
+    table.add_column("Start Time (UTC)", style="green")
+    table.add_column("End Time (UTC)", style="red")
+    table.add_column("Duration", style="yellow")
+    table.add_column("Max Elev (deg)", justify="right")
+    table.add_column("Start Az (deg)", justify="right")
+    table.add_column("End Az (deg)", justify="right")
+
+    for i, window in enumerate(windows, 1):
+        duration = window.window_close - window.window_open
+        table.add_row(
+            str(i),
+            str(window.window_open),
+            str(window.window_close),
+            brahe.format_time_string(duration),
+            f"{window.properties.elevation_max:.1f}",
+            f"{window.properties.azimuth_open:.0f}",
+            f"{window.properties.azimuth_close:.0f}",
+        )
+
+    console.print(table)
 
 
 def _display_rich(
@@ -295,9 +396,9 @@ def _display_rich(
     table.add_column("Start Time (UTC)", style="green")
     table.add_column("End Time (UTC)", style="red")
     table.add_column("Duration", style="yellow")
-    table.add_column("Max Elev", justify="right")
-    table.add_column("Az Open", justify="right")
-    table.add_column("Az Close", justify="right")
+    table.add_column("Max Elev (deg)", justify="right")
+    table.add_column("Az Open (deg)", justify="right")
+    table.add_column("Az Close (deg)", justify="right")
 
     for window in windows:
         duration = window.window_close - window.window_open
@@ -305,9 +406,9 @@ def _display_rich(
             str(window.window_open),
             str(window.window_close),
             brahe.format_time_string(duration),
-            f"{window.properties.elevation_max:.1f}°",
-            f"{window.properties.azimuth_open:.0f}°",
-            f"{window.properties.azimuth_close:.0f}°",
+            f"{window.properties.elevation_max:.1f}",
+            f"{window.properties.azimuth_open:.0f}",
+            f"{window.properties.azimuth_close:.0f}",
         )
 
     console.print(table)
@@ -355,6 +456,7 @@ def _export_json(
         "constraint": {"min_elevation_deg": min_elevation},
         "windows": [
             {
+                "contact_number": i,
                 "window_open": str(window.window_open),
                 "window_close": str(window.window_close),
                 "duration_sec": window.window_close - window.window_open,
@@ -370,7 +472,7 @@ def _export_json(
                     "asc_dsc": str(window.properties.asc_dsc),
                 },
             }
-            for window in windows
+            for i, window in enumerate(windows, 1)
         ],
     }
 

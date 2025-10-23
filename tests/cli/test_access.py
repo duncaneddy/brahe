@@ -477,3 +477,223 @@ def test_access_compute_name_without_provider():
     assert (
         "Must specify both" in result.stdout or "Must provide either" in result.stdout
     )
+
+
+def test_access_compute_table_format():
+    """Test table output format (new default)."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+            "--output-format",
+            "table",
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Table should have Contact # column (may be on separate lines due to wrapping)
+    assert "Contact" in result.stdout
+    # Should have units in headers
+    assert "(deg)" in result.stdout
+    # Should show table structure
+    assert "│" in result.stdout or "|" in result.stdout
+
+
+def test_access_compute_table_default_format():
+    """Test that table is the default output format."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+            # No --output-format specified
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Should use table format by default (has Contact column)
+    assert "Contact" in result.stdout
+    # Should have units in headers (table format feature)
+    assert "(deg)" in result.stdout
+
+
+def test_access_compute_sort_by_max_elevation():
+    """Test sorting by max elevation."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "7",
+            "--sort-by",
+            "max_elevation",
+            "--sort-order",
+            "descending",
+            "--max-results",
+            "3",
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Should succeed - we can't easily verify sorting without parsing output
+    assert "window" in result.stdout.lower()
+
+
+def test_access_compute_sort_by_duration():
+    """Test sorting by duration."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "7",
+            "--sort-by",
+            "duration",
+            "--sort-order",
+            "ascending",
+            "--max-results",
+            "3",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "window" in result.stdout.lower()
+
+
+def test_access_compute_json_has_contact_numbers():
+    """Test that JSON export includes contact numbers."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "passes.json"
+
+        result = runner.invoke(
+            app,
+            [
+                "access",
+                "compute",
+                "25544",
+                "--lat",
+                "40.7128",
+                "--lon",
+                "-74.0060",
+                "--start-time",
+                "2024-01-01T00:00:00Z",
+                "--duration",
+                "7",
+                "--max-results",
+                "5",
+                "--output-file",
+                str(output_path),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_path.exists()
+
+        # Validate JSON structure includes contact numbers
+        with open(output_path) as f:
+            data = json.load(f)
+
+        assert "windows" in data
+        if len(data["windows"]) > 0:
+            window = data["windows"][0]
+            # Check for contact_number field
+            assert "contact_number" in window
+            assert window["contact_number"] == 1
+
+            # Check subsequent windows have incrementing numbers
+            for i, window in enumerate(data["windows"], 1):
+                assert window["contact_number"] == i
+
+
+def test_access_compute_rich_format_backward_compatibility():
+    """Test that rich format still works (backward compatibility)."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+            "--output-format",
+            "rich",
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Rich format should have units in column headers
+    assert "(deg)" in result.stdout
+    # Rich format uses different column names than table (no "Contact" column header)
+    # Just verify it ran successfully with units
+
+
+def test_access_compute_with_groundstation_table_format():
+    """Test table format with groundstation provider lookup."""
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--gs-provider",
+            "ksat",
+            "--gs-name",
+            "Svalbard",
+            "--start-time",
+            "2024-01-01T00:00:00Z",
+            "--duration",
+            "1",
+            "--output-format",
+            "table",
+        ],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.stdout}"
+    # Should show Svalbard's coordinates (78.23° lat, 15.41° lon)
+    assert "78.2" in result.stdout  # Latitude around 78.23°
+    assert "15.4" in result.stdout  # Longitude around 15.41°
+    # Should use table format with Contact column
+    assert "Contact" in result.stdout
+    # Should have units
+    assert "(deg)" in result.stdout

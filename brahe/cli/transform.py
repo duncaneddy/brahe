@@ -5,7 +5,7 @@ from loguru import logger
 import numpy as np
 
 import brahe
-from brahe.cli.utils import set_cli_eop
+from brahe.cli.utils import set_cli_eop, parse_numeric_expression
 
 app = typer.Typer()
 
@@ -59,7 +59,21 @@ def frame(
     set_cli_eop()
     epc = brahe.Epoch(epoch)
 
-    x = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])
+    # Parse state values (may contain constant expressions)
+    try:
+        x = np.array(
+            [
+                parse_numeric_expression(state[0]),
+                parse_numeric_expression(state[1]),
+                parse_numeric_expression(state[2]),
+                parse_numeric_expression(state[3]),
+                parse_numeric_expression(state[4]),
+                parse_numeric_expression(state[5]),
+            ]
+        )
+    except ValueError as e:
+        typer.echo(f"Error parsing state values: {e}")
+        raise typer.Exit(code=1)
 
     if from_frame == to_frame:
         typer.echo(
@@ -116,7 +130,22 @@ def coordinates(
     logger.debug(f"State: {state}, Frames: {from_frame.value} -> {to_frame.value}")
     set_cli_eop()
 
-    x = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])
+    # Parse state values (may contain constant expressions)
+    try:
+        x = np.array(
+            [
+                parse_numeric_expression(state[0]),
+                parse_numeric_expression(state[1]),
+                parse_numeric_expression(state[2]),
+                parse_numeric_expression(state[3]),
+                parse_numeric_expression(state[4]),
+                parse_numeric_expression(state[5]),
+            ]
+        )
+    except ValueError as e:
+        typer.echo(f"Error parsing state values: {e}")
+        raise typer.Exit(code=1)
+
     angle_format = (
         brahe.AngleFormat.DEGREES if as_degrees else brahe.AngleFormat.RADIANS
     )

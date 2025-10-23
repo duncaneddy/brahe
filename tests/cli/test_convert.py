@@ -19,7 +19,7 @@ class TestFrameCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "frame",
                 "2024-01-01T00:00:00Z",
                 "6878137",
@@ -42,7 +42,7 @@ class TestFrameCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "frame",
                 "2024-01-01T00:00:00Z",
                 "6878137",
@@ -63,7 +63,7 @@ class TestFrameCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "frame",
                 "2024-01-01T00:00:00Z",
                 "6878137",
@@ -89,7 +89,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -112,7 +112,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -137,7 +137,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -162,7 +162,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -187,7 +187,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6871258.863",
                 "0",
@@ -210,7 +210,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0",
@@ -236,7 +236,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "1268739",
                 "1064599",
@@ -261,7 +261,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "1268739",
                 "1064599",
@@ -287,7 +287,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -309,7 +309,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -334,7 +334,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -359,7 +359,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -381,7 +381,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -402,7 +402,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -427,7 +427,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "40.0",
                 "75.0",
@@ -449,7 +449,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -473,7 +473,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -495,7 +495,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -518,7 +518,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -543,7 +543,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",
@@ -567,7 +567,7 @@ class TestCoordinatesCommand:
         result = runner.invoke(
             app,
             [
-                "convert",
+                "transform",
                 "coordinates",
                 "6878137",
                 "0.001",

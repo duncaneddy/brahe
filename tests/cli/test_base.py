@@ -32,10 +32,10 @@ def test_orbits_help():
     assert "Usage: brahe orbits [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
 
-def test_convert_help():
-    result = runner.invoke(app, ["convert", "--help"])
+def test_transform_help():
+    result = runner.invoke(app, ["transform", "--help"])
     assert result.exit_code == 0
-    assert "Usage: brahe convert [OPTIONS] COMMAND [ARGS]..." in result.stdout
+    assert "Usage: brahe transform [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
 
 def test_access_help():

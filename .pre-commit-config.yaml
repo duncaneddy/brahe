@@ -1,4 +1,14 @@
 repos:
+  # Sync README.md to docs/index.md when README changes
+  # - repo: local
+  #   hooks:
+  #     - id: sync-readme-to-docs
+  #       name: Sync README.md to docs/index.md
+  #       language: system
+  #       entry: bash -c 'if git diff --cached --name-only | grep -q "^README.md$"; then cp README.md docs/index.md && git add docs/index.md; fi'
+  #       pass_filenames: false
+  #       always_run: false
+
   # Format Rust code first
   - repo: local
     hooks:

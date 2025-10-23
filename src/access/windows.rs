@@ -799,8 +799,10 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_find_access_candidates() {
         setup_global_test_eop();
 
@@ -940,6 +942,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_find_access_windows() {
         setup_global_test_eop();
 

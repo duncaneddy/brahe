@@ -43,10 +43,13 @@ docs/site/*
 .idea/*
 .vscode/*
 
-# Markdown files in root (except README and CHANGELOG)
+# Markdown files in root (except major documentation files)
 /*.md
 !README.md
 !CHANGELOG.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!LICENSE.md
 
 # Figures
 docs/figures/*

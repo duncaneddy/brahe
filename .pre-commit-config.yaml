@@ -9,6 +9,28 @@ repos:
   #       pass_filenames: false
   #       always_run: false
 
+  # Sync CODE_OF_CONDUCT.md, CONTRIBUTING.md, and LICENSE.md to docs/
+  - repo: local
+    hooks:
+      - id: sync-code-of-conduct
+        name: Sync CODE_OF_CONDUCT.md to docs/
+        language: system
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^CODE_OF_CONDUCT.md$"; then cp CODE_OF_CONDUCT.md docs/code_of_conduct.md && git add docs/code_of_conduct.md; fi'
+        pass_filenames: false
+        always_run: false
+      - id: sync-contributing
+        name: Sync CONTRIBUTING.md to docs/
+        language: system
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^CONTRIBUTING.md$"; then cp CONTRIBUTING.md docs/contributing.md && git add docs/contributing.md; fi'
+        pass_filenames: false
+        always_run: false
+      - id: sync-license
+        name: Sync LICENSE.md to docs/
+        language: system
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^LICENSE.md$"; then cp LICENSE.md docs/license.md && git add docs/license.md; fi'
+        pass_filenames: false
+        always_run: false
+
   # Format Rust code first
   - repo: local
     hooks:

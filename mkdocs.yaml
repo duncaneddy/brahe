@@ -98,8 +98,10 @@ nav:
     -   Brahe:
             - index.md
             - installation.md
-            - contributing.md
-            - Design Philosophy & Decisions: design.md
+            - development_guidelines.md
+            - design.md
+            - Code of Conduct: code_of_conduct.md
+            - Contributing: contributing.md
             - License: license.md
     -   Learn:
             - learn/index.md

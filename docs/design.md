@@ -1,6 +1,6 @@
-# Design Decisions
+# Design Philosophy & Decisions
 
-This page documents significant design decisions of the library.
+This page documents significant design decisions of the library. Right now this is mostly just what I think is "good design" for an astrodynamics library, which is highly subjective and somewhat hard to write down concretely. Over time I hope to expand this page to include more specific design decisions made in the library, along with the reasoning behind them.
 
 ## Rust Core with Python Bindings
 

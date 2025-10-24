@@ -1,0 +1,189 @@
+name: Build Latest Wheels
+
+on:
+  workflow_run:
+    workflows: ["Unit Tests"]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  # Only run if the Unit Tests workflow succeeded
+  check-success:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Check workflow success
+        run: echo "Unit tests passed, proceeding with wheel build"
+
+  build-wheels:
+    needs: check-success
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheel with maturin
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release -i python${{ matrix.python-version }}
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ runner.os }}-py${{ matrix.python-version }}
+          path: target/wheels/*.whl
+          retention-days: 7
+
+  build-sdist:
+    needs: check-success
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build
+        run: pip install -U build
+
+      - name: Build source distribution
+        run: python -m build --sdist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+
+  create-or-update-release:
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Create or update 'latest' release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if 'latest' release exists
+          if gh release view latest >/dev/null 2>&1; then
+            echo "Release 'latest' already exists"
+          else
+            echo "Creating new 'latest' pre-release"
+            gh release create latest \
+              --title "Latest Development Build" \
+              --notes "Automated build from the latest main branch. These are development builds and may be unstable.
+
+          ## Installation
+
+          To install the latest development version:
+
+          \`\`\`bash
+          pip install brahe --extra-index-url https://duncaneddy.github.io/brahe/simple/
+          \`\`\`
+
+          Or download wheels directly from the assets below.
+
+          **Note:** This is a rolling release that is automatically updated with each push to main." \
+              --prerelease
+          fi
+
+  upload-assets:
+    needs: create-or-update-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist-wheels
+          merge-multiple: true
+
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist-sdist
+
+      - name: Combine artifacts
+        run: |
+          mkdir -p dist
+          cp -v dist-wheels/*.whl dist/ 2>/dev/null || echo "No wheels found"
+          cp -v dist-sdist/*.tar.gz dist/ 2>/dev/null || echo "No sdist found"
+          ls -lh dist/
+
+      - name: Upload assets to latest release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Upload with --clobber to replace existing files
+          gh release upload latest dist/* --clobber
+
+  update-simple-index:
+    needs: upload-assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate simple index
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/generate_simple_index.py \
+            --repo ${{ github.repository }} \
+            --package-name brahe \
+            --tag latest \
+            --output simple-index
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./simple-index
+          keep_files: true
+          destination_dir: .

@@ -2,7 +2,10 @@ name: Test Rust
 on: [ workflow_call ]
 jobs:
     build-rust:
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest]
         env:
             CARGO_TERM_COLOR: always
         steps:
@@ -16,7 +19,7 @@ jobs:
             -   name: Upload Rust build artifacts
                 uses: actions/upload-artifact@v4
                 with:
-                    name: rust-build-artifacts
+                    name: rust-build-artifacts-${{ runner.os }}
                     path: |
                         target/debug/
                         !target/debug/incremental/
@@ -25,7 +28,10 @@ jobs:
                         !target/debug/.fingerprint/
                     retention-days: 3
     test-rust:
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest]
         needs: build-rust
         environment: release
         env:
@@ -39,7 +45,7 @@ jobs:
             -   name: Download Rust build artifacts
                 uses: actions/download-artifact@v4
                 with:
-                    name: rust-build-artifacts
+                    name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
@@ -52,7 +58,10 @@ jobs:
                     files: lcov.info
                     fail_ci_if_error: false # TODO: Change to true
     test-rust-docs:
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest]
         needs: build-rust
         steps:
             -   uses: actions/checkout@v5
@@ -63,14 +72,15 @@ jobs:
             -   name: Download Rust build artifacts
                 uses: actions/download-artifact@v4
                 with:
-                    name: rust-build-artifacts
+                    name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
             -   name: Run Rust doc tests
                 run: cargo test --doc --features ci
     pre-cache-python:
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
         strategy:
             matrix:
+                os: [ubuntu-latest, macos-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
         steps:
             -   uses: actions/checkout@v5
@@ -95,10 +105,11 @@ jobs:
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen
     build-python-extension:
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
         needs: build-rust
         strategy:
             matrix:
+                os: [ubuntu-latest, macos-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
         steps:
             -   uses: actions/checkout@v5
@@ -109,7 +120,7 @@ jobs:
             -   name: Download Rust build artifacts
                 uses: actions/download-artifact@v4
                 with:
-                    name: rust-build-artifacts
+                    name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v6
@@ -144,6 +155,6 @@ jobs:
             -   name: Upload Python extension
                 uses: actions/upload-artifact@v4
                 with:
-                    name: python-extension-py${{ matrix.python-version }}
+                    name: python-extension-${{ runner.os }}-py${{ matrix.python-version }}
                     path: artifact-output/
                     retention-days: 7

@@ -5,7 +5,7 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ ubuntu-latest ]
+                os: [ubuntu-latest, macos-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
         steps:
             # TODO: Remove this when the nightly BTreeCursor is stabilized and released
@@ -43,7 +43,7 @@ jobs:
                 continue-on-error: true
                 uses: actions/download-artifact@v4
                 with:
-                    name: python-extension-py${{ matrix.python-version }}
+                    name: python-extension-${{ runner.os }}-py${{ matrix.python-version }}
                     path: ./cached-extension
 
             -   name: Install dependencies and Python package

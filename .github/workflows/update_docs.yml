@@ -54,7 +54,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install dependencies
-        run: uv sync --all-extras --frozen
+        run: uv sync --all-extras --locked
 
       # Try to download Brahe cache to avoid external API calls
       - name: Download Brahe cache directory
@@ -93,8 +93,8 @@ jobs:
 
       - name: Deploy documentation (versioned release)
         if: inputs.version != ''
-        run: uv run --frozen mike deploy --push --update-aliases ${{ inputs.version }} stable
+        run: uv run --locked mike deploy --push --update-aliases ${{ inputs.version }} stable
 
       - name: Deploy documentation (latest from main)
         if: inputs.version == ''
-        run: uv run --frozen mike deploy --push --update-aliases latest
+        run: uv run --locked mike deploy --push --update-aliases latest

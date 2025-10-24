@@ -65,28 +65,8 @@ jobs:
           name: brahe-cache
           path: ~/.cache/brahe/
 
-      # Try to download pre-built Python extension
-      - name: Download Python extension artifact
-        id: download-extension
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: python-extension
-          path: ./cached-extension
-
-      - name: Use cached extension or build new one
-        run: |
-          if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
-              echo "Using cached Python extension"
-              mkdir -p target/release
-              cp ./cached-extension/libbrahe* target/release/
-              # Install maturin for --no-build-isolation
-              uv pip install maturin
-              uv pip install -e . --no-build-isolation
-          else
-              echo "Building Python extension (no cache available)"
-              uv pip install -e .
-          fi
+      - name: Build Python extension
+        run: uv pip install -e .
 
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh

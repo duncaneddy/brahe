@@ -35,7 +35,7 @@ def plot_groundtrack(
     show_ticks=True,
     extent=None,
     backend="matplotlib",
-):
+) -> object:
     """Plot ground tracks with optional ground stations and polygon zones.
 
     Args:
@@ -77,7 +77,7 @@ def plot_groundtrack(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python

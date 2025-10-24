@@ -17,7 +17,7 @@ def plot_access_polar(
     access_windows,
     min_elevation=0.0,
     backend="matplotlib",
-):
+) -> object:
     """Plot access window geometry in polar coordinates (azimuth/elevation).
 
     Polar coordinates:
@@ -36,7 +36,7 @@ def plot_access_polar(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python
@@ -89,7 +89,7 @@ def plot_access_polar(
 def plot_access_elevation(
     access_windows,
     backend="matplotlib",
-):
+) -> object:
     """Plot elevation angle vs time for access windows.
 
     Args:
@@ -103,7 +103,7 @@ def plot_access_elevation(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python

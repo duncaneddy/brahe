@@ -21,7 +21,7 @@ def plot_cartesian_trajectory(
     position_units="km",
     velocity_units="km/s",
     backend="matplotlib",
-):
+) -> object:
     """Plot Cartesian orbital elements (position and velocity) vs time.
 
     Creates a 2x3 subplot layout:
@@ -42,7 +42,7 @@ def plot_cartesian_trajectory(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python
@@ -99,7 +99,7 @@ def plot_keplerian_trajectory(
     angle_units="deg",
     sma_units="km",
     backend="matplotlib",
-):
+) -> object:
     """Plot Keplerian orbital elements vs time.
 
     Creates a 2x3 subplot layout:
@@ -120,7 +120,7 @@ def plot_keplerian_trajectory(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python

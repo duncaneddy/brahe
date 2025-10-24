@@ -25,7 +25,7 @@ def plot_trajectory_3d(
     show_earth=True,
     earth_texture="simple",
     backend="matplotlib",
-):
+) -> object:
     """Plot 3D trajectory in ECI frame.
 
     Args:
@@ -46,7 +46,7 @@ def plot_trajectory_3d(
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Generated figure object
 
     Example:
         ```python

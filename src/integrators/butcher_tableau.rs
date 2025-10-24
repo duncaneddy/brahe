@@ -10,6 +10,7 @@ use crate::utils::BraheError;
 ///
 /// The Butcher tableau is a matrix representation of the coefficients of a Runge-Kutta method.
 ///
+#[derive(Debug)]
 pub struct ButcherTableau<const S: usize> {
     pub a: SMatrix<f64, S, S>,
     pub b: SVector<f64, S>,
@@ -91,7 +92,7 @@ fn validate_explicit_butcher_tableau<const S: usize>(
 ) -> Result<(), BraheError> {
     // Validate that the Butcher tableau is consistent
     let b_sum = b.sum();
-    if (b_sum - 1.0).abs() <= 1.0e-16 {
+    if (b_sum - 1.0).abs() > 1.0e-14 {
         return Err(BraheError::Error(format!(
             "Invalid Butcher tableau: sum of b coefficients must be 1.0. Found {}",
             b_sum
@@ -105,9 +106,10 @@ fn validate_explicit_butcher_tableau<const S: usize>(
         )));
     }
 
+    // Check that upper diagonal of 'a' matrix is all zeros (explicit method)
     for i in 0..S {
-        for j in 0..i {
-            if j >= i && a[(i, j)] != 0.0 {
+        for j in (i + 1)..S {
+            if a[(i, j)] != 0.0 {
                 // Return immediately if we found a non-zero value in the upper diagonal
                 return Err(BraheError::Error(
                     "Invalid Butcher tableau: upper-diagonal of a must be 0.0.".to_string(),
@@ -149,5 +151,71 @@ mod tests {
     #[test]
     fn test_validate_rk4_butcher_tableau() {
         assert!(RK4_TABLEAU.validate().is_ok());
+    }
+
+    #[test]
+    fn test_butcher_tableau_invalid_b_sum() {
+        // Test b coefficients that don't sum to 1.0
+        let a = SMatrix::<f64, 4, 4>::new(
+            0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        );
+        let b = SVector::<f64, 4>::new(0.2, 0.2, 0.2, 0.2); // Sum = 0.8, not 1.0
+        let c = SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0);
+
+        let result = ButcherTableau::new(a, b, c);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("sum of b coefficients")
+        );
+    }
+
+    #[test]
+    fn test_butcher_tableau_invalid_c_first() {
+        // Test c[0] that is not 0.0
+        let a = SMatrix::<f64, 4, 4>::new(
+            0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        );
+        let b = SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0);
+        let c = SVector::<f64, 4>::new(0.1, 0.5, 0.5, 1.0); // c[0] should be 0.0
+
+        let result = ButcherTableau::new(a, b, c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("c[0] must be 0.0"));
+    }
+
+    #[test]
+    fn test_butcher_tableau_invalid_upper_diagonal() {
+        // Test upper diagonal of 'a' that contains non-zero
+        let a = SMatrix::<f64, 4, 4>::new(
+            0.0, 0.1, 0.0, 0.0, // Non-zero at position (0,1) - upper diagonal
+            0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        );
+        let b = SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0);
+        let c = SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0);
+
+        let result = ButcherTableau::new(a, b, c);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("upper-diagonal of a must be 0.0")
+        );
+    }
+
+    #[test]
+    fn test_butcher_tableau_valid_with_correct_values() {
+        // Verify that a valid tableau passes all checks
+        let a = SMatrix::<f64, 4, 4>::new(
+            0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        );
+        let b = SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0);
+        let c = SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0);
+
+        let result = ButcherTableau::new(a, b, c);
+        assert!(result.is_ok());
     }
 }

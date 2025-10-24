@@ -130,4 +130,62 @@ mod tests {
         let e = BraheError::NumericalError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
+
+    #[test]
+    fn test_from_io_error() {
+        let io_error = io::Error::new(io::ErrorKind::NotFound, "File not found");
+        let brahe_error = BraheError::from(io_error);
+        assert!(brahe_error.to_string().contains("File not found"));
+        assert!(matches!(brahe_error, BraheError::IoError(_)));
+    }
+
+    #[test]
+    fn test_from_parse_float_error() {
+        let result = "not_a_number".parse::<f64>();
+        assert!(result.is_err());
+        let parse_error = result.unwrap_err();
+        let brahe_error = BraheError::from(parse_error);
+        assert!(matches!(brahe_error, BraheError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_from_parse_int_error() {
+        let result = "not_an_int".parse::<i32>();
+        assert!(result.is_err());
+        let parse_error = result.unwrap_err();
+        let brahe_error = BraheError::from(parse_error);
+        assert!(matches!(brahe_error, BraheError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_from_string() {
+        let msg = "Test error message".to_string();
+        let brahe_error = BraheError::from(msg.clone());
+        assert_eq!(brahe_error.to_string(), msg);
+        assert!(matches!(brahe_error, BraheError::Error(_)));
+    }
+
+    #[test]
+    fn test_error_trait() {
+        // Test that BraheError implements std::error::Error
+        let e = BraheError::Error("Test".to_string());
+        let _: &dyn std::error::Error = &e; // Verify trait is implemented
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let e = BraheError::Error("Debug test".to_string());
+        let debug_str = format!("{:?}", e);
+        assert!(debug_str.contains("Error"));
+        assert!(debug_str.contains("Debug test"));
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        let e1 = BraheError::Error("Test".to_string());
+        let e2 = BraheError::Error("Test".to_string());
+        let e3 = BraheError::Error("Different".to_string());
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
 }

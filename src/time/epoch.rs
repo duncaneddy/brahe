@@ -3031,4 +3031,194 @@ mod tests {
             assert_abs_diff_eq!(doy1, doy2, epsilon = 1e-12);
         }
     }
+
+    // ========================================
+    // Display and Debug trait tests
+    // ========================================
+
+    #[test]
+    fn test_display_all_time_systems() {
+        setup_global_test_eop();
+
+        // Test Display for all time systems
+        let test_cases = vec![
+            (TimeSystem::UTC, "2020-02-03 04:05:06.000 UTC"),
+            (TimeSystem::TAI, "2020-02-03 04:05:06.000 TAI"),
+            (TimeSystem::GPS, "2020-02-03 04:05:06.000 GPS"),
+            (TimeSystem::TT, "2020-02-03 04:05:06.000 TT"),
+            (TimeSystem::UT1, "2020-02-03 04:05:06.000 UT1"),
+        ];
+
+        for (time_system, expected) in test_cases {
+            let epc = Epoch::from_datetime(2020, 2, 3, 4, 5, 6.0, 0.0, time_system);
+            assert_eq!(epc.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn test_display_with_fractional_seconds() {
+        setup_global_test_eop();
+
+        // Test Display with different fractional seconds
+        let epc = Epoch::from_datetime(2020, 1, 1, 12, 30, 45.123456789, 0.0, TimeSystem::UTC);
+        let display_str = epc.to_string();
+
+        // Should show 3 decimal places for seconds
+        assert!(display_str.contains("45.123"));
+        assert_eq!(display_str, "2020-01-01 12:30:45.123 UTC");
+    }
+
+    #[test]
+    fn test_display_with_nanoseconds() {
+        setup_global_test_eop();
+
+        // Test Display with nanosecond precision
+        let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 123456789.0, TimeSystem::TAI);
+        let display_str = epc.to_string();
+
+        // Should show fractional seconds from nanoseconds
+        assert!(display_str.contains("00.123"));
+    }
+
+    #[test]
+    fn test_display_midnight() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+        assert_eq!(epc.to_string(), "2020-01-01 00:00:00.000 GPS");
+    }
+
+    #[test]
+    fn test_display_end_of_day() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 12, 31, 23, 59, 59.999, 0.0, TimeSystem::UTC);
+        let display_str = epc.to_string();
+        assert!(display_str.contains("23:59:59.999"));
+        assert!(display_str.contains("2020-12-31"));
+    }
+
+    #[test]
+    fn test_display_leap_year_date() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 2, 29, 12, 0, 0.0, 0.0, TimeSystem::TAI);
+        assert_eq!(epc.to_string(), "2020-02-29 12:00:00.000 TAI");
+    }
+
+    #[test]
+    fn test_debug_all_time_systems() {
+        setup_global_test_eop();
+
+        // Test Debug for different time systems
+        let time_systems = vec![
+            TimeSystem::UTC,
+            TimeSystem::TAI,
+            TimeSystem::GPS,
+            TimeSystem::TT,
+            TimeSystem::UT1,
+        ];
+
+        for time_system in time_systems {
+            let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, time_system);
+            let debug_str = format!("{:?}", epc);
+
+            // Debug format should contain "Epoch<"
+            assert!(debug_str.starts_with("Epoch<"));
+            assert!(debug_str.ends_with(">"));
+
+            // Should contain the time system name
+            assert!(debug_str.contains(&format!("{:?}", time_system)));
+
+            // Should contain numeric fields
+            assert!(debug_str.contains(", "));
+        }
+    }
+
+    #[test]
+    fn test_debug_shows_internal_representation() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 2, 3, 4, 5, 6.0, 0.0, TimeSystem::GPS);
+        let debug_str = format!("{:?}", epc);
+
+        // Debug should show internal fields: days, seconds, nanoseconds, nanoseconds_kc, time_system
+        assert!(debug_str.contains("2458882")); // days
+        assert!(debug_str.contains("57924")); // seconds
+        assert!(debug_str.contains("GPS"));
+    }
+
+    #[test]
+    fn test_debug_different_from_display() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let display_str = format!("{}", epc);
+        let debug_str = format!("{:?}", epc);
+
+        // Display should be human-readable datetime
+        assert!(display_str.contains("2020-01-01"));
+        assert!(display_str.contains("12:00:00"));
+
+        // Debug should show internal representation
+        assert!(debug_str.contains("Epoch<"));
+        assert!(debug_str != display_str);
+    }
+
+    #[test]
+    fn test_display_format_consistency() {
+        setup_global_test_eop();
+
+        // Test that Display format is consistent across different epochs
+        let epc1 = Epoch::from_datetime(2000, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epc2 = Epoch::from_datetime(2050, 12, 31, 23, 59, 59.999, 0.0, TimeSystem::TAI);
+
+        let str1 = epc1.to_string();
+        let str2 = epc2.to_string();
+
+        // Both should follow same format: YYYY-MM-DD HH:MM:SS.sss SYSTEM
+        assert_eq!(str1.matches('-').count(), 2); // 2 dashes in date
+        assert_eq!(str1.matches(':').count(), 2); // 2 colons in time
+        assert_eq!(str2.matches('-').count(), 2);
+        assert_eq!(str2.matches(':').count(), 2);
+    }
+
+    #[test]
+    fn test_display_with_string_interpolation() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 6, 15, 9, 30, 0.0, 0.0, TimeSystem::GPS);
+
+        // Test that Display works in string formatting
+        let formatted = format!("Epoch: {}", epc);
+        assert_eq!(formatted, "Epoch: 2020-06-15 09:30:00.000 GPS");
+
+        // Test in string concatenation
+        let concatenated = format!("Start: {} End", epc);
+        assert_eq!(concatenated, "Start: 2020-06-15 09:30:00.000 GPS End");
+
+        // Test to_string() method
+        let as_string = epc.to_string();
+        assert_eq!(as_string, "2020-06-15 09:30:00.000 GPS");
+    }
+
+    #[test]
+    fn test_debug_with_different_internal_values() {
+        setup_global_test_eop();
+
+        // Create epochs with different internal representations
+        let epc1 = Epoch::from_jd(2451545.0, TimeSystem::UTC); // J2000
+        let epc2 = Epoch::from_mjd(58849.0, TimeSystem::TAI); // Different MJD
+
+        let debug1 = format!("{:?}", epc1);
+        let debug2 = format!("{:?}", epc2);
+
+        // Both should have Epoch< format
+        assert!(debug1.starts_with("Epoch<"));
+        assert!(debug2.starts_with("Epoch<"));
+
+        // Should have different internal values
+        assert_ne!(debug1, debug2);
+    }
 }

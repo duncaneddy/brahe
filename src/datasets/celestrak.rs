@@ -651,6 +651,12 @@ mod tests {
             .to_string()
     }
 
+    fn get_test_asset_path(filename: &str) -> PathBuf {
+        use std::env;
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        Path::new(&manifest_dir).join("test_assets").join(filename)
+    }
+
     #[test]
     fn test_get_ephemeris_success() {
         let server = MockServer::start();
@@ -952,5 +958,205 @@ mod tests {
 
         // Cleanup
         let _ = fs::remove_file(&cache_path);
+    }
+
+    // ========================================
+    // Non-network tests using test_assets
+    // ========================================
+
+    #[test]
+    fn test_should_refresh_file_nonexistent() {
+        let nonexistent_path = Path::new("/tmp/nonexistent_file_brahe_test.txt");
+        assert!(should_refresh_file(nonexistent_path, 3600.0));
+    }
+
+    #[test]
+    fn test_should_refresh_file_fresh() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("fresh_file.txt");
+
+        // Create a file
+        let mut file = fs::File::create(&filepath).unwrap();
+        file.write_all(b"test data").unwrap();
+        drop(file);
+
+        // File is brand new, should not need refresh (within 1 hour)
+        assert!(!should_refresh_file(&filepath, 3600.0));
+    }
+
+    #[test]
+    fn test_should_refresh_file_stale() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("stale_file.txt");
+
+        // Create a file
+        let mut file = fs::File::create(&filepath).unwrap();
+        file.write_all(b"test data").unwrap();
+        drop(file);
+
+        // Set max age to 0 seconds, making any file stale
+        assert!(should_refresh_file(&filepath, 0.0));
+    }
+
+    #[test]
+    fn test_parse_3le_from_test_asset() {
+        let test_file = get_test_asset_path("celestrak_stations_3le.txt");
+        let contents = fs::read_to_string(test_file).unwrap();
+        let result = parse_3le_text(&contents);
+
+        assert!(result.is_ok());
+        let ephemeris = result.unwrap();
+        assert_eq!(ephemeris.len(), 2);
+
+        // Check ISS
+        assert_eq!(ephemeris[0].0, "ISS (ZARYA)");
+        assert!(ephemeris[0].1.starts_with("1 25544"));
+        assert!(ephemeris[0].2.starts_with("2 25544"));
+
+        // Check Tiangong
+        assert_eq!(ephemeris[1].0, "TIANGONG");
+        assert!(ephemeris[1].1.starts_with("1 48274"));
+        assert!(ephemeris[1].2.starts_with("2 48274"));
+    }
+
+    #[test]
+    fn test_parse_3le_empty_file() {
+        let test_file = get_test_asset_path("celestrak_empty.txt");
+        let contents = fs::read_to_string(test_file).unwrap();
+        let result = parse_3le_text(&contents);
+
+        // Empty file should return error (no valid 3LE entries found)
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No valid 3LE entries")
+        );
+    }
+
+    #[test]
+    fn test_serialization_formats_coverage() {
+        let test_data = vec![
+            (
+                "ISS (ZARYA)".to_string(),
+                "1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9991".to_string(),
+                "2 25544  51.6400 247.4627 0001013  37.6900 322.4251 15.50030129000011".to_string(),
+            ),
+            (
+                "TIANGONG".to_string(),
+                "1 48274U 21035A   24001.50000000  .00002605  00000-0  43346-4 0  9999".to_string(),
+                "2 48274  41.4689 226.7056 0005390 251.8025 108.2351 15.59646707000014".to_string(),
+            ),
+        ];
+
+        // Test TXT format with names
+        let txt_with_names = serialize_3le_to_txt(&test_data, true);
+        assert!(txt_with_names.contains("ISS (ZARYA)"));
+        assert!(txt_with_names.contains("TIANGONG"));
+        assert!(txt_with_names.contains("1 25544"));
+        assert!(txt_with_names.contains("1 48274"));
+
+        // Test TXT format without names
+        let txt_without_names = serialize_3le_to_txt(&test_data, false);
+        assert!(!txt_without_names.contains("ISS (ZARYA)"));
+        assert!(!txt_without_names.contains("TIANGONG"));
+        assert!(txt_without_names.contains("1 25544"));
+        assert!(txt_without_names.contains("1 48274"));
+
+        // Test CSV format
+        let csv_data = serialize_3le_to_csv(&test_data, true);
+        assert!(csv_data.contains("name,line1,line2"));
+        assert!(csv_data.contains("ISS (ZARYA)"));
+
+        // Test JSON format
+        let json_data = serialize_3le_to_json(&test_data, true);
+        let parsed: serde_json::Value = serde_json::from_str(&json_data).unwrap();
+        assert!(parsed.is_array());
+        assert_eq!(parsed.as_array().unwrap().len(), 2);
+        assert_eq!(parsed[0]["name"], "ISS (ZARYA)");
+        assert_eq!(parsed[1]["name"], "TIANGONG");
+    }
+
+    #[test]
+    fn test_download_ephemeris_all_format_combinations() {
+        let test_data_file = get_test_asset_path("celestrak_stations_3le.txt");
+        let test_data_text = fs::read_to_string(test_data_file).unwrap();
+        let ephemeris = parse_3le_text(&test_data_text).unwrap();
+
+        let dir = tempdir().unwrap();
+
+        // Test all valid combinations
+        let combinations = vec![
+            ("3le", "txt"),
+            ("3le", "csv"),
+            ("3le", "json"),
+            ("tle", "txt"),
+            ("tle", "csv"),
+            ("tle", "json"),
+        ];
+
+        for (content_fmt, file_fmt) in combinations {
+            let include_names = content_fmt == "3le";
+            let filename = format!("test_{}.{}", content_fmt, file_fmt);
+            let filepath = dir.path().join(&filename);
+
+            // Serialize using the serializers directly (simulating download_ephemeris logic)
+            let output = match file_fmt {
+                "txt" => serialize_3le_to_txt(&ephemeris, include_names),
+                "csv" => serialize_3le_to_csv(&ephemeris, include_names),
+                "json" => serialize_3le_to_json(&ephemeris, include_names),
+                _ => unreachable!(),
+            };
+
+            fs::write(&filepath, output).unwrap();
+            assert!(filepath.exists());
+
+            // Verify content
+            let contents = fs::read_to_string(&filepath).unwrap();
+            assert!(contents.contains("25544")); // ISS NORAD ID
+
+            if include_names {
+                assert!(contents.contains("ISS") || contents.contains("ZARYA"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_invalid_format_errors() {
+        let dir = tempdir().unwrap();
+
+        // Test invalid content format
+        let result = download_ephemeris(
+            "test",
+            dir.path().join("test.txt").to_str().unwrap(),
+            "invalid_content",
+            "txt",
+        );
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid content format")
+        );
+
+        // Test invalid file format
+        let result = download_ephemeris(
+            "test",
+            dir.path().join("test.txt").to_str().unwrap(),
+            "3le",
+            "invalid_file",
+        );
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid file format")
+        );
     }
 }

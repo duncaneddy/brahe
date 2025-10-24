@@ -12,28 +12,28 @@
         <meta name="author" content="Duncan Eddy">
       
       
-        <link rel="canonical" href="https://github.com/duncaneddy/brahe/latest/learn/orbital_properties.html">
+        <link rel="canonical" href="https://github.com/duncaneddy/brahe/latest/learn/orbits/keplerian.html">
       
       
-        <link rel="prev" href="frame_transformations.html">
+        <link rel="prev" href="index.html">
       
       
-        <link rel="next" href="attitude_representations/index.html">
+        <link rel="next" href="two_line_elements.html">
       
       
-      <link rel="icon" href="../assets/favicon.png">
+      <link rel="icon" href="../../assets/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.20">
     
     
       
-        <title>Orbital Properties - Brahe</title>
+        <title>Keplerian Elements - Brahe</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.e53b48f4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.e53b48f4.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -52,11 +52,13 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -91,6 +93,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#keplerian-orbits" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -107,9 +114,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Brahe" class="md-header__button md-logo" aria-label="Brahe" data-md-component="logo">
+    <a href="../.." title="Brahe" class="md-header__button md-logo" aria-label="Brahe" data-md-component="logo">
       
-  <img src="../assets/icon.png" alt="logo">
+  <img src="../../assets/icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -126,7 +133,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Orbital Properties
+              Keplerian Elements
             
           </span>
         </div>
@@ -231,7 +238,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../index.html" class="md-tabs__link">
+      <a href="../../index.html" class="md-tabs__link">
         
   
   
@@ -252,7 +259,7 @@
   
   
     <li class="md-tabs__item md-tabs__item--active">
-      <a href="index.html" class="md-tabs__link">
+      <a href="../index.html" class="md-tabs__link">
         
   
   
@@ -271,7 +278,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../examples/index.html" class="md-tabs__link">
+      <a href="../../examples/index.html" class="md-tabs__link">
         
   
   
@@ -290,7 +297,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../library_api/index.html" class="md-tabs__link">
+      <a href="../../library_api/index.html" class="md-tabs__link">
         
   
   
@@ -334,7 +341,7 @@
   
     
   
-  Blog
+  About Me
 
       </a>
     </li>
@@ -369,9 +376,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Brahe" class="md-nav__button md-logo" aria-label="Brahe" data-md-component="logo">
+    <a href="../.." title="Brahe" class="md-nav__button md-logo" aria-label="Brahe" data-md-component="logo">
       
-  <img src="../assets/icon.png" alt="logo">
+  <img src="../../assets/icon.png" alt="logo">
 
     </a>
     Brahe
@@ -408,6 +415,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -425,7 +436,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../index.html" class="md-nav__link ">
+            <a href="../../index.html" class="md-nav__link ">
               
   
   
@@ -458,7 +469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation.html" class="md-nav__link">
+      <a href="../../installation.html" class="md-nav__link">
         
   
   
@@ -481,7 +492,76 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing.html" class="md-nav__link">
+      <a href="../../development_guidelines.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Guidelines
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design Philosophy &amp; Decisions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code_of_conduct.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of Conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing.html" class="md-nav__link">
         
   
   
@@ -504,30 +584,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Design Philosophy & Decisions
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../license.html" class="md-nav__link">
+      <a href="../../license.html" class="md-nav__link">
         
   
   
@@ -585,6 +642,8 @@
       
         
       
+        
+      
     
     
     
@@ -603,7 +662,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="index.html" class="md-nav__link ">
+            <a href="../index.html" class="md-nav__link ">
               
   
   
@@ -636,7 +695,7 @@
   
   
     <li class="md-nav__item">
-      <a href="constants.html" class="md-nav__link">
+      <a href="../constants.html" class="md-nav__link">
         
   
   
@@ -682,7 +741,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="eop/index.html" class="md-nav__link ">
+            <a href="../eop/index.html" class="md-nav__link ">
               
   
   
@@ -715,7 +774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="eop/managing_eop_data.html" class="md-nav__link">
+      <a href="../eop/managing_eop_data.html" class="md-nav__link">
         
   
   
@@ -738,7 +797,7 @@
   
   
     <li class="md-nav__item">
-      <a href="eop/what_is_eop_data.html" class="md-nav__link">
+      <a href="../eop/what_is_eop_data.html" class="md-nav__link">
         
   
   
@@ -794,7 +853,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="time/index.html" class="md-nav__link ">
+            <a href="../time/index.html" class="md-nav__link ">
               
   
   
@@ -827,7 +886,7 @@
   
   
     <li class="md-nav__item">
-      <a href="time/time_systems.html" class="md-nav__link">
+      <a href="../time/time_systems.html" class="md-nav__link">
         
   
   
@@ -850,7 +909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="time/time_conversions.html" class="md-nav__link">
+      <a href="../time/time_conversions.html" class="md-nav__link">
         
   
   
@@ -873,7 +932,7 @@
   
   
     <li class="md-nav__item">
-      <a href="time/epoch.html" class="md-nav__link">
+      <a href="../time/epoch.html" class="md-nav__link">
         
   
   
@@ -929,7 +988,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="coordinates/index.html" class="md-nav__link ">
+            <a href="../coordinates/index.html" class="md-nav__link ">
               
   
   
@@ -962,7 +1021,7 @@
   
   
     <li class="md-nav__item">
-      <a href="coordinates/cartesean_transformations.html" class="md-nav__link">
+      <a href="../coordinates/cartesean_transformations.html" class="md-nav__link">
         
   
   
@@ -985,7 +1044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="coordinates/geocentric_transformations.html" class="md-nav__link">
+      <a href="../coordinates/geocentric_transformations.html" class="md-nav__link">
         
   
   
@@ -1008,7 +1067,7 @@
   
   
     <li class="md-nav__item">
-      <a href="coordinates/topocentric_transformations.html" class="md-nav__link">
+      <a href="../coordinates/topocentric_transformations.html" class="md-nav__link">
         
   
   
@@ -1039,7 +1098,7 @@
   
   
     <li class="md-nav__item">
-      <a href="frame_transformations.html" class="md-nav__link">
+      <a href="../frame_transformations.html" class="md-nav__link">
         
   
   
@@ -1063,23 +1122,112 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Orbits
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            Orbits
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
     <li class="md-nav__item md-nav__item--active">
       
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
       
-      <a href="orbital_properties.html" class="md-nav__link md-nav__link--active">
+      
+      <a href="keplerian.html" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
-    Orbital Properties
+    Keplerian Elements
     
   </span>
   
 
       </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="two_line_elements.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Two-Line Elements (TLEs)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -1120,7 +1268,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="attitude_representations/index.html" class="md-nav__link ">
+            <a href="../attitude_representations/index.html" class="md-nav__link ">
               
   
   
@@ -1153,7 +1301,7 @@
   
   
     <li class="md-nav__item">
-      <a href="attitude_representations/quaternions.html" class="md-nav__link">
+      <a href="../attitude_representations/quaternions.html" class="md-nav__link">
         
   
   
@@ -1176,7 +1324,7 @@
   
   
     <li class="md-nav__item">
-      <a href="attitude_representations/rotation_matrices.html" class="md-nav__link">
+      <a href="../attitude_representations/rotation_matrices.html" class="md-nav__link">
         
   
   
@@ -1199,7 +1347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="attitude_representations/euler_angles.html" class="md-nav__link">
+      <a href="../attitude_representations/euler_angles.html" class="md-nav__link">
         
   
   
@@ -1222,7 +1370,7 @@
   
   
     <li class="md-nav__item">
-      <a href="attitude_representations/euler_axis.html" class="md-nav__link">
+      <a href="../attitude_representations/euler_axis.html" class="md-nav__link">
         
   
   
@@ -1278,7 +1426,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="trajectories/index.html" class="md-nav__link ">
+            <a href="../trajectories/index.html" class="md-nav__link ">
               
   
   
@@ -1311,7 +1459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="trajectories/dtrajectory.html" class="md-nav__link">
+      <a href="../trajectories/dtrajectory.html" class="md-nav__link">
         
   
   
@@ -1334,7 +1482,7 @@
   
   
     <li class="md-nav__item">
-      <a href="trajectories/strajectory6.html" class="md-nav__link">
+      <a href="../trajectories/strajectory6.html" class="md-nav__link">
         
   
   
@@ -1357,7 +1505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="trajectories/orbit_trajectory.html" class="md-nav__link">
+      <a href="../trajectories/orbit_trajectory.html" class="md-nav__link">
         
   
   
@@ -1376,29 +1524,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="two_line_elements.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Two-Line Elements (TLEs)
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -1430,11 +1555,11 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_9" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="orbit_propagation/index.html" class="md-nav__link ">
+            <a href="../orbit_propagation/index.html" class="md-nav__link ">
               
   
   
@@ -1447,14 +1572,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_10" id="__nav_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_9" id="__nav_2_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_10">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_9">
             <span class="md-nav__icon md-icon"></span>
             Orbit Propagation
           </label>
@@ -1467,7 +1592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="orbit_propagation/keplerian_propagation.html" class="md-nav__link">
+      <a href="../orbit_propagation/keplerian_propagation.html" class="md-nav__link">
         
   
   
@@ -1490,7 +1615,7 @@
   
   
     <li class="md-nav__item">
-      <a href="orbit_propagation/sgp_propagation.html" class="md-nav__link">
+      <a href="../orbit_propagation/sgp_propagation.html" class="md-nav__link">
         
   
   
@@ -1544,11 +1669,11 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_11" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_10" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="access_computation/index.html" class="md-nav__link ">
+            <a href="../access_computation/index.html" class="md-nav__link ">
               
   
   
@@ -1561,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_11" id="__nav_2_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_10" id="__nav_2_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_11">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_10">
             <span class="md-nav__icon md-icon"></span>
             Access Computation
           </label>
@@ -1581,7 +1706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="access_computation/locations.html" class="md-nav__link">
+      <a href="../access_computation/locations.html" class="md-nav__link">
         
   
   
@@ -1604,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="access_computation/constraints.html" class="md-nav__link">
+      <a href="../access_computation/constraints.html" class="md-nav__link">
         
   
   
@@ -1627,7 +1752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="access_computation/properties.html" class="md-nav__link">
+      <a href="../access_computation/properties.html" class="md-nav__link">
         
   
   
@@ -1650,7 +1775,7 @@
   
   
     <li class="md-nav__item">
-      <a href="access_computation/computation.html" class="md-nav__link">
+      <a href="../access_computation/computation.html" class="md-nav__link">
         
   
   
@@ -1700,11 +1825,11 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_12" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="datasets/index.html" class="md-nav__link ">
+            <a href="../datasets/index.html" class="md-nav__link ">
               
   
   
@@ -1717,14 +1842,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_12" id="__nav_2_12_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_11" id="__nav_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_12_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_12">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_11">
             <span class="md-nav__icon md-icon"></span>
             Datasets
           </label>
@@ -1737,7 +1862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="datasets/celestrak.html" class="md-nav__link">
+      <a href="../datasets/celestrak.html" class="md-nav__link">
         
   
   
@@ -1760,12 +1885,382 @@
   
   
     <li class="md-nav__item">
-      <a href="datasets/groundstations.html" class="md-nav__link">
+      <a href="../datasets/groundstations.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Groundstations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../cli/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Command Line Interface
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_12" id="__nav_2_12_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_12">
+            <span class="md-nav__icon md-icon"></span>
+            Command Line Interface
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/eop.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    EOP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/time.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Time
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/orbits.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbits
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/transform.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Transform
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/datasets.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/access.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../plots/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_13">
+            <span class="md-nav__icon md-icon"></span>
+            Plots
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/3d_trajectory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/access_geometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access Geometry
     
   </span>
   
@@ -1827,7 +2322,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../examples/index.html" class="md-nav__link ">
+            <a href="../../examples/index.html" class="md-nav__link ">
               
   
   
@@ -1860,7 +2355,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/downloading_tle_data.html" class="md-nav__link">
+      <a href="../../examples/downloading_tle_data.html" class="md-nav__link">
         
   
   
@@ -1883,7 +2378,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/ground_contacts.html" class="md-nav__link">
+      <a href="../../examples/ground_contacts.html" class="md-nav__link">
         
   
   
@@ -1906,7 +2401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/doppler_complementation.html" class="md-nav__link">
+      <a href="../../examples/doppler_complementation.html" class="md-nav__link">
         
   
   
@@ -1929,7 +2424,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
+      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
         
   
   
@@ -1952,7 +2447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/imaging_opportunities.html" class="md-nav__link">
+      <a href="../../examples/imaging_opportunities.html" class="md-nav__link">
         
   
   
@@ -2004,6 +2499,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2021,7 +2520,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/index.html" class="md-nav__link ">
+            <a href="../../library_api/index.html" class="md-nav__link ">
               
   
   
@@ -2081,7 +2580,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/constants/index.html" class="md-nav__link ">
+            <a href="../../library_api/constants/index.html" class="md-nav__link ">
               
   
   
@@ -2114,7 +2613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/constants/units.html" class="md-nav__link">
+      <a href="../../library_api/constants/units.html" class="md-nav__link">
         
   
   
@@ -2137,7 +2636,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/constants/math.html" class="md-nav__link">
+      <a href="../../library_api/constants/math.html" class="md-nav__link">
         
   
   
@@ -2160,7 +2659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/constants/time.html" class="md-nav__link">
+      <a href="../../library_api/constants/time.html" class="md-nav__link">
         
   
   
@@ -2183,7 +2682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/constants/physical.html" class="md-nav__link">
+      <a href="../../library_api/constants/physical.html" class="md-nav__link">
         
   
   
@@ -2241,7 +2740,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/eop/index.html" class="md-nav__link ">
+            <a href="../../library_api/eop/index.html" class="md-nav__link ">
               
   
   
@@ -2274,7 +2773,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/eop/caching_provider.html" class="md-nav__link">
+      <a href="../../library_api/eop/caching_provider.html" class="md-nav__link">
         
   
   
@@ -2297,7 +2796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/eop/file_provider.html" class="md-nav__link">
+      <a href="../../library_api/eop/file_provider.html" class="md-nav__link">
         
   
   
@@ -2320,7 +2819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/eop/static_provider.html" class="md-nav__link">
+      <a href="../../library_api/eop/static_provider.html" class="md-nav__link">
         
   
   
@@ -2343,7 +2842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/eop/functions.html" class="md-nav__link">
+      <a href="../../library_api/eop/functions.html" class="md-nav__link">
         
   
   
@@ -2397,7 +2896,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/time/index.html" class="md-nav__link ">
+            <a href="../../library_api/time/index.html" class="md-nav__link ">
               
   
   
@@ -2430,7 +2929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/time/epoch.html" class="md-nav__link">
+      <a href="../../library_api/time/epoch.html" class="md-nav__link">
         
   
   
@@ -2453,7 +2952,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/time/conversions.html" class="md-nav__link">
+      <a href="../../library_api/time/conversions.html" class="md-nav__link">
         
   
   
@@ -2511,7 +3010,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/coordinates/index.html" class="md-nav__link ">
+            <a href="../../library_api/coordinates/index.html" class="md-nav__link ">
               
   
   
@@ -2544,7 +3043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/coordinates/cartesian.html" class="md-nav__link">
+      <a href="../../library_api/coordinates/cartesian.html" class="md-nav__link">
         
   
   
@@ -2567,7 +3066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/coordinates/geodetic.html" class="md-nav__link">
+      <a href="../../library_api/coordinates/geodetic.html" class="md-nav__link">
         
   
   
@@ -2590,7 +3089,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/coordinates/topocentric.html" class="md-nav__link">
+      <a href="../../library_api/coordinates/topocentric.html" class="md-nav__link">
         
   
   
@@ -2613,7 +3112,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/coordinates/enums.html" class="md-nav__link">
+      <a href="../../library_api/coordinates/enums.html" class="md-nav__link">
         
   
   
@@ -2644,7 +3143,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/frames.html" class="md-nav__link">
+      <a href="../../library_api/frames.html" class="md-nav__link">
         
   
   
@@ -2675,10 +3174,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -2696,7 +3191,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/orbits/index.html" class="md-nav__link ">
+            <a href="../../library_api/orbits/index.html" class="md-nav__link ">
               
   
   
@@ -2729,7 +3224,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/orbits/keplerian.html" class="md-nav__link">
+      <a href="../../library_api/orbits/keplerian.html" class="md-nav__link">
         
   
   
@@ -2752,7 +3247,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/orbits/tle.html" class="md-nav__link">
+      <a href="../../library_api/orbits/tle.html" class="md-nav__link">
         
   
   
@@ -2775,53 +3270,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/orbits/keplerian_propagator.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    KeplerianPropagator
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../library_api/orbits/sgp_propagator.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    SGPPropagator
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../library_api/orbits/enums.html" class="md-nav__link">
+      <a href="../../library_api/orbits/enums.html" class="md-nav__link">
         
   
   
@@ -2879,7 +3328,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/attitude/index.html" class="md-nav__link ">
+            <a href="../../library_api/attitude/index.html" class="md-nav__link ">
               
   
   
@@ -2912,7 +3361,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/attitude/quaternion.html" class="md-nav__link">
+      <a href="../../library_api/attitude/quaternion.html" class="md-nav__link">
         
   
   
@@ -2935,7 +3384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/attitude/rotation_matrix.html" class="md-nav__link">
+      <a href="../../library_api/attitude/rotation_matrix.html" class="md-nav__link">
         
   
   
@@ -2958,7 +3407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/attitude/euler_angles.html" class="md-nav__link">
+      <a href="../../library_api/attitude/euler_angles.html" class="md-nav__link">
         
   
   
@@ -2981,7 +3430,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/attitude/euler_axis.html" class="md-nav__link">
+      <a href="../../library_api/attitude/euler_axis.html" class="md-nav__link">
         
   
   
@@ -3037,7 +3486,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/trajectories/index.html" class="md-nav__link ">
+            <a href="../../library_api/trajectories/index.html" class="md-nav__link ">
               
   
   
@@ -3070,7 +3519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/trajectories/dtrajectory.html" class="md-nav__link">
+      <a href="../../library_api/trajectories/dtrajectory.html" class="md-nav__link">
         
   
   
@@ -3093,7 +3542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/trajectories/strajectory6.html" class="md-nav__link">
+      <a href="../../library_api/trajectories/strajectory6.html" class="md-nav__link">
         
   
   
@@ -3116,7 +3565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/trajectories/orbit_trajectory.html" class="md-nav__link">
+      <a href="../../library_api/trajectories/orbit_trajectory.html" class="md-nav__link">
         
   
   
@@ -3170,12 +3619,12 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/datasets/index.html" class="md-nav__link ">
+            <a href="../../library_api/propagators/index.html" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
-    Datasets
+    Propagators
     
   </span>
   
@@ -3192,6 +3641,116 @@
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_9">
             <span class="md-nav__icon md-icon"></span>
+            Propagators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/propagators/keplerian_propagator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    KeplerianPropagator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/propagators/sgp_propagator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SGPPropagator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../library_api/datasets/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
             Datasets
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
@@ -3203,7 +3762,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/datasets/celestrak.html" class="md-nav__link">
+      <a href="../../library_api/datasets/celestrak.html" class="md-nav__link">
         
   
   
@@ -3226,7 +3785,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/datasets/groundstations.html" class="md-nav__link">
+      <a href="../../library_api/datasets/groundstations.html" class="md-nav__link">
         
   
   
@@ -3280,11 +3839,11 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_11" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../library_api/access/index.html" class="md-nav__link ">
+            <a href="../../library_api/access/index.html" class="md-nav__link ">
               
   
   
@@ -3297,14 +3856,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_11" id="__nav_4_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_10">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_11">
             <span class="md-nav__icon md-icon"></span>
             Access
           </label>
@@ -3317,7 +3876,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/access/locations.html" class="md-nav__link">
+      <a href="../../library_api/access/locations.html" class="md-nav__link">
         
   
   
@@ -3340,7 +3899,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/access/constraints.html" class="md-nav__link">
+      <a href="../../library_api/access/constraints.html" class="md-nav__link">
         
   
   
@@ -3363,7 +3922,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/access/windows.html" class="md-nav__link">
+      <a href="../../library_api/access/windows.html" class="md-nav__link">
         
   
   
@@ -3386,12 +3945,172 @@
   
   
     <li class="md-nav__item">
-      <a href="../library_api/access/enums.html" class="md-nav__link">
+      <a href="../../library_api/access/enums.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Enumerations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../library_api/plots/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_12" id="__nav_4_12_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_12">
+            <span class="md-nav__icon md-icon"></span>
+            Plots
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/plots/orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/plots/3d_trajectory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/plots/access_geometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access Geometry
     
   </span>
   
@@ -3451,7 +4170,7 @@
   
   
   <span class="md-ellipsis">
-    Blog
+    About Me
     
   </span>
   
@@ -3478,6 +4197,8 @@
   
   
   
+    
+  
   
 </nav>
                   </div>
@@ -3496,9 +4217,7 @@
   
 
 
-  <h1>Orbital Properties</h1>
-
-
+<h1 id="keplerian-orbits">Keplerian Orbits<a class="headerlink" href="#keplerian-orbits" title="Permanent link">&para;</a></h1>
 
 
 
@@ -3521,7 +4240,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 06:57:43 UTC">2025-10-23</span>
   </span>
 
     
@@ -3531,7 +4250,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 06:57:43 UTC">2025-10-23</span>
   </span>
 
     
@@ -3581,12 +4300,16 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <script src="../../javascripts/katex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
       
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
       

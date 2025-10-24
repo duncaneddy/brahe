@@ -15,10 +15,10 @@
         <link rel="canonical" href="https://github.com/duncaneddy/brahe/latest/contributing.html">
       
       
-        <link rel="prev" href="installation.html">
+        <link rel="prev" href="code_of_conduct.html">
       
       
-        <link rel="next" href="design.html">
+        <link rel="next" href="license.html">
       
       
       <link rel="icon" href="assets/favicon.png">
@@ -56,6 +56,8 @@
     
       <link rel="stylesheet" href="stylesheets/extra.css">
     
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -92,7 +94,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing" class="md-skip">
+        <a href="#contributing-to-brahe" class="md-skip">
           Skip to content
         </a>
       
@@ -339,7 +341,7 @@
   
     
   
-  Blog
+  About Me
 
       </a>
     </li>
@@ -406,6 +408,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -486,6 +492,75 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="development_guidelines.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Guidelines
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="design.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design Philosophy &amp; Decisions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="code_of_conduct.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of Conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -539,37 +614,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#development-workflow" class="md-nav__link">
+  <a href="#how-you-can-contribute" class="md-nav__link">
     <span class="md-ellipsis">
-      Development Workflow
+      How you can contribute
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Development Workflow">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#setting-up-your-environment" class="md-nav__link">
+  <a href="#workflow" class="md-nav__link">
     <span class="md-ellipsis">
-      Setting up your environment
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      Testing
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#development-workflow-implementing-a-new-feature" class="md-nav__link">
-    <span class="md-ellipsis">
-      Development Workflow: Implementing a New Feature
+      Workflow
     </span>
   </a>
   
@@ -581,164 +647,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rust-standards-and-guidelines" class="md-nav__link">
+  <a href="#code-style-testing" class="md-nav__link">
     <span class="md-ellipsis">
-      Rust Standards and Guidelines
+      Code Style &amp; Testing
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Rust Standards and Guidelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rust-testing-conventions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Testing Conventions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rust-docstring-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Docstring Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#python-standards-and-guidelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      Python Standards and Guidelines
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-examples" class="md-nav__link">
+  <a href="#communication-etiquette" class="md-nav__link">
     <span class="md-ellipsis">
-      Documentation Examples
+      Communication &amp; Etiquette
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Documentation Examples">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#example-file-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      Example File Structure
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      Naming Convention
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#python-example-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Python Example Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rust-example-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Example Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing-examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Testing Examples
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#including-examples-in-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Including Examples in Documentation
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-plots" class="md-nav__link">
+  <a href="#license-rights" class="md-nav__link">
     <span class="md-ellipsis">
-      Documentation Plots
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Documentation Plots">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#plot-naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plot Naming Convention
+      License &amp; Rights
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#plot-template" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#thank-you" class="md-nav__link">
     <span class="md-ellipsis">
-      Plot Template
+      Thank You
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#generating-plots" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generating Plots
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#including-plots-in-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Including Plots in Documentation
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -746,29 +686,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="design.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Design Philosophy & Decisions
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -812,6 +729,8 @@
   
     
     
+      
+        
       
         
       
@@ -1312,18 +1231,105 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="learn/orbits/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Orbits
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            Orbits
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
-      <a href="learn/orbital_properties.html" class="md-nav__link">
+      <a href="learn/orbits/keplerian.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Orbital Properties
+    Keplerian Elements
     
   </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/orbits/two_line_elements.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Two-Line Elements (TLEs)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1630,29 +1636,6 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="learn/two_line_elements.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Two-Line Elements (TLEs)
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
     
     
       
@@ -1673,7 +1656,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1690,14 +1673,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_10" id="__nav_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_9" id="__nav_2_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_10">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_9">
             <span class="md-nav__icon md-icon"></span>
             Orbit Propagation
           </label>
@@ -1787,7 +1770,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_11" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1804,14 +1787,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_11" id="__nav_2_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_10" id="__nav_2_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_11">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_10">
             <span class="md-nav__icon md-icon"></span>
             Access Computation
           </label>
@@ -1943,7 +1926,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_12" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1960,14 +1943,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_12" id="__nav_2_12_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_11" id="__nav_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_12_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_12">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_11">
             <span class="md-nav__icon md-icon"></span>
             Datasets
           </label>
@@ -2009,6 +1992,376 @@
   
   <span class="md-ellipsis">
     Groundstations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="learn/cli/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Command Line Interface
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_12" id="__nav_2_12_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_12">
+            <span class="md-nav__icon md-icon"></span>
+            Command Line Interface
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/eop.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    EOP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/time.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Time
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/orbits.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbits
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/transform.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Transform
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/datasets.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/cli/access.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="learn/plots/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_13">
+            <span class="md-nav__icon md-icon"></span>
+            Plots
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/plots/orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/plots/3d_trajectory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="learn/plots/access_geometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access Geometry
     
   </span>
   
@@ -2226,6 +2579,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -2918,10 +3275,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -3001,52 +3354,6 @@
   
   <span class="md-ellipsis">
     Two-Line Elements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="library_api/orbits/keplerian_propagator.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    KeplerianPropagator
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="library_api/orbits/sgp_propagator.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    SGPPropagator
     
   </span>
   
@@ -3413,12 +3720,12 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="library_api/datasets/index.html" class="md-nav__link ">
+            <a href="library_api/propagators/index.html" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
-    Datasets
+    Propagators
     
   </span>
   
@@ -3434,6 +3741,116 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            Propagators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/propagators/keplerian_propagator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    KeplerianPropagator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/propagators/sgp_propagator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SGPPropagator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="library_api/datasets/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
             <span class="md-nav__icon md-icon"></span>
             Datasets
           </label>
@@ -3523,7 +3940,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_10" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3540,14 +3957,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_11" id="__nav_4_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_10">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_11">
             <span class="md-nav__icon md-icon"></span>
             Access
           </label>
@@ -3653,6 +4070,166 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="library_api/plots/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_12" id="__nav_4_12_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_12">
+            <span class="md-nav__icon md-icon"></span>
+            Plots
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/plots/orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/plots/3d_trajectory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="library_api/plots/access_geometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3694,7 +4271,7 @@
   
   
   <span class="md-ellipsis">
-    Blog
+    About Me
     
   </span>
   
@@ -3731,37 +4308,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#development-workflow" class="md-nav__link">
+  <a href="#how-you-can-contribute" class="md-nav__link">
     <span class="md-ellipsis">
-      Development Workflow
+      How you can contribute
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Development Workflow">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#setting-up-your-environment" class="md-nav__link">
+  <a href="#workflow" class="md-nav__link">
     <span class="md-ellipsis">
-      Setting up your environment
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      Testing
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#development-workflow-implementing-a-new-feature" class="md-nav__link">
-    <span class="md-ellipsis">
-      Development Workflow: Implementing a New Feature
+      Workflow
     </span>
   </a>
   
@@ -3773,164 +4341,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rust-standards-and-guidelines" class="md-nav__link">
+  <a href="#code-style-testing" class="md-nav__link">
     <span class="md-ellipsis">
-      Rust Standards and Guidelines
+      Code Style &amp; Testing
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Rust Standards and Guidelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rust-testing-conventions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Testing Conventions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rust-docstring-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Docstring Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#python-standards-and-guidelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      Python Standards and Guidelines
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-examples" class="md-nav__link">
+  <a href="#communication-etiquette" class="md-nav__link">
     <span class="md-ellipsis">
-      Documentation Examples
+      Communication &amp; Etiquette
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Documentation Examples">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#example-file-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      Example File Structure
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      Naming Convention
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#python-example-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Python Example Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rust-example-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      Rust Example Template
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing-examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Testing Examples
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#including-examples-in-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Including Examples in Documentation
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-plots" class="md-nav__link">
+  <a href="#license-rights" class="md-nav__link">
     <span class="md-ellipsis">
-      Documentation Plots
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Documentation Plots">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#plot-naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plot Naming Convention
+      License &amp; Rights
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#plot-template" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#thank-you" class="md-nav__link">
     <span class="md-ellipsis">
-      Plot Template
+      Thank You
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#generating-plots" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generating Plots
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#including-plots-in-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Including Plots in Documentation
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3953,284 +4395,46 @@
   
 
 
-<h1 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h1>
-<h2 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h2>
-<p>For all development we recommend using <a href="https://uv.sh/">uv</a> to manage your environment.
-The guidelines for contributing, developing, and extending brahe assume you are using uv.</p>
-<h3 id="setting-up-your-environment">Setting up your environment<a class="headerlink" href="#setting-up-your-environment" title="Permanent link">&para;</a></h3>
-<p>If you need to setup the development environment, including installing the necessary
-development dependencies.</p>
-<p>First, you need to install Rust from <a href="https://rustup.rs/">rustup.rs</a>.</p>
-<p>Then you can install the nightly toolchain with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>rustup<span class="w"> </span>toolchain<span class="w"> </span>install<span class="w"> </span>nightly
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>rustup<span class="w"> </span>default<span class="w"> </span>nightly
-</span></code></pre></div>
-<p>After this you can now setup your python environment with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--dev
-</span></code></pre></div>
-<p>Finally, you can install the pre-commit hooks with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
-</span></code></pre></div>
-<h3 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h3>
-<p>The package includes Rust tests, Python tests, and documentation example tests.</p>
-<p><strong>Run all tests:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span><span class="nb">test</span>
-</span></code></pre></div></p>
-<p><strong>Individual test suites:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>test-rust<span class="w">          </span><span class="c1"># Rust tests only</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span>test-python<span class="w">        </span><span class="c1"># Python tests only</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>make<span class="w"> </span>test-examples<span class="w">      </span><span class="c1"># Documentation examples (warn on parity issues)</span>
-</span></code></pre></div></p>
-<p><strong>Pre-ship validation</strong> (runs all tests, formatters, linters, and doc builds):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>ship-tests
-</span></code></pre></div></p>
-<h3 id="development-workflow-implementing-a-new-feature">Development Workflow: Implementing a New Feature<a class="headerlink" href="#development-workflow-implementing-a-new-feature" title="Permanent link">&para;</a></h3>
-<p>When adding new functionality to Brahe, follow this sequence:</p>
-<p><strong>1. Rust Implementation</strong>
-- Implement functionality in the appropriate module under <code>src/</code>
-- Use SI base units (meters, radians, seconds) in all public APIs
-- Follow existing patterns and naming conventions</p>
-<p><strong>2. Rust Tests</strong>
-- Write comprehensive unit tests in the same file (in <code>#[cfg(test)] mod tests</code>)
-- Test edge cases and typical use cases
-- Run: <code>cargo test</code>
-- Ensure all tests pass before proceeding</p>
-<p><strong>3. Python Bindings</strong>
-- Create 1:1 Python bindings in <code>src/pymodule/</code>
-- Use identical function names and parameter names as Rust
-- Add complete Google-style docstrings with Args, Returns, Examples
-- Export new classes in <code>src/pymodule/mod.rs</code>
-- Export in Python package (<code>brahe/*.py</code> files)
-- Reinstall: <code>uv pip install -e .</code></p>
-<p><strong>4. Python Tests</strong>
-- Write Python tests that mirror Rust tests in <code>tests/</code>
-- Follow the same test structure and assertions
-- Run: <code>uv run pytest tests/ -v</code></p>
-<p><strong>5. Documentation Examples</strong>
-- Create standalone example files in <code>examples/&lt;module&gt;/</code>
-- Create both Python and Rust versions (see templates below)
-- Test: <code>make test-examples</code></p>
-<p><strong>6. Documentation</strong>
-- Update or create documentation in <code>docs/</code>
-- Reference examples using snippet includes (see template below)
-- Build: <code>make build-docs</code>
-- Preview: <code>make serve-docs</code></p>
-<p><strong>7. Quality Checks</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span>format<span class="w">      </span><span class="c1"># Auto-format code</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make<span class="w"> </span>lint<span class="w">        </span><span class="c1"># Check for issues</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>make<span class="w"> </span>ship-tests<span class="w">  </span><span class="c1"># Full validation</span>
-</span></code></pre></div></p>
-<h2 id="rust-standards-and-guidelines">Rust Standards and Guidelines<a class="headerlink" href="#rust-standards-and-guidelines" title="Permanent link">&para;</a></h2>
-<h3 id="rust-testing-conventions">Rust Testing Conventions<a class="headerlink" href="#rust-testing-conventions" title="Permanent link">&para;</a></h3>
-<p>New functions implemented in rust are expected to have unit tests and documentation tests. Unit tests should cover
-all edge cases and typical use cases for the function. Documentation tests should provide examples of how to use the function.</p>
-<p>Unit tests should be placed in the same file as the function they are testing, in a module named <code>tests</code>. The names of tests should follow the general convention of <code>test_&lt;struct&gt;_&lt;trait&gt;_&lt;method&gt;_&lt;case&gt;</code> or <code>test_&lt;function&gt;_&lt;case&gt;</code>.</p>
-<h3 id="rust-docstring-template">Rust Docstring Template<a class="headerlink" href="#rust-docstring-template" title="Permanent link">&para;</a></h3>
-<p>New functions implemented in rust are expected to use the following docstring to standardize information on functions to
-enable users to more easily navigate and learn the library.</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>{{ Function Description }}
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="gu">## Arguments</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">*</span><span class="w"> </span><span class="sb">`argument_name`</span>: {{ Arugment description}}. Units: {{ Optional, Units as (value). e.g. (rad) or (deg)}}
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="gu">## Returns</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">*</span><span class="w"> </span><span class="sb">`value_name`</span>: {{ Value description}}. Units: {{ Optional, Units as (value). e.g. (rad) or (deg)}}
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="gu">## Examples</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>\`\`\`
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>{{ Implement shor function in language }}
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>\`\`\`
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="gu">## References:</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="k">1.</span> {{ author, <span class="ge">*title/journal*</span>, pp. page_number, eq. equation_number, year}}
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="k">2.</span> O. Montenbruck, and E. Gill, <span class="ge">*Satellite Orbits: Models, Methods and Applications*</span>, pp. 24, eq. 2.43 &amp; 2.44, 2012.
-</span></code></pre></div>
-<h3 id="python-standards-and-guidelines">Python Standards and Guidelines<a class="headerlink" href="#python-standards-and-guidelines" title="Permanent link">&para;</a></h3>
-<h4 id="python-testing-conventions">Python Testing Conventions<a class="headerlink" href="#python-testing-conventions" title="Permanent link">&para;</a></h4>
-<p>Python tests should be placed in the <code>tests</code> directory. The test structure and names should mirror the structure of the <code>brahe</code> package. For example, tests for <code>brahe.orbits.keplerian</code> should be placed in <code>tests/orbits/test_keplerian.py</code>.</p>
-<p>All Python tests should be exact mirrors of the Rust tests, ensuring that both implementations are equivalent and consistent. There are a few exceptions to this rule, such as tests that check for Python-specific functionality or behavior, or capabilities that are not possible to reproduce in Python due to language limitations.</p>
-<h2 id="documentation-examples">Documentation Examples<a class="headerlink" href="#documentation-examples" title="Permanent link">&para;</a></h2>
-<p>Documentation examples are standalone executable files that demonstrate library functionality. Every example must exist in both Python and Rust versions to ensure API parity.</p>
-<h3 id="example-file-structure">Example File Structure<a class="headerlink" href="#example-file-structure" title="Permanent link">&para;</a></h3>
-<p>Examples are organized by module in <code>examples/</code>:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>examples/
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── time/           # Time system examples
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── orbits/         # Orbital mechanics examples
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>├── coordinates/    # Coordinate transformation examples
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>├── frames/         # Reference frame examples
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>├── attitude/       # Attitude representation examples
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>├── eop/            # Earth orientation parameter examples
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>├── trajectories/   # Trajectory examples
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>└── workflows/      # Complete workflow examples
-</span></code></pre></div></p>
-<h3 id="naming-convention">Naming Convention<a class="headerlink" href="#naming-convention" title="Permanent link">&para;</a></h3>
-<p>Example files should follow this pattern:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>&lt;module&gt;_&lt;functionality&gt;_&lt;description&gt;.{py,rs}
-</span></code></pre></div></p>
-<p>Examples:
-- <code>time_epoch_creation.py</code> / <code>time_epoch_creation.rs</code>
-- <code>orbits_keplerian_conversion.py</code> / <code>orbits_keplerian_conversion.rs</code>
-- <code>coordinates_geodetic_transform.py</code> / <code>coordinates_geodetic_transform.rs</code></p>
-<h3 id="python-example-template">Python Example Template<a class="headerlink" href="#python-example-template" title="Permanent link">&para;</a></h3>
-<p>See <code>examples/TEMPLATE.py</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># /// script</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># dependencies = [&quot;brahe&quot;, &quot;pytest&quot;]</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># ///</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="sd">Brief description of what this example demonstrates.</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="c1"># Setup: Define any input parameters</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="n">value</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="c1"># Action: Demonstrate the functionality</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">value</span> <span class="o">*</span> <span class="mf">2.0</span>  <span class="c1"># Replace with actual brahe function call</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="c1"># Validation: Assert the result is correct</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="mf">2.0</span>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>    <span class="k">assert</span> <span class="n">result</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="nb">abs</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
-</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Example validated successfully!&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p><strong>Note</strong>: The <code># /// script</code> header makes this a <a href="https://docs.astral.sh/uv/guides/scripts/">uv script</a>, allowing it to be run standalone with <code>uv run example.py</code>.</p>
-<h3 id="rust-example-template">Rust Example Template<a class="headerlink" href="#rust-example-template" title="Permanent link">&para;</a></h3>
-<p>See <code>examples/TEMPLATE.rs</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="sd">//! Brief description of what this example demonstrates.</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">use</span><span class="w"> </span><span class="n">approx</span><span class="p">::</span><span class="n">assert_abs_diff_eq</span><span class="p">;</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="p">::</span><span class="n">time</span><span class="p">::{</span><span class="n">Epoch</span><span class="p">,</span><span class="w"> </span><span class="n">TimeSystem</span><span class="p">};</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="c1">// Setup: Define any input parameters</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">;</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="c1">// Action: Demonstrate the functionality</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">2.0</span><span class="p">;</span><span class="w"> </span><span class="c1">// Replace with actual brahe function call</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">    </span><span class="c1">// Validation: Assert the result is correct</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">expected</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span><span class="p">;</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="n">assert_abs_diff_eq</span><span class="o">!</span><span class="p">(</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="n">expected</span><span class="p">,</span><span class="w"> </span><span class="n">epsilon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1e-10</span><span class="p">);</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;✓ Example validated successfully!&quot;</span><span class="p">);</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="p">}</span>
-</span></code></pre></div>
-<h3 id="testing-examples">Testing Examples<a class="headerlink" href="#testing-examples" title="Permanent link">&para;</a></h3>
-<p>Test examples locally:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Test all examples (warns on parity issues)</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>make<span class="w"> </span>test-examples
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Test in strict mode (fails on parity issues)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>make<span class="w"> </span>test-examples-strict
-</span></code></pre></div></p>
-<p>The build system will:
-1. Execute all <code>.rs</code> files via <code>rust-script</code>
-2. Execute all <code>.py</code> files via <code>uv run python</code>
-3. Verify every <code>.rs</code> has a matching <code>.py</code> (and vice versa)
-4. Report pass/fail for each example</p>
-<h3 id="including-examples-in-documentation">Including Examples in Documentation<a class="headerlink" href="#including-examples-in-documentation" title="Permanent link">&para;</a></h3>
-<p>Use the <code>pymdownx.snippets</code> directive to include examples in markdown files:</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gu">## Example: Creating Epochs</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>=== &quot;Python&quot;
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    ``` python
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="sb">    ```</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="sb">=== &quot;Rust&quot;</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="sb">    ``` rust</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="sb">    ```</span>
-</span></code></pre></div>
-<p>This will:
-- Create tabbed interface with Python shown first
-- Include the actual file contents (always in sync)
-- Automatically update when examples change</p>
-<h2 id="documentation-plots">Documentation Plots<a class="headerlink" href="#documentation-plots" title="Permanent link">&para;</a></h2>
-<p>Interactive plots are generated from Python scripts in <code>plots/</code> and embedded in documentation.</p>
-<h3 id="plot-naming-convention">Plot Naming Convention<a class="headerlink" href="#plot-naming-convention" title="Permanent link">&para;</a></h3>
-<p>Plot files should follow this pattern:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>fig_&lt;description&gt;.py
-</span></code></pre></div></p>
-<p>Examples:
-- <code>fig_time_system_offsets.py</code>
-- <code>fig_orbital_period.py</code>
-- <code>fig_anomaly_conversions.py</code></p>
-<h3 id="plot-template">Plot Template<a class="headerlink" href="#plot-template" title="Permanent link">&para;</a></h3>
-<p>See <code>plots/TEMPLATE_plot.py</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># /// script</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># dependencies = [&quot;brahe&quot;, &quot;plotly&quot;, &quot;numpy&quot;]</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># ///</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="sd">Brief description of what this plot visualizes.</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="kn">import</span><span class="w"> </span><span class="nn">plotly.io</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pio</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>
-</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="c1"># Configuration</span>
-</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="n">SCRIPT_NAME</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
-</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="n">OUTDIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BRAHE_FIGURE_OUTPUT_DIR&quot;</span><span class="p">,</span> <span class="s2">&quot;./docs/figures/&quot;</span><span class="p">)</span>
-</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="n">OUTFILE</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">OUTDIR</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">SCRIPT_NAME</span><span class="si">}</span><span class="s2">.html&quot;</span>
-</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
-</span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="c1"># Ensure output directory exists</span>
-</span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">OUTDIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>
-</span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="c1"># Generate data</span>
-</span><span id="__span-15-23"><a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
-</span><span id="__span-15-24"><a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Replace with actual data</span>
-</span><span id="__span-15-25"><a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a>
-</span><span id="__span-15-26"><a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="c1"># Create figure</span>
-</span><span id="__span-15-27"><a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">()</span>
-</span><span id="__span-15-28"><a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
-</span><span id="__span-15-29"><a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a>    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Plot Title&quot;</span><span class="p">,</span>
-</span><span id="__span-15-30"><a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a>    <span class="n">xaxis_title</span><span class="o">=</span><span class="s2">&quot;X Axis Label&quot;</span><span class="p">,</span>
-</span><span id="__span-15-31"><a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a>    <span class="n">yaxis_title</span><span class="o">=</span><span class="s2">&quot;Y Axis Label&quot;</span><span class="p">,</span>
-</span><span id="__span-15-32"><a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a>    <span class="n">paper_bgcolor</span><span class="o">=</span><span class="s1">&#39;rgba(0,0,0,0)&#39;</span><span class="p">,</span>  <span class="c1"># Transparent for dark mode</span>
-</span><span id="__span-15-33"><a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a>    <span class="n">plot_bgcolor</span><span class="o">=</span><span class="s1">&#39;rgba(0,0,0,0)&#39;</span>
-</span><span id="__span-15-34"><a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a><span class="p">)</span>
-</span><span id="__span-15-35"><a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a>
-</span><span id="__span-15-36"><a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a><span class="c1"># Add traces</span>
-</span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;lines&#39;</span><span class="p">))</span>
-</span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a>
-</span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a><span class="c1"># Write HTML (partial, not full page)</span>
-</span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a><span class="n">pio</span><span class="o">.</span><span class="n">write_html</span><span class="p">(</span>
-</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>    <span class="n">fig</span><span class="p">,</span>
-</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>    <span class="n">file</span><span class="o">=</span><span class="n">OUTFILE</span><span class="p">,</span>
-</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>    <span class="n">include_plotlyjs</span><span class="o">=</span><span class="s1">&#39;cdn&#39;</span><span class="p">,</span>
-</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>    <span class="n">full_html</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>    <span class="n">auto_play</span><span class="o">=</span><span class="kc">False</span>
-</span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a><span class="p">)</span>
-</span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a>
-</span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Generated </span><span class="si">{</span><span class="n">OUTFILE</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p><strong>Note</strong>: The <code># /// script</code> header allows standalone execution with <code>uv run fig_plot.py</code>.</p>
-<h3 id="generating-plots">Generating Plots<a class="headerlink" href="#generating-plots" title="Permanent link">&para;</a></h3>
-<p>Generate all plots:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>figures
-</span></code></pre></div></p>
-<p>Plots are written to <code>docs/figures/</code> as partial HTML files for embedding.</p>
-<h3 id="including-plots-in-documentation">Including Plots in Documentation<a class="headerlink" href="#including-plots-in-documentation" title="Permanent link">&para;</a></h3>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="gu">## Time System Offsets</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>The following plot shows time system offsets from UTC:
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>??? &quot;Plot Source&quot;
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    ``` python title=&quot;fig_time_system_offsets.py&quot;
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    ```
-</span></code></pre></div>
-<p>This will:
-- Embed the interactive Plotly plot
-- Add a collapsible section showing the source code</p>
+<h1 id="contributing-to-brahe">Contributing to Brahe<a class="headerlink" href="#contributing-to-brahe" title="Permanent link">&para;</a></h1>
+<p>Thank you for your interest in contributing to Brahe! We welcome contributions from everyone—whether you're improving documentation, fixing bugs, or adding new features. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.</p>
+<p>Checkout the main documentation for the <a href="https://duncaneddy.github.io/brahe/contributing.html">Contributing Guidelines</a> and <a href="https://duncaneddy.github.io/brahe/code_of_conduct.html">Code of Conduct</a>.</p>
+<h2 id="how-you-can-contribute">How you can contribute<a class="headerlink" href="#how-you-can-contribute" title="Permanent link">&para;</a></h2>
+<p>You can contribute in many ways, including:<br />
+- Reporting bugs or issues.<br />
+- Suggesting enhancements or new features.<br />
+- Writing or improving documentation or tutorials.<br />
+- Adding or improving tests.<br />
+- Reviewing other contributors’ pull requests.</p>
+<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
+<p>First, check out the development guidelines in the <a href="https://duncaneddy.github.io/brahe/developer_guidelines.html">developer guidelines</a> for setting up your development environment, running tests, and the development workflow for implementing new features or fixing bugs.</p>
+<h3 id="workflow">Workflow<a class="headerlink" href="#workflow" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Fork the repository on GitHub.</li>
+<li>Clone your fork locally: <code>git clone https://github.com/YOUR_USERNAME/brahe.git</code></li>
+<li>Create a new branch for your changes: <code>git checkout -b feature/your-feature-name</code></li>
+<li>Make your changes and commit them with clear, descriptive messages.</li>
+<li>Push your changes to your fork: <code>git push origin feature/your-feature-name</code></li>
+<li>Open a pull request against the main branch of the upstream repository.</li>
+<li>A maintainer will review your contribution; you may be asked to make changes.</li>
+<li>After approval and CI passing, your pull request will be merged.</li>
+</ol>
+<h2 id="code-style-testing">Code Style &amp; Testing<a class="headerlink" href="#code-style-testing" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Follow the project’s style guidelines (e.g., linting, formatting).</li>
+<li>Include tests for new functionality, and ensure existing tests pass.</li>
+<li>Ensure that your changes do not break existing behaviour unless they are intentional, documented, well-motivated, complete, and reviewed. We don't break things without a solution.</li>
+</ul>
+<h2 id="communication-etiquette">Communication &amp; Etiquette<a class="headerlink" href="#communication-etiquette" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Please review the <a href="https://duncaneddy.github.io/brahe/code_of_conduct.html">Code of Conduct</a> to understand the expected behaviour in our community.</li>
+<li>If you’re planning a large or complex change, consider opening an issue first to discuss design and get early feedback.</li>
+<li>Be responsive to review comments. If you need time, it’s okay to say so.</li>
+<li>Respect the maintainers’ decision. If they decline your change, you’re free to discuss politely or move on.</li>
+</ul>
+<h2 id="license-rights">License &amp; Rights<a class="headerlink" href="#license-rights" title="Permanent link">&para;</a></h2>
+<p>By submitting a pull request, you agree that your contribution will be available under the project's <a href="https://duncaneddy.github.io/brahe/license.html">MIT License</a> and you grant the maintainers the right to apply any necessary changes (e.g., rebase, squash) before merging.</p>
+<h2 id="thank-you">Thank You<a class="headerlink" href="#thank-you" title="Permanent link">&para;</a></h2>
+<p>We appreciate your interest and contribution. Together we build something better!</p>
 
 
 
@@ -4253,7 +4457,7 @@ enable users to more easily navigate and learn the library.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 20, 2025 17:35:35 UTC">2025-10-20</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 15:48:13 UTC">2025-10-23</span>
   </span>
 
     
@@ -4318,7 +4522,11 @@ enable users to more easily navigate and learn the library.</p>
     
       <script src="assets/javascripts/bundle.f55a23d4.min.js"></script>
       
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <script src="javascripts/katex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
       
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
       

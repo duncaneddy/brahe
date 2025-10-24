@@ -56,11 +56,11 @@ jobs:
     - name: Install Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
 
-    - name: Install 'build' library
-      run: uv pip install -U build
+    - name: Install dependencies
+      run: uv sync --all-extras --locked
 
     - name: Build library
-      run: python -m build
+      run: uv run --locked python -m build
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

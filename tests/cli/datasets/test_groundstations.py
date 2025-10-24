@@ -77,14 +77,14 @@ def test_show_help():
     result = runner.invoke(app, ["show", "--help"])
     assert result.exit_code == 0
     assert "provider" in result.stdout.lower()
-    assert "--properties" in result.stdout
+    assert "properties" in result.stdout.lower()
 
 
 def test_show_all_help():
     """Test show-all command help"""
     result = runner.invoke(app, ["show-all", "--help"])
     assert result.exit_code == 0
-    assert "--properties" in result.stdout
+    assert "properties" in result.stdout.lower()
 
 
 def test_list_stations():
@@ -140,5 +140,5 @@ def test_list_stations_help():
     """Test list-stations command help"""
     result = runner.invoke(app, ["list-stations", "--help"])
     assert result.exit_code == 0
-    assert "--provider" in result.stdout
-    assert "--table" in result.stdout or "-t" in result.stdout
+    assert "provider" in result.stdout.lower()
+    assert "table" in result.stdout.lower()

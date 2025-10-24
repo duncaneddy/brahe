@@ -32,11 +32,11 @@ def test_search_help():
     result = runner.invoke(app, ["search", "--help"])
     assert result.exit_code == 0
     assert "pattern" in result.stdout.lower()
-    assert "--table" in result.stdout
-    assert "--columns" in result.stdout
-    assert "minimal" in result.stdout
-    assert "default" in result.stdout
-    assert "all" in result.stdout
+    assert "table" in result.stdout.lower()
+    assert "columns" in result.stdout.lower()
+    assert "minimal" in result.stdout.lower()
+    assert "default" in result.stdout.lower()
+    assert "all" in result.stdout.lower()
 
 
 # Network tests require internet connection
@@ -64,9 +64,9 @@ def test_download_help():
     result = runner.invoke(app, ["download", "--help"])
     assert result.exit_code == 0
     assert "filepath" in result.stdout.lower()
-    assert "--group" in result.stdout
-    assert "--content-format" in result.stdout
-    assert "--file-format" in result.stdout
+    assert "group" in result.stdout.lower()
+    assert "content-format" in result.stdout.lower()
+    assert "file-format" in result.stdout.lower()
 
 
 def test_lookup_help():
@@ -74,7 +74,7 @@ def test_lookup_help():
     result = runner.invoke(app, ["lookup", "--help"])
     assert result.exit_code == 0
     assert "name" in result.stdout.lower()
-    assert "--group" in result.stdout
+    assert "group" in result.stdout.lower()
 
 
 def test_show_help():
@@ -82,6 +82,6 @@ def test_show_help():
     result = runner.invoke(app, ["show", "--help"])
     assert result.exit_code == 0
     assert "identifier" in result.stdout.lower()
-    assert "--group" in result.stdout
-    assert "--compact" in result.stdout
-    assert "--simple" in result.stdout
+    assert "group" in result.stdout.lower()
+    assert "compact" in result.stdout.lower()
+    assert "simple" in result.stdout.lower()

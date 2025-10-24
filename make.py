@@ -120,7 +120,7 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
 
     try:
         result = subprocess.run(
-            ["rust-script", "--toolchain", "nightly", tmp_path],
+            ["rust-script", "+nightly", tmp_path],
             capture_output=True,
             text=True,
             timeout=300,

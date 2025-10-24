@@ -47,15 +47,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --frozen
 
-      # Try to download Brahe cache to avoid external API calls
-      - name: Download Brahe cache directory
-        id: download-cache
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: brahe-cache
-          path: ~/.cache/brahe/
-
       # Build Python extension
       - name: Build Python extension
         run: uv pip install -e .

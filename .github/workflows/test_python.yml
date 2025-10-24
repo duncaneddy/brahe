@@ -18,8 +18,6 @@ jobs:
                 with:
                     python-version: ${{ matrix.python-version }}
                     enable-cache: trueuv
-            -   name: Install dependencies
-                run: uv sync --all-extras --frozen
 
             # Try to download Brahe cache to avoid external API calls
             -   name: Download Brahe cache directory
@@ -38,6 +36,9 @@ jobs:
                 with:
                     name: python-extension
                     path: ./cached-extension
+
+            -   name: Install dependencies
+                run: uv sync --all-extras --frozen
 
             -   name: Use cached extension or build new one
                 run: |

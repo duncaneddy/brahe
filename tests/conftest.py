@@ -2,6 +2,11 @@ import pathlib
 import pytest
 import brahe
 
+# Configure matplotlib to use non-GUI backend for testing
+import matplotlib
+
+matplotlib.use("Agg")
+
 # Testing Paths
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEST_ASSETS = PACKAGE_ROOT / "test_assets"

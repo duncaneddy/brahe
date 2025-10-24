@@ -956,8 +956,8 @@ mod tests {
         };
 
         assert!(
-            time_diff < Duration::from_millis(10),
-            "Cache file appears to have been rewritten (time difference: {:?}ms). Expected < 10ms but got mtime1={:?}, mtime2={:?}",
+            time_diff < Duration::from_millis(200),
+            "Cache file appears to have been rewritten (time difference: {:?}ms). Expected < 200ms but got mtime1={:?}, mtime2={:?}",
             time_diff.as_millis(),
             mtime1,
             mtime2

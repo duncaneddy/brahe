@@ -6,7 +6,7 @@
 </p>
 <p align="center">
 <a href="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml" target="_blank">
-    <img src="https://github.com/duncaneddy/brahe/actions/workflows/commit.yml/badge.svg" alt="Tests">
+    <img src="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml/badge.svg" alt="Tests">
 </a>
 <a href="https://codecov.io/gh/duncaneddy/brahe">  
   <img src="https://codecov.io/gh/duncaneddy/brahe/graph/badge.svg?token=1JDXP549Q4"></a>

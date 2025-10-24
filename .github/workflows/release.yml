@@ -17,7 +17,7 @@ jobs:
     needs: [ test-rust ]
   test-examples:
     uses: ./.github/workflows/test_examples.yml
-    needs: [ test-rust, test-python ]
+    needs: [ test-rust ]
   update-docs:
     uses: ./.github/workflows/update_docs.yml
     needs: [ test-python, test-examples ]
@@ -56,17 +56,23 @@ jobs:
     - name: Install Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: uv sync --all-extras --frozen
+    - name: Create virtual environment
+      run: uv venv -p ${{ matrix.python-version }}
 
-    - name: Build library
-      run: uv run --frozen python -m build
+    - name: Activate virtual environment
+      run: source .venv/bin/activate
+
+    - name: Install build
+      run: uv pip install -U build
+
+    - name: Build source distribution
+      run: uv run python -m build --sdist
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         path: dist/*.tar.gz
-        name: pymdps-${{ github.ref_name }}-${{ runner.os }}-source
+        name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
 
   python-build-wheels:
     needs: [update-docs]
@@ -75,15 +81,36 @@ jobs:
       matrix:
           os: [ ubuntu-latest, macos-latest, windows-latest ]
           python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+          rust-toolchain: [nightly]
     environment: release
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - uses: PyO3/maturin-action@v1
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust-toolchain }}
+
+    - name: Set default Rust toolchain
+      run: |
+        rustup update ${{ matrix.rust-toolchain }}
+        rustup default ${{ matrix.rust-toolchain }}
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+
+    - name: Build wheel with maturin
+      uses: PyO3/maturin-action@v1
       with:
         command: build
+        rust-toolchain: ${{ matrix.rust-toolchain }}
         args: --release -i python${{ matrix.python-version }} 
 
     - name: Upload artifact

@@ -200,17 +200,30 @@ where
 /// Vector of `AccessWindow` objects sorted by start time
 ///
 /// # Examples
-/// ```ignore
+/// ```
 /// use brahe::access::*;
-/// use brahe::orbits::KeplerianPropagator;
+/// use brahe::eop::*;
+/// use brahe::propagators::KeplerianPropagator;
 /// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::Vector6;
 ///
-/// let location = PointLocation::new(0.0, 45.0, 0.0);
+/// // Set up EOP
+/// let eop = StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+/// set_global_eop_provider(eop);
+///
+/// // Create a location (latitude, longitude in degrees, altitude in meters)
+/// let location = PointLocation::new(40.7128, -74.0060, 0.0);
+///
+/// // Create epoch and orbital state
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let propagator = KeplerianPropagator::new(/* ... */);
+/// let state = Vector6::new(R_EARTH + 600e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+/// let propagator = KeplerianPropagator::from_eci(epoch, state, 60.0);
+///
+/// // Create constraint
 /// let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
 ///
-/// // Single location, single propagator
+/// // Compute access windows for 24 hours
 /// let windows = location_accesses(
 ///     &location,
 ///     &propagator,
@@ -222,43 +235,10 @@ where
 ///     None,
 /// );
 ///
-/// // Single location, multiple propagators
-/// let propagators = vec![propagator1, propagator2];
-/// let windows = location_accesses(
-///     &location,
-///     &propagators,
-///     epoch,
-///     epoch + 86400.0,
-///     &constraint,
-///     None,
-///     None,
-///     None,
-/// );
-///
-/// // Multiple locations, single propagator
-/// let locations = vec![location1, location2];
-/// let windows = location_accesses(
-///     &locations,
-///     &propagator,
-///     epoch,
-///     epoch + 86400.0,
-///     &constraint,
-///     None,
-///     None,
-///     None,
-/// );
-///
-/// // Multiple locations, multiple propagators
-/// let windows = location_accesses(
-///     &locations,
-///     &propagators,
-///     epoch,
-///     epoch + 86400.0,
-///     &constraint,
-///     None,
-///     None,
-///     None,
-/// );
+/// // Windows contains all periods when satellite is above 10 degrees elevation
+/// for window in windows {
+///     println!("Access from {} to {}", window.window_open, window.window_close);
+/// }
 /// ```
 #[allow(clippy::too_many_arguments)]
 #[allow(private_bounds)]

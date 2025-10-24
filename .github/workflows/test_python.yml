@@ -46,7 +46,7 @@ jobs:
 
 
             -   name: Install dependencies
-                run: uv sync --all-extras --locked --python python
+                run: uv sync --group test --all-extras --locked --python python
                 
             -   name: Test with python ${{ matrix.python-version }}
                 run: uv run --locked coverage run -m pytest -m ''

@@ -69,6 +69,7 @@ jobs:
                     token: ${{ secrets.CODECOV_TOKEN }}
                     files: lcov.info
                     fail_ci_if_error: false # TODO: Change to true
+                    
             -   name: Upload Brahe cache directory (Unix)
                 if: runner.os != 'Windows'
                 uses: actions/upload-artifact@v4

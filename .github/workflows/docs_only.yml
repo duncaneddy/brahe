@@ -15,6 +15,11 @@ on:
       - 'plots/**'
       - 'mkdocs.yaml'
 
+# Prevent concurrent gh-pages deployments
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy-docs:
     runs-on: ubuntu-latest
@@ -81,6 +86,9 @@ jobs:
         with:
           name: doc-figures
           path: docs/figures/
+
+      - name: Fetch gh-pages branch
+        run: git fetch origin gh-pages:gh-pages || true
 
       - name: Deploy documentation (latest from main)
         run: uv run --frozen mike deploy --push --update-aliases latest

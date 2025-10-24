@@ -6,6 +6,11 @@ on:
     branches: [main]
     types: [completed]
 
+# Prevent concurrent gh-pages deployments
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   # Only run if the Unit Tests workflow succeeded
   check-success:

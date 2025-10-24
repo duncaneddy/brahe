@@ -35,18 +35,18 @@ class AttitudeRepresentation(str, Enum):
 
 @app.command()
 def frame(
+    from_frame: Annotated[
+        OrbitFrame, typer.Argument(help="The reference frame to convert from")
+    ],
+    to_frame: Annotated[
+        OrbitFrame, typer.Argument(help="The reference frame to convert to")
+    ],
     epoch: Annotated[
         str, typer.Argument(help="Epoch to perform the conversion at if required")
     ],
     state: Annotated[
         Tuple[float, float, float, float, float, float],
         typer.Argument(..., help="The state to convert"),
-    ],
-    from_frame: Annotated[
-        OrbitFrame, typer.Argument(help="The reference frame to convert from")
-    ],
-    to_frame: Annotated[
-        OrbitFrame, typer.Argument(help="The reference frame to convert to")
     ],
     format_string: Annotated[
         str, typer.Option("--format", help="The format of the output")
@@ -95,10 +95,6 @@ def frame(
 
 @app.command()
 def coordinates(
-    state: Annotated[
-        Tuple[float, float, float, float, float, float],
-        typer.Argument(..., help="The state to convert"),
-    ],
     from_system: Annotated[
         StateRepresentation,
         typer.Argument(help="The state representation to convert from"),
@@ -108,8 +104,15 @@ def coordinates(
         typer.Argument(help="The state representation to convert to"),
     ],
     epoch: Annotated[
-        str, typer.Option(help="Epoch to perform the conversion at if required")
-    ] = "",
+        str,
+        typer.Argument(
+            help="Epoch (ISO-8601 format). Use empty string '' if not needed for conversion"
+        ),
+    ],
+    state: Annotated[
+        Tuple[float, float, float, float, float, float],
+        typer.Argument(..., help="The state to convert"),
+    ],
     from_frame: Annotated[
         OrbitFrame,
         typer.Option(help="Reference frame for cartesian input (ECI or ECEF)"),

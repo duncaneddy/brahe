@@ -80,12 +80,15 @@ def convert(
         typer.echo("Invalid input format")
         typer.Exit(code=1)
 
+    # Convert CLI TimeSystem enum to brahe TimeSystem enum
+    brahe_output_ts = getattr(brahe.TimeSystem, output_time_system.value)
+
     if output_format == EpochFormat.string:
-        typer.echo(epc.to_string_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.to_string_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.mjd:
-        typer.echo(epc.mjd_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.mjd_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.jd:
-        typer.echo(epc.jd_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.jd_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.gps_date:
         typer.echo(epc.gps_date())
     elif output_format == EpochFormat.gps_nanoseconds:
@@ -110,12 +113,15 @@ def add(
 
     epc += seconds
 
+    # Convert CLI TimeSystem enum to brahe TimeSystem enum
+    brahe_output_ts = getattr(brahe.TimeSystem, output_time_system.value)
+
     if output_format == EpochFormat.string:
-        typer.echo(epc.to_string_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.to_string_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.mjd:
-        typer.echo(epc.mjd_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.mjd_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.jd:
-        typer.echo(epc.jd_as_time_system(time_system=output_time_system.value))
+        typer.echo(epc.jd_as_time_system(time_system=brahe_output_ts))
     elif output_format == EpochFormat.gps_date:
         typer.echo(epc.gps_date())
     elif output_format == EpochFormat.gps_nanoseconds:
@@ -137,7 +143,11 @@ def time_system_offset(
 ):
     epc = brahe.Epoch(epoch)
 
-    offset = brahe.time_system_offset_for_mjd(epc.mjd(), source.value, target.value)
+    # Convert CLI TimeSystem enums to brahe TimeSystem enums
+    brahe_source = getattr(brahe.TimeSystem, source.value)
+    brahe_target = getattr(brahe.TimeSystem, target.value)
+
+    offset = brahe.time_system_offset_for_mjd(epc.mjd(), brahe_source, brahe_target)
 
     typer.echo(f"{offset}")
 

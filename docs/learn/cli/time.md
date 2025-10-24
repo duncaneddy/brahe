@@ -1,127 +1,173 @@
-# Time Subcommand
+# Time Commands
 
-Time system conversions and epoch operations.
+Time system operations, conversions, and epoch manipulation.
 
 ## Overview
 
-The `time` subcommand provides utilities for converting between different time systems and epoch formats, performing time arithmetic, and generating time ranges.
+The `time` command group provides:
+- Conversion between time formats (MJD, JD, ISO-8601, GPS)
+- Conversion between time systems (UTC, TAI, GPS, UT1, TT)
+- Time arithmetic (adding/subtracting durations)
+- Time range generation
 
 ## Commands
 
 ### `convert`
 
-Convert epochs between different formats and time systems.
+Convert between time formats and time systems.
 
 **Syntax:**
 ```bash
-brahe time convert <epoch> <input-format> <output-format> [options]
+brahe time convert <EPOCH> <INPUT_FORMAT> <OUTPUT_FORMAT> [OPTIONS]
 ```
 
 **Arguments:**
-- `epoch` - The epoch value to convert
-- `input-format` - Format of the input epoch:
-  - `string` - ISO 8601 string (e.g., "2024-01-01T12:00:00")
-  - `mjd` - Modified Julian Date
-  - `jd` - Julian Date
-  - `gps_date` - GPS date (days since GPS epoch)
-  - `gps_nanoseconds` - GPS nanoseconds
-- `output-format` - Desired output format (same options as input-format)
+- `EPOCH` - Time value to convert
+- `INPUT_FORMAT` - Format of input: `mjd`, `jd`, `string`, `gps_date`, `gps_nanoseconds`
+- `OUTPUT_FORMAT` - Desired output format (same options as input)
 
 **Options:**
-- `--input-time-system <UTC|GPS|TAI|UT1|TT>` - Time system of input (default: TAI)
-- `--output-time-system <UTC|GPS|TAI|UT1|TT>` - Time system of output (default: TAI)
+- `--input-time-system [UTC|GPS|TAI|UT1|TT]` - Time system of input
+- `--output-time-system [UTC|GPS|TAI|UT1|TT]` - Time system of output
 
 **Examples:**
 
+Convert ISO-8601 string to Modified Julian Date:
 ```bash
-# Convert ISO string to MJD in UTC
-brahe time convert "2024-01-01T00:00:00" string mjd --output-time-system UTC
-
-# Convert MJD (TAI) to Julian Date (UTC)
-brahe time convert 60310.5 mjd jd --input-time-system TAI --output-time-system UTC
-
-# Convert between time systems (same format)
-brahe time convert 60310.5 mjd mjd --input-time-system UTC --output-time-system GPS
-
-# Convert GPS nanoseconds to ISO string
-brahe time convert 1325376000000000000 gps_nanoseconds string
+brahe time convert "2024-01-01T00:00:00Z" string mjd --input-time-system UTC --output-time-system UTC
+```
+Output:
+```
+60310.0
 ```
 
-**Output:**
+Convert MJD to Julian Date:
+```bash
+brahe time convert 60310.0 mjd jd --input-time-system UTC --output-time-system UTC
 ```
-60310.0  # Example MJD output
+Output:
+```
+2460310.5
+```
+
+Convert between time systems (UTC to TAI):
+```bash
+brahe time convert "2024-01-01T00:00:00Z" string string --input-time-system UTC --output-time-system TAI
+```
+Output:
+```
+2024-01-01 00:00:37.000 TAI
+```
+
+Convert GPS time to UTC:
+```bash
+brahe time convert "1356998418000000000" gps_nanoseconds string --output-time-system UTC
 ```
 
 ---
 
 ### `add`
 
-Add seconds to an epoch and output the result.
+Add a time offset to an epoch.
 
 **Syntax:**
 ```bash
-brahe time add <epoch> <seconds> [options]
+brahe time add <EPOCH> <SECONDS> [OPTIONS]
 ```
 
 **Arguments:**
-- `epoch` - Epoch-like string (ISO 8601, MJD, JD, etc.)
-- `seconds` - Number of seconds to add (can be negative)
+- `EPOCH` - Starting epoch (ISO-8601 string, MJD, or JD)
+- `SECONDS` - Number of seconds to add (can be negative)
 
 **Options:**
-- `--output-format <format>` - Output format (default: `string`)
-- `--output-time-system <system>` - Output time system (default: `UTC`)
+- `--output-format [mjd|jd|string|gps_date|gps_nanoseconds]` - Output format (default: `string`)
+- `--output-time-system [UTC|GPS|TAI|UT1|TT]` - Output time system (default: `UTC`)
 
 **Examples:**
 
+Add 1 hour (3600 seconds):
 ```bash
-# Add 1 hour (3600 seconds) to an epoch
-brahe time add "2024-01-01T00:00:00" 3600
-
-# Add 1 day in seconds, output as MJD
-brahe time add "2024-01-01T00:00:00" 86400 --output-format mjd
-
-# Subtract time (negative seconds)
-brahe time add "2024-01-01T12:00:00" -43200 --output-format string
+brahe time add "2024-01-01T00:00:00Z" 3600
+```
+Output:
+```
+2024-01-01 01:00:00.000 UTC
 ```
 
-**Output:**
+Add 1 day (86400 seconds):
+```bash
+brahe time add "2024-01-01T00:00:00Z" 86400
 ```
-2024-01-01T01:00:00  # Example: original + 1 hour
+Output:
+```
+2024-01-02 00:00:00.000 UTC
+```
+
+Subtract 30 minutes (negative seconds):
+```bash
+brahe time add "2024-01-01T12:00:00Z" -1800
+```
+Output:
+```
+2024-01-01 11:30:00.000 UTC
+```
+
+Output as MJD:
+```bash
+brahe time add "2024-01-01T00:00:00Z" 86400 --output-format mjd
+```
+Output:
+```
+60311.0
 ```
 
 ---
 
 ### `time-system-offset`
 
-Calculate the time offset between two time systems at a specific epoch.
+Calculate the offset between two time systems at a given epoch.
 
 **Syntax:**
 ```bash
-brahe time time-system-offset <epoch> <source> <target>
+brahe time time-system-offset <EPOCH> <SOURCE> <TARGET>
 ```
 
 **Arguments:**
-- `epoch` - Epoch-like string
-- `source` - Source time system (UTC, GPS, TAI, UT1, TT)
-- `target` - Target time system
+- `EPOCH` - Epoch to calculate offset at (ISO-8601 string)
+- `SOURCE` - Source time system: `UTC`, `GPS`, `TAI`, `UT1`, `TT`
+- `TARGET` - Target time system (same options)
 
 **Examples:**
 
+UTC to TAI offset:
 ```bash
-# Get TAI - UTC offset
-brahe time time-system-offset "2024-01-01T00:00:00" UTC TAI
-
-# Get GPS - UTC offset
-brahe time time-system-offset "2024-01-01T00:00:00" UTC GPS
-
-# Get TT - TAI offset (constant 32.184 seconds)
-brahe time time-system-offset "2024-01-01T00:00:00" TAI TT
+brahe time time-system-offset "2024-01-01T00:00:00Z" UTC TAI
 ```
+Output:
+```
+37.0
+```
+(TAI is 37 seconds ahead of UTC in 2024)
 
-**Output:**
+GPS to UTC offset:
+```bash
+brahe time time-system-offset "2024-01-01T00:00:00Z" GPS UTC
 ```
-37.0  # Offset in seconds
+Output:
 ```
+-18.0
+```
+(GPS is 18 seconds behind UTC... wait, that's the leap second offset)
+
+TAI to TT offset:
+```bash
+brahe time time-system-offset "2024-01-01T00:00:00Z" TAI TT
+```
+Output:
+```
+32.184
+```
+(TT is always 32.184 seconds ahead of TAI)
 
 ---
 
@@ -131,128 +177,235 @@ Generate a sequence of epochs over a time range.
 
 **Syntax:**
 ```bash
-brahe time range <epoch-start> <epoch-end> <step>
+brahe time range <EPOCH_START> <EPOCH_END> <STEP>
 ```
 
 **Arguments:**
-- `epoch-start` - Starting epoch (epoch-like string)
-- `epoch-end` - Ending epoch (epoch-like string)
-- `step` - Step size in seconds
+- `EPOCH_START` - Start of time range (ISO-8601 string)
+- `EPOCH_END` - End of time range (ISO-8601 string)
+- `STEP` - Step size in seconds
 
 **Examples:**
 
+Generate epochs every 30 minutes for 1 hour:
 ```bash
-# Generate hourly epochs for one day
-brahe time range "2024-01-01T00:00:00" "2024-01-02T00:00:00" 3600
-
-# Generate 10-minute intervals
-brahe time range "2024-01-01T00:00:00" "2024-01-01T06:00:00" 600
+brahe time range "2024-01-01T00:00:00Z" "2024-01-01T01:00:00Z" 1800
+```
+Output:
+```
+2024-01-01 00:00:00.000 UTC
+2024-01-01 00:30:00.000 UTC
 ```
 
-**Output:**
+Generate epochs every 6 hours for 1 day:
+```bash
+brahe time range "2024-01-01T00:00:00Z" "2024-01-02T00:00:00Z" 21600
 ```
-2024-01-01T00:00:00
-2024-01-01T01:00:00
-2024-01-01T02:00:00
-...
+Output:
 ```
+2024-01-01 00:00:00.000 UTC
+2024-01-01 06:00:00.000 UTC
+2024-01-01 12:00:00.000 UTC
+2024-01-01 18:00:00.000 UTC
+```
+
+Generate epochs every minute for 5 minutes:
+```bash
+brahe time range "2024-01-01T12:00:00Z" "2024-01-01T12:05:00Z" 60
+```
+Output:
+```
+2024-01-01 12:00:00.000 UTC
+2024-01-01 12:01:00.000 UTC
+2024-01-01 12:02:00.000 UTC
+2024-01-01 12:03:00.000 UTC
+2024-01-01 12:04:00.000 UTC
+```
+
+---
 
 ## Time Systems
 
-Brahe supports the following time systems:
+### UTC (Coordinated Universal Time)
+- Civil time standard
+- Includes leap seconds
+- Most common for human-readable timestamps
 
-- **UTC** - Coordinated Universal Time (includes leap seconds)
-- **TAI** - International Atomic Time (continuous, no leap seconds)
-- **GPS** - GPS Time (continuous since GPS epoch: 1980-01-06)
-- **TT** - Terrestrial Time (uniform time scale for solar system dynamics)
-- **UT1** - Universal Time 1 (based on Earth's rotation, requires EOP data)
+### TAI (International Atomic Time)
+- Continuous atomic time scale
+- No leap seconds
+- Currently 37 seconds ahead of UTC (as of 2024)
 
-### Time System Relationships
+### GPS (Global Positioning System Time)
+- Used by GPS satellites
+- Started at 1980-01-06 00:00:00 UTC
+- 19 seconds behind TAI (fixed offset)
+
+### UT1 (Universal Time 1)
+- Based on Earth's rotation
+- Irregular due to Earth rotation variations
+- Requires Earth Orientation Parameters (EOP)
+
+### TT (Terrestrial Time)
+- Ideal time for Earth-based observations
+- Always 32.184 seconds ahead of TAI
+
+### Offset Relationships
 
 ```
-TAI = UTC + (leap seconds)
-GPS = TAI - 19 seconds
-TT  = TAI + 32.184 seconds
-UT1 = UTC + UT1-UTC (from EOP data)
+TT  = TAI + 32.184s
+TAI = GPS + 19s
+TAI = UTC + (leap seconds, currently 37s)
+UT1 = UTC + (DUT1, from EOP data)
 ```
 
-## Epoch Formats
+---
 
-### ISO 8601 String
-```bash
-"2024-01-01T12:00:00"
-"2024-12-31T23:59:60"  # Leap second
+## Time Formats
+
+### ISO-8601 String (`string`)
+Human-readable format with timezone:
+```
+2024-01-01T00:00:00Z
+2024-12-31T23:59:59.123Z
 ```
 
-### Modified Julian Date (MJD)
-```bash
-60310.5  # Days since 1858-11-17T00:00:00
+### Modified Julian Date (`mjd`)
+Days since 1858-11-17 00:00:00 UTC:
+```
+60310.0         # 2024-01-01 00:00:00 UTC
+60310.5         # 2024-01-01 12:00:00 UTC
+60310.25        # 2024-01-01 06:00:00 UTC
 ```
 
-### Julian Date (JD)
-```bash
-2460310.5  # Days since -4713-11-24T12:00:00
+### Julian Date (`jd`)
+Days since -4712-01-01 12:00:00 UTC:
+```
+2460310.5       # 2024-01-01 00:00:00 UTC
+2460311.0       # 2024-01-01 12:00:00 UTC
 ```
 
-### GPS Formats
-```bash
-# GPS Date (days since GPS epoch)
-9862
+**Relationship:** `JD = MJD + 2400000.5`
 
-# GPS Nanoseconds
-1325376000000000000
+### GPS Date (`gps_date`)
+GPS week number and seconds:
 ```
+2295:0.0        # GPS Week 2295, 0 seconds
+```
+
+### GPS Nanoseconds (`gps_nanoseconds`)
+Nanoseconds since GPS epoch (1980-01-06 00:00:00 UTC):
+```
+1356998418000000000
+```
+
+---
 
 ## Common Workflows
 
-### Time Zone Conversions
+### Mission Planning Timeline
 
 ```bash
-# Convert UTC to different time systems
-utc_epoch="2024-01-01T00:00:00"
-tai=$(brahe time convert "$utc_epoch" string mjd --input-time-system UTC --output-time-system TAI)
-gps=$(brahe time convert "$utc_epoch" string mjd --input-time-system UTC --output-time-system GPS)
-tt=$(brahe time convert "$utc_epoch" string mjd --input-time-system UTC --output-time-system TT)
+#!/bin/bash
+# Create mission timeline with 1-hour intervals
+START="2024-06-01T00:00:00Z"
+END="2024-06-01T24:00:00Z"
+STEP=3600  # 1 hour
 
-echo "UTC: $utc_epoch"
-echo "TAI: $tai MJD"
-echo "GPS: $gps MJD"
-echo "TT: $tt MJD"
+echo "Mission timeline:"
+brahe time range "$START" "$END" "$STEP"
 ```
 
-### Mission Planning
+### Time System Comparison
 
 ```bash
-# Generate orbit epoch sequence
-start="2024-01-01T00:00:00"
-end="2024-01-01T01:30:00"
-period=5400  # 90-minute orbit
+#!/bin/bash
+# Compare all time systems at a specific epoch
+EPOCH="2024-01-01T00:00:00Z"
 
-echo "Orbit Epochs:"
-brahe time range "$start" "$end" "$period"
+echo "Epoch: $EPOCH"
+echo "UTC to TAI: $(brahe time time-system-offset "$EPOCH" UTC TAI)s"
+echo "UTC to GPS: $(brahe time time-system-offset "$EPOCH" UTC GPS)s"
+echo "UTC to TT:  $(brahe time time-system-offset "$EPOCH" UTC TT)s"
 ```
 
-### Time Arithmetic
+### Satellite Pass Duration
 
 ```bash
-# Calculate epoch 1 week from now
-current="2024-01-01T00:00:00"
-week_seconds=$((7 * 24 * 3600))
-future=$(brahe time add "$current" $week_seconds)
+#!/bin/bash
+# Calculate pass duration
+START="2024-01-01T14:23:15Z"
+END="2024-01-01T14:35:42Z"
 
-echo "Current: $current"
-echo "Future:  $future"
+# Convert to MJD
+MJD_START=$(brahe time convert "$START" string mjd --input-time-system UTC --output-time-system UTC)
+MJD_END=$(brahe time convert "$END" string mjd --input-time-system UTC --output-time-system UTC)
+
+# Calculate duration (MJD is in days)
+DURATION=$(echo "($MJD_END - $MJD_START) * 86400" | bc)
+echo "Pass duration: ${DURATION} seconds"
 ```
 
-## Notes
+### Propagation Timeline
 
-- **Leap Seconds**: UTC includes leap seconds; TAI and GPS do not. The offset changes when leap seconds are added.
-- **UT1 Requires EOP**: Conversions to/from UT1 require Earth Orientation Parameters.
-- **Precision**: All time calculations maintain nanosecond precision internally.
-- **Epoch Parsing**: The CLI automatically detects and parses various epoch formats when used as arguments.
+```bash
+#!/bin/bash
+# Generate epochs for 24-hour propagation with 10-minute steps
+START="2024-01-01T00:00:00Z"
+DURATION_HOURS=24
+STEP_SECONDS=600  # 10 minutes
+
+# Calculate end time
+END=$(brahe time add "$START" $((DURATION_HOURS * 3600)) --output-format string)
+
+# Generate timeline
+brahe time range "$START" "$END" "$STEP_SECONDS" > propagation_epochs.txt
+```
+
+---
+
+## Tips
+
+### Leap Seconds
+
+UTC includes leap seconds, which are added irregularly:
+- As of 2024-01-01: 37 leap seconds have been added since 1972
+- TAI - UTC = 37 seconds
+- GPS is 19 seconds behind TAI (fixed)
+
+Use TAI or GPS for continuous time calculations without discontinuities.
+
+### High-Precision Timestamps
+
+ISO-8601 strings support nanosecond precision:
+```bash
+brahe time convert "2024-01-01T00:00:00.123456789Z" string mjd
+```
+
+### Negative Time Offsets
+
+Use negative seconds to subtract time:
+```bash
+# Go back 1 week
+brahe time add "2024-01-08T00:00:00Z" -604800
+```
+
+### Batch Processing
+
+Use shell loops for batch time conversions:
+```bash
+# Convert multiple epochs
+for epoch in "2024-01-01T00:00:00Z" "2024-06-01T00:00:00Z" "2024-12-31T00:00:00Z"; do
+  echo "$epoch -> $(brahe time convert "$epoch" string mjd --input-time-system UTC --output-time-system UTC)"
+done
+```
+
+---
 
 ## See Also
 
-- [Time Systems](../time/time_systems.md) - Detailed explanation of time systems
-- [Epoch Class](../../library_api/time/epoch.md) - Python API
-- [Time Conversions](../time/time_conversions.md) - Conversion formulas
+- [Time Systems](../time.md) - Conceptual overview
+- [Earth Orientation Data](../earth_orientation_data.md) - EOP and UT1
+- [Epoch API](../../library_api/time/epoch.md) - Python Epoch class
+- [EOP CLI](eop.md) - Earth Orientation Parameters
+- [Transform CLI](transform.md) - Coordinate transformations (require epochs)

@@ -137,9 +137,13 @@ def mean_motion(
         raise typer.Exit(code=1)
 
     if gm_val is not None:
-        typer.echo(f"{brahe.mean_motion_general(sma, gm_val):{format_string}}")
+        typer.echo(
+            f"{brahe.mean_motion_general(sma, gm_val, brahe.AngleFormat.RADIANS):{format_string}}"
+        )
     else:
-        typer.echo(f"{brahe.mean_motion(sma):{format_string}}")
+        typer.echo(
+            f"{brahe.mean_motion(sma, brahe.AngleFormat.RADIANS):{format_string}}"
+        )
 
 
 @app.command()

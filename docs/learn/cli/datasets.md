@@ -1,364 +1,493 @@
-# Datasets Subcommand
+# Datasets Commands
 
-Download satellite ephemeris data and groundstation information.
+Download and query satellite ephemeris data and ground station information.
 
 ## Overview
 
-The `datasets` subcommand provides access to curated satellite and groundstation datasets, including TLE data from CelesTrak and groundstation network information.
+The `datasets` command group provides access to:
+- **CelesTrak** - Satellite TLE (Two-Line Element) data
+- **Ground Stations** - Commercial ground station network databases
 
-## Subcommands
+## CelesTrak Commands
 
-### `celestrak`
+### `celestrak download`
 
-Download satellite ephemeris data from CelesTrak.
-
-#### `celestrak download`
-
-Download satellite TLE data from CelesTrak and save to file.
+Download satellite ephemeris data from CelesTrak and save to file.
 
 **Syntax:**
 ```bash
-brahe datasets celestrak download <filepath> [options]
+brahe datasets celestrak download <GROUP> <FILEPATH>
 ```
 
 **Arguments:**
-- `filepath` - Output file path
-
-**Options:**
-- `--group <name>` - Satellite group name (default: `active`)
-- `--content-format <tle|3le>` - Content format:
-  - `tle` - Two-line elements (classic TLE format)
-  - `3le` - Three-line elements (includes satellite names)
-- `--file-format <txt|csv|json>` - File format (default: `txt`)
-
-**Common Groups:**
-- `active` - All active satellites
-- `stations` - Space stations
-- `gnss` - GPS, GLONASS, Galileo, BeiDou
-- `starlink` - SpaceX Starlink constellation
-- `oneweb` - OneWeb constellation
-- `planet` - Planet Labs satellites
-- `weather` - Weather satellites
-- `science` - Scientific satellites
-- `geo` - Geostationary satellites
-- `amateur` - Amateur radio satellites
+- `GROUP` - Satellite group name (e.g., 'stations', 'starlink', 'gps-ops')
+- `FILEPATH` - Output file path for TLE data
 
 **Examples:**
 
+Download space station TLEs:
 ```bash
-# Download active satellites as JSON
-brahe datasets celestrak download satellites.json \
-    --group active \
-    --content-format 3le \
-    --file-format json
-
-# Download GNSS satellites as text
-brahe datasets celestrak download gnss.txt \
-    --group gnss \
-    --content-format tle \
-    --file-format txt
-
-# Download Starlink constellation
-brahe datasets celestrak download starlink.csv \
-    --group starlink \
-    --file-format csv
-
-# Download weather satellites
-brahe datasets celestrak download weather.json \
-    --group weather \
-    --content-format 3le \
-    --file-format json
+brahe datasets celestrak download stations ~/satellite_data/stations.txt
 ```
 
-**Output Formats:**
-
-**Text (TLE):**
-```
-1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990
-2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104
+Download Starlink constellation:
+```bash
+brahe datasets celestrak download starlink ~/satellite_data/starlink.txt
 ```
 
-**Text (3LE):**
+Download GPS satellites:
+```bash
+brahe datasets celestrak download gps-ops ~/satellite_data/gps.txt
+```
+
+See available groups:
+```bash
+brahe datasets celestrak list-groups
+```
+
+---
+
+### `celestrak lookup`
+
+Look up a satellite by name and display its NORAD ID and TLE.
+
+**Syntax:**
+```bash
+brahe datasets celestrak lookup <NAME>
+```
+
+**Arguments:**
+- `NAME` - Satellite name (partial match supported)
+
+**Examples:**
+
+Find ISS:
+```bash
+brahe datasets celestrak lookup "ISS"
+```
+Output:
 ```
 ISS (ZARYA)
-1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990
-2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104
+NORAD ID: 25544
+TLE:
+1 25544U 98067A   24001.12345678  .00001234  00000-0  12345-4 0  9991
+2 25544  51.6400 123.4567 0001234  12.3456 347.8901 15.50000000123456
 ```
 
-**JSON:**
-```json
-[
-  {
-    "name": "ISS (ZARYA)",
-    "line1": "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
-    "line2": "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-  }
-]
+Find Hubble Space Telescope:
+```bash
+brahe datasets celestrak lookup "HST"
 ```
+
+Find by partial name:
+```bash
+brahe datasets celestrak lookup "STARLINK"
+```
+(Shows first match)
 
 ---
 
-### `groundstations`
+### `celestrak show`
 
-Access groundstation network information.
-
-#### `groundstations list`
-
-List available groundstation providers.
+Display TLE information and computed orbital parameters for a satellite.
 
 **Syntax:**
 ```bash
-brahe datasets groundstations list
-```
-
-**Examples:**
-
-```bash
-brahe datasets groundstations list
-```
-
-**Output:**
-```
-Available groundstation providers:
-  - ksat
-  - atlas
-  - aws
-  - azure
-  - leaf
-  - ....
-```
-
----
-
-#### `groundstations show`
-
-Show groundstations for a specific provider.
-
-**Syntax:**
-```bash
-brahe datasets groundstations show <provider> [options]
+brahe datasets celestrak show <NORAD_ID>
 ```
 
 **Arguments:**
-- `provider` - Provider name (e.g., `ksat`, `atlas`, `aws`)
-
-**Options:**
-- `--properties` / `-p` - Show station properties (frequency bands, etc.)
+- `NORAD_ID` - NORAD catalog ID (integer)
 
 **Examples:**
 
+Show ISS TLE and orbit info:
 ```bash
-# Show KSAT stations
-brahe datasets groundstations show ksat
+brahe datasets celestrak show 25544
+```
+Output:
+```
+Satellite: ISS (ZARYA)
+NORAD ID: 25544
 
-# Show Atlas stations with properties
-brahe datasets groundstations show atlas --properties
+TLE:
+1 25544U 98067A   24001.12345678  .00001234  00000-0  12345-4 0  9991
+2 25544  51.6400 123.4567 0001234  12.3456 347.8901 15.50000000123456
 
-# Show AWS ground station network
-brahe datasets groundstations show aws -p
+Orbital Parameters:
+  Epoch:           2024-01-01 02:57:46 UTC
+  Inclination:     51.6400°
+  RAAN:            123.4567°
+  Eccentricity:    0.0001234
+  Arg. of Perigee: 12.3456°
+  Mean Anomaly:    347.8901°
+  Mean Motion:     15.50000000 rev/day
+
+Computed:
+  Period:          92.9 minutes
+  Semi-major axis: 6797.1 km
+  Apogee altitude: 420.2 km
+  Perigee altitude: 417.1 km
 ```
 
-**Output:**
-```
-KSAT Groundstations (20 total):
---------------------------------------------------------------------------------
-
-Svalbard
-  Location:   15.627° lon,  78.223° lat,    500 m alt
-
-Troll
-  Location:    2.535° lon, -72.011° lat,   1270 m alt
-
-...
-
-✓ Loaded 20 groundstations from ksat
-```
-
-**With Properties:**
-```
-Svalbard
-  Location:   15.627° lon,  78.223° lat,    500 m alt
-  Frequency bands: S, X, Ka
-  Provider: KSAT
+Show GPS satellite:
+```bash
+brahe datasets celestrak show 32260
 ```
 
 ---
 
-#### `groundstations show-all`
+### `celestrak list-groups`
 
-Show groundstations from all providers.
+List commonly used CelesTrak satellite groups.
 
 **Syntax:**
 ```bash
-brahe datasets groundstations show-all [options]
+brahe datasets celestrak list-groups
 ```
 
-**Options:**
-- `--properties` / `-p` - Show station properties
+**Examples:**
+```bash
+brahe datasets celestrak list-groups
+```
+Output:
+```
+Available CelesTrak Groups:
+
+  Navigation:
+    gps-ops           - GPS Operational Satellites
+    gps-ops-gl        - GLONASS Operational Satellites
+    galileo           - Galileo Satellites
+    beidou            - BeiDou Satellites
+
+  Communication:
+    starlink          - Starlink Constellation
+    oneweb            - OneWeb Constellation
+    iridium           - Iridium Satellites
+
+  Earth Observation:
+    resource          - Earth Resource Satellites
+    weather           - Weather Satellites
+    noaa              - NOAA Satellites
+
+  Science:
+    stations          - Space Stations (ISS, Tiangong)
+    science           - Scientific Satellites
+
+  Special Interest:
+    active            - All Active Satellites
+    analyst           - Analyst Satellites
+    2024-launches     - 2024 Launches
+```
+
+---
+
+### `celestrak search`
+
+Search for satellites by name pattern within a group.
+
+**Syntax:**
+```bash
+brahe datasets celestrak search <GROUP> <PATTERN>
+```
+
+**Arguments:**
+- `GROUP` - Satellite group name
+- `PATTERN` - Name search pattern (case-insensitive)
 
 **Examples:**
 
+Search for Starlink satellites:
 ```bash
-# Show all groundstations
+brahe datasets celestrak search starlink "1234"
+```
+
+Search for specific GPS satellite:
+```bash
+brahe datasets celestrak search gps-ops "GPS II"
+```
+
+---
+
+## Ground Station Commands
+
+### `groundstations list-providers`
+
+List available ground station providers.
+
+**Syntax:**
+```bash
+brahe datasets groundstations list-providers
+```
+
+**Examples:**
+```bash
+brahe datasets groundstations list-providers
+```
+Output:
+```
+Available Ground Station Providers:
+  - ksat (Kongsberg Satellite Services)
+  - atlas (Atlas Space Operations)
+  - aws (AWS Ground Station)
+  - leaf (Leaf Space)
+```
+
+---
+
+### `groundstations list-stations`
+
+List ground stations, optionally filtered by provider.
+
+**Syntax:**
+```bash
+brahe datasets groundstations list-stations [OPTIONS]
+```
+
+**Options:**
+- `--provider <name>` - Filter by provider name
+
+**Examples:**
+
+List all ground stations:
+```bash
+brahe datasets groundstations list-stations
+```
+
+List KSAT stations only:
+```bash
+brahe datasets groundstations list-stations --provider ksat
+```
+Output:
+```
+KSAT Ground Stations:
+
+  Svalbard, Norway
+    Latitude:  78.23° N
+    Longitude: 15.39° E
+    Altitude:  500 m
+
+  Troll, Antarctica
+    Latitude:  72.01° S
+    Longitude: 2.53° E
+    Altitude:  1270 m
+
+  Singapore
+    Latitude:  1.34° N
+    Longitude: 103.99° E
+    Altitude:  15 m
+```
+
+List AWS Ground Stations:
+```bash
+brahe datasets groundstations list-stations --provider aws
+```
+
+---
+
+### `groundstations show`
+
+Show ground stations for a specific provider (deprecated - use `list-stations`).
+
+**Syntax:**
+```bash
+brahe datasets groundstations show <PROVIDER>
+```
+
+**Examples:**
+```bash
+brahe datasets groundstations show ksat
+```
+
+**Note:** This command is deprecated. Use `list-stations --provider <name>` instead.
+
+---
+
+### `groundstations show-all`
+
+Show ground stations from all providers.
+
+**Syntax:**
+```bash
 brahe datasets groundstations show-all
-
-# Show all with properties
-brahe datasets groundstations show-all --properties
 ```
 
-**Output:**
+**Examples:**
+```bash
+brahe datasets groundstations show-all
 ```
-All Groundstations (150 total):
-================================================================================
 
-ksat (20 stations):
---------------------------------------------------------------------------------
+**Note:** Equivalent to `list-stations` without filters.
 
-  Svalbard
-    Location:   15.627° lon,  78.223° lat,    500 m alt
-
-  Troll
-    Location:    2.535° lon, -72.011° lat,   1270 m alt
-
-atlas (30 stations):
---------------------------------------------------------------------------------
-
-  Awarua
-    Location:  168.386° lon, -46.518° lat,     10 m alt
-
-...
-
-✓ Loaded 150 groundstations from all providers
-```
+---
 
 ## Common Workflows
 
-### Daily TLE Updates
+### Download Satellite Data
 
 ```bash
 #!/bin/bash
-# Download fresh TLE data daily
+# Download TLE data for mission-relevant satellites
 
-data_dir="$HOME/.brahe/tle"
-mkdir -p "$data_dir"
+DATA_DIR="./satellite_data"
+mkdir -p "$DATA_DIR"
 
-# Download various satellite groups
-brahe datasets celestrak download "$data_dir/active.json" \
-    --group active --file-format json
+echo "Downloading satellite TLE data..."
 
-brahe datasets celestrak download "$data_dir/gnss.json" \
-    --group gnss --file-format json
+# Space stations
+brahe datasets celestrak download stations "$DATA_DIR/stations.txt"
 
-brahe datasets celestrak download "$data_dir/starlink.json" \
-    --group starlink --file-format json
+# GPS constellation
+brahe datasets celestrak download gps-ops "$DATA_DIR/gps.txt"
+
+# Starlink
+brahe datasets celestrak download starlink "$DATA_DIR/starlink.txt"
+
+# Weather satellites
+brahe datasets celestrak download weather "$DATA_DIR/weather.txt"
+
+echo "Download complete!"
+```
+
+### Find Satellite NORAD ID
+
+```bash
+#!/bin/bash
+# Find NORAD ID for satellite access computation
+
+SATELLITE_NAME="ISS"
+
+echo "Looking up: $SATELLITE_NAME"
+brahe datasets celestrak lookup "$SATELLITE_NAME"
+
+# Extract just the NORAD ID (for scripting)
+NORAD_ID=$(brahe datasets celestrak lookup "$SATELLITE_NAME" | grep "NORAD ID:" | awk '{print $3}')
+echo "NORAD ID: $NORAD_ID"
+
+# Compute access windows
+brahe access compute $NORAD_ID --lat 40.7128 --lon -74.0060
+```
+
+### Orbital Parameter Survey
+
+```bash
+#!/bin/bash
+# Survey orbital parameters for satellite constellation
+
+SATS=(25544 20580 43013)  # ISS, HST, sample Starlink
+
+echo "Satellite | Altitude | Inclination | Period"
+echo "----------|----------|-------------|--------"
+
+for norad in "${SATS[@]}"; do
+  echo "Processing NORAD $norad..."
+  brahe datasets celestrak show $norad | grep -E "Altitude|Inclination|Period"
+done
+```
+
+### Ground Station Selection
+
+```bash
+#!/bin/bash
+# Select ground stations for satellite mission
+
+SATELLITE=25544  # ISS
+PROVIDERS=("ksat" "aws" "atlas")
+
+echo "Evaluating ground stations for NORAD $SATELLITE"
+
+for provider in "${PROVIDERS[@]}"; do
+  echo ""
+  echo "=== $provider stations ==="
+
+  # List stations
+  brahe datasets groundstations list-stations --provider $provider
+
+  # Would compute access for each station (manual selection needed)
+done
+```
+
+### TLE Data Update
+
+```bash
+#!/bin/bash
+# Regularly update TLE data for accuracy
+
+DATA_DIR="./satellite_data"
+GROUPS=("stations" "gps-ops" "active")
+
+echo "Updating TLE data: $(date)"
+
+for group in "${GROUPS[@]}"; do
+  echo "Updating $group..."
+  brahe datasets celestrak download $group "$DATA_DIR/${group}.txt"
+done
 
 echo "TLE data updated: $(date)"
 ```
 
-### Mission Planning Setup
+---
 
+## Tips
+
+### TLE Data Freshness
+
+TLEs degrade over time:
+- **LEO satellites**: Update daily for accurate orbit prediction
+- **MEO/GEO satellites**: Update weekly acceptable
+- **Mission-critical**: Update before each operation
+
+### NORAD Catalog IDs
+
+- Assigned sequentially by USSPACECOM
+- Unique for each satellite
+- Required for most Brahe access computations
+- Find via `celestrak lookup` or online databases
+
+### CelesTrak Groups
+
+Common group names:
+- `stations` - ISS, Tiangong, etc.
+- `starlink` - Starlink constellation
+- `gps-ops` - GPS operational satellites
+- `galileo` - Galileo GNSS
+- `active` - All active satellites
+- `2024-launches` - Recent launches (year-specific)
+
+### Ground Station Providers
+
+**KSAT (Kongsberg Satellite Services):**
+- Polar ground stations (Svalbard, Troll)
+- Excellent coverage for polar orbits
+
+**AWS Ground Station:**
+- Global network
+- Cloud-integrated
+
+**Atlas Space Operations:**
+- Freedom Network
+- Multiple global sites
+
+**Leaf Space:**
+- European and global coverage
+
+### Scripting with Datasets
+
+Extract specific info:
 ```bash
-#!/bin/bash
-# Set up data for mission planning
+# Get just NORAD ID
+brahe datasets celestrak lookup "ISS" | grep "NORAD ID:" | awk '{print $3}'
 
-# Create directory structure
-mkdir -p mission_data/{satellites,groundstations}
-
-# Download satellite data
-echo "Downloading satellite data..."
-brahe datasets celestrak download mission_data/satellites/active.json \
-    --group active --content-format 3le --file-format json
-
-# Get groundstation info
-echo "Getting groundstation information..."
-brahe datasets groundstations show-all > mission_data/groundstations/all_stations.txt
-
-echo "Mission data ready in mission_data/"
+# Get orbital period
+brahe datasets celestrak show 25544 | grep "Period:" | awk '{print $2, $3}'
 ```
 
-### Constellation Analysis
-
-```bash
-#!/bin/bash
-# Analyze satellite constellations
-
-echo "Constellation Sizes"
-echo "==================="
-
-for group in starlink oneweb planet; do
-    brahe datasets celestrak download /tmp/${group}.json \
-        --group $group --file-format json 2>/dev/null
-
-    count=$(cat /tmp/${group}.json | grep -c "name")
-
-    echo "$group: $count satellites"
-done
-```
-
-### Ground Network Coverage
-
-```bash
-#!/bin/bash
-# Analyze ground network coverage by provider
-
-echo "Ground Network Summary"
-echo "======================"
-
-providers=$(brahe datasets groundstations list 2>/dev/null | tail -n +2 | sed 's/  - //')
-
-for provider in $providers; do
-    output=$(brahe datasets groundstations show $provider 2>/dev/null)
-    count=$(echo "$output" | grep -oP '\d+(?= total)' | head -1)
-
-    echo "$provider: $count stations"
-done
-```
-
-## File Format Comparison
-
-### Use Cases
-
-| Format | Best For | Pros | Cons |
-|--------|----------|------|------|
-| **TXT** | Legacy systems, simple parsing | Standard format, widely supported | No metadata, harder to parse |
-| **CSV** | Spreadsheet analysis, batch processing | Structured, easy to import | Limited nested data |
-| **JSON** | Modern applications, APIs | Flexible, includes metadata | Larger file size |
-
-### Content Format Comparison
-
-| Format | Includes Name | Use Case |
-|--------|---------------|----------|
-| **TLE** (2-line) | No | Minimal data, standard format |
-| **3LE** (3-line) | Yes | Easier identification, recommended |
-
-## CelesTrak Satellite Groups
-
-### Full Group List
-
-Common groups include:
-
-- **Mega-Constellations**: `starlink`, `oneweb`
-- **Navigation**: `gnss`, `gps-ops`, `glonass-ops`, `galileo`, `beidou`
-- **Communication**: `geo`, `intelsat`, `ses`, `iridium`, `orbcomm`
-- **Earth Observation**: `planet`, `spire`, `capella`
-- **Science**: `science`, `geodetic`, `engineering`
-- **Weather**: `weather`, `noaa`, `goes`
-- **Space Stations**: `stations`
-- **Special**: `active`, `analyst`, `classified`
-
-For a complete list, visit [CelesTrak](https://celestrak.org/NORAD/elements/).
-
-## Notes
-
-- **Update Frequency**: CelesTrak updates TLE data multiple times per day. Download fresh data regularly for accurate propagation.
-- **File Size**: JSON format with 3LE content is larger but more usable than TXT.
-- **Caching**: The CLI does not cache downloaded data. Implement your own caching if needed.
-- **Rate Limits**: CelesTrak has rate limits. Avoid excessive requests.
-- **Groundstation Data**: Groundstation coordinates are from public sources and may not reflect current operational status.
+---
 
 ## See Also
 
-- [CelesTrak Dataset](../../library_api/datasets/celestrak.md) - Python API
-- [Groundstations Dataset](../../library_api/datasets/groundstations.md) - Python API
-- [TLE Format](../orbits/two_line_elements.md) - TLE explanation
-- [Downloading TLE Data Example](../../examples/downloading_tle_data.md) - Complete workflow
+- [CelesTrak](https://celestrak.org) - Official TLE data source
+- [TLE Format](../tle_format.md) - Understanding Two-Line Elements
+- [SGP4 Propagation](../sgp4.md) - TLE-based orbit propagation
+- [Access CLI](access.md) - Compute satellite passes (uses TLE data)
+- [Datasets API](../../library_api/datasets/index.md) - Python dataset functions

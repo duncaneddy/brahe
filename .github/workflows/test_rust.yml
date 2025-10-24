@@ -82,18 +82,18 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
-                exclude:
-                    - os: windows-latest
-                      python-version: '3.14'
         steps:
             -   uses: actions/checkout@v5
             -   name: Install Rust
                 run: rustup update nightly
             -   run: rustup default nightly
+            -   name: Set up Python ${{ matrix.python-version }}
+                uses: actions/setup-python@v5
+                with:
+                    python-version: ${{ matrix.python-version }}
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v6
                 with:
-                    python-version: ${{ matrix.python-version }}
                     enable-cache: true
 
             # Cache the virtual environment
@@ -114,9 +114,6 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
-                exclude:
-                    - os: windows-latest
-                      python-version: '3.14'
         steps:
             -   uses: actions/checkout@v5
             -   name: Set up Rust toolchain with cache
@@ -128,10 +125,13 @@ jobs:
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
+            -   name: Set up Python ${{ matrix.python-version }}
+                uses: actions/setup-python@v5
+                with:
+                    python-version: ${{ matrix.python-version }}
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v6
                 with:
-                    python-version: ${{ matrix.python-version }}
                     enable-cache: true
 
             # Cache the virtual environment

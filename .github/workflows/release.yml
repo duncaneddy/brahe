@@ -42,10 +42,10 @@ jobs:
       with:
         toolchain: nightly
 
-    - name: Set up Python #{{ matrix.python-version }}
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: #{{ matrix.python-version }}
+        python-version: ${{ matrix.python-version }}
 
     - name: Install 'build' library
       run: pip install -U build
@@ -66,9 +66,6 @@ jobs:
       matrix:
           os: [ ubuntu-latest, macos-latest, windows-latest ]
           python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
-          exclude:
-            - os: windows-latest
-              python-version: '3.14'
     environment: release
 
     steps:

@@ -77,6 +77,41 @@ def run_command(
         return False
 
 
+def find_file_by_name(directory: Path, filename: str, extension: str) -> Optional[Path]:
+    """
+    Find a file by name in directory (including subdirectories).
+
+    Args:
+        directory: Root directory to search in
+        filename: Base filename (without extension or with partial path)
+        extension: File extension (e.g., '.py', '.rs')
+
+    Returns:
+        Path to the file if found, None otherwise
+    """
+    # First try direct path (with or without extension)
+    if filename.endswith(extension):
+        direct_path = directory / filename
+    else:
+        direct_path = directory / f"{filename}{extension}"
+
+    if direct_path.exists():
+        return direct_path
+
+    # Search recursively by filename only
+    base_name = Path(filename).stem  # Get filename without extension
+    pattern = f"**/{base_name}{extension}"
+    matches = list(directory.glob(pattern))
+
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        # Multiple matches found - return None and let caller handle it
+        return None
+
+    return None
+
+
 def check_flags(
     file_path: Path,
     enable_ci_only: bool = False,
@@ -155,9 +190,14 @@ def test_python_example(
     file_path: Path, verbose: bool = False
 ) -> tuple[bool, str, str]:
     """Test a single Python example. Returns (success, stdout, stderr)."""
+    # Use .venv/bin/python directly to avoid uv environment warnings
+    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
+    if not python_exe.exists():
+        return False, "", f"Virtual environment not found at {python_exe}"
+
     try:
         result = subprocess.run(
-            ["uv", "run", "python", str(file_path)],
+            [str(python_exe), str(file_path)],
             capture_output=True,
             text=True,
             timeout=60,
@@ -485,7 +525,8 @@ def test_examples(
 @app.command()
 def test_example(
     example_name: str = typer.Argument(
-        ..., help="Example name (e.g., 'access/basic_workflow')"
+        ...,
+        help="Example name (e.g., 'orbital_period', 'access/basic_workflow', 'orbital_period.py', or 'orbital_period.rs')",
     ),
     lang: Optional[str] = typer.Option(
         None, "--lang", "-l", help="Language: rust, python, or both (default)"
@@ -496,21 +537,98 @@ def test_example(
     Test a specific example.
 
     Equivalent to: make test-example EXAMPLE_NAME=... LANG=...
+
+    The example name can be:
+    - Just the filename (searches all subdirectories): 'orbital_period'
+    - Full path from examples/: 'common/orbital_period'
+    - With extension for single language: 'orbital_period.py' or 'orbital_period.rs'
+
+    If example_name ends with .py, only Python test runs.
+    If example_name ends with .rs, only Rust test runs.
+    If example_name has no extension, both tests run (unless --lang is specified).
     """
-    base_path = EXAMPLES_DIR / example_name
-    test_rust_lang = lang in (None, "both", "rust")
-    test_python_lang = lang in (None, "both", "python")
+    # Detect file extension and adjust behavior
+    if example_name.endswith(".py"):
+        base_name = example_name[:-3]  # Remove .py extension
+        test_rust_lang = False
+        test_python_lang = True
+    elif example_name.endswith(".rs"):
+        base_name = example_name[:-3]  # Remove .rs extension
+        test_rust_lang = True
+        test_python_lang = False
+    else:
+        base_name = example_name
+        test_rust_lang = lang in (None, "both", "rust")
+        test_python_lang = lang in (None, "both", "python")
+
     all_passed = True
     error_details = []
+    rust_file = None
+    py_file = None
 
+    # Try to find both files first
     if test_rust_lang:
-        rust_file = base_path.with_suffix(".rs")
-        if not rust_file.exists():
-            console.print(
-                f"[red]Error: {rust_file.relative_to(REPO_ROOT)} not found[/red]"
-            )
-            raise typer.Exit(1)
+        rust_file = find_file_by_name(EXAMPLES_DIR, base_name, ".rs")
+        if rust_file is None:
+            # Check if multiple matches
+            matches = list(EXAMPLES_DIR.glob(f"**/{Path(base_name).stem}.rs"))
+            if len(matches) > 1:
+                console.print(
+                    f"[red]Error: Multiple matches found for '{base_name}.rs':[/red]"
+                )
+                for match in matches:
+                    console.print(f"  {match.relative_to(REPO_ROOT)}")
+                console.print("[yellow]Please specify the full path[/yellow]")
+                raise typer.Exit(1)
 
+    if test_python_lang:
+        py_file = find_file_by_name(EXAMPLES_DIR, base_name, ".py")
+        if py_file is None:
+            # Check if multiple matches
+            matches = list(EXAMPLES_DIR.glob(f"**/{Path(base_name).stem}.py"))
+            if len(matches) > 1:
+                console.print(
+                    f"[red]Error: Multiple matches found for '{base_name}.py':[/red]"
+                )
+                for match in matches:
+                    console.print(f"  {match.relative_to(REPO_ROOT)}")
+                console.print("[yellow]Please specify the full path[/yellow]")
+                raise typer.Exit(1)
+
+    # If neither file found (considering what was requested), handle appropriately
+    if test_rust_lang and not rust_file and test_python_lang and not py_file:
+        # Looking for both, found neither
+        console.print(f"[red]Error: No example files found for '{base_name}'[/red]")
+        raise typer.Exit(1)
+    elif test_rust_lang and not rust_file and not test_python_lang:
+        # Only looking for Rust, didn't find it - but maybe Python exists
+        if find_file_by_name(EXAMPLES_DIR, base_name, ".py"):
+            console.print(
+                f"[red]Error: {base_name}.rs not found (but {base_name}.py exists)[/red]"
+            )
+        else:
+            console.print(f"[red]Error: {base_name}.rs not found[/red]")
+        raise typer.Exit(1)
+    elif test_python_lang and not py_file and not test_rust_lang:
+        # Only looking for Python, didn't find it - but maybe Rust exists
+        if find_file_by_name(EXAMPLES_DIR, base_name, ".rs"):
+            console.print(
+                f"[red]Error: {base_name}.py not found (but {base_name}.rs exists)[/red]"
+            )
+        else:
+            console.print(f"[red]Error: {base_name}.py not found[/red]")
+        raise typer.Exit(1)
+
+    # Determine expected path for missing file warnings
+    if rust_file:
+        expected_dir = rust_file.parent
+    elif py_file:
+        expected_dir = py_file.parent
+    else:
+        expected_dir = EXAMPLES_DIR
+
+    # Test Rust if requested and found
+    if test_rust_lang and rust_file:
         console.print(f"[blue]Testing Rust: {rust_file.relative_to(REPO_ROOT)}[/blue]")
         passed, stdout, stderr = test_rust_example(rust_file, verbose)
         if passed:
@@ -521,15 +639,15 @@ def test_example(
             error_details.append(
                 (str(rust_file.relative_to(REPO_ROOT)), stdout, stderr)
             )
+    elif test_rust_lang and not rust_file:
+        # Warn about missing Rust file
+        expected_path = expected_dir / f"{Path(base_name).stem}.rs"
+        console.print(
+            f"[yellow]⚠ Warning: {expected_path.relative_to(REPO_ROOT)} not found[/yellow]"
+        )
 
-    if test_python_lang:
-        py_file = base_path.with_suffix(".py")
-        if not py_file.exists():
-            console.print(
-                f"[red]Error: {py_file.relative_to(REPO_ROOT)} not found[/red]"
-            )
-            raise typer.Exit(1)
-
+    # Test Python if requested and found
+    if test_python_lang and py_file:
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
         passed, stdout, stderr = test_python_example(py_file, verbose)
         if passed:
@@ -538,6 +656,12 @@ def test_example(
             console.print("[red]✗ FAIL[/red]")
             all_passed = False
             error_details.append((str(py_file.relative_to(REPO_ROOT)), stdout, stderr))
+    elif test_python_lang and not py_file:
+        # Warn about missing Python file
+        expected_path = expected_dir / f"{Path(base_name).stem}.py"
+        console.print(
+            f"[yellow]⚠ Warning: {expected_path.relative_to(REPO_ROOT)} not found[/yellow]"
+        )
 
     if not all_passed:
         # Print detailed error information
@@ -585,10 +709,11 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
     ) as progress:
         task = progress.add_task("Generating figures...", total=len(plot_files))
 
+        python_exe = REPO_ROOT / ".venv" / "bin" / "python"
         for plot_file in plot_files:
             console.print(f"Generating {plot_file.name}...")
             result = subprocess.run(
-                ["uv", "run", "python", str(plot_file)],
+                [str(python_exe), str(plot_file)],
                 cwd=REPO_ROOT,
                 capture_output=not verbose,
                 text=True,
@@ -614,7 +739,7 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
 def make_plot(
     plot_name: str = typer.Argument(
         ...,
-        help="Plot name (e.g., 'attitude_representations' or 'plots/attitude_representations.py')",
+        help="Plot name (e.g., 'attitude_representations', 'subdir/plot_name', or 'attitude_representations.py')",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ):
@@ -622,6 +747,11 @@ def make_plot(
     Generate a specific plot.
 
     Equivalent to: make plot NAME=...
+
+    The plot name can be:
+    - Just the filename (searches all subdirectories): 'attitude_representations'
+    - Full path from plots/: 'subdir/plot_name'
+    - With .py extension: 'attitude_representations.py'
     """
     # Handle different input formats
     # Remove leading "plots/" if present
@@ -631,13 +761,24 @@ def make_plot(
     if plot_name.endswith(".py"):
         plot_name = plot_name[:-3]
 
-    plot_file = PLOTS_DIR / f"{plot_name}.py"
+    # Try to find the plot file
+    plot_file = find_file_by_name(PLOTS_DIR, plot_name, ".py")
 
-    if not plot_file.exists():
-        console.print(f"[red]Error: {plot_file.relative_to(REPO_ROOT)} not found[/red]")
-        console.print("\n[yellow]Available plots:[/yellow]")
-        for p in sorted(PLOTS_DIR.glob("*.py")):
-            console.print(f"  {p.stem}")
+    if plot_file is None:
+        # Check if multiple matches
+        matches = list(PLOTS_DIR.glob(f"**/{Path(plot_name).stem}.py"))
+        if len(matches) > 1:
+            console.print(
+                f"[red]Error: Multiple matches found for '{plot_name}.py':[/red]"
+            )
+            for match in matches:
+                console.print(f"  {match.relative_to(REPO_ROOT)}")
+            console.print("[yellow]Please specify the full path[/yellow]")
+        else:
+            console.print(f"[red]Error: {plot_name}.py not found in plots/[/red]")
+            console.print("\n[yellow]Available plots:[/yellow]")
+            for p in sorted(PLOTS_DIR.glob("**/*.py")):
+                console.print(f"  {p.relative_to(PLOTS_DIR).with_suffix('')}")
         console.print()
         raise typer.Exit(1)
 
@@ -645,8 +786,9 @@ def make_plot(
 
     console.print(f"\n[bold blue]Generating {plot_file.name}[/bold blue]\n")
 
+    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
     result = subprocess.run(
-        ["uv", "run", "python", str(plot_file)],
+        [str(python_exe), str(plot_file)],
         cwd=REPO_ROOT,
         capture_output=not verbose,
         text=True,
@@ -783,9 +925,10 @@ def docs(
     # Generate figures first
     console.print("[bold]Generating figures[/bold]")
     FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
     for plot_file in PLOTS_DIR.glob("*.py"):
         subprocess.run(
-            ["uv", "run", "python", str(plot_file)],
+            [str(python_exe), str(plot_file)],
             cwd=REPO_ROOT,
             capture_output=True,
             env={

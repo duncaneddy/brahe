@@ -17,7 +17,7 @@ jobs:
                 uses: astral-sh/setup-uv@v6
                 with:
                     python-version: ${{ matrix.python-version }}
-                    enable-cache: trueuv
+                    enable-cache: true
 
             # Try to download Brahe cache to avoid external API calls
             -   name: Download Brahe cache directory

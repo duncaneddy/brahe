@@ -28,10 +28,6 @@
  * ## Earth Orientation Parameters
  * - `EarthOrientationProvider` - Trait for EOP data providers
  *
- * ## Numerical Integration
- * - `NumericalIntegrator` - Generic numerical integrator trait
- * - `StateInterpolator` - State interpolation for numerical integrators
- *
  * ## Identification
  * - `Identifiable` - Trait for objects that can be identified by name, ID, and/or UUID
  */
@@ -60,7 +56,6 @@ pub use crate::eop::EarthOrientationProvider;
 
 // Numerical integration traits
 pub use crate::integrators::numerical_integrator::NumericalIntegrator;
-pub use crate::utils::interpolation::StateInterpolator;
 
 // Identification trait
 pub use crate::utils::identifiable::Identifiable;

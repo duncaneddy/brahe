@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fmt, ops};
 
 use regex::Regex;
@@ -346,6 +347,50 @@ impl Epoch {
             nanoseconds: ns,
             nanoseconds_kc: 0.0,
         }
+    }
+
+    /// Create an `Epoch` representing the current UTC instant.
+    ///
+    /// This method uses the system clock to get the current time and creates an `Epoch`
+    /// in the UTC time system.
+    ///
+    /// # Returns
+    /// `Epoch`: Returns an `Epoch` struct representing the current instant in time in UTC
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::eop::*;
+    /// use brahe::time::*;
+    ///
+    /// // Quick EOP initialization
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// // Get current time
+    /// let now = Epoch::now();
+    /// assert_eq!(now.time_system, TimeSystem::UTC);
+    /// ```
+    pub fn now() -> Self {
+        // Get current system time
+        let now = SystemTime::now();
+
+        // Convert to duration since Unix epoch (Jan 1, 1970 00:00:00 UTC)
+        let duration = now
+            .duration_since(UNIX_EPOCH)
+            .expect("System time is before Unix epoch");
+
+        // Convert to total seconds
+        let total_seconds = duration.as_secs() as f64;
+
+        // Unix epoch in Julian Date: 2440587.5 (Jan 1, 1970 00:00:00 UTC)
+        // Convert Unix time (seconds) to Julian Date
+        const UNIX_EPOCH_JD: f64 = 2440587.5;
+        let jd = UNIX_EPOCH_JD + (total_seconds / SECONDS_PER_DAY);
+
+        // Create Epoch from Julian Date in UTC time system and add fractional seconds
+        // We add fractional seconds separately to retain maximum precision
+        Epoch::from_jd(jd, TimeSystem::UTC)
+            + (duration.subsec_nanos() as f64 / NANOSECONDS_PER_SECOND_FLOAT)
     }
 
     /// Create an Epoch from a string.
@@ -1962,6 +2007,38 @@ mod tests {
         assert_eq!(minute, 0);
         assert_eq!(second, 0.0);
         assert_eq!(nanoseconds, 0.5 * 1.0e9 + 1.2345);
+    }
+
+    #[test]
+    fn test_epoch_now() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        setup_global_test_eop();
+
+        // Get current time using Epoch::now()
+        let epoch_now = Epoch::now();
+
+        // Verify it's in UTC time system
+        assert_eq!(epoch_now.time_system, TimeSystem::UTC);
+
+        // Get current system time for comparison
+        let system_now = SystemTime::now();
+        let system_duration = system_now.duration_since(UNIX_EPOCH).unwrap();
+        let system_seconds =
+            system_duration.as_secs() as f64 + (system_duration.subsec_nanos() as f64 / 1.0e9);
+
+        // Convert to Julian Date the same way as the implementation
+        const UNIX_EPOCH_JD: f64 = 2440587.5;
+        let expected_jd = UNIX_EPOCH_JD + (system_seconds / 86400.0);
+        let expected_epoch = Epoch::from_jd(expected_jd, TimeSystem::UTC);
+
+        // The two epochs should be very close (within 1 second to account for execution time)
+        let diff = (epoch_now - expected_epoch).abs();
+        assert!(
+            diff < 1.0,
+            "Epoch::now() differs from system time by {} seconds",
+            diff
+        );
     }
 
     #[test]

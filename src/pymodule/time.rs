@@ -922,6 +922,38 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch representing the current UTC instant.
+    ///
+    /// This method uses the system clock to get the current time and creates an Epoch
+    /// in the UTC time system.
+    ///
+    /// Returns:
+    ///     Epoch: The epoch representing the current instant in time in UTC
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Get current time as an Epoch
+    ///     now = bh.Epoch.now()
+    ///     print(f"Current time: {now}")
+    ///     print(f"Time system: {now.time_system}")
+    ///     # Output: Time system: TimeSystem.UTC
+    ///
+    ///     # Use in orbital calculations
+    ///     import numpy as np
+    ///     current_epoch = bh.Epoch.now()
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     propagator = bh.KeplerianPropagator.from_eci(current_epoch, state, 60.0)
+    ///     ```
+    #[classmethod]
+    pub fn now(_cls: &Bound<'_, PyType>) -> PyResult<PyEpoch> {
+        Ok(PyEpoch {
+            obj: time::Epoch::now(),
+        })
+    }
+
     /// Convert the epoch to Gregorian calendar date and time in a specified time system.
     ///
     /// Args:

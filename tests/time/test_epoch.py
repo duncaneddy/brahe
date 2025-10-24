@@ -63,6 +63,26 @@ def test_epoch_from_datetime(eop):
     assert nanosecond == 6.0
 
 
+def test_epoch_now(eop):
+    # Get current time using Epoch.now()
+    epoch_now = bh.Epoch.now()
+
+    # Verify it's in UTC time system
+    assert epoch_now.time_system == bh.UTC
+
+    # Get current time from datetime for comparison
+    from datetime import datetime, timezone
+
+    dt_now = datetime.now(timezone.utc)
+
+    # Create an Epoch from the datetime
+    dt_epoch = bh.Epoch(dt_now)
+
+    # The two epochs should be very close (within 1 second to account for execution time)
+    diff = abs(epoch_now - dt_epoch)
+    assert diff < 1.0, f"Epoch.now() differs from datetime by {diff} seconds"
+
+
 def test_epoch_from_string(eop):
     epc = bh.Epoch.from_string("2018-12-20")
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()

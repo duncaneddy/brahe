@@ -54,7 +54,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install dependencies
-        run: uv sync --group docs --all-extras --locked
+        run: uv sync --group docs --all-extras --frozen
 
       # Build Python extension
       - name: Build Python extension
@@ -83,4 +83,4 @@ jobs:
           path: docs/figures/
 
       - name: Deploy documentation (latest from main)
-        run: uv run --locked mike deploy --push --update-aliases latest
+        run: uv run --frozen mike deploy --push --update-aliases latest

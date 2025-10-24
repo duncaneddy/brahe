@@ -57,10 +57,10 @@ jobs:
       run: uv python install ${{ matrix.python-version }}
 
     - name: Install dependencies
-      run: uv sync --all-extras --locked
+      run: uv sync --all-extras --frozen
 
     - name: Build library
-      run: uv run --locked python -m build
+      run: uv run --frozen python -m build
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

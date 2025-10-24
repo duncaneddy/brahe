@@ -6,24 +6,22 @@
  */
 
 use rayon::ThreadPool;
-use std::sync::OnceLock;
+use std::sync::{Arc, LazyLock, Mutex};
 
-// Global thread pool singleton
-static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
+// Global thread pool singleton - can be reinitialized
+static THREAD_POOL: LazyLock<Mutex<Option<Arc<ThreadPool>>>> = LazyLock::new(|| Mutex::new(None));
 
 /// Set the number of threads for parallel computation.
 ///
 /// This function configures the global thread pool used by Brahe for
-/// parallel operations (e.g., access computation). Must be called before
-/// any parallel operations begin, otherwise the default (90% of cores)
-/// will be used.
+/// parallel operations (e.g., access computation). Can be called multiple
+/// times to reinitialize the thread pool with a different number of threads.
 ///
 /// # Arguments
 /// * `n` - Number of threads to use. Must be at least 1.
 ///
 /// # Panics
-/// Panics if called after the thread pool has already been initialized,
-/// or if n < 1.
+/// Panics if n < 1 or if the thread pool fails to build.
 ///
 /// # Examples
 /// ```
@@ -31,33 +29,30 @@ static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
 ///
 /// // Use 4 threads for parallel computation
 /// set_num_threads(4);
+///
+/// // Can be called again to change thread count
+/// set_num_threads(8);
 /// ```
 pub fn set_num_threads(n: usize) {
     if n == 0 {
         panic!("Number of threads must be at least 1");
     }
 
-    let result = THREAD_POOL.set(
+    let new_pool = Arc::new(
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .build()
             .expect("Failed to build thread pool"),
     );
 
-    if result.is_err() {
-        panic!(
-            "Thread pool already initialized. set_num_threads() must be called before any parallel operations."
-        );
-    }
+    let mut pool = THREAD_POOL.lock().expect("Thread pool mutex poisoned");
+    *pool = Some(new_pool);
 }
 
 /// Set the thread pool to use all available CPU cores.
 ///
 /// This is a convenience function that sets the number of threads to 100%
-/// of available CPU cores. Must be called before any parallel operations begin.
-///
-/// # Panics
-/// Panics if called after the thread pool has already been initialized.
+/// of available CPU cores. Can be called multiple times to reinitialize.
 ///
 /// # Examples
 /// ```
@@ -74,11 +69,8 @@ pub fn set_max_threads() {
 ///
 /// Set the thread pool to use all available CPU cores (alias for `set_max_threads`).
 ///
-/// This is a fun alias for `set_max_threads()`. Must be called before
-/// any parallel operations begin.
-///
-/// # Panics
-/// Panics if called after the thread pool has already been initialized.
+/// This is a fun alias for `set_max_threads()`. Can be called multiple times
+/// to reinitialize.
 ///
 /// # Examples
 /// ```
@@ -97,16 +89,26 @@ pub fn set_ludicrous_speed() {
 ///
 /// # Internal Use
 /// This function is intended for internal use by Brahe's parallel algorithms.
-pub(crate) fn get_thread_pool() -> &'static ThreadPool {
-    THREAD_POOL.get_or_init(|| {
+///
+/// # Note
+/// Returns a clone of the thread pool Arc. The pool is initialized with default
+/// settings if it hasn't been configured yet.
+pub(crate) fn get_thread_pool() -> Arc<ThreadPool> {
+    let mut pool_guard = THREAD_POOL.lock().expect("Thread pool mutex poisoned");
+
+    if pool_guard.is_none() {
         let num_cpus = num_cpus::get();
         let default_threads = ((num_cpus as f64 * 0.9).ceil() as usize).max(1);
 
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(default_threads)
-            .build()
-            .expect("Failed to build default thread pool")
-    })
+        *pool_guard = Some(Arc::new(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(default_threads)
+                .build()
+                .expect("Failed to build default thread pool"),
+        ));
+    }
+
+    pool_guard.as_ref().unwrap().clone()
 }
 
 /// Get the current maximum number of threads.
@@ -149,16 +151,9 @@ mod tests {
 
     #[test]
     fn test_default_thread_count() {
-        // This test MUST run in isolation (cannot be parallelized)
-        // to avoid interference with other tests that might initialize
-        // the thread pool.
-
         let num_cpus = num_cpus::get();
         let expected = ((num_cpus as f64 * 0.9).ceil() as usize).max(1);
 
-        // Note: We can't directly test this because THREAD_POOL is global
-        // and may already be initialized by other tests.
-        // This is a limitation of global state in testing.
         assert!(expected >= 1);
         assert!(expected <= num_cpus);
     }
@@ -176,42 +171,137 @@ mod tests {
     #[test]
     #[should_panic(expected = "Number of threads must be at least 1")]
     fn test_set_num_threads_zero_panics() {
-        // This will panic because n=0 is invalid
         set_num_threads(0);
     }
 
     #[test]
-    fn test_set_max_threads_calls_set_num_threads() {
-        // We can't directly test set_max_threads due to global state,
-        // but we can verify it doesn't panic when called
-        // Note: This may or may not panic depending on whether thread pool
-        // is already initialized by other tests
+    fn test_set_num_threads_reinitialize() {
+        // Test that we can reinitialize the thread pool without panicking
+        set_num_threads(2);
+        assert_eq!(get_max_threads(), 2);
 
-        // Just verify the function exists and can be called
-        // The actual behavior is tested indirectly through get_max_threads
-        let num_cpus_val = num_cpus::get();
-        assert!(num_cpus_val > 0);
+        // Reinitialize with different thread count
+        set_num_threads(4);
+        assert_eq!(get_max_threads(), 4);
+
+        // Reinitialize again
+        set_num_threads(1);
+        assert_eq!(get_max_threads(), 1);
     }
 
     #[test]
-    fn test_set_ludicrous_speed_exists() {
-        // Similar to set_max_threads, we can't directly test due to global state
-        // but we verify the function exists and would set to max CPUs
+    fn test_set_max_threads() {
         let num_cpus_val = num_cpus::get();
-        assert!(num_cpus_val > 0);
 
-        // The function calls set_max_threads which calls set_num_threads(num_cpus::get())
-        // This is tested indirectly
+        // Set to max threads
+        set_max_threads();
+        assert_eq!(get_max_threads(), num_cpus_val);
+
+        // Should be able to call again
+        set_max_threads();
+        assert_eq!(get_max_threads(), num_cpus_val);
     }
 
     #[test]
-    fn test_get_thread_pool_returns_static_ref() {
+    fn test_set_ludicrous_speed() {
+        let num_cpus_val = num_cpus::get();
+
+        // Set to ludicrous speed
+        set_ludicrous_speed();
+        assert_eq!(get_max_threads(), num_cpus_val);
+
+        // Should be able to call again
+        set_ludicrous_speed();
+        assert_eq!(get_max_threads(), num_cpus_val);
+    }
+
+    #[test]
+    fn test_get_thread_pool_returns_valid_pool() {
         // Test that get_thread_pool returns a valid thread pool
         let pool = get_thread_pool();
-        let _threads = pool.current_num_threads();
+        let threads = pool.current_num_threads();
 
-        // Should return same pool on subsequent calls
+        // Should have at least 1 thread
+        assert!(threads >= 1);
+    }
+
+    #[test]
+    fn test_reinitialize_changes_thread_count() {
+        // Initialize with specific thread count
+        set_num_threads(3);
+        let pool1 = get_thread_pool();
+        assert_eq!(pool1.current_num_threads(), 3);
+
+        // Reinitialize with different count
+        set_num_threads(5);
         let pool2 = get_thread_pool();
-        assert_eq!(pool.current_num_threads(), pool2.current_num_threads());
+        assert_eq!(pool2.current_num_threads(), 5);
+
+        // Verify get_max_threads reflects the change
+        assert_eq!(get_max_threads(), 5);
+    }
+
+    #[test]
+    fn test_mixed_function_reinitialization() {
+        // Start with specific thread count
+        set_num_threads(2);
+        assert_eq!(get_max_threads(), 2);
+
+        // Switch to max threads
+        set_max_threads();
+        let max_threads = get_max_threads();
+        assert!(max_threads >= 2);
+
+        // Switch to ludicrous speed (should be same as max)
+        set_ludicrous_speed();
+        assert_eq!(get_max_threads(), max_threads);
+
+        // Go back to specific count
+        set_num_threads(1);
+        assert_eq!(get_max_threads(), 1);
+
+        // Back to max again
+        set_max_threads();
+        assert_eq!(get_max_threads(), max_threads);
+    }
+
+    #[test]
+    fn test_get_max_threads_reflects_set_num_threads() {
+        let test_values = [1, 2, 4, 8];
+
+        for n in test_values {
+            set_num_threads(n);
+            assert_eq!(
+                get_max_threads(),
+                n,
+                "Expected {} threads, got {}",
+                n,
+                get_max_threads()
+            );
+        }
+    }
+
+    #[test]
+    fn test_thread_pool_arc_cloning() {
+        // Set initial pool
+        set_num_threads(4);
+
+        // Get multiple references to the pool
+        let pool1 = get_thread_pool();
+        let pool2 = get_thread_pool();
+        let pool3 = get_thread_pool();
+
+        // All should report same thread count
+        assert_eq!(pool1.current_num_threads(), 4);
+        assert_eq!(pool2.current_num_threads(), 4);
+        assert_eq!(pool3.current_num_threads(), 4);
+
+        // After reinitialization, new references should see new count
+        set_num_threads(6);
+        let pool4 = get_thread_pool();
+        assert_eq!(pool4.current_num_threads(), 6);
+
+        // Old references still point to old pool (Arc behavior)
+        assert_eq!(pool1.current_num_threads(), 4);
     }
 }

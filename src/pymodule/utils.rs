@@ -51,44 +51,54 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
 
 /// Set the number of threads for parallel computation.
 ///
-/// Configures the global thread pool used by Brahe for parallel operations.
-/// Must be called before any parallel operations begin, otherwise the default
-/// (90% of available cores) will be used.
+/// Configures the global thread pool used by Brahe for parallel operations such as
+/// access computations. This function can be called multiple times to dynamically
+/// change the thread pool configuration - each call will reinitialize the pool with
+/// the new thread count.
 ///
 /// Args:
 ///     n (int): Number of threads to use. Must be at least 1.
 ///
 /// Raises:
-///     RuntimeError: If called after the thread pool has already been initialized,
-///         or if n < 1.
+///     ValueError: If n < 1.
+///     RuntimeError: If thread pool fails to build.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Use 4 threads for all parallel access computations
+///     # Set to 4 threads initially
 ///     bh.set_num_threads(4)
+///     print(f"Threads: {bh.get_max_threads()}")  # Output: 4
 ///
-///     # Now all location_accesses calls will use 4 threads
-///     # (unless overridden with AccessSearchConfig.num_threads)
+///     # Reinitialize with 8 threads - no error!
+///     bh.set_num_threads(8)
+///     print(f"Threads: {bh.get_max_threads()}")  # Output: 8
+///
+///     # All parallel operations (e.g., location_accesses) will now use
+///     # 8 threads unless overridden with AccessSearchConfig.num_threads
 ///     ```
 ///
 /// Note:
-///     This function should be called early in your program, before any
-///     access computations are performed. Once the thread pool is initialized,
-///     it cannot be changed.
+///     Unlike earlier versions, this function no longer raises an error if the
+///     thread pool has already been initialized. You can safely call it at any
+///     time to reconfigure the thread pool.
 #[pyfunction]
 #[pyo3(name = "set_num_threads")]
 pub fn py_set_num_threads(n: usize) -> PyResult<()> {
     use crate::utils::threading::set_num_threads;
 
-    // Use panic::catch_unwind to handle Rust panics
+    if n == 0 {
+        return Err(exceptions::PyValueError::new_err(
+            "Number of threads must be at least 1"
+        ));
+    }
+
+    // Use panic::catch_unwind only for thread pool build failures
     match std::panic::catch_unwind(|| set_num_threads(n)) {
         Ok(_) => Ok(()),
         Err(_) => Err(exceptions::PyRuntimeError::new_err(
-            "Thread pool already initialized or invalid thread count. \
-             set_num_threads() must be called before any parallel operations \
-             and n must be at least 1."
+            "Failed to build thread pool"
         )),
     }
 }
@@ -96,10 +106,11 @@ pub fn py_set_num_threads(n: usize) -> PyResult<()> {
 /// Set the thread pool to use all available CPU cores.
 ///
 /// This is a convenience function that sets the number of threads to 100%
-/// of available CPU cores. Must be called before any parallel operations begin.
+/// of available CPU cores. Can be called multiple times to reinitialize the
+/// thread pool dynamically.
 ///
 /// Raises:
-///     RuntimeError: If called after the thread pool has already been initialized.
+///     RuntimeError: If thread pool fails to build.
 ///
 /// Example:
 ///     ```python
@@ -107,37 +118,43 @@ pub fn py_set_num_threads(n: usize) -> PyResult<()> {
 ///
 ///     # Use all available CPU cores
 ///     bh.set_max_threads()
+///     print(f"Using all {bh.get_max_threads()} cores")
 ///
-///     # Now all parallel operations will use maximum threads
+///     # Switch to 2 threads
+///     bh.set_num_threads(2)
+///
+///     # Switch back to max - no error!
+///     bh.set_max_threads()
+///     print(f"Back to {bh.get_max_threads()} cores")
 ///     ```
 ///
 /// Note:
-///     This function should be called early in your program, before any
-///     access computations are performed. Once the thread pool is initialized,
-///     it cannot be changed.
+///     This function can be called at any time, even after the thread pool
+///     has been initialized with a different configuration.
 #[pyfunction]
 #[pyo3(name = "set_max_threads")]
 pub fn py_set_max_threads() -> PyResult<()> {
     use crate::utils::threading::set_max_threads;
 
-    // Use panic::catch_unwind to handle Rust panics
+    // Use panic::catch_unwind only for thread pool build failures
     match std::panic::catch_unwind(set_max_threads) {
         Ok(_) => Ok(()),
         Err(_) => Err(exceptions::PyRuntimeError::new_err(
-            "Thread pool already initialized. \
-             set_max_threads() must be called before any parallel operations."
+            "Failed to build thread pool"
         )),
     }
 }
 
+/// LUDICROUS SPEED! GO!
+///
 /// Set the thread pool to use all available CPU cores (alias for `set_max_threads`).
 ///
 /// This is a fun alias for `set_max_threads()` that sets the number of threads
-/// to 100% of available CPU cores for maximum performance. Must be called before
-/// any parallel operations begin.
+/// to 100% of available CPU cores for maximum performance. Can be called multiple
+/// times to dynamically reinitialize the thread pool.
 ///
 /// Raises:
-///     RuntimeError: If called after the thread pool has already been initialized.
+///     RuntimeError: If thread pool fails to build.
 ///
 /// Example:
 ///     ```python
@@ -145,14 +162,18 @@ pub fn py_set_max_threads() -> PyResult<()> {
 ///
 ///     # MAXIMUM POWER! Use all available CPU cores
 ///     bh.set_ludicrous_speed()
+///     print(f"Going ludicrous with {bh.get_max_threads()} threads!")
 ///
-///     # Now all parallel operations will use maximum threads
+///     # Throttle down for testing
+///     bh.set_num_threads(1)
+///
+///     # ENGAGE LUDICROUS SPEED again - no error!
+///     bh.set_ludicrous_speed()
 ///     ```
 ///
 /// Note:
-///     This function should be called early in your program, before any
-///     access computations are performed. Once the thread pool is initialized,
-///     it cannot be changed.
+///     This function can be called at any time to reconfigure the thread pool
+///     to use maximum available cores, regardless of previous configuration.
 #[pyfunction]
 #[pyo3(name = "set_ludicrous_speed")]
 pub fn py_set_ludicrous_speed() -> PyResult<()> {
@@ -173,19 +194,28 @@ pub fn py_set_ludicrous_speed() -> PyResult<()> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Get default thread count (90% of cores)
+///     # Get default thread count (90% of cores, initialized on first call)
 ///     threads = bh.get_max_threads()
-///     print(f"Using {threads} threads")
+///     print(f"Default: {threads} threads")
 ///
-///     # Or set explicitly first
-///     bh.set_max_threads(4)
+///     # Set to specific value and verify
+///     bh.set_num_threads(4)
 ///     assert bh.get_max_threads() == 4
+///
+///     # Reconfigure and verify again
+///     bh.set_num_threads(8)
+///     assert bh.get_max_threads() == 8
+///
+///     # Switch to max cores
+///     bh.set_max_threads()
+///     print(f"Max cores: {bh.get_max_threads()}")
 ///     ```
 ///
 /// Note:
 ///     Calling this function will initialize the thread pool with default
-///     settings if it hasn't been initialized yet. After that, set_max_threads()
-///     can no longer be called.
+///     settings (90% of cores) if it hasn't been configured yet. After
+///     initialization, you can still reconfigure it using set_num_threads()
+///     or set_max_threads().
 #[pyfunction]
 #[pyo3(name = "get_max_threads")]
 pub fn py_get_max_threads() -> PyResult<usize> {

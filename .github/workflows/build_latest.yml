@@ -203,7 +203,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv run python scripts/generate_simple_index.py \
+          uv run --no-sync python scripts/generate_simple_index.py \
             --repo ${{ github.repository }} \
             --package-name brahe \
             --tag latest \

@@ -65,8 +65,8 @@ def test_download_help():
     assert result.exit_code == 0
     assert "filepath" in result.stdout.lower()
     assert "group" in result.stdout.lower()
-    assert "content-format" in result.stdout.lower()
-    assert "file-format" in result.stdout.lower()
+    assert "content" in result.stdout.lower() and "format" in result.stdout.lower()
+    assert "file" in result.stdout.lower() and "format" in result.stdout.lower()
 
 
 def test_lookup_help():

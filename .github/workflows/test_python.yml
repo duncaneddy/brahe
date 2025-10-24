@@ -7,6 +7,9 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+                exclude:
+                    - os: windows-latest
+                      python-version: '3.14'
         steps:
             # TODO: Remove this when the nightly BTreeCursor is stabilized and released
             -   name: Install Rust

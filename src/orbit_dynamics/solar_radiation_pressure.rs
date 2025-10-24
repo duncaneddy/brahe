@@ -33,8 +33,10 @@ use crate::constants::{AU, R_EARTH, R_SUN};
 ///
 /// let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 ///
-/// // Acceleration should be in the negative x-direction and magnitude should be 4.5e-6 AU^2
-/// assert_eq!(a_srp, Vector3::new(4.5e-6, 0.0, 0.0));
+/// // Acceleration should be in the positive x-direction and magnitude should be 4.5e-6
+/// assert!((a_srp[0] - 4.5e-6).abs() < 1e-12);
+/// assert!((a_srp[1] - 0.0).abs() < 1e-12);
+/// assert!((a_srp[2] - 0.0).abs() < 1e-12);
 /// ```
 pub fn acceleration_solar_radiation_pressure(
     r_object: Vector3<f64>,

@@ -19,6 +19,15 @@ jobs:
                     python-version: ${{ matrix.python-version }}
                     enable-cache: true
 
+            # Cache the virtual environment to avoid reinstalling dependencies
+            -   name: Cache virtual environment
+                uses: actions/cache@v4
+                with:
+                    path: .venv
+                    key: venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
+                    restore-keys: |
+                        venv-${{ runner.os }}-py${{ matrix.python-version }}-
+
             # Try to download Brahe cache to avoid external API calls
             -   name: Download Brahe cache directory
                 id: download-cache
@@ -28,20 +37,21 @@ jobs:
                     name: brahe-cache
                     path: ~/.cache/brahe/
 
-            # Try to download pre-built Python extension
+            # Try to download pre-built Python extension for this Python version
             -   name: Download Python extension artifact
                 id: download-extension
                 continue-on-error: true
                 uses: actions/download-artifact@v4
                 with:
-                    name: python-extension
+                    name: python-extension-py${{ matrix.python-version }}
                     path: ./cached-extension
 
-            -   name: Install dependencies
-                run: uv sync --all-extras --frozen
-
-            -   name: Use cached extension or build new one
+            -   name: Install dependencies and Python package
                 run: |
+                    # Sync dependencies first
+                    uv sync --all-extras --frozen
+
+                    # Then install the brahe package
                     if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
                         echo "Using cached Python extension"
                         mkdir -p target/release

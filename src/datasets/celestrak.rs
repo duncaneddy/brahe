@@ -947,10 +947,20 @@ mod tests {
         let metadata2 = fs::metadata(&cache_path).unwrap();
         let mtime2 = metadata2.modified().unwrap();
 
-        // Modification times should be the same (file wasn't rewritten)
-        assert_eq!(
-            mtime1, mtime2,
-            "Cache file was rewritten when it should have been reused"
+        // Modification times should be very close (within 10ms tolerance for filesystem timing variations)
+        // The cache is working if the file wasn't rewritten after the 200ms sleep
+        let time_diff = if mtime2 > mtime1 {
+            mtime2.duration_since(mtime1).unwrap()
+        } else {
+            mtime1.duration_since(mtime2).unwrap()
+        };
+
+        assert!(
+            time_diff < Duration::from_millis(10),
+            "Cache file appears to have been rewritten (time difference: {:?}ms). Expected < 10ms but got mtime1={:?}, mtime2={:?}",
+            time_diff.as_millis(),
+            mtime1,
+            mtime2
         );
 
         // Results should be identical

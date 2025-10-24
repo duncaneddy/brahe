@@ -261,9 +261,9 @@ def test_set_global_eop_from_caching_provider_default():
     assert brahe.get_global_eop_type() == "StandardBulletinA"
     assert brahe.get_global_eop_len() > 0
 
-    # Verify file was created in cache directory
+    # Verify file was created in cache directory (EOP uses eop subdirectory)
     cache_dir = brahe.get_brahe_cache_dir()
-    expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
+    expected_path = os.path.join(cache_dir, "eop", "finals.all.iau2000.txt")
     assert os.path.exists(expected_path)
 
 
@@ -289,7 +289,7 @@ def test_initialize_eop():
     assert isinstance(pm_x, float)
     assert isinstance(pm_y, float)
 
-    # Verify file was created in the expected cache location
+    # Verify file was created in the expected cache location (EOP uses eop subdirectory)
     cache_dir = brahe.get_brahe_cache_dir()
-    expected_path = os.path.join(cache_dir, "finals.all.iau2000.txt")
+    expected_path = os.path.join(cache_dir, "eop", "finals.all.iau2000.txt")
     assert os.path.exists(expected_path)

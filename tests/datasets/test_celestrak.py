@@ -161,9 +161,9 @@ def test_caching_behavior():
     # First call - should download and cache
     name1, line1_1, line2_1 = bh.datasets.celestrak.get_tle_by_id(25544)
 
-    # Get cache file modification time
+    # Get cache file modification time (CelesTrak uses celestrak subdirectory)
     cache_dir = bh.get_brahe_cache_dir()
-    cache_file = os.path.join(cache_dir, "tle_25544.txt")
+    cache_file = os.path.join(cache_dir, "celestrak", "tle_25544.txt")
     assert os.path.exists(cache_file)
 
     mtime1 = os.path.getmtime(cache_file)

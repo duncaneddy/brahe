@@ -5,8 +5,8 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest]
-                # os: [ubuntu-latest, macos-latest, windows-latest]
+                # os: [ubuntu-latest]
+                os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [nightly]
         env:
             CARGO_TERM_COLOR: always
@@ -37,8 +37,8 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest]
-                # os: [ubuntu-latest, macos-latest, windows-latest]
+                # os: [ubuntu-latest]
+                os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [nightly]
         needs: build-rust
         environment: release
@@ -89,8 +89,8 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest]
-                # os: [ubuntu-latest, macos-latest, windows-latest]
+                # os: [ubuntu-latest]
+                os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [nightly]
         needs: build-rust
         steps:
@@ -114,10 +114,10 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest]
-                python-version: [ '3.13', '3.14' ]
-                # os: [ubuntu-latest, macos-latest, windows-latest]
-                # python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+                # os: [ubuntu-latest]
+                # python-version: [ '3.13', '3.14' ]
+                os: [ubuntu-latest, macos-latest, windows-latest]
+                python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
                 rust-toolchain: [nightly]
         steps:
             -   uses: actions/checkout@v5

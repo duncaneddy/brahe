@@ -59,17 +59,28 @@ plots = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "matplotlib", version = "3.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "matplotlib", version = "3.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "mike" },
     { name = "mkdocs-git-revision-date-localized-plugin" },
     { name = "mkdocs-material" },
     { name = "mkdocs-section-index" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
-    { name = "plotly" },
     { name = "pre-commit" },
     { name = "pyo3-stubgen" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-order" },
+]
+docs = [
+    { name = "mike" },
+    { name = "mkdocs-git-revision-date-localized-plugin" },
+    { name = "mkdocs-material" },
+    { name = "mkdocs-section-index" },
+    { name = "mkdocstrings" },
+    { name = "mkdocstrings-python" },
+    { name = "pyo3-stubgen" },
+]
+test = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-order" },
@@ -79,9 +90,9 @@ dev = [
 requires-dist = [
     { name = "cartopy", specifier = ">=0.23.0" },
     { name = "loguru", specifier = ">=0.7.0" },
-    { name = "matplotlib", specifier = ">=3.9.0" },
+    { name = "matplotlib", specifier = ">=3.9.4" },
     { name = "numpy", specifier = ">=2.0.2" },
-    { name = "plotly", specifier = ">=5.0.0" },
+    { name = "plotly", specifier = ">=6.3.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "scienceplots", marker = "extra == 'plots'", specifier = ">=2.0.0" },
@@ -92,16 +103,28 @@ provides-extras = ["plots"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "matplotlib", specifier = ">=3.9.4" },
     { name = "mike", specifier = ">=2.0.0" },
     { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.4.7" },
     { name = "mkdocs-material", specifier = ">=9.6.20" },
     { name = "mkdocs-section-index", specifier = ">=0.3.10" },
     { name = "mkdocstrings", specifier = ">=0.30.0" },
     { name = "mkdocstrings-python", specifier = ">=1.18.2" },
-    { name = "plotly", specifier = ">=6.3.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pyo3-stubgen", specifier = ">=0.3.0" },
+    { name = "pytest", specifier = ">=7.4.4" },
+    { name = "pytest-cov", specifier = ">=3.0.0" },
+    { name = "pytest-order", specifier = ">=1.3.0" },
+]
+docs = [
+    { name = "mike", specifier = ">=2.0.0" },
+    { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.4.7" },
+    { name = "mkdocs-material", specifier = ">=9.6.20" },
+    { name = "mkdocs-section-index", specifier = ">=0.3.10" },
+    { name = "mkdocstrings", specifier = ">=0.30.0" },
+    { name = "mkdocstrings-python", specifier = ">=1.18.2" },
+    { name = "pyo3-stubgen", specifier = ">=0.3.0" },
+]
+test = [
     { name = "pytest", specifier = ">=7.4.4" },
     { name = "pytest-cov", specifier = ">=3.0.0" },
     { name = "pytest-order", specifier = ">=1.3.0" },

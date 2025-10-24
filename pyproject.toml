@@ -73,8 +73,8 @@ docs = [
 ]
 dev = [
     "pre-commit>=4.3.0",
-    {include-group = "test"},
-    {include-group = "docs"},
+    { include-group = "test" },
+    { include-group = "docs" },
 ]
 
 [tool.maturin]

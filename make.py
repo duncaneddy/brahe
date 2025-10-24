@@ -255,6 +255,48 @@ def test_python(verbose: bool = typer.Option(False, "--verbose", "-v")):
     console.print("[green]✓ Python tests passed[/green]\n")
 
 
+# ===== Example Commands =====
+
+
+@app.command()
+def list_examples(
+    filter_str: Optional[str] = typer.Option(
+        None, "--filter", "-f", help="Filter by path"
+    ),
+    show_flags: bool = typer.Option(False, "--flags", help="Show FLAGS"),
+):
+    """List all available examples."""
+    rust_files = sorted(EXAMPLES_DIR.glob("**/*.rs"))
+
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Example", style="cyan")
+    table.add_column("Python", justify="center")
+    table.add_column("Rust", justify="center")
+    if show_flags:
+        table.add_column("Flags", style="yellow")
+
+    for rust_file in rust_files:
+        rel_path = rust_file.relative_to(EXAMPLES_DIR)
+        example_name = str(rel_path.with_suffix(""))
+
+        if filter_str and filter_str not in example_name:
+            continue
+
+        py_file = rust_file.with_suffix(".py")
+        has_python = "✓" if py_file.exists() else "✗"
+        has_rust = "✓"
+
+        row = [example_name, has_python, has_rust]
+
+        if show_flags:
+            _, reason = check_flags(rust_file)
+            row.append(reason.upper() if reason else "")
+
+        table.add_row(*row)
+
+    console.print(table)
+
+
 @app.command()
 def test_examples(
     strict: bool = typer.Option(False, "--strict", help="Fail on parity issues"),
@@ -569,6 +611,67 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
 
 
 @app.command()
+def make_plot(
+    plot_name: str = typer.Argument(
+        ...,
+        help="Plot name (e.g., 'attitude_representations' or 'plots/attitude_representations.py')",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """
+    Generate a specific plot.
+
+    Equivalent to: make plot NAME=...
+    """
+    # Handle different input formats
+    # Remove leading "plots/" if present
+    if plot_name.startswith("plots/"):
+        plot_name = plot_name[6:]
+    # Remove trailing .py if present
+    if plot_name.endswith(".py"):
+        plot_name = plot_name[:-3]
+
+    plot_file = PLOTS_DIR / f"{plot_name}.py"
+
+    if not plot_file.exists():
+        console.print(f"[red]Error: {plot_file.relative_to(REPO_ROOT)} not found[/red]")
+        console.print("\n[yellow]Available plots:[/yellow]")
+        for p in sorted(PLOTS_DIR.glob("*.py")):
+            console.print(f"  {p.stem}")
+        console.print()
+        raise typer.Exit(1)
+
+    FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"\n[bold blue]Generating {plot_file.name}[/bold blue]\n")
+
+    result = subprocess.run(
+        ["uv", "run", "python", str(plot_file)],
+        cwd=REPO_ROOT,
+        capture_output=not verbose,
+        text=True,
+        env={
+            **subprocess.os.environ,
+            "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
+        },
+    )
+
+    if result.returncode != 0:
+        console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]")
+        if not verbose:
+            console.print("\n[yellow]STDOUT:[/yellow]")
+            console.print(result.stdout)
+            console.print("\n[yellow]STDERR:[/yellow]")
+            console.print(result.stderr)
+        console.print()
+        raise typer.Exit(1)
+
+    console.print(
+        f"[green]✓ Figure generated in {FIGURE_OUTPUT_DIR.relative_to(REPO_ROOT)}[/green]\n"
+    )
+
+
+@app.command()
 def list_plots(show_flags: bool = typer.Option(False, "--flags")):
     """List all available plot scripts."""
     plot_files = sorted(PLOTS_DIR.glob("*.py"))
@@ -749,45 +852,6 @@ def clean():
         html_file.unlink()
 
     console.print("\n[green]✓ Cleaned![/green]\n")
-
-
-@app.command()
-def list_examples(
-    filter_str: Optional[str] = typer.Option(
-        None, "--filter", "-f", help="Filter by path"
-    ),
-    show_flags: bool = typer.Option(False, "--flags", help="Show FLAGS"),
-):
-    """List all available examples."""
-    rust_files = sorted(EXAMPLES_DIR.glob("**/*.rs"))
-
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Example", style="cyan")
-    table.add_column("Python", justify="center")
-    table.add_column("Rust", justify="center")
-    if show_flags:
-        table.add_column("Flags", style="yellow")
-
-    for rust_file in rust_files:
-        rel_path = rust_file.relative_to(EXAMPLES_DIR)
-        example_name = str(rel_path.with_suffix(""))
-
-        if filter_str and filter_str not in example_name:
-            continue
-
-        py_file = rust_file.with_suffix(".py")
-        has_python = "✓" if py_file.exists() else "✗"
-        has_rust = "✓"
-
-        row = [example_name, has_python, has_rust]
-
-        if show_flags:
-            _, reason = check_flags(rust_file)
-            row.append(reason.upper() if reason else "")
-
-        table.add_row(*row)
-
-    console.print(table)
 
 
 @app.command()

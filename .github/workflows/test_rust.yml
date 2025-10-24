@@ -67,6 +67,22 @@ jobs:
                     token: ${{ secrets.CODECOV_TOKEN }}
                     files: lcov.info
                     fail_ci_if_error: false # TODO: Change to true
+            -   name: Upload Brahe cache directory (Unix)
+                if: runner.os != 'Windows'
+                uses: actions/upload-artifact@v4
+                with:
+                    name: brahe-cache-${{ runner.os }}
+                    path: ~/.cache/brahe/
+                    retention-days: 1
+                    if-no-files-found: ignore
+            -   name: Upload Brahe cache directory (Windows)
+                if: runner.os == 'Windows'
+                uses: actions/upload-artifact@v4
+                with:
+                    name: brahe-cache-${{ runner.os }}
+                    path: ~\\.cache\\brahe\\
+                    retention-days: 1
+                    if-no-files-found: ignore
     test-rust-docs:
         runs-on: ${{ matrix.os }}
         strategy:
@@ -108,12 +124,14 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
+            -   name: Set up Python ${{ matrix.python-version }}
+                uses: actions/setup-python@v5
+                with:
+                    python-version: ${{ matrix.python-version }}
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v7
                 with:
                     enable-cache: true
-            -   name: Install Python ${{ matrix.python-version }}
-                run: uv python install ${{ matrix.python-version }}
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen --python python

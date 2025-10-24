@@ -225,5 +225,5 @@ brahe orbits mean-motion "$SMA"
 
 - [Python API Documentation](../../library_api/index.md)
 - [Coordinate Systems](../coordinates/index.md)
-- [Time Systems](../time.md)
-- [Orbital Mechanics](../orbits.md)
+- [Time Systems](../time/index.md)
+- [Orbital Mechanics](../orbits/index.md)

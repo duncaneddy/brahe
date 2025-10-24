@@ -138,7 +138,7 @@ Space-Track.org (requires free account) provides:
 
 ## See Also
 
-- [TLE API Reference](../library_api/orbits/tle.md)
-- [SGP Propagation](orbit_propagation/sgp_propagation.md)
-- [CelesTrak Dataset](../library_api/datasets/celestrak.md)
+- [TLE API Reference](../../library_api/orbits/tle.md)
+- [SGP Propagation](../orbit_propagation/sgp_propagation.md)
+- [CelesTrak Dataset](../../library_api/datasets/celestrak.md)
 - [CelesTrak Website](https://celestrak.org/)

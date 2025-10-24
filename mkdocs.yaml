@@ -8,9 +8,12 @@ use_directory_urls: false
 
 extra_css:
     - stylesheets/extra.css
+    - https://unpkg.com/katex@0/dist/katex.min.css
 
 extra_javascript:
-    - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+    - javascripts/katex.js
+    - https://unpkg.com/katex@0/dist/katex.min.js
+    - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
     - https://cdn.plot.ly/plotly-latest.min.js
 
 plugins:
@@ -39,6 +42,7 @@ plugins:
                         find_stubs_package: true
                         show_inheritance_diagram: false
                         allow_inspection: true
+                        signature_crossrefs: true
     - section-index
     -   git-revision-date-localized:
             enable_creation_date: true
@@ -121,9 +125,9 @@ nav:
                 - learn/coordinates/geocentric_transformations.md
                 - learn/coordinates/topocentric_transformations.md
             - Reference Frame Transformations: learn/frame_transformations.md
-            - Orbits: 
+            - Orbits:
                 - learn/orbits/index.md
-                - learn/orbits/orbital_properties.md
+                - Keplerian Elements: learn/orbits/keplerian.md
                 - learn/orbits/two_line_elements.md
             - Attitude Representation: 
                 - learn/attitude_representations/index.md
@@ -155,7 +159,7 @@ nav:
                 - EOP: learn/cli/eop.md
                 - Time: learn/cli/time.md
                 - Orbits: learn/cli/orbits.md
-                - Convert: learn/cli/convert.md
+                - Transform: learn/cli/transform.md
                 - Datasets: learn/cli/datasets.md
                 - Access: learn/cli/access.md
             - Plots:

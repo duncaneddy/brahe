@@ -487,7 +487,7 @@ brahe datasets celestrak show 25544 | grep "Period:" | awk '{print $2, $3}'
 ## See Also
 
 - [CelesTrak](https://celestrak.org) - Official TLE data source
-- [TLE Format](../tle_format.md) - Understanding Two-Line Elements
-- [SGP4 Propagation](../sgp4.md) - TLE-based orbit propagation
+- [Two-Line Elements](../orbits/two_line_elements.md) - Understanding Two-Line Elements
+- [SGP Propagation](../orbit_propagation/sgp_propagation.md) - TLE-based orbit propagation
 - [Access CLI](access.md) - Compute satellite passes (uses TLE data)
 - [Datasets API](../../library_api/datasets/index.md) - Python dataset functions

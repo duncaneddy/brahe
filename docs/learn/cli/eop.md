@@ -336,7 +336,7 @@ Then work offline - the CLI will use cached data.
 
 ## See Also
 
-- [Earth Orientation Data](../earth_orientation_data.md) - Conceptual overview
+- [Earth Orientation Data](../eop/what_is_eop_data.md) - Conceptual overview
 - [Reference Frames](../frame_transformations.md) - ECI/ECEF transformations
 - [Transform CLI](transform.md) - Frame transformations (use EOP)
 - [Time CLI](time.md) - UT1 time system

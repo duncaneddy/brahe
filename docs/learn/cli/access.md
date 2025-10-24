@@ -312,7 +312,7 @@ Longer durations take more time:
 
 ## See Also
 
-- [Access Examples](../../examples/satellite_access.md) - Detailed access computation examples
+- [Ground Contacts Example](../../examples/ground_contacts.md) - Detailed access computation examples
 - [Datasets CLI](datasets.md) - Find NORAD IDs and download TLEs
-- [Ground Stations](ground_stations.md) - Ground station database
+- [Groundstations Dataset](../datasets/groundstations.md) - Ground station database
 - [Access API](../../library_api/access/index.md) - Python access computation functions

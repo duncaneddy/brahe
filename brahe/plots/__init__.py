@@ -8,6 +8,7 @@ This module provides high-level plotting functions for common astrodynamics visu
 - Access window geometry (polar plots and elevation profiles)
 - Orbital element time series (Keplerian and Cartesian)
 - 3D trajectory visualization in ECI frame
+- Gabbard diagrams (orbital period vs apogee/perigee altitude)
 
 All plot functions support both matplotlib and plotly backends, selected via the `backend` parameter.
 """
@@ -19,6 +20,7 @@ from brahe.plots.trajectories import (
     plot_keplerian_trajectory,
 )
 from brahe.plots.trajectory_3d import plot_trajectory_3d
+from brahe.plots.gabbard import plot_gabbard_diagram
 
 __all__ = [
     "plot_groundtrack",
@@ -27,4 +29,5 @@ __all__ = [
     "plot_cartesian_trajectory",
     "plot_keplerian_trajectory",
     "plot_trajectory_3d",
+    "plot_gabbard_diagram",
 ]

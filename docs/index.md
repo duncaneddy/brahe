@@ -48,6 +48,23 @@ If you find a bug, have a feature request, want to contribute, please open an is
 
 We hope you find Brahe useful for your work!
 
+## Going Further
+
+If you want to learn more about how to use the package the documentation is structured in the following way:
+
+- **[Learn](https://duncaneddy.github.io/brahe/learn/)**: Provides short-form documentation of major concepts of the package.
+- **[Examples](https://duncaneddy.github.io/brahe/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
+- **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
+- **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
+
+## License
+
+The project is licensed under the MIT License - see the [LICENSE](license.md) for details.
+
+We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
+
+<!-- ## Citation / Acknowledgement -->
+
 ## Quick Start
 
 ### Python
@@ -66,97 +83,32 @@ import brahe as bh
 
 And do something fun like calculate the orbital-period of a satellite in low Earth orbit:
 
-```python
-import brahe as bh
-
-# Define the semi-major axis of a low Earth orbit (in meters)
-a = bh.constants.EARTH_RADIUS + 400e3  # 400 km altitude
-
-# Calculate the orbital period using Kepler's third law
-T = bh.orbital_period(a)
-
-print(f"Orbital Period: {T / 60:.2f} minutes")
+``` python
+--8<-- "./examples/common/orbital_period.py:9"
 ```
 
 Here are some common operations to get you started:
 
 **Working with Time:**
-```python
-import brahe as bh
-
-# Create an epoch from a specific date and time
-epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, bh.TimeSystem.UTC)
-
-# Convert between time systems
-mjd_utc = epc.mjd_as_time_system(bh.TimeSystem.UTC)
-mjd_tai = epc.mjd_as_time_system(bh.TimeSystem.TAI)
-
-# Time arithmetic
-future_epc = epc + 3600  # Add 3600 seconds (1 hour)
-time_diff = future_epc - epc  # Difference in seconds
+``` python
+--8<-- "./examples/common/working_with_time.py:10"
 ```
 
 **Coordinate Transformations:**
-```python
-import brahe as bh
-import numpy as np
-
-# Convert Orbital Elements to ECI State Vector
-elements = [
-    7000e3,    # Semi-major axis in meters
-    0.001,     # Eccentricity
-    98.7,      # Inclination in degrees
-    0.0,       # RAAN in degrees
-    0.0,       # Argument of perigee in degrees
-    0.0        # True anomaly in degrees
-]
-eci_satellite = bh.state_osculating_to_cartesian(elements, bh.AngleFormat.DEGREES)
-
-# Convert ECI State Vector to ECEF State Vector
-epc = bh.Epoch(2024, 1, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
-ecef_satellite = bh.state_eci_to_ecef(epc, eci_state)
-
-# Convert geodetic coordinates to ECEF
-lat = 40.0  # degrees North
-lon = -105.0  # degrees East
-alt = 1000.0  # meters above ellipsoid
-geod = np.array([lat, lon, alt])  # [latitude, longitude, altitude]
-ecef_location = bh.position_geodetic_to_ecef(geod, bh.AngleFormat.DEGREES)
-
-# Compute Topocentric-Horizon Coordinates of Satellite from Observer Location
-enz = bh.relative_position_ecef_to_topocentric(ecef_location, ecef_satellite, angle_format=bh.AngleFormat.DEGREES)
-
-print(f'Azimuth: {enz[0]:.2f} degrees')
-print(f'Elevation: {enz[1]:.2f} degrees')
-print(f'Range: {enz[2] / 1000:.2f} km')
+``` python
+--8<-- "./examples/common/coordinate_transformations.py:10"
 ```
-
 **Propagating an Orbit:**
-```python
-import brahe as bh
-import numpy as np
-
-# Create a Two-Line Element (TLE) for a satellite
-tle = bh.TLE(
-    "ISS (ZARYA)",
-    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
-    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-)
-
-# Create an SGP4 propagator
-prop = bh.SGPPropagator.from_tle(tle)
-
-# Propagate to a specific epoch
-epc = bh.Epoch(2024, 6, 1, 0, 0, 0.0, bh.TimeSystem.UTC)
-state = prop.propagate(epc)  # Returns [x, y, z, vx, vy, vz] in meters and m/s
-
-print(f"Position: {state[:3] / 1000} km")
-print(f"Velocity: {state[3:] / 1000} km/s")
+``` python
+--8<-- "./examples/common/propagating_an_orbit.py:8"
 ```
 
 **Computing ISS Access Windows:**
-```python
+``` python
+--8<-- "./examples/common/iss_access_windows.py:9"
 ```
+
+----
 
 ### Rust
 
@@ -167,91 +119,36 @@ To use brahe in your Rust project, add it to your `Cargo.toml`:
 brahe = "0.5"
 ```
 
-Here are some common operations to get you started:
+You can then use the crate in your rust code with:
+
+```rust
+use brahe as bh;
+```
+
+And still calculate the orbital-period of a satellite in low Earth orbit:
+
+``` rust
+--8<-- "./examples/common/orbital_period.rs:5"
+```
+
+You can do everything that you can do in Python in Rust as well:
 
 **Working with Time:**
-```rust
-use brahe::time::Epoch;
-use brahe::time::TimeSystem;
-
-// Create an epoch from a specific date and time
-let epc = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0, TimeSystem::UTC);
-
-// Convert between time systems
-let mjd_utc = epc.to_mjd(TimeSystem::UTC);
-let mjd_tai = epc.to_mjd(TimeSystem::TAI);
-
-// Time arithmetic
-let future_epc = epc + 3600.0;  // Add 3600 seconds (1 hour)
-let time_diff = future_epc - epc;  // Difference in seconds
+``` rust
+--8<-- "./examples/common/working_with_time.rs:5"
 ```
 
 **Coordinate Transformations:**
-```rust
-use brahe::coordinates::position_geodetic_to_ecef;
-use brahe::frames::position_ecef_to_eci;
-use brahe::time::Epoch;
-use brahe::time::TimeSystem;
-use brahe::constants::AngleFormat;
-use nalgebra::Vector3;
-
-// Convert geodetic coordinates (lat, lon, alt) to ECEF
-let geod = Vector3::new(
-    40.0_f64.to_radians(),   // latitude in radians
-    -105.0_f64.to_radians(), // longitude in radians
-    1000.0                   // altitude in meters
-);
-let ecef = position_geodetic_to_ecef(geod, AngleFormat::Radians);
-
-// Convert ECEF to ECI at a specific epoch
-let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
-let eci = position_ecef_to_eci(epc, ecef);
+``` rust
+--8<-- "./examples/common/coordinate_transformations.rs:6"
 ```
 
 **Propagating an Orbit:**
-```rust
-use brahe::orbits::{TLE, SGPPropagator};
-use brahe::time::Epoch;
-
-// Create a Two-Line Element (TLE) for a satellite
-let tle = TLE::from_lines(
-    "ISS (ZARYA)",
-    "1 25544U 98067A   21001.00000000  .00002182  00000-0  41420-4 0  9990",
-    "2 25544  51.6461 339.8014 0002571  34.5857 120.4689 15.48919393265104"
-).unwrap();
-
-// Create an SGP4 propagator
-let prop = SGPPropagator::from_tle(&tle);
-
-// Propagate to a specific epoch
-let epc = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0, TimeSystem::UTC);
-let state = prop.propagate(&epc);  // Returns [x, y, z, vx, vy, vz] in meters and m/s
-
-println!("Position: {:?} km", [state[0]/1000.0, state[1]/1000.0, state[2]/1000.0]);
-println!("Velocity: {:?} km/s", [state[3]/1000.0, state[4]/1000.0, state[5]/1000.0]);
+``` rust
+--8<-- "./examples/common/propagating_an_orbit.rs:4"
 ```
 
 **Computing ISS Access Windows:**
-```rust
+``` rust
+--8<-- "./examples/common/iss_access_windows.rs:5"
 ```
-
-## Going Further
-
-If you want to learn more about how to use the package the documentation is structured in the following way:
-
-- **[Learn](https://duncaneddy.github.io/brahe/learn/)**: Provides short-form documentation of major concepts of the package.
-- **[Examples](https://duncaneddy.github.io/brahe/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
-- **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
-- **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
-
-## License
-
-The project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
-
-<!-- ## Citation / Acknowledgement
-
-If you use Brahe in your work, please cite it as:
-
-``` -->

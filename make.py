@@ -41,6 +41,7 @@ TESTS_DIR = REPO_ROOT / "tests"
 RUST_DEPS = """//! ```cargo
 //! [dependencies]
 //! brahe = {path = "%REPO_ROOT%"}
+//! nalgebra = { version = "0.34.0", features = ["serde-serialize"] }
 //! approx = "^0.5.0"
 //! serde_json = "1"
 //! ```
@@ -492,9 +493,6 @@ def test_examples(
         str(python_results.skipped),
     )
 
-    console.print("\n[bold]Summary[/bold]")
-    console.print(table)
-
     if rust_results.failures or python_results.failures:
         console.print("\n[bold red]Failed Examples:[/bold red]")
         for failure in rust_results.failures + python_results.failures:
@@ -517,9 +515,18 @@ def test_examples(
                 console.print(stderr)
 
         console.print()
-        raise typer.Exit(1)
 
-    console.print("\n[bold green]✓ All tests passed![/bold green]\n")
+    console.print("\n[bold]Summary[/bold]")
+    console.print(table)
+
+    if rust_results.failures or python_results.failures:
+        console.print("\n[bold red]Failed Examples:[/bold red]")
+        for failure in rust_results.failures + python_results.failures:
+            console.print(f"  [red]✗[/red] {failure}")
+
+        raise typer.Exit(1)
+    else:
+        console.print("\n[bold green]✓ All tests passed![/bold green]\n")
 
 
 @app.command()

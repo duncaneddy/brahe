@@ -1,11 +1,7 @@
-//! Brief description of what this example demonstrates.
-//!
-//! This template shows the minimal structure for a Rust documentation example.
-//! Replace this with actual functionality demonstration.
+//! TODO: Write a brief description of what this example demonstrates.
 
-use approx::assert_abs_diff_eq;
 #[allow(unused_imports)]
-use brahe::time::{Epoch, TimeSystem};
+use brahe as bh;
 
 fn main() {
     // Setup: Define any input parameters
@@ -16,7 +12,7 @@ fn main() {
 
     // Validation: Assert the result is correct
     let expected = 2.0;
-    assert_abs_diff_eq!(result, expected, epsilon = 1e-10);
+    assert_eq!(result, expected);
 
     println!("✓ Example validated successfully!");
 }

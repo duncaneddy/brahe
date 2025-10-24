@@ -243,7 +243,7 @@ The build system will:
 
 ### Including Examples in Documentation
 
-Use the `pymdownx.snippets` directive to include examples in markdown files:
+Use the `pymdownx.snippets` directive to include examples in markdown files. See the [snippets plugin documentation](https://facelessuser.github.io/pymdown-extensions/extensions/snippets/) for additional details on usage.
 
 ```markdown
 ## Example: Creating Epochs

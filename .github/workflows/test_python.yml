@@ -27,15 +27,6 @@ jobs:
                 with:
                     enable-cache: true
 
-            # Cache the virtual environment to avoid reinstalling dependencies
-            -   name: Cache virtual environment
-                uses: actions/cache@v4
-                with:
-                    path: .venv
-                    key: venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
-                    restore-keys: |
-                        venv-${{ runner.os }}-py${{ matrix.python-version }}-
-
             # Try to download Brahe cache to avoid external API calls
             -   name: Download Brahe cache directory
                 id: download-cache

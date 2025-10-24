@@ -38,10 +38,13 @@ jobs:
           rustup update ${{ matrix.rust-toolchain }}
           rustup default ${{ matrix.rust-toolchain }}
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Build wheel with maturin
         uses: PyO3/maturin-action@v1
@@ -76,13 +79,16 @@ jobs:
           rustup update ${{ env.RUST_TOOLCHAIN }}
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.12'
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
 
       - name: Install build
-        run: pip install -U build
+        run: uv pip install -U build
 
       - name: Build source distribution
         run: python -m build --sdist
@@ -178,16 +184,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.12'
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
 
       - name: Generate simple index
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python scripts/generate_simple_index.py \
+          uv run python scripts/generate_simple_index.py \
             --repo ${{ github.repository }} \
             --package-name brahe \
             --tag latest \

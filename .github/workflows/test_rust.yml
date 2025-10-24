@@ -108,14 +108,12 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Set up Python ${{ matrix.python-version }}
-                uses: actions/setup-python@v5
-                with:
-                    python-version: ${{ matrix.python-version }}
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v6
+                uses: astral-sh/setup-uv@v7
                 with:
                     enable-cache: true
+            -   name: Install Python ${{ matrix.python-version }}
+                run: uv python install ${{ matrix.python-version }}
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen --python python
@@ -142,23 +140,23 @@ jobs:
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
-            -   name: Set up Python ${{ matrix.python-version }}
-                uses: actions/setup-python@v5
-                with:
-                    python-version: ${{ matrix.python-version }}
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v6
+                uses: astral-sh/setup-uv@v7
                 with:
                     enable-cache: true
+            -   name: Install Python ${{ matrix.python-version }}
+                run: uv python install ${{ matrix.python-version }}
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen --python python
             -   name: Build Python extension (release mode)
                 run: uv pip install -e .
-            -   name: Find and upload Python extension artifact
+            -   name: Find and upload Python extension artifact (Unix)
+                if: runner.os != 'Windows'
+                shell: bash
                 run: |
-                    # Find the built extension (.so on Linux, .dylib on Mac, .pyd on Windows)
-                    EXTENSION=$(find target/release -maxdepth 1 -name "libbrahe.so" -o -name "libbrahe.dylib" -o -name "libbrahe.pyd" | head -1)
+                    # Find the built extension (.so on Linux, .dylib on Mac)
+                    EXTENSION=$(find target/release -maxdepth 1 \( -name "libbrahe.so" -o -name "libbrahe.dylib" \) | head -1)
                     if [ -z "$EXTENSION" ]; then
                         echo "Error: Could not find built Python extension"
                         exit 1
@@ -166,6 +164,19 @@ jobs:
                     echo "Found extension: $EXTENSION"
                     mkdir -p artifact-output
                     cp "$EXTENSION" artifact-output/
+            -   name: Find and upload Python extension artifact (Windows)
+                if: runner.os == 'Windows'
+                shell: pwsh
+                run: |
+                    # Find the built extension (.pyd on Windows)
+                    $extension = Get-ChildItem -Path target/release -Filter "libbrahe.pyd" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if (-not $extension) {
+                        Write-Error "Error: Could not find built Python extension"
+                        exit 1
+                    }
+                    Write-Output "Found extension: $($extension.FullName)"
+                    New-Item -ItemType Directory -Force -Path artifact-output
+                    Copy-Item $extension.FullName artifact-output/
             -   name: Upload Python extension
                 uses: actions/upload-artifact@v4
                 with:

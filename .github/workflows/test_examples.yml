@@ -25,10 +25,12 @@ jobs:
         run: cargo install rust-script
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: 3.14
           enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
 
       - name: Install dependencies
         run: uv sync --all-extras --frozen

@@ -48,13 +48,16 @@ jobs:
         rustup update ${{ matrix.rust-toolchain }}
         rustup default ${{ matrix.rust-toolchain }}
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
       with:
-        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+
+    - name: Install Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
 
     - name: Install 'build' library
-      run: pip install -U build
+      run: uv pip install -U build
 
     - name: Build library
       run: python -m build

@@ -55,59 +55,8 @@ jobs:
                     fi
 
             -   name: Test with python ${{ matrix.python-version }}
-                run: uv run --frozen coverage run -m pytest
+                run: uv run --frozen coverage run -m pytest -m ''
 
             -   name: Generate coverage report
                 run: uv run --frozen coverage report
 
-    test-python-network:
-        runs-on: ubuntu-latest
-        needs: test-python
-        steps:
-            # TODO: Remove this when the nightly BTreeCursor is stabilized and released
-            -   name: Install Rust
-                run: rustup update nightly
-            -   run: rustup default nightly
-            -   uses: actions/checkout@v5
-            -   name: Install the latest version of uv and set the python version
-                uses: astral-sh/setup-uv@v6
-                with:
-                    python-version: '3.14'
-                    enable-cache: true
-            -   name: Install dependencies
-                run: uv sync --all-extras --frozen
-
-            # Try to download Brahe cache to avoid external API calls
-            -   name: Download Brahe cache directory
-                id: download-cache
-                continue-on-error: true
-                uses: actions/download-artifact@v4
-                with:
-                    name: brahe-cache
-                    path: ~/.cache/brahe/
-
-            # Try to download pre-built Python extension
-            -   name: Download Python extension artifact
-                id: download-extension
-                continue-on-error: true
-                uses: actions/download-artifact@v4
-                with:
-                    name: python-extension
-                    path: ./cached-extension
-
-            -   name: Use cached extension or build new one
-                run: |
-                    if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
-                        echo "Using cached Python extension"
-                        mkdir -p target/release
-                        cp ./cached-extension/libbrahe* target/release/
-                        # Install maturin for --no-build-isolation
-                        uv pip install maturin
-                        uv pip install -e . --no-build-isolation
-                    else
-                        echo "Building Python extension (no cache available)"
-                        uv pip install -e .
-                    fi
-
-            -   name: Test network-dependent tests with Python 3.14
-                run: uv run --frozen pytest -m network

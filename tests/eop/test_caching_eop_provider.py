@@ -7,7 +7,7 @@ import time
 import brahe
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_caching_provider_with_explicit_filepath():
     """Test CachingEOPProvider with explicitly provided filepath."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -34,7 +34,7 @@ def test_caching_provider_with_explicit_filepath():
         assert provider.len() > 0
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_caching_provider_with_default_filepath():
     """Test CachingEOPProvider with default cache filepath."""
     provider = brahe.CachingEOPProvider(
@@ -56,7 +56,7 @@ def test_caching_provider_with_default_filepath():
     assert os.path.exists(expected_path)
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_caching_provider_c04_default_filepath():
     """Test CachingEOPProvider with default C04 filepath."""
     provider = brahe.CachingEOPProvider(

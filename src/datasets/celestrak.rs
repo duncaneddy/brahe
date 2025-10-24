@@ -813,10 +813,10 @@ mod tests {
     }
 
     // Network tests - require internet connection and celestrak.org availability
-    // Run with: cargo test --features network
+    // Run with: cargo test --features ci
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_get_ephemeris_network() {
         // Test with a small group
         let result = get_ephemeris("stations");
@@ -833,7 +833,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial]
     fn test_get_ephemeris_as_propagators_network() {
         use crate::utils::testing::setup_global_test_eop;
@@ -851,7 +851,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_download_ephemeris_network() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("stations.json");
@@ -870,7 +870,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_get_tle_by_id_network() {
         // Test with ISS (NORAD ID 25544)
         let result = get_tle_by_id(25544, None);
@@ -883,7 +883,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_get_tle_by_id_with_group_network() {
         // Test with ISS using group fallback
         let result = get_tle_by_id(25544, Some("stations"));
@@ -896,7 +896,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial]
     fn test_get_tle_by_id_as_propagator_network() {
         use crate::utils::testing::setup_global_test_eop;
@@ -914,7 +914,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "network"), ignore)]
+    #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial_test::serial]
     fn test_caching_behavior_network() {
         use std::thread;

@@ -6,7 +6,7 @@ import os
 import brahe as bh
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_ephemeris():
     """Test get_ephemeris with stations group."""
     ephemeris = bh.datasets.celestrak.get_ephemeris("stations")
@@ -24,7 +24,7 @@ def test_get_ephemeris():
     assert len(line2) == 69  # Standard TLE line 2 length
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_ephemeris_as_propagators():
     """Test get_ephemeris_as_propagators with stations group."""
     propagators = bh.datasets.celestrak.get_ephemeris_as_propagators("stations", 60.0)
@@ -38,7 +38,7 @@ def test_get_ephemeris_as_propagators():
     assert hasattr(prop, "current_state")
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_download_ephemeris_txt():
     """Test download_ephemeris to text file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -57,7 +57,7 @@ def test_download_ephemeris_txt():
             assert len(lines) > 0
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_download_ephemeris_json():
     """Test download_ephemeris to JSON file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -79,7 +79,7 @@ def test_download_ephemeris_json():
             assert "line2" in data[0]
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_download_ephemeris_csv():
     """Test download_ephemeris to CSV file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -97,7 +97,7 @@ def test_download_ephemeris_csv():
             assert lines[0] == "name,line1,line2"
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_tle_by_id():
     """Test get_tle_by_id for ISS (NORAD ID 25544)."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544)
@@ -110,7 +110,7 @@ def test_get_tle_by_id():
     assert len(line2) == 69
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_tle_by_id_with_group():
     """Test get_tle_by_id with group fallback for ISS."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544, group="stations")
@@ -121,7 +121,7 @@ def test_get_tle_by_id_with_group():
     assert line2.startswith("2 25544")
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_tle_by_id_as_propagator():
     """Test get_tle_by_id_as_propagator for ISS."""
     propagator = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
@@ -142,7 +142,7 @@ def test_get_tle_by_id_as_propagator():
     assert bh.R_EARTH + 300e3 < r < bh.R_EARTH + 500e3
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_get_tle_by_id_as_propagator_with_group():
     """Test get_tle_by_id_as_propagator with group fallback."""
     propagator = bh.datasets.celestrak.get_tle_by_id_as_propagator(
@@ -153,7 +153,7 @@ def test_get_tle_by_id_as_propagator_with_group():
     assert hasattr(propagator, "current_state")
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_caching_behavior():
     """Test that cached files are reused."""
     import time

@@ -87,10 +87,10 @@ include = ["brahe/_brahe.pyi"]
 
 [tool.pytest.ini_options]
 markers = [
-    "network: marks tests that require network access to download external data",
+    "ci: marks tests that require network access or are only run in CI environments",
 ]
-# By default, exclude network tests unless explicitly requested with -m network
-addopts = "-m 'not network'"
+# By default, exclude CI tests unless explicitly requested with -m ci
+addopts = "-m 'not ci'"
 
 [tool.ruff.lint]
 # Ignore F403 (import * used) in __init__.py for backward compatibility pattern

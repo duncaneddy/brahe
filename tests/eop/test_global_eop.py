@@ -244,7 +244,7 @@ def test_set_global_eop_from_caching_provider_with_set_global_eop_provider(
         assert pm_y == 0.263451 * brahe.AS2RAD
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_set_global_eop_from_caching_provider_default():
     """Test setting global EOP provider with CachingEOPProvider using default filepath."""
     provider = brahe.CachingEOPProvider(
@@ -267,7 +267,7 @@ def test_set_global_eop_from_caching_provider_default():
     assert os.path.exists(expected_path)
 
 
-@pytest.mark.network
+@pytest.mark.ci
 def test_initialize_eop():
     """Test the convenience initialize_eop() function."""
     # Call the convenience function

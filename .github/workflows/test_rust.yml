@@ -67,29 +67,6 @@ jobs:
                     path: target/debug/
             -   name: Run Rust doc tests
                 run: cargo test --doc --features ci
-    test-rust-network:
-        runs-on: ubuntu-latest
-        needs: build-rust
-        steps:
-            -   uses: actions/checkout@v5
-            -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v1
-                with:
-                    toolchain: nightly
-            -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v4
-                with:
-                    name: rust-build-artifacts
-                    path: target/debug/
-            -   name: Run Rust network tests
-                run: cargo test --features network
-            -   name: Upload Brahe cache directory
-                uses: actions/upload-artifact@v4
-                with:
-                    name: brahe-cache
-                    path: ~/.cache/brahe/
-                    retention-days: 7
-                    if-no-files-found: ignore
     pre-cache-python:
         runs-on: ubuntu-latest
         strategy:

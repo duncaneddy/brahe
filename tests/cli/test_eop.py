@@ -1,4 +1,5 @@
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 from typer.testing import CliRunner
 
@@ -20,7 +21,8 @@ def test_cli_eop_download_standard():
         )
         assert result.exit_code == 0
         assert f"Downloaded standard EOP data to {tmpfile}" in result.stdout
-        mock.assert_called_once_with(tmpfile)
+        # Normalize path to POSIX format to match CLI behavior (uses .as_posix() internally)
+        mock.assert_called_once_with(Path(tmpfile).absolute().as_posix())
 
 
 def test_cli_eop_download_c04():
@@ -29,7 +31,8 @@ def test_cli_eop_download_c04():
         result = runner.invoke(app, ["eop", "download", tmpfile, "--product", "c04"])
         assert result.exit_code == 0
         assert f"Downloaded c04 EOP data to {tmpfile}" in result.stdout
-        mock.assert_called_once_with(tmpfile)
+        # Normalize path to POSIX format to match CLI behavior (uses .as_posix() internally)
+        mock.assert_called_once_with(Path(tmpfile).absolute().as_posix())
 
 
 def test_cli_eop_get_utc_ut1(iau2000_standard_filepath, iau2000_c04_20_filepath):

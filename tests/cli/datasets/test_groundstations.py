@@ -109,8 +109,8 @@ def test_list_stations_table():
     assert "Lat" in result.stdout
     assert "Lon" in result.stdout
     assert "Alt" in result.stdout
-    assert "Provider" in result.stdout
     # Header may be abbreviated due to column width
+    assert "Prov" in result.stdout or "Provider" in result.stdout
     assert "Freque" in result.stdout or "Frequency Bands" in result.stdout
 
 

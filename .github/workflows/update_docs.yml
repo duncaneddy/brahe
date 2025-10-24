@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RUST_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v5
         with:
@@ -33,9 +35,15 @@ jobs:
           name: doc-figures
           path: docs/figures/
 
-      - name: Install Rust
-        run: rustup update nightly
-      - run: rustup default nightly
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ env.RUST_TOOLCHAIN }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv and set the python version
         uses: astral-sh/setup-uv@v6

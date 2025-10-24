@@ -7,11 +7,16 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+                rust-toolchain: [nightly]
         steps:
-            # TODO: Remove this when the nightly BTreeCursor is stabilized and released
-            -   name: Install Rust
-                run: rustup update nightly
-            -   run: rustup default nightly
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1
+                with:
+                    toolchain: ${{ matrix.rust-toolchain }}
+            -   name: Set default Rust toolchain
+                run: |
+                    rustup update ${{ matrix.rust-toolchain }}
+                    rustup default ${{ matrix.rust-toolchain }}
             -   uses: actions/checkout@v5
             -   name: Set up Python ${{ matrix.python-version }}
                 uses: actions/setup-python@v5
@@ -52,7 +57,7 @@ jobs:
             -   name: Install dependencies and Python package
                 run: |
                     # Sync dependencies first
-                    uv sync --all-extras --frozen
+                    uv sync --all-extras --frozen --python python
 
                     # Then install the brahe package
                     if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
@@ -72,4 +77,3 @@ jobs:
 
             -   name: Generate coverage report
                 run: uv run --frozen coverage report
-

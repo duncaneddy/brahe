@@ -50,6 +50,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
+          rust-toolchain: ${{ matrix.rust-toolchain }}
           args: --release -i python${{ matrix.python-version }}
 
       - name: Upload wheel artifact
@@ -87,11 +88,17 @@ jobs:
       - name: Install Python 3.12
         run: uv python install 3.12
 
+      - name: Create virtual environment
+        run: uv venv -p 3.12
+
+      - name: Activate virtual environment
+        run: source .venv/bin/activate
+
       - name: Install build
         run: uv pip install -U build
 
       - name: Build source distribution
-        run: python -m build --sdist
+        run: uv run python -m build --sdist
 
       - name: Upload sdist artifact
         uses: actions/upload-artifact@v4

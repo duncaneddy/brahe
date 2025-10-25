@@ -76,6 +76,9 @@ jobs:
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh
 
+      - name: Build documentation site
+        run: uv run mkdocs build
+
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages:gh-pages || true
 

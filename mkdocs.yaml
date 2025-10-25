@@ -1,7 +1,7 @@
 site_name: Brahe
 site_author: Duncan Eddy
 site_description: Brahe - Practical Astrodynamics
-site_url: https://github.com/duncaneddy/brahe
+site_url: https://duncaneddy.github.io/brahe/
 repo_url: https://github.com/duncaneddy/brahe
 docs_dir: docs
 use_directory_urls: false

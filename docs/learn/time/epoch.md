@@ -1,95 +1,62 @@
 # Epoch
 
-The Epoch class is the fundamental time representation in Brahe.
+The Epoch class is the fundamental time representation in Brahe. It encapsulates a specific instant in time, defined by both a time representation and a time scale. The Epoch class provides methods for converting between different time representations and time scales, as well as for performing arithmetic operations on time instances.
 
-## Overview
+There are even more capabilities and features of the Epoch class beyond what is covered in this guide. For a complete reference of all available methods and properties, please refer to the [Epoch API Reference](../../library_api/time/epoch.md).
 
-An `Epoch` represents a specific instant in time with:
+## Initialization
 
-- A time system (UTC, TAI, TT, GPS, UT1)
-- Nanosecond precision
-- Efficient arithmetic operations
+THere are all sorts of ways you can initialize an Epoch instance. The most common methods are described below.
 
-## Creating Epochs
+### Date Time
 
-### From Calendar Date
+### MJD
 
-```python
-import brahe as bh
+### JD
 
-# Create from year, month, day, hour, minute, second, nanosecond, time system
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
-```
+### String
 
-### From Julian Date
+### GPS Week and Seconds
 
-```python
-import brahe as bh
+### GPS Week and Seconds
 
-epoch = bh.Epoch.from_jd(2460310.5, bh.UTC)
-```
+## Operations
 
-### From Modified Julian Date
+Once you have an epoch class instance you can add and subtract time as you would expect. 
 
-```python
-import brahe as bh
+!!! warning
 
-epoch = bh.Epoch.from_mjd(60310.0, bh.UTC)
-```
+    When performing arithmetic the other operand is always interpreted as a time duration in seconds.
 
-## Epoch Arithmetic
+### Addition
 
-```python
-import brahe as bh
+### Subtraction
 
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
+## Output and Formatting
 
-# Add seconds
-later_epoch = epoch + 3600.0  # 1 hour later
+Finally, you can take any Epoch instance and then output it in different representations.
 
-# Subtract seconds
-earlier_epoch = epoch - 1800.0  # 30 minutes earlier
+### Date Time
 
-# Difference between epochs (returns seconds)
-delta_seconds = later_epoch - epoch
-```
+### String Representation
 
-## Time System Conversions
+### ISO 8601 String
 
-```python
-import brahe as bh
+## Time Ranges
 
-utc_epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
+The `TimeRange` class provides an easy way to iterate over a range of time instances. You can specify a start and end `Epoch`, along with a time step in seconds, and the `TimeRange` will generate all the `Epoch` instances within that range at the specified intervals.
 
-# Convert to different time systems
-tai_epoch = utc_epoch.to_time_system(bh.TAI)
-gps_epoch = utc_epoch.to_time_system(bh.GPS)
-tt_epoch = utc_epoch.to_time_system(bh.TT)
-```
+=== "Python"
 
-## Getting Time Values
+    ``` python
+    --8<-- "./examples/time/time_range.py:8"
+    ```
 
-```python
-import brahe as bh
+=== "Rust"
 
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
-
-# Get Julian Date
-jd = epoch.jd()
-
-# Get Modified Julian Date
-mjd = epoch.mjd()
-
-# Get calendar date components
-year, month, day, hour, minute, second, nanosecond = epoch.to_datetime()
-```
-
-## Best Practices
-
-- Store all epochs in a consistent time system (UTC or TAI recommended)
-- Use TAI for propagation (no leap seconds)
-- Convert to UTC only for display
-- Always specify time system explicitly
+    ``` rust
+    --8<-- "./examples/time/time_range.rs:4"
+    ```
 
 ## See Also
 

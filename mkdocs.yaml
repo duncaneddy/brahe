@@ -121,8 +121,6 @@ nav:
                 - learn/eop/managing_eop_data.md
             - Time: 
                 - learn/time/index.md
-                - learn/time/time_systems.md
-                - learn/time/time_conversions.md
                 - learn/time/epoch.md
             - Coordinate Transformations:
                 - learn/coordinates/index.md

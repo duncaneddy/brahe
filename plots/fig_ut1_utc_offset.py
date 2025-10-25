@@ -7,10 +7,14 @@ Plot that computes the UT1-UTC offset over time using Brahe's EOP data and visua
 
 import os
 import pathlib
+import sys
 import plotly.graph_objects as go
-import plotly.io as pio
 import brahe as bh
 import numpy as np
+
+# Add plots directory to path for importing brahe_theme
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from brahe_theme import get_theme_colors, save_themed_html
 
 # ------------------------------
 # Configuration
@@ -18,8 +22,6 @@ import numpy as np
 
 SCRIPT_NAME = pathlib.Path(__file__).stem
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
-OUTFILE_LIGHT = OUTDIR / f"{SCRIPT_NAME}_light.html"
-OUTFILE_DARK = OUTDIR / f"{SCRIPT_NAME}_dark.html"
 
 # Ensure output directory exists
 os.makedirs(OUTDIR, exist_ok=True)
@@ -48,122 +50,76 @@ days_predicted = np.arange(max(mjd_now, mjd_min), mjd_max, 1)
 ut1_utc_past = [bh.get_global_ut1_utc(mjd) for mjd in days_past]
 ut1_utc_predicted = [bh.get_global_ut1_utc(mjd) for mjd in days_predicted]
 
+# Get year range for x-axis tick labels
+epoch_min = bh.Epoch.from_mjd(mjd_min, bh.TimeSystem.UTC)
+epoch_max = bh.Epoch.from_mjd(mjd_max, bh.TimeSystem.UTC)
+year_min = epoch_min.to_datetime()[0]
+year_max = epoch_max.to_datetime()[0]
 
-def create_figure(theme="light"):
-    """Create figure with theme-specific styling."""
-    # Set colors based on theme
-    if theme == "light":
-        past_color = "#1f77b4"  # Blue
-        future_color = "#d62728"  # Red
-        grid_color = "LightGrey"
-        line_color = "Grey"
-        font_color = "black"
-        bg_color = "white"
-    else:  # dark
-        past_color = "#5599ff"  # Lighter blue for dark mode
-        future_color = "#ff6b6b"  # Lighter red for dark mode
-        grid_color = "#444444"
-        line_color = "#666666"
-        font_color = "#e0e0e0"
-        bg_color = "#1c1e24"  # Dark background to match Material slate theme
+
+## Create figure with theme support
+
+
+def create_figure(theme):
+    """Create figure with theme-specific colors."""
+    colors = get_theme_colors(theme)
 
     fig = go.Figure()
 
-    # Plot past data (solid line)
+    # Plot past data (solid line) - use primary color
     fig.add_trace(
         go.Scatter(
             x=days_past,
             y=ut1_utc_past,
             mode="lines",
-            line=dict(color=past_color, width=2),
+            line=dict(color=colors["primary"], width=2),
             name="Past (Measured)",
             showlegend=True,
         )
     )
 
-    # Plot predicted data (dashed line)
+    # Plot predicted data (dashed line) - use error color
     fig.add_trace(
         go.Scatter(
             x=days_predicted,
             y=ut1_utc_predicted,
             mode="lines",
-            line=dict(color=future_color, width=2, dash="dash"),
+            line=dict(color=colors["error"], width=2, dash="dash"),
             name="Future (Predicted)",
             showlegend=True,
         )
     )
 
-    # Update layout with theme-specific styling
-    fig.update_layout(
-        paper_bgcolor=bg_color,
-        plot_bgcolor=bg_color,
-        font=dict(color=font_color),
-        legend=dict(font=dict(color=font_color), bgcolor="rgba(0,0,0,0)"),
-    )
+    # Create custom tick values and labels for x-axis (years)
+    # Generate tick positions every 5 years
+    tick_mjds = []
+    tick_labels = []
+    for year in range(year_min, year_max + 1, 5):
+        epoch = bh.Epoch.from_datetime(year, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        tick_mjds.append(epoch.mjd())
+        tick_labels.append(str(year))
 
-    # Update axes
+    # Configure axes (theme-agnostic settings)
     fig.update_xaxes(
-        tickmode="linear",
-        tick0=mjd_min,
-        dtick=5 * 365.25,
-        tickformat="5f",
-        title_text="Modified Julian Date",
-        title_font=dict(color=font_color),
-        tickfont=dict(color=font_color),
-        showgrid=True,
-        gridwidth=1,
-        gridcolor=grid_color,
-        showline=True,
-        linewidth=2,
-        linecolor=line_color,
+        tickmode="array",
+        tickvals=tick_mjds,
+        ticktext=tick_labels,
+        title_text="Year",
         range=[mjd_min, mjd_max],
-        zeroline=False,
+        showgrid=False,
     )
 
     fig.update_yaxes(
-        tickmode="linear",
+        tickmode="array",
+        tickvals=[-1.0, -0.5, 0.0, 0.5, 1.0],
         title_text="UT1-UTC Offset Magnitude [s]",
-        title_font=dict(color=font_color),
-        tickfont=dict(color=font_color),
-        showgrid=True,
-        gridwidth=1,
-        gridcolor=grid_color,
-        showline=True,
-        linewidth=2,
-        linecolor=line_color,
-        zeroline=False,
+        showgrid=False,
     )
 
     return fig
 
 
-# Custom CSS to remove body margins/padding
-custom_css = """
-<style>
-body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-}
-</style>
-"""
-
-# Generate light theme version
-fig_light = create_figure("light")
-html_light = pio.to_html(
-    fig_light, include_plotlyjs="cdn", full_html=False, auto_play=False
-)
-html_light = custom_css + html_light
-with open(OUTFILE_LIGHT, "w") as f:
-    f.write(html_light)
-print(f"✓ Generated {OUTFILE_LIGHT}")
-
-# Generate dark theme version
-fig_dark = create_figure("dark")
-html_dark = pio.to_html(
-    fig_dark, include_plotlyjs="cdn", full_html=False, auto_play=False
-)
-html_dark = custom_css + html_dark
-with open(OUTFILE_DARK, "w") as f:
-    f.write(html_dark)
-print(f"✓ Generated {OUTFILE_DARK}")
+# Generate and save both themed versions
+light_path, dark_path = save_themed_html(create_figure, OUTDIR / SCRIPT_NAME)
+print(f"✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")

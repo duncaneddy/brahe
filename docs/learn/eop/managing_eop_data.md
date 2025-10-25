@@ -39,7 +39,7 @@ A static provider is one that just uses fixed values for Earth orientation param
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/eop/static_eop.rs:4"
+    --8<-- "./examples/eop/static_eop.rs:3"
     ```
 
 ### FileEOPProvider
@@ -55,7 +55,7 @@ If you want to use high-accuracy Earth orientation data, you can load data from 
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/eop/file_eop.rs:4"
+    --8<-- "./examples/eop/file_eop.rs:3"
     ```
 
 
@@ -74,7 +74,7 @@ The `CachingEOPProvider` is the recommended provider for most applications as it
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/eop/caching_eop.rs:4"
+    --8<-- "./examples/eop/caching_eop.rs:3"
     ```
 
 

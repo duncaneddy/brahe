@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://github.com/duncaneddy/brahe/latest/learn/time/epoch.html">
       
       
-        <link rel="prev" href="time_conversions.html">
+        <link rel="prev" href="index.html">
       
       
         <link rel="next" href="../coordinates/index.html">
@@ -834,10 +834,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -878,52 +874,6 @@
             Time
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="time_systems.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Systems
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="time_conversions.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Conversions
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
             
               
                 
@@ -982,46 +932,64 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#initialization" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Initialization
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#creating-epochs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Creating Epochs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Creating Epochs">
+    <nav class="md-nav" aria-label="Initialization">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#from-calendar-date" class="md-nav__link">
+  <a href="#date-time" class="md-nav__link">
     <span class="md-ellipsis">
-      From Calendar Date
+      Date Time
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#from-julian-date" class="md-nav__link">
+  <a href="#mjd" class="md-nav__link">
     <span class="md-ellipsis">
-      From Julian Date
+      MJD
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#from-modified-julian-date" class="md-nav__link">
+  <a href="#jd" class="md-nav__link">
     <span class="md-ellipsis">
-      From Modified Julian Date
+      JD
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string" class="md-nav__link">
+    <span class="md-ellipsis">
+      String
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gps-week-and-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPS Week and Seconds
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gps-week-and-seconds_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPS Week and Seconds
     </span>
   </a>
   
@@ -1033,36 +1001,84 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#epoch-arithmetic" class="md-nav__link">
+  <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
-      Epoch Arithmetic
+      Operations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Addition
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#time-system-conversions" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#subtraction" class="md-nav__link">
     <span class="md-ellipsis">
-      Time System Conversions
+      Subtraction
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-time-values" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting Time Values
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
+  <a href="#output-and-formatting" class="md-nav__link">
     <span class="md-ellipsis">
-      Best Practices
+      Output and Formatting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output and Formatting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#date-time_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Date Time
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-representation" class="md-nav__link">
+    <span class="md-ellipsis">
+      String Representation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iso-8601-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      ISO 8601 String
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      Time Ranges
     </span>
   </a>
   
@@ -4335,46 +4351,64 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#initialization" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Initialization
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#creating-epochs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Creating Epochs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Creating Epochs">
+    <nav class="md-nav" aria-label="Initialization">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#from-calendar-date" class="md-nav__link">
+  <a href="#date-time" class="md-nav__link">
     <span class="md-ellipsis">
-      From Calendar Date
+      Date Time
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#from-julian-date" class="md-nav__link">
+  <a href="#mjd" class="md-nav__link">
     <span class="md-ellipsis">
-      From Julian Date
+      MJD
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#from-modified-julian-date" class="md-nav__link">
+  <a href="#jd" class="md-nav__link">
     <span class="md-ellipsis">
-      From Modified Julian Date
+      JD
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string" class="md-nav__link">
+    <span class="md-ellipsis">
+      String
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gps-week-and-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPS Week and Seconds
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gps-week-and-seconds_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPS Week and Seconds
     </span>
   </a>
   
@@ -4386,36 +4420,84 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#epoch-arithmetic" class="md-nav__link">
+  <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
-      Epoch Arithmetic
+      Operations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Addition
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#time-system-conversions" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#subtraction" class="md-nav__link">
     <span class="md-ellipsis">
-      Time System Conversions
+      Subtraction
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-time-values" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting Time Values
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
+  <a href="#output-and-formatting" class="md-nav__link">
     <span class="md-ellipsis">
-      Best Practices
+      Output and Formatting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output and Formatting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#date-time_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Date Time
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-representation" class="md-nav__link">
+    <span class="md-ellipsis">
+      String Representation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iso-8601-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      ISO 8601 String
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      Time Ranges
     </span>
   </a>
   
@@ -4450,81 +4532,69 @@
 
 
 <h1 id="epoch">Epoch<a class="headerlink" href="#epoch" title="Permanent link">&para;</a></h1>
-<p>The Epoch class is the fundamental time representation in Brahe.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>An <code>Epoch</code> represents a specific instant in time with:</p>
-<ul>
-<li>A time system (UTC, TAI, TT, GPS, UT1)</li>
-<li>Nanosecond precision</li>
-<li>Efficient arithmetic operations</li>
-</ul>
-<h2 id="creating-epochs">Creating Epochs<a class="headerlink" href="#creating-epochs" title="Permanent link">&para;</a></h2>
-<h3 id="from-calendar-date">From Calendar Date<a class="headerlink" href="#from-calendar-date" title="Permanent link">&para;</a></h3>
+<p>The Epoch class is the fundamental time representation in Brahe. It encapsulates a specific instant in time, defined by both a time representation and a time scale. The Epoch class provides methods for converting between different time representations and time scales, as well as for performing arithmetic operations on time instances.</p>
+<p>There are even more capabilities and features of the Epoch class beyond what is covered in this guide. For a complete reference of all available methods and properties, please refer to the <a href="../../library_api/time/epoch.html">Epoch API Reference</a>.</p>
+<h2 id="initialization">Initialization<a class="headerlink" href="#initialization" title="Permanent link">&para;</a></h2>
+<p>THere are all sorts of ways you can initialize an Epoch instance. The most common methods are described below.</p>
+<h3 id="date-time">Date Time<a class="headerlink" href="#date-time" title="Permanent link">&para;</a></h3>
+<h3 id="mjd">MJD<a class="headerlink" href="#mjd" title="Permanent link">&para;</a></h3>
+<h3 id="jd">JD<a class="headerlink" href="#jd" title="Permanent link">&para;</a></h3>
+<h3 id="string">String<a class="headerlink" href="#string" title="Permanent link">&para;</a></h3>
+<h3 id="gps-week-and-seconds">GPS Week and Seconds<a class="headerlink" href="#gps-week-and-seconds" title="Permanent link">&para;</a></h3>
+<h3 id="gps-week-and-seconds_1">GPS Week and Seconds<a class="headerlink" href="#gps-week-and-seconds_1" title="Permanent link">&para;</a></h3>
+<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h2>
+<p>Once you have an epoch class instance you can add and subtract time as you would expect. </p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When performing arithmetic the other operand is always interpreted as a time duration in seconds.</p>
+</div>
+<h3 id="addition">Addition<a class="headerlink" href="#addition" title="Permanent link">&para;</a></h3>
+<h3 id="subtraction">Subtraction<a class="headerlink" href="#subtraction" title="Permanent link">&para;</a></h3>
+<h2 id="output-and-formatting">Output and Formatting<a class="headerlink" href="#output-and-formatting" title="Permanent link">&para;</a></h2>
+<p>Finally, you can take any Epoch instance and then output it in different representations.</p>
+<h3 id="date-time_1">Date Time<a class="headerlink" href="#date-time_1" title="Permanent link">&para;</a></h3>
+<h3 id="string-representation">String Representation<a class="headerlink" href="#string-representation" title="Permanent link">&para;</a></h3>
+<h3 id="iso-8601-string">ISO 8601 String<a class="headerlink" href="#iso-8601-string" title="Permanent link">&para;</a></h3>
+<h2 id="time-ranges">Time Ranges<a class="headerlink" href="#time-ranges" title="Permanent link">&para;</a></h2>
+<p>The <code>TimeRange</code> class provides an easy way to iterate over a range of time instances. You can specify a start and end <code>Epoch</code>, along with a time step in seconds, and the <code>TimeRange</code> will generate all the <code>Epoch</code> instances within that range at the specified intervals.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create from year, month, day, hour, minute, second, nanosecond, time system</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">for</span> <span class="n">epc</span> <span class="ow">in</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeRange</span><span class="p">(</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">time_system</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">),</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">time_system</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">),</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="mf">3600.0</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">):</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">epc</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="from-julian-date">From Julian Date<a class="headerlink" href="#from-julian-date" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_jd</span><span class="p">(</span><span class="mf">2460310.5</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">epc</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">TimeRange</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="n">bh</span><span class="p">::</span><span class="n">Epoch</span><span class="p">::</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">TimeSystem</span><span class="p">::</span><span class="n">UTC</span><span class="p">),</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="n">bh</span><span class="p">::</span><span class="n">Epoch</span><span class="p">::</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">TimeSystem</span><span class="p">::</span><span class="n">UTC</span><span class="p">),</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="mf">3600.0</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">epc</span><span class="p">);</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="from-modified-julian-date">From Modified Julian Date<a class="headerlink" href="#from-modified-julian-date" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_mjd</span><span class="p">(</span><span class="mf">60310.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="epoch-arithmetic">Epoch Arithmetic<a class="headerlink" href="#epoch-arithmetic" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Add seconds</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">later_epoch</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mf">3600.0</span>  <span class="c1"># 1 hour later</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Subtract seconds</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">earlier_epoch</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">-</span> <span class="mf">1800.0</span>  <span class="c1"># 30 minutes earlier</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Difference between epochs (returns seconds)</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">delta_seconds</span> <span class="o">=</span> <span class="n">later_epoch</span> <span class="o">-</span> <span class="n">epoch</span>
-</span></code></pre></div>
-<h2 id="time-system-conversions">Time System Conversions<a class="headerlink" href="#time-system-conversions" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">utc_epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Convert to different time systems</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">tai_epoch</span> <span class="o">=</span> <span class="n">utc_epoch</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TAI</span><span class="p">)</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">gps_epoch</span> <span class="o">=</span> <span class="n">utc_epoch</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">tt_epoch</span> <span class="o">=</span> <span class="n">utc_epoch</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TT</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="getting-time-values">Getting Time Values<a class="headerlink" href="#getting-time-values" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Get Julian Date</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">jd</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">jd</span><span class="p">()</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># Get Modified Julian Date</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">mjd</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">mjd</span><span class="p">()</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Get calendar date components</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">year</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">day</span><span class="p">,</span> <span class="n">hour</span><span class="p">,</span> <span class="n">minute</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">nanosecond</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">()</span>
-</span></code></pre></div>
-<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Store all epochs in a consistent time system (UTC or TAI recommended)</li>
-<li>Use TAI for propagation (no leap seconds)</li>
-<li>Convert to UTC only for display</li>
-<li>Always specify time system explicitly</li>
-</ul>
+</div>
+</div>
+</div>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../library_api/time/epoch.html">Epoch API Reference</a></li>
-<li><a href="time_systems.html">Time Systems</a></li>
-<li><a href="time_conversions.html">Time Conversions</a></li>
+<li><a href="time_systems.md">Time Systems</a></li>
+<li><a href="time_conversions.md">Time Conversions</a></li>
 </ul>
 
 
@@ -4548,7 +4618,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 21, 2025 04:45:12 UTC">2025-10-21</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 25, 2025 06:15:43 UTC">2025-10-25</span>
   </span>
 
     

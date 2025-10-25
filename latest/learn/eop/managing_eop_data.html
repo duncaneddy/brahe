@@ -967,10 +967,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -1013,52 +1009,6 @@
             Time
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../time/time_systems.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Systems
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../time/time_conversions.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Conversions
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
             
               
                 
@@ -4471,6 +4421,7 @@
 </div>
 <h2 id="earth-orientation-providers">Earth Orientation Providers<a class="headerlink" href="#earth-orientation-providers" title="Permanent link">&para;</a></h2>
 <p>Brahe defines the <code>EarthOrientationProvider</code> trait to provide a common interface for accessing Earth orientation data. There are multiple different types of providers, each with their own use cases. The package includes default data files for ease of use that are sufficient for most purposes.</p>
+<p>For the most accurate Earth orientation data modeling in scripts, you should download the latest available Earth orientation data for the desired model and the using the file-based loading methods. Alternatively you can the <code>CachingEOPProvider</code> to initialize the Earth orientation data which will automatically download and update the latest data files as needed.</p>
 <h3 id="staticeopprovider">StaticEOPProvider<a class="headerlink" href="#staticeopprovider" title="Permanent link">&para;</a></h3>
 <p>A static provider is one that just uses fixed values for Earth orientation parameters. This provider is useful for testing and development or if your application only requires low accuracy.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Python</label><label for="__tabbed_2_2">Rust</label></div>
@@ -4508,6 +4459,15 @@
 </div>
 <h3 id="fileeopprovider">FileEOPProvider<a class="headerlink" href="#fileeopprovider" title="Permanent link">&para;</a></h3>
 <p>If you want to use high-accuracy Earth orientation data, you can load data from IERS files using the <code>FileEOPProvider</code>. Brahe provides functions to load default IERS data files provided with the package, or you can specify your own file paths.</p>
+<p>When creating any new file-based data provider there are two parameters that are set at loading time which will determine how the EOP instances handles data returns for times not in the loaded data.</p>
+<p>The first parameter is the <code>interpolate</code> setting. When <code>interpolate</code> is set to <code>True</code> and data set will be linearly interpolated to the desired time. When set to <code>False</code>, the function call will return the last value prior to the requested data. Given that IERS data is typically provided at daily intervals, it is generally recommended to enable interpolation for most applications.</p>
+<p>The second parameter is the <code>extrapolate</code> parameter, which can have a value of <code>Zero</code>, <code>Hold</code>, or <code>Error</code>. This value will determine how requests for data points beyond the end of the loaded data are handled. The possible behaviors are</p>
+<ul>
+<li><code>Zero</code>: Returned values will be <code>0.0</code> where data is not available</li>
+<li><code>Hold</code>: Will return the last available returned value when data is not available</li>
+<li><code>Error</code>: Data access attempts where data is not present will panic and terminate the program</li>
+</ul>
+<p>You can create a file-based Earth orientation provider by specifying the file paths to the desired data files as follows:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Python</label><label for="__tabbed_3_2">Rust</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -4593,6 +4553,7 @@
 <h3 id="cachingeopprovider">CachingEOPProvider<a class="headerlink" href="#cachingeopprovider" title="Permanent link">&para;</a></h3>
 <p>The <code>CachingEOPProvider</code> is a <code>FileEOPProvider</code> that automatically downloads and caches the latest Earth orientation data files from the IERS website as needed. It checks the age of the cached data and if the data is older than a specified threshold, it downloads the latest files, then loads them for use. This provider can also be configured to check for a stale cache on use and update the data if needed, which is useful for long-running applications.</p>
 <p>The <code>CachingEOPProvider</code> is the recommended provider for most applications as it provides high-accuracy Earth orientation data without requiring manual management of data files. <code>initialize_eop()</code> uses this provider by default.</p>
+<p>The interpolation and extrapolation parameters are also available when creating a <code>CachingEOPProvider</code>, with the same behavior as described for the <code>FileEOPProvider</code>.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Python</label><label for="__tabbed_4_2">Rust</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -4658,127 +4619,99 @@
 <h2 id="downloading-eop-data-files">Downloading EOP Data Files<a class="headerlink" href="#downloading-eop-data-files" title="Permanent link">&para;</a></h2>
 <p>If you want to manually download Earth orientation data files to store or save them, brahe provides two means of doing so. The first is through the command-line interface (CLI) tool included with brahe. The second is through direct function calls in either the Rust or Python APIs.</p>
 <h3 id="cli">CLI<a class="headerlink" href="#cli" title="Permanent link">&para;</a></h3>
+<p>The brahe CLI command includes an <code>eop download</code> subcommand which can be used to download the latest Earth orientation data files from IERS servers.</p>
+<p>To download the latest standard product file, use the following command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>--product<span class="w"> </span>standard<span class="w"> </span>&lt;output_filepath&gt;
+</span></code></pre></div>
+<p>To download the latest C04 final product file, use the following command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>--product<span class="w"> </span>c04<span class="w"> </span>&lt;output_filepath&gt;
+</span></code></pre></div>
 <h3 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h3>
+<p>You can also download Earth orientation data files directly using the <code>download_standard_eop_file</code> and <code>download_c04_eop_file</code> functions in the <code>brahe.eop</code> module.</p>
+<p>You can download the latest standard EOP data file as follows:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Python</label><label for="__tabbed_5_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Download latest standard EOP data</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">download_standard_eop_file</span><span class="p">(</span><span class="s2">&quot;./eop_data/standard_eop.txt&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="p">::</span><span class="n">eop</span><span class="p">::</span><span class="n">download_standard_eop_file</span><span class="p">;</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1">// Download latest C04 EOP data</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">download_standard_eop_file</span><span class="p">(</span><span class="s">&quot;./eop_data/finals2000A.all.csv&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>Or download the latest C04 final product file as follows:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Python</label><label for="__tabbed_6_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Download latest C04 EOP data</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">download_c04_eop_file</span><span class="p">(</span><span class="s2">&quot;./eop_data/finals2000A.all.csv&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="p">::</span><span class="n">eop</span><span class="p">::</span><span class="n">download_c04_eop_file</span><span class="p">;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1">// Download latest C04 EOP data</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">download_c04_eop_file</span><span class="p">(</span><span class="s">&quot;./eop_data/finals2000A.all.csv&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
 <h2 id="accessing-eop-parameters">Accessing EOP Parameters<a class="headerlink" href="#accessing-eop-parameters" title="Permanent link">&para;</a></h2>
-<!-- Most software using this library requires upfront, explicit initialization of the  static Earth orientation data. Earth orientation data is loaded globally by calling one of the provided loading methods: `set_global_eop_from_zero`, `set_global_eop_from_static_values`, `set_global_eop_from_c04_file`, `set_global_eop_from_default_c04`, `set_global_eop_from_standard_file`, or `set_global_eop_from_default_standard`. These methods can be called multiple times to reset or override the currently loaded data.
-
-The `set_global_eop_from_zero` will initialize the global data with zeroed values. This enables usage of other module functionality, but does not provide the most accurate modeling of Earth or time systems. It should be used when a quick, approximately correct answer is needed. `set_global_eop_from_static_values` is a similar initialization method which configures the module with a single set of Earth orientation data used for all transformations.
-
-To configure more accurate Earth orientation data to use in the module, `set_global_eop_from_c04_file` can be used to load long-term IERS C04 products and `set_global_eop_from_standard_file` to load either Bulletin A or Bulletin B data from the IERS standard file product format.
-
-brahe distributions also include packaged IERS C04 and Bulletin A/B data. These can be configured using `set_global_eop_from_default_c04` or `set_global_eop_from_default_standard`, respectively. While not updated regularly.
-
-For the most accurate Earth orientation data modeling in scripts, you should download the latest available Earth orientation data for the desired model and the using the file-based loading methods (`set_global_eop_from_c04_file` or `set_global_eop_from_standard_file`) to initialize the Earth orientation data based on the file.
-
-When creating any new Earth Orientation data instance there are two parameters that are set at loading time which will determine how the EOP instances handles data returns for certain cases. The first parameter is the `extrapolate` parameter, which can have a value of `Zero`, `Hold`, or `Error`. This value will determine how requests for data points beyond the end of the loaded data are handled. The possible behaviors are
-- `Zero`: Returned values will be `0.0` where data is not available
-- `Hold`: Will return the last available returned value when data is not available
-- `Error`: Data access attempts where data is not present will panic and terminate the program
-
-The second parameter the `interpolate` setting. When `interpolate` is set to true and data requests made for a point that wasn't explicitly loaded as part of the input data set will be linearly interpolated to the desired time. When set to `false`, the function call will return the last value prior to the requested data.
-
-Below is an example of loading C04 data
-
-=== "Rust"
-
-    <div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>
-</span></code></pre></div>
-
-=== "Python"
-
-    <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>
-</span></code></pre></div>
-
-The process for loading standard data is similar. However, when loading standard files there is one other parameter which comes into play, the Earth Orientation Type. This type-setting determines whether the Bulletin A or Bulletin B data is loaded into the object when parsing the file. In rust
-
-=== "Rust"
-
-    <div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>
-</span></code></pre></div>
-
-=== "Python"
-
-    <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>
-</span></code></pre></div>
-
-!!! note
-
-    For applications where the time is in the future it is recommended to use standard EOP data as standard files contain predictions for approximately 1 year into the future and will increase accuracy of analysis by accounting for Earth orientation corrections.
-
-    For analysis for scenarios in the past it is recommended to use the final C04 products as they contain the highest accress estimates of Earth orientation data.
-
-### Accessing Earth Orientation Data
-
-Most of the time the data stored by the Earth orientation object is not used directly. If your application calls for accessing the `EarthOrientationProvider` object provides a number of methods for accessing different Earth orientation Parameters stored by the object. However, in mostcases, it is best to use the data for the crate's loaded static Earth orientation data. In these cases the following methods can be used to access the loaded static Earth orientation data:
-- `get_global_ut1_utc`
-- `get_global_pm`
-- `get_global_dxdy`
-- `get_global_lod`
-- `get_global_eop`
-
-The following methods return information on the currently loaded Earth orientation data:
-- `get_global_eop_initialization`
-- `get_global_eop_len`
-- `get_global_eop_type`
-- `get_global_eop_extrapolate`
-- `get_global_eop_interpolate`
-- `get_global_eop_mjd_min`
-- `get_global_eop_mjd_max`
-- `get_global_eop_mjd_last_lod`
-- `get_global_eop_mjd_last_dxdy`
-
-=== "Rust"
-
-    <div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>
-</span></code></pre></div>
-
-=== "Python"
-
-    <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>
-</span></code></pre></div>
-
-### Downloading updated Earth Orientation Data
-
-The final functionality that Brahe provides is the ability to download new Earth orientation parameter data files.
-
-The functions `download_c04_eop_file` and `download_standard_eop_file` can be used to downloaded the latest product files from IERS servers and store them locally at the specified filepath. The download functions will attempt to create the necessary directory structure if required.
-
-=== "Rust"
-
-    <div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="p">::</span><span class="n">eop</span><span class="p">::{</span><span class="n">download_c04_eop_file</span><span class="p">,</span><span class="w"> </span><span class="n">download_standard_eop_file</span><span class="p">};</span>
+<p>While not common it is possible to directly access Earth orientation parameters from the currently loaded global Earth orientation provider. This can be useful for debugging or analysis purposes.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Python</label><label for="__tabbed_7_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="c1">// Download latest C04 final product file</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="n">download_c04_eop_file</span><span class="p">(</span><span class="s">&quot;./c04_file.txt&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="c1">// Download latest standard product file</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="n">download_standard_eop_file</span><span class="p">(</span><span class="s">&quot;./standard_file.txt&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="p">}</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Get current time</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="n">epc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">xp</span><span class="p">,</span> <span class="n">yp</span><span class="p">,</span> <span class="n">dut1</span><span class="p">,</span> <span class="n">lod</span><span class="p">,</span> <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">get_global_eop</span><span class="p">(</span><span class="n">epc</span><span class="o">.</span><span class="n">mjd</span><span class="p">())</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;At epoch </span><span class="si">{</span><span class="n">epc</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  x_pole: </span><span class="si">{</span><span class="n">xp</span><span class="si">}</span><span class="s2"> arcseconds&quot;</span><span class="p">)</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  y_pole: </span><span class="si">{</span><span class="n">yp</span><span class="si">}</span><span class="s2"> arcseconds&quot;</span><span class="p">)</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  dut1: </span><span class="si">{</span><span class="n">dut1</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  length of day: </span><span class="si">{</span><span class="n">lod</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  dX: </span><span class="si">{</span><span class="n">dX</span><span class="si">}</span><span class="s2"> arcseconds&quot;</span><span class="p">)</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  dY: </span><span class="si">{</span><span class="n">dY</span><span class="si">}</span><span class="s2"> arcseconds&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-
-=== "Python"
-
-    <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="c1"># // Download latest C04 final product file</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="n">brahe</span><span class="o">.</span><span class="n">eop</span><span class="o">.</span><span class="n">download_c04_eop_file</span><span class="p">(</span><span class="s2">&quot;./c04_file_py.txt&quot;</span><span class="p">)</span>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[allow(unused_imports)]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="c1"># // Download latest standard product file</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="n">brahe</span><span class="o">.</span><span class="n">eop</span><span class="o">.</span><span class="n">download_standard_eop_file</span><span class="p">(</span><span class="s2">&quot;./standard_file_py.txt&quot;</span><span class="p">)</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">epc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">Epoch</span><span class="p">::</span><span class="n">now</span><span class="p">();</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">xp</span><span class="p">,</span><span class="w"> </span><span class="n">yp</span><span class="p">,</span><span class="w"> </span><span class="n">dut1</span><span class="p">,</span><span class="w"> </span><span class="n">lod</span><span class="p">,</span><span class="w"> </span><span class="n">dx</span><span class="p">,</span><span class="w"> </span><span class="n">dy</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">get_global_eop</span><span class="p">(</span><span class="n">epc</span><span class="p">.</span><span class="n">mjd</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;At epoch {}:&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">epc</span><span class="p">.</span><span class="n">to_string</span><span class="p">());</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;xp:  {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">xp</span><span class="p">);</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;yp:  {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">yp</span><span class="p">);</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;dut1: {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">dut1</span><span class="p">);</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;lod:  {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">lod</span><span class="p">);</span>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;dX:   {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">dx</span><span class="p">);</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;dY:   {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">dy</span><span class="p">);</span>
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="p">}</span>
 </span></code></pre></div>
-
-If using the brahe CLI, product files can be download with
-
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>--product<span class="w"> </span>final<span class="w"> </span>final_c04_eop_file.txt
-</span></code></pre></div>
-
-or 
-
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>--product<span class="w"> </span>standard<span class="w"> </span>standard_eop_file.txt
-</span></code></pre></div>
- -->
-
+</div>
+</div>
+</div>
+<p>You can find more functions to access specific subsets of Earth orientation data in the <a href="../../library_api/eop/functions.html">API Reference</a>.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../library_api/eop/static_provider.html">StaticEOPProvider API Reference</a></li>
@@ -4807,7 +4740,7 @@ or
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 25, 2025 04:19:20 UTC">2025-10-25</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 25, 2025 05:21:17 UTC">2025-10-25</span>
   </span>
 
     

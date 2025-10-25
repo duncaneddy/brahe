@@ -18,7 +18,7 @@
         <link rel="prev" href="../eop/managing_eop_data.html">
       
       
-        <link rel="next" href="time_systems.html">
+        <link rel="next" href="epoch.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -834,10 +834,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -878,52 +874,6 @@
             Time
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="time_systems.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Systems
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="time_conversions.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Time Conversions
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
             
               
                 
@@ -4197,305 +4147,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#time-representation" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Time Representation
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#time-systems" class="md-nav__link">
+  <a href="#time-scales" class="md-nav__link">
     <span class="md-ellipsis">
-      Time Systems
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Time Systems">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#utc-coordinated-universal-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      UTC (Coordinated Universal Time)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tai-international-atomic-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      TAI (International Atomic Time)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gps-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      GPS Time
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tt-terrestrial-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      TT (Terrestrial Time)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ut1-universal-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      UT1 (Universal Time)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-epoch-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      The Epoch Type
+      Time Scales
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#time-system-conversions" class="md-nav__link">
+  <a href="#epoch" class="md-nav__link">
     <span class="md-ellipsis">
-      Time System Conversions
+      Epoch
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Time System Conversions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#using-epoch-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      Using Epoch (Recommended)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#using-conversion-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Using Conversion Functions
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Common Patterns
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#orbital-propagation-timesteps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Orbital Propagation Timesteps
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mission-timeline-with-utc" class="md-nav__link">
-    <span class="md-ellipsis">
-      Mission Timeline with UTC
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#absolute-vs-relative-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      Absolute vs Relative Time
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#julian-day-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      Julian Day Systems
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Julian Day Systems">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#julian-day-jd" class="md-nav__link">
-    <span class="md-ellipsis">
-      Julian Day (JD)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#modified-julian-day-mjd" class="md-nav__link">
-    <span class="md-ellipsis">
-      Modified Julian Day (MJD)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#time-precision" class="md-nav__link">
-    <span class="md-ellipsis">
-      Time Precision
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Time Precision">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#epoch-precision" class="md-nav__link">
-    <span class="md-ellipsis">
-      Epoch Precision
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#floating-point-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Floating-Point Considerations
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#leap-seconds" class="md-nav__link">
-    <span class="md-ellipsis">
-      Leap Seconds
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Performance Considerations
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Performance Considerations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#epoch-vs-raw-numbers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Epoch vs Raw Numbers
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#caching-conversions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Caching Conversions
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-pitfalls" class="md-nav__link">
-    <span class="md-ellipsis">
-      Common Pitfalls
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Pitfalls">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#discontinuous-time-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      Discontinuous Time Systems
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#time-system-confusion" class="md-nav__link">
-    <span class="md-ellipsis">
-      Time System Confusion
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#precision-loss" class="md-nav__link">
-    <span class="md-ellipsis">
-      Precision Loss
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -4528,271 +4202,60 @@
 
 
 <h1 id="time-systems-and-representations">Time Systems and Representations<a class="headerlink" href="#time-systems-and-representations" title="Permanent link">&para;</a></h1>
-<p>Time is fundamental to astrodynamics, yet surprisingly complex. Different applications require different time systems, each with specific properties and use cases. Brahe provides comprehensive time representation and conversion capabilities.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>Brahe supports multiple time systems and provides:</p>
+<div class="admonition quote">
+<p>In the beginning the Universe was created. This has made a lot of people very angry and has been widely regarded as a bad move</p>
 <ul>
-<li><strong><code>Epoch</code></strong>: Primary time representation with nanosecond precision</li>
-<li><strong>Time system conversions</strong>: Transform between UTC, TAI, GPS, TT, and UT1</li>
-<li><strong>Calendar conversions</strong>: Julian Day (JD) and Modified Julian Day (MJD)</li>
-<li><strong>DateTime integration</strong>: Natural Python datetime interoperability</li>
+<li>Douglas Adams</li>
 </ul>
-<h2 id="time-systems">Time Systems<a class="headerlink" href="#time-systems" title="Permanent link">&para;</a></h2>
-<h3 id="utc-coordinated-universal-time">UTC (Coordinated Universal Time)<a class="headerlink" href="#utc-coordinated-universal-time" title="Permanent link">&para;</a></h3>
-<p>Civil time standard synchronized with Earth's rotation via leap seconds.</p>
-<p><strong>Properties</strong>:
-- Based on atomic clocks
-- Adjusted with leap seconds to stay within 0.9s of UT1
-- Not continuous (jumps during leap seconds)</p>
-<p><strong>Use cases</strong>:
-- User interfaces and displays
-- Ground station scheduling
-- Mission planning</p>
-<p><strong>Limitations</strong>: Discontinuous due to leap seconds, not suitable for numerical integration.</p>
-<h3 id="tai-international-atomic-time">TAI (International Atomic Time)<a class="headerlink" href="#tai-international-atomic-time" title="Permanent link">&para;</a></h3>
-<p>Continuous atomic time scale, the foundation of all modern time systems.</p>
-<p><strong>Properties</strong>:
-- Based on ensemble of atomic clocks worldwide
-- Perfectly continuous (no leap seconds)
-- TAI = UTC + (leap seconds)</p>
-<p><strong>Use cases</strong>:
-- Time system conversions
-- Precise time intervals
-- Internal timing references</p>
-<p><strong>Offset</strong>: TAI - UTC = 37 seconds (as of 2024)</p>
-<h3 id="gps-time">GPS Time<a class="headerlink" href="#gps-time" title="Permanent link">&para;</a></h3>
-<p>Continuous time used by Global Positioning System.</p>
-<p><strong>Properties</strong>:
-- Based on GPS satellite clocks
-- Continuous like TAI
-- GPS = TAI - 19 seconds (constant offset)</p>
-<p><strong>Use cases</strong>:
-- GPS navigation
-- Satellite timing
-- Time synchronization</p>
-<p><strong>Offset</strong>: GPS = UTC + 18 seconds (as of 2024, will change with future leap seconds)</p>
-<h3 id="tt-terrestrial-time">TT (Terrestrial Time)<a class="headerlink" href="#tt-terrestrial-time" title="Permanent link">&para;</a></h3>
-<p>Theoretical ideal time at Earth's geoid, used for ephemerides and celestial mechanics.</p>
-<p><strong>Properties</strong>:
-- Continuous
-- TT = TAI + 32.184 seconds (constant offset)
-- Proper time on Earth's geoid</p>
-<p><strong>Use cases</strong>:
-- Orbital mechanics
-- Ephemeris calculations
-- Celestial mechanics</p>
-<h3 id="ut1-universal-time">UT1 (Universal Time)<a class="headerlink" href="#ut1-universal-time" title="Permanent link">&para;</a></h3>
-<p>Time based on Earth's actual rotation angle.</p>
-<p><strong>Properties</strong>:
-- Follows Earth's rotation
-- Non-uniform (Earth's rotation varies)
-- UT1 - UTC tracked by EOP data</p>
-<p><strong>Use cases</strong>:
-- Earth rotation angle calculations
-- Sidereal time
-- ECI/ECEF transformations</p>
-<p><strong>Note</strong>: Requires Earth Orientation Parameters (EOP) for accurate UTC ↔ UT1 conversion.</p>
-<p>See: <a href="time_systems.html">Time Systems</a></p>
-<h2 id="the-epoch-type">The Epoch Type<a class="headerlink" href="#the-epoch-type" title="Permanent link">&para;</a></h2>
-<p><code>Epoch</code> is Brahe's primary time representation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create from datetime</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Year, month, day</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="mi">12</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mf">45.123456789</span><span class="p">,</span>  <span class="c1"># Hour, minute, seconds (with nanosecond precision)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="mf">0.0</span><span class="p">,</span>  <span class="c1"># Fractional day offset</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Create from Julian Day</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_jd</span><span class="p">(</span><span class="mf">2451545.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TT</span><span class="p">)</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Create from Modified Julian Day</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_mjd</span><span class="p">(</span><span class="mf">51544.5</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Query in different representations</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">jd</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">jd</span><span class="p">()</span>  <span class="c1"># Julian Day</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">mjd</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">mjd</span><span class="p">()</span>  <span class="c1"># Modified Julian Day</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">year</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">day</span><span class="p">,</span> <span class="n">hour</span><span class="p">,</span> <span class="n">minute</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">frac_day</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">()</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Convert between time systems</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">epoch_tai</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TAI</span><span class="p">)</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">epoch_gps</span> <span class="o">=</span> <span class="n">epoch</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span></code></pre></div>
-<p><strong>Key features</strong>:
-- Nanosecond precision (sufficient for all satellite applications)
-- Immutable (thread-safe)
-- Efficient arithmetic (add/subtract seconds)
-- Automatic time system conversion</p>
-<p>See: <a href="epoch.html">Epoch</a></p>
-<h2 id="time-system-conversions">Time System Conversions<a class="headerlink" href="#time-system-conversions" title="Permanent link">&para;</a></h2>
-<p>Brahe provides both high-level (<code>Epoch</code>) and low-level conversion functions:</p>
-<h3 id="using-epoch-recommended">Using Epoch (Recommended)<a class="headerlink" href="#using-epoch-recommended" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Create in UTC</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">epoch_utc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Convert to other systems</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">epoch_tai</span> <span class="o">=</span> <span class="n">epoch_utc</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TAI</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">epoch_gps</span> <span class="o">=</span> <span class="n">epoch_utc</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">epoch_tt</span> <span class="o">=</span> <span class="n">epoch_utc</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TT</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="using-conversion-functions">Using Conversion Functions<a class="headerlink" href="#using-conversion-functions" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># JD/MJD conversions</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">jd</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">datetime_to_jd</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">year</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">day</span><span class="p">,</span> <span class="n">hour</span><span class="p">,</span> <span class="n">minute</span><span class="p">,</span> <span class="n">second</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">jd_to_datetime</span><span class="p">(</span><span class="n">jd</span><span class="p">)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">mjd</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">jd_to_mjd</span><span class="p">(</span><span class="n">jd</span><span class="p">)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">jd</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">mjd_to_jd</span><span class="p">(</span><span class="n">mjd</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Time system offsets</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">tai_utc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">tai_utc</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>  <span class="c1"># Get TAI-UTC offset (leap seconds)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">gps_utc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">gps_utc</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>  <span class="c1"># Get GPS-UTC offset</span>
-</span></code></pre></div>
-<p>See: <a href="time_conversions.html">Time Conversions</a></p>
-<h2 id="common-patterns">Common Patterns<a class="headerlink" href="#common-patterns" title="Permanent link">&para;</a></h2>
-<h3 id="orbital-propagation-timesteps">Orbital Propagation Timesteps<a class="headerlink" href="#orbital-propagation-timesteps" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Use GPS time for continuous propagation</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">epoch_start</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span>  <span class="c1"># Continuous time system</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Propagate for 24 hours</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">dt</span> <span class="o">=</span> <span class="mf">60.0</span>  <span class="c1"># seconds</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">states</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1440</span><span class="p">):</span>  <span class="c1"># 24 hours * 60 min/hr</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">epoch</span> <span class="o">=</span> <span class="n">epoch_start</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">state</span> <span class="o">=</span> <span class="n">propagator</span><span class="o">.</span><span class="n">state</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="mission-timeline-with-utc">Mission Timeline with UTC<a class="headerlink" href="#mission-timeline-with-utc" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># User-facing times in UTC</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">events</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">),</span>  <span class="c1"># Launch</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">),</span>  <span class="c1"># Stage separation</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">),</span>  <span class="c1"># Orbit insertion</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">]</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Convert to GPS for calculations</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">events_gps</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Compute time intervals (continuous time)</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">intervals</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="p">(</span><span class="n">events_gps</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">events_gps</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">events_gps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">]</span>
-</span></code></pre></div>
-<h3 id="absolute-vs-relative-time">Absolute vs Relative Time<a class="headerlink" href="#absolute-vs-relative-time" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Absolute time (Epoch)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">t0</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Relative time (float seconds)</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">dt</span> <span class="o">=</span> <span class="mf">3600.0</span>  <span class="c1"># 1 hour offset</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Compute future epoch</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">t1</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">dt</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Time span between epochs</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">duration</span> <span class="o">=</span> <span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span>  <span class="c1"># Returns seconds (float)</span>
-</span></code></pre></div>
-<h2 id="julian-day-systems">Julian Day Systems<a class="headerlink" href="#julian-day-systems" title="Permanent link">&para;</a></h2>
-<h3 id="julian-day-jd">Julian Day (JD)<a class="headerlink" href="#julian-day-jd" title="Permanent link">&para;</a></h3>
-<p>Days since January 1, 4713 BCE at 12:00 TT:</p>
-<ul>
-<li><strong>J2000 epoch</strong>: JD 2451545.0 (January 1, 2000, 12:00 TT)</li>
-<li><strong>Range</strong>: All historical dates</li>
-<li><strong>Precision</strong>: ~1 microsecond at 2000 CE (double precision)</li>
-</ul>
-<h3 id="modified-julian-day-mjd">Modified Julian Day (MJD)<a class="headerlink" href="#modified-julian-day-mjd" title="Permanent link">&para;</a></h3>
-<p>Offset version of JD for convenience:</p>
-<ul>
-<li><strong>MJD = JD - 2400000.5</strong></li>
-<li><strong>MJD 0</strong>: November 17, 1858, 00:00 UTC</li>
-<li><strong>Advantages</strong>: Smaller numbers, starts at midnight (not noon)</li>
-</ul>
-<p><strong>When to use</strong>:
-- <strong>JD</strong>: Astronomical calculations, ephemerides
-- <strong>MJD</strong>: Satellite operations, engineering applications</p>
-<h2 id="time-precision">Time Precision<a class="headerlink" href="#time-precision" title="Permanent link">&para;</a></h2>
-<h3 id="epoch-precision">Epoch Precision<a class="headerlink" href="#epoch-precision" title="Permanent link">&para;</a></h3>
-<p><code>Epoch</code> stores time as:
-- Days since epoch (integer)
-- Nanoseconds within day (integer)</p>
-<p><strong>Effective precision</strong>: ~1 nanosecond</p>
-<p><strong>Practical limits</strong>:
-- Satellite position: mm-level precision
-- Timing events: Sub-microsecond accuracy
-- Propagation: Limited by physics models, not time representation</p>
-<h3 id="floating-point-considerations">Floating-Point Considerations<a class="headerlink" href="#floating-point-considerations" title="Permanent link">&para;</a></h3>
-<p>When using JD/MJD as <code>float64</code>:</p>
-<ul>
-<li><strong>Precision at year 2000</strong>: ~1 microsecond</li>
-<li><strong>Precision at year 2100</strong>: ~10 microseconds</li>
-<li><strong>Loss of precision</strong>: ~1 ns per century</li>
-</ul>
-<p>For sub-microsecond timing, use <code>Epoch</code> instead of raw JD.</p>
-<h2 id="leap-seconds">Leap Seconds<a class="headerlink" href="#leap-seconds" title="Permanent link">&para;</a></h2>
-<p>Leap seconds are inserted to keep UTC within 0.9 seconds of UT1 (Earth's rotation).</p>
-<p><strong>Historical leap seconds</strong>: 27 since 1972 (as of 2024)</p>
-<p><strong>Handling in Brahe</strong>:
-- UTC times during leap second (23:59:60) are represented as 23:59:59.999...
-- TAI-UTC offset updated after each leap second
-- Leap second table built into library (updated with new releases)</p>
-<p><strong>Future leap seconds</strong>: Unpredictable (depend on Earth rotation variations)</p>
-<h2 id="performance-considerations">Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permanent link">&para;</a></h2>
-<h3 id="epoch-vs-raw-numbers">Epoch vs Raw Numbers<a class="headerlink" href="#epoch-vs-raw-numbers" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Efficient: Use Epoch for time bookkeeping</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">epochs</span> <span class="o">=</span> <span class="p">[</span><span class="n">epoch_start</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)]</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Less efficient: Manual JD arithmetic</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">jds</span> <span class="o">=</span> <span class="p">[</span><span class="n">jd_start</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="mf">86400.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)]</span>
-</span></code></pre></div>
-<p><code>Epoch</code> is optimized for time arithmetic and conversions.</p>
-<h3 id="caching-conversions">Caching Conversions<a class="headerlink" href="#caching-conversions" title="Permanent link">&para;</a></h3>
-<p>For repeated conversions at similar times:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Convert once, reuse</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">epoch_gps</span> <span class="o">=</span> <span class="n">epoch_utc</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Use converted epoch multiple times</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">propagate</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">epoch_gps</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
-<h3 id="discontinuous-time-systems">Discontinuous Time Systems<a class="headerlink" href="#discontinuous-time-systems" title="Permanent link">&para;</a></h3>
-<p>Don't use UTC for numerical integration:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># WRONG: UTC has leap seconds (discontinuous)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">epoch</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mf">60.0</span>  <span class="c1"># Incorrect during leap seconds</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># CORRECT: Use GPS or TAI (continuous)</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">epoch</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mf">60.0</span>  <span class="c1"># Always correct</span>
-</span></code></pre></div>
-<h3 id="time-system-confusion">Time System Confusion<a class="headerlink" href="#time-system-confusion" title="Permanent link">&para;</a></h3>
-<p>Always specify time system explicitly:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Ambiguous</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_jd</span><span class="p">(</span><span class="mf">2451545.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>  <span class="c1"># Uncommon</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Clear</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_jd</span><span class="p">(</span><span class="mf">2451545.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TT</span><span class="p">)</span>  <span class="c1"># Standard</span>
-</span></code></pre></div>
-<h3 id="precision-loss">Precision Loss<a class="headerlink" href="#precision-loss" title="Permanent link">&para;</a></h3>
-<p>Avoid unnecessary conversions:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Multiple conversions lose precision</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">epoch_utc</span> <span class="o">=</span> <span class="n">epoch_tt</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">epoch_tai</span> <span class="o">=</span> <span class="n">epoch_utc</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TAI</span><span class="p">)</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">epoch_gps</span> <span class="o">=</span> <span class="n">epoch_tai</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># Better: Direct conversion</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">epoch_gps</span> <span class="o">=</span> <span class="n">epoch_tt</span><span class="o">.</span><span class="n">to_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
-</span></code></pre></div>
+</div>
+<p>Astrodynamics is the study of space motion, which inherently involves the concept of time. Accurate timekeeping and conversions between different time systems are crucial for precise calculations in orbital mechanics.</p>
+<p>The <em>time</em> module provides functions for the handling of time. The package makes the distinction between the <em>representation</em> of a specific time and the <em>conversion</em> between different time scales. Precise specification of an instant in time requires the specification of both a time representation and time scale.</p>
+<h2 id="time-representation">Time Representation<a class="headerlink" href="#time-representation" title="Permanent link">&para;</a></h2>
+<p>A single instance in time can be represented in multiple different formats. For examples The J2000 Epoch can be represented as a calendar date in terms of years, months, days, hours, minutes, and seconds as <code>2000-01-01T12:00:00</code>. The same instant can also be represented in terms of Modified Julian Days as <code>51544.5</code>. Both of these representations refer to the same <em>instant</em> in time.</p>
+<h2 id="time-scales">Time Scales<a class="headerlink" href="#time-scales" title="Permanent link">&para;</a></h2>
+<p>In addition to representing time in different manners, there are also different time scales. A <em>time scale</em> is a standard to reckoning and resolving instances in time. Multimple time scales have been introduced due to the criticality of being able to correctly measure and understand when specific events occur in science and engineering.  </p>
+<p>Within a time scale it is possible to compare different instances in time to determine if one is before, after, or at the same time as another instant. It is also possible to compare between time scales, however you must know how to properly convert between them. It is assumed that all time scales use the same definition of the SI second, and therefore advance at the same rate.</p>
+<div class="admonition info">
+<p>Athough the calendar date representations of time <code>2000-01-01T12:00:00 UTC</code> and <code>2000-01-01T12:00:00 GPS</code> have the same values, they are actually  <em>different instances in time!</em>. This is because while the calendar date representations are the same there are actually offsets between the different time scales.</p>
+</div>
+<p>The time scales currently supported by brahe are</p>
+<table>
+<thead>
+<tr>
+<th>Time Scale</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GPS</code></td>
+<td><code>GPS</code> stands for Global Positioning System time. It is specifically, the time scale used by the US GPS satellites. It is different from TAI and TT by constant, fixed offsets.</td>
+</tr>
+<tr>
+<td><code>TAI</code></td>
+<td><code>TAI</code> is a French acronym for <em><em>temps atomique international</em></em>. It is an atomic time scale meant to track the proper time on the Earth's surface.</td>
+</tr>
+<tr>
+<td><code>UTC</code></td>
+<td><code>UTC</code> stands for Universal Coordinated Time. <code>UTC</code> tracks the solar day, accounting for long term variations due to changes in Earth's rotation to within +/- 1 second. Tracking the solar day in this manner introduces an offset between <code>TAI</code> and <code>UTC</code> of a fixed number of leap seconds.</td>
+</tr>
+<tr>
+<td><code>UT1</code></td>
+<td><code>UT1</code> stands for Universal Time 1. <code>UT1</code> represents the time as determined by the true solar day. Due to Earth's rotation rate constantly changing UT1 itself is constantly changing. The difference between <code>UT1</code> and <code>UTC</code> is empirically estimated on a daily basis as an Earth orientation parameter.</td>
+</tr>
+<tr>
+<td><code>TT</code></td>
+<td><code>TT</code> is Terrestrial Time, a time scale used historically to model the motion of planets and other solar system bodies. These models are still in wide use.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="epoch">Epoch<a class="headerlink" href="#epoch" title="Permanent link">&para;</a></h2>
+<p>The <code>Epoch</code> type represents a specific instant in time, defined by both a time representation and a time scale. The <code>Epoch</code> type provides methods for converting between different time representations and time scales, as well as for performing arithmetic operations on time instances.</p>
+<p>It is the core type used throughout the brahe package to represent time and provides many advandages as </p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="time_systems.html">Time Systems</a> - Detailed explanation of each time system</li>
-<li><a href="time_conversions.html">Time Conversions</a> - Conversion functions and algorithms</li>
+<li><a href="time_systems.md">Time Systems</a> - Detailed explanation of each time system</li>
+<li><a href="time_conversions.md">Time Conversions</a> - Conversion functions and algorithms</li>
 <li><a href="epoch.html">Epoch</a> - Complete guide to the Epoch type</li>
 <li><a href="../../library_api/time/index.html">Time API Reference</a> - Complete time function documentation</li>
 <li><a href="../../library_api/constants/time.html">Time Constants</a> - Important time-related constants</li>
@@ -4819,7 +4282,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 21, 2025 04:45:12 UTC">2025-10-21</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 25, 2025 06:15:43 UTC">2025-10-25</span>
   </span>
 
     

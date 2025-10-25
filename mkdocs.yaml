@@ -112,7 +112,7 @@ nav:
             - Code of Conduct: code_of_conduct.md
             - Contributing: contributing.md
             - License: license.md
-    -   Learn:
+    -   User Guide:
             - learn/index.md
             - Constants: learn/constants.md
             - Earth Orientation Data:

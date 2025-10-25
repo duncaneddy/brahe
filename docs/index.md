@@ -26,11 +26,11 @@
 
 ----
 
-Documentation: https://duncaneddy.github.io/brahe/latest
+Documentation: [https://duncaneddy.github.io/brahe/latest](https://duncaneddy.github.io/brahe/latest)
 
-Rust Library Reference: https://docs.rs/crate/brahe/latest
+Rust Library Reference: [https://docs.rs/crate/brahe/latest](https://docs.rs/crate/brahe/latest)
 
-Source Code: https://github.com/duncaneddy/brahe
+Source Code: [https://github.com/duncaneddy/brahe](https://github.com/duncaneddy/brahe)
 
 ----
 

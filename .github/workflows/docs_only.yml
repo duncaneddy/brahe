@@ -79,16 +79,10 @@ jobs:
         with:
           name: doc-figures
           path: docs/figures/
-          retention-days: 11
+          retention-days: 7
 
       - name: Build documentation site
-        run: uv run python make.py build-docs
-
-      - name: Download figures artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: doc-figures
-          path: docs/figures/
+        run: uv run mkdocs build
 
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages:gh-pages || true

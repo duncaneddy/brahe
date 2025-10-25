@@ -42,7 +42,7 @@ These modules focus on propagating spacecraft states over time using various dyn
 - **SGP Propagator**: This module implements the SGP (Simplified General Perturbations) propagator, a widely used method for propagating Earth-orbiting satellites, in particular those defined by TLEs.
 - **Orbit Dynamics**: This module implements various force models used in orbit propagation, such as gravity, drag, solar radiation pressure, and more.
 
-### Applications**
+### Applications
 
 These modules provide higher-level functionalities for specific applications, such as working with datasets, computing access windows, and plotting.
 

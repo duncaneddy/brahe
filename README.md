@@ -83,7 +83,17 @@ import brahe as bh
 And do something fun like calculate the orbital-period of a satellite in low Earth orbit:
 
 ``` python
---8<-- "./examples/common/orbital_period.py:9"
+import brahe as bh
+
+# Define the semi-major axis of a low Earth orbit (in meters)
+a = bh.constants.R_EARTH + 400e3  # 400 km altitude
+
+# Calculate the orbital period
+T = bh.orbital_period(a)
+
+print(f"Orbital Period: {T / 60:.2f} minutes")
+# Outputs:
+# Orbital Period: 92.56 minutes
 ```
 
 Here are some common operations to get you started:

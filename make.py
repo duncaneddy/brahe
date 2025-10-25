@@ -707,6 +707,9 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
         console.print("[yellow]No plot files found in plots/[/yellow]\n")
         return
 
+    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
+    failed_plots = []
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -716,13 +719,14 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
     ) as progress:
         task = progress.add_task("Generating figures...", total=len(plot_files))
 
-        python_exe = REPO_ROOT / ".venv" / "bin" / "python"
         for plot_file in plot_files:
-            console.print(f"Generating {plot_file.name}...")
+            if verbose:
+                console.print(f"Generating {plot_file.name}...")
+
             result = subprocess.run(
                 [str(python_exe), str(plot_file)],
                 cwd=REPO_ROOT,
-                capture_output=not verbose,
+                capture_output=True,
                 text=True,
                 env={
                     **subprocess.os.environ,
@@ -731,15 +735,33 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
             )
 
             if result.returncode != 0:
+                failed_plots.append((plot_file.name, result.stdout, result.stderr))
                 console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]")
-                if verbose:
-                    console.print(result.stderr)
 
             progress.update(task, advance=1)
 
-    console.print(
-        f"\n[green]✓ Figures generated in {FIGURE_OUTPUT_DIR.relative_to(REPO_ROOT)}[/green]\n"
-    )
+    # Print detailed error information for failed plots
+    if failed_plots:
+        console.print("\n[bold red]Failed Plot Details:[/bold red]")
+        for plot_name, stdout, stderr in failed_plots:
+            console.print(f"\n[bold yellow]{'=' * 80}[/bold yellow]")
+            console.print(f"[bold cyan]{plot_name}[/bold cyan]")
+            console.print(f"[bold yellow]{'=' * 80}[/bold yellow]")
+
+            if stdout.strip():
+                console.print("\n[bold]STDOUT:[/bold]")
+                console.print(stdout)
+
+            if stderr.strip():
+                console.print("\n[bold]STDERR:[/bold]")
+                console.print(stderr)
+
+        console.print()
+        raise typer.Exit(1)
+    else:
+        console.print(
+            f"\n[green]✓ All figures generated in {FIGURE_OUTPUT_DIR.relative_to(REPO_ROOT)}[/green]\n"
+        )
 
 
 @app.command()
@@ -797,7 +819,7 @@ def make_plot(
     result = subprocess.run(
         [str(python_exe), str(plot_file)],
         cwd=REPO_ROOT,
-        capture_output=not verbose,
+        capture_output=True,
         text=True,
         env={
             **subprocess.os.environ,
@@ -806,12 +828,20 @@ def make_plot(
     )
 
     if result.returncode != 0:
-        console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]")
-        if not verbose:
-            console.print("\n[yellow]STDOUT:[/yellow]")
+        console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]\n")
+
+        console.print("[bold yellow]" + "=" * 80 + "[/bold yellow]")
+        console.print("[bold cyan]Error Details[/bold cyan]")
+        console.print("[bold yellow]" + "=" * 80 + "[/bold yellow]")
+
+        if result.stdout.strip():
+            console.print("\n[bold]STDOUT:[/bold]")
             console.print(result.stdout)
-            console.print("\n[yellow]STDERR:[/yellow]")
+
+        if result.stderr.strip():
+            console.print("\n[bold]STDERR:[/bold]")
             console.print(result.stderr)
+
         console.print()
         raise typer.Exit(1)
 

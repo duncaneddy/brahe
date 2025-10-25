@@ -1,97 +1,74 @@
 # What is EOP Data?
 
-Understand Earth Orientation Parameters and why they matter for orbital mechanics.
+Earth Orientation Parameters are empirically observed, estimated parameters that describe the irregularities in Earth's rotation in space. When combined with their specific related models they provide the mechanism to transform between an Earth-Centered Earth-Fixed (ECEF) reference frame and an Earth-Centered Inertial (ECI) reference frame. These transformations are essential for accurate orbit propagation, coordinate transformations, and other space-related applications.
 
-## Overview
+Earth Orientation Parameters are _stochastic_ meaning that they are random and cannot be predicted with perfect accuracy into the future. Therefore, Earth orientation data is continually observed, estimated, and updated by various international organizations. The International Earth Rotation and Reference Systems Service (IERS) is the primary organization responsible for providing Earth orientation data products and maintaining the associated reference frames and systems.
 
-Earth Orientation Parameters (EOP) describe the precise orientation and rotation of the Earth at any given time. These parameters are essential for accurate coordinate transformations between inertial and Earth-fixed reference frames.
+For example the predicted evolution of the offset between solar time (UT1) and Coordinated Universal Time (UTC) is show below. The difference between UT1 and UTC is primarily driven by variations in Earth's rotation rate, which are influenced by factors such as tidal forces, atmospheric dynamics, and core-mantle interactions. As a result, the UT1-UTC offset exhibits irregular fluctuations that cannot be precisely predicted far into the future.
 
-## Why EOP Data is Needed
+<!-- <figure markdown="span">
+  ![UTC-UT1 Offset](../../figures/fig_ut1_utc_offset_light.html#only-light){ width="600" }
+  ![UTC-UT1 Offset](../../figures/fig_ut1_utc_offset_dark.html#only-dark){ width="600" }
+  <figcaption>UTC - UT1 Offset</figcaption>
+</figure> -->
 
-The Earth's rotation is not perfectly uniform due to:
+<!-- ![UTC-UT1 Offset](../../figures/fig_ut1_utc_offset_light.html#only-light){ width="600" }
+![UTC-UT1 Offset](../../figures/fig_ut1_utc_offset_dark.html#only-dark){ width="600" } -->
 
-- **Polar motion**: The Earth's rotation axis moves relative to its crust
-- **Length of day variations**: Earth's rotation rate changes over time
-- **Nutation**: Short-term wobbles in Earth's rotation axis
-- **Precession**: Long-term drift of Earth's rotation axis
+<!-- <picture>
+  <source srcset="../../figures/fig_ut1_utc_offset_dark.html" media="(prefers-color-scheme: dark)">
+  <source srcset="../../figures/fig_ut1_utc_offset_light.html" media="(prefers-color-scheme: light)">
+  <img src="../../figures/fig_ut1_utc_offset_light.html">
+</picture> -->
 
-These irregularities mean we cannot predict Earth's exact orientation using simple models. Instead, we must use measured EOP data from the International Earth Rotation and Reference Systems Service (IERS).
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_ut1_utc_offset_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_ut1_utc_offset_dark.html"  loading="lazy"></iframe>
+</div>
 
-## EOP Components
+??? "Plot Source"
 
-### Polar Motion (xₚ, yₚ)
+    ``` python title="fig_ut1_utc_offset.py"
+    --8<-- "./plots/fig_ut1_utc_offset.py:8"
+    ```
 
-Movement of Earth's rotation pole relative to the crust:
+## IERS
 
-- Measured in radians (or arcseconds)
-- Caused by:
-    - Mass redistribution (ice, water, atmosphere)
-    - Tectonic activity
-    - Post-glacial rebound
-- Typical variation: ±0.5 arcseconds
+The [International Earth Rotation Service (IERS)](https://www.iers.org/) was established in 1987 by the International Astronomical Union and the International Union of Geodesy and Geophysics. The IERS provides data on Earth orientation, on the International Celestial Reference System/Frame, and on the International Terrestrial Reference System/Frame. The IERS also maintains conventions containing models, constants, and standards used for modeling Earth orientation.
 
-### UT1-UTC
+The IERS deals with reference _systems_ and reference _frames_. A _reference system_ is an idealized mathematical concept for defining a reference used to represent the state of objects in that system. The two primary reference systems developed by the IERS are the International Celestial Reference System (ICRS) and International Terrestrial Reference System (ITRS). The ICRS is an inertial reference system and the one we used to define Earth-centered inertial (**ECI**) reference frames in brahe. The ITRS is a rotating reference system fixed to the Earth and is used to define Earth-centered, Earth-fixed (**ECEF***) reference frames in the packge.
 
-Difference between astronomical time (UT1) and atomic time (UTC):
+A reference system is a concept and cannot be used directly. For example you can say that you'll represent all coordinates in the world with respect to the the North Star, but to actually use that reference you need to define how to measure positions with respect to it. Therefore the IERS develops _reference frames_, which are specific realizations of a given reference system. A reference frame realization defines the models, standards, and associated data products for users to actually interact and usethat reference system. The primary reference frames of the IERS are the International Celestial Reference Frame (ICRF) and International Terrestrial Reference Frame (ITRF).
 
-- Measured in seconds
-- Accounts for Earth's variable rotation rate
-- Kept within ±0.9 seconds of UTC via leap seconds
-- Updated daily by IERS
+The ICRS and ITRS models are defined with respect to the solar system barycenter[^1]. However, for many satellite-specific engineering applications we are primarily concerned with _geocentric_ references, centered at Earth. Therefore, brahe primarily deals with the Geocentric Celestial Reference Frame (GCRF) and Geocentric Terrestrial Reference Frame (GTRF). For most intents and purposes the international and geocentric references are identical as there is no rotation component between ICRS and GCRS (or ITRF and GCRF)[^2]. The transformation between the two reference systems and frames is simply a pure translation.
 
-### Celestial Pole Offsets (dX, dY)
+For a more detailed discussion of reference frames and systems please read [IERS Technical Note 36](https://www.iers.org/SharedDocs/Publikationen/EN/IERS/Publications/tn/TechnNote36/tn36_174.pdf?__blob=publicationFile&v=1) provides an in-depth discussion of the concepts presented and discussed here.
 
-Small corrections to the precession-nutation model:
+## Earth Orientation Products
 
-- Measured in radians (or milliarcseconds)
-- Accounts for unpredicted variations
-- Typically very small (< 1 milliarcsecond)
+The IERS provides various Earth orientation products which are derived from Very Long Baseline Interferometry (VLBI) or a network of terrestrial GPS[^3]  reference stations. The continual observations made by these stations are  combined with specific reference frame realizations (e.g. the IAU 2010  conventions) to model Earth orientation and enable the transformation between  inertial and Earth-fixed reference frames.
 
-### Length of Day (LOD)
+The Earth orientation parameter products come in multiple variations, all of which can be found at the [IERS data products site](https://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html). These variations arise from the selection of precession-nutation model, ITRF realization, the data sources, and data processing time span. There are two precession-nutation models widely in use today: IAU 1980 nutation theory andthe IAU2006/2000A precession-nutation model. The ITRF 2014 realization is the most recent realization and preferred in most cases.
 
-Deviation of Earth's rotation period from nominal 86400 seconds:
+For data products there are two primary distinctions: standard products and long term products. Standard products, which are produced daily, to provide a daily estimate of the past Earth orientation along with forward-looking predictions available for use in planning. Long term data products are only available for past days, and are produced less frequently, but provider higher accurate estimates of Earth orientation. 
 
-- Measured in seconds
-- Varies due to atmospheric effects, tidal friction
-- Typical variation: ±3 milliseconds
+For most purposes the standard products provide sufficient accuracy along with the benefit of having fairly accurate forward-looking predictions. Therefore, brahe defaults to using standard Earth Orientation data products wherever possible. Unless otherwise stated or specified, brahe uses IERS standard product generated with respect to IAU 2006/2000A precession-nutation model and consistent with ITRF2014.
 
-## Data Sources
+## Earth Orientation Parameters
 
-### IERS Bulletins
+The primary Earth orientation parameters provided by the IERS are _polar motion coefficients_ ($x_p$, $y_p$), UTC-UT1 _time system offset_ ($\Delta_{UTC}$), _celestial pole offsets_ ($dX$, $dY$), and _length of day_ ($LOD$) corrections. These parameters are used in combination with specific models to compute the transformation between ECEF and ECI reference frames.
 
-- **Bulletin A**: Rapid service, updated weekly, predictions for next year
-- **Bulletin B**: Monthly publication with final values
-- **Bulletin C**: Leap second announcements
-- **C04 Series**: Long-term consistent dataset
+Brahe defines the `EarthOrientationProvider` trait to provide a common interface for accessing Earth orientation data. There are multiple different types of providers, each with their own use cases. The package includes default data files for ease of use that are sufficient for most purposes.
 
-### Accuracy Requirements
+There is a single, global Earth orientation provider used internally by brahe functions. This global provider can be initialized using one of the provided loading functions. See the [Managing EOP Data](managing_eop_data.md) page for more information on loading and managing Earth orientation data in brahe.
 
-- **High accuracy** (< 1 meter): Use latest IERS finals data with daily updates
-- **Medium accuracy** (< 10 meters): Use weekly updates
-- **Low accuracy** (< 100 meters): Use monthly updates or static values
-- **Testing/simulation**: Use static zero values
-
-## Impact on Coordinate Transformations
-
-Without EOP data, coordinate transformations between ECI and ECEF can have errors of:
-
-- **Position**: 10-30 meters
-- **Velocity**: Several cm/s
-
-With proper EOP data:
-
-- **Position**: Sub-meter accuracy
-- **Velocity**: mm/s accuracy
-
-## Best Practices
-
-1. **Update EOP data regularly**: At least weekly for operational systems
-2. **Use appropriate accuracy**: Match EOP update frequency to mission requirements
-3. **Plan for data latency**: Final EOP values are published days after measurement
-4. **Use predictions carefully**: Future EOP predictions become less accurate over time
-
-## See Also
-
-- [Managing EOP Data](managing_eop_data.md)
-- [Frame Transformations](../frame_transformations.md)
-- [IERS Website](https://www.iers.org/)
+[^1]: A barycenter is the center of mass of two or more bodies. The solar 
+system barycenter is the center of mass of the entire solar system. Due to 
+significant mass contributions and distances of Jupiter and Saturn, the 
+solar system barycenter evolves in time and is sometimes outside of the 
+Sun's outer radius.
+[^2]: For applications requiring the highest levels of fidelity, the 
+equations of motion of an Earth satellite, with respect to the 
+GCRS will contain a relativistic Coriolis force due to geodesic precession 
+not present in the ICRS. 
+[^3]: Now frequently GNSS receivers

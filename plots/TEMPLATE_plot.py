@@ -16,7 +16,7 @@ import numpy as np
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
-OUTDIR = os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/")
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 OUTFILE = f"{OUTDIR}/{SCRIPT_NAME}.html"
 
 # Ensure output directory exists
@@ -40,8 +40,22 @@ fig.update_layout(
 fig.add_trace(go.Scatter(x=x, y=y, name="Data", mode="lines"))
 
 # Write HTML (partial, not full page)
+# Save outputs for light and dark modes
+fig.update_layout(template="plotly")
 pio.write_html(
-    fig, file=OUTFILE, include_plotlyjs="cdn", full_html=False, auto_play=False
+    fig,
+    file=OUTDIR / f"{SCRIPT_NAME}_light.html",
+    include_plotlyjs="cdn",
+    full_html=False,
+    auto_play=False,
+)
+fig.update_layout(template="plotly_dark")
+pio.write_html(
+    fig,
+    file=OUTDIR / f"{SCRIPT_NAME}_dark.html",
+    include_plotlyjs="cdn",
+    full_html=False,
+    auto_play=False,
 )
 
 print(f"✓ Generated {OUTFILE}")

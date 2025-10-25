@@ -52,4 +52,4 @@ These modules provide higher-level functionalities for specific applications, su
 
 Each of these modules are defined to have composable, interoperable interfaces so that you can easily combine functionality from different modules to accomplish your tasks. As you explore the documentation further, you'll find detailed explanations and examples for each module to help you understand how to use them effectively.
 
-For detailed information on all functions, classes, and methods available in each module, please refer to the [Python API Reference](../library_api/) and [Rust API Reference](https://docs.rs/brahe).
+For detailed information on all functions, classes, and methods available in each module, please refer to the [Python API Reference](../library_api/index.md) and [Rust API Reference](https://docs.rs/brahe).

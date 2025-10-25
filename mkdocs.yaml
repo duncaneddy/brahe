@@ -117,8 +117,8 @@ nav:
             - Constants: learn/constants.md
             - Earth Orientation Data:
                 - learn/eop/index.md
-                - learn/eop/managing_eop_data.md
                 - learn/eop/what_is_eop_data.md
+                - learn/eop/managing_eop_data.md
             - Time: 
                 - learn/time/index.md
                 - learn/time/time_systems.md
@@ -159,6 +159,12 @@ nav:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
                 - Groundstations: learn/datasets/groundstations.md
+            - Plots:
+                - learn/plots/index.md
+                - Ground Tracks: learn/plots/ground_tracks.md
+                - Orbital Trajectories: learn/plots/orbital_trajectories.md
+                - 3D Trajectory: learn/plots/3d_trajectory.md
+                - Access Geometry: learn/plots/access_geometry.md
             - Command Line Interface:
                 - learn/cli/index.md
                 - EOP: learn/cli/eop.md
@@ -167,12 +173,6 @@ nav:
                 - Transform: learn/cli/transform.md
                 - Datasets: learn/cli/datasets.md
                 - Access: learn/cli/access.md
-            - Plots:
-                - learn/plots/index.md
-                - Ground Tracks: learn/plots/ground_tracks.md
-                - Orbital Trajectories: learn/plots/orbital_trajectories.md
-                - 3D Trajectory: learn/plots/3d_trajectory.md
-                - Access Geometry: learn/plots/access_geometry.md
     -   Examples:
             - examples/index.md
             - Downloading TLE Data: examples/downloading_tle_data.md

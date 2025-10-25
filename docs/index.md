@@ -16,7 +16,7 @@
 <a href="https://pypi.org/project/brahe" target="_blank">
     <img src="https://img.shields.io/pypi/v/brahe?color=blue" alt="PyPi">
 </a>
-<a href="https://duncaneddy.github.io/brahe" target="_blank">
+<a href="https://duncaneddy.github.io/brahe/latest" target="_blank">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs">
 </a>
 <a href="https://github.com/duncaneddy/brahe/blob/main/LICENSE" target="_blank">
@@ -26,7 +26,7 @@
 
 ----
 
-Documentation: https://duncaneddy.github.io/brahe
+Documentation: https://duncaneddy.github.io/brahe/latest
 
 Rust Library Reference: https://docs.rs/crate/brahe/latest
 

@@ -197,6 +197,9 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
     alt_scale = 1e-3 if altitude_units == "km" else 1.0
     period_scale = 1.0 / 60.0 if period_units == "min" else 1.0
 
+    # Track if any data was plotted
+    has_data = False
+
     # Plot each group
     for i, group in enumerate(object_groups):
         objects = group.get("objects", [])
@@ -234,6 +237,8 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
         if not periods:
             continue
 
+        has_data = True
+
         # Plot apogee points (red circles)
         apogee_label = f"{label} (Apogee)" if label else "Apogee"
         ax.scatter(
@@ -258,7 +263,10 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
             s=50,
         )
 
-    ax.legend()
+    # Only show legend if there's data to display
+    if has_data:
+        ax.legend()
+
     plt.tight_layout()
     return fig
 

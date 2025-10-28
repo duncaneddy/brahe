@@ -194,6 +194,57 @@ def test_epoch_from_string(eop):
     assert nanosecond == 123456789.0
     assert epc.time_system == bh.GPS
 
+    # Test datetime without fractional seconds and without explicit time system
+    epc = bh.Epoch.from_string("2023-12-31 23:59:59")
+    (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
+    assert year == 2023
+    assert month == 12
+    assert day == 31
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == pytest.approx(0.0, abs=1.0)
+    assert epc.time_system == bh.UTC
+
+    # Test datetime with fractional seconds but without explicit time system
+    epc = bh.Epoch.from_string("2023-12-31 23:59:59.999")
+    (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
+    assert year == 2023
+    assert month == 12
+    assert day == 31
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == pytest.approx(999000000.0, abs=1.0)
+    assert epc.time_system == bh.UTC
+
+    # Test date-only format
+    epc = bh.Epoch.from_string("2022-07-04")
+    (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
+    assert year == 2022
+    assert month == 7
+    assert day == 4
+    assert hour == 0
+    assert minute == 0
+    assert second == 0.0
+    assert nanosecond == pytest.approx(0.0, abs=1.0)
+    assert epc.time_system == bh.UTC
+
+
+def test_epoch_from_string_invalid_time_system(eop):
+    # Test that invalid time system strings raise ValueError
+    with pytest.raises(ValueError, match="Failed to parse epoch string"):
+        bh.Epoch.from_string("2023-01-01 12:00:00 TDB")
+
+    with pytest.raises(ValueError, match="Failed to parse epoch string"):
+        bh.Epoch.from_string("2023-01-01 12:00:00 INVALID")
+
+    with pytest.raises(ValueError, match="Failed to parse epoch string"):
+        bh.Epoch.from_string("2023-01-01 12:00:00 ABC")
+
+    with pytest.raises(ValueError, match="Failed to parse epoch string"):
+        bh.Epoch.from_string("2023-01-01 12:00:00 XYZ")
+
 
 def test_epoch_from_jd(eop):
     epc = bh.Epoch.from_jd(bh.MJD_ZERO + bh.MJD2000, bh.TAI)

@@ -778,9 +778,12 @@ impl PyEpoch {
     ///     ```
     #[classmethod]
     pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
-        Ok(PyEpoch {
-            obj: time::Epoch::from_string(datestr).unwrap(),
-        })
+        match time::Epoch::from_string(datestr) {
+            Some(epoch) => Ok(PyEpoch { obj: epoch }),
+            None => Err(exceptions::PyValueError::new_err(
+                format!("Failed to parse epoch string: {}", datestr)
+            )),
+        }
     }
 
     /// Create an Epoch from a Julian Date.

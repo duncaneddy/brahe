@@ -484,6 +484,7 @@ impl Epoch {
                                 "TT" => TimeSystem::TT,
                                 "UTC" => TimeSystem::UTC,
                                 "UT1" => TimeSystem::UT1,
+                                "" => TimeSystem::UTC,
                                 _ => return None,
                             }
                         } else {
@@ -2154,6 +2155,48 @@ mod tests {
         assert_eq!(second, 19.0);
         assert_eq!(nanoseconds, 123456789.0);
         assert_eq!(epc.time_system, TimeSystem::GPS);
+
+        // Test datetime without fractional seconds and without explicit time system
+        let epc = Epoch::from_string("2023-12-31 23:59:59").unwrap();
+        let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
+        assert_eq!(year, 2023);
+        assert_eq!(month, 12);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_abs_diff_eq!(nanoseconds, 0.0, epsilon = 1.0);
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+
+        // Test datetime with fractional seconds but without explicit time system
+        let epc = Epoch::from_string("2023-12-31 23:59:59.999").unwrap();
+        let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
+        assert_eq!(year, 2023);
+        assert_eq!(month, 12);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_abs_diff_eq!(nanoseconds, 999000000.0, epsilon = 1.0);
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+
+        // Test date-only format
+        let epc = Epoch::from_string("2022-07-04").unwrap();
+        let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 7);
+        assert_eq!(day, 4);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+        assert_abs_diff_eq!(nanoseconds, 0.0, epsilon = 1.0);
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+
+        // Test invalid time system strings return None
+        assert!(Epoch::from_string("2023-01-01 12:00:00 TDB").is_none());
+        assert!(Epoch::from_string("2023-01-01 12:00:00 INVALID").is_none());
+        assert!(Epoch::from_string("2023-01-01 12:00:00 ABC").is_none());
+        assert!(Epoch::from_string("2023-01-01 12:00:00 XYZ").is_none());
     }
 
     #[test]

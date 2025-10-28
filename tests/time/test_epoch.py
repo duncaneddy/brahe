@@ -707,44 +707,44 @@ def test_ops_add():
     assert epc.time_system == bh.TAI
 
 
-# def test_ops_sub(eop):
-#     # Base epoch
-#     epc = bh.Epoch.from_date(2022, 1, 31, bh.TAI)
-#
-#     # Test subtractions of different size
-#     epc_2 = epc - 1.0
-#     (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
-#     assert year == 2022
-#     assert month == 1
-#     assert day == 30
-#     assert hour == 23
-#     assert minute == 59
-#     assert second == 59.0
-#     assert nanosecond == 0.0
-#     assert epc.time_system == bh.TAI
-#
-#     epc_2 = epc - 86400.5
-#     (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
-#     assert year == 2022
-#     assert month == 1
-#     assert day == 29
-#     assert hour == 23
-#     assert minute == 59
-#     assert second == 59.0
-#     assert nanosecond == 500_000_000.0
-#     assert epc.time_system == bh.TAI
-#
-#     # Test types
-#     epc_2 = epc - 1
-#     (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
-#     assert year == 2022
-#     assert month == 1
-#     assert day == 30
-#     assert hour == 23
-#     assert minute == 59
-#     assert second == 59.0
-#     assert nanosecond == 0.0
-#     assert epc.time_system == bh.TAI
+def test_ops_sub():
+    # Base epoch
+    epc = bh.Epoch.from_date(2022, 1, 31, bh.TAI)
+
+    # Test subtractions of different size
+    epc_2 = epc - 1.0
+    (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
+    assert year == 2022
+    assert month == 1
+    assert day == 30
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == 0.0
+    assert epc_2.time_system == bh.TAI
+
+    epc_2 = epc - 86400.5
+    (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
+    assert year == 2022
+    assert month == 1
+    assert day == 29
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == 500_000_000.0
+    assert epc_2.time_system == bh.TAI
+
+    # Test types
+    epc_2 = epc - 1
+    (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime()
+    assert year == 2022
+    assert month == 1
+    assert day == 30
+    assert hour == 23
+    assert minute == 59
+    assert second == 59.0
+    assert nanosecond == 0.0
+    assert epc_2.time_system == bh.TAI
 
 
 def test_ops_sub_epoch():

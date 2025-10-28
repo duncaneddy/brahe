@@ -401,6 +401,7 @@ fn py_time_system_offset_for_datetime(
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "Epoch")]
+#[derive(Clone)]
 pub struct PyEpoch {
     /// Stored object for underlying EOP
     obj: time::Epoch,
@@ -1338,8 +1339,28 @@ impl PyEpoch {
         self.obj += other;
     }
 
-    pub fn __sub__(&self, other: &PyEpoch) -> f64 {
-        self.obj - other.obj
+    pub fn __sub__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        // Try to extract as PyEpoch first (Epoch - Epoch → f64)
+        if let Ok(epoch) = other.extract::<PyEpoch>() {
+            let diff = self.obj - epoch.obj;
+            return diff.into_bound_py_any(other.py());
+        }
+
+        // Try to extract as f64 (Epoch - f64 → Epoch)
+        if let Ok(seconds) = other.extract::<f64>() {
+            let result = PyEpoch {
+                obj: self.obj - seconds,
+            };
+            return Bound::new(other.py(), result).map(|b| b.into_any());
+        }
+
+        // If neither worked, return type error
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!(
+                "unsupported operand type(s) for -: 'Epoch' and '{}'",
+                other.get_type().name()?
+            ),
+        ))
     }
 
     pub fn __isub__(&mut self, other: f64) {

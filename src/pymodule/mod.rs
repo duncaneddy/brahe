@@ -14,7 +14,7 @@ use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess, PyTuple, PyType};
-use pyo3::{exceptions, wrap_pyfunction};
+use pyo3::{IntoPyObjectExt, exceptions, wrap_pyfunction};
 
 use crate::traits::*;
 use crate::*;

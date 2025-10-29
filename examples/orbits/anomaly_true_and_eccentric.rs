@@ -27,7 +27,7 @@ fn main() {
 
     // Expected output:
     // True anomaly:      45.000 deg
-    // Eccentric anomaly: 44.944 deg
+    // Eccentric anomaly: 44.596 deg
     // Round-trip result: 45.000 deg
     // Difference:        0.00e0 deg
 }

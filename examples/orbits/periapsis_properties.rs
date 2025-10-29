@@ -1,6 +1,6 @@
 //! Compute periapsis properties for an orbit.
 //!
-//! This example demonstrates computing periapsis velocity and distance
+//! This example demonstrates computing periapsis velocity, distance, and altitude
 //! for a given orbit, including Earth-specific perigee functions.
 
 #[allow(unused_imports)]
@@ -23,10 +23,20 @@ fn main() {
 
     // Compute periapsis distance
     let periapsis_distance = bh::orbits::periapsis_distance(a, e);
-    println!("Periapsis distance: {:.3} m", periapsis_distance);
+    println!("Periapsis distance: {:.3} km", periapsis_distance / 1e3);
+
+    // Compute periapsis altitude (generic)
+    let periapsis_altitude = bh::orbits::periapsis_altitude(a, e, bh::constants::R_EARTH);
+    println!("Periapsis altitude: {:.3} km", periapsis_altitude / 1e3);
+
+    // Compute as a perigee altitude (Earth-specific)
+    let perigee_altitude = bh::orbits::perigee_altitude(a, e);
+    println!("Perigee altitude:   {:.3} km", perigee_altitude / 1e3);
 
     // Expected output:
     // Periapsis velocity: 7689.119 m/s
     // Perigee velocity:   7689.119 m/s
-    // Periapsis distance: 6809354.937 m
+    // Periapsis distance: 6809.355 km
+    // Periapsis altitude: 431.219 km
+    // Perigee altitude:   431.219 km
 }

@@ -30,6 +30,6 @@ print(f"Difference:        {abs(nu - nu_2):.2e} deg")
 
 # Expected output:
 # True anomaly:      45.000 deg
-# Mean anomaly:      44.426 deg
+# Mean anomaly:      44.194 deg
 # Round-trip result: 45.000 deg
-# Difference:        0.00e+00 deg
+# Difference:        0.00e0 deg

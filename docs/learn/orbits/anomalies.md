@@ -104,7 +104,7 @@ $$
 is reached. The threshold set as 100 times floating-point machine precision `100 * f64::epsilon`.
 This conversion is provided by `anomaly_mean_to_eccentric`.
 
-??? warning
+!!! warning
 
     Because this is a numerical method, convergence is not guaranteed. There is an upper 
     limit of 10 iterations to reach convergence. Since convergence may not occur the output of 

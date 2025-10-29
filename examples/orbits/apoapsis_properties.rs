@@ -1,6 +1,6 @@
 //! Compute apoapsis properties for an orbit.
 //!
-//! This example demonstrates computing apoapsis velocity and distance
+//! This example demonstrates computing apoapsis velocity, distance, and altitude
 //! for a given orbit, including Earth-specific apogee functions.
 
 #[allow(unused_imports)]
@@ -23,10 +23,20 @@ fn main() {
 
     // Compute apoapsis distance
     let apoapsis_distance = bh::orbits::apoapsis_distance(a, e);
-    println!("Apoapsis distance: {:.3} m", apoapsis_distance);
+    println!("Apoapsis distance: {:.3} km", apoapsis_distance / 1e3);
+
+    // Compute apoapsis altitude (generic)
+    let apoapsis_altitude = bh::orbits::apoapsis_altitude(a, e, bh::constants::R_EARTH);
+    println!("Apoapsis altitude: {:.3} km", apoapsis_altitude / 1e3);
+
+    // Compute as an apogee altitude (Earth-specific)
+    let apogee_altitude = bh::orbits::apogee_altitude(a, e);
+    println!("Apogee altitude:   {:.3} km", apogee_altitude / 1e3);
 
     // Expected output:
     // Apoapsis velocity: 7536.859 m/s
     // Apogee velocity:   7536.859 m/s
-    // Apoapsis distance: 6946917.663 m
+    // Apoapsis distance: 6946.918 km
+    // Apoapsis altitude: 568.781 km
+    // Apogee altitude:   568.781 km
 }

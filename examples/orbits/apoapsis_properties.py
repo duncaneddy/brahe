@@ -4,7 +4,7 @@
 """
 Compute apoapsis properties for an orbit.
 
-This example demonstrates computing apoapsis velocity and distance
+This example demonstrates computing apoapsis velocity, distance, and altitude
 for a given orbit, including Earth-specific apogee functions.
 """
 
@@ -26,9 +26,19 @@ print(f"Apogee velocity:   {apogee_velocity:.3f} m/s")
 
 # Compute apoapsis distance
 apoapsis_distance = bh.apoapsis_distance(a, e)
-print(f"Apoapsis distance: {apoapsis_distance:.3f} m")
+print(f"Apoapsis distance: {apoapsis_distance / 1e3:.3f} km")
+
+# Compute apoapsis altitude (generic)
+apoapsis_altitude = bh.apoapsis_altitude(a, e, bh.R_EARTH)
+print(f"Apoapsis altitude: {apoapsis_altitude / 1e3:.3f} km")
+
+# Compute as an apogee altitude (Earth-specific)
+apogee_altitude = bh.apogee_altitude(a, e)
+print(f"Apogee altitude:   {apogee_altitude / 1e3:.3f} km")
 
 # Expected output:
 # Apoapsis velocity: 7536.859 m/s
 # Apogee velocity:   7536.859 m/s
-# Apoapsis distance: 6946917.663 m
+# Apoapsis distance: 6946.918 km
+# Apoapsis altitude: 568.781 km
+# Apogee altitude:   568.781 km

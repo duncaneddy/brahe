@@ -39,9 +39,13 @@ from brahe._brahe import (
     perigee_velocity,
     periapsis_velocity,
     periapsis_distance,
+    perigee_altitude,
+    periapsis_altitude,
     apogee_velocity,
     apoapsis_velocity,
     apoapsis_distance,
+    apogee_altitude,
+    apoapsis_altitude,
     # Special orbits
     sun_synchronous_inclination,
     # Anomaly conversions
@@ -81,9 +85,13 @@ __all__ = [
     "perigee_velocity",
     "periapsis_velocity",
     "periapsis_distance",
+    "perigee_altitude",
+    "periapsis_altitude",
     "apogee_velocity",
     "apoapsis_velocity",
     "apoapsis_distance",
+    "apogee_altitude",
+    "apoapsis_altitude",
     # Special orbits
     "sun_synchronous_inclination",
     # Anomaly conversions

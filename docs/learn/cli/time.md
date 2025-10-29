@@ -404,7 +404,6 @@ done
 
 ## See Also
 
-- [Time Systems](../time/time_systems.md) - Conceptual overview
 - [Earth Orientation Data](../eop/what_is_eop_data.md) - EOP and UT1
 - [Epoch API](../../library_api/time/epoch.md) - Python Epoch class
 - [EOP CLI](eop.md) - Earth Orientation Parameters

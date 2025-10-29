@@ -5,9 +5,9 @@
 
     - Douglas Adams
 
-Astrodynamics is the study of space motion, which inherently involves the concept of time. Accurate timekeeping and conversions between different time systems are crucial for precise calculations in orbital mechanics.
+Astrodynamics is the study of motion in space, which is inextricably linked with the concept of time. You cannot have motion without time. The trajectory of an object is defined by how it's state (location) changes between different points in time. As one might therefore expect, accurate timekeeping and the ability to convert between different representations of time are crucial for calculations in orbital mechanics.
 
-The _time_ module provides functions for the handling of time. The package makes the distinction between the _representation_ of a specific time and the _conversion_ between different time scales. Precise specification of an instant in time requires the specification of both a time representation and time scale.
+The `time` module provides functions for the handling of time. The package makes the distinction between the _representation_ of a specific time and the _conversion_ between different time scales. Precise specification of an instant in time requires the specification of both a time representation and time scale.
 
 ## Time Representation
 
@@ -41,8 +41,6 @@ It is the core type used throughout the brahe package to represent time and prov
 
 ## See Also
 
-- [Time Systems](time_systems.md) - Detailed explanation of each time system
-- [Time Conversions](time_conversions.md) - Conversion functions and algorithms
 - [Epoch](epoch.md) - Complete guide to the Epoch type
 - [Time API Reference](../../library_api/time/index.md) - Complete time function documentation
 - [Time Constants](../../library_api/constants/time.md) - Important time-related constants

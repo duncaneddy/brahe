@@ -122,6 +122,7 @@ nav:
             - Time: 
                 - learn/time/index.md
                 - learn/time/epoch.md
+                - learn/time/time_range.md
             - Coordinate Transformations:
                 - learn/coordinates/index.md
                 - learn/coordinates/cartesean_transformations.md

@@ -12,13 +12,13 @@
         <meta name="author" content="Duncan Eddy">
       
       
-        <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/index.html">
+        <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/coordinates/cartesian_transformations.html">
       
       
-        <link rel="prev" href="../trajectories/orbit_trajectory.html">
+        <link rel="prev" href="index.html">
       
       
-        <link rel="next" href="keplerian_propagation.html">
+        <link rel="next" href="geocentric_transformations.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Orbit Propagation - Brahe</title>
+        <title>Cartesian ↔ Orbital Element Transformations - Brahe</title>
       
     
     
@@ -95,6 +95,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#cartesian-orbital-element-transformations" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -130,7 +135,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Orbit Propagation
+              Cartesian ↔ Orbital Element Transformations
             
           </span>
         </div>
@@ -957,8 +962,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -977,17 +984,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../coordinates/index.html" class="md-nav__link ">
+            <a href="index.html" class="md-nav__link ">
               
   
   
@@ -1006,7 +1011,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_4">
             <span class="md-nav__icon md-icon"></span>
             Coordinate Transformations
@@ -1017,10 +1022,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../coordinates/cartesian_transformations.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Cartesian ↔ Orbital Element Transformations
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="cartesian_transformations.html" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1031,6 +1058,110 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#orbital-representations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Orbital Representations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orbital Representations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keplerian-orbital-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keplerian Orbital Elements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cartesian-state-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cartesian State Vectors
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-orbital-elements-to-cartesian" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Orbital Elements to Cartesian
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Converting Orbital Elements to Cartesian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-degrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Degrees
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-radians" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Radians
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-cartesian-to-orbital-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Cartesian to Orbital Elements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1043,7 +1174,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../coordinates/geocentric_transformations.html" class="md-nav__link">
+      <a href="geocentric_transformations.html" class="md-nav__link">
         
   
   
@@ -1066,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../coordinates/geodetic_transformations.html" class="md-nav__link">
+      <a href="geodetic_transformations.html" class="md-nav__link">
         
   
   
@@ -1089,7 +1220,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../coordinates/topocentric_transformations.html" class="md-nav__link">
+      <a href="topocentric_transformations.html" class="md-nav__link">
         
   
   
@@ -1545,10 +1676,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -1563,15 +1692,17 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_9" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_9" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="index.html" class="md-nav__link md-nav__link--active">
+            <a href="../orbit_propagation/index.html" class="md-nav__link ">
               
   
   
@@ -1584,13 +1715,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_2_9" id="__nav_2_9_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_9" id="__nav_2_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_9_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_9">
             <span class="md-nav__icon md-icon"></span>
             Orbit Propagation
@@ -1604,7 +1735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="keplerian_propagation.html" class="md-nav__link">
+      <a href="../orbit_propagation/keplerian_propagation.html" class="md-nav__link">
         
   
   
@@ -1627,7 +1758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="sgp_propagation.html" class="md-nav__link">
+      <a href="../orbit_propagation/sgp_propagation.html" class="md-nav__link">
         
   
   
@@ -4209,6 +4340,100 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#orbital-representations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Orbital Representations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orbital Representations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keplerian-orbital-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keplerian Orbital Elements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cartesian-state-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cartesian State Vectors
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-orbital-elements-to-cartesian" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Orbital Elements to Cartesian
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Converting Orbital Elements to Cartesian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-degrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Degrees
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-radians" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Radians
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-cartesian-to-orbital-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Cartesian to Orbital Elements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -4227,9 +4452,290 @@
   
 
 
-  <h1>Orbit Propagation</h1>
-
-
+<h1 id="cartesian-orbital-element-transformations">Cartesian ↔ Orbital Element Transformations<a class="headerlink" href="#cartesian-orbital-element-transformations" title="Permanent link">&para;</a></h1>
+<p>The functions described here convert between Keplerian orbital elements and Cartesian state vectors. While these transformations are part of the "coordinates" module, they specifically deal with orbital mechanics - converting between two different coordinate representations of a satellite's orbit.</p>
+<p>Understanding both representations is essential: Keplerian elements provide intuitive orbital parameters like size, shape, and orientation, while Cartesian states are necessary for numerical orbit propagation and applying perturbations.</p>
+<p>For complete API details, see the <a href="../../library_api/coordinates/cartesian.html">Cartesian Coordinates API Reference</a>.</p>
+<h2 id="orbital-representations">Orbital Representations<a class="headerlink" href="#orbital-representations" title="Permanent link">&para;</a></h2>
+<h3 id="keplerian-orbital-elements">Keplerian Orbital Elements<a class="headerlink" href="#keplerian-orbital-elements" title="Permanent link">&para;</a></h3>
+<p>Keplerian elements describe an orbit using six classical parameters:</p>
+<ul>
+<li><span class="arithmatex">\(a\)</span>: Semi-major axis (meters) - defines the orbit's size</li>
+<li><span class="arithmatex">\(e\)</span>: Eccentricity (dimensionless) - defines the orbit's shape (0 = circular, 0 &lt; e &lt; 1 = elliptical)</li>
+<li><span class="arithmatex">\(i\)</span>: Inclination (radians or degrees) - tilt of orbital plane relative to equator</li>
+<li><span class="arithmatex">\(\Omega\)</span>: Right ascension of ascending node (radians or degrees) - where orbit crosses equator going north</li>
+<li><span class="arithmatex">\(\omega\)</span>: Argument of periapsis (radians or degrees) - where orbit is closest to Earth</li>
+<li><span class="arithmatex">\(M\)</span>: Mean anomaly (radians or degrees) - position of satellite along orbit</li>
+</ul>
+<p>In brahe, the combined vector has ordering <code>[a, e, i, Ω, ω, M]</code></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Brahe uses <strong>mean anomaly</strong> as the default anomaly representation for Keplerian elements. Other anomaly types (eccentric, true) can be converted using the anomaly conversion functions in the <a href="../../library_api/orbits/index.html">Orbits module</a>.</p>
+</div>
+<h3 id="cartesian-state-vectors">Cartesian State Vectors<a class="headerlink" href="#cartesian-state-vectors" title="Permanent link">&para;</a></h3>
+<p>Cartesian states represent position and velocity in three-dimensional space:</p>
+<ul>
+<li><strong>Position</strong>: <span class="arithmatex">\([p_x, p_y, p_z]\)</span> in meters</li>
+<li><strong>Velocity</strong>: <span class="arithmatex">\([v_x, v_y, v_z]\)</span> in meters per second</li>
+</ul>
+<p>In brahe, the state vector is combined as <code>[p_x, p_y, p_z, v_x, v_y, v_z]</code></p>
+<p>Cartesian states are typically expressed in an inertial reference frame like Earth-Centered Inertial (ECI), where the axes are fixed with respect to the stars rather than rotating with Earth.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>All position and velocity components in Cartesian states are in SI base units (meters and meters per second).</p>
+<p>They <strong>must</strong> be in SI base units for inputs and are always returned in SI base units.</p>
+</div>
+<h2 id="converting-orbital-elements-to-cartesian">Converting Orbital Elements to Cartesian<a class="headerlink" href="#converting-orbital-elements-to-cartesian" title="Permanent link">&para;</a></h2>
+<p>The most common workflow is to start with intuitive orbital parameters and convert them to Cartesian states for propagation.</p>
+<h3 id="using-degrees">Using Degrees<a class="headerlink" href="#using-degrees" title="Permanent link">&para;</a></h3>
+<p>When working with human-readable orbital parameters, degrees are more intuitive:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Define orbital elements [a, e, i, Ω, ω, M] in meters and degrees</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># LEO satellite: 500 km altitude, 97.8° inclination (~sun-synchronous)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">oe_deg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">[</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">500e3</span><span class="p">,</span>  <span class="c1"># Semi-major axis (m)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="mf">0.01</span><span class="p">,</span>  <span class="c1"># Eccentricity</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="mf">97.8</span><span class="p">,</span>  <span class="c1"># Inclination (deg)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="mf">15.0</span><span class="p">,</span>  <span class="c1"># Right ascension of ascending node (deg)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="mf">30.0</span><span class="p">,</span>  <span class="c1"># Argument of periapsis (deg)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="mf">45.0</span><span class="p">,</span>  <span class="c1"># Mean anomaly (deg)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="p">]</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Convert orbital elements to Cartesian state using degrees</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">state</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe_deg</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">)</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position: [</span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Velocity: [</span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># Cartesian state  (m, m/s):</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># Position: [1848964.106, -434937.468, 6560410.530]</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Velocity: [-7098.379734, -2173.344867, 1913.333385]</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">nalgebra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">na</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="c1">// Define orbital elements [a, e, i, Ω, ω, M] in meters and degrees</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="c1">// LEO satellite: 500 km altitude, 97.8° inclination (~sun-synchronous)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">oe_deg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">SVector</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">f64</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="n">bh</span><span class="p">::</span><span class="n">R_EARTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">500e3</span><span class="p">,</span><span class="w">  </span><span class="c1">// Semi-major axis (m)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="mf">0.01</span><span class="p">,</span><span class="w">                 </span><span class="c1">// Eccentricity</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="mf">97.8</span><span class="p">,</span><span class="w">                 </span><span class="c1">// Inclination (deg)</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="mf">15.0</span><span class="p">,</span><span class="w">                 </span><span class="c1">// Right ascension of ascending node (deg)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="mf">30.0</span><span class="p">,</span><span class="w">                 </span><span class="c1">// Argument of periapsis (deg)</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="mf">45.0</span><span class="w">                  </span><span class="c1">// Mean anomaly (deg)</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="c1">// Convert orbital elements to Cartesian state using degrees</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe_deg</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Degrees</span><span class="p">);</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">);</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Position: [{:.3}, {:.3}, {:.3}]&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Velocity: [{:.6}, {:.6}, {:.6}]&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">5</span><span class="p">]);</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="c1">// Cartesian state  (m, m/s):</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">    </span><span class="c1">// Position: [1848964.106, -434937.468, 6560410.530]</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="c1">// Velocity: [-7098.379734, -2173.344867, 1913.333385]</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="using-radians">Using Radians<a class="headerlink" href="#using-radians" title="Permanent link">&para;</a></h3>
+<p>For mathematical consistency or when working with data already in radians:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Python</label><label for="__tabbed_2_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Define orbital elements [a, e, i, Ω, ω, M] in meters and degrees</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># LEO satellite: 500 km altitude, 97.8° inclination (~sun-synchronous)</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">oe_deg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="p">[</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">500e3</span><span class="p">,</span>  <span class="c1"># Semi-major axis (m)</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="mf">0.01</span><span class="p">,</span>  <span class="c1"># Eccentricity</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span>  <span class="c1"># Inclination (rad)</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">pi</span> <span class="o">/</span> <span class="mi">8</span><span class="p">,</span>  <span class="c1"># Right ascension of ascending node (rad)</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>  <span class="c1"># Argument of periapsis (rad)</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="mi">3</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span>  <span class="c1"># Mean anomaly (rad)</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="p">]</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="p">)</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="c1"># Convert orbital elements to Cartesian state using degrees</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">state</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe_deg</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">RADIANS</span><span class="p">)</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">)</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position: [</span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Velocity: [</span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="c1"># Cartesian state  (m, m/s):</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="c1"># Position: [-3117582.037, -5092452.343, -3511765.495]</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># Velocity: [6408.435846, -1407.501408, -3752.763969]</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">use</span><span class="w"> </span><span class="n">nalgebra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">na</span><span class="p">;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="kt">f64</span><span class="p">::</span><span class="n">consts</span><span class="p">::</span><span class="n">PI</span><span class="p">;</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="c1">// Define orbital elements [a, e, i, Ω, ω, M] in meters and radians</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="c1">// LEO satellite: 500 km altitude, 45° inclination</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">oe_rad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">SVector</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">f64</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">        </span><span class="n">bh</span><span class="p">::</span><span class="n">R_EARTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">500e3</span><span class="p">,</span><span class="w">  </span><span class="c1">// Semi-major axis (m)</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="mf">0.01</span><span class="p">,</span><span class="w">                 </span><span class="c1">// Eccentricity</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">        </span><span class="n">PI</span><span class="o">/</span><span class="mf">4.0</span><span class="p">,</span><span class="w">               </span><span class="c1">// Inclination (rad)</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">        </span><span class="n">PI</span><span class="o">/</span><span class="mf">8.0</span><span class="p">,</span><span class="w">               </span><span class="c1">// Right ascension of ascending node (rad)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">        </span><span class="n">PI</span><span class="o">/</span><span class="mf">2.0</span><span class="p">,</span><span class="w">               </span><span class="c1">// Argument of periapsis (rad)</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">        </span><span class="mf">3.0</span><span class="o">*</span><span class="n">PI</span><span class="o">/</span><span class="mf">4.0</span><span class="w">            </span><span class="c1">// Mean anomaly (rad)</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="c1">// Convert orbital elements to Cartesian state using radians</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe_rad</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Radians</span><span class="p">);</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">);</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Position: [{:.3}, {:.3}, {:.3}]&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Velocity: [{:.6}, {:.6}, {:.6}]&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="n">state</span><span class="p">[</span><span class="mi">5</span><span class="p">]);</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="c1">// Cartesian state  (m, m/s):</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">    </span><span class="c1">// Position: [-3117582.037, -5092452.343, -3511765.495]</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">    </span><span class="c1">// Velocity: [6408.435846, -1407.501408, -3752.763969]</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The <code>AngleFormat</code> parameter only affects the three angular elements (i, Ω, ω, M). Semi-major axis is always in meters, and eccentricity is always dimensionless.</p>
+</div>
+<h2 id="converting-cartesian-to-orbital-elements">Converting Cartesian to Orbital Elements<a class="headerlink" href="#converting-cartesian-to-orbital-elements" title="Permanent link">&para;</a></h2>
+<p>After propagating or receiving Cartesian state data, you often want to convert back to orbital elements for interpretation and analysis.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Python</label><label for="__tabbed_3_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Define Cartesian state vector [px, py, pz, vx, vy, vz] in meters and meters per second</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">[</span><span class="mf">1848964.106</span><span class="p">,</span> <span class="o">-</span><span class="mf">434937.468</span><span class="p">,</span> <span class="mf">6560410.530</span><span class="p">,</span> <span class="o">-</span><span class="mf">7098.379734</span><span class="p">,</span> <span class="o">-</span><span class="mf">2173.344867</span><span class="p">,</span> <span class="mf">1913.333385</span><span class="p">]</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Convert orbital elements to Cartesian state using degrees</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">oe_deg</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_cartesian_to_osculating</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Osculating state [a, e, i, Ω, ω, M] (deg):&quot;</span><span class="p">)</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Semi-major axis (m): </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eccentricity: </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inclination (deg): </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RA of ascending node (deg): </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Argument of periapsis (deg): </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean anomaly (deg): </span><span class="si">{</span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="c1"># Osculating state  (deg):</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="c1"># Semi-major axis (m): 6878136.299</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="c1"># Eccentricity: 0.010000</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># Inclination (deg): 97.800000</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="c1"># RA of ascending node (deg): 15.000000</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="c1"># Argument of periapsis (deg): 30.000000</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="c1"># Mean anomaly (deg): 45.000000</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="c1"># You can also convert using radians</span>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="n">oe_rad</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_cartesian_to_osculating</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">RADIANS</span><span class="p">)</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Osculating state [a, e, i, Ω, ω, M] (rad):&quot;</span><span class="p">)</span>
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Semi-major axis (m): </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eccentricity: </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inclination (rad): </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RA of ascending node (rad): </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-35"><a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Argument of periapsis (rad): </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-36"><a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean anomaly (rad): </span><span class="si">{</span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-4-37"><a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Osculating state  (rad):</span>
+</span><span id="__span-4-38"><a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="c1"># Semi-major axis (m): 6878136.299</span>
+</span><span id="__span-4-39"><a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="c1"># Eccentricity: 0.010000</span>
+</span><span id="__span-4-40"><a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a><span class="c1"># Inclination (rad): 1.706932</span>
+</span><span id="__span-4-41"><a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a><span class="c1"># RA of ascending node (rad): 0.261799</span>
+</span><span id="__span-4-42"><a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a><span class="c1"># Argument of periapsis (rad): 0.523599</span>
+</span><span id="__span-4-43"><a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a><span class="c1"># Mean anomaly (rad): 0.785398</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">use</span><span class="w"> </span><span class="n">nalgebra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">na</span><span class="p">;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="c1">// Define Cartesian state vector [px, py, pz, vx, vy, vz] in meters and meters per second</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">SVector</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">f64</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="mf">1848964.106</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">        </span><span class="o">-</span><span class="mf">434937.468</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="mf">6560410.530</span><span class="p">,</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="o">-</span><span class="mf">7098.379734</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="o">-</span><span class="mf">2173.344867</span><span class="p">,</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">        </span><span class="mf">1913.333385</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="c1">// Convert Cartesian state to orbital elements using degrees</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">oe_deg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_cartesian_to_osculating</span><span class="p">(</span><span class="n">state</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Degrees</span><span class="p">);</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Osculating state [a, e, i, Ω, ω, M] (deg):&quot;</span><span class="p">);</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Semi-major axis (m): {:.3}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Eccentricity: {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Inclination (deg): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;RA of ascending node (deg): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">3</span><span class="p">]);</span>
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Argument of periapsis (deg): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">4</span><span class="p">]);</span>
+</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Mean anomaly (deg): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_deg</span><span class="p">[</span><span class="mi">5</span><span class="p">]);</span>
+</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">    </span><span class="c1">// Osculating state  (deg):</span>
+</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">    </span><span class="c1">// Semi-major axis (m): 6878136.299</span>
+</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">    </span><span class="c1">// Eccentricity: 0.010000</span>
+</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="w">    </span><span class="c1">// Inclination (deg): 97.800000</span>
+</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="w">    </span><span class="c1">// RA of ascending node (deg): 15.000000</span>
+</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="w">    </span><span class="c1">// Argument of periapsis (deg): 30.000000</span>
+</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="w">    </span><span class="c1">// Mean anomaly (deg): 45.000000</span>
+</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>
+</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">    </span><span class="c1">// You can also convert using radians</span>
+</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">oe_rad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_cartesian_to_osculating</span><span class="p">(</span><span class="n">state</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Radians</span><span class="p">);</span>
+</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>
+</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Osculating state [a, e, i, Ω, ω, M] (rad):&quot;</span><span class="p">);</span>
+</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Semi-major axis (m): {:.3}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Eccentricity: {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Inclination (rad): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;RA of ascending node (rad): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">3</span><span class="p">]);</span>
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Argument of periapsis (rad): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">4</span><span class="p">]);</span>
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Mean anomaly (rad): {:.6}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">oe_rad</span><span class="p">[</span><span class="mi">5</span><span class="p">]);</span>
+</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="w">    </span><span class="c1">// Osculating state  (rad):</span>
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="w">    </span><span class="c1">// Semi-major axis (m): 6878136.299</span>
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a><span class="w">    </span><span class="c1">// Eccentricity: 0.010000</span>
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a><span class="w">    </span><span class="c1">// Inclination (rad): 1.706932</span>
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a><span class="w">    </span><span class="c1">// RA of ascending node (rad): 0.261799</span>
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="w">    </span><span class="c1">// Argument of periapsis (rad): 0.523599</span>
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a><span class="w">    </span><span class="c1">// Mean anomaly (rad): 0.785398</span>
+</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../library_api/coordinates/cartesian.html">Cartesian Coordinates API Reference</a> - Complete function documentation</li>
+<li><a href="../../library_api/orbits/index.html">Orbital Mechanics</a> - Related orbital mechanics functions</li>
+<li>Anomaly Conversions - Converting between mean, eccentric, and true anomaly</li>
+</ul>
 
 
 
@@ -4252,7 +4758,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 29, 2025 18:14:16 UTC">2025-10-29</span>
   </span>
 
     
@@ -4262,7 +4768,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 29, 2025 18:14:16 UTC">2025-10-29</span>
   </span>
 
     

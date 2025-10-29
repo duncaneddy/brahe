@@ -15,10 +15,10 @@
         <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/coordinates/geocentric_transformations.html">
       
       
-        <link rel="prev" href="cartesean_transformations.html">
+        <link rel="prev" href="cartesian_transformations.html">
       
       
-        <link rel="next" href="topocentric_transformations.html">
+        <link rel="next" href="geodetic_transformations.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Geocentric Coordinate Transformations - Brahe</title>
+        <title>Geocentric Transformations - Brahe</title>
       
     
     
@@ -57,6 +57,8 @@
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
       <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/neoteroi-mkdocs.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -94,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geocentric-coordinate-transformations" class="md-skip">
+        <a href="#geocentric-transformations" class="md-skip">
           Skip to content
         </a>
       
@@ -133,7 +135,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Geocentric Coordinate Transformations
+              Geocentric Transformations
             
           </span>
         </div>
@@ -419,6 +421,8 @@
       
         
       
+        
+      
     
     
     
@@ -590,6 +594,29 @@
   
   <span class="md-ellipsis">
     License
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Roadmap
     
   </span>
   
@@ -948,6 +975,8 @@
       
         
       
+        
+      
     
     
     
@@ -996,12 +1025,12 @@
   
   
     <li class="md-nav__item">
-      <a href="cartesean_transformations.html" class="md-nav__link">
+      <a href="cartesian_transformations.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Cartesian Coordinate Transformations
+    Cartesian ↔ Orbital Element Transformations
     
   </span>
   
@@ -1033,7 +1062,7 @@
   
   
   <span class="md-ellipsis">
-    Geocentric Coordinate Transformations
+    Geocentric Transformations
     
   </span>
   
@@ -1046,7 +1075,7 @@
   
   
   <span class="md-ellipsis">
-    Geocentric Coordinate Transformations
+    Geocentric Transformations
     
   </span>
   
@@ -1069,46 +1098,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#geocentric-coordinate-system" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Geocentric Coordinate System
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geocentric-vs-geodetic" class="md-nav__link">
-    <span class="md-ellipsis">
-      Geocentric vs Geodetic
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#conversions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conversions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Conversions">
+    <nav class="md-nav" aria-label="Geocentric Coordinate System">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geocentric-to-ecef-cartesian" class="md-nav__link">
+  <a href="#spherical-vs-ellipsoidal-earth" class="md-nav__link">
     <span class="md-ellipsis">
-      Geocentric to ECEF (Cartesian)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ecef-to-geocentric" class="md-nav__link">
-    <span class="md-ellipsis">
-      ECEF to Geocentric
+      Spherical vs Ellipsoidal Earth
     </span>
   </a>
   
@@ -1120,9 +1122,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#use-cases" class="md-nav__link">
+  <a href="#converting-geocentric-to-ecef" class="md-nav__link">
     <span class="md-ellipsis">
-      Use Cases
+      Converting Geocentric to ECEF
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-ecef-to-geocentric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting ECEF to Geocentric
     </span>
   </a>
   
@@ -1141,6 +1152,29 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="geodetic_transformations.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Geodetic Transformations
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -4283,46 +4317,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#geocentric-coordinate-system" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Geocentric Coordinate System
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#geocentric-vs-geodetic" class="md-nav__link">
-    <span class="md-ellipsis">
-      Geocentric vs Geodetic
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#conversions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conversions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Conversions">
+    <nav class="md-nav" aria-label="Geocentric Coordinate System">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#geocentric-to-ecef-cartesian" class="md-nav__link">
+  <a href="#spherical-vs-ellipsoidal-earth" class="md-nav__link">
     <span class="md-ellipsis">
-      Geocentric to ECEF (Cartesian)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ecef-to-geocentric" class="md-nav__link">
-    <span class="md-ellipsis">
-      ECEF to Geocentric
+      Spherical vs Ellipsoidal Earth
     </span>
   </a>
   
@@ -4334,9 +4341,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#use-cases" class="md-nav__link">
+  <a href="#converting-geocentric-to-ecef" class="md-nav__link">
     <span class="md-ellipsis">
-      Use Cases
+      Converting Geocentric to ECEF
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-ecef-to-geocentric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting ECEF to Geocentric
     </span>
   </a>
   
@@ -4370,54 +4386,211 @@
   
 
 
-<h1 id="geocentric-coordinate-transformations">Geocentric Coordinate Transformations<a class="headerlink" href="#geocentric-coordinate-transformations" title="Permanent link">&para;</a></h1>
-<p>Geocentric coordinates represent positions using spherical coordinates centered at Earth's center.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>Geocentric coordinates describe a position using:</p>
+<h1 id="geocentric-transformations">Geocentric Transformations<a class="headerlink" href="#geocentric-transformations" title="Permanent link">&para;</a></h1>
+<p>Geocentric longitude, latitude, altitude coordinates represent positions relative to a spherical Earth's surface. These coordinates can be converted to and from Earth-Centered Earth-Fixed (ECEF) Cartesian coordinates. This coordinate system is simpler and computationally faster than the geodetic system, but less accurate for near-surface applications because it assumes Earth is a perfect sphere.</p>
+<p>For complete API details, see the <a href="../../library_api/coordinates/geocentric.md">Geocentric Coordinates API Reference</a>.</p>
+<h2 id="geocentric-coordinate-system">Geocentric Coordinate System<a class="headerlink" href="#geocentric-coordinate-system" title="Permanent link">&para;</a></h2>
+<p>Geocentric coordinates represent a position using:</p>
 <ul>
-<li><strong>Radius</strong> (r): Distance from Earth's center in meters</li>
-<li><strong>Latitude</strong> (φ): Angle north/south of equator in radians</li>
-<li><strong>Longitude</strong> (λ): Angle east of prime meridian in radians</li>
+<li><strong>Longitude</strong> (<span class="arithmatex">\(\lambda\)</span>): East-west angle from the prime meridian, in degrees [-180°, +180°] or radians <span class="arithmatex">\([-\pi, +\pi]\)</span></li>
+<li><strong>Latitude</strong> (<span class="arithmatex">\(\varphi\)</span>): North-south angle from the equatorial plane, in degrees [-90°, +90°] or radians <span class="arithmatex">\([-\frac{\pi}{2}, +\frac{\pi}{2}]\)</span></li>
+<li><strong>Altitude</strong> (<span class="arithmatex">\(h\)</span>): Height above the spherical Earth surface, in meters</li>
 </ul>
-<p>Format: <code>[radius, latitude, longitude]</code></p>
-<h2 id="geocentric-vs-geodetic">Geocentric vs Geodetic<a class="headerlink" href="#geocentric-vs-geodetic" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
-<p class="admonition-title">Important Distinction</p>
-<p>Geocentric coordinates use a spherical Earth model, while geodetic coordinates use the WGS84 ellipsoid. The latitude values differ between the two systems.</p>
+<p>Combined as: <code>[longitude, latitude, altitude]</code>, often abbreviated as <code>[lon, lat, alt]</code>.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The spherical Earth model uses an Earth radius of <code>6378137.0</code> meters, which is the WGS84 semi-major axis. This means the geocentric "surface" is a sphere with Earth's equatorial radius.</p>
 </div>
-<p><strong>Geocentric latitude</strong>: Angle from equatorial plane to point
-<strong>Geodetic latitude</strong>: Angle from equatorial plane to surface normal</p>
-<h2 id="conversions">Conversions<a class="headerlink" href="#conversions" title="Permanent link">&para;</a></h2>
-<h3 id="geocentric-to-ecef-cartesian">Geocentric to ECEF (Cartesian)<a class="headerlink" href="#geocentric-to-ecef-cartesian" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Geocentric coordinates [radius, lat, lon] in meters and radians</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">geocentric</span> <span class="o">=</span> <span class="p">[</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">500e3</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">DEG2RAD</span> <span class="o">*</span> <span class="mf">45.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">DEG2RAD</span> <span class="o">*</span> <span class="o">-</span><span class="mf">122.0</span><span class="p">]</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Convert to ECEF Cartesian</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geocentric_to_ecef</span><span class="p">(</span><span class="n">geocentric</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="ecef-to-geocentric">ECEF to Geocentric<a class="headerlink" href="#ecef-to-geocentric" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># ECEF Cartesian position</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">ecef</span> <span class="o">=</span> <span class="p">[</span><span class="mf">3194.469e3</span><span class="p">,</span> <span class="o">-</span><span class="mf">3194.469e3</span><span class="p">,</span> <span class="mf">4487.348e3</span><span class="p">]</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Convert to geocentric</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">geocentric</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_ecef_to_geocentric</span><span class="p">(</span><span class="n">ecef</span><span class="p">)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">radius</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span> <span class="o">=</span> <span class="n">geocentric</span>
-</span></code></pre></div>
-<h2 id="use-cases">Use Cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h2>
-<p>Geocentric coordinates are useful for:</p>
+<h3 id="spherical-vs-ellipsoidal-earth">Spherical vs Ellipsoidal Earth<a class="headerlink" href="#spherical-vs-ellipsoidal-earth" title="Permanent link">&para;</a></h3>
+<p>The key difference between geocentric and geodetic coordinates is the Earth model:</p>
 <ul>
-<li>Quick distance calculations from Earth's center</li>
-<li>Simplified orbital computations</li>
-<li>When Earth oblateness can be ignored</li>
+<li><strong>Geocentric</strong>: Earth is a perfect sphere of radius <code>WGS84_A</code></li>
+<li><strong>Geodetic</strong>: Earth is an ellipsoid (oblate spheroid) with equatorial bulge</li>
 </ul>
+<h2 id="converting-geocentric-to-ecef">Converting Geocentric to ECEF<a class="headerlink" href="#converting-geocentric-to-ecef" title="Permanent link">&para;</a></h2>
+<p>Earth-Centered Earth-Fixed (ECEF) is a Cartesian coordinate system with:</p>
+<ul>
+<li>Origin at Earth's center of mass</li>
+<li>X-axis through the intersection of the prime meridian and equator</li>
+<li>Z-axis through the North Pole</li>
+<li>Y-axis completing a right-handed system</li>
+</ul>
+<p>You can convert geocentric spherical coordinates to ECEF Cartesian coordinates using following:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Define a location in geocentric coordinates (spherical Earth model)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Boulder, Colorado (approximately)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">lon</span> <span class="o">=</span> <span class="o">-</span><span class="mf">122.4194</span>  <span class="c1"># Longitude (deg)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">lat</span> <span class="o">=</span> <span class="mf">37.7749</span>  <span class="c1"># Latitude (deg)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">alt</span> <span class="o">=</span> <span class="mf">13.8</span>  <span class="c1"># Altitude above spherical Earth surface (m)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Geocentric coordinates (spherical Earth model):&quot;</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Longitude: </span><span class="si">{</span><span class="n">lon</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">° = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lon</span><span class="p">)</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> rad&quot;</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Latitude:  </span><span class="si">{</span><span class="n">lat</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">° = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lat</span><span class="p">)</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> rad&quot;</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Altitude:  </span><span class="si">{</span><span class="n">alt</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> m</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Longitude: -122.4194° = -2.136622 rad</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Latitude:  37.7749° = 0.659296 rad</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Altitude:  13.8 m</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Convert geocentric to ECEF Cartesian</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">geocentric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">alt</span><span class="p">])</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geocentric_to_ecef</span><span class="p">(</span><span class="n">geocentric</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ECEF Cartesian coordinates:&quot;</span><span class="p">)</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;x = </span><span class="si">{</span><span class="n">ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;y = </span><span class="si">{</span><span class="n">ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;z = </span><span class="si">{</span><span class="n">ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Distance from Earth center: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ecef</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="c1"># x = -2702779.686 m</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># y = -4255713.575 m</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="c1"># z = 3907005.447 m</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="c1"># Distance from Earth center: 6378150.800 m</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">nalgebra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">na</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="c1">// Define a location in geocentric coordinates (spherical Earth model)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="c1">// Boulder, Colorado (approximately)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">lon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">122.4194_</span><span class="k">f64</span><span class="p">;</span><span class="w">  </span><span class="c1">// Longitude (deg)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">lat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">37.7749_</span><span class="k">f64</span><span class="p">;</span><span class="w">    </span><span class="c1">// Latitude (deg)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">alt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">13.8</span><span class="p">;</span><span class="w">           </span><span class="c1">// Altitude above spherical Earth surface (m)</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Geocentric coordinates (spherical Earth model):&quot;</span><span class="p">);</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Longitude: {:.4}° = {:.6} rad&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">lon</span><span class="p">,</span><span class="w"> </span><span class="n">lon</span><span class="p">.</span><span class="n">to_radians</span><span class="p">());</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Latitude:  {:.4}° = {:.6} rad&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">lat</span><span class="p">,</span><span class="w"> </span><span class="n">lat</span><span class="p">.</span><span class="n">to_radians</span><span class="p">());</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Altitude:  {:.1} m</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">alt</span><span class="p">);</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="c1">// Expected output:</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="c1">// Longitude: -122.4194° = -2.136622 rad</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="c1">// Latitude:  37.7749° = 0.659296 rad</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="c1">// Altitude:  13.8 m</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="c1">// Convert geocentric to ECEF Cartesian</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">geocentric</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">Vector3</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span><span class="w"> </span><span class="n">lat</span><span class="p">,</span><span class="w"> </span><span class="n">alt</span><span class="p">);</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">ecef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">position_geocentric_to_ecef</span><span class="p">(</span><span class="n">geocentric</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Degrees</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;ECEF Cartesian coordinates:&quot;</span><span class="p">);</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;x = {:.3} m&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;y = {:.3} m&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;z = {:.3} m&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">distance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">powi</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">powi</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">powi</span><span class="p">(</span><span class="mi">2</span><span class="p">)).</span><span class="n">sqrt</span><span class="p">();</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Distance from Earth center: {:.3} m&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span><span class="p">);</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">    </span><span class="c1">// Expected output:</span>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">    </span><span class="c1">// x = -2702779.686 m</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="c1">// y = -4255713.575 m</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">    </span><span class="c1">// z = 3907005.447 m</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">    </span><span class="c1">// Distance from Earth center: 6378150.800 m</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="converting-ecef-to-geocentric">Converting ECEF to Geocentric<a class="headerlink" href="#converting-ecef-to-geocentric" title="Permanent link">&para;</a></h2>
+<p>The reverse transformation converts Cartesian ECEF coordinates back to geocentric spherical coordinates:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Python</label><label for="__tabbed_2_2">Rust</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">bh</span><span class="o">.</span><span class="n">initialize_eop</span><span class="p">()</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Define a satellite state (convert orbital elements to ECEF state)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">epc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">time_system</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">state_oe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">[</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">500e3</span><span class="p">,</span>  <span class="c1"># Semi-major axis (m)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="mf">0.0</span><span class="p">,</span>  <span class="c1"># Eccentricity</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="mf">97.8</span><span class="p">,</span>  <span class="c1"># Inclination (deg)</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="mf">15.0</span><span class="p">,</span>  <span class="c1"># Right ascension of ascending node (deg)</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="mf">30.0</span><span class="p">,</span>  <span class="c1"># Argument of periapsis (deg)</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="mf">45.0</span><span class="p">,</span>  <span class="c1"># Mean anomaly (deg)</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="p">]</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">)</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">state_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_eci_to_ecef</span><span class="p">(</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">epc</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">state_oe</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="p">)</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">)</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position: [</span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Velocity: [</span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="c1"># Position: [-735665.465, -1838913.314, 6586801.432]</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="c1"># Velocity: [-1060.370171, 7357.551468, 1935.662061]</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># Convert ECEF Cartesian to geocentric position</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">ecef_pos</span> <span class="o">=</span> <span class="n">state_ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">geocentric</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_ecef_to_geocentric</span><span class="p">(</span><span class="n">ecef_pos</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Geocentric coordinates (spherical Earth model):&quot;</span><span class="p">)</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Longitude: </span><span class="si">{</span><span class="n">geocentric</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">° = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">geocentric</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> rad&quot;</span><span class="p">)</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Latitude:  </span><span class="si">{</span><span class="n">geocentric</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">° = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">geocentric</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> rad&quot;</span><span class="p">)</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Altitude:  </span><span class="si">{</span><span class="n">geocentric</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="c1"># Longitude: -111.8041° = -1.951350 rad</span>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="c1"># Latitude:  73.2643° = 1.278704 rad</span>
+</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="c1"># Altitude:  499999.3 m</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">use</span><span class="w"> </span><span class="n">nalgebra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">na</span><span class="p">;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="n">bh</span><span class="p">::</span><span class="n">initialize_eop</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="c1">// Define a satellite state (convert orbital elements to ECEF state)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">epc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">Epoch</span><span class="p">::</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">TimeSystem</span><span class="p">::</span><span class="n">UTC</span><span class="p">);</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state_oe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">SVector</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">f64</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="n">bh</span><span class="p">::</span><span class="n">R_EARTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">500e3</span><span class="p">,</span><span class="w">  </span><span class="c1">// Semi-major axis (m)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">        </span><span class="mf">0.0</span><span class="p">,</span><span class="w">                  </span><span class="c1">// Eccentricity</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="mf">97.8_</span><span class="k">f64</span><span class="p">,</span><span class="w">             </span><span class="c1">// Inclination (deg)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">        </span><span class="mf">15.0_</span><span class="k">f64</span><span class="p">,</span><span class="w">             </span><span class="c1">// Right ascension of ascending node (deg)</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">        </span><span class="mf">30.0_</span><span class="k">f64</span><span class="p">,</span><span class="w">             </span><span class="c1">// Argument of periapsis (deg)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">        </span><span class="mf">45.0_</span><span class="k">f64</span><span class="w">              </span><span class="c1">// Mean anomaly (deg)</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state_eci</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">state_oe</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Degrees</span><span class="p">);</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">state_ecef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">state_eci_to_ecef</span><span class="p">(</span><span class="n">epc</span><span class="p">,</span><span class="w"> </span><span class="n">state_eci</span><span class="p">);</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):&quot;</span><span class="p">);</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Position: [{:.3}, {:.3}, {:.3}]&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Velocity: [{:.6}, {:.6}, {:.6}]</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">5</span><span class="p">]);</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">    </span><span class="c1">// Expected output:</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="c1">// Position: [-735665.465, -1838913.314, 6586801.432]</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="c1">// Velocity: [-1060.370171, 7357.551468, 1935.662061]</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">    </span><span class="c1">// Convert ECEF Cartesian to geocentric position</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">ecef_pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na</span><span class="p">::</span><span class="n">Vector3</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">state_ecef</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">geocentric</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">position_ecef_to_geocentric</span><span class="p">(</span><span class="n">ecef_pos</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">::</span><span class="n">AngleFormat</span><span class="p">::</span><span class="n">Degrees</span><span class="p">);</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Geocentric coordinates (spherical Earth model):&quot;</span><span class="p">);</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Longitude: {:.4}° = {:.6} rad&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">geocentric</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">geocentric</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">to_radians</span><span class="p">());</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Latitude:  {:.4}° = {:.6} rad&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">geocentric</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">geocentric</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">to_radians</span><span class="p">());</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;Altitude:  {:.1} m&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">geocentric</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">    </span><span class="c1">// Expected output:</span>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="w">    </span><span class="c1">// Longitude: -111.8041° = -1.951350 rad</span>
+</span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="w">    </span><span class="c1">// Latitude:  73.2643° = 1.278704 rad</span>
+</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="w">    </span><span class="c1">// Altitude:  499999.3 m</span>
+</span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="p">}</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Latitude values are automatically constrained to the valid range [-90°, +90°] or [<span class="arithmatex">\(-\frac{\pi}{2}\)</span>, <span class="arithmatex">\(+\frac{\pi}{2}\)</span>] during conversion.</p>
+</div>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../library_api/coordinates/geodetic.html">Geodetic Coordinates</a></li>
-<li><a href="../../library_api/coordinates/geodetic.html">Geocentric API Reference</a></li>
+<li><a href="../../library_api/coordinates/geocentric.md">Geocentric Coordinates API Reference</a> - Complete function documentation</li>
+<li><a href="geodetic_transformations.html">Geodetic Transformations</a> - More accurate WGS84 ellipsoid model</li>
+<li><a href="topocentric_transformations.html">Topocentric Transformations</a> - Local horizon coordinate systems</li>
 </ul>
 
 
@@ -4441,7 +4614,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 21, 2025 04:45:12 UTC">2025-10-21</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 29, 2025 18:14:16 UTC">2025-10-29</span>
   </span>
 
     
@@ -4470,6 +4643,8 @@
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
@@ -4501,7 +4676,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

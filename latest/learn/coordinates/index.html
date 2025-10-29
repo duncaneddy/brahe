@@ -18,7 +18,7 @@
         <link rel="prev" href="../time/time_range.html">
       
       
-        <link rel="next" href="cartesean_transformations.html">
+        <link rel="next" href="cartesian_transformations.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -57,6 +57,8 @@
       <link rel="stylesheet" href="../../stylesheets/extra.css">
     
       <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/neoteroi-mkdocs.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -419,6 +421,8 @@
       
         
       
+        
+      
     
     
     
@@ -590,6 +594,29 @@
   
   <span class="md-ellipsis">
     License
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Roadmap
     
   </span>
   
@@ -948,6 +975,8 @@
       
         
       
+        
+      
     
     
     
@@ -996,12 +1025,12 @@
   
   
     <li class="md-nav__item">
-      <a href="cartesean_transformations.html" class="md-nav__link">
+      <a href="cartesian_transformations.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Cartesian Coordinate Transformations
+    Cartesian ↔ Orbital Element Transformations
     
   </span>
   
@@ -1024,7 +1053,30 @@
   
   
   <span class="md-ellipsis">
-    Geocentric Coordinate Transformations
+    Geocentric Transformations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="geodetic_transformations.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Geodetic Transformations
     
   </span>
   
@@ -4172,28 +4224,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#coordinate-systems-in-brahe" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Coordinate Systems in Brahe
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#coordinate-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      Coordinate Systems
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Coordinate Systems">
+    <nav class="md-nav" aria-label="Coordinate Systems in Brahe">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cartesian-coordinates" class="md-nav__link">
+  <a href="#cartesian-state-vectors" class="md-nav__link">
     <span class="md-ellipsis">
-      Cartesian Coordinates
+      Cartesian State Vectors
     </span>
   </a>
   
@@ -4232,205 +4275,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#common-transformation-chains" class="md-nav__link">
+  <a href="#common-transformation-patterns" class="md-nav__link">
     <span class="md-ellipsis">
-      Common Transformation Chains
+      Common Transformation Patterns
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Common Transformation Chains">
+    <nav class="md-nav" aria-label="Common Transformation Patterns">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#satellite-state-to-ground-observer" class="md-nav__link">
+  <a href="#orbital-mechanics" class="md-nav__link">
     <span class="md-ellipsis">
-      Satellite State to Ground Observer
+      Orbital Mechanics
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ground-location-to-orbit-frame" class="md-nav__link">
+  <a href="#ground-station-observations" class="md-nav__link">
     <span class="md-ellipsis">
-      Ground Location to Orbit Frame
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#orbital-elements-to-cartesian" class="md-nav__link">
-    <span class="md-ellipsis">
-      Orbital Elements to Cartesian
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-concepts" class="md-nav__link">
-    <span class="md-ellipsis">
-      Key Concepts
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Key Concepts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#reference-frames" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reference Frames
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#frame-transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Frame Transformations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#coordinate-system-properties" class="md-nav__link">
-    <span class="md-ellipsis">
-      Coordinate System Properties
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#usage-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Usage Patterns
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Usage Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#converting-satellite-state-to-observer-view" class="md-nav__link">
-    <span class="md-ellipsis">
-      Converting Satellite State to Observer View
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ground-station-network-in-multiple-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ground Station Network in Multiple Systems
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Performance Considerations
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Performance Considerations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#transformation-cost" class="md-nav__link">
-    <span class="md-ellipsis">
-      Transformation Cost
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-to-cache" class="md-nav__link">
-    <span class="md-ellipsis">
-      When to Cache
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#batch-operations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Batch Operations
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-pitfalls" class="md-nav__link">
-    <span class="md-ellipsis">
-      Common Pitfalls
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Pitfalls">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#latitude-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      Latitude Types
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#longitude-wrapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      Longitude Wrapping
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#angle-units" class="md-nav__link">
-    <span class="md-ellipsis">
-      Angle Units
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#frame-consistency" class="md-nav__link">
-    <span class="md-ellipsis">
-      Frame Consistency
+      Ground Station Observations
     </span>
   </a>
   
@@ -4470,252 +4336,46 @@
 
 
 <h1 id="coordinate-transformations">Coordinate Transformations<a class="headerlink" href="#coordinate-transformations" title="Permanent link">&para;</a></h1>
-<p>Coordinate systems are fundamental to astrodynamics, allowing us to represent positions and velocities in different reference frames optimized for specific calculations. Brahe provides comprehensive coordinate transformation capabilities between multiple systems.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>Brahe supports three primary coordinate systems for representing positions on or near Earth:</p>
-<ol>
-<li><strong>Cartesian Coordinates</strong> - 3D rectangular coordinates <code>[x, y, z]</code></li>
-<li><strong>Geocentric Coordinates</strong> - Spherical coordinates <code>[radius, latitude, longitude]</code></li>
-<li><strong>Geodetic Coordinates</strong> - Ellipsoidal coordinates accounting for Earth's shape <code>[latitude, longitude, altitude]</code></li>
-<li><strong>Topocentric Coordinates</strong> - Local horizontal coordinates relative to an observer <code>[East, North, Zenith]</code> or <code>[Azimuth, Elevation, Range]</code></li>
-</ol>
-<p>Each system has specific use cases and advantages depending on the problem being solved.</p>
-<h2 id="coordinate-systems">Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Permanent link">&para;</a></h2>
-<h3 id="cartesian-coordinates">Cartesian Coordinates<a class="headerlink" href="#cartesian-coordinates" title="Permanent link">&para;</a></h3>
-<p>Cartesian coordinates represent positions as 3D vectors with orthogonal axes:</p>
-<ul>
-<li><strong>ECEF (Earth-Centered Earth-Fixed)</strong>: Rotates with Earth, Z-axis through North Pole</li>
-<li><strong>ECI (Earth-Centered Inertial)</strong>: Inertial frame fixed to celestial sphere</li>
-</ul>
-<p><strong>Best for</strong>:
-- Orbital mechanics (Newton's laws in inertial frames)
-- Vector operations (dot products, cross products)
-- Frame transformations (rotation matrices)</p>
-<p>See: <a href="cartesean_transformations.html">Cartesian Transformations</a></p>
+<p>Coordinate systems and transformations are fundamental to astrodynamics. Different coordinate systems are used depending on the application - some are better for orbital mechanics, others for ground station tracking, and still others for describing positions on Earth's surface.</p>
+<p>Brahe provides coordinate transformation functions for converting between different coordinate representations and reference frames.</p>
+<h2 id="coordinate-systems-in-brahe">Coordinate Systems in Brahe<a class="headerlink" href="#coordinate-systems-in-brahe" title="Permanent link">&para;</a></h2>
+<h3 id="cartesian-state-vectors">Cartesian State Vectors<a class="headerlink" href="#cartesian-state-vectors" title="Permanent link">&para;</a></h3>
+<p>Cartesian coordinates represent positions and velocities as vectors in three-dimensional space: <code>[x, y, z, vx, vy, vz]</code>. In astrodynamics, these are typically used to represent the state in Earth-Centered Inertial (ECI) frames or Earth-Centered Earth-Fixed (ECEF) frames. </p>
+<p>While Cartesian coordinates are mathematically convenient for numerical integration and propagation, orbital elements are often more intuitive for understanding orbits. Therefore, Brahe provides functions to convert between ECI Cartesian states and Keplerian orbital elements.</p>
+<p>Learn more: <a href="cartesian_transformations.html">Cartesian Transformations</a></p>
 <h3 id="geocentric-coordinates">Geocentric Coordinates<a class="headerlink" href="#geocentric-coordinates" title="Permanent link">&para;</a></h3>
-<p>Geocentric coordinates use spherical representation <code>[r, φ, λ]</code>:</p>
-<ul>
-<li><strong>r</strong>: Distance from Earth's center (meters)</li>
-<li><strong>φ</strong>: Geocentric latitude (radians)</li>
-<li><strong>λ</strong>: Longitude (radians)</li>
-</ul>
-<p><strong>Best for</strong>:
-- Spherical Earth approximations
-- Quick distance calculations
-- When Earth's oblateness can be ignored</p>
-<p>See: <a href="geocentric_transformations.html">Geocentric Transformations</a></p>
+<p>Geocentric coordinates use a spherical Earth model to represent positions using longitude, latitude, and altitude from Earth's center: <code>[lon, lat, alt]</code>. Applications generally convert between ECEF Cartesian coordinates and geocentric spherical coordinates.</p>
+<p>Learn more: <a href="geocentric_transformations.html">Geocentric Transformations</a></p>
 <h3 id="geodetic-coordinates">Geodetic Coordinates<a class="headerlink" href="#geodetic-coordinates" title="Permanent link">&para;</a></h3>
-<p>Geodetic coordinates account for Earth's ellipsoidal shape using WGS84:</p>
-<ul>
-<li><strong>φ</strong>: Geodetic latitude - angle from equatorial plane to surface normal (radians)</li>
-<li><strong>λ</strong>: Longitude (radians)</li>
-<li><strong>h</strong>: Height above WGS84 ellipsoid (meters)</li>
-</ul>
-<p><strong>Best for</strong>:
-- Ground station locations
-- GPS coordinates
-- Precise Earth surface positioning
-- Terrain-relative calculations</p>
-<p>See: <a href="geocentric_transformations.html">Geodetic &amp; Geocentric Transformations</a></p>
+<p>Geodetic coordinates use the WGS84 ellipsoid model to represent positions: <code>[lon, lat, alt]</code>. Unlike geocentric coordinates, geodetic coordinates account for Earth's equatorial bulge (flattening), providing much more accurate resulting ECEF Cartesian positions for points on or near Earth's surface. Similar to geocentric coordinates, applications typically convert between ECEF Cartesian coordinates and geodetic coordinates.</p>
+<p>Learn more: <a href="geodetic_transformations.html">Geodetic Transformations</a></p>
 <h3 id="topocentric-coordinates">Topocentric Coordinates<a class="headerlink" href="#topocentric-coordinates" title="Permanent link">&para;</a></h3>
-<p>Topocentric coordinates are local horizontal systems centered at an observer:</p>
-<p><strong>ENZ (East-North-Zenith)</strong>:
-- Local Cartesian with origin at observer
-- E: East direction, N: North direction, Z: Zenith (up)</p>
-<p><strong>SEZ (South-East-Zenith)</strong>:
-- Alternative convention with S: South, E: East, Z: Zenith</p>
-<p><strong>Azimuth-Elevation-Range</strong>:
-- Spherical representation of observer-relative position
-- Az: Compass bearing (0° = North, 90° = East)
-- El: Elevation angle above horizon (degrees)
-- Range: Distance to object (meters)</p>
-<p><strong>Best for</strong>:
-- Ground station tracking
-- Antenna pointing
-- Visibility calculations
-- Access computation</p>
-<p>See: <a href="topocentric_transformations.html">Topocentric Transformations</a></p>
-<h2 id="common-transformation-chains">Common Transformation Chains<a class="headerlink" href="#common-transformation-chains" title="Permanent link">&para;</a></h2>
-<h3 id="satellite-state-to-ground-observer">Satellite State to Ground Observer<a class="headerlink" href="#satellite-state-to-ground-observer" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ECI State → ECEF State → Topocentric Position → Az/El/Range
-</span></code></pre></div>
-<p>Used for ground station tracking and visibility.</p>
-<h3 id="ground-location-to-orbit-frame">Ground Location to Orbit Frame<a class="headerlink" href="#ground-location-to-orbit-frame" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Geodetic (lat/lon/alt) → ECEF Position → ECI Position
-</span></code></pre></div>
-<p>Used for determining when satellites can view ground locations.</p>
-<h3 id="orbital-elements-to-cartesian">Orbital Elements to Cartesian<a class="headerlink" href="#orbital-elements-to-cartesian" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Keplerian Elements → ECI Cartesian State
-</span></code></pre></div>
-<p>Used for orbit propagation and trajectory analysis.</p>
-<h2 id="key-concepts">Key Concepts<a class="headerlink" href="#key-concepts" title="Permanent link">&para;</a></h2>
-<h3 id="reference-frames">Reference Frames<a class="headerlink" href="#reference-frames" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Inertial Frames (ECI)</strong>: Non-rotating, fixed to celestial sphere. Required for applying Newton's laws.</li>
-<li><strong>Rotating Frames (ECEF)</strong>: Rotate with Earth. Natural for ground-based observations.</li>
-<li><strong>Topocentric Frames (ENZ/SEZ)</strong>: Local observer-centered. Natural for antenna pointing.</li>
-</ul>
-<h3 id="frame-transformations">Frame Transformations<a class="headerlink" href="#frame-transformations" title="Permanent link">&para;</a></h3>
-<p>Transformations between ECI and ECEF require:
-- Precession and nutation models (IAU 2006/2000A)
-- Earth Orientation Parameters (EOP) for high precision
-- Time system conversions (UTC, UT1, TT)</p>
-<p>See: <a href="../frame_transformations.html">Frame Transformations</a></p>
-<h3 id="coordinate-system-properties">Coordinate System Properties<a class="headerlink" href="#coordinate-system-properties" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>System</th>
-<th>Origin</th>
-<th>Axes</th>
-<th>Rotating</th>
-<th>Best Use Case</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ECI</td>
-<td>Earth center</td>
-<td>Celestial</td>
-<td>No</td>
-<td>Orbit propagation</td>
-</tr>
-<tr>
-<td>ECEF</td>
-<td>Earth center</td>
-<td>Earth-fixed</td>
-<td>Yes</td>
-<td>Ground locations</td>
-</tr>
-<tr>
-<td>Geodetic</td>
-<td>Earth surface</td>
-<td>Ellipsoid normal</td>
-<td>Yes</td>
-<td>GPS, ground stations</td>
-</tr>
-<tr>
-<td>Geocentric</td>
-<td>Earth center</td>
-<td>Spherical</td>
-<td>Yes</td>
-<td>Simplified calculations</td>
-</tr>
-<tr>
-<td>Topocentric</td>
-<td>Observer</td>
-<td>Local horizontal</td>
-<td>Yes</td>
-<td>Tracking, visibility</td>
-</tr>
-</tbody>
-</table>
-<h2 id="usage-patterns">Usage Patterns<a class="headerlink" href="#usage-patterns" title="Permanent link">&para;</a></h2>
-<h3 id="converting-satellite-state-to-observer-view">Converting Satellite State to Observer View<a class="headerlink" href="#converting-satellite-state-to-observer-view" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Satellite state in ECI</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">sat_state_eci</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">])</span>  <span class="c1"># [x, y, z, vx, vy, vz]</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Convert to ECEF</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">sat_state_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_eci_to_ecef</span><span class="p">(</span><span class="n">sat_state_eci</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Observer location (geodetic)</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">observer_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">40.0</span><span class="p">)</span>  <span class="c1"># 40° N</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">observer_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="o">-</span><span class="mf">75.0</span><span class="p">)</span>  <span class="c1"># 75° W</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">observer_alt</span> <span class="o">=</span> <span class="mf">100.0</span>  <span class="c1"># meters</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Convert observer to ECEF</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">observer_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geodetic_to_ecef</span><span class="p">(</span><span class="n">observer_lat</span><span class="p">,</span> <span class="n">observer_lon</span><span class="p">,</span> <span class="n">observer_alt</span><span class="p">)</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Compute topocentric position</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">relative_ecef</span> <span class="o">=</span> <span class="n">sat_state_ecef</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">observer_ecef</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">enz</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">relative_position_ecef_to_enz</span><span class="p">(</span><span class="n">relative_ecef</span><span class="p">,</span> <span class="n">observer_lat</span><span class="p">,</span> <span class="n">observer_lon</span><span class="p">)</span>
-</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>
-</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="c1"># Convert to azimuth/elevation</span>
-</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">az</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span> <span class="n">range_m</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_enz_to_azel</span><span class="p">(</span><span class="n">enz</span><span class="p">)</span>
-</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>
-</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Azimuth: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">az</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">°&quot;</span><span class="p">)</span>
-</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Elevation: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">el</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">°&quot;</span><span class="p">)</span>
-</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Range: </span><span class="si">{</span><span class="n">range_m</span><span class="o">/</span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> km&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="ground-station-network-in-multiple-systems">Ground Station Network in Multiple Systems<a class="headerlink" href="#ground-station-network-in-multiple-systems" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Define stations in geodetic (natural input)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">stations_geodetic</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">15.4</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">78.2</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">),</span>  <span class="c1"># Svalbard</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="o">-</span><span class="mf">64.5</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="o">-</span><span class="mf">31.5</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">),</span>  <span class="c1"># Malargue</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="o">-</span><span class="mf">117.2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">34.1</span><span class="p">),</span> <span class="mf">500.0</span><span class="p">),</span>  <span class="c1"># Goldstone</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">]</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Convert to ECEF for computations</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">stations_ecef</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">position_geodetic_to_ecef</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">alt</span><span class="p">)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="k">for</span> <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">alt</span> <span class="ow">in</span> <span class="n">stations_geodetic</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">]</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="c1"># Also compute geocentric for reference</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">stations_geocentric</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">bh</span><span class="o">.</span><span class="n">position_ecef_to_geocentric</span><span class="p">(</span><span class="n">ecef</span><span class="p">)</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="k">for</span> <span class="n">ecef</span> <span class="ow">in</span> <span class="n">stations_ecef</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">]</span>
-</span></code></pre></div>
-<h2 id="performance-considerations">Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permanent link">&para;</a></h2>
-<h3 id="transformation-cost">Transformation Cost<a class="headerlink" href="#transformation-cost" title="Permanent link">&para;</a></h3>
-<p>Coordinate transformations have different computational costs:</p>
-<ul>
-<li><strong>Cartesian ↔ Geocentric</strong>: Fast (trigonometric functions)</li>
-<li><strong>Cartesian ↔ Geodetic</strong>: Moderate (iterative algorithm for inverse)</li>
-<li><strong>ECI ↔ ECEF</strong>: Moderate to expensive (precession/nutation models)</li>
-<li><strong>ECEF → Topocentric</strong>: Fast (rotation matrix)</li>
-</ul>
-<h3 id="when-to-cache">When to Cache<a class="headerlink" href="#when-to-cache" title="Permanent link">&para;</a></h3>
-<p>For repeated transformations at the same epoch:
-- Cache rotation matrices for ECI ↔ ECEF
-- Precompute observer ECEF positions
-- Store frequently-used station locations</p>
-<h3 id="batch-operations">Batch Operations<a class="headerlink" href="#batch-operations" title="Permanent link">&para;</a></h3>
-<p>When transforming multiple points:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Single rotation matrix for all points at same epoch</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">R</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">rotation_matrix_ecef_to_eci</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Apply to all states</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">states_eci</span> <span class="o">=</span> <span class="p">[</span><span class="n">R</span> <span class="o">@</span> <span class="n">state_ecef</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">state_ecef</span> <span class="ow">in</span> <span class="n">states_ecef</span><span class="p">]</span>
-</span></code></pre></div></p>
-<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
-<h3 id="latitude-types">Latitude Types<a class="headerlink" href="#latitude-types" title="Permanent link">&para;</a></h3>
-<p><strong>Geodetic vs Geocentric latitude</strong>:
-- Geodetic: Perpendicular to ellipsoid surface (GPS uses this)
-- Geocentric: Angle from Earth center</p>
-<p>These differ by up to 0.2° at mid-latitudes!</p>
-<h3 id="longitude-wrapping">Longitude Wrapping<a class="headerlink" href="#longitude-wrapping" title="Permanent link">&para;</a></h3>
-<p>Ensure consistent longitude ranges:
-- Use <code>-180° to +180°</code> (preferred in Brahe)
-- Not <code>0° to 360°</code></p>
-<h3 id="angle-units">Angle Units<a class="headerlink" href="#angle-units" title="Permanent link">&para;</a></h3>
-<p>All Brahe functions use radians internally:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Use AngleFormat enum for clarity</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">lat_deg</span> <span class="o">=</span> <span class="mf">40.0</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">lat_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lat_deg</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">pos</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geodetic_to_ecef</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">,</span> <span class="n">lon_rad</span><span class="p">,</span> <span class="n">alt</span><span class="p">)</span>
-</span></code></pre></div></p>
-<h3 id="frame-consistency">Frame Consistency<a class="headerlink" href="#frame-consistency" title="Permanent link">&para;</a></h3>
-<p>Never mix coordinates from different frames:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># WRONG: Mixing ECI and ECEF</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">range_vec</span> <span class="o">=</span> <span class="n">sat_state_eci</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">observer_ecef</span>  <span class="c1"># Error!</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># CORRECT: Convert to same frame first</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">sat_state_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_eci_to_ecef</span><span class="p">(</span><span class="n">sat_state_eci</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">range_vec</span> <span class="o">=</span> <span class="n">sat_state_ecef</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">observer_ecef</span>  <span class="c1"># OK</span>
-</span></code></pre></div></p>
+<p>Topocentric coordinate systems are local horizon-based systems centered on an observer (like a ground station on the Earth). They represent the position of objects relative to the local horizon, tagent to the body's surface.</p>
+<p>Two of the most common topocentric coodinate systems are the East-North-Zenith (ENZ) or South-East-Zenith (SEZ) systems. These systems are essential for computing satellite visibility, tracking angles (azimuth and elevation), and determining when satellites are observable from a specific location.</p>
+<p>Learn more: <a href="topocentric_transformations.html">Topocentric Transformations</a></p>
+<h2 id="common-transformation-patterns">Common Transformation Patterns<a class="headerlink" href="#common-transformation-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="orbital-mechanics">Orbital Mechanics<a class="headerlink" href="#orbital-mechanics" title="Permanent link">&para;</a></h3>
+<p>To work with orbital elements:</p>
+<ol>
+<li>Define or receive Keplerian elements <code>[a, e, i, Ω, ω, M]</code></li>
+<li>Convert to Cartesian state <code>[x, y, z, vx, vy, vz]</code> in ECI frame</li>
+</ol>
+<h3 id="ground-station-observations">Ground Station Observations<a class="headerlink" href="#ground-station-observations" title="Permanent link">&para;</a></h3>
+<p>To compute satellite location from a ground station:</p>
+<ol>
+<li>Start with station location in geodetic coordinates <code>[lon, lat, alt]</code></li>
+<li>Convert the Satellite ECI positions from to the ECEF frame at the observation time</li>
+<li>Convert the station location to ECEF coordinates</li>
+<li>Transform the satellite and location ECEF coordinates to the local ENZ</li>
+<li>Convert ENZ to azimuth-elevation-range</li>
+</ol>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="cartesean_transformations.html">Cartesian Transformations</a> - ECI and ECEF Cartesian coordinates</li>
-<li><a href="geocentric_transformations.html">Geocentric &amp; Geodetic Transformations</a> - Spherical and ellipsoidal Earth models</li>
-<li><a href="topocentric_transformations.html">Topocentric Transformations</a> - Local horizontal coordinate systems</li>
-<li><a href="../frame_transformations.html">Frame Transformations</a> - Transformations between reference frames</li>
-<li><a href="../../library_api/coordinates/index.html">Coordinates API Reference</a> - Complete coordinate function documentation</li>
+<li><a href="cartesian_transformations.html">Cartesian Transformations</a> - Orbital elements and Cartesian states</li>
+<li><a href="geocentric_transformations.html">Geocentric Transformations</a> - Spherical Earth coordinates</li>
+<li><a href="geodetic_transformations.html">Geodetic Transformations</a> - WGS84 ellipsoid coordinates</li>
+<li><a href="topocentric_transformations.html">Topocentric Transformations</a> - Local horizon systems</li>
+<li><a href="../../library_api/coordinates/index.html">Coordinates API Reference</a> - Complete API documentation</li>
 </ul>
 
 
@@ -4739,7 +4399,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 21, 2025 04:45:12 UTC">2025-10-21</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 29, 2025 18:14:16 UTC">2025-10-29</span>
   </span>
 
     
@@ -4768,6 +4428,8 @@
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
@@ -4799,7 +4461,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

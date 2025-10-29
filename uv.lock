@@ -9,6 +9,21 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "anyio"
+version = "4.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "idna" },
+    { name = "sniffio" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c6/78/7d432127c41b50bccba979505f272c16cbcadcc33645d5fa3a738110ae75/anyio-4.11.0.tar.gz", hash = "sha256:82a8d0b81e318cc5ce71a5f1f8b5c4e63619620b63141ef8c995fa0db95a57c4", size = 219094, upload-time = "2025-09-23T09:19:12.58Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/b3/9b1a8074496371342ec1e796a96f99c82c945a339cd81a8e73de28b4cf9e/anyio-4.11.0-py3-none-any.whl", hash = "sha256:0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc", size = 109097, upload-time = "2025-09-23T09:19:10.601Z" },
+]
+
+[[package]]
 name = "babel"
 version = "2.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -65,6 +80,7 @@ dev = [
     { name = "mkdocs-section-index" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
+    { name = "neoteroi-mkdocs" },
     { name = "pre-commit" },
     { name = "pyo3-stubgen" },
     { name = "pytest" },
@@ -78,6 +94,7 @@ docs = [
     { name = "mkdocs-section-index" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
+    { name = "neoteroi-mkdocs" },
     { name = "pyo3-stubgen" },
 ]
 test = [
@@ -109,6 +126,7 @@ dev = [
     { name = "mkdocs-section-index", specifier = ">=0.3.10" },
     { name = "mkdocstrings", specifier = ">=0.30.0" },
     { name = "mkdocstrings-python", specifier = ">=1.18.2" },
+    { name = "neoteroi-mkdocs", specifier = ">=1.1.3" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pyo3-stubgen", specifier = ">=0.3.0" },
     { name = "pytest", specifier = ">=7.4.4" },
@@ -122,6 +140,7 @@ docs = [
     { name = "mkdocs-section-index", specifier = ">=0.3.10" },
     { name = "mkdocstrings", specifier = ">=0.30.0" },
     { name = "mkdocstrings-python", specifier = ">=1.18.2" },
+    { name = "neoteroi-mkdocs", specifier = ">=1.1.3" },
     { name = "pyo3-stubgen", specifier = ">=0.3.0" },
 ]
 test = [
@@ -671,6 +690,29 @@ wheels = [
 ]
 
 [[package]]
+name = "essentials"
+version = "1.1.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/57/6e44c3a20d28fa381ccae3f588e16c54a627f3a61a008ddb1567c6f01891/essentials-1.1.8.tar.gz", hash = "sha256:e042e0b33d385cfc26e1f0cc189fce5570d0959a1983438a557e7963a87b5638", size = 25098, upload-time = "2025-10-04T06:55:38.105Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/05/4db7e55b464d557634626d61ee0a0ba11467509befd4022bccfacef4a98e/essentials-1.1.8-py2.py3-none-any.whl", hash = "sha256:ae94a2a3992d490494e9c48430338a1adf0eb8c0079381dd9a759a3279054fc4", size = 16206, upload-time = "2025-10-04T06:55:36.967Z" },
+]
+
+[[package]]
+name = "essentials-openapi"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "essentials" },
+    { name = "markupsafe" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/54/4a/7379c77a0d3ee316a1f2ff3218942c2e272249a2ec9548bbb0ee5bbce25f/essentials_openapi-1.2.1.tar.gz", hash = "sha256:70b06d80a8d9cb7634b702903cfe8fcfc48e6fc054e744eab514bb7bc37f00c9", size = 33305, upload-time = "2025-07-30T17:14:00.345Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/be/2963872265498da09800dc730a17a51a1c8f79c16cb29d8402425c21a96e/essentials_openapi-1.2.1-py3-none-any.whl", hash = "sha256:d0085cde3ceaa25e6fc4983d8372ac0185909e3fa2791f498280379bb3c86c62", size = 54167, upload-time = "2025-07-30T17:13:59.107Z" },
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -820,6 +862,43 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ec/d7/6c09dd7ce4c7837e4cdb11dce980cb45ae3cd87677298dc3b781b6bce7d3/griffe-1.14.0.tar.gz", hash = "sha256:9d2a15c1eca966d68e00517de5d69dd1bc5c9f2335ef6c1775362ba5b8651a13", size = 424684, upload-time = "2025-09-05T15:02:29.167Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/b1/9ff6578d789a89812ff21e4e0f80ffae20a65d5dd84e7a17873fe3b365be/griffe-1.14.0-py3-none-any.whl", hash = "sha256:0e9d52832cccf0f7188cfe585ba962d2674b241c01916d780925df34873bceb0", size = 144439, upload-time = "2025-09-05T15:02:27.511Z" },
+]
+
+[[package]]
+name = "h11"
+version = "0.16.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
+]
+
+[[package]]
+name = "httpcore"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
+]
+
+[[package]]
+name = "httpx"
+version = "0.28.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "certifi" },
+    { name = "httpcore" },
+    { name = "idna" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
 ]
 
 [[package]]
@@ -1539,6 +1618,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7b/b8/3cb005704866f1cc19e8d6b15d0467255821ba12d82f20ea15912672e54c/narwhals-2.5.0.tar.gz", hash = "sha256:8ae0b6f39597f14c0dc52afc98949d6f8be89b5af402d2d98101d2f7d3561418", size = 558573, upload-time = "2025-09-12T10:04:24.436Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/5a/22741c5c0e5f6e8050242bfc2052ba68bc94b1735ed5bca35404d136d6ec/narwhals-2.5.0-py3-none-any.whl", hash = "sha256:7e213f9ca7db3f8bf6f7eff35eaee6a1cf80902997e1b78d49b7755775d8f423", size = 407296, upload-time = "2025-09-12T10:04:22.524Z" },
+]
+
+[[package]]
+name = "neoteroi-mkdocs"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "essentials-openapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "mkdocs" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/d2/acba3f5817c6a4c23563437164efa9b32f5378d7e1926e07152e76c3541f/neoteroi_mkdocs-1.1.3.tar.gz", hash = "sha256:3ecfb825e898d10a6d703a3ef3f0484d823b7b5660425e76af421e316ac18036", size = 25488, upload-time = "2025-08-02T09:22:30.181Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/e7/b192e66ca48739e4726c0e0741bcb5dc72c16853f0c5298228d4f3d50b48/neoteroi_mkdocs-1.1.3-py3-none-any.whl", hash = "sha256:772aee317c9bb10a89d67e71e322730f92cc349d5eecc8a08e8fb079398e514b", size = 38732, upload-time = "2025-08-02T09:22:29.003Z" },
 ]
 
 [[package]]
@@ -2460,6 +2556,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/44/cd/a040c4b3119bbe532e5b0732286f805445375489fceaec1f48306068ee3b/smmap-5.0.2.tar.gz", hash = "sha256:26ea65a03958fa0c8a1c7e8c7a58fdc77221b8910f6be2131affade476898ad5", size = 22329, upload-time = "2025-01-02T07:14:40.909Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/be/d09147ad1ec7934636ad912901c5fd7667e1c858e19d355237db0d0cd5e4/smmap-5.0.2-py3-none-any.whl", hash = "sha256:b30115f0def7d7531d22a0fb6502488d879e75b260a9db4d0819cfb25403af5e", size = 24303, upload-time = "2025-01-02T07:14:38.724Z" },
+]
+
+[[package]]
+name = "sniffio"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
 ]
 
 [[package]]

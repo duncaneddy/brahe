@@ -14,6 +14,7 @@ exclude_docs: |
 extra_css:
     - stylesheets/extra.css
     - https://unpkg.com/katex@0/dist/katex.min.css
+    - stylesheets/neoteroi-mkdocs.css
 
 extra_javascript:
     - javascripts/katex.js
@@ -102,6 +103,13 @@ markdown_extensions:
     -   pymdownx.details
     -   pymdownx.arithmatex:
             generic: true
+    -   neoteroi.timeline
+    - attr_list
+    - pymdownx.emoji:
+            emoji_index: !!python/name:material.extensions.emoji.twemoji
+            emoji_generator: !!python/name:material.extensions.emoji.to_svg
+    - pymdownx.tasklist:
+            custom_checkbox: true
 
 nav:
     -   Brahe:
@@ -112,6 +120,7 @@ nav:
             - Code of Conduct: code_of_conduct.md
             - Contributing: contributing.md
             - License: license.md
+            - roadmap.md
     -   User Guide:
             - learn/index.md
             - Constants: learn/constants.md
@@ -125,8 +134,9 @@ nav:
                 - learn/time/time_range.md
             - Coordinate Transformations:
                 - learn/coordinates/index.md
-                - learn/coordinates/cartesean_transformations.md
+                - learn/coordinates/cartesian_transformations.md
                 - learn/coordinates/geocentric_transformations.md
+                - learn/coordinates/geodetic_transformations.md
                 - learn/coordinates/topocentric_transformations.md
             - Reference Frame Transformations: learn/frame_transformations.md
             - Orbits:

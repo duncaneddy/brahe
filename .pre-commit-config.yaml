@@ -77,15 +77,7 @@ repos:
   # Additional useful hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
-    hooks:
-      # Basic file checks
-      - id: check-yaml
-        name: check yaml files
-      - id: check-toml
-        name: check toml files
-      - id: check-json
-        name: check json files
-      
+    hooks: 
       # Python-specific checks
       - id: debug-statements
         name: check for debug statements

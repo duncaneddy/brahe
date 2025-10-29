@@ -83,6 +83,7 @@ theme:
         - navigation.expand
         - navigation.indexes
         - toc.follow
+        - content.tabs.link
 
 markdown_extensions:
     - admonition

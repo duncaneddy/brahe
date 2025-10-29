@@ -1,61 +1,73 @@
-# Geocentric Coordinate Transformations
+# Geocentric Transformations
 
-Geocentric coordinates represent positions using spherical coordinates centered at Earth's center.
+Geocentric longitude, latitude, altitude coordinates represent positions relative to a spherical Earth's surface. These coordinates can be converted to and from Earth-Centered Earth-Fixed (ECEF) Cartesian coordinates. This coordinate system is simpler and computationally faster than the geodetic system, but less accurate for near-surface applications because it assumes Earth is a perfect sphere.
 
-## Overview
+For complete API details, see the [Geocentric Coordinates API Reference](../../library_api/coordinates/geocentric.md).
 
-Geocentric coordinates describe a position using:
+## Geocentric Coordinate System
 
-- **Radius** (r): Distance from Earth's center in meters
-- **Latitude** (φ): Angle north/south of equator in radians
-- **Longitude** (λ): Angle east of prime meridian in radians
+Geocentric coordinates represent a position using:
 
-Format: `[radius, latitude, longitude]`
+- **Longitude** ($\lambda$): East-west angle from the prime meridian, in degrees [-180°, +180°] or radians $[-\pi, +\pi]$
+- **Latitude** ($\varphi$): North-south angle from the equatorial plane, in degrees [-90°, +90°] or radians $[-\frac{\pi}{2}, +\frac{\pi}{2}]$
+- **Altitude** ($h$): Height above the spherical Earth surface, in meters
 
-## Geocentric vs Geodetic
+Combined as: `[longitude, latitude, altitude]`, often abbreviated as `[lon, lat, alt]`.
 
-!!! warning "Important Distinction"
-    Geocentric coordinates use a spherical Earth model, while geodetic coordinates use the WGS84 ellipsoid. The latitude values differ between the two systems.
+!!! info
+    The spherical Earth model uses an Earth radius of `6378137.0` meters, which is the WGS84 semi-major axis. This means the geocentric "surface" is a sphere with Earth's equatorial radius.
 
-**Geocentric latitude**: Angle from equatorial plane to point
-**Geodetic latitude**: Angle from equatorial plane to surface normal
+### Spherical vs Ellipsoidal Earth
 
-## Conversions
+The key difference between geocentric and geodetic coordinates is the Earth model:
 
-### Geocentric to ECEF (Cartesian)
+- **Geocentric**: Earth is a perfect sphere of radius `WGS84_A`
+- **Geodetic**: Earth is an ellipsoid (oblate spheroid) with equatorial bulge
 
-```python
-import brahe as bh
+## Converting Geocentric to ECEF
 
-# Geocentric coordinates [radius, lat, lon] in meters and radians
-geocentric = [bh.R_EARTH + 500e3, bh.DEG2RAD * 45.0, bh.DEG2RAD * -122.0]
+Earth-Centered Earth-Fixed (ECEF) is a Cartesian coordinate system with:
 
-# Convert to ECEF Cartesian
-ecef = bh.position_geocentric_to_ecef(geocentric)
-```
+- Origin at Earth's center of mass
+- X-axis through the intersection of the prime meridian and equator
+- Z-axis through the North Pole
+- Y-axis completing a right-handed system
 
-### ECEF to Geocentric
+You can convert geocentric spherical coordinates to ECEF Cartesian coordinates using following:
 
-```python
-import brahe as bh
+=== "Python"
 
-# ECEF Cartesian position
-ecef = [3194.469e3, -3194.469e3, 4487.348e3]
+    ``` python
+    --8<-- "./examples/coordinates/geocentric_to_ecef.py:8"
+    ```
 
-# Convert to geocentric
-geocentric = bh.position_ecef_to_geocentric(ecef)
-radius, lat, lon = geocentric
-```
+=== "Rust"
 
-## Use Cases
+    ``` rust
+    --8<-- "./examples/coordinates/geocentric_to_ecef.rs:4"
+    ```
 
-Geocentric coordinates are useful for:
+## Converting ECEF to Geocentric
 
-- Quick distance calculations from Earth's center
-- Simplified orbital computations
-- When Earth oblateness can be ignored
+The reverse transformation converts Cartesian ECEF coordinates back to geocentric spherical coordinates:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/ecef_to_geocentric.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/ecef_to_geocentric.rs:4"
+    ```
+
+!!! info
+    Latitude values are automatically constrained to the valid range [-90°, +90°] or [$-\frac{\pi}{2}$, $+\frac{\pi}{2}$] during conversion.
 
 ## See Also
 
-- [Geodetic Coordinates](../../library_api/coordinates/geodetic.md)
-- [Geocentric API Reference](../../library_api/coordinates/geodetic.md)
+- [Geocentric Coordinates API Reference](../../library_api/coordinates/geocentric.md) - Complete function documentation
+- [Geodetic Transformations](geodetic_transformations.md) - More accurate WGS84 ellipsoid model
+- [Topocentric Transformations](topocentric_transformations.md) - Local horizon coordinate systems

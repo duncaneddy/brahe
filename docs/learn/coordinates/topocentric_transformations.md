@@ -1,81 +1,156 @@
 # Topocentric Coordinate Transformations
 
-Topocentric coordinates represent positions relative to a location on Earth's surface.
+Topocentric coordinate systems are local horizon-based reference frames centered on an observer, such as a ground station or radar site. These coordinate systems are essential for satellite tracking, visibility analysis, and determining where to point antennas or telescopes.
 
-## Overview
+Unlike global coordinate systems (ECEF, ECI), topocentric systems define positions relative to a specific location on Earth, making it easy to determine whether a satellite is visible and where to look in the sky.
 
-Topocentric coordinates describe a position relative to an observer on Earth using local horizontal coordinates:
+For complete API details, see the [Topocentric Coordinates API Reference](../../library_api/coordinates/topocentric.md).
 
-- **East (E)**: Eastward component in meters
-- **North (N)**: Northward component in meters
-- **Zenith (Z)**: Upward component in meters
+## Topocentric Coordinate Systems
 
-Format: `[east, north, zenith]` (ENZ coordinates)
+Brahe supports two local horizon coordinate systems:
 
-## Alternative: SEZ Coordinates
+### ENZ (East-North-Zenith)
 
-Some applications use SEZ (South-East-Zenith) coordinates instead:
+- **East** (E): Positive toward geographic east
+- **North** (N): Positive toward geographic north
+- **Zenith** (Z): Positive upward (toward the sky)
 
-- **South (S)**: Southward component
-- **East (E)**: Eastward component
-- **Zenith (Z)**: Upward component
+This is the most common topocentric system for satellite tracking and is aligned with geographic directions.
 
-## Azimuth-Elevation
+### SEZ (South-East-Zenith)
 
-Topocentric positions can also be expressed in spherical coordinates:
+- **South** (S): Positive toward geographic south
+- **East** (E): Positive toward geographic east
+- **Zenith** (Z): Positive upward (toward the sky)
 
-- **Azimuth (Az)**: Angle from north (clockwise) in radians
-- **Elevation (El)**: Angle above horizon in radians
-- **Range (R)**: Distance from observer in meters
+The SEZ system is sometimes used in radar and missile tracking applications. The main difference from ENZ is that the first two axes are rotated 180° around the zenith axis.
 
-## Conversions
+!!! info
+    Both ENZ and SEZ use a right-handed coordinate system with the zenith axis pointing up. The choice between them is typically driven by convention in your specific field or application.
 
-### Relative Position to ENZ
+## Station Location Interpretation
 
-```python
-import brahe as bh
+When specifying the observer (ground station) location, you must choose whether the coordinates represent:
 
-# Observer location (geodetic)
-observer_lat = bh.DEG2RAD * 40.0
-observer_lon = bh.DEG2RAD * -105.0
-observer_alt = 1655.0  # meters
+- **Geodetic** (`EllipsoidalConversionType.GEODETIC`): Station coordinates use WGS84 ellipsoid (recommended for accuracy)
+- **Geocentric** (`EllipsoidalConversionType.GEOCENTRIC`): Station coordinates use spherical Earth model
 
-# Satellite position in ECEF
-satellite_ecef = [...]
+For ground stations, geodetic interpretation is almost always preferred for accuracy.
 
-# Observer position in ECEF
-observer_ecef = bh.position_geodetic_to_ecef([observer_lat, observer_lon, observer_alt])
+## ENZ Transformations
 
-# Relative position
-relative_ecef = satellite_ecef - observer_ecef
+### Converting ECEF to ENZ
 
-# Convert to ENZ
-enz = bh.relative_position_ecef_to_enz(observer_lat, observer_lon, relative_ecef)
-```
+To get the position of an object relative to a location, you need to convert the object's ECEF position to the local ENZ frame centered on the location:
 
-### ENZ to Azimuth-Elevation-Range
+=== "Python"
 
-```python
-import brahe as bh
+    ``` python
+    --8<-- "./examples/coordinates/ecef_to_enz.py:8"
+    ```
 
-# ENZ position
-enz = [1000.0, 2000.0, 500000.0]
+=== "Rust"
 
-# Convert to azimuth, elevation, range
-azel = bh.position_enz_to_azel(enz)
-azimuth, elevation, range = azel
-```
+    ``` rust
+    --8<-- "./examples/coordinates/ecef_to_enz.rs:4"
+    ```
 
-## Use Cases
+### Converting ENZ to ECEF
 
-Topocentric coordinates are essential for:
+The reverse transformation converts a relative ENZ position back to an absolute ECEF position:
 
-- Ground station tracking
-- Satellite visibility analysis
-- Antenna pointing calculations
-- Local horizon constraints
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/enz_to_ecef.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/enz_to_ecef.rs:4"
+    ```
+
+## SEZ Transformations
+
+### Converting ECEF to SEZ
+
+Similar to ENZ, you can convert ECEF positions to the SEZ frame:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/ecef_to_sez.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/ecef_to_sez.rs:4"
+    ```
+
+### Converting SEZ to ECEF
+
+The reverse transformation converts a relative SEZ position back to an absolute ECEF position:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/sez_to_ecef.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/sez_to_ecef.rs:4"
+    ```
+
+## Azimuth and Elevation from Topocentric Coordinates
+
+For object tracking, it's often more intuitive to work with azimuth (compass direction) and elevation (angle above the horizon) rather than Cartesian ENZ or SEZ coordinates. Both ENZ and SEZ topocentric systems can be converted to azimuth-elevation-range format.
+
+### From ENZ Coordinates
+
+Convert ENZ positions to azimuth (measured clockwise from North), elevation (angle above horizon), and range:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/enz_to_azel.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/enz_to_azel.rs:4"
+    ```
+
+!!! info
+    Azimuth is measured clockwise from North (0° = North, 90° = East, 180° = South, 270° = West). Elevation is the angle above the horizon (0° = horizon, 90° = directly overhead).
+
+### From SEZ Coordinates
+
+The same conversion is available from SEZ coordinates:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/coordinates/sez_to_azel.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/coordinates/sez_to_azel.rs:4"
+    ```
+
+!!! info
+    Both ENZ and SEZ produce identical azimuth-elevation-range results for the same physical position. The choice between them is purely a matter of intermediate representation.
 
 ## See Also
 
-- [Topocentric API Reference](../../library_api/coordinates/topocentric.md)
-- [Access Computation](../access_computation/index.md)
+- [Topocentric Coordinates API Reference](../../library_api/coordinates/topocentric.md) - Complete function documentation
+- [Geodetic Transformations](geodetic_transformations.md) - Converting station locations to ECEF
+- [Frame Transformations](../../library_api/frames/index.md) - Converting satellite positions from ECI to ECEF
+- Access Analysis - Higher-level tools for computing satellite visibility windows

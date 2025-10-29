@@ -102,6 +102,7 @@ This release adds support for numerical orbit propagation using common perturbat
 - [ ] NRLMSISE 2.0 Atmospheric Model Integration
 - [ ] Documentation Improvements
 
+----
 
 ## v0.4.0 - Estimation & Relative Orbits
 
@@ -148,3 +149,5 @@ The following features have been considered for future releases but are not curr
     - [ ] Advanced Access Computation Examples
     - [ ] Custom Perturbation Models
 - [ ] Improved Documentation
+- [ ] Attitude dynamics module
+- [ ] WASM bindings for web-based applications

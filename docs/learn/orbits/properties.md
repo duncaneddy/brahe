@@ -9,7 +9,7 @@ Two common properties of interest are the distance and velocity of an object at 
 its orbit. The periapsis will be the point of the closest approach as well as the point of 
 greatest speed throughout the orbit.
 
-??? info
+???+ info
 
     The word _**periapsis**_ is formed by combination of the Greek words "_peri-_", meaning around, 
     about and "_apsis_"
@@ -36,16 +36,16 @@ $$
 r_p = \frac{a(1-e^2)}{1+e} = a(1-e)
 $$
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "../examples/periapsis_properties.rs"
-    ```
-
 === "Python"
 
     ``` python
-    --8<-- "../examples/periapsis_properties.py"
+    --8<-- "./examples/orbits/periapsis_properties.py:11"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/periapsis_properties.rs:7"
     ```
 
 ## Apoapsis Properties
@@ -53,7 +53,7 @@ $$
 The distance and velocity of an object at the apoapsis of an orbit. The apoapsis is the 
 furthest point from the central body. It is also the point of lowest speed throughout the orbit.
 
-??? info
+???+ info
 
     The word _**apoapsis**_ is formed by combination of the Greek words "_apo-_", meaning away from,
     separate, or apart from and the word "_apsis_".
@@ -74,21 +74,21 @@ $$
 r_a = \frac{a(1-e^2)}{1+e} = a(1+e)
 $$
 
-???+ warning
+!!! warning
 
     The apoapsis position and velocity are valid for elliptic and circular orbits. For parabolic 
     and hyperbolic orbits these two quantities are undefined.
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "../examples/apoapsis_properties.rs"
-    ```
-
 === "Python"
 
     ``` python
-    --8<-- "../examples/apoapsis_properties.py"
+    --8<-- "./examples/orbits/apoapsis_properties.py:11"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/apoapsis_properties.rs:7"
     ```
 
 ## Mean Motion and Semi-major Axis
@@ -124,12 +124,15 @@ constant is known.
 The plot below shows how, for a circular orbit, as the semi-major axis increases, the orbital 
 period increases while the speed decreases.
 
---8<-- "./docs/figures/fig_orbital_period.html"
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_orbital_period_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_orbital_period_dark.html"  loading="lazy"></iframe>
+</div>
 
 ??? "Plot Source"
 
     ``` python title="fig_orbital_period.py"
-    --8<-- "../figures/fig_orbital_period.py"
+    --8<-- "./plots/fig_orbital_period.py:8"
     ```
 
 ## Sun-Synchronous Inclination
@@ -171,12 +174,15 @@ with altitude. Rocket launches to Sun-synchronous orbits will commonly have a fi
 launch provider will select the inclination the rocket is then determined by the above equation 
 to provide the desired effect.
 
---8<-- "./docs/figures/fig_sun_synchronous_inclination.html"
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_sun_synchronous_inclination_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_sun_synchronous_inclination_dark.html"  loading="lazy"></iframe>
+</div>
 
 ??? "Plot Source"
 
     ``` python title="fig_sun_synchronous_inclination.py"
-    --8<-- "../figures/fig_sun_synchronous_inclination.py"
+    --8<-- "./plots/fig_sun_synchronous_inclination.py:8"
     ```
 
 [^1]: D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, 2010  

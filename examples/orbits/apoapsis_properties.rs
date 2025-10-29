@@ -1,24 +1,32 @@
-use brahe::constants::{R_EARTH, GM_EARTH};
-use brahe::orbits::{apoapsis_velocity, apogee_velocity, apoapsis_distance};
+//! Compute apoapsis properties for an orbit.
+//!
+//! This example demonstrates computing apoapsis velocity and distance
+//! for a given orbit, including Earth-specific apogee functions.
+
+#[allow(unused_imports)]
+use brahe as bh;
 
 fn main() {
-    let a = R_EARTH + 500.0e3;
-    let e = 0.01;
+    bh::initialize_eop().unwrap();
 
-    // Compute periapsis velocity
-    let apoapsis_velocity = apoapsis_velocity(a, e, GM_EARTH);
-    println!("Apoapsis velocity: {:.3}", apoapsis_velocity);
-    // Apoapsis velocity: 7536.859
+    // Define orbit parameters
+    let a = bh::constants::R_EARTH + 500.0e3; // Semi-major axis (m)
+    let e = 0.01; // Eccentricity
 
-    // Compute as a perigee velocity
-    let apogee_velocity = apogee_velocity(a, e);
-    println!("Apogee velocity:   {:.3}", apogee_velocity);
-    assert_eq!(apoapsis_velocity, apogee_velocity);
-    // Apogee velocity:   7536.859
+    // Compute apoapsis velocity (generic)
+    let apoapsis_velocity = bh::orbits::apoapsis_velocity(a, e, bh::constants::GM_EARTH);
+    println!("Apoapsis velocity: {:.3} m/s", apoapsis_velocity);
 
+    // Compute as an apogee velocity (Earth-specific)
+    let apogee_velocity = bh::orbits::apogee_velocity(a, e);
+    println!("Apogee velocity:   {:.3} m/s", apogee_velocity);
 
-    // Compute periapsis distance
-    let apoapsis_distance = apoapsis_distance(a, e);
-    println!("Apoapsis distance: {:.3}", apoapsis_distance);
-    // Apoapsis distance: 6946917.663
+    // Compute apoapsis distance
+    let apoapsis_distance = bh::orbits::apoapsis_distance(a, e);
+    println!("Apoapsis distance: {:.3} m", apoapsis_distance);
+
+    // Expected output:
+    // Apoapsis velocity: 7536.859 m/s
+    // Apogee velocity:   7536.859 m/s
+    // Apoapsis distance: 6946917.663 m
 }

@@ -1,55 +1,93 @@
-# Generate plot of mean anomaly versus true anomaly for a range of eccentricies.
-# Highlights the effect of eccentricity on the difference of the two.
-
+# /// script
+# dependencies = ["brahe", "plotly", "numpy"]
+# ///
+"""
+Plot sun-synchronous inclination versus altitude for a range of eccentricities.
+Demonstrates the required inclination to maintain sun-synchronous orbit at different altitudes.
+"""
 
 import os
 import pathlib
+import sys
 import numpy as np
 import plotly.graph_objects as go
-import plotly.io as pio
 import brahe as bh
 
-## Define Constants
+# Add plots directory to path for importing brahe_theme
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from brahe_theme import get_theme_colors, save_themed_html
+
+# Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
-OUTDIR = os.getenv("RASTRO_FIGURE_OUTPUT_DIR")  # Build Environment Variable
-OUTFILE = f"{OUTDIR}/{SCRIPT_NAME}.html"
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 
-## Create figure
-fig = go.Figure()
-fig.update_layout(dict(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"))
-fig.update_xaxes(
-    showgrid=True,
-    gridwidth=1,
-    gridcolor="LightGrey",
-    range=[300, 1000],
-    showline=True,
-    linewidth=2,
-    linecolor="Grey",
-)
-fig.update_yaxes(
-    showgrid=True,
-    gridwidth=1,
-    gridcolor="LightGrey",  # range=[0, 360],
-    showline=True,
-    linewidth=2,
-    linecolor="Grey",
-)
-fig.update_xaxes(
-    tickmode="linear", tick0=300, dtick=100, title_text=r"Satellite Altitude [km]"
-)
-fig.update_yaxes(tickmode="linear", title_text=r"Inclination [deg]")
+# Ensure output directory exists
+os.makedirs(OUTDIR, exist_ok=True)
 
-## Generate and plot data
+# Generate data
 
-# Generate range of true anomalies
+# Generate range of altitudes from 300 to 1000 km in 1 km increments
 alt = np.arange(300e3, 1000e3, 1e3)
 
-# Compute and plot eccentric anomaly for range of true anomalies
-for e in [0.0, 0.1, 0.3, 0.5]:
-    # Take output mod 360 to wrap from 0 to 2pi
-    ssi = [bh.sun_synchronous_inclination(bh.R_EARTH + a, e, True) for a in alt]
-    fig.add_trace(go.Scatter(x=alt / 1e3, y=ssi, name=f"e = {e:.1f}"))
+# Compute sun-synchronous inclination for range of eccentricities
+eccentricities = [0.0, 0.1, 0.3, 0.5]
+ssi_data = {}
+for e in eccentricities:
+    ssi_data[e] = [
+        bh.sun_synchronous_inclination(bh.R_EARTH + a, e, bh.AngleFormat.DEGREES)
+        for a in alt
+    ]
 
-pio.write_html(
-    fig, file=OUTFILE, include_plotlyjs="cdn", full_html=False, auto_play=False
-)
+# Create figure with theme support
+
+
+def create_figure(theme):
+    """Create figure with theme-specific colors."""
+    colors = get_theme_colors(theme)
+
+    fig = go.Figure()
+
+    # Color palette for different eccentricities
+    color_palette = [
+        colors["primary"],
+        colors["secondary"],
+        colors["accent"],
+        colors["error"],
+    ]
+
+    # Add traces for each eccentricity
+    for i, e in enumerate(eccentricities):
+        fig.add_trace(
+            go.Scatter(
+                x=alt / 1e3,
+                y=ssi_data[e],
+                mode="lines",
+                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                name=f"e = {e:.1f}",
+                showlegend=True,
+            )
+        )
+
+    # Configure axes
+    fig.update_xaxes(
+        tickmode="linear",
+        tick0=300,
+        dtick=100,
+        title_text="Satellite Altitude [km]",
+        range=[300, 1000],
+        showgrid=False,
+    )
+
+    fig.update_yaxes(
+        tickmode="linear",
+        title_text="Inclination [deg]",
+        showgrid=False,
+    )
+
+    return fig
+
+
+# Generate and save both themed versions
+light_path, dark_path = save_themed_html(create_figure, OUTDIR / SCRIPT_NAME)
+print(f"✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")

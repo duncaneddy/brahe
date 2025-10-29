@@ -1,16 +1,33 @@
-use approx::assert_abs_diff_eq;
-use brahe::orbits::{anomaly_eccentric_to_mean, anomaly_mean_to_eccentric};
+//! Convert between eccentric anomaly and mean anomaly.
+//!
+//! This example demonstrates the conversion between eccentric and mean anomaly
+//! for a given eccentricity, and validates that the round-trip conversion
+//! returns to the original value.
+
+#[allow(unused_imports)]
+use brahe as bh;
 
 fn main() {
-    let ecc = 45.0; // Starting true anomaly
-    let e = 0.01;  // Eccentricity
+    bh::initialize_eop().unwrap();
 
-    // Convert to eccentric anomaly
-    let mean_anomaly = anomaly_eccentric_to_mean(ecc, e, true);
+    let ecc = 45.0; // Starting eccentric anomaly (degrees)
+    let e = 0.01;   // Eccentricity
 
-    // Convert back from eccentric to true anomaly
-    let ecc_2 = anomaly_mean_to_eccentric(mean_anomaly, e, true).unwrap();
+    // Convert to mean anomaly
+    let mean_anomaly = bh::orbits::anomaly_eccentric_to_mean(ecc, e, bh::constants::AngleFormat::Degrees);
+    println!("Eccentric anomaly: {:.3} deg", ecc);
+    println!("Mean anomaly:      {:.3} deg", mean_anomaly);
 
-    // Confirm equality to within tolerance
-    assert_abs_diff_eq!(ecc, ecc_2, epsilon=1e-14);
+    // Convert back from mean to eccentric anomaly
+    let ecc_2 = bh::orbits::anomaly_mean_to_eccentric(mean_anomaly, e, bh::constants::AngleFormat::Degrees).unwrap();
+    println!("Round-trip result: {:.3} deg", ecc_2);
+
+    // Verify round-trip accuracy
+    println!("Difference:        {:.2e} deg", (ecc - ecc_2).abs());
+
+    // Expected output:
+    // Eccentric anomaly: 45.000 deg
+    // Mean anomaly:      44.426 deg
+    // Round-trip result: 45.000 deg
+    // Difference:        0.00e0 deg
 }

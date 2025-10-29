@@ -142,7 +142,8 @@ nav:
             - Reference Frame Transformations: learn/frame_transformations.md
             - Orbits:
                 - learn/orbits/index.md
-                - Keplerian Elements: learn/orbits/keplerian.md
+                - Anomaly Conversions: learn/orbits/anomalies.md
+                - Orbital Properties: learn/orbits/properties.md
                 - learn/orbits/two_line_elements.md
             - Attitude Representation: 
                 - learn/attitude_representations/index.md

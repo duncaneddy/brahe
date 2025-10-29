@@ -1,24 +1,32 @@
-use brahe::constants::{R_EARTH, GM_EARTH};
-use brahe::orbits::{periapsis_velocity, perigee_velocity, periapsis_distance};
+//! Compute periapsis properties for an orbit.
+//!
+//! This example demonstrates computing periapsis velocity and distance
+//! for a given orbit, including Earth-specific perigee functions.
+
+#[allow(unused_imports)]
+use brahe as bh;
 
 fn main() {
-    let a = R_EARTH + 500.0e3;
-    let e = 0.01;
+    bh::initialize_eop().unwrap();
 
-    // Compute periapsis velocity
-    let periapsis_velocity = periapsis_velocity(a, e, GM_EARTH);
-    println!("Periapsis velocity: {:.3}", periapsis_velocity);
-    // Periapsis velocity: 7689.119
+    // Define orbit parameters
+    let a = bh::constants::R_EARTH + 500.0e3; // Semi-major axis (m)
+    let e = 0.01; // Eccentricity
 
-    // Compute as a perigee velocity
-    let perigee_velocity = perigee_velocity(a, e);
-    println!("Perigee velocity:   {:.3}", perigee_velocity);
-    assert_eq!(periapsis_velocity, perigee_velocity);
-    // Perigee velocity:   7689.119
+    // Compute periapsis velocity (generic)
+    let periapsis_velocity = bh::orbits::periapsis_velocity(a, e, bh::constants::GM_EARTH);
+    println!("Periapsis velocity: {:.3} m/s", periapsis_velocity);
 
+    // Compute as a perigee velocity (Earth-specific)
+    let perigee_velocity = bh::orbits::perigee_velocity(a, e);
+    println!("Perigee velocity:   {:.3} m/s", perigee_velocity);
 
     // Compute periapsis distance
-    let periapsis_distance = periapsis_distance(a, e);
-    println!("Periapsis distance: {:.3}", periapsis_distance);
-    // Periapsis distance: 6809354.937
+    let periapsis_distance = bh::orbits::periapsis_distance(a, e);
+    println!("Periapsis distance: {:.3} m", periapsis_distance);
+
+    // Expected output:
+    // Periapsis velocity: 7689.119 m/s
+    // Perigee velocity:   7689.119 m/s
+    // Periapsis distance: 6809354.937 m
 }

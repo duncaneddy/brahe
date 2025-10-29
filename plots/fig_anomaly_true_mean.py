@@ -1,57 +1,97 @@
-# Generate plot of mean anomaly versus true anomaly for a range of eccentricies.
-# Highlights the effect of eccentricity on the difference of the two.
-
+# /// script
+# dependencies = ["brahe", "plotly", "numpy"]
+# ///
+"""
+Plot mean anomaly versus true anomaly for a range of eccentricities.
+Highlights the effect of eccentricity on the difference between the two anomaly types.
+"""
 
 import os
 import pathlib
+import sys
 import plotly.graph_objects as go
-import plotly.io as pio
 import brahe as bh
 
-## Define Constants
+# Add plots directory to path for importing brahe_theme
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from brahe_theme import get_theme_colors, save_themed_html
+
+# Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
-OUTDIR = os.getenv("RASTRO_FIGURE_OUTPUT_DIR")  # Build Environment Variable
-OUTFILE = f"{OUTDIR}/{SCRIPT_NAME}.html"
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 
-## Create figure
-fig = go.Figure()
-fig.update_layout(dict(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"))
-fig.update_xaxes(
-    showgrid=True,
-    gridwidth=1,
-    gridcolor="LightGrey",
-    range=[0, 360],
-    showline=True,
-    linewidth=2,
-    linecolor="Grey",
-)
-fig.update_yaxes(
-    showgrid=True,
-    gridwidth=1,
-    gridcolor="LightGrey",
-    range=[0, 360],
-    showline=True,
-    linewidth=2,
-    linecolor="Grey",
-)
-fig.update_layout(
-    xaxis=dict(tickmode="linear", tick0=0, dtick=30, title_text=r"True Anomaly (deg)"),
-    yaxis=dict(
-        tickmode="linear", tick0=0, dtick=30, title_text=r"Eccentric Anomaly (deg)"
-    ),
-)
+# Ensure output directory exists
+os.makedirs(OUTDIR, exist_ok=True)
 
-## Generate and plot data
+# Generate data
 
-# Generate range of true anomalies
+# Generate range of true anomalies (degrees)
 nu = [x for x in range(0, 360)]
 
-# Compute and plot eccentric anomaly for range of true anomalies
-for e in [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]:
-    # Take output mod 360 to wrap from 0 to 2pi
-    mean = [bh.anomaly_true_to_mean(x, e, True) % 360 for x in nu]
-    fig.add_trace(go.Scatter(x=nu, y=mean, name=f"e = {e:.1f}"))
+# Compute mean anomaly for range of eccentricities
+eccentricities = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
+mean_data = {}
+for e in eccentricities:
+    # Take output mod 360 to wrap from 0 to 360 degrees
+    mean_data[e] = [
+        bh.anomaly_true_to_mean(x, e, bh.AngleFormat.DEGREES) % 360 for x in nu
+    ]
 
-pio.write_html(
-    fig, file=OUTFILE, include_plotlyjs="cdn", full_html=False, auto_play=False
-)
+# Create figure with theme support
+
+
+def create_figure(theme):
+    """Create figure with theme-specific colors."""
+    colors = get_theme_colors(theme)
+
+    fig = go.Figure()
+
+    # Color palette for different eccentricities
+    color_palette = [
+        colors["primary"],
+        colors["secondary"],
+        colors["accent"],
+        colors["error"],
+        colors["primary"],
+        colors["secondary"],
+    ]
+
+    # Add traces for each eccentricity
+    for i, e in enumerate(eccentricities):
+        fig.add_trace(
+            go.Scatter(
+                x=nu,
+                y=mean_data[e],
+                mode="lines",
+                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                name=f"e = {e:.1f}",
+                showlegend=True,
+            )
+        )
+
+    # Configure axes
+    fig.update_xaxes(
+        tickmode="linear",
+        tick0=0,
+        dtick=30,
+        title_text="True Anomaly (deg)",
+        range=[0, 360],
+        showgrid=False,
+    )
+
+    fig.update_yaxes(
+        tickmode="linear",
+        tick0=0,
+        dtick=30,
+        title_text="Mean Anomaly (deg)",
+        range=[0, 360],
+        showgrid=False,
+    )
+
+    return fig
+
+
+# Generate and save both themed versions
+light_path, dark_path = save_themed_html(create_figure, OUTDIR / SCRIPT_NAME)
+print(f"✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")

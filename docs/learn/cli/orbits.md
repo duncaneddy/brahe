@@ -621,7 +621,8 @@ done
 
 ## See Also
 
-- [Keplerian Elements](../orbits/keplerian.md) - Conceptual overview
+- [Anomaly Conversions](../orbits/anomalies.md) - True, eccentric, and mean anomaly conversions
+- [Orbital Properties](../orbits/properties.md) - Orbital period, sun-synchronous inclination, etc.
 - [Orbits API](../../library_api/orbits/index.md) - Python orbital mechanics functions
 - [Transform CLI](transform.md) - Coordinate conversions
 - [Constants](../constants.md) - Physical constants for calculations

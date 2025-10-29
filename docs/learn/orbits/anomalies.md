@@ -29,44 +29,47 @@ To convert from true anomaly to eccentric anomaly, you can use the function
 `anomaly_true_to_eccentric`.
 
 Eccentric anomaly can be converted to true anomaly by using equations derived using equations 
-from Vallado[^1]. Equation (2-12)
+from Vallado[^1]. Starting from Equation (2-12)
 $$
 \sin{\nu} = \frac{\sin{E}\sqrt{1-e^2}}{1 - e\cos{E}}
 $$
-can be divided by Equation (2-10)
+can be divided by
 $$
 \cos{\nu} =  \frac{\cos{E}-e}{1 - e\cos{E}}
 $$
-And rearranged to get
+and rearrange to get
 $$
 \nu = \arctan{\frac{\sin{E}\sqrt{1-e^2}}{\cos{E}-e}}
 $$
-Which is what is implemented by `anomaly_eccentric_to_true`. Similarly, Equations (2-9) from 
-Vallado can be rearranged to get
+
+This conversion is what is implemented by `anomaly_eccentric_to_true`. Similarly, we can derive
 $$
 E = \arctan{\frac{\sin{\nu}\sqrt{1-e^2}}{\cos{\nu}+e}}
 $$
 which allows for conversion from true anomaly to eccentric anomaly and is implemented in 
 `anomaly_true_to_eccentric`.
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "../examples/anomaly_true_and_eccentric.rs"
-    ```
-
 === "Python"
 
     ``` python
-    --8<-- "../examples/anomaly_true_and_eccentric.py"
+    --8<-- "./examples/orbits/anomaly_true_and_eccentric.py:12"
     ```
 
---8<-- "./docs/figures/fig_anomaly_true_eccentric.html"
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/anomaly_true_and_eccentric.rs:8"
+    ```
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_anomaly_true_eccentric_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_anomaly_true_eccentric_dark.html"  loading="lazy"></iframe>
+</div>
 
 ??? "Plot Source"
-    
+
     ``` python title="fig_anomaly_true_eccentric.py"
-    --8<-- "../figures/fig_anomaly_true_eccentric.py"
+    --8<-- "./plots/fig_anomaly_true_eccentric.py:8"
     ```
 
 ## Eccentric and Mean Anomaly Conversions
@@ -94,7 +97,7 @@ $E_*$ can be iteratively updated using
 $$
 E_{i+1} = \frac{f(E_i)}{f^\prime(E_i)}= E_i - \frac{E_i - e\sin{E_i} - M}{1 - e\cos{E_i}}
 $$
-The algorithm is run until a coverage threshold of
+This update is performed until a coverage threshold of
 $$
 |E_{i+1} - E_i| \leq \Delta_{\text{tol}}
 $$
@@ -111,24 +114,27 @@ This conversion is provided by `anomaly_mean_to_eccentric`.
     Since Python lacks Rust's same error handling mechanisms, non-convergence will result in a 
     runtime error.
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "../examples/anomaly_eccentric_and_mean.rs"
-    ```
-
 === "Python"
 
     ``` python
-    --8<-- "../examples/anomaly_eccentric_and_mean.py"
+    --8<-- "./examples/orbits/anomaly_eccentric_and_mean.py:12"
     ```
 
---8<-- "./docs/figures/fig_anomaly_eccentric_mean.html"
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/anomaly_eccentric_and_mean.rs:8"
+    ```
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_anomaly_eccentric_mean_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_anomaly_eccentric_mean_dark.html"  loading="lazy"></iframe>
+</div>
 
 ??? "Plot Source"
 
     ``` python title="fig_anomaly_eccentric_mean.py"
-    --8<-- "../figures/fig_anomaly_eccentric_mean.py"
+    --8<-- "./plots/fig_anomaly_eccentric_mean.py:8"
     ```
 
 ## True and Mean Anomaly Conversions
@@ -138,24 +144,27 @@ provided for convenience. These methods simply wrap successive calls to two
 `anomaly_true_to_mean`. To perform the reverse conversion use
 `anomaly_mean_to_true`.
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "../examples/anomaly_true_and_mean.rs"
-    ```
-
 === "Python"
 
     ``` python
-    --8<-- "../examples/anomaly_true_and_mean.py"
+    --8<-- "./examples/orbits/anomaly_true_and_mean.py:12"
     ```
 
---8<-- "./docs/figures/fig_anomaly_true_mean.html"
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbits/anomaly_true_and_mean.rs:8"
+    ```
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/fig_anomaly_true_mean_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/fig_anomaly_true_mean_dark.html"  loading="lazy"></iframe>
+</div>
 
 ??? "Plot Source"
 
     ``` python title="fig_anomaly_true_mean.py"
-    --8<-- "../figures/fig_anomaly_true_mean.py"
+    --8<-- "./plots/fig_anomaly_true_mean.py:8"
     ```
 
 [^1]: D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, 2010  

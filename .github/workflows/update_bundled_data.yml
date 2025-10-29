@@ -1,13 +1,14 @@
 name: Update Bundled Data
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '0 6 * * 0'
 
 jobs:
   update-eop-data:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - name: Update package data
         run: ./scripts/update-data.sh
       - name: Commit and push changes

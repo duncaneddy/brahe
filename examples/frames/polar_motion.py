@@ -22,6 +22,9 @@ print("Transforms from TIRS to ITRF")
 print(f"  [{R_pm[0, 0]:10.7f}, {R_pm[0, 1]:10.7f}, {R_pm[0, 2]:10.7f}]")
 print(f"  [{R_pm[1, 0]:10.7f}, {R_pm[1, 1]:10.7f}, {R_pm[1, 2]:10.7f}]")
 print(f"  [{R_pm[2, 0]:10.7f}, {R_pm[2, 1]:10.7f}, {R_pm[2, 2]:10.7f}]\n")
+# [ 1.0000000, -0.0000000,  0.0000007]
+# [ 0.0000000,  1.0000000, -0.0000010]
+# [-0.0000007,  0.0000010,  1.0000000]
 
 # Define orbital elements in degrees
 oe = np.array(
@@ -44,17 +47,20 @@ pos_tirs = R_er @ R_bpn @ pos_gcrf
 
 print("Satellite position in TIRS:")
 print(f"  [{pos_tirs[0]:.3f}, {pos_tirs[1]:.3f}, {pos_tirs[2]:.3f}] m\n")
+# [757159.942, 1725870.003, 6564671.107] m
 
 # Apply polar motion to get ITRF (ECEF)
 pos_itrf = R_pm @ pos_tirs
 
 print("Satellite position in ITRF (ECEF):")
 print(f"  [{pos_itrf[0]:.3f}, {pos_itrf[1]:.3f}, {pos_itrf[2]:.3f}] m")
+# [757164.267, 1725863.563, 6564672.302] m
 
 # Calculate the magnitude of the change
 diff = np.linalg.norm(pos_tirs - pos_itrf)
 print(f"\nPosition change magnitude: {diff:.3f} m")
 print("Note: Polar motion effects are typically centimeters to meters")
+# Position change magnitude: 7.849 m
 
 # Verify against full transformation
 pos_ecef_direct = bh.position_eci_to_ecef(epc, pos_gcrf)
@@ -63,8 +69,5 @@ print(
     f"  [{pos_ecef_direct[0]:.3f}, {pos_ecef_direct[1]:.3f}, {pos_ecef_direct[2]:.3f}] m"
 )
 print(f"  Max difference: {np.max(np.abs(pos_itrf - pos_ecef_direct)):.2e} m")
-
-# Expected output:
-# Position in ITRF: [3210319.128, 5246384.459, 2649959.679] m
-# Position change magnitude: ~0.3 m
-# Max difference: ~1e-9 m (numerical precision)
+# [757164.267, 1725863.563, 6564672.302] m
+# Max difference: 1.16e-10 m

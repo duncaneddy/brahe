@@ -20,6 +20,9 @@ fn main() {
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_bpn[(0, 0)], r_bpn[(0, 1)], r_bpn[(0, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_bpn[(1, 0)], r_bpn[(1, 1)], r_bpn[(1, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_bpn[(2, 0)], r_bpn[(2, 1)], r_bpn[(2, 2)]);
+    //  [ 0.9999973,  0.0000000, -0.0023216]
+    // [-0.0000001,  1.0000000, -0.0000329]
+    // [ 0.0023216,  0.0000329,  0.9999973]
 
     // Define orbital elements in degrees
     let oe = na::SVector::<f64, 6>::new(
@@ -37,19 +40,18 @@ fn main() {
 
     println!("Satellite position in GCRF:");
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_gcrf[0], pos_gcrf[1], pos_gcrf[2]);
+    // [1848964.106, -434937.468, 6560410.530] m
 
     // Transform to CIRS using BPN matrix
     let pos_cirs = r_bpn * pos_gcrf;
 
     println!("Satellite position in CIRS:");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_cirs[0], pos_cirs[1], pos_cirs[2]);
+    // [1833728.342, -435153.781, 6564671.107] m
 
     // Calculate the magnitude of the change
     let diff = (pos_gcrf - pos_cirs).norm();
     println!("\nPosition change magnitude: {:.3} m", diff);
     println!("Note: BPN effects are typically meters to tens of meters");
-
-    // Expected output:
-    // Position in CIRS: [3476690.567, 5527916.087, 2649962.165] m
-    // Position change magnitude: ~39 m
+    // Position change magnitude: 15821.751 m
 }

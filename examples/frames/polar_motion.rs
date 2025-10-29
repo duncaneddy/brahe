@@ -20,6 +20,9 @@ fn main() {
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_pm[(0, 0)], r_pm[(0, 1)], r_pm[(0, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_pm[(1, 0)], r_pm[(1, 1)], r_pm[(1, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_pm[(2, 0)], r_pm[(2, 1)], r_pm[(2, 2)]);
+    // [ 1.0000000, -0.0000000,  0.0000007]
+    // [ 0.0000000,  1.0000000, -0.0000010]
+    // [-0.0000007,  0.0000010,  1.0000000]
 
     // Define orbital elements in degrees
     let oe = na::SVector::<f64, 6>::new(
@@ -40,17 +43,20 @@ fn main() {
 
     println!("Satellite position in TIRS:");
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_tirs[0], pos_tirs[1], pos_tirs[2]);
+    // [757159.942, 1725870.003, 6564671.107] m
 
     // Apply polar motion to get ITRF (ECEF)
     let pos_itrf = r_pm * pos_tirs;
 
     println!("Satellite position in ITRF (ECEF):");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_itrf[0], pos_itrf[1], pos_itrf[2]);
+    // [757164.267, 1725863.563, 6564672.302] m
 
     // Calculate the magnitude of the change
     let diff = (pos_tirs - pos_itrf).norm();
     println!("\nPosition change magnitude: {:.3} m", diff);
     println!("Note: Polar motion effects are typically centimeters to meters");
+    // Position change magnitude: 7.849 m
 
     // Verify against full transformation
     let pos_ecef_direct = bh::position_eci_to_ecef(epc, pos_gcrf);
@@ -58,9 +64,6 @@ fn main() {
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_ecef_direct[0], pos_ecef_direct[1], pos_ecef_direct[2]);
     let max_diff = (pos_itrf - pos_ecef_direct).abs().max();
     println!("  Max difference: {:.2e} m", max_diff);
-
-    // Expected output:
-    // Position in ITRF: [3210319.128, 5246384.459, 2649959.679] m
-    // Position change magnitude: ~0.3 m
-    // Max difference: ~1e-9 m (numerical precision)
+    // [757164.267, 1725863.563, 6564672.302] m
+    // Max difference: 1.16e-10 m
 }

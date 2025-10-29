@@ -19,6 +19,9 @@ fn main() {
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_ecef_to_eci[(0, 0)], r_ecef_to_eci[(0, 1)], r_ecef_to_eci[(0, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_ecef_to_eci[(1, 0)], r_ecef_to_eci[(1, 1)], r_ecef_to_eci[(1, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_ecef_to_eci[(2, 0)], r_ecef_to_eci[(2, 1)], r_ecef_to_eci[(2, 2)]);
+    // [ 0.1794538,  0.9837637,  0.0023225]
+    // [-0.9837663,  0.1794542,  0.0000338]
+    // [-0.0003836, -0.0022908,  0.9999973]
 
     // Verify it's the transpose of ECI to ECEF rotation
     let r_eci_to_ecef = bh::rotation_eci_to_ecef(epc);
@@ -26,6 +29,7 @@ fn main() {
     let max_diff = diff.max();
     println!("Verification: R_ecef_to_eci = R_eci_to_ecef^T");
     println!("  Max difference: {:.2e}\n", max_diff);
+    // Max difference: 0.00e+00
 
     // Define orbital elements in degrees for satellite position
     let oe = na::SVector::<f64, 6>::new(
@@ -46,20 +50,18 @@ fn main() {
 
     println!("Satellite position in ECEF:");
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_ecef[0], pos_ecef[1], pos_ecef[2]);
+    // [757164.267, 1725863.563, 6564672.302] m
 
     // Transform back to ECI using rotation matrix
     let pos_eci = r_ecef_to_eci * pos_ecef;
 
     println!("Satellite position in ECI (using rotation matrix):");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_eci[0], pos_eci[1], pos_eci[2]);
+    // [1848964.106, -434937.468, 6560410.530] m
 
     // Verify using position transformation function
     let pos_eci_direct = bh::position_ecef_to_eci(epc, pos_ecef);
     println!("\nSatellite position in ECI (using position_ecef_to_eci):");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_eci_direct[0], pos_eci_direct[1], pos_eci_direct[2]);
-
-    // Expected outputs:
-    // Max difference: ~0e+00 (numerical precision)
-    // Position in ECI (both methods should match):
     // [1848964.106, -434937.468, 6560410.530] m
 }

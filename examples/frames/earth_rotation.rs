@@ -20,6 +20,9 @@ fn main() {
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_er[(0, 0)], r_er[(0, 1)], r_er[(0, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_er[(1, 0)], r_er[(1, 1)], r_er[(1, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_er[(2, 0)], r_er[(2, 1)], r_er[(2, 2)]);
+    // [ 0.1794542, -0.9837663,  0.0000000]
+    // [ 0.9837663,  0.1794542,  0.0000000]
+    // [ 0.0000000,  0.0000000,  1.0000000]
 
     // Define orbital elements in degrees
     let oe = na::SVector::<f64, 6>::new(
@@ -39,20 +42,19 @@ fn main() {
 
     println!("Satellite position in CIRS:");
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_cirs[0], pos_cirs[1], pos_cirs[2]);
+    // [1833728.342, -435153.781, 6564671.107] m
 
     // Apply Earth rotation to get TIRS
     let pos_tirs = r_er * pos_cirs;
 
     println!("Satellite position in TIRS:");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_tirs[0], pos_tirs[1], pos_tirs[2]);
+    // [757159.942, 1725870.003, 6564671.107] m
 
     // Calculate the magnitude of the change
     let diff = (pos_cirs - pos_tirs).norm();
     println!("\nPosition change magnitude: {:.3} m", diff);
     println!("Note: Earth rotation causes large position changes (km scale)");
     println!("      due to ~{:.3}° rotation per hour", (bh::OMEGA_EARTH * 3600.0).to_degrees());
-
-    // Expected output:
-    // Position in TIRS: [3210319.128, 5246384.459, 2649962.165] m
-    // Position change magnitude: ~464 km (depends on satellite location)
+    // Position change magnitude: 2414337.034 m
 }

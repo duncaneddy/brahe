@@ -22,6 +22,9 @@ print("Transforms from GCRF to CIRS")
 print(f"  [{R_bpn[0, 0]:10.7f}, {R_bpn[0, 1]:10.7f}, {R_bpn[0, 2]:10.7f}]")
 print(f"  [{R_bpn[1, 0]:10.7f}, {R_bpn[1, 1]:10.7f}, {R_bpn[1, 2]:10.7f}]")
 print(f"  [{R_bpn[2, 0]:10.7f}, {R_bpn[2, 1]:10.7f}, {R_bpn[2, 2]:10.7f}]\n")
+# [ 0.9999973,  0.0000000, -0.0023216]
+# [-0.0000001,  1.0000000, -0.0000329]
+# [ 0.0023216,  0.0000329,  0.9999973]
 
 # Define orbital elements in degrees
 oe = np.array(
@@ -41,18 +44,16 @@ pos_gcrf = state_gcrf[0:3]
 
 print("Satellite position in GCRF:")
 print(f"  [{pos_gcrf[0]:.3f}, {pos_gcrf[1]:.3f}, {pos_gcrf[2]:.3f}] m\n")
+# [1848964.106, -434937.468, 6560410.530] m
 
 # Transform to CIRS using BPN matrix
 pos_cirs = R_bpn @ pos_gcrf
 
 print("Satellite position in CIRS:")
 print(f"  [{pos_cirs[0]:.3f}, {pos_cirs[1]:.3f}, {pos_cirs[2]:.3f}] m")
+# [1833728.342, -435153.781, 6564671.107] m
 
 # Calculate the magnitude of the change
 diff = np.linalg.norm(pos_gcrf - pos_cirs)
 print(f"\nPosition change magnitude: {diff:.3f} m")
-print("Note: BPN effects are typically meters to tens of meters")
-
-# Expected output:
-# Position in CIRS: [3476690.567, 5527916.087, 2649962.165] m
-# Position change magnitude: ~39 m
+# Position change magnitude: 15821.751 m

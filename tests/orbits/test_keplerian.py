@@ -328,3 +328,89 @@ def test_anomaly_mean_to_true():
 
     nu = brahe.anomaly_mean_to_true(90.0, 0.1, AngleFormat.DEGREES)
     assert nu == pytest.approx(101.38381460649556, abs=1e-12)
+
+
+def test_periapsis_altitude():
+    """Test periapsis_altitude with Earth orbit"""
+    # Test with Earth
+    a = brahe.R_EARTH + 500e3  # 500 km mean altitude orbit
+    e = 0.01  # slight eccentricity
+    alt = brahe.periapsis_altitude(a, e, brahe.R_EARTH)
+
+    # Periapsis distance should be a(1-e), altitude is that minus R_EARTH
+    expected = a * (1.0 - e) - brahe.R_EARTH
+    assert alt == pytest.approx(expected, abs=1.0)
+
+    # Verify it's less than mean altitude
+    assert alt < 500e3
+
+
+def test_perigee_altitude():
+    """Test perigee_altitude (Earth-specific function)"""
+    # Test Earth-specific function
+    a = brahe.R_EARTH + 420e3  # ISS-like orbit (420 km mean altitude)
+    e = 0.0005  # very small eccentricity
+    alt = brahe.perigee_altitude(a, e)
+
+    # Should match general function with R_EARTH
+    expected = brahe.periapsis_altitude(a, e, brahe.R_EARTH)
+    assert alt == pytest.approx(expected, abs=1e-6)
+
+    # For very small eccentricity, should be close to mean altitude
+    assert alt > 416e3 and alt < 420e3
+
+
+def test_apoapsis_altitude():
+    """Test apoapsis_altitude with Moon orbit"""
+    # Test with Moon
+    a = brahe.R_MOON + 100e3  # 100 km altitude orbit
+    e = 0.05  # moderate eccentricity
+    alt = brahe.apoapsis_altitude(a, e, brahe.R_MOON)
+
+    # Apoapsis distance should be a(1+e), altitude is that minus R_MOON
+    expected = a * (1.0 + e) - brahe.R_MOON
+    assert alt == pytest.approx(expected, abs=1.0)
+
+    # Should be higher than mean altitude
+    assert alt > 100e3
+
+
+def test_apogee_altitude():
+    """Test apogee_altitude (Earth-specific function) with highly eccentric orbit"""
+    # Test Earth-specific function with highly eccentric orbit (Molniya-type)
+    a = 26554e3  # ~26554 km semi-major axis
+    e = 0.7  # highly eccentric
+    alt = brahe.apogee_altitude(a, e)
+
+    # Should match general function with R_EARTH
+    expected = brahe.apoapsis_altitude(a, e, brahe.R_EARTH)
+    assert alt == pytest.approx(expected, abs=1e-6)
+
+    # For highly eccentric orbit, apogee should be much higher than mean
+    assert alt > 30000e3  # > 30000 km altitude
+
+
+def test_altitude_symmetry():
+    """Test that periapsis and apoapsis are symmetric around semi-major axis"""
+    a = brahe.R_EARTH + 1000e3
+    e = 0.1
+
+    peri_alt = brahe.perigee_altitude(a, e)
+    apo_alt = brahe.apogee_altitude(a, e)
+
+    # Mean altitude should be approximately average of peri and apo
+    mean_alt = (peri_alt + apo_alt) / 2.0
+    expected_mean = a - brahe.R_EARTH
+    assert mean_alt == pytest.approx(expected_mean, abs=1.0)
+
+
+def test_circular_orbit_altitudes():
+    """Test that for circular orbit (e=0), perigee and apogee are equal"""
+    a = brahe.R_EARTH + 600e3
+    e = 0.0
+
+    peri_alt = brahe.perigee_altitude(a, e)
+    apo_alt = brahe.apogee_altitude(a, e)
+
+    assert peri_alt == pytest.approx(apo_alt, abs=1e-6)
+    assert peri_alt == pytest.approx(600e3, abs=1.0)

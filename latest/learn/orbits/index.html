@@ -18,7 +18,7 @@
         <link rel="prev" href="../frame_transformations.html">
       
       
-        <link rel="next" href="keplerian.html">
+        <link rel="next" href="anomalies.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -197,6 +197,8 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
       
     </form>
     <div class="md-search__output">
@@ -423,6 +425,8 @@
       
         
       
+        
+      
     
     
     
@@ -617,6 +621,29 @@
   
   <span class="md-ellipsis">
     Roadmap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Glossary
     
   </span>
   
@@ -1156,6 +1183,8 @@
       
         
       
+        
+      
     
     
     
@@ -1204,12 +1233,35 @@
   
   
     <li class="md-nav__item">
-      <a href="keplerian.html" class="md-nav__link">
+      <a href="anomalies.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Keplerian Elements
+    Anomaly Conversions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Properties
     
   </span>
   
@@ -1232,7 +1284,7 @@
   
   
   <span class="md-ellipsis">
-    Two-Line Elements (TLEs)
+    Two-Line Elements (TLE)
     
   </span>
   
@@ -4217,6 +4269,98 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#orbital-representations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Orbital Representations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orbital Representations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keplerian-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keplerian Elements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cartesian-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cartesian States
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topics-in-this-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      Topics in This Section
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Topics in This Section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#orbital-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      Orbital Properties
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anomaly-conversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Anomaly Conversions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-line-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Two-Line Elements
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -4235,7 +4379,70 @@
 
 
 <h1 id="orbital-elements">Orbital Elements<a class="headerlink" href="#orbital-elements" title="Permanent link">&para;</a></h1>
-<p>The <code>brahe.orbits</code> module provides tools for working with orbital elements.</p>
+<p>In orbital mechanics, describing the motion of a satellite requires representing its position and velocity at any given time. There are two primary ways to represent an orbit:</p>
+<ol>
+<li><strong>Cartesian state vectors</strong> - Position and velocity in three-dimensional space: <code>[x, y, z, vx, vy, vz]</code></li>
+<li><strong>Keplerian orbital elements</strong> - Six parameters that describe the orbit's shape, orientation, and the satellite's position within it: <code>[a, e, i, Ω, ω, ν]</code></li>
+</ol>
+<p>Both representations contain the same information, but each has advantages for different applications. Cartesian states are ideal for numerical propagation and reference frame transformations, while Keplerian elements provide intuitive understanding of orbital characteristics like size, shape, and orientation.</p>
+<p>The <code>brahe.orbits</code> module provides tools for working with Keplerian orbital elements, computing orbital properties, and handling the Two-Line Element (TLE) format used for distributing satellite orbit information.</p>
+<h2 id="orbital-representations">Orbital Representations<a class="headerlink" href="#orbital-representations" title="Permanent link">&para;</a></h2>
+<h3 id="keplerian-elements">Keplerian Elements<a class="headerlink" href="#keplerian-elements" title="Permanent link">&para;</a></h3>
+<p>Keplerian orbital elements describe an orbit using six parameters:</p>
+<ul>
+<li><strong>Semi-major axis (a)</strong> - Defines the size of the orbit [meters]</li>
+<li><strong>Eccentricity (e)</strong> - Defines the shape (0 = circular, 0 &lt; e &lt; 1 = elliptical) [dimensionless]</li>
+<li><strong>Inclination (i)</strong> - Angle between orbital plane and equator [radians or degrees]</li>
+<li><strong>Right Ascension of Ascending Node (Ω)</strong> - Orientation of the orbital plane [radians or degrees]</li>
+<li><strong>Argument of Periapsis (ω)</strong> - Orientation of the orbit within its plane [radians or degrees]</li>
+<li><strong>Anomaly</strong> - Satellite's position along the orbit [radians or degrees]</li>
+</ul>
+<p>In Brahe, Keplerian elements are represented as arrays: <code>[a, e, i, Ω, ω, anomaly]</code> where the semi-major axis is in meters and angles are in radians (unless using the <code>AngleFormat</code> enum to specify degrees).</p>
+<p>The anomaly can be expressed in three forms - true, eccentric, or mean anomaly - each useful for different calculations. See <a href="anomalies.html">Anomaly Conversions</a> for details.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For all functions in the <code>brahe.orbits</code> module, the anomaly is assumed to be the <strong>mean anomaly</strong> unless otherwise specified.</p>
+</div>
+<h3 id="cartesian-states">Cartesian States<a class="headerlink" href="#cartesian-states" title="Permanent link">&para;</a></h3>
+<p>Cartesian state vectors represent position and velocity in three-dimensional space: <code>[x, y, z, vx, vy, vz]</code>. In Brahe, position components are in meters and velocity components are in meters per second.</p>
+<p>Brahe provides functions to convert between Keplerian elements and Cartesian states:</p>
+<ul>
+<li><code>state_osculating_to_cartesian()</code> - Convert orbital elements to Cartesian state</li>
+<li><code>state_cartesian_to_osculating()</code> - Convert Cartesian state to orbital elements</li>
+</ul>
+<p>These functions are found in the <a href="../coordinates/cartesian_transformations.html">coordinates module</a> but are essential for working with orbits.</p>
+<h2 id="topics-in-this-section">Topics in This Section<a class="headerlink" href="#topics-in-this-section" title="Permanent link">&para;</a></h2>
+<h3 id="orbital-properties"><a href="properties.html">Orbital Properties</a><a class="headerlink" href="#orbital-properties" title="Permanent link">&para;</a></h3>
+<p>Learn about computing fundamental orbital properties including:</p>
+<ul>
+<li>Orbital period and mean motion</li>
+<li>Semi-major axis from period or mean motion</li>
+<li>Periapsis and apoapsis distances, altitudes, and velocities</li>
+<li>Sun-synchronous orbit inclination</li>
+</ul>
+<h3 id="anomaly-conversions"><a href="anomalies.html">Anomaly Conversions</a><a class="headerlink" href="#anomaly-conversions" title="Permanent link">&para;</a></h3>
+<p>Understand the three types of orbital anomaly and how to convert between them:</p>
+<ul>
+<li><strong>True anomaly</strong> - Actual angular position from periapsis</li>
+<li><strong>Eccentric anomaly</strong> - Auxiliary angle used in elliptical orbit calculations</li>
+<li><strong>Mean anomaly</strong> - Linearly increasing angle representing average motion</li>
+</ul>
+<h3 id="two-line-elements"><a href="two_line_elements.html">Two-Line Elements</a><a class="headerlink" href="#two-line-elements" title="Permanent link">&para;</a></h3>
+<p>Work with the TLE format for distributing satellite orbital information:</p>
+<ul>
+<li>TLE structure and parsing</li>
+<li>TLE validation and checksums</li>
+<li>Extracting orbital elements from TLEs</li>
+<li>Creating TLEs from Keplerian elements</li>
+<li>NORAD satellite catalog number conversions</li>
+</ul>
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../library_api/orbits/index.html">Orbits API Reference</a> - Complete orbital functions documentation</li>
+<li><a href="../coordinates/index.html">Coordinates</a> - Cartesian and Keplerian conversions</li>
+<li><a href="../orbit_propagation/index.html">Orbit Propagation</a> - Propagating orbits over time</li>
+<li><a href="../../library_api/constants/physical.html">Physical Constants</a> - Gravitational parameters and radii</li>
+</ul>
 
 
 
@@ -4258,7 +4465,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 06:57:43 UTC">2025-10-23</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 30, 2025 04:34:17 UTC">2025-10-30</span>
   </span>
 
     
@@ -4320,7 +4527,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "toc.follow", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

@@ -448,8 +448,8 @@ impl PyElevationConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -457,12 +457,12 @@ impl PyElevationConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -522,8 +522,8 @@ impl PyElevationMaskConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -531,12 +531,12 @@ impl PyElevationMaskConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -595,8 +595,8 @@ impl PyOffNadirConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -604,12 +604,12 @@ impl PyOffNadirConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -697,8 +697,8 @@ impl PyLocalTimeConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -706,12 +706,12 @@ impl PyLocalTimeConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -765,8 +765,8 @@ impl PyLookDirectionConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -774,12 +774,12 @@ impl PyLookDirectionConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -833,8 +833,8 @@ impl PyAscDscConstraint {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied, False otherwise
@@ -842,12 +842,12 @@ impl PyAscDscConstraint {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.constraint.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.constraint.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -935,8 +935,8 @@ impl PyConstraintAll {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if ALL constraints are satisfied, False otherwise
@@ -944,12 +944,12 @@ impl PyConstraintAll {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.composite.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.composite.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -1025,8 +1025,8 @@ impl PyConstraintAny {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if AT LEAST ONE constraint is satisfied, False otherwise
@@ -1034,12 +1034,12 @@ impl PyConstraintAny {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.composite.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.composite.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -1111,8 +1111,8 @@ impl PyConstraintNot {
     ///
     /// Args:
     ///     epoch (Epoch): Time of evaluation
-    ///     sat_state_ecef (ndarray): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
-    ///     location_ecef (ndarray): Ground location in ECEF [x, y, z] (meters)
+    ///     sat_state_ecef (ndarray or list): Satellite state in ECEF [x, y, z, vx, vy, vz] (meters, m/s)
+    ///     location_ecef (ndarray or list): Ground location in ECEF [x, y, z] (meters)
     ///
     /// Returns:
     ///     bool: True if the negated constraint is NOT satisfied, False otherwise
@@ -1120,12 +1120,12 @@ impl PyConstraintNot {
         &self,
         _py: Python,
         epoch: &PyEpoch,
-        sat_state_ecef: PyReadonlyArray1<f64>,
-        location_ecef: PyReadonlyArray1<f64>,
-    ) -> bool {
-        let sat_state = numpy_to_vector!(sat_state_ecef, 6, f64);
-        let location = numpy_to_vector!(location_ecef, 3, f64);
-        self.composite.evaluate(&epoch.obj, &sat_state, &location)
+        sat_state_ecef: &Bound<'_, PyAny>,
+        location_ecef: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let sat_state = pyany_to_svector::<6>(sat_state_ecef)?;
+        let location = pyany_to_svector::<3>(location_ecef)?;
+        Ok(self.composite.evaluate(&epoch.obj, &sat_state, &location))
     }
 
     fn __str__(&self) -> String {
@@ -2865,7 +2865,7 @@ impl PyAdditionalPropertiesDict {
 ///             Args:
 ///                 window (AccessWindow): AccessWindow with timing information
 ///                 satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
-///                 location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
+///                 location_ecef (ndarray or list): Location position [x,y,z] in ECEF (m)
 ///
 ///             Returns:
 ///                 dict: Property name -> value
@@ -2925,7 +2925,7 @@ impl PyAccessPropertyComputer {
     /// Args:
     ///     window (AccessWindow): Access window with timing information
     ///     satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
-    ///     location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+    ///     location_ecef (ndarray or list): Location position in ECEF [x,y,z] (meters)
     ///
     /// Returns:
     ///     dict: Dictionary mapping property names (str) to values (scalar, list, dict, etc.)
@@ -2933,7 +2933,7 @@ impl PyAccessPropertyComputer {
         &self,
         _window: &PyAccessWindow,
         _satellite_state_ecef: PyReadonlyArray1<f64>,
-        _location_ecef: PyReadonlyArray1<f64>,
+        _location_ecef: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyDict>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement compute() method",
@@ -3146,7 +3146,7 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
 ///             Args:
 ///                 epoch (Epoch): Current evaluation time
 ///                 satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
-///                 location_ecef (ndarray): Location position [x,y,z] in ECEF (m)
+///                 location_ecef (ndarray or list): Location position [x,y,z] in ECEF (m)
 ///
 ///             Returns:
 ///                 bool: True if constraint is satisfied, False otherwise
@@ -3188,7 +3188,7 @@ impl PyAccessConstraintComputer {
     /// Args:
     ///     epoch (Epoch): Current evaluation time
     ///     satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
-    ///     location_ecef (ndarray): Location position in ECEF [x,y,z] (meters)
+    ///     location_ecef (ndarray or list): Location position in ECEF [x,y,z] (meters)
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied (access allowed), False otherwise
@@ -3196,7 +3196,7 @@ impl PyAccessConstraintComputer {
         &self,
         _epoch: &PyEpoch,
         _satellite_state_ecef: PyReadonlyArray1<f64>,
-        _location_ecef: PyReadonlyArray1<f64>,
+        _location_ecef: &Bound<'_, PyAny>,
     ) -> PyResult<bool> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement evaluate() method",
@@ -3239,7 +3239,8 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
         sat_state_ecef: &nalgebra::Vector6<f64>,
         location_ecef: &nalgebra::Vector3<f64>,
     ) -> bool {
-        Python::attach(|py| {
+        #[allow(deprecated)]
+        Python::with_gil(|py| {
             // Convert to numpy arrays
             let sat_state_array = sat_state_ecef.as_slice().to_pyarray(py).to_owned();
             let loc_array = location_ecef.as_slice().to_pyarray(py).to_owned();
@@ -3368,8 +3369,8 @@ impl PyAccessSearchConfig {
     /// Returns:
     ///     bool: Adaptive stepping flag
     #[getter]
-    fn adaptive_step(&self) -> bool {
-        self.config.adaptive_step
+    fn adaptive_step(&self) -> PyResult<bool> {
+        Ok(self.config.adaptive_step)
     }
 
     /// Set whether adaptive stepping is enabled.
@@ -3404,8 +3405,8 @@ impl PyAccessSearchConfig {
     /// Returns:
     ///     bool: Parallel computation flag (default: True)
     #[getter]
-    fn parallel(&self) -> bool {
-        self.config.parallel
+    fn parallel(&self) -> PyResult<bool> {
+        Ok(self.config.parallel)
     }
 
     /// Set whether parallel computation is enabled.

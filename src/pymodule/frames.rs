@@ -151,10 +151,10 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray): Position vector in `ECI` frame (m), shape `(3,)`
+///     x (numpy.ndarray or list): Position vector in `ECI` frame (m), shape `(3,)`
 ///
 /// Returns:
-///     (numpy.ndarray): Position vector in `ECEF` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `ECEF` frame (m), shape `(3,)`
 ///
 /// Example:
 ///     ```python
@@ -174,14 +174,14 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x)")]
 #[pyo3(name = "position_eci_to_ecef")]
-unsafe fn py_position_eci_to_ecef<'py>(
+fn py_position_eci_to_ecef<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x: Bound<'py, PyArray<f64, Ix1>>,
-) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = frames::position_eci_to_ecef(epc.obj, numpy_to_vector!(x, 3, f64));
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_eci_to_ecef(epc.obj, pyany_to_svector::<3>(&x)?);
 
-    vector_to_numpy!(py, vec, 3, f64)
+    Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
 /// Transforms a position vector from the Earth Centered Earth Fixed (`ECEF`/`ITRF`)
@@ -193,10 +193,10 @@ unsafe fn py_position_eci_to_ecef<'py>(
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
-///     x (numpy.ndarray): Position vector in `ECEF` frame (m), shape `(3,)`
+///     x (numpy.ndarray or list): Position vector in `ECEF` frame (m), shape `(3,)`
 ///
 /// Returns:
-///     (numpy.ndarray): Position vector in `ECI` frame (m), shape `(3,)`
+///     numpy.ndarray: Position vector in `ECI` frame (m), shape `(3,)`
 ///
 /// Example:
 ///     ```python
@@ -216,14 +216,14 @@ unsafe fn py_position_eci_to_ecef<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x)")]
 #[pyo3(name = "position_ecef_to_eci")]
-unsafe fn py_position_ecef_to_eci<'py>(
+fn py_position_ecef_to_eci<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x: Bound<'py, PyArray<f64, Ix1>>,
-) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = frames::position_ecef_to_eci(epc.obj, numpy_to_vector!(x, 3, f64));
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_ecef_to_eci(epc.obj, pyany_to_svector::<3>(&x)?);
 
-    vector_to_numpy!(py, vec, 3, f64)
+    Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
 /// Transforms a state vector (position and velocity) from the Earth Centered
@@ -236,10 +236,10 @@ unsafe fn py_position_ecef_to_eci<'py>(
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
-///     x_eci (numpy.ndarray): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     x_eci (numpy.ndarray or list): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
 ///
 /// Returns:
-///     (numpy.ndarray): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
 ///
 /// Example:
 ///     ```python
@@ -259,14 +259,14 @@ unsafe fn py_position_ecef_to_eci<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x_eci)")]
 #[pyo3(name = "state_eci_to_ecef")]
-unsafe fn py_state_eci_to_ecef<'py>(
+fn py_state_eci_to_ecef<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x_eci: Bound<'py, PyArray<f64, Ix1>>,
-) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = frames::state_eci_to_ecef(epc.obj, numpy_to_vector!(x_eci, 6, f64));
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_eci_to_ecef(epc.obj, pyany_to_svector::<6>(&x_eci)?);
 
-    vector_to_numpy!(py, vec, 6, f64)
+    Ok(vector_to_numpy!(py, vec, 6, f64))
 }
 
 /// Transforms a state vector (position and velocity) from the Earth Centered
@@ -279,10 +279,10 @@ unsafe fn py_state_eci_to_ecef<'py>(
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
-///     x_ecef (numpy.ndarray): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     x_ecef (numpy.ndarray or list): State vector in `ECEF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
 ///
 /// Returns:
-///     (numpy.ndarray): State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///     numpy.ndarray: State vector in `ECI` frame `[position (m), velocity (m/s)]`, shape `(6,)`
 ///
 /// Example:
 ///     ```python
@@ -302,12 +302,12 @@ unsafe fn py_state_eci_to_ecef<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(epc, x_ecef)")]
 #[pyo3(name = "state_ecef_to_eci")]
-unsafe fn py_state_ecef_to_eci<'py>(
+fn py_state_ecef_to_eci<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
-    x_ecef: Bound<'py, PyArray<f64, Ix1>>,
-) -> Bound<'py, PyArray<f64, Ix1>> {
-    let vec = frames::state_ecef_to_eci(epc.obj, numpy_to_vector!(x_ecef, 6, f64));
+    x_ecef: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_ecef_to_eci(epc.obj, pyany_to_svector::<6>(&x_ecef)?);
 
-    vector_to_numpy!(py, vec, 6, f64)
+    Ok(vector_to_numpy!(py, vec, 6, f64))
 }

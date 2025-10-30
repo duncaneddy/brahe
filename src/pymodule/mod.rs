@@ -45,15 +45,6 @@ macro_rules! vector_to_numpy {
     }};
 }
 
-#[allow(unused_macros)]
-macro_rules! numpy_to_matrix {
-    ($mat:expr,$r:expr,$c:expr,$typ:ty) => {{ na::SMatrix::<$typ, $r, $c>::from_vec($mat.to_vec().unwrap()) }};
-}
-
-macro_rules! numpy_to_vector {
-    ($vec:expr,$l:expr,$typ:ty) => {{ na::SVector::<$typ, $l>::from_vec($vec.to_vec().unwrap()) }};
-}
-
 /// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
 ///
 /// This function accepts any numpy array-like object and converts it to Vec<f64>,
@@ -68,6 +59,22 @@ macro_rules! numpy_to_vector {
 ///
 /// * `PyResult<Vec<f64>>` - Converted vector or error
 fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> PyResult<Vec<f64>> {
+    // Try to extract as Vec<f64> first (handles Python lists)
+    if let Ok(vec) = arr.extract::<Vec<f64>>() {
+        // Validate length if expected
+        if let Some(len) = expected_len
+            && vec.len() != len
+        {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Expected array or list of length {}, got {}",
+                len,
+                vec.len()
+            )));
+        }
+        return Ok(vec);
+    }
+
+    // Fallback to numpy array conversion (handles int arrays and other numpy dtypes)
     let py = arr.py();
 
     // Import numpy
@@ -81,14 +88,14 @@ fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> P
         .map_err(|_| exceptions::PyAttributeError::new_err("Failed to get numpy.float64"))?;
 
     // Convert to float64 dtype - this handles int arrays gracefully
-    let arr_f64 = arr.call_method1("astype", (float64_dtype,)).map_err(|_| {
-        exceptions::PyTypeError::new_err("Expected a numpy array or array-like object")
-    })?;
+    let arr_f64 = arr
+        .call_method1("astype", (float64_dtype,))
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a numpy array or Python list"))?;
 
     // Downcast to PyArray<f64, Ix1>
     let pyarray = arr_f64
         .downcast::<PyArray<f64, Ix1>>()
-        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array"))?;
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
 
     // Convert to vector
     let vec = pyarray
@@ -100,7 +107,7 @@ fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> P
         && vec.len() != len
     {
         return Err(exceptions::PyValueError::new_err(format!(
-            "Expected array of length {}, got {}",
+            "Expected array or list of length {}, got {}",
             len,
             vec.len()
         )));
@@ -126,6 +133,32 @@ fn pyany_to_f64_array2(
     arr: &Bound<'_, PyAny>,
     expected_shape: Option<(usize, usize)>,
 ) -> PyResult<Vec<Vec<f64>>> {
+    // Try to extract as Vec<Vec<f64>> first (handles nested Python lists)
+    if let Ok(mat_vec) = arr.extract::<Vec<Vec<f64>>>() {
+        // Validate shape if expected
+        if let Some((exp_rows, exp_cols)) = expected_shape {
+            if mat_vec.len() != exp_rows {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Expected matrix or list with {} rows, got {}",
+                    exp_rows,
+                    mat_vec.len()
+                )));
+            }
+            for (i, row) in mat_vec.iter().enumerate() {
+                if row.len() != exp_cols {
+                    return Err(exceptions::PyValueError::new_err(format!(
+                        "Expected {} columns in row {}, got {}",
+                        exp_cols,
+                        i,
+                        row.len()
+                    )));
+                }
+            }
+        }
+        return Ok(mat_vec);
+    }
+
+    // Fallback to numpy array conversion (handles int arrays and other numpy dtypes)
     let py = arr.py();
 
     // Import numpy
@@ -140,13 +173,13 @@ fn pyany_to_f64_array2(
 
     // Convert to float64 dtype
     let arr_f64 = arr.call_method1("astype", (float64_dtype,)).map_err(|_| {
-        exceptions::PyTypeError::new_err("Expected a numpy array or array-like object")
+        exceptions::PyTypeError::new_err("Expected a 2D numpy array or nested Python list")
     })?;
 
     // Downcast to PyArray<f64, Ix2>
-    let pyarray = arr_f64
-        .downcast::<PyArray<f64, Ix2>>()
-        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 2-D numpy array"))?;
+    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+        exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
+    })?;
 
     // Get shape
     let shape = pyarray.shape();
@@ -164,7 +197,7 @@ fn pyany_to_f64_array2(
         && (rows != exp_rows || cols != exp_cols)
     {
         return Err(exceptions::PyValueError::new_err(format!(
-            "Expected array of shape ({}, {}), got ({}, {})",
+            "Expected array or list of shape ({}, {}), got ({}, {})",
             exp_rows, exp_cols, rows, cols
         )));
     }
@@ -182,6 +215,203 @@ fn pyany_to_f64_array2(
     }
 
     Ok(result)
+}
+
+/// Convert a Python object to a statically-sized nalgebra vector with automatic dtype conversion.
+///
+/// This function accepts numpy arrays or Python lists and converts them to `SVector<f64, N>`,
+/// automatically converting integer arrays/lists to float64 if needed.
+///
+/// # Type Parameters
+///
+/// * `N` - The compile-time size of the vector
+///
+/// # Arguments
+///
+/// * `arr` - Python object that should be a numpy array or list
+///
+/// # Returns
+///
+/// * `PyResult<na::SVector<f64, N>>` - Static vector with compile-time size checking
+///
+/// # Examples
+///
+/// ```rust
+/// // Accept size-3 vector (position)
+/// let pos = pyany_to_svector::<3>(arr)?;
+///
+/// // Accept size-6 vector (state)
+/// let state = pyany_to_svector::<6>(arr)?;
+/// ```
+fn pyany_to_svector<const N: usize>(arr: &Bound<'_, PyAny>) -> PyResult<na::SVector<f64, N>> {
+    // Try to extract as Vec<f64> first (handles Python lists)
+    if let Ok(vec) = arr.extract::<Vec<f64>>() {
+        if vec.len() != N {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Expected array or list of length {}, got {}",
+                N,
+                vec.len()
+            )));
+        }
+        return Ok(na::SVector::<f64, N>::from_vec(vec));
+    }
+
+    // Fallback to numpy array conversion (handles int arrays and other numpy dtypes)
+    let py = arr.py();
+
+    // Import numpy
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+
+    // Get float64 dtype
+    let float64_dtype = np
+        .getattr("float64")
+        .map_err(|_| exceptions::PyAttributeError::new_err("Failed to get numpy.float64"))?;
+
+    // Convert to float64 dtype - this handles int arrays gracefully
+    let arr_f64 = arr
+        .call_method1("astype", (float64_dtype,))
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a numpy array or Python list"))?;
+
+    // Downcast to PyArray<f64, Ix1>
+    let pyarray = arr_f64
+        .downcast::<PyArray<f64, Ix1>>()
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
+
+    // Convert to vector
+    let vec = pyarray
+        .to_vec()
+        .map_err(|_| exceptions::PyValueError::new_err("Failed to convert array to vector"))?;
+
+    // Validate length
+    if vec.len() != N {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected array or list of length {}, got {}",
+            N,
+            vec.len()
+        )));
+    }
+
+    Ok(na::SVector::<f64, N>::from_vec(vec))
+}
+
+/// Convert a Python object to a statically-sized nalgebra matrix with automatic dtype conversion.
+///
+/// This function accepts numpy 2D arrays or nested Python lists and converts them to `SMatrix<f64, R, C>`,
+/// automatically converting integer arrays/lists to float64 and handling row-major to column-major conversion.
+///
+/// # Type Parameters
+///
+/// * `R` - The compile-time number of rows
+/// * `C` - The compile-time number of columns
+///
+/// # Arguments
+///
+/// * `arr` - Python object that should be a 2D numpy array or nested list
+///
+/// # Returns
+///
+/// * `PyResult<na::SMatrix<f64, R, C>>` - Static matrix with compile-time size checking
+///
+/// # Examples
+///
+/// ```rust
+/// // Accept 3x3 matrix (rotation matrix)
+/// let rot = pyany_to_smatrix::<3, 3>(arr)?;
+/// ```
+#[allow(dead_code)]
+fn pyany_to_smatrix<const R: usize, const C: usize>(
+    arr: &Bound<'_, PyAny>,
+) -> PyResult<na::SMatrix<f64, R, C>> {
+    // Try to extract as Vec<Vec<f64>> first (handles nested Python lists)
+    if let Ok(mat_vec) = arr.extract::<Vec<Vec<f64>>>() {
+        // Validate shape
+        if mat_vec.len() != R {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Expected matrix or list with {} rows, got {}",
+                R,
+                mat_vec.len()
+            )));
+        }
+        for (i, row) in mat_vec.iter().enumerate() {
+            if row.len() != C {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Expected {} columns in row {}, got {}",
+                    C,
+                    i,
+                    row.len()
+                )));
+            }
+        }
+
+        // Convert Vec<Vec<f64>> (row-major) to flat Vec<f64> (column-major) for nalgebra
+        let flat: Vec<f64> = (0..C)
+            .flat_map(|col| mat_vec.iter().map(move |row| row[col]))
+            .collect();
+
+        return Ok(na::SMatrix::<f64, R, C>::from_vec(flat));
+    }
+
+    // Fallback to numpy array conversion (handles int arrays and other numpy dtypes)
+    let py = arr.py();
+
+    // Import numpy
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+
+    // Get float64 dtype
+    let float64_dtype = np
+        .getattr("float64")
+        .map_err(|_| exceptions::PyAttributeError::new_err("Failed to get numpy.float64"))?;
+
+    // Convert to float64 dtype
+    let arr_f64 = arr.call_method1("astype", (float64_dtype,)).map_err(|_| {
+        exceptions::PyTypeError::new_err("Expected a 2D numpy array or nested Python list")
+    })?;
+
+    // Downcast to PyArray<f64, Ix2>
+    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+        exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
+    })?;
+
+    // Get shape and validate
+    let shape = pyarray.shape();
+    if shape.len() != 2 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected 2-D array, got {}-D",
+            shape.len()
+        )));
+    }
+    let rows = shape[0];
+    let cols = shape[1];
+
+    if rows != R || cols != C {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected array or list of shape ({}, {}), got ({}, {})",
+            R, C, rows, cols
+        )));
+    }
+
+    // Convert to flat Vec (row-major from numpy)
+    let flat_vec = pyarray
+        .to_vec()
+        .map_err(|_| exceptions::PyValueError::new_err("Failed to convert array to vector"))?;
+
+    // Reshape into Vec<Vec<f64>> (row-major)
+    let mut mat_vec = Vec::with_capacity(R);
+    for i in 0..R {
+        let row = flat_vec[i * C..(i + 1) * C].to_vec();
+        mat_vec.push(row);
+    }
+
+    // Convert to column-major for nalgebra
+    let flat: Vec<f64> = (0..C)
+        .flat_map(|col| mat_vec.iter().map(move |row| row[col]))
+        .collect();
+
+    Ok(na::SMatrix::<f64, R, C>::from_vec(flat))
 }
 
 /// Python wrapper for AngleFormat enum

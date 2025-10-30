@@ -19,21 +19,29 @@ An Euler angle rotation is specified by:
 - **XYZ**: Common in robotics
 - **ZYZ**: Common in classical mechanics
 
-## Advantages
+## Initialization
 
-- **Intuitive**: Easy to visualize and understand
-- **Minimal**: Only 3 parameters
-- **Human-readable**: Natural for manual input
+### From Rotation Matrix
 
-## Disadvantages
+### From Quaternion
 
-- **Gimbal lock**: Singularities occur when middle rotation is ±90°
-- **Ambiguous**: Multiple angle sets can represent same orientation
-- **Interpolation**: Non-linear, difficult to interpolate smoothly
+### From Euler Angles
 
-## Gimbal Lock
+### From Euler Axis
 
-Gimbal lock occurs when the middle rotation approaches ±90 degrees, causing loss of one degree of freedom. Use quaternions to avoid this issue.
+## Functions and Operations
+
+## Outputs
+
+### To Rotation Matrix
+
+### To Matrix
+
+### To Quaternion
+
+### To Euler Angles
+
+### To Euler Axis
 
 ## See Also
 

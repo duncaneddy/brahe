@@ -15,31 +15,29 @@ An Euler axis rotation is specified by:
 
 Together: $[\theta, n_x, n_y, n_z]$ (4 parameters)
 
-## Rodrigues' Rotation Formula
+## Initialization
 
-Any vector $\vec{v}$ can be rotated about axis $\hat{n}$ by angle $\theta$ using:
+### From Rotation Matrix
 
-$$\vec{v}_{rot} = \vec{v}\cos\theta + (\hat{n} \times \vec{v})\sin\theta + \hat{n}(\hat{n} \cdot \vec{v})(1-\cos\theta)$$
+### From Quaternion
 
-## Advantages
+### From Euler Angles
 
-- **Intuitive**: Natural geometric interpretation
-- **Minimal representation**: Efficient for single rotations
-- **Useful for visualization**: Easy to show rotation axis
+### From Euler Axis
 
-## Disadvantages
+## Functions and Operations
 
-- **Composition complexity**: Combining rotations is not straightforward
-- **Singularity at zero rotation**: Axis becomes undefined
-- **Interpolation**: Non-linear
+## Outputs
 
-## Applications
+### To Rotation Matrix
 
-Best used for:
+### To Matrix
 
-- Visualizing rotation axes
-- Specifying rotations geometrically
-- Converting from/to other representations
+### To Quaternion
+
+### To Euler Angles
+
+### To Euler Axis
 
 ## See Also
 

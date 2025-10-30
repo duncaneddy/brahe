@@ -12,23 +12,31 @@ A unit quaternion is defined as:
 
 $$q = [w, x, y, z]$$
 
-where $w^2 + x^2 + y^2 + z^2 = 1$
+where $w^2 + x^2 + y^2 + z^2 = 1$ for unit quaternions. $w$ is the scalar part, and $(x, y, z)$ is the vector part.
 
-## Advantages
+## Initialization
 
-- **No singularities**: Unlike Euler angles, quaternions work for all orientations
-- **Compact**: Only 4 parameters (vs 9 for rotation matrices)
-- **Efficient**: Quaternion multiplication is faster than matrix multiplication
-- **Interpolation**: SLERP (Spherical Linear Interpolation) provides smooth attitude interpolation
+### From Rotation Matrix
 
-## Operations
+### From Quaternion
 
-Common quaternion operations include:
+### From Euler Angles
 
-- Quaternion multiplication (composition of rotations)
-- Quaternion conjugate (inverse rotation)
-- Quaternion normalization
-- Vector rotation
+### From Euler Axis
+
+## Functions and Operations
+
+## Outputs
+
+### To Rotation Matrix
+
+### To Matrix
+
+### To Quaternion
+
+### To Euler Angles
+
+### To Euler Axis
 
 ## See Also
 

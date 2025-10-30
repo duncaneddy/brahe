@@ -16,26 +16,37 @@ $$\det(R) = 1$$
 
 where $I$ is the identity matrix.
 
-## Advantages
+## Initialization
 
-- **Direct transformations**: Multiply matrix by vector to transform
-- **Intuitive**: Each column/row represents a coordinate axis
-- **Fast computation**: Matrix multiplication is highly optimized
+### From Rotation Matrix
 
-## Disadvantages
+### From Quaternion
 
-- **Redundant**: 9 parameters represent only 3 degrees of freedom
-- **Numerical drift**: Orthogonality can degrade with repeated operations
-- **Storage**: Requires more memory than quaternions
+### From Euler Angles
 
-## Operations
+### From Euler Axis
 
-Common rotation matrix operations:
+## Functions and Operationss
 
-- Matrix multiplication (composition)
-- Matrix transpose (inverse rotation)
-- Vector transformation
-- Orthogonalization (Gram-Schmidt)
+## Outputs
+
+### To Rotation Matrix
+
+### To Matrix
+
+### To Quaternion
+
+### To Euler Angles
+
+### To Euler Axis
+
+## Common Rotations
+
+### Rotation about X-axis
+
+### Rotation about Y-axis
+
+### Rotation about Z-axis
 
 ## See Also
 

@@ -458,3 +458,107 @@ def test_to_rotation_matrix():
 
     assert r == r2
     assert id(r) != id(r2)
+
+
+# Tests for matrix element property accessors
+def test_rotation_matrix_property_r11():
+    """Test that r11 property returns element (1,1)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r11 == 1.0
+
+
+def test_rotation_matrix_property_r12():
+    """Test that r12 property returns element (1,2)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r12 == 0.0
+
+
+def test_rotation_matrix_property_r13():
+    """Test that r13 property returns element (1,3)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r13 == 0.0
+
+
+def test_rotation_matrix_property_r21():
+    """Test that r21 property returns element (2,1)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r21 == 0.0
+
+
+def test_rotation_matrix_property_r22():
+    """Test that r22 property returns element (2,2)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r22 == 1.0
+
+
+def test_rotation_matrix_property_r23():
+    """Test that r23 property returns element (2,3)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r23 == 0.0
+
+
+def test_rotation_matrix_property_r31():
+    """Test that r31 property returns element (3,1)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r31 == 0.0
+
+
+def test_rotation_matrix_property_r32():
+    """Test that r32 property returns element (3,2)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r32 == 0.0
+
+
+def test_rotation_matrix_property_r33():
+    """Test that r33 property returns element (3,3)."""
+    r = RotationMatrix(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert r.r33 == 1.0
+
+
+def test_rotation_matrix_all_properties():
+    """Test all element properties together with a valid rotation matrix."""
+    r = RotationMatrix(
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        sqrt(2.0) / 2.0,
+        sqrt(2.0) / 2.0,
+        0.0,
+        -sqrt(2.0) / 2.0,
+        sqrt(2.0) / 2.0,
+    )
+
+    # Verify properties match expected values
+    assert r.r11 == 1.0
+    assert r.r12 == 0.0
+    assert r.r13 == 0.0
+    assert r.r21 == 0.0
+    assert r.r22 == sqrt(2.0) / 2.0
+    assert r.r23 == sqrt(2.0) / 2.0
+    assert r.r31 == 0.0
+    assert r.r32 == -sqrt(2.0) / 2.0
+    assert r.r33 == sqrt(2.0) / 2.0
+
+    # Verify properties match matrix
+    matrix = r.to_matrix()
+    assert r.r11 == matrix[0, 0]
+    assert r.r12 == matrix[0, 1]
+    assert r.r13 == matrix[0, 2]
+    assert r.r21 == matrix[1, 0]
+    assert r.r22 == matrix[1, 1]
+    assert r.r23 == matrix[1, 2]
+    assert r.r31 == matrix[2, 0]
+    assert r.r32 == matrix[2, 1]
+    assert r.r33 == matrix[2, 2]
+
+    # Verify properties match indexing
+    assert r.r11 == r[(0, 0)]
+    assert r.r12 == r[(0, 1)]
+    assert r.r13 == r[(0, 2)]
+    assert r.r21 == r[(1, 0)]
+    assert r.r22 == r[(1, 1)]
+    assert r.r23 == r[(1, 2)]
+    assert r.r31 == r[(2, 0)]
+    assert r.r32 == r[(2, 1)]
+    assert r.r33 == r[(2, 2)]

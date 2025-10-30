@@ -11,10 +11,10 @@ import math
 
 # Create Euler angles (ZYX: 45° yaw, 30° pitch, 15° roll)
 ea = bh.EulerAngle(
+    bh.EulerAngleOrder.ZYX,
     math.radians(45.0),
     math.radians(30.0),
     math.radians(15.0),
-    bh.EulerAngleOrder.ZYX,
     bh.AngleFormat.RADIANS,
 )
 

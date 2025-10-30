@@ -319,3 +319,64 @@ def test_quaternion_from_vector_with_mixed_array():
     v = np.array([1, 0.0, 0, 0.0])
     q = Quaternion.from_vector(v, True)
     assert np.equal(q.data, np.array([1.0, 0.0, 0.0, 0.0])).all()
+
+
+# Tests for component property accessors
+def test_quaternion_property_w():
+    """Test that the w property returns the scalar component."""
+    q = Quaternion(1.0, 0.0, 0.0, 0.0)
+    assert q.w == 1.0
+
+    q = Quaternion(0.5, 0.5, 0.5, 0.5)
+    assert q.w == 0.5
+
+
+def test_quaternion_property_x():
+    """Test that the x property returns the x component of the vector part."""
+    q = Quaternion(1.0, 2.0, 0.0, 0.0)
+    assert q.x == approx(2.0 / sqrt(5.0), abs=1e-12)
+
+    q = Quaternion(0.5, 0.5, 0.5, 0.5)
+    assert q.x == 0.5
+
+
+def test_quaternion_property_y():
+    """Test that the y property returns the y component of the vector part."""
+    q = Quaternion(1.0, 0.0, 3.0, 0.0)
+    assert q.y == approx(3.0 / sqrt(10.0), abs=1e-12)
+
+    q = Quaternion(0.5, 0.5, 0.5, 0.5)
+    assert q.y == 0.5
+
+
+def test_quaternion_property_z():
+    """Test that the z property returns the z component of the vector part."""
+    q = Quaternion(1.0, 0.0, 0.0, 4.0)
+    assert q.z == approx(4.0 / sqrt(17.0), abs=1e-12)
+
+    q = Quaternion(0.5, 0.5, 0.5, 0.5)
+    assert q.z == 0.5
+
+
+def test_quaternion_all_properties():
+    """Test all component properties together."""
+    q = Quaternion(1.0, 2.0, 3.0, 4.0)
+
+    # Quaternion normalizes on construction, so we need to account for that
+    norm = sqrt(1.0**2 + 2.0**2 + 3.0**2 + 4.0**2)
+    assert q.w == approx(1.0 / norm, abs=1e-12)
+    assert q.x == approx(2.0 / norm, abs=1e-12)
+    assert q.y == approx(3.0 / norm, abs=1e-12)
+    assert q.z == approx(4.0 / norm, abs=1e-12)
+
+    # Verify properties match data array
+    assert q.w == q.data[0]
+    assert q.x == q.data[1]
+    assert q.y == q.data[2]
+    assert q.z == q.data[3]
+
+    # Verify properties match indexing
+    assert q.w == q[0]
+    assert q.x == q[1]
+    assert q.y == q[2]
+    assert q.z == q[3]

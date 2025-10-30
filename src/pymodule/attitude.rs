@@ -370,6 +370,42 @@ impl PyQuaternion {
         vector_to_numpy!(py, self.obj.data, 4, f64)
     }
 
+    #[getter]
+    /// Get the scalar (w) component of the quaternion.
+    ///
+    /// Returns:
+    ///     float: Scalar component
+    pub fn w(&self) -> f64 {
+        self.obj[0]
+    }
+
+    #[getter]
+    /// Get the x component of the quaternion's vector part.
+    ///
+    /// Returns:
+    ///     float: X component
+    pub fn x(&self) -> f64 {
+        self.obj[1]
+    }
+
+    #[getter]
+    /// Get the y component of the quaternion's vector part.
+    ///
+    /// Returns:
+    ///     float: Y component
+    pub fn y(&self) -> f64 {
+        self.obj[2]
+    }
+
+    #[getter]
+    /// Get the z component of the quaternion's vector part.
+    ///
+    /// Returns:
+    ///     float: Z component
+    pub fn z(&self) -> f64 {
+        self.obj[3]
+    }
+
     #[classmethod]
     #[pyo3(text_signature = "(q)")]
     /// Create a quaternion from another quaternion (copy constructor).
@@ -1336,6 +1372,87 @@ impl PyRotationMatrix {
     ///     numpy.ndarray: 3x3 rotation matrix
     pub unsafe fn to_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
         matrix_to_numpy!(py, self.obj.to_matrix(), 3, 3, f64)
+    }
+
+    #[getter]
+    /// Get element (1,1) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 1, column 1
+    pub fn r11(&self) -> f64 {
+        self.obj[(0, 0)]
+    }
+
+    #[getter]
+    /// Get element (1,2) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 1, column 2
+    pub fn r12(&self) -> f64 {
+        self.obj[(0, 1)]
+    }
+
+    #[getter]
+    /// Get element (1,3) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 1, column 3
+    pub fn r13(&self) -> f64 {
+        self.obj[(0, 2)]
+    }
+
+    #[getter]
+    /// Get element (2,1) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 2, column 1
+    pub fn r21(&self) -> f64 {
+        self.obj[(1, 0)]
+    }
+
+    #[getter]
+    /// Get element (2,2) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 2, column 2
+    pub fn r22(&self) -> f64 {
+        self.obj[(1, 1)]
+    }
+
+    #[getter]
+    /// Get element (2,3) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 2, column 3
+    pub fn r23(&self) -> f64 {
+        self.obj[(1, 2)]
+    }
+
+    #[getter]
+    /// Get element (3,1) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 3, column 1
+    pub fn r31(&self) -> f64 {
+        self.obj[(2, 0)]
+    }
+
+    #[getter]
+    /// Get element (3,2) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 3, column 2
+    pub fn r32(&self) -> f64 {
+        self.obj[(2, 1)]
+    }
+
+    #[getter]
+    /// Get element (3,3) of the rotation matrix.
+    ///
+    /// Returns:
+    ///     float: Matrix element at row 3, column 3
+    pub fn r33(&self) -> f64 {
+        self.obj[(2, 2)]
     }
 
     #[classmethod]

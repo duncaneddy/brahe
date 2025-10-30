@@ -390,7 +390,12 @@ class TestNORADIDConversions:
     @pytest.mark.parametrize(
         "norad_id,expected",
         [
-            (100000, "A0000"),
+            (0, "0"),  # Pass through
+            (1, "1"),  # Pass through
+            (42, "42"),  # Pass through
+            (12345, "12345"),  # Pass through
+            (99999, "99999"),  # Pass through (boundary)
+            (100000, "A0000"),  # Alpha-5 conversion starts
             (100001, "A0001"),
             (109999, "A9999"),
             (110000, "B0000"),
@@ -398,19 +403,17 @@ class TestNORADIDConversions:
             (125678, "C5678"),
             (186789, "J6789"),  # Skip I
             (236789, "P6789"),  # Skip O
-            (339999, "Z9999"),
+            (339999, "Z9999"),  # Alpha-5 boundary
         ],
     )
     def test_norad_id_numeric_to_alpha5_valid(self, norad_id, expected):
-        """Test conversion of valid numeric NORAD IDs to Alpha-5 format."""
+        """Test conversion of valid numeric NORAD IDs to Alpha-5 format or pass through."""
         assert brahe.norad_id_numeric_to_alpha5(norad_id) == expected
 
     @pytest.mark.parametrize(
         "norad_id",
         [
-            99999,  # Too low
             340000,  # Too high
-            0,  # Way too low
             999999,  # Way too high
         ],
     )

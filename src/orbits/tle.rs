@@ -137,21 +137,29 @@ pub fn parse_norad_id(norad_str: &str) -> Result<u32, BraheError> {
     }
 }
 
-/// Convert numeric NORAD ID to Alpha-5 format
+/// Convert numeric NORAD ID to Alpha-5 format or pass through if in legacy range
 ///
 /// # Arguments
-/// * `norad_id` - Numeric NORAD ID (100000-339999)
+/// * `norad_id` - Numeric NORAD ID (0-339999)
 ///
 /// # Returns
-/// * `Result<String, BraheError>` - Alpha-5 format ID (e.g., "A0001")
+/// * `Result<String, BraheError>` - For IDs 0-99999: numeric string (e.g., "42").
+///   For IDs 100000-339999: Alpha-5 format ID (e.g., "A0001")
 pub fn norad_id_numeric_to_alpha5(norad_id: u32) -> Result<String, BraheError> {
-    if !(100000..=339999).contains(&norad_id) {
+    // IDs 0-99999: Pass through as numeric string
+    if norad_id < 100000 {
+        return Ok(norad_id.to_string());
+    }
+
+    // IDs > 339999: Error
+    if norad_id > 339999 {
         return Err(BraheError::Error(format!(
-            "NORAD ID {} is out of Alpha-5 range (100000-339999)",
+            "NORAD ID {} is out of valid range (0-339999)",
             norad_id
         )));
     }
 
+    // IDs 100000-339999: Convert to Alpha-5
     let first_value = norad_id / 10000;
     let numeric_part = norad_id % 10000;
 
@@ -910,7 +918,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case(100000, "A0000")]
+    #[case(0, "0")] // Pass through
+    #[case(1, "1")] // Pass through
+    #[case(42, "42")] // Pass through
+    #[case(12345, "12345")] // Pass through
+    #[case(99999, "99999")] // Pass through (boundary)
+    #[case(100000, "A0000")] // Alpha-5 conversion starts
     #[case(100001, "A0001")]
     #[case(109999, "A9999")]
     #[case(110000, "B0000")]
@@ -918,15 +931,13 @@ mod tests {
     #[case(125678, "C5678")]
     #[case(186789, "J6789")] // Skip I
     #[case(236789, "P6789")] // Skip O
-    #[case(339999, "Z9999")]
+    #[case(339999, "Z9999")] // Alpha-5 boundary
     fn test_norad_id_numeric_to_alpha5_valid(#[case] norad_id: u32, #[case] expected: &str) {
         assert_eq!(norad_id_numeric_to_alpha5(norad_id).unwrap(), expected);
     }
 
     #[rstest]
-    #[case(99999)] // Too low
     #[case(340000)] // Too high
-    #[case(0)] // Way too low
     #[case(999999)] // Way too high
     fn test_norad_id_numeric_to_alpha5_invalid(#[case] norad_id: u32) {
         assert!(norad_id_numeric_to_alpha5(norad_id).is_err());

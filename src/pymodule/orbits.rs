@@ -913,13 +913,15 @@ fn py_parse_norad_id(norad_str: String) -> PyResult<u32> {
     }
 }
 
-/// Convert numeric NORAD ID to Alpha-5 format.
+/// Convert numeric NORAD ID to Alpha-5 format or pass through if in legacy range.
 ///
 /// Args:
-///     norad_id (int): Numeric NORAD ID (100000-339999).
+///     norad_id (int): Numeric NORAD ID (0-339999). IDs 0-99999 are passed through
+///         as numeric strings. IDs 100000-339999 are converted to Alpha-5 format.
 ///
 /// Returns:
-///     str: Alpha-5 format ID (e.g., "A0001").
+///     str: For IDs 0-99999: numeric string (e.g., "42"). For IDs 100000-339999:
+///         Alpha-5 format ID (e.g., "A0001").
 #[pyfunction]
 #[pyo3(text_signature = "(norad_id)")]
 #[pyo3(name = "norad_id_numeric_to_alpha5")]

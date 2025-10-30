@@ -24,6 +24,22 @@ def parse_return_type_from_docstring(doc: str) -> str:
     )
     if returns_match:
         type_str = returns_match.group(1).strip()
+
+        # Handle "A or B" union syntax from docstrings
+        if " or " in type_str:
+            types = [t.strip() for t in type_str.split(" or ")]
+            mapped_types = []
+            for t in types:
+                if t == "numpy.ndarray" or t == "ndarray":
+                    mapped_types.append("np.ndarray")
+                elif t == "list":
+                    mapped_types.append("List")
+                elif t == "tuple":
+                    mapped_types.append("Tuple")
+                else:
+                    mapped_types.append(t)
+            return f"Union[{', '.join(mapped_types)}]"
+
         # Map common types
         type_map = {
             "str": "str",
@@ -164,25 +180,42 @@ def parse_params_from_docstring(doc: str) -> list:
                     r",?\s*optional\s*", "", param_type, flags=re.IGNORECASE
                 ).strip()
 
-            # Map types to Python type annotations
-            type_map = {
-                "str": "str",
-                "int": "int",
-                "float": "float",
-                "bool": "bool",
-                "numpy.ndarray": "np.ndarray",
-                "ndarray": "np.ndarray",
-                "TimeSystem": "TimeSystem",
-                "AngleFormat": "AngleFormat",
-                "Epoch": "Epoch",
-                "list": "List",
-                "tuple": "Tuple",
-                "dict": "dict",
-                # AccessConstraint is a union of all constraint types
-                "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
-            }
+            # Handle "A or B" union syntax from docstrings
+            if " or " in param_type:
+                # Split and map each type
+                types = [t.strip() for t in param_type.split(" or ")]
+                mapped_types = []
+                for t in types:
+                    # Apply type mapping
+                    if t == "numpy.ndarray" or t == "ndarray":
+                        mapped_types.append("np.ndarray")
+                    elif t == "list":
+                        mapped_types.append("List")
+                    elif t == "tuple":
+                        mapped_types.append("Tuple")
+                    else:
+                        mapped_types.append(t)
+                py_type = f"Union[{', '.join(mapped_types)}]"
+            else:
+                # Map types to Python type annotations
+                type_map = {
+                    "str": "str",
+                    "int": "int",
+                    "float": "float",
+                    "bool": "bool",
+                    "numpy.ndarray": "np.ndarray",
+                    "ndarray": "np.ndarray",
+                    "TimeSystem": "TimeSystem",
+                    "AngleFormat": "AngleFormat",
+                    "Epoch": "Epoch",
+                    "list": "List",
+                    "tuple": "Tuple",
+                    "dict": "dict",
+                    # AccessConstraint is a union of all constraint types
+                    "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
+                }
 
-            py_type = type_map.get(param_type, param_type)
+                py_type = type_map.get(param_type, param_type)
 
             # If param_type is empty or just whitespace, default to Any
             if not param_type or not param_type.strip():

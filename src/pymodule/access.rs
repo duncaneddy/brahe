@@ -1056,7 +1056,7 @@ impl PyConstraintAny {
 /// The negated constraint must NOT be satisfied for this to evaluate to true.
 ///
 /// Args:
-///     constraint: Constraint object to negate
+///     constraint (object): Constraint object to negate
 ///
 /// Example:
 ///     ```python
@@ -1418,7 +1418,7 @@ impl PyPointLocation {
     ///
     /// Args:
     ///     key (str): Property name
-    ///     value: Property value (must be JSON-serializable)
+    ///     value (Any): Property value (must be JSON-serializable)
     ///
     /// Returns:
     ///     PointLocation: Self for chaining
@@ -1854,7 +1854,7 @@ impl PyPolygonLocation {
     ///
     /// Args:
     ///     key (str): Property name
-    ///     value: Property value (must be JSON-serializable)
+    ///     value (Any): Property value (must be JSON-serializable)
     ///
     /// Returns:
     ///     PolygonLocation: Self for chaining
@@ -2929,11 +2929,12 @@ impl PyAccessPropertyComputer {
     ///
     /// Returns:
     ///     dict: Dictionary mapping property names (str) to values (scalar, list, dict, etc.)
+    #[allow(unused_variables)]
     fn compute(
         &self,
-        _window: &PyAccessWindow,
-        _satellite_state_ecef: PyReadonlyArray1<f64>,
-        _location_ecef: &Bound<'_, PyAny>,
+        window: &PyAccessWindow,
+        satellite_state_ecef: PyReadonlyArray1<f64>,
+        location_ecef: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyDict>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement compute() method",
@@ -3192,11 +3193,12 @@ impl PyAccessConstraintComputer {
     ///
     /// Returns:
     ///     bool: True if constraint is satisfied (access allowed), False otherwise
+    #[allow(unused_variables)]
     fn evaluate(
         &self,
-        _epoch: &PyEpoch,
-        _satellite_state_ecef: PyReadonlyArray1<f64>,
-        _location_ecef: &Bound<'_, PyAny>,
+        epoch: &PyEpoch,
+        satellite_state_ecef: PyReadonlyArray1<f64>,
+        location_ecef: &Bound<'_, PyAny>,
     ) -> PyResult<bool> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement evaluate() method",

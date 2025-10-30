@@ -122,6 +122,7 @@ nav:
             - Contributing: contributing.md
             - License: license.md
             - roadmap.md
+            - glossary.md
     -   User Guide:
             - learn/index.md
             - Constants: learn/constants.md

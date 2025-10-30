@@ -133,33 +133,58 @@ pub fn acceleration_point_mass_gravity(
 /// Enumeration of the tide system used in a gravity model.
 #[derive(Debug, PartialEq)]
 pub enum GravityModelTideSystem {
+    /// Zero-tide system: includes permanent tidal deformation from Sun and Moon.
+    /// C₂₀ coefficient includes indirect effect of Earth's centrifugal potential.
     ZeroTide,
+    /// Tide-free system: permanent tidal effects removed. Most commonly used in
+    /// modern gravity models. Represents Earth's shape without tidal deformation.
     TideFree,
+    /// Mean-tide system: includes time-averaged permanent tide. Historical convention
+    /// used in older gravity models and some geodetic applications.
     MeanTide,
+    /// Unknown or unspecified tide system. Default value when tide system is not declared.
     Unknown,
 }
 
 /// Enumeration of the error handling used in a gravity model.
 #[derive(Debug, PartialEq)]
 pub enum GravityModelErrors {
+    /// No error estimates provided with gravity coefficients. Model provides only
+    /// nominal C and S coefficient values without uncertainty information.
     No,
+    /// Calibrated error estimates: empirically derived uncertainties based on
+    /// comparison with independent data sources or solution comparisons.
     Calibrated,
+    /// Formal errors: statistical uncertainties from least-squares adjustment or
+    /// estimation process. May underestimate true uncertainties.
     Formal,
+    /// Both calibrated and formal error estimates provided, allowing comparison
+    /// between statistical and empirical uncertainty assessments.
     CalibratedAndFormal,
 }
 
 /// Enumeration of the normalization used in a gravity model.
 #[derive(Debug, PartialEq)]
 pub enum GravityModelNormalization {
+    /// Fully normalized spherical harmonics (4π normalization). Standard in modern
+    /// gravity models (EGM2008, GRACE, etc.). Coefficients have similar magnitudes.
     FullyNormalized,
+    /// Unnormalized spherical harmonics. Used in older models and some theoretical
+    /// applications. Coefficients decrease rapidly with increasing degree/order.
     Unnormalized,
 }
 
 /// Enumeration of the default gravity models available in Brahe.
 #[derive(Debug, PartialEq)]
 pub enum DefaultGravityModel {
+    /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
+    /// global model developed by NGA. Best for precision orbit determination.
     EGM2008_360,
+    /// Goddard Earth Model from GRACE mission, degree/order 180. Derived from
+    /// satellite gravity measurements. Good balance of accuracy and computation speed.
     GGM05S,
+    /// Joint Gravity Model 3, degree/order 70. Legacy model from 1990s. Included
+    /// for compatibility and applications not requiring modern accuracy.
     JGM3,
 }
 
@@ -178,13 +203,25 @@ pub enum DefaultGravityModel {
 /// - `normalization` : Normalization used in the gravity model.
 pub struct GravityModel {
     data: DMatrix<f64>,
+    /// Tide system convention used in the model (zero-tide, tide-free, or mean-tide).
     pub tide_system: GravityModelTideSystem,
+    /// Maximum degree (n) of spherical harmonic expansion. Higher degrees capture
+    /// finer spatial resolution of gravity field. Typical values: 70-2190.
     pub n_max: usize,
+    /// Maximum order (m) of spherical harmonic expansion. Often equal to n_max.
+    /// Determines resolution in longitude direction.
     pub m_max: usize,
+    /// Gravitational parameter (GM) of the central body. Product of gravitational
+    /// constant and body mass. Units: m³/s².
     pub gm: f64,
+    /// Reference radius of the central body used for normalization of spherical harmonics.
+    /// For Earth models, typically the equatorial radius. Units: meters.
     pub radius: f64,
+    /// Human-readable name of the gravity model (e.g., "EGM2008", "GGM05S").
     pub model_name: String,
+    /// Type of error/uncertainty estimates included with the model coefficients.
     pub model_errors: GravityModelErrors,
+    /// Normalization convention used for spherical harmonic coefficients (fully normalized or unnormalized).
     pub normalization: GravityModelNormalization,
 }
 
@@ -402,6 +439,23 @@ impl GravityModel {
         }
     }
 
+    /// Compute gravitational acceleration from spherical harmonic expansion.
+    ///
+    /// Evaluates gravity field using recursively-computed associated Legendre functions.
+    /// Higher degrees/orders provide more accurate representation of Earth's gravitational
+    /// field but increase computational cost.
+    ///
+    /// # Arguments
+    /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
+    /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
+    /// - `m_max`: Maximum order of expansion (tesseral/sectoral terms). Must satisfy m_max <= n_max.
+    ///
+    /// # Returns
+    /// Acceleration vector in body-fixed frame. Units: m/s².
+    ///
+    /// # Errors
+    /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
+    /// - OutOfBoundsError if m_max > n_max
     #[allow(non_snake_case)]
     pub fn compute_spherical_harmonics(
         &self,

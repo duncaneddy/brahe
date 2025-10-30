@@ -8,6 +8,14 @@ use std::path::Path;
 use crate::eop::*;
 use crate::orbit_dynamics::gravity::{DefaultGravityModel, GravityModel, set_global_gravity_model};
 
+/// Initialize global EOP provider with test data for unit testing.
+///
+/// Loads `test_assets/finals.all.iau2000.txt` and configures with Hold extrapolation
+/// and linear interpolation. Use at the start of tests requiring EOP data for frame
+/// transformations.
+///
+/// # Panics
+/// Panics if test asset file cannot be found or loaded.
 pub fn setup_global_test_eop() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let filepath = Path::new(&manifest_dir)
@@ -21,6 +29,13 @@ pub fn setup_global_test_eop() {
     set_global_eop_provider(eop);
 }
 
+/// Initialize global EOP provider with original Brahe test data for validation tests.
+///
+/// Loads `test_assets/brahe_original_eop_file.txt` for comparing against original Brahe
+/// implementation. Use for regression testing and validation against known results.
+///
+/// # Panics
+/// Panics if legacy test file cannot be found or loaded.
 pub fn setup_global_test_eop_original_brahe() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let filepath = Path::new(&manifest_dir)
@@ -34,6 +49,10 @@ pub fn setup_global_test_eop_original_brahe() {
     set_global_eop_provider(eop);
 }
 
+/// Initialize global gravity model with EGM2008_360 for orbit dynamics tests.
+///
+/// Sets up EGM2008 (degree/order 360) as the global gravity model. Use at the start
+/// of tests requiring high-fidelity gravity for orbit propagation or perturbation analysis.
 pub fn setup_global_test_gravity_model() {
     let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
     set_global_gravity_model(gravity_model);

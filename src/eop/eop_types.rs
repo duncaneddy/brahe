@@ -13,8 +13,14 @@ use std::fmt;
 /// - `Error`: Panics current execution thread, immediately terminating the program
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum EOPExtrapolation {
+    /// Return zero for missing EOP data points. Use when missing data should be treated
+    /// as negligible or when approximate calculations are acceptable.
     Zero,
+    /// Return the last known value prior to the requested date. Use for near-term
+    /// extrapolation when EOP values change slowly and continuity is important.
     Hold,
+    /// Panic and terminate execution when data is missing. Use when accuracy is critical
+    /// and operating with missing EOP data would produce unacceptable errors.
     Error,
 }
 
@@ -38,9 +44,16 @@ impl fmt::Display for EOPExtrapolation {
 /// - `Static`: Static EOP data
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum EOPType {
+    /// Unknown or unspecified EOP data source. Default value before initialization.
     Unknown,
+    /// IERS EOP 14 C04 long-term data product. High-quality historical data covering
+    /// 1962-present, updated annually. Best for historical analysis and validation.
     C04,
+    /// IERS Bulletin A (finals2000A.all file). Near real-time data with predictions
+    /// extending ~1 year into the future. Standard choice for operational applications.
     StandardBulletinA,
+    /// Static EOP values (typically zeros or constants). Use for testing or when
+    /// EOP corrections are not needed for the application's accuracy requirements.
     Static,
 }
 

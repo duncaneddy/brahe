@@ -5,8 +5,31 @@ for numerical integration routines.
 
 use nalgebra::{SMatrix, SVector};
 
+/// Trait defining interface for numerical integration methods.
 pub trait NumericalIntegrator<const S: usize> {
+    /// Advance the state by one timestep using this integration method.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `dt`: Integration timestep (can be negative for backward integration)
+    ///
+    /// # Returns
+    /// State vector at time t + dt
     fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> SVector<f64, S>;
+
+    /// Advance both state and state transition matrix by one timestep.
+    ///
+    /// Integrates state and its variational equations simultaneously for uncertainty propagation.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `phi`: State transition matrix at time t
+    /// - `dt`: Integration timestep
+    ///
+    /// # Returns
+    /// Tuple of (state at t+dt, state transition matrix at t+dt)
     fn step_with_varmat(
         &self,
         t: f64,
@@ -16,6 +39,19 @@ pub trait NumericalIntegrator<const S: usize> {
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>);
 }
 
+/// Compute state transition matrix (variational matrix) using percentage-based finite differences.
+///
+/// Perturbs each state component by a percentage of its value to compute partial derivatives
+/// numerically. Suitable when state components have similar scales and non-zero values.
+///
+/// # Arguments
+/// - `t`: Current time
+/// - `state`: State vector at time t
+/// - `f`: State derivative function (dynamics)
+/// - `percentage`: Fractional perturbation size (e.g., 0.01 for 1%)
+///
+/// # Returns
+/// State transition matrix (Jacobian) approximated via finite differences
 pub fn varmat_from_percentage_offset<const S: usize>(
     t: f64,
     state: SVector<f64, S>,
@@ -47,6 +83,20 @@ pub fn varmat_from_percentage_offset<const S: usize>(
     phi
 }
 
+/// Compute state transition matrix using fixed absolute offset finite differences.
+///
+/// Perturbs each state component by a fixed absolute amount to compute partial derivatives.
+/// Suitable when all state components have similar units/scales or when percentage-based
+/// perturbations would fail (e.g., near-zero values).
+///
+/// # Arguments
+/// - `t`: Current time
+/// - `state`: State vector at time t
+/// - `f`: State derivative function (dynamics)
+/// - `offset`: Absolute perturbation size for all components
+///
+/// # Returns
+/// State transition matrix (Jacobian) approximated via finite differences
 pub fn varmat_from_fixed_offset<const S: usize>(
     t: f64,
     state: SVector<f64, S>,
@@ -77,6 +127,20 @@ pub fn varmat_from_fixed_offset<const S: usize>(
     phi
 }
 
+/// Compute state transition matrix using component-specific offset finite differences.
+///
+/// Perturbs each state component by its corresponding offset value to compute partial
+/// derivatives. Most flexible option, allowing different perturbation sizes for different
+/// state components (e.g., position vs velocity).
+///
+/// # Arguments
+/// - `t`: Current time
+/// - `state`: State vector at time t
+/// - `f`: State derivative function (dynamics)
+/// - `offset`: Vector of perturbation sizes, one for each state component
+///
+/// # Returns
+/// State transition matrix (Jacobian) approximated via finite differences
 pub fn varmat_from_offset_vector<const S: usize>(
     t: f64,
     state: SVector<f64, S>,

@@ -15,9 +15,20 @@ use crate::attitude::attitude_types::{
 /// See [_Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors_ by James Diebel](https://www.astro.rug.nl/software/kapteyn-beta/_downloads/attitude.pdf) for more information
 /// on the different attitude representations and their conversions.
 pub trait ToAttitude {
+    /// Convert this attitude representation to a Quaternion.
+    /// Returns unit quaternion [w, x, y, z] representing the same rotation.
     fn to_quaternion(&self) -> Quaternion;
+
+    /// Convert this attitude representation to an Euler Axis (axis-angle representation).
+    /// Returns unit axis vector and rotation angle (radians) about that axis.
     fn to_euler_axis(&self) -> EulerAxis;
+
+    /// Convert this attitude representation to Euler Angles with specified rotation sequence.
+    /// Returns three angles (phi, theta, psi) in radians for the specified axis order.
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle;
+
+    /// Convert this attitude representation to a Rotation Matrix (Direction Cosine Matrix).
+    /// Returns 3×3 orthogonal matrix with determinant +1 representing the rotation.
     fn to_rotation_matrix(&self) -> RotationMatrix;
 }
 
@@ -32,8 +43,19 @@ pub trait ToAttitude {
 /// See [_Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors_ by James Diebel](https://www.astro.rug.nl/software/kapteyn-beta/_downloads/attitude.pdf) for more information
 /// on the different attitude representations and their conversions.
 pub trait FromAttitude {
+    /// Initialize this attitude representation from a Quaternion.
+    /// Converts unit quaternion [w, x, y, z] to this representation type.
     fn from_quaternion(q: Quaternion) -> Self;
+
+    /// Initialize this attitude representation from an Euler Axis (axis-angle).
+    /// Converts unit axis vector and rotation angle to this representation type.
     fn from_euler_axis(e: EulerAxis) -> Self;
+
+    /// Initialize this attitude representation from Euler Angles.
+    /// Converts three successive rotations (with specified order) to this representation type.
     fn from_euler_angle(e: EulerAngle) -> Self;
+
+    /// Initialize this attitude representation from a Rotation Matrix (DCM).
+    /// Converts 3×3 direction cosine matrix to this representation type.
     fn from_rotation_matrix(r: RotationMatrix) -> Self;
 }

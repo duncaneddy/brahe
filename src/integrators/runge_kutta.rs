@@ -62,6 +62,17 @@ pub struct RK4Integrator<const S: usize> {
 }
 
 impl<const S: usize> RK4Integrator<S> {
+    /// Create a new 4th-order Runge-Kutta integrator.
+    ///
+    /// Initializes RK4 integrator with classical Butcher tableau. Fourth-order accuracy
+    /// provides good balance between accuracy and computational cost for most ODE systems.
+    ///
+    /// # Arguments
+    /// - `f`: State derivative function defining the dynamics (closure or function pointer)
+    /// - `varmat`: Variational matrix computation function for state transition matrix propagation
+    ///
+    /// # Returns
+    /// RK4Integrator instance ready for numerical integration
     pub fn new(f: StateDynamics<S>, varmat: VariationalMatrix<S>) -> Self {
         Self {
             f,

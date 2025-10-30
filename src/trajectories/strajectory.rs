@@ -250,6 +250,8 @@ impl<const R: usize> STrajectory<R> {
         }
     }
 
+    /// Returns the dimension (number of elements) of state vectors in this trajectory.
+    /// For STrajectory6, always returns 6 (position + velocity components).
     pub fn dimension(&self) -> usize {
         R
     }

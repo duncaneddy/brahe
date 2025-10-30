@@ -423,7 +423,9 @@ pub fn find_access_candidates<L: AccessibleLocation, P: IdentifiableStateProvide
 
 /// Direction for stepping during boundary search
 pub enum StepDirection {
+    /// Step forward in time when searching for window boundary
     Forward,
+    /// Step backward in time when searching for window boundary
     Backward,
 }
 

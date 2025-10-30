@@ -13,6 +13,7 @@ pub mod cache;
 pub mod errors;
 pub mod formatting;
 pub mod identifiable;
+/// Mathematical utility functions and constants.
 pub mod math;
 pub mod testing;
 pub mod threading;

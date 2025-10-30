@@ -31,7 +31,9 @@ pub struct Quaternion {
 /// other attitude representations. Specifically, `Quaternion`, `EulerAngle`, and `RotationMatrix`.
 #[derive(Clone, Copy)]
 pub struct EulerAxis {
+    /// Unit vector defining the axis of rotation in 3D space. Must be normalized (magnitude = 1).
     pub axis: Vector3<f64>,
+    /// Rotation angle about the axis. Units: radians. Positive angles follow right-hand rule.
     pub angle: f64,
 }
 
@@ -51,17 +53,41 @@ pub struct EulerAxis {
 /// constant has a numerical value of `123`.
 #[derive(Clone, Copy, PartialEq, EnumIter)]
 pub enum EulerAngleOrder {
+    /// X-Y-X Euler angle sequence: rotate about X, then Y, then X again. Symmetric sequence
+    /// commonly used in classical mechanics. Avoids singularities when second angle is non-zero.
     XYX = 121,
+    /// X-Y-Z Euler angle sequence: rotate about X, then Y, then Z. Also known as Roll-Pitch-Yaw
+    /// in aerospace applications. Most intuitive for aircraft/spacecraft body-fixed rotations.
     XYZ = 123,
+    /// X-Z-X Euler angle sequence: rotate about X, then Z, then X again. Symmetric sequence
+    /// useful for rotations where middle axis alignment is critical.
     XZX = 131,
+    /// X-Z-Y Euler angle sequence: rotate about X, then Z, then Y. Less common asymmetric
+    /// sequence used in specific engineering applications.
     XZY = 132,
+    /// Y-X-Y Euler angle sequence: rotate about Y, then X, then Y again. Symmetric sequence
+    /// avoiding singularities when second rotation is non-zero.
     YXY = 212,
+    /// Y-X-Z Euler angle sequence: rotate about Y, then X, then Z. Asymmetric sequence
+    /// sometimes used in robotics and computer graphics applications.
     YXZ = 213,
+    /// Y-Z-X Euler angle sequence: rotate about Y, then Z, then X. Asymmetric sequence
+    /// with applications in specific coordinate transformation problems.
     YZX = 231,
+    /// Y-Z-Y Euler angle sequence: rotate about Y, then Z, then Y again. Symmetric sequence
+    /// for cases requiring repeated Y-axis rotations.
     YZY = 232,
+    /// Z-X-Y Euler angle sequence: rotate about Z, then X, then Y. Asymmetric sequence
+    /// used in some navigation and guidance applications.
     ZXY = 312,
+    /// Z-X-Z Euler angle sequence: rotate about Z, then X, then Z again. Symmetric sequence
+    /// commonly used in orbital mechanics for classical orbital element angles.
     ZXZ = 313,
+    /// Z-Y-X Euler angle sequence: rotate about Z, then Y, then X. Also known as Yaw-Pitch-Roll
+    /// (reverse order of XYZ). Standard in many aerospace and navigation contexts.
     ZYX = 321,
+    /// Z-Y-Z Euler angle sequence: rotate about Z, then Y, then Z again. Most common symmetric
+    /// sequence in physics and astronomy. Classical Euler angles for rigid body dynamics.
     ZYZ = 323,
 }
 
@@ -123,9 +149,14 @@ impl fmt::Debug for EulerAngleOrder {
 /// can be specified in either radians or degrees.
 #[derive(Clone, Copy)]
 pub struct EulerAngle {
+    /// Rotation sequence defining which axes are used for the three successive rotations.
+    /// Determines interpretation of phi, theta, psi angles.
     pub order: EulerAngleOrder,
+    /// First rotation angle in the sequence. Units: radians. Axis determined by `order`.
     pub phi: f64,
+    /// Second rotation angle in the sequence. Units: radians. Axis determined by `order`.
     pub theta: f64,
+    /// Third rotation angle in the sequence. Units: radians. Axis determined by `order`.
     pub psi: f64,
 }
 

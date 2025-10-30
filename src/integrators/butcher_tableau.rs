@@ -12,8 +12,14 @@ use crate::utils::BraheError;
 ///
 #[derive(Debug)]
 pub struct ButcherTableau<const S: usize> {
+    /// Matrix of RK coefficients (S×S). Lower triangular for explicit methods.
+    /// Element a[i,j] weights the j-th stage derivative in computing the i-th stage.
     pub a: SMatrix<f64, S, S>,
+    /// Vector of output weights (length S). Used to combine stage derivatives for final step.
+    /// Must sum to 1.0 for consistency. Each element weights corresponding stage's contribution.
     pub b: SVector<f64, S>,
+    /// Vector of node times (length S). Fractional timesteps where stages are evaluated.
+    /// First element must be 0.0. Element c[i] determines time offset for i-th stage.
     pub c: SVector<f64, S>,
 }
 

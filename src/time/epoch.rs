@@ -90,6 +90,9 @@ fn align_epoch_data(days: u64, seconds: u32, nanoseconds: f64) -> (u64, u32, f64
 /// floating point arithmetic errors.
 #[derive(Copy, Clone)]
 pub struct Epoch {
+    /// Time system in which this epoch is expressed (UTC, TAI, GPS, TT, or UT1).
+    /// All internal calculations maintain time system consistency. Convert between
+    /// systems using `to_time_system()` method, which applies proper offsets/leap seconds.
     pub time_system: TimeSystem,
     days: u64,
     seconds: u32,

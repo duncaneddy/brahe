@@ -330,6 +330,22 @@ impl SGPPropagator {
         })
     }
 
+    /// Configure output format for propagated states (builder pattern).
+    ///
+    /// Sets the reference frame, representation type, and angle units for propagation output.
+    ///
+    /// # Arguments
+    /// - `frame`: Target reference frame (ECI or ECEF)
+    /// - `representation`: State representation (Cartesian or Keplerian)
+    /// - `angle_format`: Angle units (Degrees/Radians) - required for Keplerian, None for Cartesian
+    ///
+    /// # Panics
+    /// - If Keplerian representation requested without angle_format
+    /// - If Keplerian representation requested in ECEF frame
+    /// - If Cartesian representation given with angle_format
+    ///
+    /// # Returns
+    /// Self for method chaining
     pub fn with_output_format(
         mut self,
         frame: OrbitFrame,
@@ -407,6 +423,17 @@ impl SGPPropagator {
         )
     }
 
+    /// Get propagated state in Pseudo-Earth-Fixed (PEF) frame.
+    ///
+    /// Propagates to the given epoch and transforms from TEME to PEF using simplified
+    /// rotation (GMST only, no polar motion or nutation). For higher accuracy, use
+    /// propagate() with ECEF output format.
+    ///
+    /// # Arguments
+    /// - `epoch`: Time to propagate to
+    ///
+    /// # Returns
+    /// State vector [x, y, z, vx, vy, vz] in PEF frame. Units: meters, meters/second.
     pub fn state_pef(&self, epoch: Epoch) -> Vector6<f64> {
         let tle_state = self.propagate_internal(epoch);
         // SGP4 outputs state in TEME

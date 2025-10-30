@@ -249,6 +249,8 @@ impl OrbitTrajectory {
         self
     }
 
+    /// Returns the dimension of state vectors in this trajectory.
+    /// Always returns 6 for orbital state vectors (position + velocity).
     pub fn dimension(&self) -> usize {
         6
     }

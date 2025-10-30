@@ -2,7 +2,7 @@
 
 Geocentric longitude, latitude, altitude coordinates represent positions relative to a spherical Earth's surface. These coordinates can be converted to and from Earth-Centered Earth-Fixed (ECEF) Cartesian coordinates. This coordinate system is simpler and computationally faster than the geodetic system, but less accurate for near-surface applications because it assumes Earth is a perfect sphere.
 
-For complete API details, see the [Geocentric Coordinates API Reference](../../library_api/coordinates/geocentric.md).
+For complete API details, see the [Geocentric Coordinates API Reference](../../library_api/coordinates/geodetic.md#geocentric-conversions).
 
 ## Geocentric Coordinate System
 
@@ -68,6 +68,6 @@ The reverse transformation converts Cartesian ECEF coordinates back to geocentri
 
 ## See Also
 
-- [Geocentric Coordinates API Reference](../../library_api/coordinates/geocentric.md) - Complete function documentation
+- [Geocentric Coordinates API Reference](../../library_api/coordinates/geodetic.md#geocentric-conversions) - Complete function documentation
 - [Geodetic Transformations](geodetic_transformations.md) - More accurate WGS84 ellipsoid model
 - [Topocentric Transformations](topocentric_transformations.md) - Local horizon coordinate systems

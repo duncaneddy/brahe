@@ -34,10 +34,20 @@ use serde::{Deserialize, Serialize};
 ///   Earth with respect to the ICRF inertial reference frame.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TimeSystem {
+    /// Global Positioning System time. Atomic time scale aligned with UTC at inception
+    /// (January 6, 1980), but does not include leap seconds. Used by GPS navigation systems.
     GPS,
+    /// International Atomic Time (Temps Atomique International). Continuous atomic time scale
+    /// representing passage of time on Earth's geoid. Does not include leap seconds.
     TAI,
+    /// Terrestrial Time. Theoretical atomic time standard used primarily for astronomy.
+    /// Offset from TAI by exactly 32.184 seconds (TT = TAI + 32.184s).
     TT,
+    /// Coordinated Universal Time. Atomic time scale steered to remain within ±0.9 seconds
+    /// of UT1 by incorporating leap seconds. Standard for civil timekeeping worldwide.
     UTC,
+    /// Universal Time 1. Solar time representing Earth's rotation relative to the ICRF
+    /// inertial frame. Mean solar time at 0° longitude, varies irregularly due to Earth's rotation.
     UT1,
 }
 

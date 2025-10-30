@@ -11,23 +11,32 @@ use pyo3::exceptions::PyOSError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+/// Brahe library error types for consistent error handling across modules.
 #[derive(Debug, PartialEq)]
 pub enum BraheError {
-    /// General-purpose error
+    /// General-purpose error for situations not covered by other specific error types.
+    /// Use when no other error category applies. Contains descriptive error message.
     Error(String),
-    /// IO error - typically from file read/write
+    /// IO error - typically from file read/write operations. Includes file access errors,
+    /// missing files, permission issues, or data download failures.
     IoError(String),
-    /// Earth Orientation Data Erro
+    /// Earth Orientation Data errors. Includes EOP provider initialization failures,
+    /// data file parsing errors, out-of-range date requests, or missing EOP data.
     EOPError(String),
-    /// Out of bounds error
+    /// Out of bounds error for array/vector access or invalid indices. Includes trajectory
+    /// time range violations, invalid orbital element indices, or matrix dimension mismatches.
     OutOfBoundsError(String),
-    /// Parse error
+    /// Parse error from string-to-type conversion failures. Includes TLE parsing errors,
+    /// invalid time string formats, malformed numeric values, or configuration file errors.
     ParseError(String),
-    /// Initialization Error
+    /// Initialization error when setting up library components. Includes EOP provider setup
+    /// failures, gravity model loading errors, or global state initialization problems.
     InitializationError(String),
-    /// Propagator Error
+    /// Propagator error during orbit propagation. Includes SGP4 failures, numerical integrator
+    /// divergence, timestep violations, or invalid initial state vectors.
     PropagatorError(String),
-    /// Numerical Error
+    /// Numerical error from mathematical operations. Includes matrix singularities,
+    /// convergence failures in iterative algorithms, or numerical instability.
     NumericalError(String),
 }
 

@@ -1,6 +1,6 @@
 # Attitude Representations
 
-Brahe supports multiple mathematical representations for 3D rotations and spacecraft attitude.
+Brahe supports multiple mathematical representations for the attitude, or orientation, of 3D objects such as spacecraft. Each representation has its own advantages and disadvantages depending on the application. These representations are implemented based on the comprehensive treatment found in [Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors](https://www.astro.rug.nl/software/kapteyn-beta/_downloads/attitude.pdf) by James Diebel.
 
 ## Overview
 
@@ -14,22 +14,22 @@ Attitude representation is fundamental to spacecraft dynamics and control. Brahe
 ## Choosing a Representation
 
 **Use Quaternions when:**
+
 - Numerical stability is critical
 - Interpolating between attitudes
 - Propagating attitude dynamics
 
 **Use Rotation Matrices when:**
+
 - Transforming vectors between frames
-- Maximum computational speed is needed
 
 **Use Euler Angles when:**
+
 - Human readability is important
-- Working with small attitude changes
-- Avoiding gimbal lock singularities
 
 **Use Euler Axis when:**
+
 - Representing single rotations about an axis
-- Geometric interpretation is important
 
 ## Conversions
 

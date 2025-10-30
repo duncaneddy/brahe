@@ -4,6 +4,7 @@
  */
 
 pub mod keplerian;
+/// Two-Line Element (TLE) format parsing and handling.
 pub mod tle;
 
 pub use keplerian::*;

@@ -70,6 +70,8 @@ pub struct CachingEOPProvider {
     filepath: PathBuf,
     eop_type: EOPType,
     max_age_seconds: u64,
+    /// Enable automatic refresh checks on each EOP data access. If true, provider verifies
+    /// file age before each query and downloads updates when needed. If false, manual refresh required.
     pub auto_refresh: bool,
     interpolate: bool,
     extrapolate: EOPExtrapolation,

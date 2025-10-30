@@ -96,13 +96,27 @@ impl Eq for EOPKey {}
 /// from the closest previous data entry present.
 pub struct FileEOPProvider {
     initialized: bool,
+    /// Type of EOP data loaded (C04, Bulletin A, or Static). Determines file format and
+    /// data quality characteristics. C04 provides historical data, Bulletin A includes predictions.
     pub eop_type: EOPType,
     data: EOPDataMap,
+    /// Extrapolation behavior when requested time is outside data range. Options: Zero, Hold, or Error.
+    /// Controls how provider handles dates before mjd_min or after mjd_max.
     pub extrapolate: EOPExtrapolation,
+    /// Enable linear interpolation between data points. If true, interpolate values between
+    /// tabulated dates. If false, use nearest previous value (step function).
     pub interpolate: bool,
+    /// Minimum Modified Julian Date in loaded dataset. Requests before this may trigger
+    /// extrapolation behavior or errors depending on `extrapolate` setting.
     pub mjd_min: f64,
+    /// Maximum Modified Julian Date in loaded dataset. Requests after this may trigger
+    /// extrapolation behavior or errors depending on `extrapolate` setting.
     pub mjd_max: f64,
+    /// Last MJD with valid Length of Day (LOD) data. LOD predictions degrade rapidly,
+    /// so many files only provide LOD for near-term dates. Units: MJD.
     pub mjd_last_lod: f64,
+    /// Last MJD with valid dX/dY nutation corrections. Precession-nutation corrections
+    /// have limited prediction accuracy. Units: MJD.
     pub mjd_last_dxdy: f64,
 }
 
@@ -544,6 +558,17 @@ impl FileEOPProvider {
         }
     }
 
+    /// Create FileEOPProvider from packaged C04 data file (1962-present).
+    ///
+    /// Loads IERS EOP 14 C04 long-term data product bundled with the library.
+    /// Best for historical analysis and applications not requiring latest predictions.
+    ///
+    /// # Arguments
+    /// - `interpolate`: Enable linear interpolation between data points
+    /// - `extrapolate`: Behavior for out-of-range dates (Zero, Hold, or Error)
+    ///
+    /// # Returns
+    /// FileEOPProvider initialized with C04 data, or error if parsing fails
     pub fn from_default_c04(
         interpolate: bool,
         extrapolate: EOPExtrapolation,
@@ -553,6 +578,17 @@ impl FileEOPProvider {
         Self::from_c04_file_bufreader(reader, interpolate, extrapolate)
     }
 
+    /// Create FileEOPProvider from packaged Bulletin A data file (with predictions).
+    ///
+    /// Loads IERS Bulletin A (finals2000A.all) bundled with the library. Includes
+    /// ~1 year of predictions beyond last observation. Standard choice for operational use.
+    ///
+    /// # Arguments
+    /// - `interpolate`: Enable linear interpolation between data points
+    /// - `extrapolate`: Behavior for out-of-range dates (Zero, Hold, or Error)
+    ///
+    /// # Returns
+    /// FileEOPProvider initialized with Bulletin A data, or error if parsing fails
     pub fn from_default_standard(
         interpolate: bool,
         extrapolate: EOPExtrapolation,
@@ -562,6 +598,18 @@ impl FileEOPProvider {
         Self::from_standard_file_bufreader(reader, interpolate, extrapolate)
     }
 
+    /// Create FileEOPProvider from packaged data file based on EOPType.
+    ///
+    /// Convenience method that routes to appropriate packaged file loader based on type.
+    /// Use this when EOP type is determined at runtime.
+    ///
+    /// # Arguments
+    /// - `eop_type`: Which packaged file to load (C04 or StandardBulletinA)
+    /// - `interpolate`: Enable linear interpolation between data points
+    /// - `extrapolate`: Behavior for out-of-range dates (Zero, Hold, or Error)
+    ///
+    /// # Returns
+    /// FileEOPProvider initialized with specified data type, or error if unsupported type
     pub fn from_default_file(
         eop_type: EOPType,
         interpolate: bool,

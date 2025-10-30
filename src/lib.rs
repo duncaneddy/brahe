@@ -123,6 +123,8 @@ pub mod constants;
 pub mod coordinates;
 pub mod datasets;
 pub mod eop;
+/// Reference frame transformations between Earth-Centered Inertial (ECI) and
+/// Earth-Centered Earth-Fixed (ECEF) coordinate systems.
 pub mod frames;
 pub mod integrators;
 pub mod orbit_dynamics;

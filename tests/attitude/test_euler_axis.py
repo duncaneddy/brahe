@@ -1,7 +1,14 @@
 from math import sqrt, pi
 import numpy as np
 from pytest import approx
-from brahe import Quaternion, EulerAngle, EulerAxis, RotationMatrix, AngleFormat
+from brahe import (
+    Quaternion,
+    EulerAngle,
+    EulerAngleOrder,
+    EulerAxis,
+    RotationMatrix,
+    AngleFormat,
+)
 from brahe import DEG2RAD
 
 
@@ -60,21 +67,21 @@ def test_from_euler_axis():
 
 
 def test_from_euler_angle_x_axis():
-    e = EulerAngle("XYZ", 45.0, 0.0, 0.0, AngleFormat.DEGREES)
+    e = EulerAngle(EulerAngleOrder.XYZ, 45.0, 0.0, 0.0, AngleFormat.DEGREES)
     e2 = EulerAxis.from_euler_angle(e)
     assert np.equal(e2.axis, np.array([1.0, 0.0, 0.0])).all()
     assert e2.angle == approx(pi / 4.0, abs=1e-12)
 
 
 def test_from_euler_angle_y_axis():
-    e = EulerAngle("XYZ", 0.0, 45.0, 0.0, AngleFormat.DEGREES)
+    e = EulerAngle(EulerAngleOrder.XYZ, 0.0, 45.0, 0.0, AngleFormat.DEGREES)
     e2 = EulerAxis.from_euler_angle(e)
     assert np.equal(e2.axis, np.array([0.0, 1.0, 0.0])).all()
     assert e2.angle == approx(pi / 4.0, abs=1e-12)
 
 
 def test_from_euler_angle_z_axis():
-    e = EulerAngle("XYZ", 0.0, 0.0, 45.0, AngleFormat.DEGREES)
+    e = EulerAngle(EulerAngleOrder.XYZ, 0.0, 0.0, 45.0, AngleFormat.DEGREES)
     e2 = EulerAxis.from_euler_angle(e)
     assert np.equal(e2.axis, np.array([0.0, 0.0, 1.0])).all()
     assert e2.angle == approx(pi / 4.0, abs=1e-12)
@@ -148,8 +155,8 @@ def test_to_euler_axis():
 
 def test_to_euler_angle_Rx():
     e = EulerAxis.from_values(1.0, 0.0, 0.0, pi / 4.0, AngleFormat.RADIANS)
-    e2 = e.to_euler_angle("XYZ")
-    assert e2.order == "XYZ"
+    e2 = e.to_euler_angle(EulerAngleOrder.XYZ)
+    assert e2.order == EulerAngleOrder.XYZ
     assert e2.phi == approx(pi / 4.0, abs=1e-12)
     assert e2.theta == 0.0
     assert e2.psi == 0.0
@@ -157,8 +164,8 @@ def test_to_euler_angle_Rx():
 
 def test_to_euler_angle_Ry():
     e = EulerAxis.from_values(0.0, 1.0, 0.0, pi / 4.0, AngleFormat.RADIANS)
-    e2 = e.to_euler_angle("XYZ")
-    assert e2.order == "XYZ"
+    e2 = e.to_euler_angle(EulerAngleOrder.XYZ)
+    assert e2.order == EulerAngleOrder.XYZ
     assert e2.phi == 0.0
     assert e2.theta == approx(pi / 4.0, abs=1e-12)
     assert e2.psi == 0.0
@@ -166,8 +173,8 @@ def test_to_euler_angle_Ry():
 
 def test_to_euler_angle_Rz():
     e = EulerAxis.from_values(0.0, 0.0, 1.0, pi / 4.0, AngleFormat.RADIANS)
-    e2 = e.to_euler_angle("XYZ")
-    assert e2.order == "XYZ"
+    e2 = e.to_euler_angle(EulerAngleOrder.XYZ)
+    assert e2.order == EulerAngleOrder.XYZ
     assert e2.phi == 0.0
     assert e2.theta == 0.0
     assert e2.psi == approx(pi / 4.0, abs=1e-12)
@@ -213,3 +220,26 @@ def test_to_rotation_matrix_Rz():
     assert r[(2, 0)] == approx(0.0, abs=1e-12)
     assert r[(2, 1)] == approx(0.0, abs=1e-12)
     assert r[(2, 2)] == approx(1.0, abs=1e-12)
+
+
+# Tests for integer array dtype conversion
+def test_new_with_integer_array():
+    """Test that EulerAxis.__init__ accepts integer arrays and converts them properly."""
+    e = EulerAxis(np.array([0, 0, 1]), 45.0, AngleFormat.DEGREES)
+    assert np.equal(e.axis, np.array([0.0, 0.0, 1.0])).all()
+    assert e.angle == 45.0 * DEG2RAD
+
+
+def test_new_with_mixed_array():
+    """Test that EulerAxis.__init__ accepts mixed int/float arrays."""
+    e = EulerAxis(np.array([1, 0.0, 1]), 45.0, AngleFormat.DEGREES)
+    assert np.equal(e.axis, np.array([1.0, 0.0, 1.0])).all()
+    assert e.angle == 45.0 * DEG2RAD
+
+
+def test_from_vector_with_integer_array():
+    """Test that EulerAxis.from_vector accepts integer arrays."""
+    vector = np.array([0, 0, 1, 45])
+    e = EulerAxis.from_vector(vector, AngleFormat.DEGREES, True)
+    assert np.equal(e.axis, np.array([0.0, 0.0, 1.0])).all()
+    assert e.angle == 45.0 * DEG2RAD

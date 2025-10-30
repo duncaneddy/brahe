@@ -1,14 +1,20 @@
 # Rotation Matrices
 
-Rotation matrices (Direction Cosine Matrices) represent rotations as 3×3 orthogonal matrices.
-
-## Overview
-
 A rotation matrix is a 3×3 matrix that transforms vectors from one coordinate frame to another. Also known as Direction Cosine Matrices (DCM).
 
 ## Mathematical Representation
 
-A rotation matrix $R$ satisfies:
+A rotation matrix is represented as:
+
+$$
+R = \begin{bmatrix}
+r_{11} & r_{12} & r_{13} \\
+r_{21} & r_{22} & r_{23} \\
+r_{31} & r_{32} & r_{33}
+\end{bmatrix}
+$$
+
+A rotation matrix $R$ satisfies the properties:
 
 $$R^T R = I$$
 
@@ -18,35 +24,67 @@ where $I$ is the identity matrix.
 
 ## Initialization
 
-### From Rotation Matrix
+Rotation matrices can be created directly from elements, elementary rotations, or converted from other attitude representations:
 
-### From Quaternion
+=== "Python"
 
-### From Euler Angles
+    ``` python
+    --8<-- "examples/attitude/rotation_matrix_initialization.py:8"
+    ```
 
-### From Euler Axis
+=== "Rust"
 
-## Functions and Operationss
+    ``` rust
+    --8<-- "examples/attitude/rotation_matrix_initialization.rs:4"
+    ```
 
-## Outputs
+## Output and Access
 
-### To Rotation Matrix
+Access rotation matrix elements and convert to other formats:
 
-### To Matrix
+=== "Python"
 
-### To Quaternion
+    ``` python
+    --8<-- "examples/attitude/rotation_matrix_output.py:8"
+    ```
 
-### To Euler Angles
+=== "Rust"
 
-### To Euler Axis
+    ``` rust
+    --8<-- "examples/attitude/rotation_matrix_output.rs:4"
+    ```
 
-## Common Rotations
+## Operations
 
-### Rotation about X-axis
+Rotation matrices support composition through matrix multiplication and vector rotation:
 
-### Rotation about Y-axis
+=== "Python"
 
-### Rotation about Z-axis
+    ``` python
+    --8<-- "examples/attitude/rotation_matrix_operations.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/rotation_matrix_operations.rs:4"
+    ```
+
+## Conversions
+
+Convert between rotation matrices and other attitude representations:
+
+=== "Python"
+
+    ``` python
+    --8<-- "examples/attitude/rotation_matrix_conversions.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/rotation_matrix_conversions.rs:4"
+    ```
 
 ## See Also
 

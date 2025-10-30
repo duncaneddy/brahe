@@ -32,6 +32,7 @@ from brahe._brahe import (
     Quaternion,
     EulerAxis,
     EulerAngle,
+    EulerAngleOrder,
     RotationMatrix,
 )
 
@@ -40,5 +41,6 @@ __all__ = [
     "Quaternion",
     "EulerAxis",
     "EulerAngle",
+    "EulerAngleOrder",
     "RotationMatrix",
 ]

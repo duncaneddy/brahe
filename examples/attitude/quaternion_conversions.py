@@ -1,0 +1,76 @@
+# /// script
+# dependencies = ["brahe"]
+# ///
+
+"""
+Demonstrates converting quaternions to other attitude representations.
+"""
+
+import brahe as bh
+import math
+
+# Create a quaternion (45° rotation about Z-axis)
+q = bh.Quaternion.from_rotation_matrix(bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES))
+
+print("Original quaternion:")
+print(f"  q = [{q.w:.6f}, {q.x:.6f}, {q.y:.6f}, {q.z:.6f}]")
+
+# Convert to rotation matrix
+rm = q.to_rotation_matrix()
+print("\nTo rotation matrix:")
+print(f"  [{rm.r11:.6f}, {rm.r12:.6f}, {rm.r13:.6f}]")
+print(f"  [{rm.r21:.6f}, {rm.r22:.6f}, {rm.r23:.6f}]")
+print(f"  [{rm.r31:.6f}, {rm.r32:.6f}, {rm.r33:.6f}]")
+
+# Convert to Euler angles (ZYX sequence)
+ea_zyx = q.to_euler_angle(bh.EulerAngleOrder.ZYX)
+print("\nTo Euler angles (ZYX):")
+print(f"  Yaw (Z):   {math.degrees(ea_zyx.phi):.3f}°")
+print(f"  Pitch (Y): {math.degrees(ea_zyx.theta):.3f}°")
+print(f"  Roll (X):  {math.degrees(ea_zyx.psi):.3f}°")
+
+# Convert to Euler angles (XYZ sequence)
+ea_xyz = q.to_euler_angle(bh.EulerAngleOrder.XYZ)
+print("\nTo Euler angles (XYZ):")
+print(f"  Angle 1 (X): {math.degrees(ea_xyz.phi):.3f}°")
+print(f"  Angle 2 (Y): {math.degrees(ea_xyz.theta):.3f}°")
+print(f"  Angle 3 (Z): {math.degrees(ea_xyz.psi):.3f}°")
+
+# Convert to Euler axis (axis-angle)
+ea = q.to_euler_axis()
+print("\nTo Euler axis:")
+print(f"  Axis: [{ea.axis[0]:.6f}, {ea.axis[1]:.6f}, {ea.axis[2]:.6f}]")
+print(f"  Angle: {math.degrees(ea.angle):.3f}°")
+
+# Round-trip conversion test
+q_roundtrip = bh.Quaternion.from_rotation_matrix(rm)
+print("\nRound-trip (Quaternion → RotationMatrix → Quaternion):")
+print(
+    f"  q_rt = [{q_roundtrip.w:.6f}, {q_roundtrip.x:.6f}, {q_roundtrip.y:.6f}, {q_roundtrip.z:.6f}]"
+)
+
+# Expected output:
+# Original quaternion:
+#   q = [0.923880, 0.000000, 0.000000, 0.382683]
+#
+# To rotation matrix:
+#   [0.707107, -0.707107, 0.000000]
+#   [0.707107, 0.707107, 0.000000]
+#   [0.000000, 0.000000, 1.000000]
+#
+# To Euler angles (ZYX):
+#   Yaw (Z):   45.000°
+#   Pitch (Y): 0.000°
+#   Roll (X):  0.000°
+#
+# To Euler angles (XYZ):
+#   Angle 1 (X): 0.000°
+#   Angle 2 (Y): 0.000°
+#   Angle 3 (Z): 45.000°
+#
+# To Euler axis:
+#   Axis: [0.000000, 0.000000, 1.000000]
+#   Angle: 45.000°
+#
+# Round-trip (Quaternion → RotationMatrix → Quaternion):
+#   q_rt = [0.923880, 0.000000, 0.000000, 0.382683]

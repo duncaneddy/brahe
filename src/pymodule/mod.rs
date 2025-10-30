@@ -7,7 +7,8 @@ use std::path::Path;
 
 use nalgebra as na;
 use numpy::{
-    IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, ToPyArray,
+    IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
+    PyUntypedArrayMethods, ToPyArray,
 };
 
 use pyo3::panic::PanicException;
@@ -44,12 +45,143 @@ macro_rules! vector_to_numpy {
     }};
 }
 
+#[allow(unused_macros)]
 macro_rules! numpy_to_matrix {
     ($mat:expr,$r:expr,$c:expr,$typ:ty) => {{ na::SMatrix::<$typ, $r, $c>::from_vec($mat.to_vec().unwrap()) }};
 }
 
 macro_rules! numpy_to_vector {
     ($vec:expr,$l:expr,$typ:ty) => {{ na::SVector::<$typ, $l>::from_vec($vec.to_vec().unwrap()) }};
+}
+
+/// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
+///
+/// This function accepts any numpy array-like object and converts it to Vec<f64>,
+/// automatically converting integer arrays to float64 if needed.
+///
+/// # Arguments
+///
+/// * `arr` - Python object that should be a numpy array
+/// * `expected_len` - Optional expected length for validation
+///
+/// # Returns
+///
+/// * `PyResult<Vec<f64>>` - Converted vector or error
+fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> PyResult<Vec<f64>> {
+    let py = arr.py();
+
+    // Import numpy
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+
+    // Get float64 dtype
+    let float64_dtype = np
+        .getattr("float64")
+        .map_err(|_| exceptions::PyAttributeError::new_err("Failed to get numpy.float64"))?;
+
+    // Convert to float64 dtype - this handles int arrays gracefully
+    let arr_f64 = arr.call_method1("astype", (float64_dtype,)).map_err(|_| {
+        exceptions::PyTypeError::new_err("Expected a numpy array or array-like object")
+    })?;
+
+    // Downcast to PyArray<f64, Ix1>
+    let pyarray = arr_f64
+        .downcast::<PyArray<f64, Ix1>>()
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array"))?;
+
+    // Convert to vector
+    let vec = pyarray
+        .to_vec()
+        .map_err(|_| exceptions::PyValueError::new_err("Failed to convert array to vector"))?;
+
+    // Validate length if expected
+    if let Some(len) = expected_len
+        && vec.len() != len
+    {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected array of length {}, got {}",
+            len,
+            vec.len()
+        )));
+    }
+
+    Ok(vec)
+}
+
+/// Convert a Python object to a 2D f64 array, automatically handling dtype conversion.
+///
+/// This function accepts any numpy array-like object and converts it to Vec<Vec<f64>>,
+/// automatically converting integer arrays to float64 if needed.
+///
+/// # Arguments
+///
+/// * `arr` - Python object that should be a 2D numpy array
+/// * `expected_shape` - Optional expected shape (rows, cols) for validation
+///
+/// # Returns
+///
+/// * `PyResult<Vec<Vec<f64>>>` - Converted 2D vector or error
+fn pyany_to_f64_array2(
+    arr: &Bound<'_, PyAny>,
+    expected_shape: Option<(usize, usize)>,
+) -> PyResult<Vec<Vec<f64>>> {
+    let py = arr.py();
+
+    // Import numpy
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+
+    // Get float64 dtype
+    let float64_dtype = np
+        .getattr("float64")
+        .map_err(|_| exceptions::PyAttributeError::new_err("Failed to get numpy.float64"))?;
+
+    // Convert to float64 dtype
+    let arr_f64 = arr.call_method1("astype", (float64_dtype,)).map_err(|_| {
+        exceptions::PyTypeError::new_err("Expected a numpy array or array-like object")
+    })?;
+
+    // Downcast to PyArray<f64, Ix2>
+    let pyarray = arr_f64
+        .downcast::<PyArray<f64, Ix2>>()
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a 2-D numpy array"))?;
+
+    // Get shape
+    let shape = pyarray.shape();
+    if shape.len() != 2 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected 2-D array, got {}-D",
+            shape.len()
+        )));
+    }
+    let rows = shape[0];
+    let cols = shape[1];
+
+    // Validate shape if expected
+    if let Some((exp_rows, exp_cols)) = expected_shape
+        && (rows != exp_rows || cols != exp_cols)
+    {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected array of shape ({}, {}), got ({}, {})",
+            exp_rows, exp_cols, rows, cols
+        )));
+    }
+
+    // Convert to Vec<Vec<f64>>
+    let flat_vec = pyarray
+        .to_vec()
+        .map_err(|_| exceptions::PyValueError::new_err("Failed to convert array to vector"))?;
+
+    // Reshape into 2D Vec (row-major order)
+    let mut result = Vec::with_capacity(rows);
+    for i in 0..rows {
+        let row = flat_vec[i * cols..(i + 1) * cols].to_vec();
+        result.push(row);
+    }
+
+    Ok(result)
 }
 
 /// Python wrapper for AngleFormat enum
@@ -358,6 +490,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyQuaternion>()?;
     module.add_class::<PyEulerAxis>()?;
     module.add_class::<PyEulerAngle>()?;
+    module.add_class::<PyEulerAngleOrder>()?;
     module.add_class::<PyRotationMatrix>()?;
 
     //* Datasets *//

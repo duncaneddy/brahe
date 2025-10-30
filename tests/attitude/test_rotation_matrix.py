@@ -1,7 +1,14 @@
 from math import sqrt
 import numpy as np
 import pytest
-from brahe import Quaternion, EulerAngle, EulerAxis, RotationMatrix, AngleFormat
+from brahe import (
+    Quaternion,
+    EulerAngle,
+    EulerAngleOrder,
+    EulerAxis,
+    RotationMatrix,
+    AngleFormat,
+)
 
 
 def test_new():
@@ -178,7 +185,7 @@ def test_from_euler_axis_Rz():
 
 
 def test_from_euler_angle():
-    e = EulerAngle("XYZ", 45.0, 0.0, 0.0, AngleFormat.DEGREES)
+    e = EulerAngle(EulerAngleOrder.XYZ, 45.0, 0.0, 0.0, AngleFormat.DEGREES)
     r = RotationMatrix.from_euler_angle(e)
     expected = RotationMatrix(
         1.0,
@@ -196,18 +203,18 @@ def test_from_euler_angle():
 
 def test_from_euler_angle_all_orders():
     for order in [
-        "XYX",
-        "XYZ",
-        "XZX",
-        "XZY",
-        "YXY",
-        "YXZ",
-        "YZX",
-        "YZY",
-        "ZXY",
-        "ZXZ",
-        "ZYX",
-        "ZYZ",
+        EulerAngleOrder.XYX,
+        EulerAngleOrder.XYZ,
+        EulerAngleOrder.XZX,
+        EulerAngleOrder.XZY,
+        EulerAngleOrder.YXY,
+        EulerAngleOrder.YXZ,
+        EulerAngleOrder.YZX,
+        EulerAngleOrder.YZY,
+        EulerAngleOrder.ZXY,
+        EulerAngleOrder.ZXZ,
+        EulerAngleOrder.ZYX,
+        EulerAngleOrder.ZYZ,
     ]:
         e = EulerAngle(order, 45.0, 30.0, 60.0, AngleFormat.DEGREES)
         r = RotationMatrix.from_euler_angle(e)
@@ -308,7 +315,7 @@ def test_to_euler_angle_circular_xyx():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("XYX")
+    e = r.to_euler_angle(EulerAngleOrder.XYX)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -319,7 +326,7 @@ def test_to_euler_angle_circular_xyz():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("XYZ")
+    e = r.to_euler_angle(EulerAngleOrder.XYZ)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -330,7 +337,7 @@ def test_to_euler_angle_circular_xzx():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("XZX")
+    e = r.to_euler_angle(EulerAngleOrder.XZX)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -341,7 +348,7 @@ def test_to_euler_angle_circular_xzy():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("XZY")
+    e = r.to_euler_angle(EulerAngleOrder.XZY)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -352,7 +359,7 @@ def test_to_euler_angle_circular_yxy():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("YXY")
+    e = r.to_euler_angle(EulerAngleOrder.YXY)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -363,7 +370,7 @@ def test_to_euler_angle_circular_yxz():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("YXZ")
+    e = r.to_euler_angle(EulerAngleOrder.YXZ)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -374,7 +381,7 @@ def test_to_euler_angle_circular_yzx():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("YZX")
+    e = r.to_euler_angle(EulerAngleOrder.YZX)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -385,7 +392,7 @@ def test_to_euler_angle_circular_yzy():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("YZY")
+    e = r.to_euler_angle(EulerAngleOrder.YZY)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -396,7 +403,7 @@ def test_to_euler_angle_circular_zxy():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("ZXY")
+    e = r.to_euler_angle(EulerAngleOrder.ZXY)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -407,7 +414,7 @@ def test_to_euler_angle_circular_zxz():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("ZXZ")
+    e = r.to_euler_angle(EulerAngleOrder.ZXZ)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -418,7 +425,7 @@ def test_to_euler_angle_circular_zyx():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("ZYX")
+    e = r.to_euler_angle(EulerAngleOrder.ZYX)
     r2 = e.to_rotation_matrix()
     assert r == r2
 
@@ -429,7 +436,7 @@ def test_to_euler_angle_circular_zyz():
         * RotationMatrix.Ry(45.0, AngleFormat.DEGREES)
         * RotationMatrix.Rx(60.0, AngleFormat.DEGREES)
     )
-    e = r.to_euler_angle("ZYZ")
+    e = r.to_euler_angle(EulerAngleOrder.ZYZ)
     r2 = e.to_rotation_matrix()
     assert r == r2
 

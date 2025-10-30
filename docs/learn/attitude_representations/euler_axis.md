@@ -17,27 +17,67 @@ Together: $[\theta, n_x, n_y, n_z]$ (4 parameters)
 
 ## Initialization
 
-### From Rotation Matrix
+Euler axis representations can be created from an axis vector and angle, or converted from other attitude representations:
 
-### From Quaternion
+=== "Python"
 
-### From Euler Angles
+    ``` python
+    --8<-- "examples/attitude/euler_axis_initialization.py:8"
+    ```
 
-### From Euler Axis
+=== "Rust"
 
-## Functions and Operations
+    ``` rust
+    --8<-- "examples/attitude/euler_axis_initialization.rs:4"
+    ```
 
-## Outputs
+## Output and Access
 
-### To Rotation Matrix
+Access the rotation axis and angle components:
 
-### To Matrix
+=== "Python"
 
-### To Quaternion
+    ``` python
+    --8<-- "examples/attitude/euler_axis_output.py:8"
+    ```
 
-### To Euler Angles
+=== "Rust"
 
-### To Euler Axis
+    ``` rust
+    --8<-- "examples/attitude/euler_axis_output.rs:4"
+    ```
+
+## Operations
+
+Euler axis representations are typically converted to other formats for composition:
+
+=== "Python"
+
+    ``` python
+    --8<-- "examples/attitude/euler_axis_operations.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/euler_axis_operations.rs:4"
+    ```
+
+## Conversions
+
+Convert between Euler axis and other attitude representations:
+
+=== "Python"
+
+    ``` python
+    --8<-- "examples/attitude/euler_axis_conversions.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/euler_axis_conversions.rs:4"
+    ```
 
 ## See Also
 

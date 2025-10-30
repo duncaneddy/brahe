@@ -1,7 +1,14 @@
 from math import sqrt
 import numpy as np
 from pytest import approx
-from brahe import Quaternion, EulerAngle, EulerAxis, RotationMatrix, AngleFormat
+from brahe import (
+    Quaternion,
+    EulerAngle,
+    EulerAngleOrder,
+    EulerAxis,
+    RotationMatrix,
+    AngleFormat,
+)
 
 
 def test_quaternion_display():
@@ -70,10 +77,19 @@ def test_quaternion_inverse():
 
 
 def test_quaternion_slerp():
-    q1 = EulerAngle("XYZ", 0.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
-    q2 = EulerAngle("XYZ", 180.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
+    q1 = EulerAngle(
+        EulerAngleOrder.XYZ, 0.0, 0.0, 0.0, AngleFormat.DEGREES
+    ).to_quaternion()
+    q2 = EulerAngle(
+        EulerAngleOrder.XYZ, 180.0, 0.0, 0.0, AngleFormat.DEGREES
+    ).to_quaternion()
     q = q1.slerp(q2, 0.5)
-    assert q == EulerAngle("XYZ", 90.0, 0.0, 0.0, AngleFormat.DEGREES).to_quaternion()
+    assert (
+        q
+        == EulerAngle(
+            EulerAngleOrder.XYZ, 90.0, 0.0, 0.0, AngleFormat.DEGREES
+        ).to_quaternion()
+    )
 
 
 def test_quaternion_add():
@@ -141,7 +157,7 @@ def test_attitude_representation_from_euler_axis():
 
 
 def test_attitude_representation_from_euler_angle():
-    e = EulerAngle("XYZ", 90.0, 0.0, 0.0, AngleFormat.DEGREES)
+    e = EulerAngle(EulerAngleOrder.XYZ, 90.0, 0.0, 0.0, AngleFormat.DEGREES)
     q = Quaternion.from_euler_angle(e)
 
     assert q == Quaternion(0.7071067811865476, 0.7071067811865475, 0.0, 0.0)
@@ -182,7 +198,7 @@ def test_attitude_representation_to_euler_axis():
 
 
 def test_attitude_representation_to_euler_angle_xyx():
-    order = "XYX"
+    order = EulerAngleOrder.XYX
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -190,7 +206,7 @@ def test_attitude_representation_to_euler_angle_xyx():
 
 
 def test_attitude_representation_to_euler_angle_xyz():
-    order = "XYZ"
+    order = EulerAngleOrder.XYZ
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -198,7 +214,7 @@ def test_attitude_representation_to_euler_angle_xyz():
 
 
 def test_attitude_representation_to_euler_angle_xzx():
-    order = "XZX"
+    order = EulerAngleOrder.XZX
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -206,7 +222,7 @@ def test_attitude_representation_to_euler_angle_xzx():
 
 
 def test_attitude_representation_to_euler_angle_xzy():
-    order = "XZY"
+    order = EulerAngleOrder.XZY
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -214,7 +230,7 @@ def test_attitude_representation_to_euler_angle_xzy():
 
 
 def test_attitude_representation_to_euler_angle_yxy():
-    order = "YXY"
+    order = EulerAngleOrder.YXY
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -222,7 +238,7 @@ def test_attitude_representation_to_euler_angle_yxy():
 
 
 def test_attitude_representation_to_euler_angle_yxz():
-    order = "YXZ"
+    order = EulerAngleOrder.YXZ
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -230,7 +246,7 @@ def test_attitude_representation_to_euler_angle_yxz():
 
 
 def test_attitude_representation_to_euler_angle_yzx():
-    order = "YZX"
+    order = EulerAngleOrder.YZX
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -238,7 +254,7 @@ def test_attitude_representation_to_euler_angle_yzx():
 
 
 def test_attitude_representation_to_euler_angle_yzy():
-    order = "YZY"
+    order = EulerAngleOrder.YZY
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -246,7 +262,7 @@ def test_attitude_representation_to_euler_angle_yzy():
 
 
 def test_attitude_representation_to_euler_angle_zxy():
-    order = "ZXZ"
+    order = EulerAngleOrder.ZXZ
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -254,7 +270,7 @@ def test_attitude_representation_to_euler_angle_zxy():
 
 
 def test_attitude_representation_to_euler_angle_zyx():
-    order = "ZYX"
+    order = EulerAngleOrder.ZYX
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -262,7 +278,7 @@ def test_attitude_representation_to_euler_angle_zyx():
 
 
 def test_attitude_representation_to_euler_angle_zyz():
-    order = "ZYZ"
+    order = EulerAngleOrder.ZYZ
     q = Quaternion(0.675, 0.42, 0.5, 0.71)
     e = q.to_euler_angle(order)
 
@@ -288,3 +304,18 @@ def test_quaternion_to_rotation_matrix_circular():
     r = q.to_rotation_matrix()
 
     assert Quaternion.from_rotation_matrix(r) == q
+
+
+# Tests for integer array dtype conversion
+def test_quaternion_from_vector_with_integer_array():
+    """Test that Quaternion.from_vector accepts integer arrays and converts them properly."""
+    v = np.array([1, 0, 0, 0])
+    q = Quaternion.from_vector(v, True)
+    assert np.equal(q.data, np.array([1.0, 0.0, 0.0, 0.0])).all()
+
+
+def test_quaternion_from_vector_with_mixed_array():
+    """Test that Quaternion.from_vector accepts mixed int/float arrays."""
+    v = np.array([1, 0.0, 0, 0.0])
+    q = Quaternion.from_vector(v, True)
+    assert np.equal(q.data, np.array([1.0, 0.0, 0.0, 0.0])).all()

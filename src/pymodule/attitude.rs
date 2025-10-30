@@ -1,24 +1,3 @@
-/// Helper function to parse strings into appropriate EOPExtrapolation enumerations
-fn string_to_euler_angle_order(s: &str) -> Result<attitude::EulerAngleOrder, BraheError> {
-    match s {
-        "XYX" => Ok(attitude::EulerAngleOrder::XYX),
-        "XYZ" => Ok(attitude::EulerAngleOrder::XYZ),
-        "XZX" => Ok(attitude::EulerAngleOrder::XZX),
-        "XZY" => Ok(attitude::EulerAngleOrder::XZY),
-        "YXY" => Ok(attitude::EulerAngleOrder::YXY),
-        "YXZ" => Ok(attitude::EulerAngleOrder::YXZ),
-        "YZX" => Ok(attitude::EulerAngleOrder::YZX),
-        "YZY" => Ok(attitude::EulerAngleOrder::YZY),
-        "ZXY" => Ok(attitude::EulerAngleOrder::ZXY),
-        "ZXZ" => Ok(attitude::EulerAngleOrder::ZXZ),
-        "ZYX" => Ok(attitude::EulerAngleOrder::ZYX),
-        "ZYZ" => Ok(attitude::EulerAngleOrder::ZYZ),
-        _ => Err(BraheError::Error(format!(
-            "Unknown EulerAngleOrder \"{}\"",
-            s
-        ))),
-    }
-}
 
 /// Helper function to convert EOPExtrapolation enumerations into representative string
 fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
@@ -35,6 +14,107 @@ fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
         attitude::EulerAngleOrder::ZXZ => String::from("ZXZ"),
         attitude::EulerAngleOrder::ZYX => String::from("ZYX"),
         attitude::EulerAngleOrder::ZYZ => String::from("ZYZ"),
+    }
+}
+
+/// Python wrapper for EulerAngleOrder enum
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EulerAngleOrder")]
+#[derive(Clone)]
+pub struct PyEulerAngleOrder {
+    pub(crate) value: attitude::EulerAngleOrder,
+}
+
+#[pymethods]
+impl PyEulerAngleOrder {
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn XYX() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::XYX }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn XYZ() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::XYZ }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn XZX() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::XZX }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn XZY() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::XZY }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn YXY() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::YXY }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn YXZ() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::YXZ }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn YZX() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::YZX }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn YZY() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::YZY }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ZXY() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::ZXY }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ZXZ() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::ZXZ }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ZYX() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::ZYX }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ZYZ() -> Self {
+        PyEulerAngleOrder { value: attitude::EulerAngleOrder::ZYZ }
+    }
+
+    fn __str__(&self) -> String {
+        euler_angle_order_to_string(self.value)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("EulerAngleOrder.{}", euler_angle_order_to_string(self.value))
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.value == other.value),
+            CompareOp::Ne => Ok(self.value != other.value),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
     }
 }
 
@@ -110,12 +190,13 @@ impl PyQuaternion {
     ///     ```
     pub fn from_vector(
         _cls: &Bound<'_, PyType>,
-        v: &Bound<'_, PyArray<f64, Ix1>>,
+        v: &Bound<'_, PyAny>,
         scalar_first: bool,
-    ) -> PyQuaternion {
-        PyQuaternion {
-            obj: attitude::Quaternion::from_vector(numpy_to_vector!(v, 4, f64), scalar_first),
-        }
+    ) -> PyResult<PyQuaternion> {
+        let vec = pyany_to_f64_array1(v, Some(4))?;
+        Ok(PyQuaternion {
+            obj: attitude::Quaternion::from_vector(na::SVector::<f64, 4>::from_vec(vec), scalar_first),
+        })
     }
 
     #[pyo3(text_signature = "($self, scalar_first)")]
@@ -423,9 +504,9 @@ impl PyQuaternion {
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     ///     euler = q.to_euler_angle("XYZ")
     ///     ```
-    pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
+    pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
+            obj: self.obj.to_euler_angle(order.value)
         }
     }
 
@@ -548,24 +629,26 @@ impl PyEulerAngle {
     /// Get the rotation sequence order.
     ///
     /// Returns:
-    ///     str: Rotation sequence (e.g., "XYZ", "ZYX")
+    ///     EulerAngleOrder: Rotation sequence enum value
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     print(f"Order: {e.order}")
     ///     ```
-    pub fn order(&self) -> String {
-        euler_angle_order_to_string(self.obj.order)
+    pub fn order(&self) -> PyEulerAngleOrder {
+        PyEulerAngleOrder {
+            value: self.obj.order
+        }
     }
 
     #[new]
     #[pyo3(text_signature = "(order, phi, theta, psi, angle_format)")]
-    pub fn new(order: &str, phi: f64, theta: f64, psi: f64, angle_format: &PyAngleFormat) -> PyEulerAngle {
+    pub fn new(order: &PyEulerAngleOrder, phi: f64, theta: f64, psi: f64, angle_format: &PyAngleFormat) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::new(string_to_euler_angle_order(order).unwrap(), phi, theta, psi, angle_format.value),
+            obj: attitude::EulerAngle::new(order.value, phi, theta, psi, angle_format.value),
         }
     }
 
@@ -589,10 +672,11 @@ impl PyEulerAngle {
     ///     v = np.array([0.1, 0.2, 0.3])
     ///     euler = bh.EulerAngle.from_vector(v, "XYZ", bh.AngleFormat.RADIANS)
     ///     ```
-    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, order: &str, angle_format: &PyAngleFormat) -> PyEulerAngle {
-        PyEulerAngle {
-            obj: attitude::EulerAngle::from_vector(numpy_to_vector!(v, 3, f64), string_to_euler_angle_order(order).unwrap(), angle_format.value),
-        }
+    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyAny>, order: &PyEulerAngleOrder, angle_format: &PyAngleFormat) -> PyResult<PyEulerAngle> {
+        let vec = pyany_to_f64_array1(v, Some(3))?;
+        Ok(PyEulerAngle {
+            obj: attitude::EulerAngle::from_vector(na::SVector::<f64, 3>::from_vec(vec), order.value, angle_format.value),
+        })
     }
 
     #[classmethod]
@@ -613,9 +697,9 @@ impl PyEulerAngle {
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     ///     e = bh.EulerAngle.from_quaternion(q, "XYZ")
     ///     ```
-    pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion, order: &str) -> PyEulerAngle {
+    pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::from_quaternion(q.obj, string_to_euler_angle_order(order).unwrap()),
+            obj: attitude::EulerAngle::from_quaternion(q.obj, order.value),
         }
     }
 
@@ -639,9 +723,9 @@ impl PyEulerAngle {
     ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
     ///     e = bh.EulerAngle.from_euler_axis(ea, "XYZ")
     ///     ```
-    pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis, order: &str) -> PyEulerAngle {
+    pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::from_euler_axis(e.obj, string_to_euler_angle_order(order).unwrap()),
+            obj: attitude::EulerAngle::from_euler_axis(e.obj, order.value),
         }
     }
 
@@ -663,9 +747,9 @@ impl PyEulerAngle {
     ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     e2 = bh.EulerAngle.from_euler_angle(e1, "ZYX")
     ///     ```
-    pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle, order: &str) -> PyEulerAngle {
+    pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::from_euler_angle(e.obj, string_to_euler_angle_order(order).unwrap()),
+            obj: attitude::EulerAngle::from_euler_angle(e.obj, order.value),
         }
     }
 
@@ -688,9 +772,9 @@ impl PyEulerAngle {
     ///     r = bh.RotationMatrix.from_array(np.eye(3))
     ///     e = bh.EulerAngle.from_rotation_matrix(r, "XYZ")
     ///     ```
-    pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix, order: &str) -> PyEulerAngle {
+    pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: attitude::EulerAngle::from_rotation_matrix(r.obj, string_to_euler_angle_order(order).unwrap()),
+            obj: attitude::EulerAngle::from_rotation_matrix(r.obj, order.value),
         }
     }
 
@@ -748,9 +832,9 @@ impl PyEulerAngle {
     ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     e2 = e1.to_euler_angle("ZYX")
     ///     ```
-    pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
+    pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
+            obj: self.obj.to_euler_angle(order.value)
         }
     }
 
@@ -867,10 +951,11 @@ impl PyEulerAxis {
 
     #[new]
     #[pyo3(text_signature = "(axis, angle, angle_format)")]
-    pub fn new(axis: &Bound<'_, PyArray<f64, Ix1>>, angle: f64, angle_format: &PyAngleFormat) -> PyEulerAxis {
-        PyEulerAxis {
-            obj: attitude::EulerAxis::new(numpy_to_vector!(axis, 3, f64), angle, angle_format.value),
-        }
+    pub fn new(axis: &Bound<'_, PyAny>, angle: f64, angle_format: &PyAngleFormat) -> PyResult<PyEulerAxis> {
+        let axis_vec = pyany_to_f64_array1(axis, Some(3))?;
+        Ok(PyEulerAxis {
+            obj: attitude::EulerAxis::new(na::SVector::<f64, 3>::from_vec(axis_vec), angle, angle_format.value),
+        })
     }
 
     #[classmethod]
@@ -919,10 +1004,11 @@ impl PyEulerAxis {
     ///     v = np.array([0.0, 0.0, 1.0, 1.5708])
     ///     e = bh.EulerAxis.from_vector(v, bh.AngleFormat.RADIANS, True)
     ///     ```
-    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyArray<f64, Ix1>>, angle_format: &PyAngleFormat, vector_first: bool) -> PyEulerAxis {
-        PyEulerAxis {
-            obj: attitude::EulerAxis::from_vector(numpy_to_vector!(v, 4, f64), angle_format.value, vector_first),
-        }
+    pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyAny>, angle_format: &PyAngleFormat, vector_first: bool) -> PyResult<PyEulerAxis> {
+        let vec = pyany_to_f64_array1(v, Some(4))?;
+        Ok(PyEulerAxis {
+            obj: attitude::EulerAxis::from_vector(na::SVector::<f64, 4>::from_vec(vec), angle_format.value, vector_first),
+        })
     }
 
     #[pyo3(text_signature = "($self, angle_format, vector_first)")]
@@ -1093,9 +1179,9 @@ impl PyEulerAxis {
     ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
     ///     e = ea.to_euler_angle("XYZ")
     ///     ```
-    pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
+    pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
+            obj: self.obj.to_euler_angle(order.value)
         }
     }
 
@@ -1228,9 +1314,18 @@ impl PyRotationMatrix {
     ///     mat = np.eye(3)
     ///     r = bh.RotationMatrix.from_matrix(mat)
     ///     ```
-    pub fn from_matrix(_cls: &Bound<'_, PyType>, m: &Bound<'_, PyArray<f64, Ix2>>) -> Result<PyRotationMatrix, BraheError> {
+    pub fn from_matrix(_cls: &Bound<'_, PyType>, m: &Bound<'_, PyAny>) -> Result<PyRotationMatrix, BraheError> {
+        let mat_vec = pyany_to_f64_array2(m, Some((3, 3)))
+            .map_err(|e| BraheError::ParseError(format!("Invalid matrix input: {}", e)))?;
+
+        // Convert Vec<Vec<f64>> (row-major) to flat Vec<f64> (column-major) for nalgebra
+        // Iterate over columns, then for each column iterate over rows to get row[col]
+        let flat: Vec<f64> = (0..3)
+            .flat_map(|col| mat_vec.iter().map(move |row| row[col]))
+            .collect();
+
         Ok(PyRotationMatrix {
-            obj: attitude::RotationMatrix::from_matrix(numpy_to_matrix!(m, 3, 3, f64))?,
+            obj: attitude::RotationMatrix::from_matrix(na::SMatrix::<f64, 3, 3>::from_vec(flat))?,
         })
     }
 
@@ -1453,9 +1548,9 @@ impl PyRotationMatrix {
     ///     r = bh.RotationMatrix.from_array(np.eye(3))
     ///     euler = r.to_euler_angle("XYZ")
     ///     ```
-    pub fn to_euler_angle(&self, order: &str) -> PyEulerAngle {
+    pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
-            obj: self.obj.to_euler_angle(string_to_euler_angle_order(order).unwrap())
+            obj: self.obj.to_euler_angle(order.value)
         }
     }
 

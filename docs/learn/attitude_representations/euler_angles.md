@@ -21,27 +21,67 @@ An Euler angle rotation is specified by:
 
 ## Initialization
 
-### From Rotation Matrix
+Euler angles can be created from individual angles with a specified rotation sequence, or converted from other attitude representations:
 
-### From Quaternion
+=== "Python"
 
-### From Euler Angles
+    ``` python
+    --8<-- "examples/attitude/euler_angle_initialization.py:8"
+    ```
 
-### From Euler Axis
+=== "Rust"
 
-## Functions and Operations
+    ``` rust
+    --8<-- "examples/attitude/euler_angle_initialization.rs:4"
+    ```
 
-## Outputs
+## Output and Access
 
-### To Rotation Matrix
+Access individual Euler angles and the rotation sequence:
 
-### To Matrix
+=== "Python"
 
-### To Quaternion
+    ``` python
+    --8<-- "examples/attitude/euler_angle_output.py:8"
+    ```
 
-### To Euler Angles
+=== "Rust"
 
-### To Euler Axis
+    ``` rust
+    --8<-- "examples/attitude/euler_angle_output.rs:4"
+    ```
+
+## Operations
+
+Euler angles are typically converted to other representations for composition. Direct operations can suffer from gimbal lock:
+
+=== "Python"
+
+    ``` python
+    --8<-- "examples/attitude/euler_angle_operations.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/euler_angle_operations.rs:4"
+    ```
+
+## Conversions
+
+Convert between Euler angles and other attitude representations:
+
+=== "Python"
+
+    ``` python
+    --8<-- "examples/attitude/euler_angle_conversions.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "examples/attitude/euler_angle_conversions.rs:4"
+    ```
 
 ## See Also
 

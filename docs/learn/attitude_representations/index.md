@@ -11,6 +11,14 @@ Attitude representation is fundamental to spacecraft dynamics and control. Brahe
 - **[Euler Angles](euler_angles.md)**: Intuitive angular representation (3 parameters, but with singularities)
 - **[Euler Axis](euler_axis.md)**: Axis-angle representation (4 parameters)
 
+## Conversions
+
+Brahe provides functions to convert between all attitude representations. You can initialize an attitude in one representation and convert it to any other one as needed.
+<div class="plotly-embed">
+    <img class="only-light" src="../../assets/attitude_representations_light.svg" alt="Attitude representations diagram" loading="lazy">
+    <img class="only-dark" src="../../assets/attitude_representations_dark.svg" alt="Attitude representations diagram" loading="lazy">
+</div>
+
 ## Choosing a Representation
 
 **Use Quaternions when:**
@@ -30,10 +38,6 @@ Attitude representation is fundamental to spacecraft dynamics and control. Brahe
 **Use Euler Axis when:**
 
 - Representing single rotations about an axis
-
-## Conversions
-
-All representations can be converted between each other using built-in conversion functions.
 
 ## See Also
 

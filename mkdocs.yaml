@@ -82,8 +82,12 @@ theme:
         - navigation.tabs.sticky
         - navigation.expand
         - navigation.indexes
+        - navigation.tracking
+        - navigation.top3
         - toc.follow
         - content.tabs.link
+        - search.highlight
+        - search.suggest
 
 markdown_extensions:
     - admonition

@@ -1,144 +1,213 @@
-# Two-Line Elements (TLEs)
+# Two-Line Elements (TLE)
 
-Two-Line Elements are a standardized format for distributing satellite orbital parameters.
+Two-Line Element sets (TLEs) are a standardized format for representing satellite orbital data. Originally developed by NORAD (North American Aerospace Defense Command), TLEs encode an epoch, Keplerian orbital elements, and additional parameters needed for SGP4/SDP4 propagation into two 69-character ASCII lines.
 
-## Overview
-
-A Two-Line Element Set (TLE) is a data format used to convey orbital parameters for Earth-orbiting objects. TLEs are widely used for:
-
-- Satellite tracking
-- Orbit prediction
-- Space situational awareness
-- Amateur radio satellite tracking
-
-## TLE Format
-
-A TLE consists of three lines:
+An example of a TLE set for the International Space Station (ISS) is:
 
 ```
-ISS (ZARYA)
-1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9005
-2 25544  51.6400 247.4627 0001220  89.6300 270.4997 15.54057614123456
+1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995
+2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49579513535999
 ```
 
-**Line 0**: Satellite name (optional)
-**Line 1**: General orbital information
-**Line 2**: Orbital elements
+TLEs are still widely used for satellite tracking and orbit prediction, distributed by organizations like [CelesTrak](https://celestrak.org) and [Space-Track](https://www.space-track.org).
 
-### Line 1 Fields
+For additional information on the TLE format and field definitions, see the [CelesTrak TLE documentation](https://celestrak.org/columns/v04n03/) or the [Wikipedia TLE article](https://en.wikipedia.org/wiki/Two-line_element_set).
 
-- Satellite catalog number
-- Classification (U=unclassified)
-- International designator
-- Epoch (year and day of year)
-- First derivative of mean motion (ballistic coefficient)
-- Second derivative of mean motion
-- Drag term (B*)
-- Element set number
-- Checksum
+For complete API documentation, see the [TLE reference](../../library_api/orbits/tle.md).
 
-### Line 2 Fields
+!!! warning "TLE Accuracy Limitations"
+    TLEs are designed for near-Earth satellites and have limited accuracy due to simplifications in the SGP4/SDP4 models. They **ARE NOT** suitable for high-precision orbit determination or long-term predictions.
 
-- Satellite catalog number
-- Inclination (degrees)
-- Right ascension of ascending node (degrees)
-- Eccentricity (decimal point assumed)
-- Argument of perigee (degrees)
-- Mean anomaly (degrees)
-- Mean motion (revolutions per day)
-- Revolution number
-- Checksum
 
-## Using TLEs in Brahe
+!!! warning "NORAID ID Exhaustion"
+    TLEs were originally designed for a maximum of 99,999 cataloged objects. However with the rise of mega-constellations and recent anti-satellite tests by Russia and China, the number of tracked objects is rapidly approaching this limit. 
+    
+    The Alpha-5 NORAD ID format extends the range by using letters A-Z (excluding I and O) as the leading character, allowing for up to 339,999 objects. This is a temporary solution however, and generally organizations should plan to transition to using formats like General Perturbations (GP) elements, CCSDS Orbit Ephemeris Messages (OEM), or other modern representations.
 
-### Parsing TLEs
+A common variant of TLEs is the Three-Line Element set (3LE), which adds a title line above the standard two lines for the object name. Brahe's TLE functions work with both TLE and 3LE formats interchangeably.
 
-```python
-import brahe as bh
+The same TLE data in 3LE format would be:
 
-# Parse TLE from strings
-line1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9005"
-line2 = "2 25544  51.6400 247.4627 0001220  89.6300 270.4997 15.54057614123456"
-
-tle = bh.TLE(line1, line2, name="ISS (ZARYA)")
 ```
+ISS (ZARYA)             
+1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995
+2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49579513535999
+```
+
+## Validating TLEs
+
+Before parsing TLE data, you can validate the format and checksums to ensure data integrity.
+
+### Validating a TLE Set
+
+=== "Python"
+
+    ```python
+    --8<-- "examples/orbits/tle_validate_set.py:7"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "examples/orbits/tle_validate_set.rs:4"
+    ```
+
+The `validate_tle_lines` function checks that both lines have the correct format, valid checksums, and matching NORAD catalog numbers.
+
+### Calculating Checksums
+
+Each TLE line ends with a modulo-10 checksum. You can calculate this checksum to verify data integrity or when creating custom TLEs:
+
+=== "Python"
+
+    ```python
+    --8<-- "examples/orbits/tle_calculate_checksum.py:7"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "examples/orbits/tle_calculate_checksum.rs:4"
+    ```
+
+!!! info "Checksum Algorithm"
+    The checksum is calculated by summing all digits in the line (treating minus signs as 1) and taking the result modulo 10. All other characters (letters, spaces, periods) are ignored in the checksum calculation.
+
+## Parsing TLEs
 
 ### Extracting Orbital Elements
 
-```python
-import brahe as bh
+The most common operation is parsing a TLE to extract the epoch and orbital elements:
 
-# Get orbital elements from TLE
-inclination = tle.inclination()  # radians
-raan = tle.raan()  # radians
-eccentricity = tle.eccentricity()
-argp = tle.argp()  # radians
-mean_anomaly = tle.mean_anomaly()  # radians
-mean_motion = tle.mean_motion()  # revolutions/day
-```
+=== "Python"
 
-### Propagation with SGP4
+    ```python
+    --8<-- "examples/orbits/tle_extract_elements.py:7"
+    ```
 
-```python
-import brahe as bh
+=== "Rust"
 
-# Create SGP4 propagator from TLE
-propagator = bh.SGPPropagator.from_tle(tle)
+    ```rust
+    --8<-- "examples/orbits/tle_extract_elements.rs:4"
+    ```
 
-# Propagate to specific epoch
-epoch = bh.Epoch.from_datetime(2024, 1, 2, 12, 0, 0.0, 0.0, bh.UTC)
-state = propagator.propagate(epoch)
-```
+The returned elements follow the standard Brahe order: `[a, e, i, Ω, ω, M]` where:
 
-## TLE Sources
+- $a$ - Semi-major axis (meters)
+- $e$ - Eccentricity (dimensionless)
+- $i$ - Inclination (degrees)
+- $\Omega$ - Right Ascension of Ascending Node (degrees)
+- $\omega$ - Argument of Periapsis (degrees)
+- $M$ - Mean Anomaly (degrees)
 
-### CelesTrak
+!!! tip "Angle Units Convention"
+    TLE functions use **degrees** for all angles. This matches the TLE format standard and makes it easier to work with TLE data directly.
 
-CelesTrak provides TLEs for thousands of satellites:
+### Extracting Just the Epoch
 
-```python
-import brahe as bh
+If you only need the epoch timestamp without the full orbital elements:
 
-# Download TLEs for all active satellites
-tles = bh.celestrak_fetch_latest_tles("active")
+=== "Python"
 
-# Download TLEs for specific satellite group
-iss_tles = bh.celestrak_fetch_latest_tles("stations")
-```
+    ```python
+    --8<-- "examples/orbits/tle_extract_epoch.py:7"
+    ```
 
-### Space-Track
+=== "Rust"
 
-Space-Track.org (requires free account) provides:
+    ```rust
+    --8<-- "examples/orbits/tle_extract_epoch.rs:4"
+    ```
 
-- Historical TLEs
-- High-precision TLEs
-- TLE predictions
+The epoch is always returned in the UTC time system.
 
-## TLE Accuracy and Limitations
+## Creating TLEs
 
-### Accuracy
+### From Keplerian Elements
 
-- **Short-term** (< 1 day): Position accuracy ~1 km
-- **Medium-term** (1-7 days): Accuracy degrades to ~10 km
-- **Long-term** (> 7 days): Not recommended, errors can exceed 100 km
+You can generate TLE lines from an epoch and mean orbital elements:
 
-### Limitations
+=== "Python"
 
-- **Simplified model**: SGP4/SDP4 uses simplified atmospheric drag
-- **No maneuvers**: TLEs don't account for spacecraft maneuvers
-- **Aging**: Accuracy degrades rapidly over time
-- **Low orbits**: Drag modeling less accurate at low altitudes
+    ```python
+    --8<-- "examples/orbits/tle_create_from_elements.py:7"
+    ```
 
-## Best Practices
+=== "Rust"
 
-1. **Use recent TLEs**: Download fresh TLEs daily for operational systems
-2. **Don't extrapolate far**: Limit propagation to a few days from TLE epoch
-3. **Validate results**: Cross-check with other data sources when possible
-4. **Update after maneuvers**: Get new TLEs after spacecraft maneuvers
+    ```rust
+    --8<-- "examples/orbits/tle_create_from_elements.rs:4"
+    ```
+
+!!! info "Default Values"
+    The `keplerian_elements_to_tle` function uses zero for fields like drag terms and derivatives. For complete control over all TLE fields, use the `create_tle_lines` function with its full parameter set.
+
+!!! warning "Mean Element Representation"
+    The TLE format encodes the orbital state as _mean orbital elements_ estimated from orbit propgation using the SGP4/SDP4 models.
+
+    While the package allows for direclty creating TLEs from arbitrary Keplerian elements, the resulting TLEs **WILL NOT** accurate propagation results with the SGP4/SDP4 models unless the input elements are already mean elements derived from those models.
+
+    If you need to create TLEs for real satellites it's best to estimate the mean elements from observed data using orbit determination techniques using the SGP4/SDP4 models.
+
+You can verify generated TLEs by parsing them back:
+
+=== "Python"
+
+    ```python
+    --8<-- "examples/orbits/tle_verify_roundtrip.py:10:25"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "examples/orbits/tle_verify_roundtrip.rs:9:40"
+    ```
+
+## NORAD ID Formats
+
+TLEs support two formats for NORAD catalog numbers:
+
+- **Numeric**: 5-digit numbers (00001-99999)
+- **Alpha-5**: 5-character alphanumeric (A0000-Z9999)
+
+The Alpha-5 format extends the catalog beyond 99,999 satellites by using letters A-Z (excluding I and O to avoid confusion with 1 and 0).
+
+### Converting Between Formats
+
+=== "Python"
+
+    ```python
+    --8<-- "examples/orbits/tle_convert_norad_formats.py:7:40"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "examples/orbits/tle_convert_norad_formats.rs:7:43"
+    ```
+
+!!! info "Alpha-5 Range"
+    Alpha-5 format is only valid for NORAD IDs >= 100,000. The range is 100,000 (A0000) to 339,999 (Z9999).
+
+### Parsing Mixed Formats
+
+The `parse_norad_id` function automatically detects whether a NORAD ID is in numeric or Alpha-5 format:
+
+=== "Python"
+
+    ```python
+    --8<-- "examples/orbits/tle_parse_norad_id.py:7:15"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "examples/orbits/tle_parse_norad_id.rs:7:17"
+    ```
 
 ## See Also
 
-- [TLE API Reference](../../library_api/orbits/tle.md)
-- [SGP Propagation](../orbit_propagation/sgp_propagation.md)
-- [CelesTrak Dataset](../../library_api/datasets/celestrak.md)
-- [CelesTrak Website](https://celestrak.org/)
+- [SGP Propagator](../../library_api/propagators/sgp_propagator.md) - Use TLEs with SGP4/SDP4 propagation
+- [Keplerian Elements](../../library_api/orbits/keplerian.md) - Working with orbital elements
+- [Downloading TLE Data](../../examples/downloading_tle_data.md) - How to fetch current TLEs from online sources
+- [Epoch](../time/epoch.md) - Understanding time representation in Brahe

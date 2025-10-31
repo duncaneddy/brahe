@@ -141,14 +141,16 @@ def test_orbittrajectory_to_matrix():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -226,14 +228,16 @@ def test_orbittrajectory_trajectory_state():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -261,14 +265,16 @@ def test_orbittrajectory_trajectory_epoch():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -296,14 +302,16 @@ def test_orbittrajectory_trajectory_nearest_state():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -420,18 +428,8 @@ def test_orbittrajectory_trajectory_timespan():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -454,18 +452,8 @@ def test_orbittrajectory_trajectory_first():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -489,18 +477,8 @@ def test_orbittrajectory_trajectory_last():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -543,18 +521,8 @@ def test_orbittrajectory_trajectory_remove_epoch():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -578,18 +546,8 @@ def test_orbittrajectory_trajectory_remove():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -614,18 +572,8 @@ def test_orbittrajectory_trajectory_get():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
     traj = OrbitTrajectory.from_orbital_data(
@@ -650,24 +598,9 @@ def test_orbittrajectory_trajectory_index_before_epoch():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            11.0,
-            12.0,
-            13.0,
-            14.0,
-            15.0,
-            16.0,
-            21.0,
-            22.0,
-            23.0,
-            24.0,
-            25.0,
-            26.0,
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
         ]
     )
 
@@ -712,24 +645,9 @@ def test_orbittrajectory_trajectory_index_after_epoch():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            11.0,
-            12.0,
-            13.0,
-            14.0,
-            15.0,
-            16.0,
-            21.0,
-            22.0,
-            23.0,
-            24.0,
-            25.0,
-            26.0,
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
         ]
     )
 
@@ -777,24 +695,9 @@ def test_orbittrajectory_trajectory_state_before_epoch():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            11.0,
-            12.0,
-            13.0,
-            14.0,
-            15.0,
-            16.0,
-            21.0,
-            22.0,
-            23.0,
-            24.0,
-            25.0,
-            26.0,
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
         ]
     )
 
@@ -837,24 +740,9 @@ def test_orbittrajectory_trajectory_state_after_epoch():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            11.0,
-            12.0,
-            13.0,
-            14.0,
-            15.0,
-            16.0,
-            21.0,
-            22.0,
-            23.0,
-            24.0,
-            25.0,
-            26.0,
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
         ]
     )
 
@@ -982,14 +870,16 @@ def test_orbittrajectory_index_index():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1009,7 +899,7 @@ def test_orbittrajectory_index_index():
 def test_orbittrajectory_index_index_out_of_bounds():
     """Rust: test_orbittrajectory_index_index_out_of_bounds"""
     epochs = [Epoch.from_jd(2451545.0, brahe.UTC)]
-    states = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    states = np.array([[7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]])
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
         states,
@@ -1029,14 +919,16 @@ def test_orbittrajectory_intoiterator_into_iter():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1080,14 +972,16 @@ def test_orbittrajectory_iterator_iterator_len():
         Epoch.from_jd(2451545.1, brahe.UTC),
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
     traj = OrbitTrajectory.from_orbital_data(
         epochs,
-        np.concatenate(states),
+        states,
         OrbitFrame.ECI,
         OrbitRepresentation.CARTESIAN,
         None,
@@ -1136,24 +1030,9 @@ def test_orbittrajectory_interpolatable_interpolate_linear():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            60.0,
-            120.0,
-            180.0,
-            240.0,
-            300.0,
-            360.0,
-            120.0,
-            240.0,
-            360.0,
-            480.0,
-            600.0,
-            720.0,
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
         ]
     )
 
@@ -1194,7 +1073,7 @@ def test_orbittrajectory_interpolatable_interpolate_linear():
 
     # Test edge case: single state trajectory
     single_epoch = [t0]
-    single_state = np.array([100.0, 200.0, 300.0, 400.0, 500.0, 600.0])
+    single_state = np.array([[100.0, 200.0, 300.0, 400.0, 500.0, 600.0]])
     single_traj = OrbitTrajectory.from_orbital_data(
         single_epoch,
         single_state,
@@ -1217,24 +1096,9 @@ def test_orbittrajectory_interpolatable_interpolate():
     epochs = [t0, t1, t2]
     states = np.array(
         [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            60.0,
-            120.0,
-            180.0,
-            240.0,
-            300.0,
-            360.0,
-            120.0,
-            240.0,
-            360.0,
-            480.0,
-            600.0,
-            720.0,
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
         ]
     )
 
@@ -1265,18 +1129,8 @@ def test_orbittrajectory_orbitaltrajectory_from_orbital_data():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7100e3,
-            1000e3,
-            500e3,
-            100.0,
-            7.6e3,
-            50.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
         ]
     )
 

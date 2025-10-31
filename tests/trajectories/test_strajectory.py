@@ -22,13 +22,15 @@ def create_test_trajectory():
         Epoch.from_jd(2451545.2, brahe.UTC),
     ]
 
-    states = [
-        np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
-        np.array([7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0]),
-        np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
-    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
 
-    return STrajectory6.from_data(epochs, np.concatenate(states))
+    return STrajectory6.from_data(epochs, states)
 
 
 # STrajectory Trait Tests
@@ -116,24 +118,9 @@ def test_strajectory_to_matrix():
     ]
     states = np.array(
         [
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            11.0,
-            12.0,
-            13.0,
-            14.0,
-            15.0,
-            16.0,
-            21.0,
-            22.0,
-            23.0,
-            24.0,
-            25.0,
-            26.0,
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+            [21.0, 22.0, 23.0, 24.0, 25.0, 26.0],
         ]
     )
 
@@ -536,24 +523,9 @@ def test_strajectory_trajectory_index_before_epoch():
     ]
     states = np.array(
         [
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            2.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            3.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)
@@ -600,24 +572,9 @@ def test_strajectory_trajectory_index_after_epoch():
     ]
     states = np.array(
         [
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            2.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            3.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)
@@ -668,24 +625,9 @@ def test_strajectory_trajectory_state_before_epoch():
     ]
     states = np.array(
         [
-            1000.0,
-            100.0,
-            10.0,
-            1.0,
-            0.1,
-            0.01,
-            2000.0,
-            200.0,
-            20.0,
-            2.0,
-            0.2,
-            0.02,
-            3000.0,
-            300.0,
-            30.0,
-            3.0,
-            0.3,
-            0.03,
+            [1000.0, 100.0, 10.0, 1.0, 0.1, 0.01],
+            [2000.0, 200.0, 20.0, 2.0, 0.2, 0.02],
+            [3000.0, 300.0, 30.0, 3.0, 0.3, 0.03],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)
@@ -745,24 +687,9 @@ def test_strajectory_trajectory_state_after_epoch():
     ]
     states = np.array(
         [
-            1000.0,
-            100.0,
-            10.0,
-            1.0,
-            0.1,
-            0.01,
-            2000.0,
-            200.0,
-            20.0,
-            2.0,
-            0.2,
-            0.02,
-            3000.0,
-            300.0,
-            30.0,
-            3.0,
-            0.3,
-            0.03,
+            [1000.0, 100.0, 10.0, 1.0, 0.1, 0.01],
+            [2000.0, 200.0, 20.0, 2.0, 0.2, 0.02],
+            [3000.0, 300.0, 30.0, 3.0, 0.3, 0.03],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)
@@ -928,24 +855,9 @@ def test_strajectory_interpolatable_interpolate_linear():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7060e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7120e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)
@@ -984,7 +896,7 @@ def test_strajectory_interpolatable_interpolate_linear():
 
     # Test error case: single state trajectory (should just return that state)
     single_epochs = [t0]
-    single_states = np.array([8000e3, 100.0, 200.0, 1.0, 2.0, 3.0])
+    single_states = np.array([[8000e3, 100.0, 200.0, 1.0, 2.0, 3.0]])
     single_traj = STrajectory6.from_data(single_epochs, single_states)
 
     result = single_traj.interpolate_linear(t0)
@@ -1018,24 +930,9 @@ def test_strajectory_interpolatable_interpolate():
     ]
     states = np.array(
         [
-            7000e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7060e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
-            7120e3,
-            0.0,
-            0.0,
-            0.0,
-            7.5e3,
-            0.0,
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
         ]
     )
     traj = STrajectory6.from_data(epochs, states)

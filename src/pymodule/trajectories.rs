@@ -247,8 +247,8 @@ impl PyOrbitalTrajectory {
     ///
     /// Args:
     ///     epochs (list[Epoch]): List of time epochs for each state
-    ///     states (numpy.ndarray): Flattened 1D array of 6-element state vectors
-    ///         with total length N*6 where N is the number of epochs
+    ///     states (numpy.ndarray): 2D array of 6-element state vectors with shape (N, 6)
+    ///         where N is the number of epochs. Each row is one state vector.
     ///     frame (OrbitFrame): Reference frame for the states
     ///     representation (OrbitRepresentation): State representation format
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
@@ -261,7 +261,7 @@ impl PyOrbitalTrajectory {
     pub fn from_orbital_data(
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
-        states: PyReadonlyArray1<f64>,
+        states: PyReadonlyArray2<f64>,
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
@@ -284,24 +284,33 @@ impl PyOrbitalTrajectory {
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
 
-        if !states_array.len().is_multiple_of(6) {
+        let num_epochs = epochs_vec.len();
+        if num_epochs == 0 {
             return Err(exceptions::PyValueError::new_err(
-                "States array length must be a multiple of 6"
+                "At least one epoch is required"
             ));
         }
 
-        let num_states = states_array.len() / 6;
-        if num_states != epochs_vec.len() {
+        // Check that number of states (rows) matches number of epochs
+        if states_array.nrows() != num_epochs {
             return Err(exceptions::PyValueError::new_err(
-                "Number of epochs must match number of states"
+                format!("Number of state rows ({}) must match number of epochs ({})",
+                    states_array.nrows(), num_epochs)
+            ));
+        }
+
+        // Check that state dimension is 6
+        if states_array.ncols() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                format!("State dimension must be 6, got {}", states_array.ncols())
             ));
         }
 
         let mut states_vec = Vec::new();
-        for i in 0..num_states {
-            let start_idx = i * 6;
-            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
-            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        for i in 0..num_epochs {
+            let state_row = states_array.row(i);
+            let state_vec = na::Vector6::from_iterator(state_row.iter().copied());
+            states_vec.push(state_vec);
         }
 
         let angle_fmt = angle_format.as_ref().map(|af| af.value);
@@ -2406,8 +2415,8 @@ impl PySTrajectory6 {
     ///
     /// Args:
     ///     epochs (list[Epoch]): List of time epochs
-    ///     states (numpy.ndarray): Flattened 1D array of 6D state vectors with total
-    ///         length N*6 where N is the number of epochs
+    ///     states (numpy.ndarray): 2D array of 6D state vectors with shape (N, 6)
+    ///         where N is the number of epochs. Each row is one state vector.
     ///     interpolation_method (InterpolationMethod): Interpolation method (default Linear)
     ///
     /// Returns:
@@ -2420,8 +2429,8 @@ impl PySTrajectory6 {
     ///
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     states = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0,
-    ///                        bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
+    ///     states = np.array([[bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0],
+    ///                        [bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0]])
     ///     traj = bh.STrajectory6.from_data([epc1, epc2], states)
     ///     ```
     #[classmethod]
@@ -2429,30 +2438,39 @@ impl PySTrajectory6 {
     pub fn from_data(
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
-        states: PyReadonlyArray1<f64>,
+        states: PyReadonlyArray2<f64>,
         interpolation_method: Option<PyRef<PyInterpolationMethod>>,
     ) -> PyResult<Self> {
         let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states_array = states.as_array();
 
-        if !states_array.len().is_multiple_of(6) {
+        let num_epochs = epochs_vec.len();
+        if num_epochs == 0 {
             return Err(exceptions::PyValueError::new_err(
-                "States array length must be a multiple of 6"
+                "At least one epoch is required"
             ));
         }
 
-        let num_states = states_array.len() / 6;
-        if num_states != epochs_vec.len() {
+        // Check that number of states (rows) matches number of epochs
+        if states_array.nrows() != num_epochs {
             return Err(exceptions::PyValueError::new_err(
-                "Number of epochs must match number of states"
+                format!("Number of state rows ({}) must match number of epochs ({})",
+                    states_array.nrows(), num_epochs)
+            ));
+        }
+
+        // Check that state dimension is 6
+        if states_array.ncols() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                format!("State dimension must be 6, got {}", states_array.ncols())
             ));
         }
 
         let mut states_vec = Vec::new();
-        for i in 0..num_states {
-            let start_idx = i * 6;
-            let state_slice = &states_array.as_slice().unwrap()[start_idx..start_idx + 6];
-            states_vec.push(na::Vector6::from_row_slice(state_slice));
+        for i in 0..num_epochs {
+            let state_row = states_array.row(i);
+            let state_vec = na::Vector6::from_iterator(state_row.iter().copied());
+            states_vec.push(state_vec);
         }
 
         let mut trajectory = trajectories::STrajectory6::from_data(epochs_vec, states_vec)

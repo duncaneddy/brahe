@@ -52,59 +52,31 @@ fn main() {
     println!("  Axis: [{:.6}, {:.6}, {:.6}]",
              ea_roundtrip.axis[0], ea_roundtrip.axis[1], ea_roundtrip.axis[2]);
     println!("  Angle: {:.1}°", ea_roundtrip.angle.to_degrees());
-
-    // More complex example: arbitrary axis
-    let ea_complex = bh::EulerAxis::new(
-        na::SVector::<f64, 3>::new(1.0, 1.0, 1.0),
-        (120.0_f64).to_radians(),
-        bh::AngleFormat::Radians
-    );
-    println!("\n\nComplex example (120° about [1,1,1] axis):");
-    println!("  Original axis: [{:.6}, {:.6}, {:.6}]",
-             ea_complex.axis[0], ea_complex.axis[1], ea_complex.axis[2]);
-    println!("  Original angle: {:.1}°", ea_complex.angle.to_degrees());
-
-    let q_complex = ea_complex.to_quaternion();
-    println!("  As quaternion: [{:.6}, {:.6}, {:.6}, {:.6}]",
-             q_complex[0], q_complex[1], q_complex[2], q_complex[3]);
-
-    let ea_angles_complex = ea_complex.to_euler_angle(bh::EulerAngleOrder::ZYX);
-    println!("  As ZYX Euler: [{:.3}°, {:.3}°, {:.3}°]",
-             ea_angles_complex.phi.to_degrees(),
-             ea_angles_complex.theta.to_degrees(),
-             ea_angles_complex.psi.to_degrees());
 }
 
 // Expected output:
 // Original Euler axis:
 //   Axis: [0.000000, 0.000000, 1.000000]
 //   Angle: 45.0°
-//
+
 // To quaternion:
 //   q = [0.923880, 0.000000, 0.000000, 0.382683]
-//
+
 // To rotation matrix:
-//   [0.707107, -0.707107, 0.000000]
 //   [0.707107, 0.707107, 0.000000]
+//   [-0.707107, 0.707107, 0.000000]
 //   [0.000000, 0.000000, 1.000000]
-//
+
 // To Euler angles (ZYX):
 //   Yaw (Z):   45.000°
 //   Pitch (Y): 0.000°
-//   Roll (X):  0.000°
-//
+//   Roll (X):  -0.000°
+
 // To Euler angles (XYZ):
 //   Angle 1 (X): 0.000°
-//   Angle 2 (Y): 0.000°
+//   Angle 2 (Y): -0.000°
 //   Angle 3 (Z): 45.000°
-//
+
 // Round-trip (EulerAxis → Quaternion → EulerAxis):
 //   Axis: [0.000000, 0.000000, 1.000000]
 //   Angle: 45.0°
-//
-//
-// Complex example (120° about [1,1,1] axis):
-//   Original axis: [0.577350, 0.577350, 0.577350]
-//   Original angle: 120.0°
-//   As quaternion: [0.500000, 0.500000, 0.500000, 0.500000]
-//   As ZYX Euler: [90.000°, 54.736°, 45.000°]

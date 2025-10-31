@@ -31,38 +31,6 @@ Euler axis representations can be created from an axis vector and angle, or conv
     --8<-- "examples/attitude/euler_axis_initialization.rs:4"
     ```
 
-## Output and Access
-
-Access the rotation axis and angle components:
-
-=== "Python"
-
-    ``` python
-    --8<-- "examples/attitude/euler_axis_output.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "examples/attitude/euler_axis_output.rs:4"
-    ```
-
-## Operations
-
-Euler axis representations are typically converted to other formats for composition:
-
-=== "Python"
-
-    ``` python
-    --8<-- "examples/attitude/euler_axis_operations.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "examples/attitude/euler_axis_operations.rs:4"
-    ```
-
 ## Conversions
 
 Convert between Euler axis and other attitude representations:

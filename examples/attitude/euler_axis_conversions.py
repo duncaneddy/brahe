@@ -52,56 +52,29 @@ print(
 )
 print(f"  Angle: {math.degrees(ea_roundtrip.angle):.1f}°")
 
-# More complex example: arbitrary axis
-ea_complex = bh.EulerAxis(
-    np.array([1.0, 1.0, 1.0]), math.radians(120.0), bh.AngleFormat.RADIANS
-)
-print("\n\nComplex example (120° about [1,1,1] axis):")
-print(
-    f"  Original axis: [{ea_complex.axis[0]:.6f}, {ea_complex.axis[1]:.6f}, {ea_complex.axis[2]:.6f}]"
-)
-print(f"  Original angle: {math.degrees(ea_complex.angle):.1f}°")
-
-q_complex = ea_complex.to_quaternion()
-print(
-    f"  As quaternion: [{q_complex.w:.6f}, {q_complex.x:.6f}, {q_complex.y:.6f}, {q_complex.z:.6f}]"
-)
-
-ea_angles_complex = ea_complex.to_euler_angle(bh.EulerAngleOrder.ZYX)
-print(
-    f"  As ZYX Euler: [{math.degrees(ea_angles_complex.phi):.3f}°, {math.degrees(ea_angles_complex.theta):.3f}°, {math.degrees(ea_angles_complex.psi):.3f}°]"
-)
-
 # Expected output:
 # Original Euler axis:
 #   Axis: [0.000000, 0.000000, 1.000000]
 #   Angle: 45.0°
-#
+
 # To quaternion:
 #   q = [0.923880, 0.000000, 0.000000, 0.382683]
-#
+
 # To rotation matrix:
-#   [0.707107, -0.707107, 0.000000]
 #   [0.707107, 0.707107, 0.000000]
+#   [-0.707107, 0.707107, 0.000000]
 #   [0.000000, 0.000000, 1.000000]
-#
+
 # To Euler angles (ZYX):
 #   Yaw (Z):   45.000°
 #   Pitch (Y): 0.000°
-#   Roll (X):  0.000°
-#
+#   Roll (X):  -0.000°
+
 # To Euler angles (XYZ):
 #   Angle 1 (X): 0.000°
-#   Angle 2 (Y): 0.000°
+#   Angle 2 (Y): -0.000°
 #   Angle 3 (Z): 45.000°
-#
+
 # Round-trip (EulerAxis → Quaternion → EulerAxis):
 #   Axis: [0.000000, 0.000000, 1.000000]
 #   Angle: 45.0°
-#
-#
-# Complex example (120° about [1,1,1] axis):
-#   Original axis: [0.577350, 0.577350, 0.577350]
-#   Original angle: 120.0°
-#   As quaternion: [0.500000, 0.500000, 0.500000, 0.500000]
-#   As ZYX Euler: [90.000°, 54.736°, 45.000°]

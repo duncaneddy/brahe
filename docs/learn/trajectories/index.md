@@ -1,18 +1,16 @@
 # Trajectories
 
-Brahe provides trajectory containers for storing and managing time-series state data. A trajectory is a sequence of state vectors (positions, velocities, or other multi-dimensional data) indexed by time epochs. Trajectories are essential for storing propagation results, analyzing orbital history, performing interpolation, and converting between different reference frames.
+Brahe provides trajectory containers for storing and managing time-series state data. A trajectory is a sequence of state vectors (positions, velocities, or other multi-dimensional data) indexed by time epochs. Trajectories store the dynamic state evolution and provide a number of convenience methods for accessing, querying, and manipulating the data.
 
 ## Trajectory Traits
 
-Brahe's trajectory system is built on a hierarchy of traits that define core functionality. This design allows you to choose the right level of functionality for your application while maintaining a consistent interface.
+Brahe's trajectory system is built on a set of common [Rust traits](https://doc.rust-lang.org/book/ch10-02-traits.html) that define common functionality. This design allows for common access patterns across different trajectory implementations, while enabling specialized behavior for specific use cases.
 
-### `Trait`: Trajectory
+Generally, a "state" is a vector of floating-point numbers representing some dynamic quantity. For most applications in Brahe, states are 6-dimensional vectors representing the satellite position and velocity in 3D space. However, the trajectory system is flexible enough to handle arbitrary state definitions.
 
-The `Trajectory` trait is the foundation of all trajectory implementations. It defines the core interface for storing, accessing, and managing time-series state data.
+### `Trajectory` Trait
 
-**Purpose**: Provides basic storage and retrieval of state vectors indexed by time epochs.
-
-**Key Methods**:
+The `Trajectory` trait is the foundation of all trajectory implementations. It defines the core interface for storing, accessing, and managing time-series state data. Any Trajectory implementation must implement this trait which requires the implementation of the following methods:
 
 **Creation**:
 
@@ -55,35 +53,23 @@ The `Trajectory` trait is the foundation of all trajectory implementations. It d
 - `set_eviction_policy_max_age(duration_seconds)` - Keep only states within time window
 - `get_eviction_policy()` - Get current eviction policy
 
-**When to Use**: Implement this trait when you need basic trajectory storage without interpolation or orbital-specific features.
+### `Interpolatable` Trait
 
-### `Trait`: Interpolatable
+Since trajectories often store states at discrete epochs, the `Interpolatable` trait provides methods for interpolating states at arbitrary times between stored data points. This is useful for applications that require continuous state estimates.
 
-The `Interpolatable` trait adds interpolation capabilities to trajectories, allowing retrieval of state estimates at arbitrary epochs between stored data points.
-
-**Purpose**: Enables interpolation of states at arbitrary times, not just at stored epochs.
-
-**Key Methods**:
+**Methods**:
 
 - `interpolate(epoch)` - Get interpolated state at arbitrary epoch
 - `set_interpolation_method(method)` - Configure interpolation algorithm
 - `get_interpolation_method()` - Get current interpolation method
 
-**Supported Methods** (via `InterpolationMethod` enum):
+**Supported Interpolation Methods** (via `InterpolationMethod` enum):
 
 - `Linear` - Linear interpolation between adjacent states (default)
 
-**When to Use**: Implement this trait when you need to query trajectory states at arbitrary times, not just at stored epochs.
+### `OrbitalTrajectory` Trait
 
-**Requires**: Must also implement `Trajectory` trait.
-
-### `Trait`: OrbitalTrajectory
-
-The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics applications. It adds awareness of reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian), enabling automatic conversions.
-
-**Purpose**: Provides orbital mechanics-specific conversions between reference frames and orbital element representations.
-
-**Key Methods**:
+The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics applications. It adds awareness of reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian), enabling automatic conversions of the stored states to different frames or representations.
 
 **Creation**:
 
@@ -97,10 +83,6 @@ The `OrbitalTrajectory` trait specializes trajectories for orbital mechanics app
 **Representation Conversions**:
 
 - `to_keplerian(angle_format)` - Convert Cartesian states to Keplerian orbital elements
-
-**When to Use**: Use this trait when working with orbital mechanics and need to convert between ECI/ECEF frames or Cartesian/Keplerian representations.
-
-**Requires**: Must also implement `Trajectory` and `Interpolatable` traits. States must be 6-dimensional (position + velocity).
 
 ## Supporting Types
 
@@ -131,14 +113,14 @@ Specifies the reference frame for orbital states:
 
 Specifies how orbital states are represented:
 
-- `Cartesian` - Position and velocity vectors `[x, y, z, vx, vy, vz]` in meters and m/s
-- `Keplerian` - Classical orbital elements `[a, e, i, Ω, ω, ν]` where:
-    - `a` - Semi-major axis (meters)
-    - `e` - Eccentricity (dimensionless)
-    - `i` - Inclination (radians or degrees)
-    - `Ω` - Right ascension of ascending node (radians or degrees)
-    - `ω` - Argument of periapsis (radians or degrees)
-    - `ν` - True anomaly (radians or degrees)
+- `Cartesian` - Position and velocity vectors $\[p_x, p_y, p_z, v_x, v_y, v_z\]$ in meters and m/s
+- `Keplerian` - Classical orbital elements $\[a, e, i, \Omega, \omega, M\]$ where:
+    - $a$ - Semi-major axis (meters)
+    - $e$ - Eccentricity (dimensionless)
+    - $i$ - Inclination (radians or degrees)
+    - $\Omega$ - Right ascension of ascending node (radians or degrees)
+    - $\omega$ - Argument of periapsis (radians or degrees)
+    - $M$ - Mean anomaly (radians or degrees)
 
 ## Choosing a Trajectory Implementation
 
@@ -146,34 +128,34 @@ Brahe provides three trajectory implementations, each optimized for different us
 
 ### DTrajectory - Dynamic Dimensions
 
-**Use when**: State dimension is not known at compile time, or varies between different trajectories.
+The `DTrajectory` implementation supports runtime-sized state vectors, allowing for arbitrary state dimensions. This makes it able to accomodate applications where users may want to augment the state vector with additional parameters beyond standard position/velocity.
 
 **Features**:
 
 - Runtime-sized state vectors (any dimension)
 - Frame-agnostic storage
 - Flexible for arbitrary state data
-- Implements: `Trajectory`, `Interpolatable`
-
-**Best for**: Applications with varying state dimensions, non-standard state vectors, or when flexibility is prioritized over performance.
+- Implements traits: `Trajectory`, `Interpolatable`
 
 ### STrajectory<R> - Static Dimensions
 
-**Use when**: State dimension is known at compile time (common case for orbital mechanics).
+The `STrajectory<R>` implementation uses compile-time sized state vectors, providing maximum performance for applications where the state dimension is known ahead of time. The generic parameter `R` specifies the number of state dimensions.
 
 **Features**:
 
 - Compile-time sized state vectors (maximum performance)
 - Type-safe dimensions
-- Frame-agnostic storage
 - Common type aliases: `STrajectory3`, `STrajectory4`, `STrajectory6`
-- Implements: `Trajectory`, `Interpolatable`
+- Implements traits: `Trajectory`, `Interpolatable`
 
-**Best for**: Performance-critical applications where state dimension is fixed. Use `STrajectory6` for orbital position/velocity states.
+!!! tip
+    Because `STrajectory` uses compile-time dimensions python bindings are only provided for common sizes of `STrajectory3`, `STrajectory4`, and `STrajectory6`.
+
+    Rust users can create `STrajectory` instances with any dimension using the generic type.
 
 ### OrbitTrajectory - Orbital Mechanics
 
-**Use when**: Working with orbital mechanics and need frame/representation conversions.
+The `OrbitTrajectory` implementation is specialized for orbital mechanics applications. It always 6-dimensional state vectors (position + velocity or orbital elements) and tracks the reference frame (ECI/ECEF) and representation (Cartesian/Keplerian). It provides built-in methods for converting between frames and representations. The `OrbitTrajectory` is ideal for satellite orbit propagation and analysis where you expect to need frame conversions.
 
 **Features**:
 
@@ -182,22 +164,7 @@ Brahe provides three trajectory implementations, each optimized for different us
 - Tracks representation (Cartesian/Keplerian)
 - Frame conversions: ECI ↔ ECEF
 - Representation conversions: Cartesian ↔ Keplerian
-- Implements: `Trajectory`, `Interpolatable`, `OrbitalTrajectory`
-
-**Best for**: Orbital mechanics applications requiring frame conversions, propagation result storage, or working with both Cartesian and Keplerian representations.
-
-**Quick Decision Guide**:
-
-```
-Need frame conversions (ECI/ECEF)?
-├─ Yes → OrbitTrajectory
-└─ No
-   ├─ State dimension known at compile time?
-   │  ├─ Yes → STrajectory<R> (e.g., STrajectory6 for 6D states)
-   │  └─ No → DTrajectory
-   └─ Need maximum performance with fixed dimension?
-      └─ Yes → STrajectory<R>
-```
+- Implements traits: `Trajectory`, `Interpolatable`, `OrbitalTrajectory`
 
 ## See Also
 

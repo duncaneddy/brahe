@@ -56,7 +56,14 @@ It also contains many new features, improvements to core functionality, and bett
 
 ----
 
-## v0.2.0 - Advanced Ground Station Operations
+## v1.0.0 - Stable Release with Foundational Features
+
+- [ ] Stable release with foundational features
+- [ ] Align with JOSS paper required release
+
+----
+
+## v1.1.0 - Advanced Ground Station Operations
 
 - [ ] Spacetrack Datasets Module
 - [ ] Initialize SGPPropagator from GP Elements
@@ -76,7 +83,7 @@ It also contains many new features, improvements to core functionality, and bett
 
 ----
 
-## v0.3.0 - Numerical Integration
+## v1.2.0 - Numerical Integration
 
 This release adds support for numerical orbit propagation using common perturbation models. It also introduces additional datasets and improves existing functionality.
 
@@ -104,7 +111,7 @@ This release adds support for numerical orbit propagation using common perturbat
 
 ----
 
-## v0.4.0 - Estimation & Relative Orbits
+## v1.3.0 - Estimation & Relative Orbits
 
 - [ ] Mean Orbital Elements Support
     - [ ] Conversion between Mean and Osculating elements
@@ -126,9 +133,9 @@ This release adds support for numerical orbit propagation using common perturbat
 
 ----
 
-## v1.0.0 - Stable Release
+## v1.X.0
 
-- [ ] Address open issues and feature requests
+- [ ] Continued maintenance and improvements based on user feedback
 
 ----
 

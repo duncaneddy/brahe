@@ -8,13 +8,7 @@ use std::f64::consts::PI;
 
 fn main() {
     // Create a rotation matrix (45° about Z-axis)
-    let cos45 = (PI / 4.0).cos();
-    let sin45 = (PI / 4.0).sin();
-    let rm = bh::RotationMatrix::new(
-        cos45, -sin45, 0.0,
-        sin45, cos45, 0.0,
-        0.0, 0.0, 1.0
-    ).unwrap();
+    let rm = bh::RotationMatrix::Rz(45.0, bh::AngleFormat::Degrees);
 
     println!("Original rotation matrix:");
     println!("  [{:.6}, {:.6}, {:.6}]", rm[(0, 0)], rm[(0, 1)], rm[(0, 2)]);

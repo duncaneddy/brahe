@@ -54,6 +54,12 @@ fn main() {
     let rotated2 = rm_z.to_matrix() * vector2;
     println!("\n  Original: [{:.3}, {:.3}, {:.3}]", vector2[0], vector2[1], vector2[2]);
     println!("  Rotated:  [{:.3}, {:.3}, {:.3}]", rotated2[0], rotated2[1], rotated2[2]);
+
+    let eq_result = rm_x == rm_z;
+    let neq_result = rm_x != rm_z;
+    println!("\nEquality comparison:");
+    println!("  rm_x == rm_z: {}", eq_result);
+    println!("  rm_x != rm_z: {}", neq_result);
 }
 
 // Expected output:
@@ -61,20 +67,24 @@ fn main() {
 //   [1.000, 0.000, 0.000]
 //   [0.000, 0.000, -1.000]
 //   [0.000, 1.000, 0.000]
-//
+
 // Rotation matrix Z (90° about Z):
 //   [0.000, -1.000, 0.000]
 //   [1.000, 0.000, 0.000]
 //   [0.000, 0.000, 1.000]
-//
+
 // Composed rotation (X then Z):
 //   [0.000, 0.000, 1.000]
 //   [1.000, 0.000, 0.000]
 //   [0.000, 1.000, 0.000]
-//
+
 // Vector transformation:
 //   Original: [1.000, 0.000, 0.000]
 //   Rotated:  [0.000, 1.000, 0.000]
-//
+
 //   Original: [0.000, 1.000, 0.000]
-//   Rotated:  [-0.000, 0.000, 1.000]
+//   Rotated:  [-1.000, 0.000, 0.000]
+
+// Equality comparison:
+//   rm_x == rm_z: false
+//   rm_x != rm_z: true

@@ -38,6 +38,13 @@ Rotation matrices can be created directly from elements, elementary rotations, o
     --8<-- "examples/attitude/rotation_matrix_initialization.rs:4"
     ```
 
+!!! tip
+    Brahe provides convenient methods to create rotation matrices for elementary rotations about the X, Y, and Z axes:
+
+    - `RotationMatrix.Rx(angle, format)`
+    - `RotationMatrix.Ry(angle, format)`
+    - `RotationMatrix.Rz(angle, format)`
+
 ## Output and Access
 
 Access rotation matrix elements and convert to other formats:
@@ -61,13 +68,13 @@ Rotation matrices support composition through matrix multiplication and vector r
 === "Python"
 
     ``` python
-    --8<-- "examples/attitude/rotation_matrix_operations.py:8"
+    --8<-- "examples/attitude/rotation_matrix_operations.py:9"
     ```
 
 === "Rust"
 
     ``` rust
-    --8<-- "examples/attitude/rotation_matrix_operations.rs:4"
+    --8<-- "examples/attitude/rotation_matrix_operations.rs:5"
     ```
 
 ## Conversions

@@ -7,12 +7,9 @@ Demonstrates how to access and output rotation matrix elements.
 """
 
 import brahe as bh
-import math
 
 # Create a rotation matrix (45° about Z-axis)
-cos45 = math.cos(math.pi / 4)
-sin45 = math.sin(math.pi / 4)
-rm = bh.RotationMatrix(cos45, -sin45, 0.0, sin45, cos45, 0.0, 0.0, 0.0, 1.0)
+rm = bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES)
 
 # Access individual elements
 print("Individual elements (row-by-row):")
@@ -25,14 +22,15 @@ print(f"  {rm}")
 
 # Expected output:
 # Individual elements (row-by-row):
-#   r11: 0.707107, r12: -0.707107, r13: 0.000000
-#   r21: 0.707107, r22: 0.707107, r23: 0.000000
+#   r11: 0.707107, r12: 0.707107, r13: 0.000000
+#   r21: -0.707107, r22: 0.707107, r23: 0.000000
 #   r31: 0.000000, r32: 0.000000, r33: 1.000000
-#
-# As matrix:
-#   [0.707107, -0.707107, 0.000000]
-#   [0.707107, 0.707107, 0.000000]
-#   [0.000000, 0.000000, 1.000000]
-#
+
 # String representation:
-#   RotationMatrix { r11: 0.7071067811865476, r12: -0.7071067811865476, r13: 0.0, r21: 0.7071067811865476, r22: 0.7071067811865476, r23: 0.0, r31: 0.0, r32: 0.0, r33: 1.0 }
+#   RotationMatrix:
+
+#   ┌                                                             ┐
+#   │  0.7071067811865476  0.7071067811865475                   0 │
+#   │ -0.7071067811865475  0.7071067811865476                   0 │
+#   │                   0                   0                   1 │
+#   └                                                             ┘

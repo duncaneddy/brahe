@@ -10,9 +10,7 @@ import brahe as bh
 import math
 
 # Create a rotation matrix (45° about Z-axis)
-cos45 = math.cos(math.pi / 4)
-sin45 = math.sin(math.pi / 4)
-rm = bh.RotationMatrix(cos45, -sin45, 0.0, sin45, cos45, 0.0, 0.0, 0.0, 1.0)
+rm = bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES)
 
 print("Original rotation matrix:")
 print(f"  [{rm.r11:.6f}, {rm.r12:.6f}, {rm.r13:.6f}]")

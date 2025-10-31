@@ -1,7 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
 # ///
-
 """
 Demonstrates rotation matrix operations including matrix multiplication
 and vector transformations.
@@ -50,25 +49,36 @@ rotated2 = R_z @ vector2
 print(f"\n  Original: [{vector2[0]:.3f}, {vector2[1]:.3f}, {vector2[2]:.3f}]")
 print(f"  Rotated:  [{rotated2[0]:.3f}, {rotated2[1]:.3f}, {rotated2[2]:.3f}]")
 
+# Equality comparison
+eq_result = rm_x == rm_z
+neq_result = rm_x != rm_z
+print("\nEquality comparison:")
+print(f"  rm_x == rm_z: {eq_result}")
+print(f"  rm_x != rm_z: {neq_result}")
+
 # Expected output:
 # Rotation matrix X (90° about X):
 #   [1.000, 0.000, 0.000]
 #   [0.000, 0.000, -1.000]
 #   [0.000, 1.000, 0.000]
-#
+
 # Rotation matrix Z (90° about Z):
 #   [0.000, -1.000, 0.000]
 #   [1.000, 0.000, 0.000]
 #   [0.000, 0.000, 1.000]
-#
+
 # Composed rotation (X then Z):
 #   [0.000, 0.000, 1.000]
 #   [1.000, 0.000, 0.000]
 #   [0.000, 1.000, 0.000]
-#
+
 # Vector transformation:
 #   Original: [1.000, 0.000, 0.000]
 #   Rotated:  [0.000, 1.000, 0.000]
-#
+
 #   Original: [0.000, 1.000, 0.000]
-#   Rotated:  [-0.000, 0.000, 1.000]
+#   Rotated:  [-1.000, 0.000, 0.000]
+
+# Equality comparison:
+#   rm_x == rm_z: False
+#   rm_x != rm_z: True

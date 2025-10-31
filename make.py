@@ -345,6 +345,9 @@ def test_examples(
     slow: bool = typer.Option(False, "--slow", help="Include SLOW examples"),
     ignore: bool = typer.Option(False, "--ignore", help="Include IGNORE examples"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
+    lang: Optional[str] = typer.Option(
+        None, "--lang", help="Filter by language: python/py or rust/rs"
+    ),
 ):
     """
     Test all documentation examples.
@@ -353,122 +356,162 @@ def test_examples(
     With --strict: make test-examples-strict
     With --ci-only: make test-examples-all
     With --ignore: Include tests marked with IGNORE flag
+    With --lang: Test only specified language (python/py or rust/rs)
     """
-    console.print("\n[bold blue]Testing Documentation Examples[/bold blue]\n")
+    # Normalize language input
+    test_rust = True
+    test_python = True
+
+    if lang:
+        lang_lower = lang.lower()
+        if lang_lower in ["python", "py"]:
+            test_rust = False
+            test_python = True
+        elif lang_lower in ["rust", "rs"]:
+            test_rust = True
+            test_python = False
+        else:
+            console.print(
+                f"[red]Error: Invalid language '{lang}'. Use: python, py, rust, or rs[/red]\n"
+            )
+            raise typer.Exit(1)
+
+    lang_filter_msg = ""
+    if not test_rust:
+        lang_filter_msg = " (Python only)"
+    elif not test_python:
+        lang_filter_msg = " (Rust only)"
+
+    console.print(
+        f"\n[bold blue]Testing Documentation Examples{lang_filter_msg}[/bold blue]\n"
+    )
 
     # Test Rust examples
-    console.print("[bold]Testing Rust Examples[/bold]")
     rust_results = TestResults()
-    rust_files = sorted(EXAMPLES_DIR.glob("**/*.rs"))
+    if test_rust:
+        console.print("[bold]Testing Rust Examples[/bold]")
+        rust_files = sorted(EXAMPLES_DIR.glob("**/*.rs"))
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Testing Rust examples...", total=len(rust_files))
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Testing Rust examples...", total=len(rust_files))
 
-        for rust_file in rust_files:
-            rel_path = rust_file.relative_to(REPO_ROOT)
-            should_skip, reason = check_flags(rust_file, ci_only, slow, ignore)
+            for rust_file in rust_files:
+                rel_path = rust_file.relative_to(REPO_ROOT)
+                should_skip, reason = check_flags(rust_file, ci_only, slow, ignore)
 
-            rust_results.total += 1
+                rust_results.total += 1
 
-            if should_skip:
-                rust_results.skipped += 1
-                if verbose:
-                    console.print(f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]")
-            else:
-                passed, stdout, stderr = test_rust_example(rust_file, verbose)
-
-                if passed:
-                    rust_results.passed += 1
+                if should_skip:
+                    rust_results.skipped += 1
                     if verbose:
-                        console.print(f"  {rel_path}...[green]PASS[/green]")
+                        console.print(
+                            f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
+                        )
                 else:
-                    rust_results.failed += 1
-                    rust_results.failures.append(str(rel_path))
-                    rust_results.error_details.append((str(rel_path), stdout, stderr))
-                    console.print(f"  {rel_path}...[red]FAIL[/red]")
+                    passed, stdout, stderr = test_rust_example(rust_file, verbose)
 
-            progress.update(task, advance=1)
+                    if passed:
+                        rust_results.passed += 1
+                        if verbose:
+                            console.print(f"  {rel_path}...[green]PASS[/green]")
+                    else:
+                        rust_results.failed += 1
+                        rust_results.failures.append(str(rel_path))
+                        rust_results.error_details.append(
+                            (str(rel_path), stdout, stderr)
+                        )
+                        console.print(f"  {rel_path}...[red]FAIL[/red]")
 
-    console.print(
-        f"[blue]Rust: {rust_results.total} total, {rust_results.passed} passed, "
-        f"{rust_results.failed} failed, {rust_results.skipped} skipped[/blue]\n"
-    )
+                progress.update(task, advance=1)
+
+        console.print(
+            f"[blue]Rust: {rust_results.total} total, {rust_results.passed} passed, "
+            f"{rust_results.failed} failed, {rust_results.skipped} skipped[/blue]\n"
+        )
 
     # Test Python examples
-    console.print("[bold]Testing Python Examples[/bold]")
     python_results = TestResults()
-    python_files = sorted(EXAMPLES_DIR.glob("**/*.py"))
+    if test_python:
+        console.print("[bold]Testing Python Examples[/bold]")
+        python_files = sorted(EXAMPLES_DIR.glob("**/*.py"))
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Testing Python examples...", total=len(python_files))
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                "Testing Python examples...", total=len(python_files)
+            )
 
-        for py_file in python_files:
-            rel_path = py_file.relative_to(REPO_ROOT)
-            should_skip, reason = check_flags(py_file, ci_only, slow, ignore)
+            for py_file in python_files:
+                rel_path = py_file.relative_to(REPO_ROOT)
+                should_skip, reason = check_flags(py_file, ci_only, slow, ignore)
 
-            python_results.total += 1
+                python_results.total += 1
 
-            if should_skip:
-                python_results.skipped += 1
-                if verbose:
-                    console.print(f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]")
-            else:
-                passed, stdout, stderr = test_python_example(py_file, verbose)
-
-                if passed:
-                    python_results.passed += 1
+                if should_skip:
+                    python_results.skipped += 1
                     if verbose:
-                        console.print(f"  {rel_path}...[green]PASS[/green]")
+                        console.print(
+                            f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
+                        )
                 else:
-                    python_results.failed += 1
-                    python_results.failures.append(str(rel_path))
-                    python_results.error_details.append((str(rel_path), stdout, stderr))
-                    console.print(f"  {rel_path}...[red]FAIL[/red]")
+                    passed, stdout, stderr = test_python_example(py_file, verbose)
 
-            progress.update(task, advance=1)
+                    if passed:
+                        python_results.passed += 1
+                        if verbose:
+                            console.print(f"  {rel_path}...[green]PASS[/green]")
+                    else:
+                        python_results.failed += 1
+                        python_results.failures.append(str(rel_path))
+                        python_results.error_details.append(
+                            (str(rel_path), stdout, stderr)
+                        )
+                        console.print(f"  {rel_path}...[red]FAIL[/red]")
 
-    console.print(
-        f"[blue]Python: {python_results.total} total, {python_results.passed} passed, "
-        f"{python_results.failed} failed, {python_results.skipped} skipped[/blue]\n"
-    )
+                progress.update(task, advance=1)
 
-    # Check parity
-    console.print("[bold]Checking Rust/Python Parity[/bold]")
-    missing_py = []
-    missing_rs = []
-
-    for rs_file in EXAMPLES_DIR.glob("**/*.rs"):
-        py_file = rs_file.with_suffix(".py")
-        if not py_file.exists():
-            missing_py.append(rs_file.relative_to(REPO_ROOT))
-
-    for py_file in EXAMPLES_DIR.glob("**/*.py"):
-        rs_file = py_file.with_suffix(".rs")
-        if not rs_file.exists():
-            missing_rs.append(py_file.relative_to(REPO_ROOT))
-
-    if missing_py or missing_rs:
         console.print(
-            f"[yellow]Parity Issues: {len(missing_py)} missing Python, "
-            f"{len(missing_rs)} missing Rust[/yellow]"
+            f"[blue]Python: {python_results.total} total, {python_results.passed} passed, "
+            f"{python_results.failed} failed, {python_results.skipped} skipped[/blue]\n"
         )
-        if strict:
-            console.print("\n[red]STRICT MODE: Failing due to parity issues[/red]")
-            raise typer.Exit(1)
-    else:
-        console.print("[green]All examples have Rust/Python pairs![/green]")
+
+    # Check parity (only when testing both languages)
+    if test_rust and test_python:
+        console.print("[bold]Checking Rust/Python Parity[/bold]")
+        missing_py = []
+        missing_rs = []
+
+        for rs_file in EXAMPLES_DIR.glob("**/*.rs"):
+            py_file = rs_file.with_suffix(".py")
+            if not py_file.exists():
+                missing_py.append(rs_file.relative_to(REPO_ROOT))
+
+        for py_file in EXAMPLES_DIR.glob("**/*.py"):
+            rs_file = py_file.with_suffix(".rs")
+            if not rs_file.exists():
+                missing_rs.append(py_file.relative_to(REPO_ROOT))
+
+        if missing_py or missing_rs:
+            console.print(
+                f"[yellow]Parity Issues: {len(missing_py)} missing Python, "
+                f"{len(missing_rs)} missing Rust[/yellow]"
+            )
+            if strict:
+                console.print("\n[red]STRICT MODE: Failing due to parity issues[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("[green]All examples have Rust/Python pairs![/green]")
 
     # Summary
     table = Table(show_header=True, header_style="bold magenta")
@@ -478,20 +521,22 @@ def test_examples(
     table.add_column("Failed", justify="right", style="red")
     table.add_column("Skipped", justify="right", style="yellow")
 
-    table.add_row(
-        "Rust",
-        str(rust_results.total),
-        str(rust_results.passed),
-        str(rust_results.failed),
-        str(rust_results.skipped),
-    )
-    table.add_row(
-        "Python",
-        str(python_results.total),
-        str(python_results.passed),
-        str(python_results.failed),
-        str(python_results.skipped),
-    )
+    if test_rust:
+        table.add_row(
+            "Rust",
+            str(rust_results.total),
+            str(rust_results.passed),
+            str(rust_results.failed),
+            str(rust_results.skipped),
+        )
+    if test_python:
+        table.add_row(
+            "Python",
+            str(python_results.total),
+            str(python_results.passed),
+            str(python_results.failed),
+            str(python_results.skipped),
+        )
 
     if rust_results.failures or python_results.failures:
         console.print("\n[bold red]Failed Examples:[/bold red]")

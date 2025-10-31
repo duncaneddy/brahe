@@ -2,9 +2,6 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::attitude::FromAttitude;
-use brahe::attitude::ToAttitude;
-use std::f64::consts::PI;
 
 fn main() {
     // Create a rotation matrix (45° about Z-axis)

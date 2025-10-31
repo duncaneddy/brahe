@@ -2,7 +2,6 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::attitude::FromAttitude;
 use brahe::attitude::ToAttitude;
 use nalgebra as na;
 use std::f64::consts::PI;

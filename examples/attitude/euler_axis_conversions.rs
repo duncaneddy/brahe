@@ -5,7 +5,6 @@ use brahe as bh;
 use brahe::attitude::FromAttitude;
 use brahe::attitude::ToAttitude;
 use nalgebra as na;
-use std::f64::consts::PI;
 
 fn main() {
     // Create an Euler axis (45° rotation about Z-axis)

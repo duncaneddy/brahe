@@ -3,7 +3,6 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::attitude::FromAttitude;
-use brahe::attitude::ToAttitude;
 
 fn main() {
     // Create a quaternion (45° rotation about Z-axis)

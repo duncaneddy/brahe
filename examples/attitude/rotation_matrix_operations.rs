@@ -3,7 +3,6 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::attitude::ToAttitude;
 use nalgebra as na;
 
 fn main() {

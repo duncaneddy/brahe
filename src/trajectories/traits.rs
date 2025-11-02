@@ -9,6 +9,7 @@ use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Interpolation methods for retrieving trajectory states at arbitrary epochs.
 ///
@@ -36,21 +37,57 @@ pub enum TrajectoryEvictionPolicy {
 }
 
 /// Enumeration of orbit reference frames
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitFrame {
-    /// Earth-Centered Inertial frame (J2000)
+    /// Earth-Centered Inertial
     ECI,
-    /// Earth-Centered Earth-Fixed frame
+    /// Earth-Centered Earth-Fixed
     ECEF,
 }
 
+impl fmt::Display for OrbitFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrbitFrame::ECI => write!(f, "ECI"),
+            OrbitFrame::ECEF => write!(f, "ECEF"),
+        }
+    }
+}
+
+impl fmt::Debug for OrbitFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrbitFrame::ECI => write!(f, "OrbitFrame(Earth-Centered Inertial)"),
+            OrbitFrame::ECEF => write!(f, "OrbitFrame(Earth-Centered Earth-Fixed)"),
+        }
+    }
+}
+
 /// Enumeration of orbit state representations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitRepresentation {
     /// Cartesian position and velocity (x, y, z, vx, vy, vz)
     Cartesian,
     /// Keplerian elements (a, e, i, Ω, ω, M)
     Keplerian,
+}
+
+impl fmt::Display for OrbitRepresentation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrbitRepresentation::Cartesian => write!(f, "Cartesian"),
+            OrbitRepresentation::Keplerian => write!(f, "Keplerian"),
+        }
+    }
+}
+
+impl fmt::Debug for OrbitRepresentation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrbitRepresentation::Cartesian => write!(f, "OrbitRepresentation(Cartesian)"),
+            OrbitRepresentation::Keplerian => write!(f, "OrbitRepresentation(Keplerian)"),
+        }
+    }
 }
 
 /// Core trajectory functionality that all trajectory implementations must provide.

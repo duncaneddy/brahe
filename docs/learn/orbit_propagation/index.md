@@ -6,7 +6,7 @@ Orbit propagation is the process of computing a satellite's position and velocit
 
 Brahe's propagation system is built on traits that define core functionality. This design allows different propagator implementations to share a common interface while providing specialized capabilities.
 
-### `Trait`: OrbitPropagator
+### OrbitPropagator Trait
 
 The `OrbitPropagator` trait is the foundation for all propagator implementations. It defines the core interface for stepping through time, managing state, and controlling trajectory accumulation.
 
@@ -44,7 +44,7 @@ The `OrbitPropagator` trait is the foundation for all propagator implementations
 
 **When to Use**: All propagators implement this trait. Use these methods for time-stepping through orbits, accumulating trajectory history, and managing memory for long-running applications.
 
-### `Trait`: StateProvider
+### StateProvider Trait
 
 The `StateProvider` trait extends propagators with the ability to compute states directly at arbitrary epochs without requiring time-stepping. This trait is designed for analytic propagators with closed-form solutions (like Keplerian and SGP4).
 
@@ -74,7 +74,7 @@ The `StateProvider` trait extends propagators with the ability to compute states
 
 **Requires**: Only available for analytic propagators (`KeplerianPropagator`, `SGPPropagator`).
 
-### `Trait`: IdentifiableStateProvider
+### IdentifiableStateProvider Trait
 
 The `IdentifiableStateProvider` trait combines `StateProvider` with `Identifiable`, enabling satellite tracking with both orbital state computation and identity management.
 

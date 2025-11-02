@@ -175,6 +175,11 @@ nav:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
                 - Groundstations: learn/datasets/groundstations.md
+            - Utilities:
+                - learn/utilities/index.md
+                - Caching: learn/utilities/caching.md
+                - Multithreading: learn/utilities/threading.md
+                - String Formatting: learn/utilities/string_formatting.md
             - Plots:
                 - learn/plots/index.md
                 - Ground Tracks: learn/plots/ground_tracks.md

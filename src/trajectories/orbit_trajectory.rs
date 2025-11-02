@@ -40,6 +40,7 @@
 use nalgebra::{SVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
@@ -105,6 +106,18 @@ pub struct OrbitTrajectory {
     /// Can store any JSON-serializable data including strings, numbers, booleans,
     /// arrays, and nested objects. For orbital trajectories, use ORBITAL_*_KEY constants.
     pub metadata: HashMap<String, Value>,
+}
+
+impl fmt::Display for OrbitTrajectory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OrbitTrajectory(frame={}, representation={}, states={})",
+            self.frame,
+            self.representation,
+            self.len()
+        )
+    }
 }
 
 impl OrbitTrajectory {

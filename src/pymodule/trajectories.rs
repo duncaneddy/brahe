@@ -79,20 +79,20 @@ impl PyOrbitFrame {
     ///     str: Human-readable frame name
     fn name(&self) -> &str {
         match self.frame {
-            trajectories::traits::OrbitFrame::ECI => "Earth-Centered Inertial (J2000)",
+            trajectories::traits::OrbitFrame::ECI => "Earth-Centered Inertial",
             trajectories::traits::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
         }
     }
 
     fn __str__(&self) -> String {
-        self.name().to_string()
+        match self.frame {
+            trajectories::traits::OrbitFrame::ECI => "ECI".to_string(),
+            trajectories::traits::OrbitFrame::ECEF => "ECEF".to_string(),
+        }
     }
 
     fn __repr__(&self) -> String {
-        format!("OrbitFrame.{}", match self.frame {
-            trajectories::traits::OrbitFrame::ECI => "ECI",
-            trajectories::traits::OrbitFrame::ECEF => "ECEF",
-        })
+        format!("OrbitFrame({})", self.name())
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -142,11 +142,17 @@ impl PyOrbitRepresentation {
     }
 
     fn __str__(&self) -> String {
-        format!("{:?}", self.representation)
+        match self.representation {
+            trajectories::traits::OrbitRepresentation::Cartesian => "Cartesian".to_string(),
+            trajectories::traits::OrbitRepresentation::Keplerian => "Keplerian".to_string(),
+        }
     }
 
     fn __repr__(&self) -> String {
-        format!("OrbitRepresentation.{:?}", self.representation)
+        format!("OrbitRepresentation({})", match self.representation {
+            trajectories::traits::OrbitRepresentation::Cartesian => "Cartesian",
+            trajectories::traits::OrbitRepresentation::Keplerian => "Keplerian",
+        })
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -1166,14 +1172,21 @@ impl PyOrbitalTrajectory {
     /// String representation
     fn __repr__(&self) -> String {
         format!(
-            "OrbitalTrajectory(frame={:?}, representation={:?}, states={})",
-            self.trajectory.frame, self.trajectory.representation, self.trajectory.len()
+            "OrbitTrajectory(frame={}, representation={}, states={})",
+            PyOrbitFrame { frame: self.trajectory.frame }.__repr__(),
+            PyOrbitRepresentation { representation: self.trajectory.representation }.__repr__(),
+            self.trajectory.len()
         )
     }
 
     /// String conversion
     fn __str__(&self) -> String {
-        self.__repr__()
+        format!(
+            "OrbitTrajectory(frame={}, representation={}, states={})",
+            PyOrbitFrame { frame: self.trajectory.frame }.__str__(),
+            PyOrbitRepresentation { representation: self.trajectory.representation }.__str__(),
+            self.trajectory.len()
+        )
     }
 
     /// Set eviction policy to keep maximum number of states.

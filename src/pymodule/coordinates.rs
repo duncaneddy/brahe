@@ -142,12 +142,12 @@ fn py_state_cartesian_to_osculating<'py>(
 #[pyo3(name = "position_geocentric_to_ecef")]
 /// Convert geocentric position to `ECEF` Cartesian coordinates.
 ///
-/// Transforms a position from geocentric spherical coordinates (latitude, longitude, radius)
+/// Transforms a position from geocentric spherical coordinates (longitude, latitude, radius)
 /// to Earth-Centered Earth-Fixed (`ECEF`) Cartesian coordinates.
 ///
 /// Args:
-///     x_geoc (numpy.ndarray or list): Geocentric position `[latitude, longitude, radius]` where
-///         latitude is in radians or degrees, longitude is in radians or degrees, and
+///     x_geoc (numpy.ndarray or list): Geocentric position `[longitude, latitude, radius]` where
+///         longitude is in radians or degrees, latitude is in radians or degrees, and
 ///         radius is in meters.
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
 ///
@@ -160,8 +160,8 @@ fn py_state_cartesian_to_osculating<'py>(
 ///     import numpy as np
 ///
 ///     # Convert geocentric coordinates to ECEF
-///     lat, lon, r = 0.0, 0.0, 6378137.0  # Equator, prime meridian, Earth's radius
-///     x_geoc = np.array([lat, lon, r])
+///     lon, lat, r = 0.0, 0.0, 6378137.0  # Equator, prime meridian, Earth's radius
+///     x_geoc = np.array([lon, lat, r])
 ///     x_ecef = bh.position_geocentric_to_ecef(x_geoc, bh.AngleFormat.RADIANS)
 ///     print(f"ECEF position: {x_ecef}")
 ///     ```
@@ -183,15 +183,15 @@ fn py_position_geocentric_to_ecef<'py>(
 /// Convert `ECEF` Cartesian position to geocentric coordinates.
 ///
 /// Transforms a position from Earth-Centered Earth-Fixed (`ECEF`) Cartesian coordinates
-/// to geocentric spherical coordinates (latitude, longitude, radius).
+/// to geocentric spherical coordinates (longitude, latitude, radius).
 ///
 /// Args:
 ///     x_ecef (numpy.ndarray or list): `ECEF` Cartesian position `[x, y, z]` in meters.
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
 ///
 /// Returns:
-///     numpy.ndarray: Geocentric position `[latitude, longitude, radius]` where latitude
-///         is in radians or degrees, longitude is in radians or degrees, and radius is in meters.
+///     numpy.ndarray: Geocentric position `[longitude, latitude, radius]` where longitude
+///         is in radians or degrees, latitude is in radians or degrees, and radius is in meters.
 ///
 /// Example:
 ///     ```python
@@ -201,7 +201,7 @@ fn py_position_geocentric_to_ecef<'py>(
 ///     # Convert ECEF to geocentric coordinates
 ///     x_ecef = np.array([6378137.0, 0.0, 0.0])  # Point on equator, prime meridian
 ///     x_geoc = bh.position_ecef_to_geocentric(x_ecef, bh.AngleFormat.DEGREES)
-///     print(f"Geocentric: lat={x_geoc[0]:.2f}°, lon={x_geoc[1]:.2f}°, r={x_geoc[2]:.0f}m")
+///     print(f"Geocentric: lon={x_geoc[0]:.2f}°, lat={x_geoc[1]:.2f}°, r={x_geoc[2]:.0f}m")
 ///     ```
 fn py_position_ecef_to_geocentric<'py>(
     py: Python<'py>,
@@ -219,12 +219,12 @@ fn py_position_ecef_to_geocentric<'py>(
 #[pyo3(name = "position_geodetic_to_ecef")]
 /// Convert geodetic position to `ECEF` Cartesian coordinates.
 ///
-/// Transforms a position from geodetic coordinates (latitude, longitude, altitude) using
+/// Transforms a position from geodetic coordinates (longitude, latitude, altitude) using
 /// the `WGS84` ellipsoid model to Earth-Centered Earth-Fixed (`ECEF`) Cartesian coordinates.
 ///
 /// Args:
-///     x_geod (numpy.ndarray or list): Geodetic position `[latitude, longitude, altitude]` where
-///         latitude is in radians or degrees, longitude is in radians or degrees, and
+///     x_geod (numpy.ndarray or list): Geodetic position `[longitude, latitude, altitude]` where
+///         longitude is in radians or degrees, latitude is in radians or degrees, and
 ///         altitude is in meters above the `WGS84` ellipsoid.
 ///     angle_format (AngleFormat): Angle format for input angular coordinates (`RADIANS` or `DEGREES`).
 ///
@@ -237,8 +237,8 @@ fn py_position_ecef_to_geocentric<'py>(
 ///     import numpy as np
 ///
 ///     # Convert geodetic coordinates (GPS-like) to ECEF
-///     lat, lon, alt = 40.0, -105.0, 1655.0  # Boulder, CO (degrees, meters)
-///     x_geod = np.array([lat, lon, alt])
+///     lon, lat, alt = -105.0, 40.0, 1655.0  # Boulder, CO (degrees, meters)
+///     x_geod = np.array([lon, lat, alt])
 ///     x_ecef = bh.position_geodetic_to_ecef(x_geod, bh.AngleFormat.DEGREES)
 ///     print(f"ECEF position: {x_ecef}")
 ///     ```
@@ -259,15 +259,15 @@ fn py_position_geodetic_to_ecef<'py>(
 /// Convert `ECEF` Cartesian position to geodetic coordinates.
 ///
 /// Transforms a position from Earth-Centered Earth-Fixed (`ECEF`) Cartesian coordinates
-/// to geodetic coordinates (latitude, longitude, altitude) using the `WGS84` ellipsoid model.
+/// to geodetic coordinates (longitude, latitude, altitude) using the `WGS84` ellipsoid model.
 ///
 /// Args:
 ///     x_ecef (numpy.ndarray or list): `ECEF` Cartesian position `[x, y, z]` in meters.
 ///     angle_format (AngleFormat): Angle format for output angular coordinates (`RADIANS` or `DEGREES`).
 ///
 /// Returns:
-///     numpy.ndarray: Geodetic position `[latitude, longitude, altitude]` where latitude
-///         is in radians or degrees, longitude is in radians or degrees, and altitude
+///     numpy.ndarray: Geodetic position `[longitude, latitude, altitude]` where longitude
+///         is in radians or degrees, latitude is in radians or degrees, and altitude
 ///         is in meters above the `WGS84` ellipsoid.
 ///
 /// Example:
@@ -278,7 +278,7 @@ fn py_position_geodetic_to_ecef<'py>(
 ///     # Convert ECEF to geodetic coordinates (GPS-like)
 ///     x_ecef = np.array([-1275936.0, -4797210.0, 4020109.0])  # Example location
 ///     x_geod = bh.position_ecef_to_geodetic(x_ecef, bh.AngleFormat.DEGREES)
-///     print(f"Geodetic: lat={x_geod[0]:.4f}°, lon={x_geod[1]:.4f}°, alt={x_geod[2]:.0f}m")
+///     print(f"Geodetic: lon={x_geod[0]:.4f}°, lat={x_geod[1]:.4f}°, alt={x_geod[2]:.0f}m")
 ///     ```
 fn py_position_ecef_to_geodetic<'py>(
     py: Python<'py>,

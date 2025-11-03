@@ -106,6 +106,11 @@ def list_stations(
         typer.echo("No groundstations found.")
         return
 
+    # Sort stations by name in descending alphabetical order
+    stations = sorted(
+        stations, key=lambda s: s.get_name() if s.get_name() else "", reverse=False
+    )
+
     if not table:
         # Simple text output
         if provider:
@@ -177,106 +182,3 @@ def list_stations(
         console.print(f"[bold]All Groundstations ({len(stations)} total)[/bold]")
     console.print(rich_table)
     console.print()
-
-
-@app.command()
-def show(
-    provider: Annotated[
-        str, typer.Argument(help="Provider name (e.g., 'ksat', 'atlas', 'aws')")
-    ],
-    show_properties: Annotated[
-        bool, typer.Option("--properties", "-p", help="Show station properties")
-    ] = False,
-):
-    """
-    Show groundstations for a specific provider (deprecated - use list-stations).
-
-    Examples:
-        brahe datasets groundstations show ksat
-        brahe datasets groundstations show atlas --properties
-    """
-    try:
-        stations = datasets.groundstations.load(provider)
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    typer.echo(f"\n{provider.upper()} Groundstations ({len(stations)} total):")
-    typer.echo("-" * 80)
-
-    for station in stations:
-        name = station.get_name() if station.get_name() else "Unnamed"
-        # Coordinates are already in degrees
-        lon = station.lon
-        lat = station.lat
-        alt = station.alt
-
-        typer.echo(f"\n{name}")
-        typer.echo(f"  Location: {lon:8.3f}° lon, {lat:7.3f}° lat, {alt:6.0f} m alt")
-
-        if show_properties:
-            props = station.properties
-            if "frequency_bands" in props:
-                bands = ", ".join(props["frequency_bands"])
-                typer.echo(f"  Frequency bands: {bands}")
-            if "provider" in props:
-                typer.echo(f"  Provider: {props['provider']}")
-
-    typer.echo(f"\n✓ Loaded {len(stations)} groundstations from {provider}")
-
-
-@app.command("show-all")
-def show_all(
-    show_properties: Annotated[
-        bool, typer.Option("--properties", "-p", help="Show station properties")
-    ] = False,
-):
-    """
-    Show groundstations from all providers.
-
-    Examples:
-        brahe datasets groundstations show-all
-        brahe datasets groundstations show-all --properties
-    """
-    try:
-        all_stations = datasets.groundstations.load_all()
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    # Group by provider
-    by_provider = {}
-    for station in all_stations:
-        props = station.properties
-        provider = props.get("provider", "Unknown")
-        if provider not in by_provider:
-            by_provider[provider] = []
-        by_provider[provider].append(station)
-
-    typer.echo(f"\nAll Groundstations ({len(all_stations)} total):")
-    typer.echo("=" * 80)
-
-    for provider, stations in sorted(by_provider.items()):
-        typer.echo(f"\n{provider} ({len(stations)} stations):")
-        typer.echo("-" * 80)
-
-        for station in stations:
-            name = (
-                station.name if hasattr(station, "name") and station.name else "Unnamed"
-            )
-            lon = station.lon
-            lat = station.lat
-            alt = station.alt
-
-            typer.echo(f"\n  {name}")
-            typer.echo(
-                f"    Location: {lon:8.3f}° lon, {lat:7.3f}° lat, {alt:6.0f} m alt"
-            )
-
-            if show_properties:
-                props = station.properties
-                if "frequency_bands" in props:
-                    bands = ", ".join(props["frequency_bands"])
-                    typer.echo(f"    Frequency bands: {bands}")
-
-    typer.echo(f"\n✓ Loaded {len(all_stations)} groundstations from all providers")

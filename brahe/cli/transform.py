@@ -266,8 +266,3 @@ def coordinates(
         typer.echo(
             f"[{x[0]:{format_string}}, {x[1]:{format_string}}, {x[2]:{format_string}}, {x[3]:{format_string}}, {x[4]:{format_string}}, {x[5]:{format_string}}]"
         )
-
-
-@app.command()
-def attitude():
-    typer.echo("Not implemented yet")

@@ -66,12 +66,16 @@ def convert(
     if not output_time_system:
         output_time_system = TimeSystem.TAI
 
+    # Convert CLI TimeSystem enums to brahe TimeSystem enums
+    brahe_input_ts = getattr(brahe.TimeSystem, input_time_system.value)
+    brahe_output_ts = getattr(brahe.TimeSystem, output_time_system.value)
+
     if input_format == EpochFormat.string:
         epc = brahe.Epoch.from_string(epoch)
     elif input_format == EpochFormat.mjd:
-        epc = brahe.Epoch.from_mjd(float(epoch), input_time_system.value)
+        epc = brahe.Epoch.from_mjd(float(epoch), brahe_input_ts)
     elif input_format == EpochFormat.jd:
-        epc = brahe.Epoch.from_jd(float(epoch), input_time_system.value)
+        epc = brahe.Epoch.from_jd(float(epoch), brahe_input_ts)
     elif input_format == EpochFormat.gps_date:
         epc = brahe.Epoch.from_gps_date(int(epoch))
     elif input_format == EpochFormat.gps_nanoseconds:
@@ -79,9 +83,6 @@ def convert(
     else:
         typer.echo("Invalid input format")
         typer.Exit(code=1)
-
-    # Convert CLI TimeSystem enum to brahe TimeSystem enum
-    brahe_output_ts = getattr(brahe.TimeSystem, output_time_system.value)
 
     if output_format == EpochFormat.string:
         typer.echo(epc.to_string_as_time_system(time_system=brahe_output_ts))

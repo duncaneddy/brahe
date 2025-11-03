@@ -2,7 +2,7 @@
 
 Generally, users of brahe will not need to directly manage Earth orientation data. The package provides default data files and the `CachingEOPProvider` to automatically update data as needed. However, for advanced users or those with specific data requirements, brahe provides functionality to load and manage Earth orientation data manually.
 
-To make the package interface ergonommic, brahe functions do not explicitly accept Earth orientation data as input parameters. Instead, there is a single, global Earth orientation provider used internally by brahe functions. This global provider can be initialized using one of the provided loading functions. See the [Loading Data Sets](#loading-data-data-sets) section for more information on loading and managing Earth orientation data in brahe.
+To make the package interface ergonommic, brahe functions do not explicitly accept Earth orientation data as input parameters. Instead, there is a single, global Earth orientation provider used internally by brahe functions. This global provider can be initialized using one of the provided loading functions.
 
 If you want to skip understanding Earth orientation data for now, you can initialize the global provider with zeroed values using the `initialize_eop()` function:
 

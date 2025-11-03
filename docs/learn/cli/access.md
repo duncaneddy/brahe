@@ -1,9 +1,5 @@
 # Access Commands
 
-Satellite access window computation for ground stations.
-
-## Overview
-
 The `access` command group calculates when satellites are visible from ground locations, considering elevation constraints and other visibility criteria.
 
 ## Commands
@@ -55,18 +51,25 @@ ISS passes over New York City (next 7 days):
 ```bash
 brahe access compute 25544 --lat 40.7128 --lon -74.0060
 ```
-Output (table format):
-```
-Contact | Start Time           | End Time             | Duration | Max El. | Start Az | End Az
---------|----------------------|----------------------|----------|---------|----------|--------
-1       | 2024-01-01 06:23:15  | 2024-01-01 06:31:42  | 507s     | 45.2°   | 185° (S) | 78° (E)
-2       | 2024-01-01 08:01:33  | 2024-01-01 08:09:18  | 465s     | 38.7°   | 230° (SW)| 25° (NE)
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 18 access window(s)
 ...
 ```
 
 GPS satellite passes (15° minimum elevation):
 ```bash
 brahe access compute 32260 --lat 40.7128 --lon -74.0060 --min-elevation 15
+```
+Output:
+```bash
+# Access Windows for NAVSTAR 60 (USA 196) (NORAD ID: 32260)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 15.0°
+# Found 8 access window(s)
 ```
 
 Custom time range:
@@ -75,20 +78,51 @@ brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
   --start-time "2024-06-01T00:00:00Z" \
   --duration 1
 ```
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 2 access window(s)
+```
 
 Use ground station database:
 ```bash
 brahe access compute 25544 --gs-provider ksat --gs-name "Svalbard"
+```
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 78.2300° lat, 15.4100° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 19 access window(s)
 ```
 
 Simple output format:
 ```bash
 brahe access compute 25544 --lat 40.7128 --lon -74.0060 --output-format simple
 ```
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 18 access window(s)
+
+# 1. 2025-11-03 18:36:18.197 UTC | 2025-11-03 18:38:16.000 UTC | 1m 57s | Max Elev: 11.9° | Az: 150°-114°
+# 2. 2025-11-03 20:11:37.226 UTC | 2025-11-03 20:16:16.000 UTC | 4m 38s | Max Elev: 20.6° | Az: 255°-351°
+```
 
 Export to JSON:
 ```bash
 brahe access compute 25544 --lat 40.7128 --lon -74.0060 --output-file passes.json
+```
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 18 access window(s)
 ```
 
 Sort by maximum elevation (highest first):
@@ -96,142 +130,72 @@ Sort by maximum elevation (highest first):
 brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
   --sort-by max_elevation --sort-order descending --max-results 5
 ```
+Output:
+```bash
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 5 access window(s)
+
+# ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+# ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃
+# ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃
+# ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃
+# ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+# │       1 │ 2025-1… │ 2025-… │ 6       │   77.0 │     321 │    148 │
+# │         │ 05:22:… │ 05:28… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 31.74   │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# │       2 │ 2025-1… │ 2025-… │ 6       │   69.8 │     319 │    151 │
+# │         │ 06:58:… │ 07:04… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 30.04   │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# │       3 │ 2025-1… │ 2025-… │ 6       │   57.9 │     206 │     46 │
+# │         │ 18:34:… │ 18:40… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 7.79    │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# │       4 │ 2025-1… │ 2025-… │ 6       │   52.9 │     204 │     48 │
+# │         │ 16:58:… │ 17:04… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 9.76    │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# │       5 │ 2025-1… │ 2025-… │ 5       │   52.6 │     227 │     22 │
+# │         │ 17:46:… │ 17:52… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 59.45   │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘
+```
 
 Sort by duration (longest passes first):
 ```bash
 brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
   --sort-by duration --sort-order descending
 ```
-
----
-
-## Understanding Access Windows
-
-### Satellite Visibility
-
-A satellite is visible from a ground location when:
-1. Above the horizon (elevation > 0°)
-2. Meets minimum elevation constraint (default: 10°)
-3. Not in Earth's shadow (for optical observations)
-
-### Elevation Angle
-
-Angle between the satellite and the local horizontal plane:
-- `0°` - On the horizon
-- `90°` - Directly overhead (zenith)
-- Higher elevation = better viewing conditions
-- Typical minimum: 5-10° (atmospheric effects near horizon)
-
-### Azimuth Angle
-
-Compass direction to the satellite:
-- `0°` / `360°` - North
-- `90°` - East
-- `180°` - South
-- `270°` - West
-
-Output shows start and end azimuth with cardinal directions: `185° (S)`, `78° (E)`
-
-### Access Window Components
-
-Each access window includes:
-- **Start Time** - When satellite rises above minimum elevation
-- **End Time** - When satellite sets below minimum elevation
-- **Duration** - Contact time in seconds
-- **Max Elevation** - Highest elevation during pass
-- **Start/End Azimuth** - Entry and exit directions
-
----
-
-## Common Workflows
-
-### Daily ISS Passes
-
+Output:
 ```bash
-#!/bin/bash
-# Get today's ISS passes over a location
+# Access Windows for ISS (ZARYA) (NORAD ID: 25544)
+# Location: 40.7128° lat, -74.0060° lon, 0 m alt
+# Minimum elevation: 10.0°
+# Found 18 access window(s)
 
-LAT="40.7128"
-LON="-74.0060"
-LOCATION_NAME="New York City"
-
-echo "ISS passes over $LOCATION_NAME (next 24 hours):"
-brahe access compute 25544 --lat $LAT --lon $LON --duration 1 --output-format rich
-```
-
-### High-Elevation Passes Only
-
-```bash
-#!/bin/bash
-# Find only the best passes (elevation > 45°)
-
-brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
-  --min-elevation 45 \
-  --sort-by max_elevation --sort-order descending
-```
-
-### Multi-Satellite Constellation
-
-```bash
-#!/bin/bash
-# Check access for multiple satellites (e.g., GPS constellation)
-
-GPS_SATS=(32260 32384 38833 40105)  # Example GPS PRNs
-LAT="40.7128"
-LON="-74.0060"
-
-for norad in "${GPS_SATS[@]}"; do
-  echo "=== NORAD $norad ==="
-  brahe access compute $norad --lat $LAT --lon $LON \
-    --duration 1 --min-elevation 15 --output-format simple
-  echo
-done
-```
-
-### Export for Analysis
-
-```bash
-#!/bin/bash
-# Export access windows to JSON for further processing
-
-OUTPUT_DIR="./access_windows"
-mkdir -p $OUTPUT_DIR
-
-# ISS passes
-brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
-  --output-file "$OUTPUT_DIR/iss_passes.json"
-
-# HST passes
-brahe access compute 20580 --lat 40.7128 --lon -74.0060 \
-  --output-file "$OUTPUT_DIR/hst_passes.json"
-
-echo "Access windows exported to $OUTPUT_DIR"
-```
-
-### Ground Station Network
-
-```bash
-#!/bin/bash
-# Check satellite visibility from multiple ground stations
-
-SATELLITE=25544  # ISS
-STATIONS=("Svalbard" "Singapore" "Troll")
-
-for station in "${STATIONS[@]}"; do
-  echo "=== $station ==="
-  brahe access compute $SATELLITE --gs-provider ksat --gs-name "$station" --duration 7
-  echo
-done
-```
-
-### Next Visible Pass
-
-```bash
-#!/bin/bash
-# Find the next visible pass (max 1 result)
-
-brahe access compute 25544 --lat 40.7128 --lon -74.0060 \
-  --max-results 1 --output-format simple
+# ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+# ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃
+# ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃
+# ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃
+# ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+# │       1 │ 2025-1… │ 2025-… │ 6       │   53.8 │     204 │     47 │
+# │         │ 16:58:… │ 17:05… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# │         │         │        │ 24.76   │        │         │        │
+# │         │         │        │ seconds │        │         │        │
+# │       2 │ 2025-1… │ 2025-… │ 6       │   59.5 │     206 │     45 │
+# │         │ 18:34:… │ 18:41… │ minutes │        │         │        │
+# │         │ UTC     │ UTC    │ and     │        │         │        │
+# └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘
 ```
 
 ---
@@ -249,25 +213,11 @@ brahe datasets celestrak lookup "ISS"
 brahe datasets celestrak show 25544
 ```
 
-Common satellites:
-- ISS: 25544
-- Hubble Space Telescope: 20580
-- Starlink satellites: 40000+
-
-### Choosing Minimum Elevation
-
-**Radio communications:**
-- `5°` - Minimum for most radio links (atmospheric distortion)
-- `10°` - Good compromise (default)
-- `15°` - High-quality links
-
-**Optical observations:**
-- `15-20°` - Minimum for photography
-- `30°+` - Best conditions (less atmosphere)
+See [Datasets CLI](datasets.md) for more details.
 
 ### Negative Longitudes
 
-For western longitudes, use negative values or `--`:
+For westerly longitudes, use negative values with `=` or `--`:
 ```bash
 # Method 1: Negative longitude
 brahe access compute 25544 --lat 40.7128 --lon=-74.0060

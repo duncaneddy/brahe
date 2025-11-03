@@ -86,6 +86,7 @@ theme:
         - navigation.top3
         - toc.follow
         - content.tabs.link
+        - content.code.copy
         - search.highlight
         - search.suggest
 
@@ -186,6 +187,7 @@ nav:
                 - Orbital Trajectories: learn/plots/orbital_trajectories.md
                 - 3D Trajectory: learn/plots/3d_trajectory.md
                 - Access Geometry: learn/plots/access_geometry.md
+                - Gabbard Plots: learn/plots/gabbard_plot.md
             - Command Line Interface:
                 - learn/cli/index.md
                 - EOP: learn/cli/eop.md

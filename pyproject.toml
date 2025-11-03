@@ -48,6 +48,9 @@ Issues = "https://github.com/duncaneddy/brahe/pulls"
 
 [project.optional-dependencies]
 plots = ["scienceplots>=2.0.0"]
+all = [
+      "brahe[plots]",
+]
 
 [project.scripts]
 brahe = "brahe.cli.__main__:main"

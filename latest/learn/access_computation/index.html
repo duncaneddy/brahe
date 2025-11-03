@@ -4550,6 +4550,117 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#system-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      System Architecture
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="System Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Locations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Constraints
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Properties
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Computation
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      Module Catalog
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module Catalog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#location-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Location Types
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraint-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constraint Types
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#property-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Property Types
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#window-and-configuration-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Window and Configuration Types
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enumerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enumerations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       See Also
@@ -4578,8 +4689,150 @@
 
 
 <h1 id="access-computation">Access Computation<a class="headerlink" href="#access-computation" title="Permanent link">&para;</a></h1>
-<p>Access computation determines when and under what conditions satellites can observe or communicate with ground locations. This is fundamental for mission planning, ground station contact scheduling, imaging opportunity analysis, and communications link budgets.</p>
-<p>Brahe provides a comprehensive access computation system that handles the geometric complexity of satellite-ground visibility while offering flexibility through constraints, extensible properties, and performance optimization.</p>
+<p>Access computation determines when and under what conditions satellites can view, observe, or "access" ground locations. This is fundamental for mission planning, ground station contact scheduling, imaging opportunity planning, and other mission operations planning tasks.</p>
+<p>An <strong>access</strong> occurs when a satellite has a clear geometric line-of-sight to a ground location and meets all constraints (e.g., minimum elevation angle, local time of day, look direction). Brahe's access computation system identifies time windows where all constraints are met and computes relevant properties (e.g., azimuth, elevation, off-nadir angle) for each access window. The system is designed to be flexible, allowing users to define custom locations, constraints, and properties as needed. Access computation is also parallelized by default to efficiently handle large numbers of locations and satellites.</p>
+<h2 id="system-architecture">System Architecture<a class="headerlink" href="#system-architecture" title="Permanent link">&para;</a></h2>
+<p>Brahe's access computation system is built around four major components:</p>
+<h3 id="1-locations">1. Locations<a class="headerlink" href="#1-locations" title="Permanent link">&para;</a></h3>
+<p><strong>Locations</strong> define <em>where</em> to check for access. Brahe supports two primary location types:</p>
+<ul>
+<li><strong><code>PointLocation</code></strong> - Single geodetic point (e.g., ground station, city)</li>
+<li><strong><code>PolygonLocation</code></strong> - Closed polygon area (e.g., imaging region, coverage zone)</li>
+</ul>
+<p>Both implement the <code>AccessibleLocation</code> trait, which provides coordinate access, property management, and GeoJSON import/export capabilities. Locations can be created from coordinates or loaded from GeoJSON files, and the type supports custom properties for metadata storage.</p>
+<p><a href="locations.html">Learn more about Locations →</a></p>
+<h3 id="2-constraints">2. Constraints<a class="headerlink" href="#2-constraints" title="Permanent link">&para;</a></h3>
+<p><strong>Constraints</strong> define <em>what conditions</em> must be satisfied for an access to occur. Brahe provides several built-in constraint types including:</p>
+<ul>
+<li><strong><code>ElevationConstraint</code></strong> - Minimum/maximum elevation above horizon</li>
+<li><strong><code>ElevationMaskConstraint</code></strong> - Azimuth-dependent elevation masks (terrain profiles)</li>
+<li><strong><code>OffNadirConstraint</code></strong> - Minimum/maximum off-nadir angle (imaging satellites)</li>
+<li><strong><code>LocalTimeConstraint</code></strong> - Local solar time windows (e.g., daylight imaging)</li>
+<li><strong><code>LookDirectionConstraint</code></strong> - Left/right/either relative to velocity vector</li>
+<li><strong><code>AscDscConstraint</code></strong> - Ascending/descending pass filter</li>
+</ul>
+<p>Constraints can be combined using the <code>ConstraintComposite</code> system to express sophisticated requirements like "elevation &gt; 10° AND (daylight OR look-right)". Python users can create custom constraints by implementing the <code>AccessConstraintComputer</code> interface.</p>
+<p><a href="constraints.html">Learn more about Constraints →</a></p>
+<h3 id="3-properties">3. Properties<a class="headerlink" href="#3-properties" title="Permanent link">&para;</a></h3>
+<p><strong>Properties</strong> define <em>what information</em> to compute during each access window. Brahe automatically computes six core geometric properties:</p>
+<ul>
+<li><code>azimuth_open</code>, <code>azimuth_close</code> - Azimuth angles at window start/end</li>
+<li><code>elevation_min</code>, <code>elevation_max</code> - Minimum/maximum elevation during access</li>
+<li><code>off_nadir_min</code>, <code>off_nadir_max</code> - Minimum/maximum off-nadir angle</li>
+<li><code>local_time</code> - Local solar time at access midpoint</li>
+<li><code>look_direction</code> - Satellite look direction (Left/Right)</li>
+<li><code>asc_dsc</code> - Pass type (Ascending/Descending)</li>
+</ul>
+<p>Properties are stored as <code>PropertyValue</code> enums supporting scalar, vector, time-series, boolean, string, and JSON data types. Users can add custom properties or implement <code>AccessPropertyComputer</code> for automated property calculation during access searches.</p>
+<p><a href="properties.html">Learn more about Properties →</a></p>
+<h3 id="4-computation">4. Computation<a class="headerlink" href="#4-computation" title="Permanent link">&para;</a></h3>
+<p><strong>Computation</strong> is the algorithm that ties everything together. The primary function <code>location_accesses()</code> performs a two-phase search:</p>
+<ol>
+<li><strong>Coarse search</strong> - Evaluate access at regular time steps to identify candidate windows</li>
+<li><strong>Refinement</strong> - Use binary search to precisely locate window boundaries</li>
+</ol>
+<p>The <code>AccessSearchConfig</code> struct controls algorithm behavior (initial time step, adaptive stepping, etc.) for optimal performance across different scenarios. Results are returned as <code>AccessWindow</code> objects containing start/end times, identifiers, and computed properties.</p>
+<p><a href="computation.html">Learn more about Computation →</a></p>
+<h2 id="module-catalog">Module Catalog<a class="headerlink" href="#module-catalog" title="Permanent link">&para;</a></h2>
+<p>This section provides a complete reference of all types, traits, and functions in the access computation module.</p>
+<h3 id="location-types">Location Types<a class="headerlink" href="#location-types" title="Permanent link">&para;</a></h3>
+<p><strong><code>PointLocation</code></strong> - Single geodetic point location</p>
+<ul>
+<li>Create from coordinates: <code>new(lat, lon, alt)</code></li>
+<li>Load from GeoJSON: <code>from_geojson(geojson_str)</code></li>
+<li>Access coordinates: <code>lat()</code>, <code>lon()</code>, <code>alt()</code>, <code>longitude()</code>, <code>latitude()</code>, <code>altitude()</code></li>
+<li>Manage properties: <code>add_property(name, value)</code></li>
+<li>Export: <code>to_geojson()</code></li>
+</ul>
+<p><strong><code>PolygonLocation</code></strong> - Closed polygon area location</p>
+<ul>
+<li>Create from vertices: <code>new(vertices)</code></li>
+<li>Load from GeoJSON: <code>from_geojson(geojson_str)</code></li>
+<li>Access geometry: <code>vertices()</code>, <code>num_vertices()</code>, center via <code>lat()</code>, <code>lon()</code>, <code>alt()</code></li>
+<li>Manage properties: <code>add_property(name, value)</code></li>
+<li>Export: <code>to_geojson()</code></li>
+</ul>
+<p><strong><code>AccessibleLocation</code> trait</strong> - Common interface for all location types</p>
+<ul>
+<li>Get center coordinates: <code>center_geodetic()</code>, <code>center_ecef()</code></li>
+<li>Access properties: <code>properties()</code>, <code>properties_mut()</code></li>
+<li>Export: <code>to_geojson()</code></li>
+</ul>
+<h3 id="constraint-types">Constraint Types<a class="headerlink" href="#constraint-types" title="Permanent link">&para;</a></h3>
+<p><strong>Built-in Constraints:</strong></p>
+<ul>
+<li><strong><code>ElevationConstraint</code></strong> - Enforce minimum/maximum elevation angles above horizon</li>
+<li><strong><code>ElevationMaskConstraint</code></strong> - Apply azimuth-dependent elevation masks for terrain modeling</li>
+<li><strong><code>OffNadirConstraint</code></strong> - Limit off-nadir viewing angles for imaging payloads</li>
+<li><strong><code>LocalTimeConstraint</code></strong> - Filter by local solar time windows (e.g., daylight-only imaging)</li>
+<li><strong><code>LookDirectionConstraint</code></strong> - Require left/right/either look direction relative to velocity</li>
+<li><strong><code>AscDscConstraint</code></strong> - Filter by ascending/descending pass type</li>
+<li><strong><code>ConstraintComposite</code></strong> - Combine constraints with Boolean logic (All/Any/Not)</li>
+</ul>
+<p><strong>Constraint Traits:</strong></p>
+<ul>
+<li><strong><code>AccessConstraint</code> trait</strong> - Interface for evaluating constraints at specific times</li>
+<li><code>evaluate(epoch, location, propagator) -&gt; bool</code> - Check if constraint satisfied</li>
+<li><code>name()</code> - Get constraint name for debugging</li>
+<li>
+<p><code>format_string()</code> - Get human-readable constraint description</p>
+</li>
+<li>
+<p><strong><code>AccessConstraintComputer</code> trait</strong> - Python interface for custom user-defined constraints</p>
+</li>
+<li><code>evaluate(epoch, location, propagator) -&gt; bool</code> - Custom constraint logic</li>
+<li><code>name()</code> - Constraint identifier</li>
+</ul>
+<h3 id="property-types">Property Types<a class="headerlink" href="#property-types" title="Permanent link">&para;</a></h3>
+<p><strong><code>PropertyValue</code> enum</strong> - Strongly-typed property values</p>
+<ul>
+<li><code>Scalar(f64)</code> - Single floating-point value</li>
+<li><code>Vector(Vec&lt;f64&gt;)</code> - Array of values</li>
+<li><code>TimeSeries(Vec&lt;(Epoch, f64)&gt;)</code> - Time-indexed measurements</li>
+<li><code>Boolean(bool)</code> - True/false flag</li>
+<li><code>String(String)</code> - Text data</li>
+<li><code>Json(String)</code> - Arbitrary JSON data</li>
+</ul>
+<p><strong><code>AccessProperties</code> struct</strong> - Container for access window properties</p>
+<ul>
+<li>Core properties: <code>azimuth_open</code>, <code>azimuth_close</code>, <code>elevation_min</code>, <code>elevation_max</code>, <code>off_nadir_min</code>, <code>off_nadir_max</code>, <code>local_time</code>, <code>look_direction</code>, <code>asc_dsc</code></li>
+<li>Custom properties stored in HashMap</li>
+<li>Methods: <code>new()</code>, <code>add_property(name, value)</code>, <code>get_property(name)</code></li>
+</ul>
+<p><strong><code>AccessPropertyComputer</code> trait</strong> - Python interface for custom property calculation</p>
+<ul>
+<li><code>compute(window, location, propagator) -&gt; HashMap&lt;String, PropertyValue&gt;</code> - Calculate properties</li>
+<li><code>property_names() -&gt; Vec&lt;String&gt;</code> - List computed property names</li>
+</ul>
+<h3 id="window-and-configuration-types">Window and Configuration Types<a class="headerlink" href="#window-and-configuration-types" title="Permanent link">&para;</a></h3>
+<p><strong><code>AccessWindow</code> struct</strong> - Represents a single access opportunity</p>
+<ul>
+<li>Time bounds: <code>window_open</code>, <code>window_close</code></li>
+<li>Identifiers: <code>location_name/id/uuid</code>, <code>satellite_name/id/uuid</code>, <code>name/id/uuid</code></li>
+<li>Properties: <code>properties</code> (AccessProperties)</li>
+<li>Methods: <code>new()</code>, <code>start()</code>, <code>end()</code>, <code>midtime()</code>, <code>duration()</code></li>
+</ul>
+<p><strong><code>AccessSearchConfig</code> struct</strong> - Controls access computation algorithm</p>
+<ul>
+<li><code>initial_time_step</code> - Coarse search step size (seconds)</li>
+<li><code>adaptive_step</code> - Enable adaptive refinement</li>
+<li><code>adaptive_fraction</code> - Refinement step fraction (0.0-1.0)</li>
+<li><code>parallel</code> - Enable parallel location/satellite processing</li>
+<li><code>num_threads</code> - Thread pool size (0 = auto)</li>
+</ul>
+<h3 id="enumerations">Enumerations<a class="headerlink" href="#enumerations" title="Permanent link">&para;</a></h3>
+<p><strong><code>LookDirection</code></strong> - Satellite look direction</p>
+<ul>
+<li><code>Left</code> - Looking left relative to velocity vector</li>
+<li><code>Right</code> - Looking right relative to velocity vector</li>
+<li><code>Either</code> - Either direction acceptable</li>
+</ul>
+<p><strong><code>AscDsc</code></strong> - Pass type classification</p>
+<ul>
+<li><code>Ascending</code> - Satellite moving from south to north</li>
+<li><code>Descending</code> - Satellite moving from north to south</li>
+<li><code>Either</code> - Either direction acceptable</li>
+</ul>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="locations.html">Locations</a> - Ground location types and GeoJSON support</li>
@@ -4611,7 +4864,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 04:08:30 UTC">2025-11-03</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 07:27:08 UTC">2025-11-03</span>
   </span>
 
     

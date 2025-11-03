@@ -525,6 +525,132 @@ impl PySGPPropagator {
         }
     }
 
+    /// Get semi-major axis at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Semi-major axis in meters.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     sma = prop.semi_major_axis
+    ///     print(f"Semi-major axis: {sma:.3f} m")
+    ///     ```
+    #[getter]
+    pub fn semi_major_axis(&self) -> f64 {
+        self.propagator.semi_major_axis()
+    }
+
+    /// Get eccentricity at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Eccentricity (dimensionless).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     ecc = prop.eccentricity
+    ///     print(f"Eccentricity: {ecc:.6f}")
+    ///     ```
+    #[getter]
+    pub fn eccentricity(&self) -> f64 {
+        self.propagator.eccentricity()
+    }
+
+    /// Get inclination at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Inclination in degrees.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     inc = prop.inclination
+    ///     print(f"Inclination: {inc:.4f} deg")
+    ///     ```
+    #[getter]
+    pub fn inclination(&self) -> f64 {
+        self.propagator.inclination()
+    }
+
+    /// Get right ascension of ascending node at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Right ascension of ascending node (RAAN) in degrees.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     raan = prop.right_ascension
+    ///     print(f"RAAN: {raan:.4f} deg")
+    ///     ```
+    #[getter]
+    pub fn right_ascension(&self) -> f64 {
+        self.propagator.right_ascension()
+    }
+
+    /// Get argument of periapsis at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Argument of periapsis in degrees.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     argp = prop.arg_perigee
+    ///     print(f"Argument of periapsis: {argp:.4f} deg")
+    ///     ```
+    #[getter]
+    pub fn arg_perigee(&self) -> f64 {
+        self.propagator.arg_perigee()
+    }
+
+    /// Get mean anomaly at TLE epoch.
+    ///
+    /// Returns:
+    ///     float: Mean anomaly in degrees.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     ma = prop.mean_anomaly
+    ///     print(f"Mean anomaly: {ma:.4f} deg")
+    ///     ```
+    #[getter]
+    pub fn mean_anomaly(&self) -> f64 {
+        self.propagator.mean_anomaly()
+    }
+
     // Identity methods
 
     /// Set the name and return self (consuming constructor pattern).

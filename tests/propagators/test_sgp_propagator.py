@@ -634,3 +634,55 @@ class TestOldBraheTLEFunctions:
         assert elements[3] == pytest.approx(247.4627, abs=1e-10)  # raan [deg]
         assert elements[4] == pytest.approx(130.5360, abs=1e-10)  # argp [deg]
         assert elements[5] == pytest.approx(325.0288, abs=1e-10)  # M [deg]
+
+    def test_sgppropagator_semi_major_axis(self, iss_tle):
+        """Test semi_major_axis property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        sma = prop.semi_major_axis
+
+        assert sma == pytest.approx(6730960.676936833, abs=1.0)
+
+    def test_sgppropagator_eccentricity(self, iss_tle):
+        """Test eccentricity property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        ecc = prop.eccentricity
+
+        assert ecc == pytest.approx(0.0006703, abs=1e-10)
+
+    def test_sgppropagator_inclination(self, iss_tle):
+        """Test inclination property (returns degrees)."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        inc = prop.inclination
+
+        # Should return degrees
+        assert inc == pytest.approx(51.6416, abs=1e-10)
+
+    def test_sgppropagator_right_ascension(self, iss_tle):
+        """Test right_ascension property (returns degrees)."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        raan = prop.right_ascension
+
+        # Should return degrees
+        assert raan == pytest.approx(247.4627, abs=1e-10)
+
+    def test_sgppropagator_arg_perigee(self, iss_tle):
+        """Test arg_perigee property (returns degrees)."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        argp = prop.arg_perigee
+
+        # Should return degrees
+        assert argp == pytest.approx(130.5360, abs=1e-10)
+
+    def test_sgppropagator_mean_anomaly(self, iss_tle):
+        """Test mean_anomaly property (returns degrees)."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        ma = prop.mean_anomaly
+
+        # Should return degrees
+        assert ma == pytest.approx(325.0288, abs=1e-10)

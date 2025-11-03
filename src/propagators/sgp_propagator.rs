@@ -492,6 +492,185 @@ impl SGPPropagator {
 
         Ok(elements)
     }
+
+    /// Get orbital elements at TLE epoch.
+    ///
+    /// Returns Keplerian orbital elements extracted from the TLE data at epoch.
+    /// Angular elements are returned in degrees to match the native TLE format.
+    ///
+    /// # Returns
+    ///
+    /// * `elements` - Orbital elements vector [a, e, i, Ω, ω, M]
+    ///   - a: semi-major axis. Units: (m)
+    ///   - e: eccentricity (dimensionless)
+    ///   - i: inclination. Units: (deg)
+    ///   - Ω: right ascension of ascending node. Units: (deg)
+    ///   - ω: argument of periapsis. Units: (deg)
+    ///   - M: mean anomaly. Units: (deg)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let elements = prop.elements();
+    ///
+    /// // Elements are returned in degrees
+    /// println!("Inclination: {:.4} deg", elements[2]);
+    /// ```
+    pub fn elements(&self) -> Vector6<f64> {
+        self.get_elements(AngleFormat::Degrees)
+            .expect("Failed to extract elements from TLE")
+    }
+
+    /// Get semi-major axis at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Semi-major axis. Units: (m)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let sma = prop.semi_major_axis();
+    ///
+    /// println!("Semi-major axis: {:.3} m", sma);
+    /// ```
+    pub fn semi_major_axis(&self) -> f64 {
+        self.elements()[0]
+    }
+
+    /// Get eccentricity at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Eccentricity (dimensionless)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let ecc = prop.eccentricity();
+    ///
+    /// println!("Eccentricity: {:.6}", ecc);
+    /// ```
+    pub fn eccentricity(&self) -> f64 {
+        self.elements()[1]
+    }
+
+    /// Get inclination at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Inclination. Units: (deg)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let inc = prop.inclination();
+    ///
+    /// println!("Inclination: {:.4} deg", inc);
+    /// ```
+    pub fn inclination(&self) -> f64 {
+        self.elements()[2]
+    }
+
+    /// Get right ascension of ascending node at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Right ascension of ascending node (RAAN). Units: (deg)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let raan = prop.right_ascension();
+    ///
+    /// println!("RAAN: {:.4} deg", raan);
+    /// ```
+    pub fn right_ascension(&self) -> f64 {
+        self.elements()[3]
+    }
+
+    /// Get argument of periapsis at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Argument of periapsis. Units: (deg)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let argp = prop.arg_perigee();
+    ///
+    /// println!("Argument of periapsis: {:.4} deg", argp);
+    /// ```
+    pub fn arg_perigee(&self) -> f64 {
+        self.elements()[4]
+    }
+
+    /// Get mean anomaly at TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Mean anomaly. Units: (deg)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let ma = prop.mean_anomaly();
+    ///
+    /// println!("Mean anomaly: {:.4} deg", ma);
+    /// ```
+    pub fn mean_anomaly(&self) -> f64 {
+        self.elements()[5]
+    }
 }
 
 impl OrbitPropagator for SGPPropagator {
@@ -962,6 +1141,86 @@ mod tests {
         assert_abs_diff_eq!(elements[3], 247.4627, epsilon = 1e-10); // raan [deg]
         assert_abs_diff_eq!(elements[4], 130.5360, epsilon = 1e-10); // argp [deg]
         assert_abs_diff_eq!(elements[5], 325.0288, epsilon = 1e-10); // M [deg]
+    }
+
+    #[test]
+    fn test_sgppropagator_elements() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let elements = prop.elements();
+
+        // Should return same values as get_elements with Degrees
+        assert_abs_diff_eq!(elements[0], 6730960.676936833, epsilon = 1.0); // a [m]
+        assert_abs_diff_eq!(elements[1], 0.0006703, epsilon = 1e-10); // e
+        assert_abs_diff_eq!(elements[2], 51.6416, epsilon = 1e-10); // i [deg]
+        assert_abs_diff_eq!(elements[3], 247.4627, epsilon = 1e-10); // raan [deg]
+        assert_abs_diff_eq!(elements[4], 130.5360, epsilon = 1e-10); // argp [deg]
+        assert_abs_diff_eq!(elements[5], 325.0288, epsilon = 1e-10); // M [deg]
+    }
+
+    #[test]
+    fn test_sgppropagator_semi_major_axis() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let sma = prop.semi_major_axis();
+
+        assert_abs_diff_eq!(sma, 6730960.676936833, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_eccentricity() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let ecc = prop.eccentricity();
+
+        assert_abs_diff_eq!(ecc, 0.0006703, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sgppropagator_inclination() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let inc = prop.inclination();
+
+        // Should return degrees
+        assert_abs_diff_eq!(inc, 51.6416, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sgppropagator_right_ascension() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let raan = prop.right_ascension();
+
+        // Should return degrees
+        assert_abs_diff_eq!(raan, 247.4627, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sgppropagator_arg_perigee() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let argp = prop.arg_perigee();
+
+        // Should return degrees
+        assert_abs_diff_eq!(argp, 130.5360, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sgppropagator_mean_anomaly() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let ma = prop.mean_anomaly();
+
+        // Should return degrees
+        assert_abs_diff_eq!(ma, 325.0288, epsilon = 1e-10);
     }
 
     // Identifiable Trait Tests

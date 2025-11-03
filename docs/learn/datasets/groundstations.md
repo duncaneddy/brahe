@@ -1,6 +1,28 @@
 # Groundstation Datasets
 
-<!-- Fill in overview -->
+## Overview
+
+Groundstation datasets provide geographic locations and metadata for commercial satellite ground facilities worldwide. This data is essential for:
+
+- **Computing contact opportunities**: Determine when satellites are visible from ground stations
+- **Network planning**: Analyze coverage and redundancy across multiple providers
+- **Mission design**: Evaluate downlink opportunities for different orbit configurations
+
+Brahe includes embedded GeoJSON data for 6 major commercial groundstation providers, totaling 50+ facilities globally. All data is:
+
+- **Offline-capable**: No network requests required
+- **Comprehensive**: Global coverage across multiple providers
+- **Standardized**: Consistent format with geographic coordinates and metadata
+- **Up-to-date**: Maintained as provider networks evolve
+
+### When to Use
+
+Use groundstation datasets when you need to:
+
+- Compute visibility windows for satellite-to-ground contacts
+- Plan downlink schedules for data collection
+- Analyze network coverage and redundancy
+- Compare provider capabilities across different locations
 
 ## Available Providers
 
@@ -14,6 +36,56 @@ Brahe includes groundstation data from six major commercial providers:
 | **Leaf** | Leaf Space |
 | **SSC** | Swedish Space Corporation |
 | **Viasat** | Viasat |
+
+## Usage
+
+### Loading Groundstations
+
+Load groundstation data from one or more providers:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/datasets/groundstations_load.py:11"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/groundstations_load.rs:7"
+    ```
+
+### Accessing Properties
+
+Each groundstation includes geographic coordinates and metadata:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/datasets/groundstations_properties.py:11"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/groundstations_properties.rs:7"
+    ```
+
+### Computing Access Windows
+
+Use groundstation data with brahe's access computation to find contact opportunities:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/datasets/groundstations_access.py:11"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/groundstations_access.rs:7"
+    ```
 
 ## Data Format
 
@@ -43,30 +115,6 @@ All groundstations include these standard properties:
 - **`frequency_bands`**: List of supported frequency bands (e.g., `["S", "X", "Ka"]`)
 
 Additional properties may be included in future releases as data becomes available.
-
-### Combining Networks
-
-For comprehensive coverage, combine multiple providers:
-
-```python
-import brahe as bh
-
-# Load multiple providers
-primary = bh.datasets.groundstations.load("ksat")
-backup = bh.datasets.groundstations.load("ssc")
-
-# Combine into single network
-combined = primary + backup
-
-# Compute access with redundant coverage
-accesses = bh.location_accesses(
-    combined,
-    propagator,
-    start,
-    end,
-    constraint
-)
-```
 
 ## See Also
 

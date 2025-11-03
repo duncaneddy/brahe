@@ -4550,9 +4550,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available Data Sources
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available Data Sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#celestrak" class="md-nav__link">
+    <span class="md-ellipsis">
+      CelesTrak
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#groundstations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Groundstations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-philosophy" class="md-nav__link">
     <span class="md-ellipsis">
       Data Philosophy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
     </span>
   </a>
   
@@ -4578,17 +4629,49 @@
 
 
 <h1 id="datasets">Datasets<a class="headerlink" href="#datasets" title="Permanent link">&para;</a></h1>
-<p>The datasets module in Brahe provides easy access to common datasources
-used in astrodynamics, space mission analysis, and research. This includes
-ephemeris data for Earth-orbiting satellites and locations of ground stations.</p>
+<p>The datasets module in Brahe provides easy access to common data sources used in astrodynamics, space mission analysis, and research. This includes ephemeris data for Earth-orbiting satellites and locations of ground stations.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Working with satellite data typically requires gathering information from multiple sources:</p>
+<ul>
+<li><strong>Orbital elements</strong> (TLEs) for satellite tracking and propagation</li>
+<li><strong>Groundstation locations</strong> for computing contact opportunities</li>
+<li><strong>Satellite metadata</strong> for mission planning and analysis</li>
+</ul>
+<p>Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.</p>
+<h2 id="available-data-sources">Available Data Sources<a class="headerlink" href="#available-data-sources" title="Permanent link">&para;</a></h2>
+<h3 id="celestrak"><a href="celestrak.html">CelesTrak</a><a class="headerlink" href="#celestrak" title="Permanent link">&para;</a></h3>
+<p><a href="https://celestrak.org">CelesTrak</a> provides Two-Line Element (TLE) data for thousands of Earth-orbiting satellites. The brahe interface supports:</p>
+<ul>
+<li><strong>Group downloads</strong>: Fetch entire satellite constellations (Starlink, OneWeb, GPS, etc.)</li>
+<li><strong>Individual lookups</strong>: Get specific satellites by NORAD ID or name</li>
+<li><strong>Direct propagation</strong>: Convert TLEs to SGP4 propagators in one step</li>
+</ul>
+<p><strong>Best for</strong>: Satellite analysis, orbit propagation, space situational awareness</p>
+<h3 id="groundstations"><a href="groundstations.html">Groundstations</a><a class="headerlink" href="#groundstations" title="Permanent link">&para;</a></h3>
+<p>Embedded GeoJSON data for commercial groundstation networks. Includes 6 major providers:</p>
+<ul>
+<li><strong>Atlas Space Operations</strong></li>
+<li><strong>Amazon Web Services Ground Station</strong></li>
+<li><strong>Kongsberg Satellite Services (KSAT)</strong></li>
+<li><strong>Leaf Space</strong></li>
+<li><strong>Swedish Space Corporation (SSC)</strong></li>
+<li><strong>Viasat</strong></li>
+</ul>
+<p><strong>Best for</strong>: Contact opportunity analysis, network planning, coverage studies</p>
 <h2 id="data-philosophy">Data Philosophy<a class="headerlink" href="#data-philosophy" title="Permanent link">&para;</a></h2>
 <p>Brahe's datasets module aims to:</p>
 <ul>
 <li><strong>Reduce friction</strong>: Provide easy access to commonly needed data</li>
 <li><strong>No surprises</strong>: Data sources are clearly documented with known limitations</li>
-<li><strong>Offline capable</strong>: Prefer embedded data when feasible (groundstations)</li>
-<li><strong>Respect providers</strong>: Follow best practices and rate limiting (CelesTrak)</li>
+<li><strong>Offline capable</strong>: Prefer embedded data when feasible</li>
+<li><strong>Respect providers</strong>: Follow best practices and rate limiting</li>
 <li><strong>Stay current</strong>: Update data sources as the ecosystem evolves</li>
+</ul>
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="celestrak.html">CelesTrak Data Source</a> - TLE ephemeris data</li>
+<li><a href="groundstations.html">Groundstation Datasets</a> - Ground facility locations</li>
+<li><a href="../../library_api/datasets/index.html">Datasets API Reference</a> - Complete function documentation</li>
 </ul>
 
 
@@ -4612,7 +4695,7 @@ ephemeris data for Earth-orbiting satellites and locations of ground stations.</
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 07:28:26 UTC">2025-11-03</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 08:43:00 UTC">2025-11-03</span>
   </span>
 
     

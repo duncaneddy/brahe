@@ -262,6 +262,11 @@ nav:
                 - Orbital Trajectories: library_api/plots/orbital_trajectories.md
                 - 3D Trajectory: library_api/plots/3d_trajectory.md
                 - Access Geometry: library_api/plots/access_geometry.md
+            - Utilities:
+                - library_api/utils/index.md
+                - Caching: library_api/utils/caching.md
+                - Multithreading: library_api/utils/threading.md
+                - String Formatting: library_api/utils/formatting.md
     -   Rust API Reference: https://docs.rs/brahe
     -   About Me: https://duncaneddy.com
 

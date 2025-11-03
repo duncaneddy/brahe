@@ -783,6 +783,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Utils *//
     // Cache Management
     module.add_function(wrap_pyfunction!(py_get_brahe_cache_dir, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_brahe_cache_dir_with_subdir,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_get_eop_cache_dir, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_celestrak_cache_dir, module)?)?;
 
     // Threading
     module.add_function(wrap_pyfunction!(py_set_num_threads, module)?)?;

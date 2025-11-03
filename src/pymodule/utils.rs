@@ -45,6 +45,109 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
     get_brahe_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
+/// Get the brahe cache directory path with an optional subdirectory.
+///
+/// The cache directory is determined by the `BRAHE_CACHE` environment variable.
+/// If not set, defaults to `~/.cache/brahe`. If a subdirectory is provided,
+/// it is appended to the cache path.
+///
+/// The directory is created if it doesn't exist.
+///
+/// Args:
+///     subdirectory (str or None): Optional subdirectory name to append to cache path.
+///
+/// Returns:
+///     str: The full path to the cache directory (with subdirectory if provided).
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get main cache directory
+///     cache_dir = bh.get_brahe_cache_dir_with_subdir(None)
+///     print(f"Cache: {cache_dir}")
+///
+///     # Get custom subdirectory
+///     custom_cache = bh.get_brahe_cache_dir_with_subdir("my_data")
+///     print(f"Custom cache: {custom_cache}")
+///     ```
+///
+/// Note:
+///     The directory (and subdirectory) will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_brahe_cache_dir_with_subdir")]
+pub fn py_get_brahe_cache_dir_with_subdir(subdirectory: Option<&str>) -> PyResult<String> {
+    use crate::utils::cache::get_brahe_cache_dir_with_subdir;
+
+    get_brahe_cache_dir_with_subdir(subdirectory).map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
+/// Get the EOP cache directory path.
+///
+/// Returns the path to the EOP (Earth Orientation Parameters) cache subdirectory.
+/// Defaults to `~/.cache/brahe/eop` (or `$BRAHE_CACHE/eop` if environment variable is set).
+///
+/// The directory is created if it doesn't exist.
+///
+/// Returns:
+///     str: The full path to the EOP cache directory.
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     eop_cache = bh.get_eop_cache_dir()
+///     print(f"EOP cache: {eop_cache}")
+///     ```
+///
+/// Note:
+///     The directory will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_eop_cache_dir")]
+pub fn py_get_eop_cache_dir() -> PyResult<String> {
+    use crate::utils::cache::get_eop_cache_dir;
+
+    get_eop_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
+/// Get the CelesTrak cache directory path.
+///
+/// Returns the path to the CelesTrak cache subdirectory used for storing downloaded
+/// TLE data. Defaults to `~/.cache/brahe/celestrak` (or `$BRAHE_CACHE/celestrak`
+/// if environment variable is set).
+///
+/// The directory is created if it doesn't exist.
+///
+/// Returns:
+///     str: The full path to the CelesTrak cache directory.
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     celestrak_cache = bh.get_celestrak_cache_dir()
+///     print(f"CelesTrak cache: {celestrak_cache}")
+///     ```
+///
+/// Note:
+///     The directory will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_celestrak_cache_dir")]
+pub fn py_get_celestrak_cache_dir() -> PyResult<String> {
+    use crate::utils::cache::get_celestrak_cache_dir;
+
+    get_celestrak_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
 // ================================
 // Threading Functions
 // ================================

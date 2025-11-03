@@ -402,7 +402,10 @@ class TestConstraintComposition:
         combined = bh.ConstraintAll(constraints=[elev, time_constraint])
         # The formatted string uses && for All composition
         assert "&&" in str(combined) or "All" in str(combined)
-        assert "ConstraintAll" in repr(combined)
+        # repr() uses Rust Debug format: All([...])
+        assert "All" in repr(combined)
+        assert "ElevationConstraint" in repr(combined)
+        assert "LocalTimeConstraint" in repr(combined)
 
 
 # ================================

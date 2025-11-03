@@ -470,7 +470,16 @@ impl PyElevationConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("ElevationConstraint({})", self.constraint.name())
+        let min_str = match self.constraint.min_elevation_deg {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        let max_str = match self.constraint.max_elevation_deg {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        format!("ElevationConstraint(min_elevation_deg={}, max_elevation_deg={}, name={:?})",
+                min_str, max_str, self.constraint.name())
     }
 }
 
@@ -544,7 +553,9 @@ impl PyElevationMaskConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("ElevationMaskConstraint({})", self.constraint.name())
+        format!("ElevationMaskConstraint(mask={:?}, name={:?})",
+                self.constraint.mask,
+                self.constraint.name())
     }
 }
 
@@ -617,7 +628,16 @@ impl PyOffNadirConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("OffNadirConstraint({})", self.constraint.name())
+        let min_str = match self.constraint.min_off_nadir_deg {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        let max_str = match self.constraint.max_off_nadir_deg {
+            Some(v) => format!("Some({})", v),
+            None => "None".to_string(),
+        };
+        format!("OffNadirConstraint(min_off_nadir_deg={}, max_off_nadir_deg={}, name={:?})",
+                min_str, max_str, self.constraint.name())
     }
 }
 
@@ -719,7 +739,9 @@ impl PyLocalTimeConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("LocalTimeConstraint({})", self.constraint.name())
+        format!("LocalTimeConstraint(time_windows={:?}, name={:?})",
+                self.constraint.time_windows,
+                self.constraint.name())
     }
 }
 
@@ -787,7 +809,9 @@ impl PyLookDirectionConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("LookDirectionConstraint({})", self.constraint.name())
+        format!("LookDirectionConstraint(allowed={:?}, name={:?})",
+                self.constraint.allowed,
+                self.constraint.name())
     }
 }
 
@@ -855,7 +879,9 @@ impl PyAscDscConstraint {
     }
 
     fn __repr__(&self) -> String {
-        format!("AscDscConstraint({})", self.constraint.name())
+        format!("AscDscConstraint(allowed={:?}, name={:?})",
+                self.constraint.allowed,
+                self.constraint.name())
     }
 }
 
@@ -957,7 +983,7 @@ impl PyConstraintAll {
     }
 
     fn __repr__(&self) -> String {
-        format!("ConstraintAll({})", self.composite.format_string())
+        format!("{:?}", self.composite)
     }
 }
 
@@ -1047,7 +1073,7 @@ impl PyConstraintAny {
     }
 
     fn __repr__(&self) -> String {
-        format!("ConstraintAny({})", self.composite.format_string())
+        format!("{:?}", self.composite)
     }
 }
 
@@ -1133,7 +1159,7 @@ impl PyConstraintNot {
     }
 
     fn __repr__(&self) -> String {
-        format!("ConstraintNot({})", self.composite.format_string())
+        format!("{:?}", self.composite)
     }
 }
 

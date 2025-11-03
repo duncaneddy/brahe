@@ -244,6 +244,12 @@ impl AccessConstraint for ElevationConstraint {
     }
 }
 
+impl std::fmt::Display for ElevationConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 impl ElevationMaskConstraint {
     /// Create a new elevation mask constraint
     ///
@@ -363,6 +369,12 @@ impl AccessConstraint for ElevationMaskConstraint {
     }
 }
 
+impl std::fmt::Display for ElevationMaskConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 /// Off-nadir angle constraint
 ///
 /// Constrains access based on the off-nadir angle (angle from satellite nadir
@@ -469,6 +481,12 @@ impl AccessConstraint for OffNadirConstraint {
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl std::fmt::Display for OffNadirConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }
 
@@ -796,6 +814,12 @@ impl AccessConstraint for LocalTimeConstraint {
     }
 }
 
+impl std::fmt::Display for LocalTimeConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 /// Look direction for satellite imaging
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LookDirection {
@@ -807,6 +831,16 @@ pub enum LookDirection {
 
     /// Either left or right
     Either,
+}
+
+impl std::fmt::Display for LookDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LookDirection::Left => write!(f, "Left"),
+            LookDirection::Right => write!(f, "Right"),
+            LookDirection::Either => write!(f, "Either"),
+        }
+    }
 }
 
 /// Look direction constraint
@@ -865,6 +899,12 @@ impl AccessConstraint for LookDirectionConstraint {
     }
 }
 
+impl std::fmt::Display for LookDirectionConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 /// Ascending/descending pass type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AscDsc {
@@ -876,6 +916,16 @@ pub enum AscDsc {
 
     /// Either ascending or descending
     Either,
+}
+
+impl std::fmt::Display for AscDsc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AscDsc::Ascending => write!(f, "Ascending"),
+            AscDsc::Descending => write!(f, "Descending"),
+            AscDsc::Either => write!(f, "Either"),
+        }
+    }
 }
 
 /// Ascending/descending constraint
@@ -931,6 +981,12 @@ impl AccessConstraint for AscDscConstraint {
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl std::fmt::Display for AscDscConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }
 
@@ -1050,6 +1106,30 @@ impl std::fmt::Display for ConstraintComposite {
             ConstraintComposite::Not(constraint) => {
                 write!(f, "!")?;
                 write_constraint_with_precedence(f, constraint.as_ref(), Precedence::Not)
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for ConstraintComposite {
+    /// Format constraint showing nested structure
+    ///
+    /// Examples:
+    /// - `All([ElevationConstraint(...), OffNadirConstraint(...)])`
+    /// - `Not(LookDirectionConstraint(...))`
+    /// - `Any([All([...]), ...])`
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConstraintComposite::All(constraints) => f
+                .debug_tuple("All")
+                .field(&constraints.iter().map(|c| c.name()).collect::<Vec<_>>())
+                .finish(),
+            ConstraintComposite::Any(constraints) => f
+                .debug_tuple("Any")
+                .field(&constraints.iter().map(|c| c.name()).collect::<Vec<_>>())
+                .finish(),
+            ConstraintComposite::Not(constraint) => {
+                f.debug_tuple("Not").field(&constraint.name()).finish()
             }
         }
     }

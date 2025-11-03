@@ -8,6 +8,7 @@ Brahe Build Tool - Python-based alternative to Makefile.
 Provides all Makefile functionality with rich output and better UX.
 """
 
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -185,11 +186,16 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
         tmp_path = tmp.name
 
     try:
+        # Set RUSTFLAGS to treat warnings as errors (matches CI behavior)
+        env = os.environ.copy()
+        env["RUSTFLAGS"] = "-D warnings"
+
         result = subprocess.run(
             ["rust-script", "--toolchain", "nightly", tmp_path],
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
         )
 
         if result.returncode == 0:

@@ -35,8 +35,8 @@ fn main() {
     // Is empty: false
 
     // Access first and last states
-    let (first_epoch, first_state) = traj.first().unwrap();
-    let (last_epoch, last_state) = traj.last().unwrap();
+    let (first_epoch, _first_state) = traj.first().unwrap();
+    let (last_epoch, _last_state) = traj.last().unwrap();
     println!("First epoch: {}", first_epoch);
     println!("Last epoch: {}", last_epoch);
 }

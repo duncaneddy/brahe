@@ -15,7 +15,7 @@ fn main() {
     let state_eci = bh::state_osculating_to_cartesian(elements, bh::AngleFormat::Degrees);
 
     // Create propagator from ECI state
-    let prop = bh::KeplerianPropagator::from_eci(epoch, state_eci, 60.0);
+    let _prop = bh::KeplerianPropagator::from_eci(epoch, state_eci, 60.0);
 
     println!("Initial position magnitude: {:.1} km",
              state_eci.fixed_rows::<3>(0).norm() / 1e3);

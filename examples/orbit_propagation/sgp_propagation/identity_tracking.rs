@@ -12,7 +12,7 @@ fn main() {
     let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
 
     // Create propagator and set identity
-    let mut prop = bh::SGPPropagator::from_3le(Some(line0), line1, line2, 60.0).unwrap();
+    let prop = bh::SGPPropagator::from_3le(Some(line0), line1, line2, 60.0).unwrap();
 
     println!("Name: {:?}", prop.get_name());
     println!("ID: {:?}", prop.get_id());

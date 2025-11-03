@@ -24,13 +24,13 @@ fn main() {
 
     // Get nearest state (exact match)
     let query_epoch = epoch0 + 120.0;
-    let (nearest_epoch, nearest_state) = traj.nearest_state(&query_epoch).unwrap();
+    let (_nearest_epoch, nearest_state) = traj.nearest_state(&query_epoch).unwrap();
     println!("Exact match found at altitude: {:.2} km",
         (nearest_state[0] - R_EARTH) / 1e3);
 
     // Get nearest state (between stored epochs)
     let query_epoch = epoch0 + 125.0;
-    let (nearest_epoch, nearest_state) = traj.nearest_state(&query_epoch).unwrap();
+    let (_nearest_epoch, nearest_state) = traj.nearest_state(&query_epoch).unwrap();
     println!("Nearest state altitude: {:.2} km",
         (nearest_state[0] - R_EARTH) / 1e3);
 }

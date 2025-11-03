@@ -19,7 +19,7 @@ fn main() {
     let state_native = prop.state(query_epoch);       // Native format of propagator internal state  (Keplerian)
     let state_eci = prop.state_eci(query_epoch);      // ECI Cartesian
     let state_ecef = prop.state_ecef(query_epoch);    // ECEF Cartesian
-    let state_kep = prop.state_as_osculating_elements(
+    let _state_kep = prop.state_as_osculating_elements(
         query_epoch, bh::AngleFormat::Degrees
     );
 

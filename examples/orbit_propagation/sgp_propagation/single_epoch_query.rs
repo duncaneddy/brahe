@@ -15,7 +15,7 @@ fn main() {
     let query_epoch = prop.epoch + 5400.0;  // ~90 minutes
 
     let state_eci = prop.state_eci(query_epoch);          // ECI Cartesian
-    let state_ecef = prop.state_ecef(query_epoch);        // ECEF Cartesian
+    let _state_ecef = prop.state_ecef(query_epoch);        // ECEF Cartesian
     let state_kep = prop.state_as_osculating_elements(query_epoch, bh::AngleFormat::Degrees);    // Osculating Keplerian
 
     println!("ECI position: [{:.1}, {:.1}, {:.1}] km",

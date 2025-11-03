@@ -12,7 +12,7 @@ fn main() {
 
     // Extract Keplerian elements from TLE
     let elements_deg = prop.get_elements(bh::AngleFormat::Degrees).unwrap();
-    let elements_rad = prop.get_elements(bh::AngleFormat::Radians).unwrap();
+    let _elements_rad = prop.get_elements(bh::AngleFormat::Radians).unwrap();
 
     println!("Semi-major axis: {:.1} km", elements_deg[0]/1e3);
     println!("Eccentricity: {:.6}", elements_deg[1]);

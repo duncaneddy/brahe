@@ -3,7 +3,6 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::trajectories::DTrajectory;
-use bh::traits::Trajectory;
 
 fn main() {
     bh::initialize_eop().unwrap();

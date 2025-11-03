@@ -21,7 +21,7 @@ fn main() {
     );
 
     // Create propagator with 60-second step size
-    let prop = bh::KeplerianPropagator::from_keplerian(
+    let _prop = bh::KeplerianPropagator::from_keplerian(
         epoch, elements, bh::AngleFormat::Degrees, 60.0
     );
 

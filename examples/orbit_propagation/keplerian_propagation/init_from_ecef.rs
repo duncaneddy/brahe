@@ -15,7 +15,7 @@ fn main() {
     let state_ecef = bh::state_eci_to_ecef(epoch, state_eci);
 
     // Create propagator from ECEF state
-    let prop = bh::KeplerianPropagator::from_ecef(epoch, state_ecef, 60.0);
+    let _prop = bh::KeplerianPropagator::from_ecef(epoch, state_ecef, 60.0);
 
     println!("ECEF position magnitude: {:.1} km",
              state_ecef.fixed_rows::<3>(0).norm() / 1e3);

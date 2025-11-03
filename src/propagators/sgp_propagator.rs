@@ -324,8 +324,13 @@ impl SGPPropagator {
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
-            name: None,
-            id: None,
+            name: name.map(|s| s.to_string()),
+            // Only automatically set ID when name is provided (i.e., from_3le with line0)
+            id: if name.is_some() {
+                Some(norad_id as u64)
+            } else {
+                None
+            },
             uuid: None,
         })
     }
@@ -706,6 +711,10 @@ mod tests {
 
         let prop = propagator.unwrap();
         assert_eq!(prop.satellite_name, Some(name.to_string()));
+
+        // Verify identity fields are automatically set
+        assert_eq!(prop.get_name(), Some(name));
+        assert_eq!(prop.get_id(), Some(25544));
     }
 
     // OrbitPropagator Trait Tests

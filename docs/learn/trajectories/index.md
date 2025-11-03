@@ -4,7 +4,7 @@ Brahe provides trajectory containers for storing and managing time-series state 
 
 ## Trajectory Traits
 
-Brahe's trajectory system is built on a set of common [Rust traits](https://doc.rust-lang.org/book/ch10-02-traits.html) that define common functionality. This design allows for common access patterns across different trajectory implementations, while enabling specialized behavior for specific use cases.
+Brahe's trajectory system is built on a set of [Rust traits](https://doc.rust-lang.org/book/ch10-02-traits.html) that define common functionality. This design allows for common access patterns across different trajectory implementations, while enabling specialized behavior for specific use cases.
 
 Generally, a "state" is a vector of floating-point numbers representing some dynamic quantity. For most applications in Brahe, states are 6-dimensional vectors representing the satellite position and velocity in 3D space. However, the trajectory system is flexible enough to handle arbitrary state definitions.
 

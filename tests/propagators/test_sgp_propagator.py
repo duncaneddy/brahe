@@ -43,6 +43,10 @@ class TestSGPPropagatorMethods:
         assert prop.step_size == 60.0
         assert prop.satellite_name == "ISS (ZARYA)"
 
+        # Verify identity fields are automatically set
+        assert prop.name == "ISS (ZARYA)"
+        assert prop.id == 25544
+
     def test_sgppropagator_set_output_format_cartesian(self, iss_tle):
         """Test setting output format to ECI Cartesian."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
@@ -239,6 +243,22 @@ class TestSGPPropagatorOrbitPropagatorTrait:
 
         assert prop.step_size == 120.0
 
+    def test_sgppropagator_set_step_size_method(self, iss_tle):
+        """Test set_step_size explicit method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        # Test explicit method call (in addition to property setter)
+        prop.set_step_size(120.0)
+
+        assert prop.step_size == 120.0
+
+        # Test that both property and method work interchangeably
+        prop.step_size = 90.0
+        assert prop.step_size == 90.0
+
+        prop.set_step_size(150.0)
+        assert prop.step_size == 150.0
+
     def test_sgppropagator_orbitpropagator_reset(self, iss_tle):
         """Test reset method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
@@ -355,6 +375,112 @@ class TestSGPPropagatorStateProviderTrait:
             state = traj[i]
             assert len(state) == 6
             assert all(np.isfinite(state))
+
+    def test_sgppropagator_state_as_osculating_elements(self, iss_tle):
+        """Test state_as_osculating_elements method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Test with radians
+        elements_rad = prop.state_as_osculating_elements(
+            epoch, brahe.AngleFormat.RADIANS
+        )
+
+        # Verify we got keplerian elements (all finite)
+        assert len(elements_rad) == 6
+        assert all(np.isfinite(elements_rad))
+
+        # Semi-major axis should be positive and around ISS altitude
+        assert elements_rad[0] > 0.0
+        assert 6.3e6 < elements_rad[0] < 7.0e6  # meters
+
+        # Eccentricity should be non-negative and small for ISS
+        assert elements_rad[1] >= 0.0
+        assert elements_rad[1] < 0.1
+
+        # Inclination should be around 51.6 degrees (in radians)
+        assert elements_rad[2] == pytest.approx(np.radians(51.6), abs=0.1)
+
+        # Test with degrees
+        elements_deg = prop.state_as_osculating_elements(
+            epoch, brahe.AngleFormat.DEGREES
+        )
+
+        # Verify degree conversion
+        assert len(elements_deg) == 6
+        assert all(np.isfinite(elements_deg))
+
+        # First two elements (a, e) should be same in both formats
+        assert elements_deg[0] == pytest.approx(elements_rad[0], rel=1e-10)
+        assert elements_deg[1] == pytest.approx(elements_rad[1], rel=1e-10)
+
+        # Angular elements should be converted from radians to degrees
+        for i in range(2, 6):
+            assert elements_deg[i] == pytest.approx(
+                np.degrees(elements_rad[i]), rel=1e-8
+            )
+
+        # Inclination should be around 51.6 degrees
+        assert elements_deg[2] == pytest.approx(51.6, abs=0.1)
+
+    def test_sgppropagator_states_as_osculating_elements(self, iss_tle):
+        """Test states_as_osculating_elements method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [
+            initial_epoch + i * 3600.0 for i in range(5)
+        ]  # Every hour for 5 hours
+
+        # Test with degrees
+        elements_list = prop.states_as_osculating_elements(
+            epochs, brahe.AngleFormat.DEGREES
+        )
+
+        # Verify we got the right number of element sets
+        assert len(elements_list) == 5
+
+        # Check each element set
+        for i, elements in enumerate(elements_list):
+            assert len(elements) == 6
+            assert all(np.isfinite(elements))
+
+            # Semi-major axis should be positive
+            assert elements[0] > 0.0
+            assert 6.3e6 < elements[0] < 7.0e6  # meters
+
+            # Eccentricity should be non-negative
+            assert elements[1] >= 0.0
+            assert elements[1] < 0.1
+
+            # Inclination should be around 51.6 degrees
+            assert elements[2] == pytest.approx(51.6, abs=0.5)
+
+            # All angles should be in valid range for degrees
+            for j in range(2, 6):
+                assert -360.0 <= elements[j] <= 360.0
+
+        # Test with radians
+        elements_list_rad = prop.states_as_osculating_elements(
+            epochs, brahe.AngleFormat.RADIANS
+        )
+
+        # Verify conversion consistency
+        assert len(elements_list_rad) == 5
+
+        for i in range(5):
+            # First two elements should match
+            assert elements_list_rad[i][0] == pytest.approx(
+                elements_list[i][0], rel=1e-10
+            )
+            assert elements_list_rad[i][1] == pytest.approx(
+                elements_list[i][1], rel=1e-10
+            )
+
+            # Angular elements should be converted
+            for j in range(2, 6):
+                assert elements_list_rad[i][j] == pytest.approx(
+                    np.radians(elements_list[i][j]), rel=1e-8
+                )
 
 
 class TestOldBraheTLEFunctions:

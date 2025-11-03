@@ -459,6 +459,31 @@ def test_keplerianpropagator_orbitpropagator_set_step_size():
     assert propagator.step_size == 120.0
 
 
+def test_keplerianpropagator_set_step_size_method():
+    """Test set_step_size explicit method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    # Test explicit method call (in addition to property setter)
+    propagator.set_step_size(120.0)
+
+    assert propagator.step_size == 120.0
+
+    # Test that both property and method work interchangeably
+    propagator.step_size = 90.0
+    assert propagator.step_size == 90.0
+
+    propagator.set_step_size(150.0)
+    assert propagator.step_size == 150.0
+
+
 def test_keplerianpropagator_orbitpropagator_reset():
     """Test reset() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)

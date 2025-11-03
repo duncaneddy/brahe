@@ -162,6 +162,26 @@ impl PySGPPropagator {
         self.propagator.set_step_size(step_size);
     }
 
+    /// Set step size in seconds (explicit method).
+    ///
+    /// Args:
+    ///     new_step_size (float): New step size in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     propagator.set_step_size(120.0)  # Can use explicit method
+    ///     # or propagator.step_size = 120.0  # Can use property
+    ///     ```
+    #[pyo3(name = "set_step_size", text_signature = "(new_step_size)")]
+    pub fn set_step_size_explicit(&mut self, new_step_size: f64) {
+        self.propagator.set_step_size(new_step_size);
+    }
+
     /// Set output format (frame, representation, and angle format).
     ///
     /// Args:
@@ -671,6 +691,81 @@ impl PySGPPropagator {
         self.propagator.get_uuid().map(|u| u.to_string())
     }
 
+    /// Compute state as osculating elements at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Get osculating elements at initial epoch
+    ///     epoch = prop.epoch
+    ///     elements_deg = prop.state_as_osculating_elements(epoch, bh.AngleFormat.DEGREES)
+    ///     print(f"Semi-major axis: {elements_deg[0]/1000:.3f} km")
+    ///     print(f"Inclination: {elements_deg[2]:.4f} degrees")
+    ///
+    ///     # Get elements in radians
+    ///     elements_rad = prop.state_as_osculating_elements(epoch, bh.AngleFormat.RADIANS)
+    ///     print(f"Inclination: {elements_rad[2]:.4f} radians")
+    ///     ```
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    pub fn state_as_osculating_elements<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+        angle_format: &PyAngleFormat,
+    ) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Compute states as osculating elements at multiple epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of osculating element vectors [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Get elements at multiple epochs
+    ///     epoch0 = prop.epoch
+    ///     epochs = [epoch0 + i*3600.0 for i in range(10)]  # Every hour for 10 hours
+    ///     elements_list = prop.states_as_osculating_elements(epochs, bh.AngleFormat.DEGREES)
+    ///
+    ///     for i, elements in enumerate(elements_list):
+    ///         print(f"Hour {i}: a={elements[0]/1000:.3f} km, e={elements[1]:.6f}")
+    ///     ```
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    pub fn states_as_osculating_elements<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value);
+        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+    }
+
     /// String representation.
     fn __repr__(&self) -> String {
         format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",
@@ -923,6 +1018,28 @@ impl PyKeplerianPropagator {
     #[setter]
     pub fn set_step_size(&mut self, step_size: f64) {
         self.propagator.set_step_size(step_size);
+    }
+
+    /// Set step size in seconds (explicit method).
+    ///
+    /// Args:
+    ///     new_step_size (float): New step size in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+    ///     propagator = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
+    ///     propagator.set_step_size(120.0)  # Can use explicit method
+    ///     # or propagator.step_size = 120.0  # Can use property
+    ///     ```
+    #[pyo3(name = "set_step_size", text_signature = "(new_step_size)")]
+    pub fn set_step_size_explicit(&mut self, new_step_size: f64) {
+        self.propagator.set_step_size(new_step_size);
     }
 
     /// Get current state vector.

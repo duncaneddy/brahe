@@ -698,6 +698,8 @@
       
         
       
+        
+      
     
     
     
@@ -1993,8 +1995,6 @@
       
         
       
-        
-      
     
     
     
@@ -2012,12 +2012,12 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../plots/index.html" class="md-nav__link ">
+            <a href="../utilities/index.html" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
-    Plots
+    Utilities
     
   </span>
   
@@ -2033,6 +2033,143 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_12_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_12">
+            <span class="md-nav__icon md-icon"></span>
+            Utilities
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/caching.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Caching
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/threading.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Multithreading
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/string_formatting.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    String Formatting
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../plots/index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_13">
             <span class="md-nav__icon md-icon"></span>
             Plots
           </label>
@@ -2172,7 +2309,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_13" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_14" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2189,14 +2326,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_14" id="__nav_2_14_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_13">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_14">
             <span class="md-nav__icon md-icon"></span>
             Command Line Interface
           </label>
@@ -4285,18 +4422,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#choosing-a-representation" class="md-nav__link">
+  <a href="#conversions" class="md-nav__link">
     <span class="md-ellipsis">
-      Choosing a Representation
+      Conversions
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#conversions" class="md-nav__link">
+  <a href="#choosing-a-representation" class="md-nav__link">
     <span class="md-ellipsis">
-      Conversions
+      Choosing a Representation
     </span>
   </a>
   
@@ -4340,6 +4477,13 @@
 <li><strong><a href="euler_angles.html">Euler Angles</a></strong>: Intuitive angular representation (3 parameters, but with singularities)</li>
 <li><strong><a href="euler_axis.html">Euler Axis</a></strong>: Axis-angle representation (4 parameters)</li>
 </ul>
+<h2 id="conversions">Conversions<a class="headerlink" href="#conversions" title="Permanent link">&para;</a></h2>
+<p>Brahe provides functions to convert between all attitude representations. You can initialize an attitude in one representation and convert it to any other one as needed.</p>
+<div class="plotly-embed">
+    <img class="only-light" src="../../assets/attitude_representations_light.svg" alt="Attitude representations diagram" loading="lazy">
+    <img class="only-dark" src="../../assets/attitude_representations_dark.svg" alt="Attitude representations diagram" loading="lazy">
+</div>
+
 <h2 id="choosing-a-representation">Choosing a Representation<a class="headerlink" href="#choosing-a-representation" title="Permanent link">&para;</a></h2>
 <p><strong>Use Quaternions when:</strong></p>
 <ul>
@@ -4359,8 +4503,6 @@
 <ul>
 <li>Representing single rotations about an axis</li>
 </ul>
-<h2 id="conversions">Conversions<a class="headerlink" href="#conversions" title="Permanent link">&para;</a></h2>
-<p>All representations can be converted between each other using built-in conversion functions.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../library_api/attitude/index.html">API Reference - Attitude</a></li>
@@ -4387,7 +4529,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 30, 2025 00:33:44 UTC">2025-10-30</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 30, 2025 22:06:21 UTC">2025-10-30</span>
   </span>
 
     

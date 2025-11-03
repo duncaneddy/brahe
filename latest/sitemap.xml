@@ -472,4 +472,20 @@
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/trajectories/strajectory6.html</loc>
          <lastmod>2025-11-03</lastmod>
     </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/utils/index.html</loc>
+         <lastmod>2025-11-03</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/utils/caching.html</loc>
+         <lastmod>2025-11-03</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/utils/formatting.html</loc>
+         <lastmod>2025-11-03</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/utils/threading.html</loc>
+         <lastmod>2025-11-03</lastmod>
+    </url>
 </urlset>

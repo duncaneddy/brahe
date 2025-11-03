@@ -82,6 +82,12 @@ def find_file_by_name(directory: Path, filename: str, extension: str) -> Optiona
     """
     Find a file by name in directory (including subdirectories).
 
+    Matching priority:
+    1. Strip "examples/" prefix if present
+    2. Exact path match
+    3. Suffix path match (e.g., "keplerian_propagation/file" matches "orbit_propagation/keplerian_propagation/file")
+    4. Filename-only match
+
     Args:
         directory: Root directory to search in
         filename: Base filename (without extension or with partial path)
@@ -90,17 +96,41 @@ def find_file_by_name(directory: Path, filename: str, extension: str) -> Optiona
     Returns:
         Path to the file if found, None otherwise
     """
-    # First try direct path (with or without extension)
-    if filename.endswith(extension):
-        direct_path = directory / filename
-    else:
-        direct_path = directory / f"{filename}{extension}"
+    # Strip "examples/" prefix if user provided it
+    if filename.startswith("examples/"):
+        filename = filename[len("examples/") :]
 
+    # Normalize extension handling
+    if filename.endswith(extension):
+        filename_with_ext = filename
+        filename_no_ext = filename[: -len(extension)]
+    else:
+        filename_with_ext = f"{filename}{extension}"
+        filename_no_ext = filename
+
+    # 1. Try exact path match from directory root
+    direct_path = directory / filename_with_ext
     if direct_path.exists():
         return direct_path
 
-    # Search recursively by filename only
-    base_name = Path(filename).stem  # Get filename without extension
+    # 2. Try suffix path match - find files where input is a path suffix
+    # This allows partial paths like "keplerian_propagation/propagate_to_epoch" to work
+    all_files = list(directory.glob(f"**/*{extension}"))
+    suffix_matches = [
+        f
+        for f in all_files
+        if str(f.relative_to(directory)) == filename_with_ext
+        or str(f.relative_to(directory)).endswith(f"/{filename_with_ext}")
+    ]
+
+    if len(suffix_matches) == 1:
+        return suffix_matches[0]
+    elif len(suffix_matches) > 1:
+        # Multiple suffix matches - let caller handle disambiguation
+        return None
+
+    # 3. Fallback to filename-only match (backward compatibility)
+    base_name = Path(filename_no_ext).stem  # Get just the filename without any path
     pattern = f"**/{base_name}{extension}"
     matches = list(directory.glob(pattern))
 

@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/cli/index.html">
       
       
-        <link rel="prev" href="../plots/access_geometry.html">
+        <link rel="prev" href="../plots/gabbard_plot.html">
       
       
         <link rel="next" href="eop.html">
@@ -2132,6 +2132,8 @@
       
         
       
+        
+      
     
     
     
@@ -2257,6 +2259,29 @@
   
   <span class="md-ellipsis">
     Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/gabbard_plot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Plots
     
   </span>
   
@@ -4578,9 +4603,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#transform" class="md-nav__link">
+  <a href="#eop" class="md-nav__link">
     <span class="md-ellipsis">
-      transform
+      eop
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      datasets
     </span>
   </a>
   
@@ -4605,9 +4639,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#eop" class="md-nav__link">
+  <a href="#transform" class="md-nav__link">
     <span class="md-ellipsis">
-      eop
+      transform
     </span>
   </a>
   
@@ -4617,15 +4651,6 @@
   <a href="#access" class="md-nav__link">
     <span class="md-ellipsis">
       access
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datasets" class="md-nav__link">
-    <span class="md-ellipsis">
-      datasets
     </span>
   </a>
   
@@ -4659,84 +4684,6 @@
   <a href="#constant-expressions" class="md-nav__link">
     <span class="md-ellipsis">
       Constant Expressions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#angle-formats" class="md-nav__link">
-    <span class="md-ellipsis">
-      Angle Formats
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#output-formatting" class="md-nav__link">
-    <span class="md-ellipsis">
-      Output Formatting
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#earth-orientation-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Earth Orientation Parameters
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#time-formats" class="md-nav__link">
-    <span class="md-ellipsis">
-      Time Formats
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-workflows" class="md-nav__link">
-    <span class="md-ellipsis">
-      Common Workflows
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Workflows">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#satellite-state-conversion" class="md-nav__link">
-    <span class="md-ellipsis">
-      Satellite State Conversion
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ground-station-passes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ground Station Passes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#orbital-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Orbital Design
     </span>
   </a>
   
@@ -4776,7 +4723,7 @@
 
 
 <h1 id="brahe-cli">Brahe CLI<a class="headerlink" href="#brahe-cli" title="Permanent link">&para;</a></h1>
-<p>The Brahe command-line interface provides tools for orbital mechanics, time system conversions, satellite operations, and astrodynamics calculations.</p>
+<p>The Brahe command-line interface provides tools for quick-access time, coordinate, and orbital mechanics calculations directly from the terminal. It also provides functions to download Earth Orientation Parameters (EOP) and satellite datasets.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <p>The CLI is included with the Brahe Python package:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>brahe
@@ -4789,36 +4736,25 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Convert between time formats</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>mjd
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Calculate orbital period</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Transform coordinates between representations</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># Compute satellite access windows</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># 60310.00042824074</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="c1"># Calculate orbital period</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>minutes
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># 94.616286</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="c1"># Transform coordinates between representations</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># [6871258.863000, 0.000000, 0.000000, 0.000000, -1034.183142, 7549.721055</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># Compute satellite access windows</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lon<span class="w"> </span>-122.4194<span class="w"> </span>--lat<span class="w"> </span><span class="m">37</span>.7749
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Location: 37.7749° lat, -122.4194° lon, 0 m alt</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># Found 17 access window(s)</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># ...</span>
 </span></code></pre></div>
 <h2 id="command-groups">Command Groups<a class="headerlink" href="#command-groups" title="Permanent link">&para;</a></h2>
-<h3 id="transform"><a href="transform.html">transform</a><a class="headerlink" href="#transform" title="Permanent link">&para;</a></h3>
-<p>Convert between coordinate systems and reference frames:
-- <code>frame</code> - Transform states between ECI and ECEF frames
-- <code>coordinates</code> - Convert between Keplerian, Cartesian, Geodetic, and Geocentric representations
-- <code>attitude</code> - Convert between attitude representations (planned)</p>
-<h3 id="time"><a href="time.html">time</a><a class="headerlink" href="#time" title="Permanent link">&para;</a></h3>
-<p>Time system operations and conversions:
-- <code>convert</code> - Convert between time formats (MJD, JD, GPS, ISO-8601)
-- <code>add</code> - Add time offsets to epochs
-- <code>time-system-offset</code> - Calculate offsets between time systems
-- <code>range</code> - Generate time ranges</p>
-<h3 id="orbits"><a href="orbits.html">orbits</a><a class="headerlink" href="#orbits" title="Permanent link">&para;</a></h3>
-<p>Orbital mechanics calculations:
-- <code>orbital-period</code> - Calculate orbital period from semi-major axis
-- <code>sma-from-period</code> - Calculate semi-major axis from period
-- <code>mean-motion</code> - Calculate mean motion
-- <code>anomaly-conversion</code> - Convert between anomaly types
-- <code>sun-sync-inclination</code> - Calculate sun-synchronous inclination
-- <code>perigee-velocity</code> / <code>apogee-velocity</code> - Calculate velocities at apsides</p>
 <h3 id="eop"><a href="eop.html">eop</a><a class="headerlink" href="#eop" title="Permanent link">&para;</a></h3>
 <p>Earth Orientation Parameter operations:
 - <code>download</code> - Download EOP data from IERS
@@ -4826,13 +4762,39 @@
 - <code>get-polar-motion</code> - Get polar motion parameters
 - <code>get-cip-offset</code> - Get CIP offset
 - <code>get-lod</code> - Get length of day</p>
-<h3 id="access"><a href="access.html">access</a><a class="headerlink" href="#access" title="Permanent link">&para;</a></h3>
-<p>Satellite access window calculations:
-- <code>compute</code> - Calculate visibility windows for ground stations</p>
 <h3 id="datasets"><a href="datasets.html">datasets</a><a class="headerlink" href="#datasets" title="Permanent link">&para;</a></h3>
 <p>Download and query satellite data:
 - <code>celestrak</code> - CelesTrak TLE data operations
 - <code>groundstations</code> - Ground station database operations</p>
+<h3 id="time"><a href="time.html">time</a><a class="headerlink" href="#time" title="Permanent link">&para;</a></h3>
+<p>Time system operations and conversions:</p>
+<ul>
+<li><code>convert</code> - Convert between time formats (MJD, JD, GPS, ISO-8601)</li>
+<li><code>add</code> - Add time offsets to epochs</li>
+<li><code>time-system-offset</code> - Calculate offsets between time systems</li>
+<li><code>range</code> - Generate time ranges</li>
+</ul>
+<h3 id="orbits"><a href="orbits.html">orbits</a><a class="headerlink" href="#orbits" title="Permanent link">&para;</a></h3>
+<p>Orbital mechanics calculations:</p>
+<ul>
+<li><code>orbital-period</code> - Calculate orbital period from semi-major axis</li>
+<li><code>sma-from-period</code> - Calculate semi-major axis from period</li>
+<li><code>mean-motion</code> - Calculate mean motion</li>
+<li><code>anomaly-conversion</code> - Convert between anomaly types</li>
+<li><code>sun-sync-inclination</code> - Calculate sun-synchronous inclination</li>
+<li><code>perigee-velocity</code> / <code>apogee-velocity</code> - Calculate velocities at apsides</li>
+</ul>
+<h3 id="transform"><a href="transform.html">transform</a><a class="headerlink" href="#transform" title="Permanent link">&para;</a></h3>
+<p>Convert between coordinate systems and reference frames:</p>
+<!-- - `frame` - Transform states between ECI and ECEF frames -->
+<ul>
+<li><code>coordinates</code> - Convert between Keplerian, Cartesian, Geodetic, and Geocentric representations</li>
+</ul>
+<!-- - `attitude` - Convert between attitude representations (planned) -->
+
+<h3 id="access"><a href="access.html">access</a><a class="headerlink" href="#access" title="Permanent link">&para;</a></h3>
+<p>Satellite access window calculations:
+- <code>compute</code> - Calculate visibility windows for ground stations</p>
 <h2 id="global-options">Global Options<a class="headerlink" href="#global-options" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>--verbose, -v    Enable verbose output (INFO level)
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>--debug, -d      Enable debug output (DEBUG level)
@@ -4842,10 +4804,8 @@
 <h3 id="constant-expressions">Constant Expressions<a class="headerlink" href="#constant-expressions" title="Permanent link">&para;</a></h3>
 <p>Many numeric arguments support mathematical expressions using Brahe constants:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Use R_EARTH constant for semi-major axis (500km altitude LEO)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Multiple constants in calculations</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="s2">&quot;2*3.14159*sqrt((R_EARTH+35786e3)^3/GM_EARTH)&quot;</span><span class="w"> </span>--units<span class="w"> </span>seconds
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>minutes
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 94.616286</span>
 </span></code></pre></div>
 <p>Available constants include:
 - <code>R_EARTH</code>, <code>R_SUN</code>, <code>R_MOON</code> - Body radii (meters)
@@ -4853,92 +4813,6 @@
 - <code>DEG2RAD</code>, <code>RAD2DEG</code> - Angular conversions
 - <code>MJD_ZERO</code>, <code>MJD2000</code>, <code>GPS_ZERO</code> - Time epoch constants</p>
 <p>See the <a href="../constants.html">Constants documentation</a> for the complete list.</p>
-<h3 id="angle-formats">Angle Formats<a class="headerlink" href="#angle-formats" title="Permanent link">&para;</a></h3>
-<p>Commands that handle angles typically support both degrees and radians:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Degrees (default for most commands)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">45</span><span class="w"> </span>--as-degrees
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Radians</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">1</span>.706<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>.785<span class="w"> </span>--no-as-degrees
-</span></code></pre></div>
-<h3 id="output-formatting">Output Formatting<a class="headerlink" href="#output-formatting" title="Permanent link">&para;</a></h3>
-<p>Control numeric output precision with <code>--format</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Default floating-point</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Output: 5673.281746</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># High precision</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--format<span class="w"> </span>.10f
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Output: 5673.2817464420</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Scientific notation</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--format<span class="w"> </span>.3e
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Output: 5.673e+03</span>
-</span></code></pre></div>
-<h2 id="earth-orientation-parameters">Earth Orientation Parameters<a class="headerlink" href="#earth-orientation-parameters" title="Permanent link">&para;</a></h2>
-<p>Commands involving reference frame transformations (ECI ↔ ECEF) automatically download and cache Earth Orientation Parameter (EOP) data from IERS on first use:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># EOP data automatically downloaded for frame transformations</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Manually download/update EOP data</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>~/.cache/brahe/iau2000_standard.txt<span class="w"> </span>--product<span class="w"> </span>standard
-</span></code></pre></div>
-<p>Cache location: <code>~/.cache/brahe/</code></p>
-<h2 id="time-formats">Time Formats<a class="headerlink" href="#time-formats" title="Permanent link">&para;</a></h2>
-<p>Epochs can be specified in multiple formats:</p>
-<p><strong>ISO-8601 strings</strong> (most common):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>mjd
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T12:30:45.123Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div></p>
-<p><strong>Modified Julian Date (MJD)</strong>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="m">60310</span>.0<span class="w"> </span>mjd<span class="w"> </span>string<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
-</span></code></pre></div></p>
-<p><strong>Julian Date (JD)</strong>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="m">2460310</span>.5<span class="w"> </span>jd<span class="w"> </span>string
-</span></code></pre></div></p>
-<p><strong>GPS time</strong>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;1356998418.0&quot;</span><span class="w"> </span>gps_nanoseconds<span class="w"> </span>string
-</span></code></pre></div></p>
-<h2 id="common-workflows">Common Workflows<a class="headerlink" href="#common-workflows" title="Permanent link">&para;</a></h2>
-<h3 id="satellite-state-conversion">Satellite State Conversion<a class="headerlink" href="#satellite-state-conversion" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1. Start with Keplerian elements (SSO, 500km altitude)</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">KEP</span><span class="o">=</span><span class="s2">&quot;6878137 0.001 97.8 0 0 0&quot;</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 2. Convert to ECI Cartesian</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="nv">$KEP</span><span class="w"> </span>--as-degrees
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># 3. Convert to ECEF at specific epoch</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6871258</span>.863<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>-1034.183<span class="w"> </span><span class="m">7549</span>.721
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># 4. Convert to geodetic coordinates</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>cartesian<span class="w"> </span>geodetic<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span>-1176064.179<span class="w"> </span>-6776827.197<span class="w"> </span><span class="m">15961</span>.825<span class="w"> </span><span class="m">6895</span>.377<span class="w"> </span>-1196.637<span class="w"> </span><span class="m">0</span>.241<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span>--from-frame<span class="w"> </span>ECEF<span class="w"> </span>--as-degrees
-</span></code></pre></div>
-<h3 id="ground-station-passes">Ground Station Passes<a class="headerlink" href="#ground-station-passes" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Find ISS passes over New York City</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--duration<span class="w"> </span><span class="m">7</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Use ground station database</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--gs-provider<span class="w"> </span>ksat<span class="w"> </span>--gs-name<span class="w"> </span><span class="s2">&quot;Svalbard&quot;</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Export to JSON</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--output-file<span class="w"> </span>passes.json
-</span></code></pre></div>
-<h3 id="orbital-design">Orbital Design<a class="headerlink" href="#orbital-design" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Design a sun-synchronous orbit at 600km altitude</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">SMA</span><span class="o">=</span><span class="s2">&quot;R_EARTH+600e3&quot;</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nv">ECC</span><span class="o">=</span><span class="s2">&quot;0.001&quot;</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># Calculate required inclination</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="nv">INC</span><span class="o">=</span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SMA</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$ECC</span><span class="s2">&quot;</span><span class="w"> </span>--as-degrees<span class="k">)</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># Calculate period</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SMA</span><span class="s2">&quot;</span><span class="w"> </span>--units<span class="w"> </span>minutes
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="c1"># Calculate mean motion</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>mean-motion<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SMA</span><span class="s2">&quot;</span>
-</span></code></pre></div>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../library_api/index.html">Python API Documentation</a></li>
@@ -4968,7 +4842,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2025 03:10:20 UTC">2025-10-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 16:22:40 UTC">2025-11-03</span>
   </span>
 
     
@@ -5030,7 +4904,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

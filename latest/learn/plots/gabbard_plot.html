@@ -12,13 +12,13 @@
         <meta name="author" content="Duncan Eddy">
       
       
-        <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/cli/eop.html">
+        <link rel="canonical" href="https://duncaneddy.github.io/brahe/latest/learn/plots/gabbard_plot.html">
       
       
-        <link rel="prev" href="index.html">
+        <link rel="prev" href="access_geometry.html">
       
       
-        <link rel="next" href="time.html">
+        <link rel="next" href="../cli/index.html">
       
       
       <link rel="icon" href="../../assets/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>EOP - Brahe</title>
+        <title>Gabbard Plots - Brahe</title>
       
     
     
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#eop-commands" class="md-skip">
+        <a href="#gabbard-plot" class="md-skip">
           Skip to content
         </a>
       
@@ -135,7 +135,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              EOP
+              Gabbard Plots
             
           </span>
         </div>
@@ -2119,10 +2119,257 @@
                 
   
   
+    
+  
   
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_13" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="index.html" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Plots
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_13">
+            <span class="md-nav__icon md-icon"></span>
+            Plots
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="3d_trajectory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="access_geometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Plots
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="gabbard_plot.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Plots
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#plotly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Plotly
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#matplotlib" class="md-nav__link">
+    <span class="md-ellipsis">
+      Matplotlib
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
       
         
       
@@ -2147,198 +2394,11 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_13" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_14" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../plots/index.html" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    Plots
-    
-  </span>
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_2_13" id="__nav_2_13_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_13_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_13">
-            <span class="md-nav__icon md-icon"></span>
-            Plots
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plots/ground_tracks.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ground Tracks
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plots/orbital_trajectories.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Orbital Trajectories
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plots/3d_trajectory.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    3D Trajectory
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plots/access_geometry.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Access Geometry
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plots/gabbard_plot.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Gabbard Plots
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_14" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="index.html" class="md-nav__link ">
+            <a href="../cli/index.html" class="md-nav__link ">
               
   
   
@@ -2357,7 +2417,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_14_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_14_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_14">
             <span class="md-nav__icon md-icon"></span>
             Command Line Interface
@@ -2368,32 +2428,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    EOP
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="eop.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../cli/eop.html" class="md-nav__link">
         
   
   
@@ -2404,95 +2442,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      Commands
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#download" class="md-nav__link">
-    <span class="md-ellipsis">
-      download
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-utc-ut1" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-utc-ut1
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-polar-motion" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-polar-motion
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-cip-offset" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-cip-offset
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-lod" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-lod
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      See Also
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2505,7 +2454,7 @@
   
   
     <li class="md-nav__item">
-      <a href="time.html" class="md-nav__link">
+      <a href="../cli/time.html" class="md-nav__link">
         
   
   
@@ -2528,7 +2477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="orbits.html" class="md-nav__link">
+      <a href="../cli/orbits.html" class="md-nav__link">
         
   
   
@@ -2551,7 +2500,7 @@
   
   
     <li class="md-nav__item">
-      <a href="transform.html" class="md-nav__link">
+      <a href="../cli/transform.html" class="md-nav__link">
         
   
   
@@ -2574,7 +2523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="datasets.html" class="md-nav__link">
+      <a href="../cli/datasets.html" class="md-nav__link">
         
   
   
@@ -2597,7 +2546,7 @@
   
   
     <li class="md-nav__item">
-      <a href="access.html" class="md-nav__link">
+      <a href="../cli/access.html" class="md-nav__link">
         
   
   
@@ -4686,69 +4635,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
+  <a href="#plotly" class="md-nav__link">
     <span class="md-ellipsis">
-      Commands
+      Plotly
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#download" class="md-nav__link">
-    <span class="md-ellipsis">
-      download
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-utc-ut1" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-utc-ut1
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-polar-motion" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-polar-motion
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-cip-offset" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-cip-offset
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-lod" class="md-nav__link">
-    <span class="md-ellipsis">
-      get-lod
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#matplotlib" class="md-nav__link">
     <span class="md-ellipsis">
-      See Also
+      Matplotlib
     </span>
   </a>
   
@@ -4773,118 +4671,11 @@
   
 
 
-<h1 id="eop-commands">EOP Commands<a class="headerlink" href="#eop-commands" title="Permanent link">&para;</a></h1>
-<p>The <code>eop</code> command group provides access to Earth Orientation Parameters (EOP) data from IERS (International Earth Rotation and Reference Systems Service). EOP data is required for accurate transformations between ECI and ECEF reference frames.</p>
-<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
-<h3 id="download"><code>download</code><a class="headerlink" href="#download" title="Permanent link">&para;</a></h3>
-<p>Download EOP data from IERS and save to file.</p>
-<p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>&lt;FILEPATH&gt;<span class="w"> </span>--product<span class="w"> </span>&lt;PRODUCT&gt;
-</span></code></pre></div></p>
-<p><strong>Arguments:</strong>
-- <code>FILEPATH</code> - Output file path for EOP data</p>
-<p><strong>Options:</strong>
-- <code>--product [standard|c04]</code> - Data product type (required)
-  - <code>standard</code> - Standard rapid EOP data (daily updates, ~1 year of predictions)
-  - <code>c04</code> - EOP 14 C04 long-term series (high accuracy, historical)</p>
-<p><strong>Examples:</strong></p>
-<p>Download standard EOP data:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>~/.cache/brahe/eop/iau2000_standard.txt<span class="w"> </span>--product<span class="w"> </span>standard
-</span></code></pre></div></p>
-<p>Download C04 long-term series:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>~/.cache/brahe/eop/iau2000_c04_20.txt<span class="w"> </span>--product<span class="w"> </span>c04
-</span></code></pre></div></p>
-<p>Update local EOP file:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>download<span class="w"> </span>/path/to/eop_data.txt<span class="w"> </span>--product<span class="w"> </span>standard
-</span></code></pre></div></p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>It's usually not necessary to manually download EOP data. If you are using a caching file provider, the package data will automatically download and cache EOP data as needed.</p>
-</div>
-<hr />
-<h3 id="get-utc-ut1"><code>get-utc-ut1</code><a class="headerlink" href="#get-utc-ut1" title="Permanent link">&para;</a></h3>
-<p>Get the UTC-UT1 offset (ΔUT1) at a specific epoch.</p>
-<p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-utc-ut1<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
-<p><strong>Arguments:</strong>
-- <code>EPOCH</code> - Epoch to query (ISO-8601 format)</p>
-<p><strong>Options:</strong>
-- <code>--product [standard|c04]</code> - EOP data product (default: <code>standard</code>)
-- <code>--source [default|file]</code> - EOP data source (default: <code>default</code>)
-- <code>--filepath &lt;path&gt;</code> - Custom EOP file path (if <code>--source file</code>)</p>
-<p><strong>Examples:</strong></p>
-<p>Get ΔUT1 for a specific date:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-utc-ut1<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># 0.0087837</span>
-</span></code></pre></div></p>
-<p>Use custom EOP file:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-utc-ut1<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>--source<span class="w"> </span>file<span class="w"> </span>--filepath<span class="w"> </span>/path/to/eop.txt
-</span></code></pre></div></p>
-<p>Use C04 product:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-utc-ut1<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>--product<span class="w"> </span>c04
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># 0.0087572</span>
-</span></code></pre></div></p>
-<hr />
-<h3 id="get-polar-motion"><code>get-polar-motion</code><a class="headerlink" href="#get-polar-motion" title="Permanent link">&para;</a></h3>
-<p>Get polar motion parameters (x_p, y_p) at a specific epoch.</p>
-<p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-polar-motion<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
-<p><strong>Arguments:</strong>
-- <code>EPOCH</code> - Epoch to query (ISO-8601 format)</p>
-<p><strong>Options:</strong>
-- <code>--product [standard|c04]</code> - EOP data product (default: <code>standard</code>)
-- <code>--source [default|file]</code> - EOP data source (default: <code>default</code>)
-- <code>--filepath &lt;path&gt;</code> - Custom EOP file path (if <code>--source file</code>)</p>
-<p><strong>Examples:</strong></p>
-<p>Get polar motion parameters:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-polar-motion<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># 6.63768107080688e-07, 9.802447818353709e-07</span>
-</span></code></pre></div></p>
-<hr />
-<h3 id="get-cip-offset"><code>get-cip-offset</code><a class="headerlink" href="#get-cip-offset" title="Permanent link">&para;</a></h3>
-<p>Get Celestial Intermediate Pole (CIP) offset (dX, dY) at a specific epoch.</p>
-<p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-cip-offset<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
-<p><strong>Arguments:</strong>
-- <code>EPOCH</code> - Epoch to query (ISO-8601 format)</p>
-<p><strong>Options:</strong>
-- <code>--product [standard|c04]</code> - EOP data product (default: <code>standard</code>)
-- <code>--source [default|file]</code> - EOP data source (default: <code>default</code>)
-- <code>--filepath &lt;path&gt;</code> - Custom EOP file path (if <code>--source file</code>)</p>
-<p><strong>Examples:</strong></p>
-<p>Get CIP offset:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-cip-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># 1.4302003592731312e-09, -4.6057299705405924e-10</span>
-</span></code></pre></div></p>
-<hr />
-<h3 id="get-lod"><code>get-lod</code><a class="headerlink" href="#get-lod" title="Permanent link">&para;</a></h3>
-<p>Get Length of Day (LOD) variation at a specific epoch.</p>
-<p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-lod<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
-<p><strong>Arguments:</strong>
-- <code>EPOCH</code> - Epoch to query (ISO-8601 format)</p>
-<p><strong>Options:</strong>
-- <code>--product [standard|c04]</code> - EOP data product (default: <code>standard</code>)
-- <code>--source [default|file]</code> - EOP data source (default: <code>default</code>)
-- <code>--filepath &lt;path&gt;</code> - Custom EOP file path (if <code>--source file</code>)</p>
-<p><strong>Examples:</strong></p>
-<p>Get LOD variation:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>brahe<span class="w"> </span>eop<span class="w"> </span>get-lod<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># 0.00023750000000000003</span>
-</span></code></pre></div></p>
-<hr />
-<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../eop/what_is_eop_data.html">Earth Orientation Data</a> - Conceptual overview</li>
-<li><a href="../frame_transformations.html">Reference Frames</a> - ECI/ECEF transformations</li>
-<li><a href="transform.html">Transform CLI</a> - Frame transformations (use EOP)</li>
-<li><a href="time.html">Time CLI</a> - UT1 time system</li>
-<li><a href="../../library_api/eop/index.html">EOP API</a> - Python EOP provider classes</li>
-</ul>
+<h1 id="gabbard-plot">Gabbard Plot<a class="headerlink" href="#gabbard-plot" title="Permanent link">&para;</a></h1>
+<!-- Show Gabbard plot for debris events "fengyun-1c-debris", "cosmos-1408-debris", "iridium-33-debris", "cosmos-2251-debris" -->
+
+<h3 id="plotly">Plotly<a class="headerlink" href="#plotly" title="Permanent link">&para;</a></h3>
+<h3 id="matplotlib">Matplotlib<a class="headerlink" href="#matplotlib" title="Permanent link">&para;</a></h3>
 
 
 
@@ -4917,7 +4708,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 06:57:43 UTC">2025-10-23</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 16:22:40 UTC">2025-11-03</span>
   </span>
 
     

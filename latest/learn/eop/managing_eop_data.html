@@ -2267,6 +2267,8 @@
       
         
       
+        
+      
     
     
     
@@ -2392,6 +2394,29 @@
   
   <span class="md-ellipsis">
     Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots/gabbard_plot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Plots
     
   </span>
   
@@ -4798,7 +4823,7 @@
 
 <h1 id="managing-eop-data">Managing EOP Data<a class="headerlink" href="#managing-eop-data" title="Permanent link">&para;</a></h1>
 <p>Generally, users of brahe will not need to directly manage Earth orientation data. The package provides default data files and the <code>CachingEOPProvider</code> to automatically update data as needed. However, for advanced users or those with specific data requirements, brahe provides functionality to load and manage Earth orientation data manually.</p>
-<p>To make the package interface ergonommic, brahe functions do not explicitly accept Earth orientation data as input parameters. Instead, there is a single, global Earth orientation provider used internally by brahe functions. This global provider can be initialized using one of the provided loading functions. See the <a href="#loading-data-data-sets">Loading Data Sets</a> section for more information on loading and managing Earth orientation data in brahe.</p>
+<p>To make the package interface ergonommic, brahe functions do not explicitly accept Earth orientation data as input parameters. Instead, there is a single, global Earth orientation provider used internally by brahe functions. This global provider can be initialized using one of the provided loading functions.</p>
 <p>If you want to skip understanding Earth orientation data for now, you can initialize the global provider with zeroed values using the <code>initialize_eop()</code> function:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">Rust</label></div>
 <div class="tabbed-content">
@@ -5143,7 +5168,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 25, 2025 05:21:17 UTC">2025-10-25</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 16:22:40 UTC">2025-11-03</span>
   </span>
 
     
@@ -5205,7 +5230,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

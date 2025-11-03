@@ -2129,6 +2129,8 @@
       
         
       
+        
+      
     
     
     
@@ -2254,6 +2256,29 @@
   
   <span class="md-ellipsis">
     Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../learn/plots/gabbard_plot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Plots
     
   </span>
   
@@ -4741,7 +4766,7 @@
     <div class="doc doc-contents first">
 
         <p>Convert geodetic position to <code>ECEF</code> Cartesian coordinates.</p>
-<p>Transforms a position from geodetic coordinates (latitude, longitude, altitude) using
+<p>Transforms a position from geodetic coordinates (longitude, latitude, altitude) using
 the <code>WGS84</code> ellipsoid model to Earth-Centered Earth-Fixed (<code>ECEF</code>) Cartesian coordinates.</p>
 
 
@@ -4765,8 +4790,8 @@ the <code>WGS84</code> ellipsoid model to Earth-Centered Earth-Fixed (<code>ECEF
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Geodetic position <code>[latitude, longitude, altitude]</code> where
-latitude is in radians or degrees, longitude is in radians or degrees, and
+                <p>Geodetic position <code>[longitude, latitude, altitude]</code> where
+longitude is in radians or degrees, latitude is in radians or degrees, and
 altitude is in meters above the <code>WGS84</code> ellipsoid.</p>
               </div>
             </td>
@@ -4823,8 +4848,8 @@ altitude is in meters above the <code>WGS84</code> ellipsoid.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Convert geodetic coordinates (GPS-like) to ECEF</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">alt</span> <span class="o">=</span> <span class="mf">40.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">105.0</span><span class="p">,</span> <span class="mf">1655.0</span>  <span class="c1"># Boulder, CO (degrees, meters)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geod</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">alt</span><span class="p">])</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">alt</span> <span class="o">=</span> <span class="o">-</span><span class="mf">105.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">,</span> <span class="mf">1655.0</span>  <span class="c1"># Boulder, CO (degrees, meters)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geod</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">alt</span><span class="p">])</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">x_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geodetic_to_ecef</span><span class="p">(</span><span class="n">x_geod</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ECEF position: </span><span class="si">{</span><span class="n">x_ecef</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
@@ -4853,7 +4878,7 @@ altitude is in meters above the <code>WGS84</code> ellipsoid.</p>
 
         <p>Convert <code>ECEF</code> Cartesian position to geodetic coordinates.</p>
 <p>Transforms a position from Earth-Centered Earth-Fixed (<code>ECEF</code>) Cartesian coordinates
-to geodetic coordinates (latitude, longitude, altitude) using the <code>WGS84</code> ellipsoid model.</p>
+to geodetic coordinates (longitude, latitude, altitude) using the <code>WGS84</code> ellipsoid model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4918,8 +4943,8 @@ to geodetic coordinates (latitude, longitude, altitude) using the <code>WGS84</c
             </td>
             <td>
               <div class="doc-md-description">
-                <p>numpy.ndarray: Geodetic position <code>[latitude, longitude, altitude]</code> where latitude
-is in radians or degrees, longitude is in radians or degrees, and altitude
+                <p>numpy.ndarray: Geodetic position <code>[longitude, latitude, altitude]</code> where longitude
+is in radians or degrees, latitude is in radians or degrees, and altitude
 is in meters above the <code>WGS84</code> ellipsoid.</p>
               </div>
             </td>
@@ -4936,7 +4961,7 @@ is in meters above the <code>WGS84</code> ellipsoid.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Convert ECEF to geodetic coordinates (GPS-like)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">x_ecef</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1275936.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">4797210.0</span><span class="p">,</span> <span class="mf">4020109.0</span><span class="p">])</span>  <span class="c1"># Example location</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geod</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_ecef_to_geodetic</span><span class="p">(</span><span class="n">x_ecef</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Geodetic: lat=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">°, lon=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">°, alt=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Geodetic: lon=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">°, lat=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">°, alt=</span><span class="si">{</span><span class="n">x_geod</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">m&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </details>
 
@@ -4963,7 +4988,7 @@ is in meters above the <code>WGS84</code> ellipsoid.</p>
     <div class="doc doc-contents first">
 
         <p>Convert geocentric position to <code>ECEF</code> Cartesian coordinates.</p>
-<p>Transforms a position from geocentric spherical coordinates (latitude, longitude, radius)
+<p>Transforms a position from geocentric spherical coordinates (longitude, latitude, radius)
 to Earth-Centered Earth-Fixed (<code>ECEF</code>) Cartesian coordinates.</p>
 
 
@@ -4987,8 +5012,8 @@ to Earth-Centered Earth-Fixed (<code>ECEF</code>) Cartesian coordinates.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Geocentric position <code>[latitude, longitude, radius]</code> where
-latitude is in radians or degrees, longitude is in radians or degrees, and
+                <p>Geocentric position <code>[longitude, latitude, radius]</code> where
+longitude is in radians or degrees, latitude is in radians or degrees, and
 radius is in meters.</p>
               </div>
             </td>
@@ -5045,8 +5070,8 @@ radius is in meters.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Convert geocentric coordinates to ECEF</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">6378137.0</span>  <span class="c1"># Equator, prime meridian, Earth&#39;s radius</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geoc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">r</span><span class="p">])</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">6378137.0</span>  <span class="c1"># Equator, prime meridian, Earth&#39;s radius</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geoc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">r</span><span class="p">])</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">x_ecef</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_geocentric_to_ecef</span><span class="p">(</span><span class="n">x_geoc</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">RADIANS</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ECEF position: </span><span class="si">{</span><span class="n">x_ecef</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
@@ -5075,7 +5100,7 @@ radius is in meters.</p>
 
         <p>Convert <code>ECEF</code> Cartesian position to geocentric coordinates.</p>
 <p>Transforms a position from Earth-Centered Earth-Fixed (<code>ECEF</code>) Cartesian coordinates
-to geocentric spherical coordinates (latitude, longitude, radius).</p>
+to geocentric spherical coordinates (longitude, latitude, radius).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5140,8 +5165,8 @@ to geocentric spherical coordinates (latitude, longitude, radius).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>numpy.ndarray: Geocentric position <code>[latitude, longitude, radius]</code> where latitude
-is in radians or degrees, longitude is in radians or degrees, and radius is in meters.</p>
+                <p>numpy.ndarray: Geocentric position <code>[longitude, latitude, radius]</code> where longitude
+is in radians or degrees, latitude is in radians or degrees, and radius is in meters.</p>
               </div>
             </td>
           </tr>
@@ -5157,7 +5182,7 @@ is in radians or degrees, longitude is in radians or degrees, and radius is in m
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Convert ECEF to geocentric coordinates</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">x_ecef</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">6378137.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>  <span class="c1"># Point on equator, prime meridian</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">x_geoc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">position_ecef_to_geocentric</span><span class="p">(</span><span class="n">x_ecef</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Geocentric: lat=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">°, lon=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">°, r=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Geocentric: lon=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">°, lat=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">°, r=</span><span class="si">{</span><span class="n">x_geoc</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">m&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </details>
 
@@ -5248,7 +5273,7 @@ is in radians or degrees, longitude is in radians or degrees, and radius is in m
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>

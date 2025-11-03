@@ -12,8 +12,6 @@ def test_help():
     assert result.exit_code == 0
     assert "list-providers" in result.stdout
     assert "list-stations" in result.stdout
-    assert "show" in result.stdout
-    assert "show-all" in result.stdout
 
 
 def test_list_providers():

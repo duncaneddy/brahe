@@ -20,9 +20,9 @@ prop = (
     .with_id(12345)
 )
 
-print(f"Name: {prop.name}")
+print(f"Name: {prop.get_name()}")
 # Name: Satellite-A
-print(f"ID: {prop.id}")
+print(f"ID: {prop.get_id()}")
 # ID: 12345
-print(f"UUID: {prop.uuid}")
+print(f"UUID: {prop.get_uuid()}")
 # UUID: None (because not set)

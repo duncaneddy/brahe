@@ -2,7 +2,7 @@
 
 Access geometry plots visualize satellite visibility from ground stations, showing where satellites appear in the sky and how their elevation changes over time. Brahe provides two complementary views: polar plots showing azimuth and elevation, and time-series plots tracking elevation angle during passes.
 
-See also: [plot_access_polar](../../library_api/plots/access.md), [plot_access_elevation](../../library_api/plots/access.md)
+See also: [plot_access_polar](../../library_api/plots/access_geometry.md), [plot_access_elevation](../../library_api/plots/access_geometry.md)
 
 ## Polar Access Plot (Azimuth/Elevation)
 
@@ -11,8 +11,8 @@ Polar plots display the satellite's path across the sky in azimuth-elevation coo
 ### Interactive Polar Plot (Plotly)
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/plot_access_polar_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/plot_access_polar_plotly_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../figures/access_polar_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/access_polar_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -45,8 +45,8 @@ Time-series plots show how elevation angle changes throughout a satellite pass, 
 ### Interactive Elevation Plot (Plotly)
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/plot_access_elevation_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/plot_access_elevation_plotly_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../figures/access_elevation_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/access_elevation_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -188,8 +188,8 @@ plt.title("24-Hour ISS Passes")
 
 ## See Also
 
-- [plot_access_polar API Reference](../../library_api/plots/access.md)
-- [plot_access_elevation API Reference](../../library_api/plots/access.md)
-- [location_accesses](../../library_api/access/computation.md) - Computing access windows
+- [plot_access_polar API Reference](../../library_api/plots/access_geometry.md)
+- [plot_access_elevation API Reference](../../library_api/plots/access_geometry.md)
+- [location_accesses](../../library_api/access/index.md) - Computing access windows
 - [Ground Tracks](ground_tracks.md) - Visualizing coverage on maps
 - [Access Constraints](../../library_api/access/constraints.md) - Defining visibility rules

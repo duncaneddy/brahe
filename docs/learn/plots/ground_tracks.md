@@ -2,15 +2,15 @@
 
 Ground track plotting visualizes the path a satellite traces over Earth's surface. This is essential for mission planning, coverage analysis, and understanding when and where a satellite can communicate with ground stations. Brahe's `plot_groundtrack` function renders satellite trajectories on a world map with optional ground station markers and communication coverage cones.
 
-See also: [plot_groundtrack API Reference](../../library_api/plots/groundtrack.md)
+See also: [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md)
 
 ## Interactive Ground Track (Plotly)
 
 The plotly backend creates interactive maps that you can pan, zoom, and explore. Hover over the satellite track to see precise coordinates.
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/plot_groundtrack_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/plot_groundtrack_plotly_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../figures/groundtrack_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/groundtrack_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -216,7 +216,7 @@ fig = bh.plot_groundtrack(
 
 ## See Also
 
-- [plot_groundtrack API Reference](../../library_api/plots/groundtrack.md)
+- [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md)
 - [Access Geometry](access_geometry.md) - Detailed visibility analysis
 - [PointLocation](../../library_api/access/locations.md) - Ground station definitions
 - [PolygonLocation](../../library_api/access/locations.md) - Zone definitions

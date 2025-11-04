@@ -791,8 +791,17 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     int or None: The numeric ID, or None if not set.
-    #[getter]
-    pub fn id(&self) -> Option<u64> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_id(25544)
+    ///     print(f"ID: {prop.get_id()}")
+    ///     ```
+    pub fn get_id(&self) -> Option<u64> {
         use crate::utils::Identifiable;
         self.propagator.get_id()
     }
@@ -801,8 +810,18 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     str or None: The name, or None if not set.
-    #[getter]
-    pub fn name(&self) -> Option<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     name = "ISS (ZARYA)"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_3le(name, line1, line2)
+    ///     print(f"Name: {prop.get_name()}")
+    ///     ```
+    pub fn get_name(&self) -> Option<String> {
         use crate::utils::Identifiable;
         self.propagator.get_name().map(|s| s.to_string())
     }
@@ -811,8 +830,17 @@ impl PySGPPropagator {
     ///
     /// Returns:
     ///     str or None: The UUID as a string, or None if not set.
-    #[getter]
-    pub fn uuid(&self) -> Option<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_new_uuid()
+    ///     print(f"UUID: {prop.get_uuid()}")
+    ///     ```
+    pub fn get_uuid(&self) -> Option<String> {
         use crate::utils::Identifiable;
         self.propagator.get_uuid().map(|u| u.to_string())
     }
@@ -1688,8 +1716,19 @@ impl PyKeplerianPropagator {
     ///
     /// Returns:
     ///     int or None: The numeric ID, or None if not set.
-    #[getter]
-    pub fn id(&self) -> Option<u64> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_id(12345)
+    ///     print(f"ID: {prop.get_id()}")
+    ///     ```
+    pub fn get_id(&self) -> Option<u64> {
         use crate::utils::Identifiable;
         self.propagator.get_id()
     }
@@ -1698,8 +1737,19 @@ impl PyKeplerianPropagator {
     ///
     /// Returns:
     ///     str or None: The name, or None if not set.
-    #[getter]
-    pub fn name(&self) -> Option<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_name("MySat")
+    ///     print(f"Name: {prop.get_name()}")
+    ///     ```
+    pub fn get_name(&self) -> Option<String> {
         use crate::utils::Identifiable;
         self.propagator.get_name().map(|s| s.to_string())
     }
@@ -1708,8 +1758,19 @@ impl PyKeplerianPropagator {
     ///
     /// Returns:
     ///     str or None: The UUID as a string, or None if not set.
-    #[getter]
-    pub fn uuid(&self) -> Option<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
+    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_new_uuid()
+    ///     print(f"UUID: {prop.get_uuid()}")
+    ///     ```
+    pub fn get_uuid(&self) -> Option<String> {
         use crate::utils::Identifiable;
         self.propagator.get_uuid().map(|u| u.to_string())
     }

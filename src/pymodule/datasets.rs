@@ -24,7 +24,7 @@ use crate::datasets::groundstations;
 ///     import brahe as bh
 ///
 ///     # Download ephemeris for ground stations
-///     ephemeris = bh.datasets.celestrak.get_ephemeris("stations")
+///     ephemeris = bh.datasets.celestrak.get_tles("stations")
 ///
 ///     # Print first 5 satellites
 ///     for name, line1, line2 in ephemeris[:5]:
@@ -32,9 +32,9 @@ use crate::datasets::groundstations;
 ///         print(f"  Line 1: {line1[:20]}...")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "celestrak_get_ephemeris")]
-fn py_celestrak_get_ephemeris(group: &str) -> PyResult<Vec<(String, String, String)>> {
-    celestrak::get_ephemeris(group).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+#[pyo3(name = "celestrak_get_tles")]
+fn py_celestrak_get_tles(group: &str) -> PyResult<Vec<(String, String, String)>> {
+    celestrak::get_tles(group).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 
 /// Get satellite ephemeris as SGP propagators from CelesTrak
@@ -61,7 +61,7 @@ fn py_celestrak_get_ephemeris(group: &str) -> PyResult<Vec<(String, String, Stri
 ///     import brahe as bh
 ///
 ///     # Get propagators for GNSS satellites with 60-second step size
-///     propagators = bh.datasets.celestrak.get_ephemeris_as_propagators("gnss", 60.0)
+///     propagators = bh.datasets.celestrak.get_tles_as_propagators("gnss", 60.0)
 ///     print(f"Loaded {len(propagators)} GNSS satellites")
 ///
 ///     # Propagate first satellite
@@ -69,12 +69,12 @@ fn py_celestrak_get_ephemeris(group: &str) -> PyResult<Vec<(String, String, Stri
 ///     state = propagators[0].propagate(epoch)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "celestrak_get_ephemeris_as_propagators")]
-fn py_celestrak_get_ephemeris_as_propagators(
+#[pyo3(name = "celestrak_get_tles_as_propagators")]
+fn py_celestrak_get_tles_as_propagators(
     group: &str,
     step_size: f64,
 ) -> PyResult<Vec<PySGPPropagator>> {
-    let propagators = celestrak::get_ephemeris_as_propagators(group, step_size)
+    let propagators = celestrak::get_tles_as_propagators(group, step_size)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     // Wrap each Rust SGPPropagator in PySGPPropagator
@@ -101,23 +101,23 @@ fn py_celestrak_get_ephemeris_as_propagators(
 ///     import brahe as bh
 ///
 ///     # Download GNSS satellites as 3LE in JSON format
-///     bh.datasets.celestrak.download_ephemeris("gnss", "gnss_sats.json", "3le", "json")
+///     bh.datasets.celestrak.download_tles("gnss", "gnss_sats.json", "3le", "json")
 ///
 ///     # Download active satellites as 2LE in plain text
-///     bh.datasets.celestrak.download_ephemeris("active", "active.txt", "tle", "txt")
+///     bh.datasets.celestrak.download_tles("active", "active.txt", "tle", "txt")
 ///
 ///     # Download stations as 3LE in CSV format
-///     bh.datasets.celestrak.download_ephemeris("stations", "stations.csv", "3le", "csv")
+///     bh.datasets.celestrak.download_tles("stations", "stations.csv", "3le", "csv")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "celestrak_download_ephemeris")]
-fn py_celestrak_download_ephemeris(
+#[pyo3(name = "celestrak_download_tles")]
+fn py_celestrak_download_tles(
     group: &str,
     filepath: &str,
     content_format: &str,
     file_format: &str,
 ) -> PyResult<()> {
-    celestrak::download_ephemeris(group, filepath, content_format, file_format)
+    celestrak::download_tles(group, filepath, content_format, file_format)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 

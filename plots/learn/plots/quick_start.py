@@ -29,8 +29,8 @@ traj = prop.trajectory
 # Create Keplerian trajectory plot
 fig = bh.plot_keplerian_trajectory(
     [{"trajectory": traj, "color": "green", "label": "ISS"}],
-    altitude_units="km",
-    angle_units="degrees",
+    sma_units="km",
+    angle_units="deg",
     backend="plotly",
 )
 

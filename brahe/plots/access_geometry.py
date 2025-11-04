@@ -468,11 +468,16 @@ def _extract_time_elevation(access_window, propagator, num_samples=100):
         num_samples: Number of points to sample along the trajectory
 
     Returns:
-        (times, elevations): Time as epoch values, elevations in degrees
+        (times, elevations): Time as Python datetime objects, elevations in degrees
     """
     # If no propagator provided, use only start/end points from properties
     if propagator is None:
-        times = np.array([access_window.window_open, access_window.window_close])
+        times = np.array(
+            [
+                access_window.window_open.to_pydatetime(),
+                access_window.window_close.to_pydatetime(),
+            ]
+        )
         elevations = np.array(
             [
                 access_window.properties.elevation_min,
@@ -486,9 +491,12 @@ def _extract_time_elevation(access_window, propagator, num_samples=100):
     window_close = access_window.window_close
     duration = window_close - window_open
 
-    # Sample times uniformly across the window
+    # Sample times uniformly across the window - convert Epoch objects to datetime
     times = np.array(
-        [window_open + i * duration / (num_samples - 1) for i in range(num_samples)]
+        [
+            (window_open + i * duration / (num_samples - 1)).to_pydatetime()
+            for i in range(num_samples)
+        ]
     )
 
     # Simplified implementation: use properties min/max as endpoints

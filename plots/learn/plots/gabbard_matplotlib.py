@@ -6,75 +6,85 @@ A Gabbard diagram plots orbital period vs apogee/perigee altitude, useful for an
 debris clouds or satellite constellations.
 """
 
+import os
+import pathlib
 import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+
+# Configuration
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
 
 # Initialize EOP data
 bh.initialize_eop()
 
-# Create a reference epoch
-epoch = bh.Epoch.from_datetime(2025, 11, 3, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+# Get Ephmeris and debris for major events:
+cosmos_1408_debris = bh.celestrak.get_tles_as_propagators("cosmos-1408-debris", 60.0)
+fengyun_debris = bh.celestrak.get_tles_as_propagators("fengyun-1c-debris", 60.0)
+iridium_debris = bh.celestrak.get_tles_as_propagators("iridium-33-debris", 60.0)
+cosmos_2251_debris = bh.celestrak.get_tles_as_propagators("cosmos-2251-debris", 60.0)
+all_debris = cosmos_1408_debris + fengyun_debris + iridium_debris + cosmos_2251_debris
 
-# Define multiple objects with varying orbital parameters
-# Simulating a debris cloud or constellation
-propagators = []
+print(f"Cosmos 1408 debris objects: {len(cosmos_1408_debris)}")
+print(f"Fengyun-1C debris objects: {len(fengyun_debris)}")
+print(f"Iridium 33 debris objects: {len(iridium_debris)}")
+print(f"Cosmos 2251 debris objects: {len(cosmos_2251_debris)}")
+print(f"Total debris objects loaded: {len(all_debris)}")
 
-# Base orbital parameters (ISS-like orbit)
-base_a = bh.R_EARTH + 420e3  # Semi-major axis (m)
-base_e = 0.001  # Eccentricity
-base_i = np.radians(51.6)  # Inclination (rad)
+# Get epoch of first debris object
+epoch = all_debris[0].epoch
 
-# Create variations in semi-major axis and eccentricity
-np.random.seed(42)
-for i in range(50):
-    # Vary semi-major axis and eccentricity
-    a = base_a + np.random.normal(0, 50e3)  # ±50 km variation
-    e = base_e + np.random.uniform(0, 0.02)  # 0-0.02 variation
+# Get ISS ephemeris for reference altitude line
+iss = bh.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "active")
+iss_state = iss.state_eci(epoch)
+iss_oe = bh.state_cartesian_to_osculating(iss_state, bh.AngleFormat.RADIANS)
+iss_altitude_km = (iss_oe[0] - bh.R_EARTH) / 1e3  # Convert to km
 
-    # Random other elements
-    raan = np.random.uniform(0, 2 * np.pi)
-    argp = np.random.uniform(0, 2 * np.pi)
-    anom = np.random.uniform(0, 2 * np.pi)
-
-    # Create Keplerian elements
-    oe = np.array([a, e, base_i, raan, argp, anom])
-
-    # Convert to Cartesian state
-    state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
-
-    # Create propagator
-    prop = bh.KeplerianPropagator.from_eci(epoch, state, step_size=60.0).with_name(
-        f"Object-{i + 1}"
-    )
-    propagators.append(prop)
+print(f"ISS altitude at epoch: {iss_altitude_km:.1f} km")
 
 # Create Gabbard diagram in light mode
-fig = bh.plot_gabbard_diagram(propagators, epoch, backend="matplotlib")
+fig = bh.plot_gabbard_diagram(all_debris, epoch, backend="matplotlib")
+
+# Add ISS altitude reference line
+ax = fig.get_axes()[0]
+ax.axhline(
+    y=iss_altitude_km,
+    color="green",
+    linestyle="--",
+    linewidth=2,
+    label=f"ISS Altitude ({iss_altitude_km:.1f} km)",
+)
+ax.legend()
 
 # Save light mode figure
-fig.savefig(
-    "docs/figures/plot_gabbard_matplotlib_light.svg", dpi=300, bbox_inches="tight"
-)
-print(
-    "Gabbard diagram (matplotlib, light mode) saved to: docs/figures/plot_gabbard_matplotlib_light.svg"
-)
+light_path = OUTDIR / f"{SCRIPT_NAME}_light.svg"
+fig.savefig(light_path, dpi=300, bbox_inches="tight")
+print(f"✓ Generated {light_path}")
 plt.close(fig)
 
 # Create Gabbard diagram in dark mode
 with plt.style.context("dark_background"):
-    fig = bh.plot_gabbard_diagram(propagators, epoch, backend="matplotlib")
+    fig = bh.plot_gabbard_diagram(all_debris, epoch, backend="matplotlib")
 
     # Set background color to match Plotly dark theme
     fig.patch.set_facecolor("#1c1e24")
     for ax in fig.get_axes():
         ax.set_facecolor("#1c1e24")
 
+    # Add ISS altitude reference line
+    ax = fig.get_axes()[0]
+    ax.axhline(
+        y=iss_altitude_km,
+        color="orange",
+        linestyle="--",
+        linewidth=2,
+        label=f"ISS Altitude ({iss_altitude_km:.1f} km)",
+    )
+    ax.legend()
+
     # Save dark mode figure
-    fig.savefig(
-        "docs/figures/plot_gabbard_matplotlib_dark.svg", dpi=300, bbox_inches="tight"
-    )
-    print(
-        "Gabbard diagram (matplotlib, dark mode) saved to: docs/figures/plot_gabbard_matplotlib_dark.svg"
-    )
+    dark_path = OUTDIR / f"{SCRIPT_NAME}_dark.svg"
+    fig.savefig(dark_path, dpi=300, bbox_inches="tight")
+    print(f"✓ Generated {dark_path}")
     plt.close(fig)

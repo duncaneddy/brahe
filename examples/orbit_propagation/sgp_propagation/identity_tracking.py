@@ -16,8 +16,8 @@ line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
 # Create propagator and set identity
 prop = bh.SGPPropagator.from_3le(line0, line1, line2, 60.0)
 
-print(f"Name: {prop.name}")
-print(f"ID: {prop.id}")
+print(f"Name: {prop.get_name()}")
+print(f"ID: {prop.get_id()}")
 print(f"NORAD ID from TLE: {prop.norad_id}")
 # Expected output:
 # Name: ISS (ZARYA)

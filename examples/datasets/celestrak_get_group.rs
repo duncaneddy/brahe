@@ -13,7 +13,7 @@ fn main() {
 
     // Download TLE data for the Starlink group
     // This fetches all Starlink satellites in one request
-    let tles = bh::datasets::celestrak::get_ephemeris("starlink").unwrap();
+    let tles = bh::datasets::celestrak::get_tles("starlink").unwrap();
 
     println!("Downloaded {} Starlink TLEs", tles.len());
 

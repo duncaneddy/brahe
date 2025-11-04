@@ -7,9 +7,9 @@ import brahe as bh
 
 
 @pytest.mark.ci
-def test_get_ephemeris():
-    """Test get_ephemeris with stations group."""
-    ephemeris = bh.datasets.celestrak.get_ephemeris("stations")
+def test_get_tles():
+    """Test get_tles with stations group."""
+    ephemeris = bh.datasets.celestrak.get_tles("stations")
 
     assert isinstance(ephemeris, list)
     assert len(ephemeris) > 0
@@ -25,9 +25,9 @@ def test_get_ephemeris():
 
 
 @pytest.mark.ci
-def test_get_ephemeris_as_propagators():
-    """Test get_ephemeris_as_propagators with stations group."""
-    propagators = bh.datasets.celestrak.get_ephemeris_as_propagators("stations", 60.0)
+def test_get_tles_as_propagators():
+    """Test get_tles_as_propagators with stations group."""
+    propagators = bh.datasets.celestrak.get_tles_as_propagators("stations", 60.0)
 
     assert isinstance(propagators, list)
     assert len(propagators) > 0
@@ -39,12 +39,12 @@ def test_get_ephemeris_as_propagators():
 
 
 @pytest.mark.ci
-def test_download_ephemeris_txt():
-    """Test download_ephemeris to text file."""
+def test_download_tles_txt():
+    """Test download_tles to text file."""
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "stations.txt")
 
-        bh.datasets.celestrak.download_ephemeris("stations", filepath, "3le", "txt")
+        bh.datasets.celestrak.download_tles("stations", filepath, "3le", "txt")
 
         assert os.path.exists(filepath)
 
@@ -58,12 +58,12 @@ def test_download_ephemeris_txt():
 
 
 @pytest.mark.ci
-def test_download_ephemeris_json():
-    """Test download_ephemeris to JSON file."""
+def test_download_tles_json():
+    """Test download_tles to JSON file."""
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "stations.json")
 
-        bh.datasets.celestrak.download_ephemeris("stations", filepath, "3le", "json")
+        bh.datasets.celestrak.download_tles("stations", filepath, "3le", "json")
 
         assert os.path.exists(filepath)
 
@@ -80,12 +80,12 @@ def test_download_ephemeris_json():
 
 
 @pytest.mark.ci
-def test_download_ephemeris_csv():
-    """Test download_ephemeris to CSV file."""
+def test_download_tles_csv():
+    """Test download_tles to CSV file."""
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "stations.csv")
 
-        bh.datasets.celestrak.download_ephemeris("stations", filepath, "3le", "csv")
+        bh.datasets.celestrak.download_tles("stations", filepath, "3le", "csv")
 
         assert os.path.exists(filepath)
 
@@ -185,23 +185,19 @@ def test_caching_behavior():
     assert line2_1 == line2_2
 
 
-def test_download_ephemeris_invalid_content_format():
-    """Test download_ephemeris with invalid content format."""
+def test_download_tles_invalid_content_format():
+    """Test download_tles with invalid content format."""
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "test.txt")
 
         with pytest.raises(RuntimeError, match="Invalid content format"):
-            bh.datasets.celestrak.download_ephemeris(
-                "stations", filepath, "invalid", "txt"
-            )
+            bh.datasets.celestrak.download_tles("stations", filepath, "invalid", "txt")
 
 
-def test_download_ephemeris_invalid_file_format():
-    """Test download_ephemeris with invalid file format."""
+def test_download_tles_invalid_file_format():
+    """Test download_tles with invalid file format."""
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "test.txt")
 
         with pytest.raises(RuntimeError, match="Invalid file format"):
-            bh.datasets.celestrak.download_ephemeris(
-                "stations", filepath, "3le", "invalid"
-            )
+            bh.datasets.celestrak.download_tles("stations", filepath, "3le", "invalid")

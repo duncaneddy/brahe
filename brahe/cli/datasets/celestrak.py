@@ -104,7 +104,7 @@ def download(
         )
 
         try:
-            datasets.celestrak.download_ephemeris(
+            datasets.celestrak.download_tles(
                 group, str(filepath.absolute()), content_format.value, file_format.value
             )
         except Exception as e:
@@ -470,7 +470,7 @@ def search(
         )
 
         try:
-            ephemeris = datasets.celestrak.get_ephemeris(group)
+            ephemeris = datasets.celestrak.get_tles(group)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]", style="bold")
             raise typer.Exit(code=1)

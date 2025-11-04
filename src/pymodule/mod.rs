@@ -724,12 +724,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRotationMatrix>()?;
 
     //* Datasets *//
-    module.add_function(wrap_pyfunction!(py_celestrak_get_ephemeris, module)?)?;
+    module.add_function(wrap_pyfunction!(py_celestrak_get_tles, module)?)?;
     module.add_function(wrap_pyfunction!(
-        py_celestrak_get_ephemeris_as_propagators,
+        py_celestrak_get_tles_as_propagators,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_celestrak_download_ephemeris, module)?)?;
+    module.add_function(wrap_pyfunction!(py_celestrak_download_tles, module)?)?;
     module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_id, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_celestrak_get_tle_by_id_as_propagator,

@@ -2,15 +2,15 @@
 
 Three-dimensional trajectory plots display orbital paths in Earth-Centered Inertial (ECI) coordinates, providing intuitive spatial understanding of satellite motion. The `plot_trajectory_3d` function renders trajectories with optional Earth sphere visualization, camera controls, and support for multiple orbits with different colors and labels.
 
-See also: [plot_trajectory_3d API Reference](../../library_api/plots/trajectory_3d.md)
+See also: [plot_trajectory_3d API Reference](../../library_api/plots/3d_trajectory.md)
 
 ## Interactive 3D Trajectory (Plotly)
 
 The plotly backend creates fully interactive 3D plots. Click and drag to rotate, scroll to zoom, and double-click to reset the view.
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/plot_trajectory_3d_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/plot_trajectory_3d_plotly_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../figures/trajectory_3d_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/trajectory_3d_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -212,7 +212,7 @@ fig = bh.plot_trajectory_3d(
 
 ## See Also
 
-- [plot_trajectory_3d API Reference](../../library_api/plots/trajectory_3d.md)
+- [plot_trajectory_3d API Reference](../../library_api/plots/3d_trajectory.md)
 - [Ground Tracks](ground_tracks.md) - 2D projection on Earth's surface
 - [Orbital Elements](orbital_trajectories.md) - Element evolution over time
 - [Coordinate Systems](../coordinates/index.md) - Understanding ECI frames

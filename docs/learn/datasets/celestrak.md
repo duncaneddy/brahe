@@ -65,7 +65,7 @@ To get a specific satellite, provide its NORAD ID. **Always include a group hint
 !!! tip "Cache-Efficient Pattern"
     The most efficient workflow is:
 
-    1. Download the group once: `get_ephemeris("stations")`
+    1. Download the group once: `get_tles("stations")`
     2. Query specific satellites with the group hint: `get_tle_by_id(25544, "stations")`
 
     This pattern uses cached data and avoids redundant downloads.

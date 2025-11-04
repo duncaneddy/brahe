@@ -16,7 +16,7 @@ bh.initialize_eop()
 
 # Download TLE data for the Starlink group
 # This fetches all Starlink satellites in one request
-tles = bh.datasets.celestrak.get_ephemeris("starlink")
+tles = bh.datasets.celestrak.get_tles("starlink")
 
 print(f"Downloaded {len(tles)} Starlink TLEs")
 

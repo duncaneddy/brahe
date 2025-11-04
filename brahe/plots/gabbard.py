@@ -137,16 +137,17 @@ def _extract_orbital_elements(obj, epoch, obj_format):
     Returns:
         tuple: (semi_major_axis, eccentricity) in meters and dimensionless
     """
+
     # Check if it's a propagator
-    if hasattr(obj, "state_eci"):
+    if hasattr(obj, "state_as_osculating_elements"):
         # It's a propagator
         if epoch is not None:
-            state = obj.state_eci(epoch)
+            oe = obj.state_as_osculating_elements(epoch, bh.AngleFormat.RADIANS)
         else:
+            # Convert current state to osculating elements
             state = obj.current_state()
+            oe = bh.state_cartesian_to_osculating(state, bh.AngleFormat.RADIANS)
 
-        # Convert to Keplerian
-        oe = bh.state_cartesian_to_osculating(state, bh.AngleFormat.RADIANS)
         return oe[0], oe[1]
 
     # It's a state vector or Keplerian elements
@@ -220,8 +221,8 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
                 a, e = _extract_orbital_elements(obj, epoch, obj_format)
 
                 # Calculate apogee and perigee altitudes
-                apogee_alt = (a * (1 + e) - bh.R_EARTH) * alt_scale
-                perigee_alt = (a * (1 - e) - bh.R_EARTH) * alt_scale
+                apogee_alt = bh.apogee_altitude(a, e) * alt_scale
+                perigee_alt = bh.perigee_altitude(a, e) * alt_scale
 
                 # Calculate orbital period
                 period = bh.orbital_period(a) * period_scale
@@ -295,17 +296,31 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units):
         altitudes_apogee = []
         periods_perigee = []
         altitudes_perigee = []
+        hover_text_apogee = []
+        hover_text_perigee = []
 
         for obj in objects:
             try:
                 a, e = _extract_orbital_elements(obj, epoch, obj_format)
 
                 # Calculate apogee and perigee altitudes
-                apogee_alt = (a * (1 + e) - bh.R_EARTH) * alt_scale
-                perigee_alt = (a * (1 - e) - bh.R_EARTH) * alt_scale
+                apogee_alt = bh.apogee_altitude(a, e) * alt_scale
+                perigee_alt = bh.perigee_altitude(a, e) * alt_scale
 
                 # Calculate orbital period
                 period = bh.orbital_period(a) * period_scale
+
+                # Check if object has get_id() method and use it for hover text
+                obj_id = None
+                if hasattr(obj, "get_id"):
+                    obj_id = obj.get_id()
+
+                if obj_id is not None:
+                    hover_text_apogee.append(f"ID: {obj_id}")
+                    hover_text_perigee.append(f"ID: {obj_id}")
+                else:
+                    hover_text_apogee.append("Apogee")
+                    hover_text_perigee.append("Perigee")
 
                 periods_apogee.append(period)
                 altitudes_apogee.append(apogee_alt)
@@ -332,6 +347,13 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units):
                     symbol="circle",
                     opacity=0.6,
                 ),
+                customdata=hover_text_apogee,
+                hovertemplate=(
+                    "<b>%{customdata}</b><br>"
+                    f"Period: %{{x:.2f}} {period_units}<br>"
+                    f"Altitude: %{{y:.1f}} {altitude_units}<br>"
+                    "<extra></extra>"
+                ),
                 showlegend=(i == 0 or label is not None),
             )
         )
@@ -349,6 +371,13 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units):
                     size=8,
                     symbol="diamond",
                     opacity=0.6,
+                ),
+                customdata=hover_text_perigee,
+                hovertemplate=(
+                    "<b>%{customdata}</b><br>"
+                    f"Period: %{{x:.2f}} {period_units}<br>"
+                    f"Altitude: %{{y:.1f}} {altitude_units}<br>"
+                    "<extra></extra>"
                 ),
                 showlegend=(i == 0 or label is not None),
             )

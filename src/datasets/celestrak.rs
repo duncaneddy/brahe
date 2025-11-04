@@ -64,7 +64,7 @@ fn should_refresh_file(filepath: &Path, max_age_seconds: f64) -> bool {
 
 /// Download 3LE data from CelesTrak for a specific satellite group
 ///
-/// This is an internal function. Use `get_ephemeris()` instead for public API.
+/// This is an internal function. Use `get_tles()` instead for public API.
 ///
 /// # Arguments
 /// * `group` - Satellite group name (e.g., "active", "stations", "gnss", "last-30-days")
@@ -106,14 +106,14 @@ fn fetch_3le_data(group: &str) -> Result<String, BraheError> {
 ///
 /// # Example
 /// ```no_run
-/// use brahe::datasets::celestrak::get_ephemeris;
+/// use brahe::datasets::celestrak::get_tles;
 ///
-/// let ephemeris = get_ephemeris("stations").unwrap();
+/// let ephemeris = get_tles("stations").unwrap();
 /// for (name, line1, line2) in ephemeris.iter().take(5) {
 ///     println!("Satellite: {}", name);
 /// }
 /// ```
-pub fn get_ephemeris(group: &str) -> Result<Vec<(String, String, String)>, BraheError> {
+pub fn get_tles(group: &str) -> Result<Vec<(String, String, String)>, BraheError> {
     // Determine cache filepath
     let cache_dir = get_celestrak_cache_dir()?;
     let cache_path = PathBuf::from(&cache_dir).join(format!("{}_gp.txt", group));
@@ -160,16 +160,16 @@ pub fn get_ephemeris(group: &str) -> Result<Vec<(String, String, String)>, Brahe
 ///
 /// # Example
 /// ```no_run
-/// use brahe::datasets::celestrak::get_ephemeris_as_propagators;
+/// use brahe::datasets::celestrak::get_tles_as_propagators;
 ///
-/// let propagators = get_ephemeris_as_propagators("stations", 60.0).unwrap();
+/// let propagators = get_tles_as_propagators("stations", 60.0).unwrap();
 /// println!("Loaded {} satellite propagators", propagators.len());
 /// ```
-pub fn get_ephemeris_as_propagators(
+pub fn get_tles_as_propagators(
     group: &str,
     step_size: f64,
 ) -> Result<Vec<SGPPropagator>, BraheError> {
-    let ephemeris = get_ephemeris(group)?;
+    let ephemeris = get_tles(group)?;
 
     let mut propagators = Vec::new();
     for (name, line1, line2) in ephemeris {
@@ -208,15 +208,15 @@ pub fn get_ephemeris_as_propagators(
 ///
 /// # Example
 /// ```no_run
-/// use brahe::datasets::celestrak::download_ephemeris;
+/// use brahe::datasets::celestrak::download_tles;
 ///
 /// // Download GNSS satellites as 3LE in JSON format
-/// download_ephemeris("gnss", "gnss_sats.json", "3le", "json").unwrap();
+/// download_tles("gnss", "gnss_sats.json", "3le", "json").unwrap();
 ///
 /// // Download active satellites as 2LE in text format
-/// download_ephemeris("active", "active_sats.txt", "tle", "txt").unwrap();
+/// download_tles("active", "active_sats.txt", "tle", "txt").unwrap();
 /// ```
-pub fn download_ephemeris(
+pub fn download_tles(
     group: &str,
     filepath: &str,
     content_format: &str,
@@ -243,8 +243,8 @@ pub fn download_ephemeris(
         )));
     }
 
-    // Download and parse data (get_ephemeris handles caching internally)
-    let ephemeris = get_ephemeris(group)?;
+    // Download and parse data (get_tles handles caching internally)
+    let ephemeris = get_tles(group)?;
 
     // Serialize to requested format
     let output = match file_format_lower.as_str() {
@@ -395,7 +395,7 @@ fn get_tle_by_id_from_group(
     norad_id: u32,
     group: &str,
 ) -> Result<(String, String, String), BraheError> {
-    let ephemeris = get_ephemeris(group)?;
+    let ephemeris = get_tles(group)?;
 
     // Search for matching NORAD ID in line 1 (catalog number is at positions 2-7)
     let norad_str = format!("{:5}", norad_id);
@@ -498,7 +498,7 @@ pub fn get_tle_by_name(
 
     // Helper function to search within a group
     let search_in_group = |grp: &str| -> Result<(String, String, String), BraheError> {
-        let ephemeris = get_ephemeris(grp)?;
+        let ephemeris = get_tles(grp)?;
 
         for (sat_name, line1, line2) in ephemeris {
             if sat_name.to_uppercase().contains(&name_upper) {
@@ -658,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_ephemeris_success() {
+    fn test_get_tles_success() {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
             when.method(GET)
@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_txt_with_names() {
+    fn test_download_tles_txt_with_names() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test_3le.txt");
 
@@ -697,7 +697,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_txt_without_names() {
+    fn test_download_tles_txt_without_names() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test_2le.txt");
 
@@ -717,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_csv() {
+    fn test_download_tles_csv() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.csv");
 
@@ -736,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_json() {
+    fn test_download_tles_json() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.json");
 
@@ -756,13 +756,13 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_invalid_content_format() {
+    fn test_download_tles_invalid_content_format() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
 
         // Since we can't easily mock the HTTP call in this test, we'll just verify
         // that the validation logic works by testing the error conditions directly
-        let result = download_ephemeris("test-group", filepath.to_str().unwrap(), "invalid", "txt");
+        let result = download_tles("test-group", filepath.to_str().unwrap(), "invalid", "txt");
         assert!(result.is_err());
         assert!(
             result
@@ -773,11 +773,11 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_invalid_file_format() {
+    fn test_download_tles_invalid_file_format() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("test.txt");
 
-        let result = download_ephemeris("test-group", filepath.to_str().unwrap(), "3le", "invalid");
+        let result = download_tles("test-group", filepath.to_str().unwrap(), "3le", "invalid");
         assert!(result.is_err());
         assert!(
             result
@@ -788,7 +788,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_creates_parent_directory() {
+    fn test_download_tles_creates_parent_directory() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("subdir").join("test.txt");
 
@@ -817,9 +817,9 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
-    fn test_get_ephemeris_network() {
+    fn test_get_tles_network() {
         // Test with a small group
-        let result = get_ephemeris("stations");
+        let result = get_tles("stations");
         assert!(result.is_ok());
 
         let ephemeris = result.unwrap();
@@ -835,12 +835,12 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial]
-    fn test_get_ephemeris_as_propagators_network() {
+    fn test_get_tles_as_propagators_network() {
         use crate::utils::testing::setup_global_test_eop;
 
         setup_global_test_eop();
 
-        let result = get_ephemeris_as_propagators("stations", 60.0);
+        let result = get_tles_as_propagators("stations", 60.0);
         assert!(result.is_ok());
 
         let propagators = result.unwrap();
@@ -852,11 +852,11 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
-    fn test_download_ephemeris_network() {
+    fn test_download_tles_network() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("stations.json");
 
-        let result = download_ephemeris("stations", filepath.to_str().unwrap(), "3le", "json");
+        let result = download_tles("stations", filepath.to_str().unwrap(), "3le", "json");
         assert!(result.is_ok());
 
         // Verify file was created
@@ -1092,7 +1092,7 @@ mod tests {
     }
 
     #[test]
-    fn test_download_ephemeris_all_format_combinations() {
+    fn test_download_tles_all_format_combinations() {
         let test_data_file = get_test_asset_path("celestrak_stations_3le.txt");
         let test_data_text = fs::read_to_string(test_data_file).unwrap();
         let ephemeris = parse_3le_text(&test_data_text).unwrap();
@@ -1114,7 +1114,7 @@ mod tests {
             let filename = format!("test_{}.{}", content_fmt, file_fmt);
             let filepath = dir.path().join(&filename);
 
-            // Serialize using the serializers directly (simulating download_ephemeris logic)
+            // Serialize using the serializers directly (simulating download_tles logic)
             let output = match file_fmt {
                 "txt" => serialize_3le_to_txt(&ephemeris, include_names),
                 "csv" => serialize_3le_to_csv(&ephemeris, include_names),
@@ -1140,7 +1140,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         // Test invalid content format
-        let result = download_ephemeris(
+        let result = download_tles(
             "test",
             dir.path().join("test.txt").to_str().unwrap(),
             "invalid_content",
@@ -1155,7 +1155,7 @@ mod tests {
         );
 
         // Test invalid file format
-        let result = download_ephemeris(
+        let result = download_tles(
             "test",
             dir.path().join("test.txt").to_str().unwrap(),
             "3le",

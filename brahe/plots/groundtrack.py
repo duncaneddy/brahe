@@ -627,9 +627,9 @@ def _plot_trajectory_group_matplotlib(ax, group):
         return
 
     # Extract ECI states from trajectory
-    if hasattr(trajectory, "states"):
-        # OrbitTrajectory - need to convert to lat/lon
-        states = trajectory.states()
+    if hasattr(trajectory, "to_matrix"):
+        # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+        states = trajectory.to_matrix()
         epochs = trajectory.epochs()
 
         # Apply track filtering if requested
@@ -641,7 +641,7 @@ def _plot_trajectory_group_matplotlib(ax, group):
         for i, state in enumerate(states):
             epoch = epochs[i]
             # Convert ECI to ECEF
-            ecef_state = bh.state_eci_to_ecef(state, epoch)
+            ecef_state = bh.state_eci_to_ecef(epoch, state)
             # Convert ECEF to geodetic
             lat, lon, alt = bh.position_ecef_to_geodetic(ecef_state[:3])
             lats.append(math.degrees(lat))
@@ -762,8 +762,9 @@ def _plot_trajectory_group_plotly(fig, group):
         return
 
     # Extract lat/lon
-    if hasattr(trajectory, "states"):
-        states = trajectory.states()
+    if hasattr(trajectory, "to_matrix"):
+        # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+        states = trajectory.to_matrix()
         epochs = trajectory.epochs()
 
         # Apply track filtering if requested

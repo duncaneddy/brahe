@@ -1,3 +1,8 @@
+# License
+
+## Brahe License
+
+```
 MIT License
 
 Copyright (c) 2019-2025 Duncan Eddy
@@ -19,3 +24,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+---
+
+## Additional Licenses
+
+### Blue Marble Image
+
+The Blue Marble images used in Brahe's plotting functions are provided by NASA and are in the public domain. For more information, visit the [NASA Blue Marble website](https://visibleearth.nasa.gov/collection/1484/blue-marble).
+
+### Natural Earth Data
+
+Some map data used in Brahe's plotting functions is sourced from Natural Earth, which is available under the [Public Domain](https://www.naturalearthdata.com/about/terms-of-use/). For more information, visit the [Natural Earth website](https://www.naturalearthdata.com/).
+

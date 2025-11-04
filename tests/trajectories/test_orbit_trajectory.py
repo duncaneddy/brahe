@@ -1679,3 +1679,117 @@ def test_orbittrajectory_stateprovider_state_as_osculating_elements_from_ecef():
 
     for i in range(6):
         assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_epochs():
+    """Test epochs() returns list of Epoch objects"""
+    # Create trajectory with multiple epochs
+    epochs = [
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
+    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
+    traj = OrbitTrajectory.from_orbital_data(
+        epochs,
+        states,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    # Get epochs list
+    epochs_list = traj.epochs()
+
+    # Verify it returns a list
+    assert isinstance(epochs_list, list)
+
+    # Verify length
+    assert len(epochs_list) == 3
+
+    # Verify each element is an Epoch object
+    for i, epoch in enumerate(epochs_list):
+        assert isinstance(epoch, Epoch)
+        assert epoch.jd() == pytest.approx(epochs[i].jd(), abs=1e-10)
+
+    # Test empty trajectory
+    empty_traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    empty_epochs = empty_traj.epochs()
+    assert isinstance(empty_epochs, list)
+    assert len(empty_epochs) == 0
+
+
+def test_orbittrajectory_epochs_with_frame_transformations():
+    """Test epochs() works with epoch objects in frame transformations"""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch1 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state1 = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    traj.add(epoch1, state1)
+
+    epoch2 = epoch1 + 60.0
+    state2 = np.array([R_EARTH + 500e3, 100e3, 50e3, 10.0, 7600.0, 50.0])
+    traj.add(epoch2, state2)
+
+    # Get epochs
+    epochs_list = traj.epochs()
+    states_list = traj.states()
+
+    # Verify we can use epochs with frame transformation functions
+    for i in range(len(epochs_list)):
+        epoch = epochs_list[i]
+        state_eci = states_list[i, :]
+
+        # This should work without error
+        state_ecef = state_eci_to_ecef(epoch, state_eci)
+        assert state_ecef is not None
+        assert len(state_ecef) == 6
+
+
+def test_orbittrajectory_states():
+    """Test states() returns 2D numpy array"""
+    # Create trajectory with multiple states
+    epochs = [
+        Epoch.from_jd(2451545.0, brahe.UTC),
+        Epoch.from_jd(2451545.1, brahe.UTC),
+        Epoch.from_jd(2451545.2, brahe.UTC),
+    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7100e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0],
+            [7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0],
+        ]
+    )
+    traj = OrbitTrajectory.from_orbital_data(
+        epochs,
+        states,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    # Get states array
+    states_array = traj.states()
+
+    # Verify it returns a numpy array
+    assert isinstance(states_array, np.ndarray)
+
+    # Verify shape (N, 6) where N is number of states
+    assert states_array.shape == (3, 6)
+
+    # Verify contents match original states
+    for i in range(3):
+        for j in range(6):
+            assert states_array[i, j] == pytest.approx(states[i, j], abs=1e-10)
+
+    # Test empty trajectory - should raise error
+    empty_traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    with pytest.raises(RuntimeError, match="Cannot convert empty trajectory to matrix"):
+        empty_traj.states()

@@ -905,10 +905,10 @@ impl PyOrbitalTrajectory {
         })
     }
 
-    /// Get all epochs as a numpy array.
+    /// Get all epochs as a list of Epoch objects.
     ///
     /// Returns:
-    ///     numpy.ndarray: 1D array of Julian dates for all epochs
+    ///     list[Epoch]: List of Epoch objects for all trajectory points
     ///
     /// Example:
     ///     ```python
@@ -920,18 +920,18 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
     ///     traj.add(epc + 60.0, state)
-    ///     epochs_array = traj.epochs()
+    ///     epochs_list = traj.epochs()
+    ///     print(f"First epoch: {epochs_list[0]}")
     ///     ```
     #[pyo3(text_signature = "()")]
-    pub fn epochs<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let epochs: Vec<f64> = self.trajectory.epochs.iter().map(|e| e.jd()).collect();
-        epochs.to_pyarray(py).to_owned()
+    pub fn epochs(&self) -> Vec<PyEpoch> {
+        self.trajectory.epochs.iter().map(|e| PyEpoch { obj: *e }).collect()
     }
 
     /// Get all states as a numpy array.
     ///
     /// Returns:
-    ///     numpy.ndarray: 2D array of states with shape (6, N) where N is the number of states
+    ///     numpy.ndarray: 2D array of states with shape (N, 6) where N is the number of states
     ///
     /// Example:
     ///     ```python
@@ -949,9 +949,17 @@ impl PyOrbitalTrajectory {
     pub fn states<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
         match self.trajectory.to_matrix() {
             Ok(states_matrix) => {
-                let data: Vec<f64> = states_matrix.iter().cloned().collect();
-                let shape = (states_matrix.nrows(), states_matrix.ncols());
-                Ok(numpy::PyArray::from_vec(py, data).reshape(shape).unwrap().to_owned())
+                // Nalgebra uses column-major storage, but numpy expects row-major
+                // Iterate explicitly by row then column to build row-major data
+                let nrows = states_matrix.nrows();
+                let ncols = states_matrix.ncols();
+                let mut data = Vec::with_capacity(nrows * ncols);
+                for i in 0..nrows {
+                    for j in 0..ncols {
+                        data.push(states_matrix[(i, j)]);
+                    }
+                }
+                Ok(numpy::PyArray::from_vec(py, data).reshape((nrows, ncols)).unwrap().to_owned())
             }
             Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
         }

@@ -5,6 +5,7 @@ Handles detection of available backends (matplotlib, plotly) and optional stylin
 """
 
 import importlib.util
+from loguru import logger
 
 
 def is_matplotlib_available():
@@ -71,15 +72,22 @@ def apply_scienceplots_style():
     if is_scienceplots_available() and is_matplotlib_available():
         try:
             import matplotlib.pyplot as plt
+            import scienceplots  # noqa: F401 - Import to register styles with matplotlib
 
             if is_latex_available():
                 # LaTeX is available, use full science style
                 plt.style.use("science")
+                logger.debug("Applied scienceplots style with LaTeX support.")
             else:
                 # No LaTeX, use no-latex variant
                 plt.style.use(["science", "no-latex"])
+                logger.debug("Applied scienceplots style without LaTeX support.")
 
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to apply scienceplots style: {e}")
             return False
-    return False
+    else:
+        if not is_scienceplots_available():
+            logger.debug("scienceplots not installed, skipping style application.")
+        return False

@@ -68,6 +68,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "scienceplots" },
+]
 plots = [
     { name = "scienceplots" },
 ]
@@ -105,6 +108,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "brahe", extras = ["plots"], marker = "extra == 'all'" },
     { name = "cartopy", specifier = ">=0.23.0" },
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "matplotlib", specifier = ">=3.9.4" },
@@ -116,7 +120,7 @@ requires-dist = [
     { name = "shapely", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.16.0" },
 ]
-provides-extras = ["plots"]
+provides-extras = ["plots", "all"]
 
 [package.metadata.requires-dev]
 dev = [

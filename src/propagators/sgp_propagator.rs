@@ -94,7 +94,7 @@ fn convert_state_from_spg4_frame(
 
     let r_pef: Vector3<f64> = R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(0));
     let v_pef: Vector3<f64> =
-        R * (Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef));
+        R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
 
     // Step 2: PEF to ECEF
     #[allow(non_snake_case)]

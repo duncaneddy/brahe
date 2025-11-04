@@ -77,6 +77,11 @@ pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
     }
 
     matrix3_from_array(&rc2i)
+
+    // Placeholder identity matrix - for debugging with old brahe implementation
+    // nalgebra::Matrix3::new(1.0, 0.0, 0.0,
+    //                        0.0, 1.0, 0.0,
+    //                        0.0, 0.0, 1.0)
 }
 
 /// Computes the Earth rotation matrix transforming the CIRS to the TIRS

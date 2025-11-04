@@ -21,6 +21,10 @@ def plot_cartesian_trajectory(
     position_units="km",
     velocity_units="km/s",
     backend="matplotlib",
+    show_title=False,
+    show_grid=False,
+    matplotlib_config=None,
+    plotly_config=None,
 ) -> object:
     """Plot Cartesian orbital elements (position and velocity) vs time.
 
@@ -40,6 +44,14 @@ def plot_cartesian_trajectory(
         position_units (str, optional): 'm' or 'km'. Default: 'km'
         velocity_units (str, optional): 'm/s' or 'km/s'. Default: 'km/s'
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        show_title (bool, optional): Whether to display plot title. Default: False
+        show_grid (bool, optional): Whether to display grid lines. Default: False
+        matplotlib_config (dict, optional): Matplotlib-specific configuration:
+            - legend_subplot (tuple): (row, col) of subplot for legend. Default: (0, 0)
+            - legend_loc (str): Legend location. Default: 'best'
+              Options: 'best', 'upper right', 'upper left', 'lower left', 'lower right',
+                       'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
+        plotly_config (dict, optional): Plotly-specific configuration (reserved for future use)
 
     Returns:
         Generated figure object
@@ -60,12 +72,13 @@ def plot_cartesian_trajectory(
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
         traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
 
-        # Plot Cartesian elements
+        # Plot Cartesian elements with legend in upper right of Z position subplot
         fig = bh.plot_cartesian_trajectory(
             [{"trajectory": traj, "label": "LEO Orbit"}],
             position_units='km',
             velocity_units='km/s',
-            backend='matplotlib'
+            backend='matplotlib',
+            matplotlib_config={'legend_subplot': (0, 2), 'legend_loc': 'upper right'}
         )
         ```
     """
@@ -78,14 +91,34 @@ def plot_cartesian_trajectory(
     # Normalize inputs
     traj_groups = _normalize_trajectory_groups(trajectories)
 
+    # Extract backend-specific config with defaults
+    if matplotlib_config is None:
+        matplotlib_config = {}
+    if plotly_config is None:
+        plotly_config = {}
+
     # Dispatch to backend
     if backend == "matplotlib":
+        legend_subplot = matplotlib_config.get("legend_subplot", (0, 0))
+        legend_loc = matplotlib_config.get("legend_loc", "best")
         result = _cartesian_elements_matplotlib(
-            traj_groups, time_range, position_units, velocity_units
+            traj_groups,
+            time_range,
+            position_units,
+            velocity_units,
+            show_title,
+            show_grid,
+            legend_subplot,
+            legend_loc,
         )
     else:  # plotly
         result = _cartesian_elements_plotly(
-            traj_groups, time_range, position_units, velocity_units
+            traj_groups,
+            time_range,
+            position_units,
+            velocity_units,
+            show_title,
+            show_grid,
         )
 
     elapsed = time.time() - start_time
@@ -98,17 +131,22 @@ def plot_keplerian_trajectory(
     time_range=None,
     angle_units="deg",
     sma_units="km",
+    normalize_angles=False,
     backend="matplotlib",
+    show_title=False,
+    show_grid=False,
+    matplotlib_config=None,
+    plotly_config=None,
 ) -> object:
     """Plot Keplerian orbital elements vs time.
 
     Creates a 2x3 subplot layout:
     - Row 1: a (semi-major axis), e (eccentricity), i (inclination)
-    - Row 2: Ω (RAAN), ω (argument of periapsis), ν (true anomaly)
+    - Row 2: Ω (RAAN), ω (argument of periapsis), M (mean anomaly)
 
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
-            - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7] as [a, e, i, Ω, ω, ν]
+            - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7] as [a, e, i, Ω, ω, M]
             - times (np.ndarray, optional): Time array if trajectory is numpy array without time column
             - color (str, optional): Line/marker color
             - marker (str, optional): Marker style
@@ -117,7 +155,16 @@ def plot_keplerian_trajectory(
         time_range (tuple, optional): (start_epoch, end_epoch) to filter data
         angle_units (str, optional): 'rad' or 'deg'. Default: 'deg'
         sma_units (str, optional): 'm' or 'km'. Default: 'km'
+        normalize_angles (bool, optional): If True, wrap angles to [0, 2π) or [0, 360°). Default: False
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        show_title (bool, optional): Whether to display plot title. Default: False
+        show_grid (bool, optional): Whether to display grid lines. Default: False
+        matplotlib_config (dict, optional): Matplotlib-specific configuration:
+            - legend_subplot (tuple): (row, col) of subplot for legend. Default: (0, 0)
+            - legend_loc (str): Legend location. Default: 'best'
+              Options: 'best', 'upper right', 'upper left', 'lower left', 'lower right',
+                       'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
+        plotly_config (dict, optional): Plotly-specific configuration (reserved for future use)
 
     Returns:
         Generated figure object
@@ -132,10 +179,9 @@ def plot_keplerian_trajectory(
         bh.set_global_eop_provider(eop)
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-        oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-        state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+        oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
 
-        prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
+        prop = bh.KeplerianPropagator.from_eci(epoch, oe, bh.AngleFormat.DEGREES, 60.0)
         traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
 
         # Plot Keplerian elements
@@ -156,14 +202,36 @@ def plot_keplerian_trajectory(
     # Normalize inputs
     traj_groups = _normalize_trajectory_groups(trajectories)
 
+    # Extract backend-specific config with defaults
+    if matplotlib_config is None:
+        matplotlib_config = {}
+    if plotly_config is None:
+        plotly_config = {}
+
     # Dispatch to backend
     if backend == "matplotlib":
+        legend_subplot = matplotlib_config.get("legend_subplot", (0, 0))
+        legend_loc = matplotlib_config.get("legend_loc", "best")
         result = _keplerian_elements_matplotlib(
-            traj_groups, time_range, angle_units, sma_units
+            traj_groups,
+            time_range,
+            angle_units,
+            sma_units,
+            normalize_angles,
+            show_title,
+            show_grid,
+            legend_subplot,
+            legend_loc,
         )
     else:  # plotly
         result = _keplerian_elements_plotly(
-            traj_groups, time_range, angle_units, sma_units
+            traj_groups,
+            time_range,
+            angle_units,
+            sma_units,
+            normalize_angles,
+            show_title,
+            show_grid,
         )
 
     elapsed = time.time() - start_time
@@ -198,19 +266,28 @@ def _normalize_trajectory_groups(trajectories):
 
 
 def _cartesian_elements_matplotlib(
-    traj_groups, time_range, position_units, velocity_units
+    traj_groups,
+    time_range,
+    position_units,
+    velocity_units,
+    show_title,
+    show_grid,
+    legend_subplot,
+    legend_loc,
 ):
     """Matplotlib implementation of Cartesian elements plot."""
     # Apply scienceplots if available
     apply_scienceplots_style()
 
-    # Create 2x3 subplot layout
+    # Create 2x3 subplot layout with better spacing
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle("Cartesian Orbital Elements")
+    if show_title:
+        fig.suptitle("Cartesian Orbital Elements", y=0.995)
+    plt.subplots_adjust(hspace=0.35, wspace=0.3)
 
-    # Unit conversions (for future use in TODO)
-    # pos_scale = 1.0 if position_units == 'm' else 1e-3
-    # vel_scale = 1.0 if velocity_units == 'm/s' else 1e-3
+    # Track first epoch and max time for relative time calculation
+    first_epoch = None
+    max_time = 0
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -223,18 +300,24 @@ def _cartesian_elements_matplotlib(
             continue
 
         # Extract times and states
-        if hasattr(trajectory, "states"):
-            # OrbitTrajectory
-            times = trajectory.times()
-            states = trajectory.states()
+        if hasattr(trajectory, "to_matrix"):
+            # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+            epochs = trajectory.epochs()
+            states = trajectory.to_matrix()
 
-            # Extract positions and velocities
-            pos_x = [state[0] for state in states]
-            pos_y = [state[1] for state in states]
-            pos_z = [state[2] for state in states]
-            vel_x = [state[3] for state in states]
-            vel_y = [state[4] for state in states]
-            vel_z = [state[5] for state in states]
+            # Convert epochs to elapsed time in seconds
+            if first_epoch is None:
+                first_epoch = epochs[0]
+            times = np.array([e - first_epoch for e in epochs])
+            max_time = max(max_time, times[-1])
+
+            # Extract positions and velocities from (N, 6) array
+            pos_x = states[:, 0]
+            pos_y = states[:, 1]
+            pos_z = states[:, 2]
+            vel_x = states[:, 3]
+            vel_y = states[:, 4]
+            vel_z = states[:, 5]
 
         elif isinstance(trajectory, np.ndarray):
             # Numpy array [N×6] or [N×7]
@@ -262,6 +345,21 @@ def _cartesian_elements_matplotlib(
         else:
             continue
 
+        # Determine time unit and convert if needed
+        if first_epoch is not None:
+            if max_time > 7200:  # > 2 hours, use hours
+                times_plot = times / 3600
+                time_label = "Time (hours)"
+            elif max_time > 120:  # > 2 minutes, use minutes
+                times_plot = times / 60
+                time_label = "Time (minutes)"
+            else:
+                times_plot = times
+                time_label = "Time (seconds)"
+        else:
+            times_plot = times
+            time_label = "Time"
+
         # Apply unit conversions
         if position_units == "km":
             pos_x = np.array(pos_x) * 1e-3
@@ -273,15 +371,37 @@ def _cartesian_elements_matplotlib(
             vel_y = np.array(vel_y) * 1e-3
             vel_z = np.array(vel_z) * 1e-3
 
+        # Construct plot kwargs
+        plot_kwargs = {}
+        if color is not None:
+            plot_kwargs["color"] = color
+        if label is not None:
+            plot_kwargs["label"] = label
+        if marker is not None:
+            plot_kwargs["linestyle"] = marker
+
         # Plot positions
-        axes[0, 0].plot(times, pos_x, marker, color=color, label=label)
-        axes[0, 1].plot(times, pos_y, marker, color=color, label=label)
-        axes[0, 2].plot(times, pos_z, marker, color=color, label=label)
+        axes[0, 0].plot(times_plot, pos_x, **plot_kwargs)
+        axes[0, 1].plot(times_plot, pos_y, **plot_kwargs)
+        axes[0, 2].plot(times_plot, pos_z, **plot_kwargs)
 
         # Plot velocities
-        axes[1, 0].plot(times, vel_x, marker, color=color, label=label)
-        axes[1, 1].plot(times, vel_y, marker, color=color, label=label)
-        axes[1, 2].plot(times, vel_z, marker, color=color, label=label)
+        axes[1, 0].plot(times_plot, vel_x, **plot_kwargs)
+        axes[1, 1].plot(times_plot, vel_y, **plot_kwargs)
+        axes[1, 2].plot(times_plot, vel_z, **plot_kwargs)
+
+    # Set time label
+    if first_epoch is None:
+        time_label = "Time"
+    # time_label already set in the loop
+
+    # Set consistent x-axis limits across all subplots
+    if len(traj_groups) > 0:
+        # Find maximum x extent across all axes
+        max_xlim = max([ax.get_xlim()[1] for ax in axes.flat if ax.has_data()])
+        for ax in axes.flat:
+            if ax.has_data():
+                ax.set_xlim(0, max_xlim)
 
     # Configure subplots
     axes[0, 0].set_ylabel(f"X Position ({position_units})")
@@ -292,15 +412,20 @@ def _cartesian_elements_matplotlib(
     axes[1, 2].set_ylabel(f"VZ Velocity ({velocity_units})")
 
     for ax in axes.flat:
-        ax.set_xlabel("Time")
-        ax.grid(True)
-        ax.legend()
+        ax.set_xlabel(time_label)
+        if show_grid:
+            ax.grid(True)
+
+    # Add legend only to specified subplot
+    axes[legend_subplot].legend(loc=legend_loc)
 
     plt.tight_layout()
     return fig
 
 
-def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity_units):
+def _cartesian_elements_plotly(
+    traj_groups, time_range, position_units, velocity_units, show_title, show_grid
+):
     """Plotly implementation of Cartesian elements plot."""
     # Create 2x3 subplot layout
     fig = make_subplots(
@@ -314,7 +439,13 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
             "VY Velocity",
             "VZ Velocity",
         ),
+        vertical_spacing=0.12,
+        horizontal_spacing=0.08,
     )
+
+    # Track first epoch and max time for relative time calculation
+    first_epoch = None
+    max_time = 0
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -326,18 +457,24 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
             continue
 
         # Extract times and states
-        if hasattr(trajectory, "states"):
-            # OrbitTrajectory
-            times = trajectory.times()
-            states = trajectory.states()
+        if hasattr(trajectory, "to_matrix"):
+            # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+            epochs = trajectory.epochs()
+            states = trajectory.to_matrix()
 
-            # Extract positions and velocities
-            pos_x = [state[0] for state in states]
-            pos_y = [state[1] for state in states]
-            pos_z = [state[2] for state in states]
-            vel_x = [state[3] for state in states]
-            vel_y = [state[4] for state in states]
-            vel_z = [state[5] for state in states]
+            # Convert epochs to elapsed time in seconds
+            if first_epoch is None:
+                first_epoch = epochs[0]
+            times = np.array([e - first_epoch for e in epochs])
+            max_time = max(max_time, times[-1])
+
+            # Extract positions and velocities from (N, 6) array
+            pos_x = states[:, 0]
+            pos_y = states[:, 1]
+            pos_z = states[:, 2]
+            vel_x = states[:, 3]
+            vel_y = states[:, 4]
+            vel_z = states[:, 5]
 
         elif isinstance(trajectory, np.ndarray):
             # Numpy array [N×6] or [N×7]
@@ -365,6 +502,21 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         else:
             continue
 
+        # Determine time unit and convert if needed
+        if first_epoch is not None:
+            if max_time > 7200:  # > 2 hours, use hours
+                times_plot = times / 3600
+                time_label = "Time (hours)"
+            elif max_time > 120:  # > 2 minutes, use minutes
+                times_plot = times / 60
+                time_label = "Time (minutes)"
+            else:
+                times_plot = times
+                time_label = "Time (seconds)"
+        else:
+            times_plot = times
+            time_label = "Time"
+
         # Apply unit conversions
         if position_units == "km":
             pos_x = np.array(pos_x) * 1e-3
@@ -379,19 +531,19 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         # Plot positions
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=pos_x,
                 mode="lines",
                 name=label,
                 line=dict(color=color),
-                showlegend=(i == 0),
+                showlegend=True,
             ),
             row=1,
             col=1,
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=pos_y,
                 mode="lines",
                 name=label,
@@ -403,7 +555,7 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=pos_z,
                 mode="lines",
                 name=label,
@@ -417,7 +569,7 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         # Plot velocities
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=vel_x,
                 mode="lines",
                 name=label,
@@ -429,7 +581,7 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=vel_y,
                 mode="lines",
                 name=label,
@@ -441,7 +593,7 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=vel_z,
                 mode="lines",
                 name=label,
@@ -452,13 +604,17 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
             col=3,
         )
 
-    # Update axes labels
-    fig.update_xaxes(title_text="Time", row=1, col=1)
-    fig.update_xaxes(title_text="Time", row=1, col=2)
-    fig.update_xaxes(title_text="Time", row=1, col=3)
-    fig.update_xaxes(title_text="Time", row=2, col=1)
-    fig.update_xaxes(title_text="Time", row=2, col=2)
-    fig.update_xaxes(title_text="Time", row=2, col=3)
+    # Update axes labels with appropriate time unit
+    if first_epoch is None:
+        time_label = "Time"
+    # time_label already set in the loop
+
+    fig.update_xaxes(title_text=time_label, row=1, col=1)
+    fig.update_xaxes(title_text=time_label, row=1, col=2)
+    fig.update_xaxes(title_text=time_label, row=1, col=3)
+    fig.update_xaxes(title_text=time_label, row=2, col=1)
+    fig.update_xaxes(title_text=time_label, row=2, col=2)
+    fig.update_xaxes(title_text=time_label, row=2, col=3)
 
     fig.update_yaxes(title_text=f"X Position ({position_units})", row=1, col=1)
     fig.update_yaxes(title_text=f"Y Position ({position_units})", row=1, col=2)
@@ -467,18 +623,53 @@ def _cartesian_elements_plotly(traj_groups, time_range, position_units, velocity
     fig.update_yaxes(title_text=f"VY Velocity ({velocity_units})", row=2, col=2)
     fig.update_yaxes(title_text=f"VZ Velocity ({velocity_units})", row=2, col=3)
 
-    fig.update_layout(title_text="Cartesian Orbital Elements")
+    # Update layout with optional title and grid settings
+    layout_config = {}
+    if show_title:
+        layout_config["title_text"] = "Cartesian Orbital Elements"
+
+    fig.update_layout(**layout_config)
+
+    # Configure grid and axis styling
+    axis_config = {
+        "showgrid": show_grid,
+        "title_font": {"size": 11},
+        "tickfont": {"size": 10},
+    }
+    fig.update_xaxes(**axis_config)
+    fig.update_yaxes(**axis_config)
+
+    # Make subplot titles smaller
+    for annotation in fig.layout.annotations:
+        annotation.font.size = 11
+
     return fig
 
 
-def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_units):
+def _keplerian_elements_matplotlib(
+    traj_groups,
+    time_range,
+    angle_units,
+    sma_units,
+    normalize_angles,
+    show_title,
+    show_grid,
+    legend_subplot,
+    legend_loc,
+):
     """Matplotlib implementation of Keplerian elements plot."""
     # Apply scienceplots if available
     apply_scienceplots_style()
 
-    # Create 2x3 subplot layout
+    # Create 2x3 subplot layout with better spacing
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle("Keplerian Orbital Elements")
+    if show_title:
+        fig.suptitle("Keplerian Orbital Elements", y=0.995)
+    plt.subplots_adjust(hspace=0.35, wspace=0.3)
+
+    # Track first epoch and max time for relative time calculation
+    first_epoch = None
+    max_time = 0
 
     # Unit conversions (for future use in TODO)
     # sma_scale = 1.0 if sma_units == 'm' else 1e-3
@@ -495,10 +686,16 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
             continue
 
         # Extract times and elements
-        if hasattr(trajectory, "states"):
+        if hasattr(trajectory, "to_matrix"):
             # OrbitTrajectory - need to convert Cartesian to Keplerian
-            times = trajectory.times()
-            states = trajectory.states()
+            epochs = trajectory.epochs()
+            states = trajectory.to_matrix()  # Returns (N, 6) array
+
+            # Convert epochs to elapsed time in seconds
+            if first_epoch is None:
+                first_epoch = epochs[0]
+            times = np.array([e - first_epoch for e in epochs])
+            max_time = max(max_time, times[-1])
 
             # Convert each state to Keplerian elements
             a_list = []
@@ -515,8 +712,8 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
                 e_list.append(oe[1])
                 i_list.append(oe[2])
                 raan_list.append(oe[3])
-                argp_list.append(oe[4])
-                anom_list.append(oe[5])
+                argp_list.append(oe[4])  # omega (argument of periapsis)
+                anom_list.append(oe[5])  # M (mean anomaly)
 
         elif isinstance(trajectory, np.ndarray):
             # Numpy array [N×6] or [N×7] - assume already Keplerian [a, e, i, Ω, ω, ν]
@@ -544,6 +741,21 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
         else:
             continue
 
+        # Determine time unit and convert if needed
+        if first_epoch is not None:
+            if max_time > 7200:  # > 2 hours, use hours
+                times_plot = times / 3600
+                time_label = "Time (hours)"
+            elif max_time > 120:  # > 2 minutes, use minutes
+                times_plot = times / 60
+                time_label = "Time (minutes)"
+            else:
+                times_plot = times
+                time_label = "Time (seconds)"
+        else:
+            times_plot = times
+            time_label = "Time"
+
         # Convert to numpy arrays for unit conversion
         a_arr = np.array(a_list)
         e_arr = np.array(e_list)
@@ -562,13 +774,48 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
             argp_arr = np.degrees(argp_arr)
             anom_arr = np.degrees(anom_arr)
 
+        # Normalize angles to [0, 2π) or [0, 360°) if requested
+        if normalize_angles:
+            if angle_units == "deg":
+                i_arr = np.mod(i_arr, 360.0)
+                raan_arr = np.mod(raan_arr, 360.0)
+                argp_arr = np.mod(argp_arr, 360.0)
+                anom_arr = np.mod(anom_arr, 360.0)
+            else:  # radians
+                i_arr = np.mod(i_arr, 2.0 * np.pi)
+                raan_arr = np.mod(raan_arr, 2.0 * np.pi)
+                argp_arr = np.mod(argp_arr, 2.0 * np.pi)
+                anom_arr = np.mod(anom_arr, 2.0 * np.pi)
+
+        # Construct plot kwargs
+        plot_kwargs = {}
+        if color is not None:
+            plot_kwargs["color"] = color
+        if label is not None:
+            plot_kwargs["label"] = label
+        if marker is not None:
+            plot_kwargs["linestyle"] = marker
+
         # Plot elements
-        axes[0, 0].plot(times, a_arr, marker, color=color, label=label)
-        axes[0, 1].plot(times, e_arr, marker, color=color, label=label)
-        axes[0, 2].plot(times, i_arr, marker, color=color, label=label)
-        axes[1, 0].plot(times, raan_arr, marker, color=color, label=label)
-        axes[1, 1].plot(times, argp_arr, marker, color=color, label=label)
-        axes[1, 2].plot(times, anom_arr, marker, color=color, label=label)
+        axes[0, 0].plot(times_plot, a_arr, **plot_kwargs)
+        axes[0, 1].plot(times_plot, e_arr, **plot_kwargs)
+        axes[0, 2].plot(times_plot, i_arr, **plot_kwargs)
+        axes[1, 0].plot(times_plot, raan_arr, **plot_kwargs)
+        axes[1, 1].plot(times_plot, argp_arr, **plot_kwargs)
+        axes[1, 2].plot(times_plot, anom_arr, **plot_kwargs)
+
+    # Set time label
+    if first_epoch is None:
+        time_label = "Time"
+    # time_label already set in the loop
+
+    # Set consistent x-axis limits across all subplots
+    if len(traj_groups) > 0:
+        # Find maximum x extent across all axes
+        max_xlim = max([ax.get_xlim()[1] for ax in axes.flat if ax.has_data()])
+        for ax in axes.flat:
+            if ax.has_data():
+                ax.set_xlim(0, max_xlim)
 
     # Configure subplots
     axes[0, 0].set_ylabel(f"Semi-major Axis ({sma_units})")
@@ -576,18 +823,29 @@ def _keplerian_elements_matplotlib(traj_groups, time_range, angle_units, sma_uni
     axes[0, 2].set_ylabel(f"Inclination ({angle_units})")
     axes[1, 0].set_ylabel(f"RAAN ({angle_units})")
     axes[1, 1].set_ylabel(f"Arg. Periapsis ({angle_units})")
-    axes[1, 2].set_ylabel(f"True Anomaly ({angle_units})")
+    axes[1, 2].set_ylabel(f"Mean Anomaly ({angle_units})")
 
     for ax in axes.flat:
-        ax.set_xlabel("Time")
-        ax.grid(True)
-        ax.legend()
+        ax.set_xlabel(time_label)
+        if show_grid:
+            ax.grid(True)
+
+    # Add legend only to specified subplot
+    axes[legend_subplot].legend(loc=legend_loc)
 
     plt.tight_layout()
     return fig
 
 
-def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
+def _keplerian_elements_plotly(
+    traj_groups,
+    time_range,
+    angle_units,
+    sma_units,
+    normalize_angles,
+    show_title,
+    show_grid,
+):
     """Plotly implementation of Keplerian elements plot."""
     # Create 2x3 subplot layout
     fig = make_subplots(
@@ -599,9 +857,15 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
             "Inclination",
             "RAAN",
             "Arg. Periapsis",
-            "True Anomaly",
+            "Mean Anomaly",
         ),
+        vertical_spacing=0.12,
+        horizontal_spacing=0.08,
     )
+
+    # Track first epoch and max time for relative time calculation
+    first_epoch = None
+    max_time = 0
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -613,10 +877,16 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
             continue
 
         # Extract times and elements
-        if hasattr(trajectory, "states"):
+        if hasattr(trajectory, "to_matrix"):
             # OrbitTrajectory - need to convert Cartesian to Keplerian
-            times = trajectory.times()
-            states = trajectory.states()
+            epochs = trajectory.epochs()
+            states = trajectory.to_matrix()  # Returns (N, 6) array
+
+            # Convert epochs to elapsed time in seconds
+            if first_epoch is None:
+                first_epoch = epochs[0]
+            times = np.array([e - first_epoch for e in epochs])
+            max_time = max(max_time, times[-1])
 
             # Convert each state to Keplerian elements
             a_list = []
@@ -633,8 +903,8 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
                 e_list.append(oe[1])
                 i_list.append(oe[2])
                 raan_list.append(oe[3])
-                argp_list.append(oe[4])
-                anom_list.append(oe[5])
+                argp_list.append(oe[4])  # omega (argument of periapsis)
+                anom_list.append(oe[5])  # M (mean anomaly)
 
         elif isinstance(trajectory, np.ndarray):
             # Numpy array [N×6] or [N×7] - assume already Keplerian [a, e, i, Ω, ω, ν]
@@ -680,22 +950,50 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
             argp_arr = np.degrees(argp_arr)
             anom_arr = np.degrees(anom_arr)
 
+        # Normalize angles to [0, 2π) or [0, 360°) if requested
+        if normalize_angles:
+            if angle_units == "deg":
+                i_arr = np.mod(i_arr, 360.0)
+                raan_arr = np.mod(raan_arr, 360.0)
+                argp_arr = np.mod(argp_arr, 360.0)
+                anom_arr = np.mod(anom_arr, 360.0)
+            else:  # radians
+                i_arr = np.mod(i_arr, 2.0 * np.pi)
+                raan_arr = np.mod(raan_arr, 2.0 * np.pi)
+                argp_arr = np.mod(argp_arr, 2.0 * np.pi)
+                anom_arr = np.mod(anom_arr, 2.0 * np.pi)
+
+        # Determine time unit and convert if needed
+        if first_epoch is not None:
+            if max_time > 7200:  # > 2 hours, use hours
+                times_plot = times / 3600
+                time_label = "Time (hours)"
+            elif max_time > 120:  # > 2 minutes, use minutes
+                times_plot = times / 60
+                time_label = "Time (minutes)"
+            else:
+                times_plot = times
+                time_label = "Time (seconds)"
+        else:
+            times_plot = times
+            time_label = "Time"
+
         # Plot elements
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=a_arr,
                 mode="lines",
                 name=label,
                 line=dict(color=color),
-                showlegend=(i == 0),
+                showlegend=True,
             ),
             row=1,
             col=1,
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=e_arr,
                 mode="lines",
                 name=label,
@@ -707,7 +1005,7 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=i_arr,
                 mode="lines",
                 name=label,
@@ -719,7 +1017,7 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=raan_arr,
                 mode="lines",
                 name=label,
@@ -731,7 +1029,7 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=argp_arr,
                 mode="lines",
                 name=label,
@@ -743,7 +1041,7 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
         )
         fig.add_trace(
             go.Scatter(
-                x=times,
+                x=times_plot,
                 y=anom_arr,
                 mode="lines",
                 name=label,
@@ -754,20 +1052,43 @@ def _keplerian_elements_plotly(traj_groups, time_range, angle_units, sma_units):
             col=3,
         )
 
-    # Update axes labels
-    fig.update_xaxes(title_text="Time", row=1, col=1)
-    fig.update_xaxes(title_text="Time", row=1, col=2)
-    fig.update_xaxes(title_text="Time", row=1, col=3)
-    fig.update_xaxes(title_text="Time", row=2, col=1)
-    fig.update_xaxes(title_text="Time", row=2, col=2)
-    fig.update_xaxes(title_text="Time", row=2, col=3)
+    # Update axes labels with appropriate time unit
+    if first_epoch is None:
+        time_label = "Time"
+    # time_label already set in the loop
+
+    fig.update_xaxes(title_text=time_label, row=1, col=1)
+    fig.update_xaxes(title_text=time_label, row=1, col=2)
+    fig.update_xaxes(title_text=time_label, row=1, col=3)
+    fig.update_xaxes(title_text=time_label, row=2, col=1)
+    fig.update_xaxes(title_text=time_label, row=2, col=2)
+    fig.update_xaxes(title_text=time_label, row=2, col=3)
 
     fig.update_yaxes(title_text=f"Semi-major Axis ({sma_units})", row=1, col=1)
     fig.update_yaxes(title_text="Eccentricity", row=1, col=2)
     fig.update_yaxes(title_text=f"Inclination ({angle_units})", row=1, col=3)
     fig.update_yaxes(title_text=f"RAAN ({angle_units})", row=2, col=1)
     fig.update_yaxes(title_text=f"Arg. Periapsis ({angle_units})", row=2, col=2)
-    fig.update_yaxes(title_text=f"True Anomaly ({angle_units})", row=2, col=3)
+    fig.update_yaxes(title_text=f"Mean Anomaly ({angle_units})", row=2, col=3)
 
-    fig.update_layout(title_text="Keplerian Orbital Elements")
+    # Update layout with optional title and grid settings
+    layout_config = {}
+    if show_title:
+        layout_config["title_text"] = "Keplerian Orbital Elements"
+
+    fig.update_layout(**layout_config)
+
+    # Configure grid and axis styling
+    axis_config = {
+        "showgrid": show_grid,
+        "title_font": {"size": 11},
+        "tickfont": {"size": 10},
+    }
+    fig.update_xaxes(**axis_config)
+    fig.update_yaxes(**axis_config)
+
+    # Make subplot titles smaller
+    for annotation in fig.layout.annotations:
+        annotation.font.size = 11
+
     return fig

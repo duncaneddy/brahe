@@ -12,6 +12,7 @@ from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
+from brahe._brahe import OrbitTrajectory, OrbitFrame, OrbitRepresentation
 
 
 def plot_trajectory_3d(
@@ -40,7 +41,7 @@ def plot_trajectory_3d(
         normalize (bool, optional): Normalize to Earth radii. Default: False
         view_azimuth (float, optional): Camera azimuth angle (degrees). Default: 45.0
         view_elevation (float, optional): Camera elevation angle (degrees). Default: 30.0
-        view_distance (float, optional): Camera distance from origin. Default: Auto
+        view_distance (float, optional): Camera distance multiplier. Default: 2.5 (larger = further out)
         show_earth (bool, optional): Show Earth sphere at origin. Default: True
         earth_texture (str, optional): 'blue_marble', 'simple', or None. Default: 'simple'
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
@@ -182,29 +183,32 @@ def _trajectory_3d_matplotlib(
         if trajectory is None:
             continue
 
-        # Extract positions
-        if hasattr(trajectory, "states"):
-            # OrbitTrajectory
-            states = trajectory.states()
-            pos_x = [state[0] for state in states]
-            pos_y = [state[1] for state in states]
-            pos_z = [state[2] for state in states]
+        # Validate that trajectory is an OrbitTrajectory
+        if not isinstance(trajectory, OrbitTrajectory):
+            raise TypeError(
+                f"Trajectory must be an OrbitTrajectory object, got {type(trajectory)}"
+            )
 
-        elif isinstance(trajectory, np.ndarray):
-            # Numpy array [N×3] or [N×6]
-            if trajectory.shape[1] >= 3:
-                pos_x = trajectory[:, 0]
-                pos_y = trajectory[:, 1]
-                pos_z = trajectory[:, 2]
-            else:
-                continue
-        else:
-            continue
+        # Convert to ECI Cartesian if needed
+        if (
+            trajectory.frame != OrbitFrame.ECI
+            or trajectory.representation != OrbitRepresentation.CARTESIAN
+        ):
+            logger.debug(
+                f"Converting trajectory from {trajectory.frame}/{trajectory.representation} to ECI/CARTESIAN"
+            )
+            trajectory = trajectory.to_eci()
+
+        # Extract positions using to_matrix() which returns (N, 6) array
+        states = trajectory.to_matrix()
+        pos_x = states[:, 0]
+        pos_y = states[:, 1]
+        pos_z = states[:, 2]
 
         # Scale positions
-        pos_x = np.array(pos_x) * scale
-        pos_y = np.array(pos_y) * scale
-        pos_z = np.array(pos_z) * scale
+        pos_x = pos_x * scale
+        pos_y = pos_y * scale
+        pos_z = pos_z * scale
 
         # Plot 3D line
         ax.plot(
@@ -267,29 +271,32 @@ def _trajectory_3d_plotly(
         if trajectory is None:
             continue
 
-        # Extract positions
-        if hasattr(trajectory, "states"):
-            # OrbitTrajectory
-            states = trajectory.states()
-            pos_x = [state[0] for state in states]
-            pos_y = [state[1] for state in states]
-            pos_z = [state[2] for state in states]
+        # Validate that trajectory is an OrbitTrajectory
+        if not isinstance(trajectory, OrbitTrajectory):
+            raise TypeError(
+                f"Trajectory must be an OrbitTrajectory object, got {type(trajectory)}"
+            )
 
-        elif isinstance(trajectory, np.ndarray):
-            # Numpy array [N×3] or [N×6]
-            if trajectory.shape[1] >= 3:
-                pos_x = trajectory[:, 0]
-                pos_y = trajectory[:, 1]
-                pos_z = trajectory[:, 2]
-            else:
-                continue
-        else:
-            continue
+        # Convert to ECI Cartesian if needed
+        if (
+            trajectory.frame != OrbitFrame.ECI
+            or trajectory.representation != OrbitRepresentation.CARTESIAN
+        ):
+            logger.debug(
+                f"Converting trajectory from {trajectory.frame}/{trajectory.representation} to ECI/CARTESIAN"
+            )
+            trajectory = trajectory.to_eci()
+
+        # Extract positions using to_matrix() which returns (N, 6) array
+        states = trajectory.to_matrix()
+        pos_x = states[:, 0]
+        pos_y = states[:, 1]
+        pos_z = states[:, 2]
 
         # Scale positions
-        pos_x = np.array(pos_x) * scale
-        pos_y = np.array(pos_y) * scale
-        pos_z = np.array(pos_z) * scale
+        pos_x = pos_x * scale
+        pos_y = pos_y * scale
+        pos_z = pos_z * scale
 
         # Add 3D scatter trace
         fig.add_trace(
@@ -303,6 +310,10 @@ def _trajectory_3d_plotly(
             )
         )
 
+    # Set default view distance if not specified (larger = further out)
+    if view_distance is None:
+        view_distance = 2.5  # Default: zoom out to 2.5x distance
+
     # Configure layout
     fig.update_layout(
         title="3D Trajectory (ECI Frame)",
@@ -311,13 +322,18 @@ def _trajectory_3d_plotly(
             yaxis_title=f"Y ({unit_label})",
             zaxis_title=f"Z ({unit_label})",
             aspectmode="data",
+            xaxis=dict(showgrid=True, showbackground=False),
+            yaxis=dict(showgrid=True, showbackground=False),
+            zaxis=dict(showgrid=True, showbackground=False),
             camera=dict(
                 eye=dict(
-                    x=np.cos(np.radians(view_azimuth))
+                    x=view_distance
+                    * np.cos(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    y=np.sin(np.radians(view_azimuth))
+                    y=view_distance
+                    * np.sin(np.radians(view_azimuth))
                     * np.cos(np.radians(view_elevation)),
-                    z=np.sin(np.radians(view_elevation)),
+                    z=view_distance * np.sin(np.radians(view_elevation)),
                 )
             ),
         ),
@@ -352,7 +368,8 @@ def _plot_earth_sphere_plotly(fig, scale, texture):
     y = bh.R_EARTH * scale * np.outer(np.sin(u), np.sin(v))
     z = bh.R_EARTH * scale * np.outer(np.ones(np.size(u)), np.cos(v))
 
-    # Add sphere surface
+    # Add sphere surface with higher opacity for better visibility
+    # Note: Plotly Surface doesn't support gradient opacity, so using uniform value
     fig.add_trace(
         go.Surface(
             x=x,
@@ -360,7 +377,7 @@ def _plot_earth_sphere_plotly(fig, scale, texture):
             z=z,
             colorscale="Blues",
             showscale=False,
-            opacity=0.6,
+            opacity=0.7,
             name="Earth",
         )
     )

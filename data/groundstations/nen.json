@@ -1,0 +1,318 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              15.41,
+              78.23
+          ]
+      },
+      "properties": {
+          "name": "Svalbard",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              2.53,
+              -72.0
+          ]
+      },
+      "properties": {
+          "name": "Troll",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              168.38,
+              -46.53
+          ]
+      },
+      "properties": {
+          "name": "Awarua",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              103.7,
+              1.32
+          ]
+      },
+      "properties": {
+          "name": "Singapore",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              27.71,
+              -25.89
+          ]
+      },
+      "properties": {
+          "name": "Hartebeesthoek",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              20.582778,
+              -33.233056
+          ]
+      },
+      "properties": {
+          "name": "Matjiesfontein",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { 
+          "type": "Point", 
+          "coordinates": [ -70.6667, -33.1333 ] 
+      },
+      "properties": {
+        "name": "Santiago",
+        "provider": "ssc",
+        "frequency_bands": ["S"]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { 
+          "type": "Point", 
+          "coordinates": [ 21.064341, 67.893350]
+      },
+      "properties": {
+        "name": "Kiruna",
+        "provider": "ssc",
+        "frequency_bands": ["S", "X"]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -147.650000,
+              64.800000
+          ]
+      },
+      "properties": {
+          "name": "North Pole",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              115.581241,
+              -29.083804
+          ]
+      },
+      "properties": {
+          "name": "Dongara",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -155.663146,
+              19.014179
+          ]
+      },
+      "properties": {
+          "name": "South Point",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -147.849593,
+              64.858985
+          ]
+      },
+      "properties": {
+          "name": "Alaska Satellite Facility",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -147.508351,
+              64.973338
+          ]
+      },
+      "properties": {
+          "name": "Gilmore Creek",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -80.642987,
+              28.542061
+          ]
+      },
+      "properties": {
+          "name": "Merrit Island",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              166.702744,
+              -77.846396
+          ]
+      },
+      "properties": {
+          "name": "McMurdo",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -80.912869,
+              29.066691
+          ]
+      },
+      "properties": {
+          "name": "Ponce de Leon",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -75.461431,
+              37.945963
+          ]
+      },
+      "properties": {
+          "name": "Wallops",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+          "type": "Point",
+          "coordinates": [
+              -106.608560,
+              32.500769
+          ]
+      },
+      "properties": {
+          "name": "White Sands",
+          "provider": "NASA NEN",
+          "frequency_bands": [
+              "S",
+              "X"
+          ]
+      }
+    }
+    
+  ]
+}

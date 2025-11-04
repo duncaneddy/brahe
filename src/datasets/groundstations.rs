@@ -12,8 +12,9 @@ use crate::datasets::loaders::{
 use crate::utils::errors::BraheError;
 
 /// Available groundstation providers
-pub const AVAILABLE_PROVIDERS: &[&str] =
-    &["atlas", "aws", "ksat", "leaf", "nasa dsn", "ssc", "viasat"];
+pub const AVAILABLE_PROVIDERS: &[&str] = &[
+    "atlas", "aws", "ksat", "leaf", "nasa dsn", "nasa nen", "ssc", "viasat",
+];
 
 /// Load embedded groundstation data from compiled binary
 ///
@@ -31,6 +32,7 @@ fn get_embedded_groundstation_data(provider: &str) -> Result<&'static str, Brahe
         "ksat" => Ok(include_str!("../../data/groundstations/ksat.json")),
         "leaf" => Ok(include_str!("../../data/groundstations/leaf.json")),
         "nasa dsn" => Ok(include_str!("../../data/groundstations/dsn.json")),
+        "nasa nen" => Ok(include_str!("../../data/groundstations/nen.json")),
         "ssc" => Ok(include_str!("../../data/groundstations/ssc.json")),
         "viasat" => Ok(include_str!("../../data/groundstations/viasat.json")),
         _ => Err(BraheError::Error(format!(

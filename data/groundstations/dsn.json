@@ -1,0 +1,50 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+            -116.89,
+            35.426667
+        ]
+      },
+      "properties": {
+        "name": "Goldstone",
+        "provider": "NASA DSN",
+        "frequency_bands": ["S", "X", "Ka"]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+            148.981667,
+            -35.401389
+        ]
+      },
+      "properties": {
+        "name": "Canberra",
+        "provider": "NASA DSN",
+        "frequency_bands": ["S", "X", "Ka"]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+            -4.248056,
+            40.431389
+        ]
+      },
+      "properties": {
+        "name": "Madrid",
+        "provider": "NASA DSN",
+        "frequency_bands": ["S", "X", "Ka"]
+      }
+    }
+  ]
+}

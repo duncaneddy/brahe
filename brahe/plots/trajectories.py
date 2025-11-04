@@ -51,6 +51,9 @@ def plot_cartesian_trajectory(
             - legend_loc (str): Legend location. Default: 'best'
               Options: 'best', 'upper right', 'upper left', 'lower left', 'lower right',
                        'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
+            - dark_mode (bool): Apply dark mode styling. Default: False
+            - ylabel_pad (float): Padding for y-axis labels. Default: 10
+            - figsize (tuple): Figure size (width, height). Default: (15, 10)
         plotly_config (dict, optional): Plotly-specific configuration (reserved for future use)
 
     Returns:
@@ -101,6 +104,9 @@ def plot_cartesian_trajectory(
     if backend == "matplotlib":
         legend_subplot = matplotlib_config.get("legend_subplot", (0, 0))
         legend_loc = matplotlib_config.get("legend_loc", "best")
+        dark_mode = matplotlib_config.get("dark_mode", False)
+        ylabel_pad = matplotlib_config.get("ylabel_pad", 10)
+        figsize = matplotlib_config.get("figsize", (15, 10))
         result = _cartesian_elements_matplotlib(
             traj_groups,
             time_range,
@@ -110,6 +116,9 @@ def plot_cartesian_trajectory(
             show_grid,
             legend_subplot,
             legend_loc,
+            dark_mode,
+            ylabel_pad,
+            figsize,
         )
     else:  # plotly
         result = _cartesian_elements_plotly(
@@ -164,7 +173,12 @@ def plot_keplerian_trajectory(
             - legend_loc (str): Legend location. Default: 'best'
               Options: 'best', 'upper right', 'upper left', 'lower left', 'lower right',
                        'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
-        plotly_config (dict, optional): Plotly-specific configuration (reserved for future use)
+            - dark_mode (bool): Apply dark mode styling. Default: False
+            - ylabel_pad (float): Padding for y-axis labels. Default: 10
+            - figsize (tuple): Figure size (width, height). Default: (15, 10)
+            - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
+        plotly_config (dict, optional): Plotly-specific configuration:
+            - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
 
     Returns:
         Generated figure object
@@ -212,6 +226,10 @@ def plot_keplerian_trajectory(
     if backend == "matplotlib":
         legend_subplot = matplotlib_config.get("legend_subplot", (0, 0))
         legend_loc = matplotlib_config.get("legend_loc", "best")
+        dark_mode = matplotlib_config.get("dark_mode", False)
+        ylabel_pad = matplotlib_config.get("ylabel_pad", 10)
+        figsize = matplotlib_config.get("figsize", (15, 10))
+        set_angle_ylim = matplotlib_config.get("set_angle_ylim", False)
         result = _keplerian_elements_matplotlib(
             traj_groups,
             time_range,
@@ -222,8 +240,13 @@ def plot_keplerian_trajectory(
             show_grid,
             legend_subplot,
             legend_loc,
+            dark_mode,
+            ylabel_pad,
+            figsize,
+            set_angle_ylim,
         )
     else:  # plotly
+        set_angle_ylim = plotly_config.get("set_angle_ylim", False)
         result = _keplerian_elements_plotly(
             traj_groups,
             time_range,
@@ -232,6 +255,7 @@ def plot_keplerian_trajectory(
             normalize_angles,
             show_title,
             show_grid,
+            set_angle_ylim,
         )
 
     elapsed = time.time() - start_time
@@ -274,13 +298,20 @@ def _cartesian_elements_matplotlib(
     show_grid,
     legend_subplot,
     legend_loc,
+    dark_mode,
+    ylabel_pad,
+    figsize,
 ):
     """Matplotlib implementation of Cartesian elements plot."""
     # Apply scienceplots if available
     apply_scienceplots_style()
 
+    # Apply dark mode if requested
+    if dark_mode:
+        plt.style.use("dark_background")
+
     # Create 2x3 subplot layout with better spacing
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
     if show_title:
         fig.suptitle("Cartesian Orbital Elements", y=0.995)
     plt.subplots_adjust(hspace=0.35, wspace=0.3)
@@ -396,12 +427,22 @@ def _cartesian_elements_matplotlib(
     # time_label already set in the loop
 
     # Set consistent x-axis limits across all subplots
+    # Use actual max time value (without padding)
     if len(traj_groups) > 0:
-        # Find maximum x extent across all axes
-        max_xlim = max([ax.get_xlim()[1] for ax in axes.flat if ax.has_data()])
+        # Find the actual maximum time value from the data
+        max_time_value = 0
         for ax in axes.flat:
             if ax.has_data():
-                ax.set_xlim(0, max_xlim)
+                lines = ax.get_lines()
+                for line in lines:
+                    xdata = line.get_xdata()
+                    if len(xdata) > 0:
+                        max_time_value = max(max_time_value, xdata[-1])
+
+        # Set x-limits to end exactly at the last data point
+        for ax in axes.flat:
+            if ax.has_data():
+                ax.set_xlim(0, max_time_value)
 
     # Configure subplots
     axes[0, 0].set_ylabel(f"X Position ({position_units})")
@@ -411,8 +452,10 @@ def _cartesian_elements_matplotlib(
     axes[1, 1].set_ylabel(f"VY Velocity ({velocity_units})")
     axes[1, 2].set_ylabel(f"VZ Velocity ({velocity_units})")
 
+    # Apply ylabel padding for better alignment
     for ax in axes.flat:
         ax.set_xlabel(time_label)
+        ax.yaxis.labelpad = ylabel_pad
         if show_grid:
             ax.grid(True)
 
@@ -439,7 +482,7 @@ def _cartesian_elements_plotly(
             "VY Velocity",
             "VZ Velocity",
         ),
-        vertical_spacing=0.12,
+        vertical_spacing=0.15,
         horizontal_spacing=0.08,
     )
 
@@ -656,13 +699,21 @@ def _keplerian_elements_matplotlib(
     show_grid,
     legend_subplot,
     legend_loc,
+    dark_mode,
+    ylabel_pad,
+    figsize,
+    set_angle_ylim,
 ):
     """Matplotlib implementation of Keplerian elements plot."""
     # Apply scienceplots if available
     apply_scienceplots_style()
 
+    # Apply dark mode if requested
+    if dark_mode:
+        plt.style.use("dark_background")
+
     # Create 2x3 subplot layout with better spacing
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
     if show_title:
         fig.suptitle("Keplerian Orbital Elements", y=0.995)
     plt.subplots_adjust(hspace=0.35, wspace=0.3)
@@ -810,12 +861,22 @@ def _keplerian_elements_matplotlib(
     # time_label already set in the loop
 
     # Set consistent x-axis limits across all subplots
+    # Use actual max time value (without padding)
     if len(traj_groups) > 0:
-        # Find maximum x extent across all axes
-        max_xlim = max([ax.get_xlim()[1] for ax in axes.flat if ax.has_data()])
+        # Find the actual maximum time value from the data
+        max_time_value = 0
         for ax in axes.flat:
             if ax.has_data():
-                ax.set_xlim(0, max_xlim)
+                lines = ax.get_lines()
+                for line in lines:
+                    xdata = line.get_xdata()
+                    if len(xdata) > 0:
+                        max_time_value = max(max_time_value, xdata[-1])
+
+        # Set x-limits to end exactly at the last data point
+        for ax in axes.flat:
+            if ax.has_data():
+                ax.set_xlim(0, max_time_value)
 
     # Configure subplots
     axes[0, 0].set_ylabel(f"Semi-major Axis ({sma_units})")
@@ -825,8 +886,23 @@ def _keplerian_elements_matplotlib(
     axes[1, 1].set_ylabel(f"Arg. Periapsis ({angle_units})")
     axes[1, 2].set_ylabel(f"Mean Anomaly ({angle_units})")
 
+    # Set y-axis limits for angle plots if requested
+    if set_angle_ylim:
+        if angle_units == "deg":
+            angle_ylim = (0, 360)
+        else:  # radians
+            angle_ylim = (0, 2 * np.pi)
+
+        # Apply to inclination, RAAN, argument of periapsis, and mean anomaly
+        axes[0, 2].set_ylim(angle_ylim)  # Inclination
+        axes[1, 0].set_ylim(angle_ylim)  # RAAN
+        axes[1, 1].set_ylim(angle_ylim)  # Arg. Periapsis
+        axes[1, 2].set_ylim(angle_ylim)  # Mean Anomaly
+
+    # Apply ylabel padding for better alignment
     for ax in axes.flat:
         ax.set_xlabel(time_label)
+        ax.yaxis.labelpad = ylabel_pad
         if show_grid:
             ax.grid(True)
 
@@ -845,6 +921,7 @@ def _keplerian_elements_plotly(
     normalize_angles,
     show_title,
     show_grid,
+    set_angle_ylim,
 ):
     """Plotly implementation of Keplerian elements plot."""
     # Create 2x3 subplot layout
@@ -859,7 +936,7 @@ def _keplerian_elements_plotly(
             "Arg. Periapsis",
             "Mean Anomaly",
         ),
-        vertical_spacing=0.12,
+        vertical_spacing=0.15,
         horizontal_spacing=0.08,
     )
 
@@ -1070,6 +1147,19 @@ def _keplerian_elements_plotly(
     fig.update_yaxes(title_text=f"RAAN ({angle_units})", row=2, col=1)
     fig.update_yaxes(title_text=f"Arg. Periapsis ({angle_units})", row=2, col=2)
     fig.update_yaxes(title_text=f"Mean Anomaly ({angle_units})", row=2, col=3)
+
+    # Set y-axis limits for angle plots if requested
+    if set_angle_ylim:
+        if angle_units == "deg":
+            angle_range = [0, 360]
+        else:  # radians
+            angle_range = [0, 2 * np.pi]
+
+        # Apply to inclination, RAAN, argument of periapsis, and mean anomaly
+        fig.update_yaxes(range=angle_range, row=1, col=3)  # Inclination
+        fig.update_yaxes(range=angle_range, row=2, col=1)  # RAAN
+        fig.update_yaxes(range=angle_range, row=2, col=2)  # Arg. Periapsis
+        fig.update_yaxes(range=angle_range, row=2, col=3)  # Mean Anomaly
 
     # Update layout with optional title and grid settings
     layout_config = {}

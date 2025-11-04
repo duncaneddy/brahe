@@ -155,8 +155,8 @@ This example shows how to create a simple LEO orbit and visualize it in 3D. It d
 
 ### Static Plot (Matplotlib)
 
-![Quick Start Example](../../figures/plot_quickstart_example_matplotlib.png)
-
+![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_light.svg#only-light)
+![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_dark.svg#only-dark)
 
 ``` python
 --8<-- "./plots/learn/plots/quickstart_example_matplotlib.py:8"

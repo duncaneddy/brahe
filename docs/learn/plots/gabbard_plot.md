@@ -29,7 +29,8 @@ This example shows a simulated debris cloud with 50 objects having varying semi-
 
 The matplotlib backend produces publication-quality figures for research papers and technical reports.
 
-![Gabbard Diagram](../../figures/plot_gabbard_matplotlib.png)
+![Gabbard Diagram](../../figures/plot_gabbard_matplotlib_light.svg#only-light)
+![Gabbard Diagram](../../figures/plot_gabbard_matplotlib_dark.svg#only-dark)
 
 ??? "Plot Source"
 

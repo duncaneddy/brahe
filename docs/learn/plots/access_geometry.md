@@ -23,7 +23,8 @@ Polar plots display the satellite's path across the sky in azimuth-elevation coo
 
 ### Static Polar Plot (Matplotlib)
 
-![Access Polar Plot](../../figures/plot_access_polar_matplotlib.png)
+![Access Polar Plot](../../figures/plot_access_polar_matplotlib_light.svg#only-light)
+![Access Polar Plot](../../figures/plot_access_polar_matplotlib_dark.svg#only-dark)
 
 ??? "Plot Source"
 
@@ -56,7 +57,8 @@ Time-series plots show how elevation angle changes throughout a satellite pass, 
 
 ### Static Elevation Plot (Matplotlib)
 
-![Access Elevation Plot](../../figures/plot_access_elevation_matplotlib.png)
+![Access Elevation Plot](../../figures/plot_access_elevation_matplotlib_light.svg#only-light)
+![Access Elevation Plot](../../figures/plot_access_elevation_matplotlib_dark.svg#only-dark)
 
 ??? "Plot Source"
 

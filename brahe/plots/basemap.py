@@ -13,8 +13,7 @@ import brahe as bh
 
 # Natural Earth URLs
 NATURAL_EARTH_50M_LAND_URL = (
-    "https://www.naturalearthdata.com/http//www.naturalearthdata.com/"
-    "download/50m/physical/ne_50m_land.zip"
+    "https://naciscdn.org/naturalearth/50m/physical/ne_50m_land.zip"
 )
 
 

@@ -783,7 +783,11 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
 
     FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    plot_files = sorted(PLOTS_DIR.glob("*.py"))
+    # Search recursively for all .py files in plots/ and subdirectories
+    plot_files = sorted(PLOTS_DIR.glob("**/*.py"))
+    # Filter out template files
+    plot_files = [f for f in plot_files if "TEMPLATE" not in f.name]
+
     if not plot_files:
         console.print("[yellow]No plot files found in plots/[/yellow]\n")
         return
@@ -934,7 +938,8 @@ def make_plot(
 @app.command()
 def list_plots(show_flags: bool = typer.Option(False, "--flags")):
     """List all available plot scripts."""
-    plot_files = sorted(PLOTS_DIR.glob("*.py"))
+    plot_files = sorted(PLOTS_DIR.glob("**/*.py"))
+    plot_files = [f for f in plot_files if "TEMPLATE" not in f.name]
 
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Plot Script", style="cyan")
@@ -942,7 +947,9 @@ def list_plots(show_flags: bool = typer.Option(False, "--flags")):
         table.add_column("Flags", style="yellow")
 
     for plot_file in plot_files:
-        row = [plot_file.name]
+        # Show relative path from PLOTS_DIR for clarity
+        rel_path = plot_file.relative_to(PLOTS_DIR)
+        row = [str(rel_path)]
         if show_flags:
             _, reason = check_flags(plot_file)
             row.append(reason.upper() if reason else "")
@@ -1044,7 +1051,9 @@ def docs(
     console.print("[bold]Generating figures[/bold]")
     FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     python_exe = REPO_ROOT / ".venv" / "bin" / "python"
-    for plot_file in PLOTS_DIR.glob("*.py"):
+    for plot_file in PLOTS_DIR.glob("**/*.py"):
+        if "TEMPLATE" in plot_file.name:
+            continue
         subprocess.run(
             [str(python_exe), str(plot_file)],
             cwd=REPO_ROOT,
@@ -1130,7 +1139,7 @@ def stats():
     slow = sum(1 for rs in rust_files if check_flags(rs)[1] == "slow")
 
     # Plot stats
-    plot_files = list(PLOTS_DIR.glob("*.py"))
+    plot_files = [f for f in PLOTS_DIR.glob("**/*.py") if "TEMPLATE" not in f.name]
 
     console.print("\n[bold]Statistics[/bold]\n")
 

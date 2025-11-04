@@ -7,6 +7,7 @@ Shows satellite azimuth and elevation during ground station passes.
 
 import brahe as bh
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -33,19 +34,48 @@ duration = 24.0 * 3600.0  # 24 hours in seconds
 constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 accesses = bh.location_accesses([station], [prop], epoch, epoch + duration, constraint)
 
-# Create polar access plot
+# Create polar access plots (light and dark mode)
 if len(accesses) > 0:
+    # Light mode
     fig = bh.plot_access_polar(
-        accesses[0],  # Use first access window
+        [{"access_window": accesses[0], "propagator": prop}],  # Use first access window
         backend="matplotlib",
     )
 
-    # Save figure
+    # Save light mode figure
     fig.savefig(
-        "docs/figures/plot_access_polar_matplotlib.png", dpi=150, bbox_inches="tight"
+        "docs/figures/plot_access_polar_matplotlib_light.svg",
+        dpi=300,
+        bbox_inches="tight",
     )
     print(
-        "Access polar plot (matplotlib) saved to: docs/figures/plot_access_polar_matplotlib.png"
+        "Access polar plot (matplotlib, light mode) saved to: docs/figures/plot_access_polar_matplotlib_light.svg"
     )
+    plt.close(fig)
+
+    # Dark mode
+    with plt.style.context("dark_background"):
+        fig = bh.plot_access_polar(
+            [
+                {"access_window": accesses[0], "propagator": prop}
+            ],  # Use first access window
+            backend="matplotlib",
+        )
+
+        # Set background color to match Plotly dark theme
+        fig.patch.set_facecolor("#1c1e24")
+        for ax in fig.get_axes():
+            ax.set_facecolor("#1c1e24")
+
+        # Save dark mode figure
+        fig.savefig(
+            "docs/figures/plot_access_polar_matplotlib_dark.svg",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        print(
+            "Access polar plot (matplotlib, dark mode) saved to: docs/figures/plot_access_polar_matplotlib_dark.svg"
+        )
+        plt.close(fig)
 else:
     print("No access windows found in the specified time range")

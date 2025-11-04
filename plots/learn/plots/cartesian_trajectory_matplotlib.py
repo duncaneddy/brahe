@@ -27,20 +27,45 @@ print(f"Propagating from {epoch} for {duration} seconds.")
 prop.propagate_to(epoch + duration)
 traj = prop.trajectory
 
-# Create Cartesian trajectory plot
+# Create Cartesian trajectory plot in light mode
 fig = bh.plot_cartesian_trajectory(
     [{"trajectory": traj, "color": "blue", "label": "ISS"}],
     position_units="km",
     velocity_units="km/s",
     backend="matplotlib",
+    matplotlib_config={"dark_mode": False},
 )
 
-# Save figure
+# Save light mode figure
 fig.savefig(
-    "docs/figures/plot_cartesian_trajectory_matplotlib.png",
+    "docs/figures/plot_cartesian_trajectory_matplotlib_light.svg",
     dpi=300,
     bbox_inches="tight",
 )
 print(
-    "Cartesian trajectory plot (matplotlib) saved to: docs/figures/plot_cartesian_trajectory_matplotlib.png"
+    "Cartesian trajectory plot (matplotlib, light mode) saved to: docs/figures/plot_cartesian_trajectory_matplotlib_light.svg"
+)
+
+# Create Cartesian trajectory plot in dark mode
+fig = bh.plot_cartesian_trajectory(
+    [{"trajectory": traj, "color": "blue", "label": "ISS"}],
+    position_units="km",
+    velocity_units="km/s",
+    backend="matplotlib",
+    matplotlib_config={"dark_mode": True},
+)
+
+# Set background color to match Plotly dark theme
+fig.patch.set_facecolor("#1c1e24")
+for ax in fig.get_axes():
+    ax.set_facecolor("#1c1e24")
+
+# Save dark mode figure
+fig.savefig(
+    "docs/figures/plot_cartesian_trajectory_matplotlib_dark.svg",
+    dpi=300,
+    bbox_inches="tight",
+)
+print(
+    "Cartesian trajectory plot (matplotlib, dark mode) saved to: docs/figures/plot_cartesian_trajectory_matplotlib_dark.svg"
 )

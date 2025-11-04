@@ -6,6 +6,7 @@ using the matplotlib backend. Shows the ISS orbit around Earth.
 """
 
 import brahe as bh
+import matplotlib.pyplot as plt
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -26,7 +27,7 @@ duration = 92.0 * 60.0  # seconds
 prop.propagate_to(epoch + duration)
 traj = prop.trajectory
 
-# Create 3D trajectory plot
+# Create 3D trajectory plot in light mode
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "ISS"}],
     units="km",
@@ -34,10 +35,36 @@ fig = bh.plot_trajectory_3d(
     backend="matplotlib",
 )
 
-# Save figure
+# Save light mode figure
 fig.savefig(
-    "docs/figures/plot_trajectory_3d_matplotlib.png", dpi=150, bbox_inches="tight"
+    "docs/figures/plot_trajectory_3d_matplotlib_light.svg", dpi=300, bbox_inches="tight"
 )
 print(
-    "3D trajectory plot (matplotlib) saved to: docs/figures/plot_trajectory_3d_matplotlib.png"
+    "3D trajectory plot (matplotlib, light mode) saved to: docs/figures/plot_trajectory_3d_matplotlib_light.svg"
 )
+plt.close(fig)
+
+# Create 3D trajectory plot in dark mode
+with plt.style.context("dark_background"):
+    fig = bh.plot_trajectory_3d(
+        [{"trajectory": traj, "color": "red", "label": "ISS"}],
+        units="km",
+        show_earth=True,
+        backend="matplotlib",
+    )
+
+    # Set background color to match Plotly dark theme
+    fig.patch.set_facecolor("#1c1e24")
+    for ax in fig.get_axes():
+        ax.set_facecolor("#1c1e24")
+
+    # Save dark mode figure
+    fig.savefig(
+        "docs/figures/plot_trajectory_3d_matplotlib_dark.svg",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    print(
+        "3D trajectory plot (matplotlib, dark mode) saved to: docs/figures/plot_trajectory_3d_matplotlib_dark.svg"
+    )
+    plt.close(fig)

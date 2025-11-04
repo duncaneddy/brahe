@@ -29,9 +29,6 @@ prop_kep = bh.KeplerianPropagator.from_eci(epoch, initial_state, 60.0)
 
 # Propagate both for 4 orbital periods to see differences
 duration = 4 * bh.orbital_period(prop_sgp.semi_major_axis)
-print(
-    f"Propagating from {epoch} for {duration:.0f} seconds ({duration / 3600:.1f} hours)."
-)
 
 # Propagate both propagators
 prop_kep.propagate_to(epoch + duration)
@@ -41,10 +38,7 @@ prop_sgp.propagate_to(epoch + duration)
 traj_kep = prop_kep.trajectory
 traj_sgp = prop_sgp.trajectory
 
-print(f"Keplerian trajectory: {len(traj_kep)} states")
-print(f"SGP4 trajectory: {len(traj_sgp)} states")
-
-# Create comparison plot using Keplerian elements
+# Create comparison plot using Keplerian elements in light mode
 fig = bh.plot_keplerian_trajectory(
     [
         {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
@@ -53,14 +47,42 @@ fig = bh.plot_keplerian_trajectory(
     sma_units="km",
     angle_units="deg",
     backend="matplotlib",
+    matplotlib_config={"dark_mode": False, "set_angle_ylim": True},
 )
 
-# Save figure
+# Save light mode figure
 fig.savefig(
-    "docs/figures/comparing_propagators_keplerian_matplotlib.png",
+    "docs/figures/comparing_propagators_keplerian_matplotlib_light.svg",
     dpi=300,
     bbox_inches="tight",
 )
 print(
-    "Comparing propagators (Keplerian) plot (matplotlib) saved to: docs/figures/comparing_propagators_keplerian_matplotlib.png"
+    "Comparing propagators (Keplerian) plot (matplotlib, light mode) saved to: docs/figures/comparing_propagators_keplerian_matplotlib_light.svg"
+)
+
+# Create comparison plot using Keplerian elements in dark mode
+fig = bh.plot_keplerian_trajectory(
+    [
+        {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
+        {"trajectory": traj_sgp, "color": "red", "label": "SGP4"},
+    ],
+    sma_units="km",
+    angle_units="deg",
+    backend="matplotlib",
+    matplotlib_config={"dark_mode": True, "set_angle_ylim": True},
+)
+
+# Set background color to match Plotly dark theme
+fig.patch.set_facecolor("#1c1e24")
+for ax in fig.get_axes():
+    ax.set_facecolor("#1c1e24")
+
+# Save dark mode figure
+fig.savefig(
+    "docs/figures/comparing_propagators_keplerian_matplotlib_dark.svg",
+    dpi=300,
+    bbox_inches="tight",
+)
+print(
+    "Comparing propagators (Keplerian) plot (matplotlib, dark mode) saved to: docs/figures/comparing_propagators_keplerian_matplotlib_dark.svg"
 )

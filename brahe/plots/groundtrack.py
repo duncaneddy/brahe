@@ -432,8 +432,8 @@ def _plot_station_group_matplotlib(ax, group, gs_cone_altitude, gs_min_elevation
     for station in stations:
         # Extract lat/lon
         if hasattr(station, "latitude") and hasattr(station, "longitude"):
-            lat_deg = math.degrees(station.latitude())
-            lon_deg = math.degrees(station.longitude())
+            lat_deg = math.degrees(station.latitude(bh.AngleFormat.RADIANS))
+            lon_deg = math.degrees(station.longitude(bh.AngleFormat.RADIANS))
         else:
             lat_deg, lon_deg = station[0], station[1]
             if abs(lat_deg) > math.pi or abs(lon_deg) > math.pi:
@@ -516,8 +516,8 @@ def _plot_zone_group_matplotlib(ax, group):
     lons = []
     for vertex in vertices:
         if hasattr(vertex, "latitude") and hasattr(vertex, "longitude"):
-            lat = math.degrees(vertex.latitude())
-            lon = math.degrees(vertex.longitude())
+            lat = math.degrees(vertex.latitude(bh.AngleFormat.RADIANS))
+            lon = math.degrees(vertex.longitude(bh.AngleFormat.RADIANS))
         else:
             lat, lon = vertex[0], vertex[1]
             if abs(lat) <= math.pi and abs(lon) <= math.pi:
@@ -643,7 +643,9 @@ def _plot_trajectory_group_matplotlib(ax, group):
             # Convert ECI to ECEF
             ecef_state = bh.state_eci_to_ecef(epoch, state)
             # Convert ECEF to geodetic
-            lat, lon, alt = bh.position_ecef_to_geodetic(ecef_state[:3])
+            lat, lon, alt = bh.position_ecef_to_geodetic(
+                ecef_state[:3], bh.AngleFormat.RADIANS
+            )
             lats.append(math.degrees(lat))
             lons.append(math.degrees(lon))
 
@@ -684,8 +686,8 @@ def _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation):
 
     for station in stations:
         if hasattr(station, "latitude") and hasattr(station, "longitude"):
-            lat_deg = math.degrees(station.latitude())
-            lon_deg = math.degrees(station.longitude())
+            lat_deg = math.degrees(station.latitude(bh.AngleFormat.RADIANS))
+            lon_deg = math.degrees(station.longitude(bh.AngleFormat.RADIANS))
         else:
             lat_deg, lon_deg = station[0], station[1]
             if abs(lat_deg) <= math.pi and abs(lon_deg) <= math.pi:
@@ -723,8 +725,8 @@ def _plot_zone_group_plotly(fig, group):
     lons = []
     for vertex in vertices:
         if hasattr(vertex, "latitude") and hasattr(vertex, "longitude"):
-            lat = math.degrees(vertex.latitude())
-            lon = math.degrees(vertex.longitude())
+            lat = math.degrees(vertex.latitude(bh.AngleFormat.RADIANS))
+            lon = math.degrees(vertex.longitude(bh.AngleFormat.RADIANS))
         else:
             lat, lon = vertex[0], vertex[1]
             if abs(lat) <= math.pi and abs(lon) <= math.pi:
@@ -775,8 +777,10 @@ def _plot_trajectory_group_plotly(fig, group):
         lons = []
         for i, state in enumerate(states):
             epoch = epochs[i]
-            ecef_state = bh.state_eci_to_ecef(state, epoch)
-            lat, lon, alt = bh.position_ecef_to_geodetic(ecef_state[:3])
+            ecef_state = bh.state_eci_to_ecef(epoch, state)
+            lat, lon, alt = bh.position_ecef_to_geodetic(
+                ecef_state[:3], bh.AngleFormat.RADIANS
+            )
             lats.append(math.degrees(lat))
             lons.append(math.degrees(lon))
 

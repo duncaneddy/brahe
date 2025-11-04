@@ -48,7 +48,7 @@ accesses = bh.location_accesses([station], [prop], epoch, epoch + duration, cons
 # Create polar access plot
 if len(accesses) > 0:
     fig = bh.plot_access_polar(
-        accesses[0],  # Use first access window
+        [{"access_window": accesses[0], "propagator": prop}],  # Use first access window
         backend="plotly",
     )
 

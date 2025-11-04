@@ -42,7 +42,7 @@ traj_sgp = prop_sgp.trajectory
 print(f"Keplerian trajectory: {len(traj_kep)} states")
 print(f"SGP4 trajectory: {len(traj_sgp)} states")
 
-# Create comparison plot
+# Create comparison plot in light mode
 fig = bh.plot_cartesian_trajectory(
     [
         {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
@@ -51,14 +51,42 @@ fig = bh.plot_cartesian_trajectory(
     position_units="km",
     velocity_units="km/s",
     backend="matplotlib",
+    matplotlib_config={"dark_mode": False},
 )
 
-# Save figure
+# Save light mode figure
 fig.savefig(
-    "docs/figures/comparing_propagators_cartesian_matplotlib.png",
+    "docs/figures/comparing_propagators_cartesian_matplotlib_light.svg",
     dpi=300,
     bbox_inches="tight",
 )
 print(
-    "Comparing propagators (Cartesian) plot (matplotlib) saved to: docs/figures/comparing_propagators_cartesian_matplotlib.png"
+    "Comparing propagators (Cartesian) plot (matplotlib, light mode) saved to: docs/figures/comparing_propagators_cartesian_matplotlib_light.svg"
+)
+
+# Create comparison plot in dark mode
+fig = bh.plot_cartesian_trajectory(
+    [
+        {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
+        {"trajectory": traj_sgp, "color": "red", "label": "SGP4"},
+    ],
+    position_units="km",
+    velocity_units="km/s",
+    backend="matplotlib",
+    matplotlib_config={"dark_mode": True},
+)
+
+# Set background color to match Plotly dark theme
+fig.patch.set_facecolor("#1c1e24")
+for ax in fig.get_axes():
+    ax.set_facecolor("#1c1e24")
+
+# Save dark mode figure
+fig.savefig(
+    "docs/figures/comparing_propagators_cartesian_matplotlib_dark.svg",
+    dpi=300,
+    bbox_inches="tight",
+)
+print(
+    "Comparing propagators (Cartesian) plot (matplotlib, dark mode) saved to: docs/figures/comparing_propagators_cartesian_matplotlib_dark.svg"
 )

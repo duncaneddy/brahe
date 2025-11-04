@@ -8,6 +8,7 @@ debris clouds or satellite constellations.
 
 import brahe as bh
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -48,9 +49,32 @@ for i in range(50):
     )
     propagators.append(prop)
 
-# Create Gabbard diagram
+# Create Gabbard diagram in light mode
 fig = bh.plot_gabbard_diagram(propagators, epoch, backend="matplotlib")
 
-# Save figure
-fig.savefig("docs/figures/plot_gabbard_matplotlib.png", dpi=150, bbox_inches="tight")
-print("Gabbard diagram (matplotlib) saved to: docs/figures/plot_gabbard_matplotlib.png")
+# Save light mode figure
+fig.savefig(
+    "docs/figures/plot_gabbard_matplotlib_light.svg", dpi=300, bbox_inches="tight"
+)
+print(
+    "Gabbard diagram (matplotlib, light mode) saved to: docs/figures/plot_gabbard_matplotlib_light.svg"
+)
+plt.close(fig)
+
+# Create Gabbard diagram in dark mode
+with plt.style.context("dark_background"):
+    fig = bh.plot_gabbard_diagram(propagators, epoch, backend="matplotlib")
+
+    # Set background color to match Plotly dark theme
+    fig.patch.set_facecolor("#1c1e24")
+    for ax in fig.get_axes():
+        ax.set_facecolor("#1c1e24")
+
+    # Save dark mode figure
+    fig.savefig(
+        "docs/figures/plot_gabbard_matplotlib_dark.svg", dpi=300, bbox_inches="tight"
+    )
+    print(
+        "Gabbard diagram (matplotlib, dark mode) saved to: docs/figures/plot_gabbard_matplotlib_dark.svg"
+    )
+    plt.close(fig)

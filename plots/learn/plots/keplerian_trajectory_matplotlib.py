@@ -26,20 +26,45 @@ duration = 92.0 * 60.0  # seconds
 prop.propagate_to(epoch + duration)
 traj = prop.trajectory
 
-# Create Keplerian trajectory plot
+# Create Keplerian trajectory plot in light mode
 fig = bh.plot_keplerian_trajectory(
     [{"trajectory": traj, "color": "green", "label": "ISS"}],
     sma_units="km",
     angle_units="deg",
     backend="matplotlib",
+    matplotlib_config={"dark_mode": False, "set_angle_ylim": True},
 )
 
-# Save figure
+# Save light mode figure
 fig.savefig(
-    "docs/figures/plot_keplerian_trajectory_matplotlib.png",
-    dpi=150,
+    "docs/figures/plot_keplerian_trajectory_matplotlib_light.svg",
+    dpi=300,
     bbox_inches="tight",
 )
 print(
-    "Keplerian trajectory plot (matplotlib) saved to: docs/figures/plot_keplerian_trajectory_matplotlib.png"
+    "Keplerian trajectory plot (matplotlib, light mode) saved to: docs/figures/plot_keplerian_trajectory_matplotlib_light.svg"
+)
+
+# Create Keplerian trajectory plot in dark mode
+fig = bh.plot_keplerian_trajectory(
+    [{"trajectory": traj, "color": "green", "label": "ISS"}],
+    sma_units="km",
+    angle_units="deg",
+    backend="matplotlib",
+    matplotlib_config={"dark_mode": True, "set_angle_ylim": True},
+)
+
+# Set background color to match Plotly dark theme
+fig.patch.set_facecolor("#1c1e24")
+for ax in fig.get_axes():
+    ax.set_facecolor("#1c1e24")
+
+# Save dark mode figure
+fig.savefig(
+    "docs/figures/plot_keplerian_trajectory_matplotlib_dark.svg",
+    dpi=300,
+    bbox_inches="tight",
+)
+print(
+    "Keplerian trajectory plot (matplotlib, dark mode) saved to: docs/figures/plot_keplerian_trajectory_matplotlib_dark.svg"
 )

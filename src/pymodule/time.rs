@@ -999,6 +999,59 @@ impl PyEpoch {
         self.obj.to_datetime()
     }
 
+    /// Convert the epoch to a Python datetime object in UTC timezone.
+    ///
+    /// This method always converts the epoch to UTC before creating the datetime object,
+    /// regardless of the epoch's original time system.
+    ///
+    /// Returns:
+    ///     datetime.datetime: Python datetime object with UTC timezone
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from datetime import datetime, timezone
+    ///
+    ///     # Create epoch in GPS time
+    ///     epc = bh.Epoch.from_datetime(2024, 6, 15, 14, 30, 45.5, 0.0, bh.TimeSystem.GPS)
+    ///
+    ///     # Convert to Python datetime (always UTC)
+    ///     dt = epc.to_pydatetime()
+    ///     print(dt)  # datetime object in UTC
+    ///     print(dt.tzinfo)  # timezone.utc
+    ///
+    ///     # Verify it's always UTC
+    ///     assert dt.tzinfo == timezone.utc
+    ///     ```
+    pub fn to_pydatetime<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
+        // Get datetime components in UTC
+        let (year, month, day, hour, minute, second, nanosecond) =
+            self.obj.to_datetime_as_time_system(time::TimeSystem::UTC);
+
+        // Convert seconds and nanoseconds to whole seconds and microseconds
+        let whole_seconds = second.floor() as u8;
+        let fractional_seconds = second - second.floor();
+        let microsecond = ((fractional_seconds * 1e6) + (nanosecond / 1e3)).round() as u32;
+
+        // Import datetime.timezone module and get UTC timezone
+        let datetime_mod = py.import("datetime")?;
+        let timezone_utc = datetime_mod.getattr("timezone")?.getattr("utc")?;
+        let tzinfo = timezone_utc.downcast::<pyo3::types::PyTzInfo>()?;
+
+        // Create Python datetime object with UTC timezone
+        PyDateTime::new(
+            py,
+            year as i32,
+            month,
+            day,
+            hour,
+            minute,
+            whole_seconds,
+            microsecond,
+            Some(tzinfo)
+        )
+    }
+
     /// Get the Julian Date in a specified time system.
     ///
     /// Args:

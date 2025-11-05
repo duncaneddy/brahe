@@ -460,8 +460,8 @@ def _groundtrack_plotly(
         _plot_zone_group_plotly(fig, group, show_legend)
 
     # Plot trajectories
-    for group in trajectory_groups:
-        _plot_trajectory_group_plotly(fig, group, show_legend)
+    for track_idx, group in enumerate(trajectory_groups, start=1):
+        _plot_trajectory_group_plotly(fig, group, show_legend, track_idx)
 
     return fig
 
@@ -854,25 +854,21 @@ def _plot_station_group_plotly(
         rgba_color = _color_to_rgba(color, alpha)
 
         # For closed circles, don't split at antimeridian - Plotly handles it
-        # Only check if circle extends beyond valid lat/lon ranges
-        max_lat = max(cone_lats_closed)
-        min_lat = min(cone_lats_closed)
+        # Clip latitudes to avoid rendering artifacts at extreme polar regions
+        cone_lats_clipped = [max(min(lat, 89.9), -89.9) for lat in cone_lats_closed]
 
-        # Skip circles that extend to extreme latitudes (polar regions)
-        # These can cause rendering artifacts
-        if max_lat < 85 and min_lat > -85:
-            fig.add_trace(
-                go.Scattergeo(
-                    lat=cone_lats_closed,
-                    lon=cone_lons_closed,
-                    mode="lines",
-                    line=dict(width=0),
-                    fill="toself",
-                    fillcolor=rgba_color,
-                    showlegend=False,
-                    hoverinfo="skip",
-                )
+        fig.add_trace(
+            go.Scattergeo(
+                lat=cone_lats_clipped,
+                lon=cone_lons_closed,
+                mode="lines",
+                line=dict(width=0),
+                fill="toself",
+                fillcolor=rgba_color,
+                showlegend=False,
+                hoverinfo="skip",
             )
+        )
 
     # Plot all station markers as a single trace
     if station_lats:
@@ -955,7 +951,7 @@ def _plot_zone_group_plotly(fig, group, show_legend):
         )
 
 
-def _plot_trajectory_group_plotly(fig, group, show_legend):
+def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
     """Plot a trajectory group (plotly)."""
     trajectory = group.get("trajectory")
     color = group.get("color", "red")
@@ -966,11 +962,27 @@ def _plot_trajectory_group_plotly(fig, group, show_legend):
     if trajectory is None:
         return
 
-    # Extract satellite name from trajectory using get_name() if available
-    sat_name = "Satellite"
+    # Extract satellite identifier from trajectory with fallback hierarchy:
+    # 1. Try get_name() - spacecraft name (e.g., "NISAR")
+    # 2. Try get_id() - numeric ID (e.g., NORAD catalog number)
+    # 3. Fall back to track index (e.g., "Track 1", "Track 2")
+    sat_name = None
+
+    # Try name first
     if hasattr(trajectory, "get_name"):
         name = trajectory.get_name()
-        sat_name = name if name else "Satellite"
+        if name:
+            sat_name = name
+
+    # If no name, try ID
+    if not sat_name and hasattr(trajectory, "get_id"):
+        traj_id = trajectory.get_id()
+        if traj_id is not None:
+            sat_name = f"ID {traj_id}"
+
+    # Final fallback: use track index
+    if not sat_name:
+        sat_name = f"Track {track_idx}"
 
     # Extract lat/lon
     if hasattr(trajectory, "to_matrix"):

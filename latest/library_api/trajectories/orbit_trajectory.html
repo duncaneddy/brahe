@@ -2181,29 +2181,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ground Tracks
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../learn/plots/orbital_trajectories.html" class="md-nav__link">
         
   
@@ -2233,6 +2210,29 @@
   
   <span class="md-ellipsis">
     3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
     
   </span>
   
@@ -2606,6 +2606,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualizing Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/ground_contacts.html" class="md-nav__link">
         
   
@@ -2635,29 +2658,6 @@
   
   <span class="md-ellipsis">
     Calculating Doppler Complensation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Visualizing Orbital Trajectories
     
   </span>
   
@@ -6615,12 +6615,12 @@ errors defaults to 'strict'.</p>
   </span>
 
 <a href="#brahe.OrbitTrajectory.epochs" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">epochs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">epochs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            Epoch (brahe._brahe.Epoch)" href="../time/epoch.html#brahe._brahe.Epoch">Epoch</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Get all epochs as a numpy array.</p>
+        <p>Get all epochs as a list of Epoch objects.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -6634,11 +6634,11 @@ errors defaults to 'strict'.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-internal" title="            Epoch (brahe._brahe.Epoch)" href="../time/epoch.html#brahe._brahe.Epoch">Epoch</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>numpy.ndarray: 1D array of Julian dates for all epochs</p>
+                <p>list[Epoch]: List of Epoch objects for all trajectory points</p>
               </div>
             </td>
           </tr>
@@ -6656,7 +6656,8 @@ errors defaults to 'strict'.</p>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">500e3</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">7600.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">traj</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">epc</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">traj</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">epc</span> <span class="o">+</span> <span class="mf">60.0</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">epochs_array</span> <span class="o">=</span> <span class="n">traj</span><span class="o">.</span><span class="n">epochs</span><span class="p">()</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">epochs_list</span> <span class="o">=</span> <span class="n">traj</span><span class="o">.</span><span class="n">epochs</span><span class="p">()</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;First epoch: </span><span class="si">{</span><span class="n">epochs_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </details>
 
@@ -8853,7 +8854,7 @@ must be None for Cartesian representation</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>numpy.ndarray: 2D array of states with shape (6, N) where N is the number of states</p>
+                <p>numpy.ndarray: 2D array of states with shape (N, 6) where N is the number of states</p>
               </div>
             </td>
           </tr>

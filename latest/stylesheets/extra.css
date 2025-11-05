@@ -10,10 +10,15 @@
 
 .plotly-embed iframe {
     width: 100%;
-    height: 480px;
+    height: 700px;
     border: 0;
     background: transparent;
     display: block;
+}
+
+/* Increase main column width */
+.md-grid {
+  max-width: 1440px; 
 }
 
 /* Material for MkDocs sets this attribute on <html> */

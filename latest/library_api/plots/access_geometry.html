@@ -2181,29 +2181,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ground Tracks
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../learn/plots/orbital_trajectories.html" class="md-nav__link">
         
   
@@ -2233,6 +2210,29 @@
   
   <span class="md-ellipsis">
     3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
     
   </span>
   
@@ -2606,6 +2606,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualizing Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/ground_contacts.html" class="md-nav__link">
         
   
@@ -2635,29 +2658,6 @@
   
   <span class="md-ellipsis">
     Calculating Doppler Complensation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Visualizing Orbital Trajectories
     
   </span>
   
@@ -4682,7 +4682,7 @@
 
 
 <a href="#brahe.plot_access_polar" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_access_polar</span><span class="p">(</span><span class="n">access_windows</span><span class="p">,</span> <span class="n">min_elevation</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_access_polar</span><span class="p">(</span><span class="n">access_windows</span><span class="p">,</span> <span class="n">propagator</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            KeplerianPropagator (brahe._brahe.KeplerianPropagator)" href="../propagators/keplerian_propagator.html#brahe.KeplerianPropagator">KeplerianPropagator</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            SGPPropagator (brahe._brahe.SGPPropagator)" href="../propagators/sgp_propagator.html#brahe.SGPPropagator">SGPPropagator</a></span><span class="p">],</span> <span class="n">min_elevation</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time_step</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">elevation_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radial_tick_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radial_tick_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radial_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radial_tick_offset</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4727,6 +4727,22 @@
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>propagator</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-internal" title="            KeplerianPropagator (brahe._brahe.KeplerianPropagator)" href="../propagators/keplerian_propagator.html#brahe.KeplerianPropagator">KeplerianPropagator</a>, <a class="autorefs autorefs-internal" title="            SGPPropagator (brahe._brahe.SGPPropagator)" href="../propagators/sgp_propagator.html#brahe.SGPPropagator">SGPPropagator</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Propagator object for computing interpolated trajectories</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>min_elevation</code>
             </td>
             <td>
@@ -4743,6 +4759,59 @@
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>num_samples</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of samples for interpolation. If None, uses time_step.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_step</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time step for interpolation (seconds). Default: 5.0.
+                         Ignored if num_samples is specified.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>elevation_mask</code>
+            </td>
+            <td>
+                  <code>float, callable, or array</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Elevation mask to visualize.
+Can be:
+- float: Constant elevation angle (degrees)
+- callable: Function taking azimuth (degrees) returning elevation (degrees)
+- array: Elevation values at each azimuth (evaluated at 360 points around horizon)</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>backend</code>
             </td>
             <td>
@@ -4755,6 +4824,106 @@
             </td>
             <td>
                   <code>&#39;matplotlib&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>width</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure width in pixels (plotly only). Default: None (responsive)</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>height</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure height in pixels (plotly only). Default: None (responsive)</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>radial_tick_values</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/array.html#module-array">array</a> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Custom radial tick positions (in radius units: 90-elevation).
+Default: [15, 30, 45, 60, 75, 90] (corresponding to elevations 75°, 60°, 45°, 30°, 15°, 0°)</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>radial_tick_labels</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/array.html#module-array">array</a> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Custom labels for radial ticks.
+Default: ["75°", "60°", "45°", "30°", "15°", "0°"]</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>radial_range</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(min, max) range for radial axis. Default: (0, 90) for matplotlib,
+auto-calculated for plotly to accommodate offset ticks</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>radial_tick_offset</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Offset for radial tick positions in plotly (to avoid overlapping
+with circle lines). Default: 3. Set to 0 for no offset. Only applies to plotly.</p>
+              </div>
+            </td>
+            <td>
+                  <code>8</code>
             </td>
           </tr>
       </tbody>
@@ -4825,7 +4994,7 @@
 
 
 <a href="#brahe.plot_access_elevation" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_access_elevation</span><span class="p">(</span><span class="n">access_windows</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_access_elevation</span><span class="p">(</span><span class="n">access_windows</span><span class="p">,</span> <span class="n">propagator</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            KeplerianPropagator (brahe._brahe.KeplerianPropagator)" href="../propagators/keplerian_propagator.html#brahe.KeplerianPropagator">KeplerianPropagator</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            SGPPropagator (brahe._brahe.SGPPropagator)" href="../propagators/sgp_propagator.html#brahe.SGPPropagator">SGPPropagator</a></span><span class="p">],</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time_step</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4857,12 +5026,61 @@
 - access_window: AccessWindow object
 - propagator (Propagator, optional): Propagator for full trajectory
 - color (str, optional): Line color
-- line_width (float, optional): Line width
-- label (str, optional): Legend label</p>
+- line_width (float, optional): Line width</p>
               </div>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>propagator</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-internal" title="            KeplerianPropagator (brahe._brahe.KeplerianPropagator)" href="../propagators/keplerian_propagator.html#brahe.KeplerianPropagator">KeplerianPropagator</a>, <a class="autorefs autorefs-internal" title="            SGPPropagator (brahe._brahe.SGPPropagator)" href="../propagators/sgp_propagator.html#brahe.SGPPropagator">SGPPropagator</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Propagator object for computing interpolated trajectories</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_samples</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of samples for interpolation. If None, uses time_step.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_step</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time step for interpolation (seconds). Default: 5.0.
+                         Ignored if num_samples is specified.
+- label (str, optional): Legend label</p>
+              </div>
+            </td>
+            <td>
+                  <code>5.0</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -4879,6 +5097,38 @@
             </td>
             <td>
                   <code>&#39;matplotlib&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>width</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure width in pixels (plotly only). Default: 1400</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>height</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure height in pixels (plotly only). Default: 700</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>

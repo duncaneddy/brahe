@@ -2181,29 +2181,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ground Tracks
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../learn/plots/orbital_trajectories.html" class="md-nav__link">
         
   
@@ -2233,6 +2210,29 @@
   
   <span class="md-ellipsis">
     3D Trajectory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../learn/plots/ground_tracks.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ground Tracks
     
   </span>
   
@@ -2606,6 +2606,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualizing Orbital Trajectories
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/ground_contacts.html" class="md-nav__link">
         
   
@@ -2635,29 +2658,6 @@
   
   <span class="md-ellipsis">
     Calculating Doppler Complensation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../examples/visualizing_orbital_trajectories.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Visualizing Orbital Trajectories
     
   </span>
   
@@ -3657,6 +3657,15 @@
   <a href="#brahe._brahe.Epoch.to_datetime_as_time_system" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_datetime_as_time_system
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brahe._brahe.Epoch.to_pydatetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_pydatetime
     </span>
   </a>
   
@@ -5536,6 +5545,15 @@
   <a href="#brahe._brahe.Epoch.to_datetime_as_time_system" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_datetime_as_time_system
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brahe._brahe.Epoch.to_pydatetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_pydatetime
     </span>
   </a>
   
@@ -8671,6 +8689,73 @@ in the UTC time system.</p>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">year</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">day</span><span class="p">,</span> <span class="n">hour</span><span class="p">,</span> <span class="n">minute</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">ns</span> <span class="o">=</span> <span class="n">epc</span><span class="o">.</span><span class="n">to_datetime_as_time_system</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">TAI</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TAI: </span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">month</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">day</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">hour</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">minute</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">second</span><span class="si">:</span><span class="s2">06.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Output: TAI: 2024-01-01 12:00:37.000</span>
+</span></code></pre></div>
+</details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="brahe._brahe.Epoch.to_pydatetime" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">to_pydatetime</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-method descriptor"><code>method descriptor</code></small>
+  </span>
+
+<a href="#brahe._brahe.Epoch.to_pydatetime" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_pydatetime</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert the epoch to a Python datetime object in UTC timezone.</p>
+<p>This method always converts the epoch to UTC before creating the datetime object,
+regardless of the epoch's original time system.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>datetime.datetime: Python datetime object with UTC timezone</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Create epoch in GPS time</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">epc</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mf">45.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">GPS</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Convert to Python datetime (always UTC)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">dt</span> <span class="o">=</span> <span class="n">epc</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">()</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>  <span class="c1"># datetime object in UTC</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">tzinfo</span><span class="p">)</span>  <span class="c1"># timezone.utc</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Verify it&#39;s always UTC</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">dt</span><span class="o">.</span><span class="n">tzinfo</span> <span class="o">==</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span>
 </span></code></pre></div>
 </details>
 

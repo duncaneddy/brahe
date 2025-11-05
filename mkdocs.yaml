@@ -223,6 +223,7 @@ nav:
                 - library_api/time/index.md
                 - Epoch: library_api/time/epoch.md
                 - Conversions: library_api/time/conversions.md
+                - TimeRange: library_api/time/time_range.md
             - Coordinates:
                 - library_api/coordinates/index.md
                 - Cartesian: library_api/coordinates/cartesian.md
@@ -234,6 +235,7 @@ nav:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md
                 - Two-Line Elements: library_api/orbits/tle.md
+                - Altitude Functions: library_api/orbits/altitude_functions.md
                 - Enumerations: library_api/orbits/enums.md
             - Attitude:
                 - library_api/attitude/index.md
@@ -241,6 +243,7 @@ nav:
                 - Rotation Matrix: library_api/attitude/rotation_matrix.md
                 - Euler Angles: library_api/attitude/euler_angles.md
                 - Euler Axis: library_api/attitude/euler_axis.md
+                - EulerAngleOrder: library_api/attitude/euler_angle_order.md
             - Trajectories:
                 - library_api/trajectories/index.md
                 - DTrajectory: library_api/trajectories/dtrajectory.md
@@ -258,6 +261,7 @@ nav:
                 - library_api/access/index.md
                 - Locations: library_api/access/locations.md
                 - Constraints: library_api/access/constraints.md
+                - Constraint Computer: library_api/access/constraint_computer.md
                 - Windows: library_api/access/windows.md
                 - Enumerations: library_api/access/enums.md
             - Plots:
@@ -266,6 +270,7 @@ nav:
                 - Orbital Trajectories: library_api/plots/orbital_trajectories.md
                 - 3D Trajectory: library_api/plots/3d_trajectory.md
                 - Access Geometry: library_api/plots/access_geometry.md
+                - Gabbard Diagram: library_api/plots/gabbard.md
             - Utilities:
                 - library_api/utils/index.md
                 - Caching: library_api/utils/caching.md

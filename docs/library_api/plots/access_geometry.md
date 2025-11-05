@@ -3,3 +3,5 @@
 ::: brahe.plot_access_polar
 
 ::: brahe.plot_access_elevation
+
+::: brahe.plot_access_elevation_azimuth

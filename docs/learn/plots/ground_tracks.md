@@ -211,34 +211,6 @@ fig = bh.plot_groundtrack(
 )
 ```
 
-## Common Use Cases
-
-**Mission Planning**: Identify ground contact opportunities and coverage gaps
-
-Use the ground station networks example above to visualize coverage, or analyze specific gaps with the maximum coverage gap analysis example for detailed mission planning.
-
-**Coverage Analysis**: Determine when targets are accessible
-
-```python
-# Load multiple ground station networks and visualize coverage
-nasa_dsn = bh.datasets.groundstations.load("nasa dsn")
-nasa_nen = bh.datasets.groundstations.load("nasa nen")
-
-fig = bh.plot_groundtrack(
-    trajectories=[{"trajectory": traj}],
-    ground_stations=[
-        {"stations": nasa_dsn, "color": "red", "alpha": 0.3},
-        {"stations": nasa_nen, "color": "blue", "alpha": 0.3}
-    ],
-    gs_cone_altitude=550e3,  # Satellite altitude
-    gs_min_elevation=10.0
-)
-```
-
-**Orbit Comparison**: Understand different orbit characteristics
-
-See the multiple spacecraft example above to compare sun-synchronous, medium-inclination, and equatorial orbits.
-
 ## Tips
 
 - Use `backend="plotly"` for interactive exploration and presentations

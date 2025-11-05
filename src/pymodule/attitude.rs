@@ -17,7 +17,47 @@ fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
     }
 }
 
-/// Python wrapper for EulerAngleOrder enum
+/// Enumeration of Euler angle rotation sequences.
+///
+/// Specifies the order of rotations for Euler angle representations. Each sequence
+/// represents three consecutive rotations about specified axes. There are 12 possible
+/// sequences: 6 symmetric (XYX, XZX, YXY, YZY, ZXZ, ZYZ) and 6 asymmetric (XYZ, XZY,
+/// YXZ, YZX, ZXY, ZYX).
+///
+/// The sequence determines how Euler angles are applied: the first rotation is about
+/// the first axis, the second about the second axis, and the third about the third axis.
+/// For example, `XYZ` means rotate about X, then Y, then Z.
+///
+/// Attributes:
+///     XYX: X-Y-X sequence (symmetric). Numerical value: 121
+///     XYZ: X-Y-Z sequence (Roll-Pitch-Yaw in aerospace). Numerical value: 123
+///     XZX: X-Z-X sequence (symmetric). Numerical value: 131
+///     XZY: X-Z-Y sequence. Numerical value: 132
+///     YXY: Y-X-Y sequence (symmetric). Numerical value: 212
+///     YXZ: Y-X-Z sequence. Numerical value: 213
+///     YZX: Y-Z-X sequence. Numerical value: 231
+///     YZY: Y-Z-Y sequence (symmetric). Numerical value: 232
+///     ZXY: Z-X-Y sequence. Numerical value: 312
+///     ZXZ: Z-X-Z sequence (symmetric). Numerical value: 313
+///     ZYX: Z-Y-X sequence (Yaw-Pitch-Roll in aerospace). Numerical value: 321
+///     ZYZ: Z-Y-Z sequence (classical Euler angles in physics). Numerical value: 323
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create Euler angles using XYZ sequence (Roll-Pitch-Yaw)
+///     euler_rpy = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 10.0, 20.0, 30.0, bh.AngleFormat.DEGREES)
+///     print(f"Order: {euler_rpy.order}")  # EulerAngleOrder.XYZ
+///
+///     # Create Euler angles using ZYZ sequence (classical)
+///     euler_zyz = bh.EulerAngle(bh.EulerAngleOrder.ZYZ, 45.0, 60.0, 90.0, bh.AngleFormat.DEGREES)
+///
+///     # Convert quaternion to Euler angles with specific sequence
+///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+///     euler = bh.EulerAngle.from_quaternion(q, bh.EulerAngleOrder.ZYX)
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "EulerAngleOrder")]
 #[derive(Clone)]

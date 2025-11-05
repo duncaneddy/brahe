@@ -34,13 +34,9 @@ It also contains many new features, improvements to core functionality, and bett
     - [x] Gabbard Plots
 - [ ] Documentation
     - [x] Automatically compiled and checked code samples
-    - [ ] User Guide
+    - [x] User Guide
     - [x] API Reference
-    - [ ] Example
-        - [ ] Downloading TLE Data
-        - [ ] Computing Ground Station Accesses
-        - [ ] Computing Imaging Opportunities
-        - [ ] Visualizing Orbital Trajectories
+    - [ ] Examples
 - [x] CI/CD Pipeline
     - [x] Documentation-only fast releases
     - [x] MacOS testing and builds

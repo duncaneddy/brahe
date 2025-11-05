@@ -177,6 +177,68 @@ body {
     return light_path, dark_path
 
 
+def save_themed_static_image(
+    fig_generator, outfile_base, format="svg", width=1200, height=800
+):
+    """
+    Save figure as both light and dark themed static images (SVG or PNG).
+
+    Args:
+        fig_generator (callable or go.Figure): Either a function that takes theme ("light"/"dark")
+                                                and returns a figure, or a figure object to theme
+        outfile_base (Path or str): Base output path without _light/_dark suffix or extension
+        format (str): Image format - "svg" or "png"
+        width (int): Image width in pixels
+        height (int): Image height in pixels
+
+    Returns:
+        tuple: (light_path, dark_path) - Paths to the generated files
+
+    Example:
+        # Option 1: Pass a generator function
+        def create_fig(theme):
+            colors = get_theme_colors(theme)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=[1,2,3], y=[1,2,3], line=dict(color=colors["primary"])))
+            return fig
+
+        save_themed_static_image(create_fig, "output", format="svg")
+
+        # Option 2: Pass a figure (theme will be applied automatically)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=[1,2,3], y=[1,2,3]))
+        save_themed_static_image(fig, "output", format="png")
+    """
+    from pathlib import Path
+
+    outfile_base = Path(outfile_base)
+    outdir = outfile_base.parent
+    filename = outfile_base.stem
+
+    # Determine if fig_generator is callable or a figure
+    is_callable = callable(fig_generator)
+
+    # Generate light theme version
+    if is_callable:
+        fig_light = fig_generator("light")
+    else:
+        fig_light = go.Figure(fig_generator)  # Copy figure
+    apply_brahe_theme(fig_light, "light")
+    light_path = outdir / f"{filename}_light.{format}"
+    fig_light.write_image(light_path, width=width, height=height, format=format)
+
+    # Generate dark theme version
+    if is_callable:
+        fig_dark = fig_generator("dark")
+    else:
+        fig_dark = go.Figure(fig_generator)  # Copy figure
+    apply_brahe_theme(fig_dark, "dark")
+    dark_path = outdir / f"{filename}_dark.{format}"
+    fig_dark.write_image(dark_path, width=width, height=height, format=format)
+
+    return light_path, dark_path
+
+
 def get_color_sequence(theme="light", num_colors=None):
     """
     Get a sequence of colors for multi-line plots.

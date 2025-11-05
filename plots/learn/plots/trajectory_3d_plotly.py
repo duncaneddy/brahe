@@ -13,7 +13,7 @@ import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html
+from brahe_theme import save_themed_html, save_themed_static_image
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -74,10 +74,12 @@ fig = bh.plot_trajectory_3d(
     backend="plotly",
 )
 
-# Save themed HTML files
-light_path, dark_path = save_themed_html(fig, OUTDIR / SCRIPT_NAME)
-print(f"✓ Generated {light_path} (Blue Marble texture)")
-print(f"✓ Generated {dark_path} (Blue Marble texture)")
+# Save as static images (SVG) - large texture, save as static to reduce file size
+light_path, dark_path = save_themed_static_image(
+    fig, OUTDIR / SCRIPT_NAME, format="svg", width=1400, height=900
+)
+print(f"✓ Generated {light_path} (Blue Marble texture - static SVG)")
+print(f"✓ Generated {dark_path} (Blue Marble texture - static SVG)")
 
 # Create 3D trajectory plot with simple texture
 fig_simple = bh.plot_trajectory_3d(
@@ -91,28 +93,31 @@ fig_simple = bh.plot_trajectory_3d(
     backend="plotly",
 )
 
-# Save simple texture version
+# Save simple texture version as interactive HTML (small file size)
 light_path, dark_path = save_themed_html(fig_simple, OUTDIR / f"{SCRIPT_NAME}_simple")
-print(f"✓ Generated {light_path} (Simple texture)")
-print(f"✓ Generated {dark_path} (Simple texture)")
+print(f"✓ Generated {light_path} (Simple texture - interactive HTML)")
+print(f"✓ Generated {dark_path} (Simple texture - interactive HTML)")
 
-# Note: Natural Earth texture option is available but requires downloading
-# Uncomment below to generate Natural Earth texture example:
-#
-# print("Downloading Natural Earth 50m texture (first time only)...")
-# fig_ne = bh.plot_trajectory_3d(
-#     [{"trajectory": traj, "color": "red", "label": "ISS"}],
-#     units="km",
-#     show_earth=True,
-#     earth_texture="natural_earth_50m",
-#     backend="plotly",
-# )
-#
-# # Save Natural Earth texture version
-# light_path, dark_path = save_themed_html(
-#     fig_ne, OUTDIR / f"{SCRIPT_NAME}_natural_earth"
-# )
-# print(f"✓ Generated {light_path} (Natural Earth texture)")
-# print(f"✓ Generated {dark_path} (Natural Earth texture)")
+fig_ne = bh.plot_trajectory_3d(
+    [
+        {"trajectory": traj_iss, "color": "red", "label": "LEO 51.6° (~420 km)"},
+        {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
+    ],
+    units="km",
+    show_earth=True,
+    earth_texture="natural_earth_50m",
+    backend="plotly",
+)
+
+# Save Natural Earth texture version as static images (SVG)
+light_path, dark_path = save_themed_static_image(
+    fig_ne,
+    OUTDIR / f"{SCRIPT_NAME}_natural_earth",
+    format="svg",
+    width=1400,
+    height=900,
+)
+print(f"✓ Generated {light_path} (Natural Earth texture - static SVG)")
+print(f"✓ Generated {dark_path} (Natural Earth texture - static SVG)")
 
 print("\nAll plotly figures generated successfully!")

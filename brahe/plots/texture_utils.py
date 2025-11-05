@@ -7,15 +7,17 @@ Handles loading packaged textures and downloading/caching external texture data.
 import zipfile
 from pathlib import Path
 from typing import Optional
-import requests
+import httpx
 from PIL import Image
 
 import brahe as bh
 
 
 # Natural Earth texture URLs
-NATURAL_EARTH_50M_URL = "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/raster/NE1_50M_SR_W.zip"
-NATURAL_EARTH_10M_URL = "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/raster/NE1_HR_LC_SR_W.zip"
+NATURAL_EARTH_50M_URL = "https://naciscdn.org/naturalearth/50m/raster/NE1_50M_SR_W.zip"
+NATURAL_EARTH_10M_URL = (
+    "https://naciscdn.org/naturalearth/10m/raster/NE1_HR_LC_SR_W.zip"
+)
 
 # Expected file names after extraction
 NATURAL_EARTH_50M_FILE = "NE1_50M_SR_W.tif"
@@ -108,7 +110,7 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
             "User-Agent": "Mozilla/5.0 (compatible; brahe/0.1.0; +https://github.com/duncaneddy/brahe)",
             "Accept": "*/*",
         }
-        response = requests.get(url, timeout=120, headers=headers)
+        response = httpx.get(url, timeout=120, headers=headers)
         response.raise_for_status()
 
         with open(zip_path, "wb") as f:
@@ -116,7 +118,7 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
 
         print(f"Downloaded {len(response.content) / 1024 / 1024:.1f} MB")
 
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise RuntimeError(f"Failed to download Natural Earth texture: {e}")
 
     # Extract zip file
@@ -134,12 +136,26 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
         if zip_path.exists():
             zip_path.unlink()
 
-    # Verify texture exists
+    # Find the texture file (may be in subdirectory or root)
     if not texture_path.exists():
-        raise RuntimeError(
-            f"Texture file not found after extraction: {texture_path}. "
-            f"Expected file: {expected_file}"
-        )
+        # Search for the file in subdirectories
+        found_files = list(texture_dir.rglob(expected_file))
+        if found_files:
+            # Move file to expected location if in subdirectory
+            found_file = found_files[0]
+            if found_file != texture_path:
+                import shutil
+
+                shutil.move(str(found_file), str(texture_path))
+                # Clean up empty parent directory if it exists
+                parent = found_file.parent
+                if parent != texture_dir and not any(parent.iterdir()):
+                    parent.rmdir()
+        else:
+            raise RuntimeError(
+                f"Texture file not found after extraction: {texture_path}. "
+                f"Expected file: {expected_file}"
+            )
 
     return texture_path
 
@@ -182,11 +198,18 @@ def load_earth_texture(texture_name: str) -> Optional[Image.Image]:
     elif texture_name == "natural_earth_10m":
         texture_path = download_natural_earth_texture("10m")
         try:
-            img = Image.open(texture_path)
-            # Convert to RGB if necessary
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-            return img
+            # Increase PIL's max image size for this large texture (21600x10800 = 233M pixels)
+            # This is a legitimate high-resolution Earth texture, not a decompression bomb
+            old_max = Image.MAX_IMAGE_PIXELS
+            Image.MAX_IMAGE_PIXELS = 250_000_000  # Allow up to 250M pixels
+            try:
+                img = Image.open(texture_path)
+                # Convert to RGB if necessary
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                return img
+            finally:
+                Image.MAX_IMAGE_PIXELS = old_max
         except Exception as e:
             raise RuntimeError(f"Failed to load Natural Earth 10m texture: {e}")
 

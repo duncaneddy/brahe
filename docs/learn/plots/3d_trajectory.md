@@ -6,15 +6,29 @@ Three-dimensional trajectory plots display orbital paths in Earth-Centered Inert
 
 The plotly backend creates fully interactive 3D plots. Click and drag to rotate, scroll to zoom, and double-click to reset the view.
 
+### Simple Texture (Interactive)
+
 <div class="plotly-embed">
   <iframe class="only-light" src="../../figures/trajectory_3d_plotly_simple_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../../figures/trajectory_3d_plotly_simple_dark.html"  loading="lazy"></iframe>
 </div>
 
-<div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/trajectory_3d_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/trajectory_3d_plotly_dark.html"  loading="lazy"></iframe>
-</div>
+### Blue Marble Texture
+
+!!! note
+    Textues are provided as image-only in documentation to reduce page load times. Interactive versions can be generated using the provided code.
+
+<figure markdown="span">
+    ![3D Trajectory with Blue Marble](../../figures/trajectory_3d_plotly_light.svg#only-light)
+    ![3D Trajectory with Blue Marble](../../figures/trajectory_3d_plotly_dark.svg#only-dark)
+</figure>
+
+### Natural Earth Texture
+
+<figure markdown="span">
+    ![3D Trajectory with Natural Earth](../../figures/trajectory_3d_plotly_natural_earth_light.svg#only-light)
+    ![3D Trajectory with Natural Earth](../../figures/trajectory_3d_plotly_natural_earth_dark.svg#only-dark)
+</figure>
 
 ??? "Plot Source"
 

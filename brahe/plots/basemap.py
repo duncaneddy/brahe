@@ -6,7 +6,7 @@ Handles downloading and caching of Natural Earth basemap data.
 
 import zipfile
 from pathlib import Path
-import requests
+import httpx
 
 import brahe as bh
 
@@ -45,7 +45,7 @@ def get_natural_earth_land_shapefile():
 
     print("Downloading Natural Earth 50m Land data...")
     try:
-        response = requests.get(NATURAL_EARTH_50M_LAND_URL, timeout=30)
+        response = httpx.get(NATURAL_EARTH_50M_LAND_URL, timeout=30)
         response.raise_for_status()
 
         with open(zip_path, "wb") as f:
@@ -53,7 +53,7 @@ def get_natural_earth_land_shapefile():
 
         print(f"Downloaded to {zip_path}")
 
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise RuntimeError(f"Failed to download Natural Earth data: {e}")
 
     # Extract zip file

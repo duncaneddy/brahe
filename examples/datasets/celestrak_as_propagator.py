@@ -22,7 +22,7 @@ print(f"Created propagator: {iss_prop.get_name()}")
 print(f"Epoch: {iss_prop.epoch}")
 
 # Propagate forward 1 orbit period (~93 minutes for ISS)
-iss_prop.propagate_to(iss_prop.epoch + 93.0 * 60.0)
+iss_prop.propagate_to(iss_prop.epoch + bh.orbital_period(iss_prop.semi_major_axis))
 state = iss_prop.current_state()
 
 print("\nState after 1 orbit:")

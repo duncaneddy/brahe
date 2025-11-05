@@ -996,6 +996,7 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
 
         lats = []
         lons = []
+        timestamps = []
         for i, state in enumerate(states):
             epoch = epochs[i]
             ecef_state = bh.state_eci_to_ecef(epoch, state)
@@ -1005,6 +1006,7 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
             )
             lats.append(math.degrees(lat))
             lons.append(math.degrees(lon))
+            timestamps.append(epoch.isostring_with_decimals(3))
 
     elif isinstance(trajectory, np.ndarray):
         if trajectory.shape[1] >= 2:
@@ -1013,6 +1015,7 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
             if np.max(np.abs(lats)) <= np.pi:
                 lats = np.degrees(lats)
                 lons = np.degrees(lons)
+            timestamps = None  # No epoch data available for numpy arrays
         else:
             return
     else:
@@ -1022,11 +1025,17 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
         go.Scattergeo(
             lat=lats,
             lon=lons,
-            mode="lines",
+            mode="lines+markers",
             line=dict(color=color, width=line_width),
+            marker=dict(size=0.1, color=color),  # Nearly invisible markers for hover
             name=sat_name,
             showlegend=show_legend,
-            hovertemplate=f"<b>{sat_name}</b><br>Lat: %{{lat:.2f}}°<br>Lon: %{{lon:.2f}}°<extra></extra>",
+            customdata=timestamps if timestamps else None,
+            hovertemplate=(
+                f"<b>{sat_name}</b><br>Time: %{{customdata}}<br>Lat: %{{lat:.2f}}°<br>Lon: %{{lon:.2f}}°<extra></extra>"
+                if timestamps
+                else f"<b>{sat_name}</b><br>Lat: %{{lat:.2f}}°<br>Lon: %{{lon:.2f}}°<extra></extra>"
+            ),
         )
     )
 

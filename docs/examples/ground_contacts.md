@@ -64,13 +64,13 @@ Finally, we'll analyze the contact statistics, including the average daily conta
 We group the contact windows by station and compute the average daily contacts:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:150:168"
+--8<-- "./examples/examples/ground_contacts.py:164:190"
 ```
 
 Then we create two visualizations: a bar chart of average daily contacts per station, and a histogram of contact duration distribution:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:176:239"
+--8<-- "./examples/examples/ground_contacts.py:188:251"
 ```
 
 The daily contacts bar chart shows which stations have the most frequent visibility to NISAR:
@@ -90,7 +90,7 @@ The duration histogram shows the distribution of contact lengths, with statistic
 ## Full Code Example
 
 ```python title="ground_contacts.py"
---8<-- "./examples/examples/ground_contacts.py:19:245"
+--8<-- "./examples/examples/ground_contacts.py:19:257"
 ```
 
 ## See Also

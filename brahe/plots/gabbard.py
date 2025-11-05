@@ -6,6 +6,9 @@ used for visualizing satellite populations and debris clouds from breakup events
 """
 
 import time
+from typing import Union
+
+import matplotlib.figure
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -18,12 +21,12 @@ from brahe.plots.backend import validate_backend, apply_scienceplots_style
 def plot_gabbard_diagram(
     objects,
     epoch=None,
-    altitude_units="km",
-    period_units="min",
-    backend="matplotlib",
+    altitude_units: str = "km",
+    period_units: str = "min",
+    backend: str = "matplotlib",
     width=None,
     height=None,
-):
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """Plot Gabbard diagram showing orbital period vs apogee/perigee altitude.
 
     A Gabbard diagram is a scatter plot used to visualize satellite populations
@@ -50,7 +53,7 @@ def plot_gabbard_diagram(
         height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
     Returns:
-        Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
+        Union[matplotlib.figure.Figure, plotly.graph_objects.Figure]: Figure object
 
     Example:
         ```python

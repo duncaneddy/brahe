@@ -18,8 +18,12 @@ bh.initialize_eop()
 a_leo = bh.R_EARTH + 800e3  # Semi-major axis
 e_leo = 0.0  # Circular orbit
 
-inc_leo_deg = bh.sun_synchronous_inclination(a_leo, e_leo, bh.AngleFormat.DEGREES)
-inc_leo_rad = bh.sun_synchronous_inclination(a_leo, e_leo, bh.AngleFormat.RADIANS)
+inc_leo_deg = bh.sun_synchronous_inclination(
+    a_leo, e_leo, angle_format=bh.AngleFormat.DEGREES
+)
+inc_leo_rad = bh.sun_synchronous_inclination(
+    a_leo, e_leo, angle_format=bh.AngleFormat.RADIANS
+)
 
 print("Sun-synchronous LEO (800 km, circular):")
 print(f"  Inclination: {inc_leo_deg:.3f} degrees")
@@ -30,7 +34,7 @@ altitudes = [500, 600, 700, 800, 900, 1000]  # km
 print("\nSun-synchronous inclination vs altitude (circular orbits):")
 for alt_km in altitudes:
     a = bh.R_EARTH + alt_km * 1e3
-    inc = bh.sun_synchronous_inclination(a, 0.0, bh.AngleFormat.DEGREES)
+    inc = bh.sun_synchronous_inclination(a, 0.0, angle_format=bh.AngleFormat.DEGREES)
     print(f"  {alt_km:4d} km: {inc:.3f} deg")
 
 # Example 3: Effect of eccentricity
@@ -39,14 +43,16 @@ eccentricities = [0.0, 0.001, 0.005, 0.01, 0.02]
 
 print("\nSun-synchronous inclination vs eccentricity (700 km orbit):")
 for e in eccentricities:
-    inc = bh.sun_synchronous_inclination(a_fixed, e, bh.AngleFormat.DEGREES)
+    inc = bh.sun_synchronous_inclination(
+        a_fixed, e, angle_format=bh.AngleFormat.DEGREES
+    )
     print(f"  e = {e:.3f}: {inc:.3f} deg")
 
 # Example 4: Practical mission example (Landsat-like)
 a_landsat = bh.R_EARTH + 705e3
 e_landsat = 0.0001
 inc_landsat = bh.sun_synchronous_inclination(
-    a_landsat, e_landsat, bh.AngleFormat.DEGREES
+    a_landsat, e_landsat, angle_format=bh.AngleFormat.DEGREES
 )
 
 print("\nLandsat-like orbit (705 km, nearly circular):")

@@ -17,12 +17,12 @@ nu = 45.0  # Starting true anomaly (degrees)
 e = 0.01  # Eccentricity
 
 # Convert to mean anomaly
-mean_anomaly = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.DEGREES)
+mean_anomaly = bh.anomaly_true_to_mean(nu, e, angle_format=bh.AngleFormat.DEGREES)
 print(f"True anomaly:      {nu:.3f} deg")
 print(f"Mean anomaly:      {mean_anomaly:.3f} deg")
 
 # Convert back from mean to true anomaly
-nu_2 = bh.anomaly_mean_to_true(mean_anomaly, e, bh.AngleFormat.DEGREES)
+nu_2 = bh.anomaly_mean_to_true(mean_anomaly, e, angle_format=bh.AngleFormat.DEGREES)
 print(f"Round-trip result: {nu_2:.3f} deg")
 
 # Verify round-trip accuracy

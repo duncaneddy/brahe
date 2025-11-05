@@ -7,6 +7,8 @@ ground stations, and polygon zones.
 
 import math
 import time
+from typing import List, Tuple
+
 import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -21,7 +23,9 @@ from brahe.plots.backend import validate_backend, is_scienceplots_available
 from shapely.geometry import shape
 
 
-def split_ground_track_at_antimeridian(lons, lats, threshold=180.0):
+def split_ground_track_at_antimeridian(
+    lons, lats, threshold: float = 180.0
+) -> List[Tuple]:
     """Split a ground track into segments at antimeridian crossings.
 
     When a satellite ground track crosses the antimeridian (±180° longitude), plotting
@@ -36,7 +40,7 @@ def split_ground_track_at_antimeridian(lons, lats, threshold=180.0):
             wraparound. Default: 180.0
 
     Returns:
-        list of tuples: List of (lon_segment, lat_segment) tuples, where each tuple
+        List[Tuple]: List of (lon_segment, lat_segment) tuples, where each tuple
             contains arrays for one continuous segment
 
     Example:

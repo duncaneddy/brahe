@@ -144,7 +144,7 @@ def parse_params_from_docstring(doc: str) -> list:
     """Extract parameters from Args or Arguments section of docstring.
 
     Returns:
-        List of (param_name, param_type, is_optional) tuples
+        List of (param_name, param_type, is_optional, is_keyword_only) tuples
     """
     if not doc:
         return []
@@ -161,16 +161,64 @@ def parse_params_from_docstring(doc: str) -> list:
     args_text = args_match.group(1)
     params = []
 
-    # Parse each argument line
+    # Parse each argument line - need to look at multi-line parameter descriptions
+    current_param = None
+    current_desc = []
+
     for line in args_text.split("\n"):
         line = line.strip()
         if not line:
             continue
         # Match: "param_name (type): description" or "param_name (type, optional): description"
-        param_match = re.match(r"(\w+)\s*\(([^)]+)\):", line)
+        param_match = re.match(r"(\w+)\s*\(([^)]+)\):\s*(.*)", line)
         if param_match:
+            # Process previous parameter if exists
+            if current_param is not None:
+                param_name, param_type, is_optional = current_param
+                desc = " ".join(current_desc)
+                is_keyword_only = "(keyword-only)" in desc
+
+                # Handle type mapping
+                if " or " in param_type:
+                    types = [t.strip() for t in param_type.split(" or ")]
+                    mapped_types = []
+                    for t in types:
+                        if t == "numpy.ndarray" or t == "ndarray":
+                            mapped_types.append("np.ndarray")
+                        elif t == "list":
+                            mapped_types.append("List")
+                        elif t == "tuple":
+                            mapped_types.append("Tuple")
+                        else:
+                            mapped_types.append(t)
+                    py_type = f"Union[{', '.join(mapped_types)}]"
+                else:
+                    type_map = {
+                        "str": "str",
+                        "int": "int",
+                        "float": "float",
+                        "bool": "bool",
+                        "numpy.ndarray": "np.ndarray",
+                        "ndarray": "np.ndarray",
+                        "TimeSystem": "TimeSystem",
+                        "AngleFormat": "AngleFormat",
+                        "Epoch": "Epoch",
+                        "list": "List",
+                        "tuple": "Tuple",
+                        "dict": "dict",
+                        "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
+                    }
+                    py_type = type_map.get(param_type, param_type)
+
+                if not param_type or not param_type.strip():
+                    py_type = "Any"
+
+                params.append((param_name, py_type, is_optional, is_keyword_only))
+
+            # Start new parameter
             param_name = param_match.group(1)
             param_type = param_match.group(2).strip()
+            description = param_match.group(3).strip()
 
             # Check if parameter is optional
             is_optional = "optional" in param_type.lower()
@@ -180,47 +228,60 @@ def parse_params_from_docstring(doc: str) -> list:
                     r",?\s*optional\s*", "", param_type, flags=re.IGNORECASE
                 ).strip()
 
-            # Handle "A or B" union syntax from docstrings
-            if " or " in param_type:
-                # Split and map each type
-                types = [t.strip() for t in param_type.split(" or ")]
-                mapped_types = []
-                for t in types:
-                    # Apply type mapping
-                    if t == "numpy.ndarray" or t == "ndarray":
-                        mapped_types.append("np.ndarray")
-                    elif t == "list":
-                        mapped_types.append("List")
-                    elif t == "tuple":
-                        mapped_types.append("Tuple")
-                    else:
-                        mapped_types.append(t)
-                py_type = f"Union[{', '.join(mapped_types)}]"
-            else:
-                # Map types to Python type annotations
-                type_map = {
-                    "str": "str",
-                    "int": "int",
-                    "float": "float",
-                    "bool": "bool",
-                    "numpy.ndarray": "np.ndarray",
-                    "ndarray": "np.ndarray",
-                    "TimeSystem": "TimeSystem",
-                    "AngleFormat": "AngleFormat",
-                    "Epoch": "Epoch",
-                    "list": "List",
-                    "tuple": "Tuple",
-                    "dict": "dict",
-                    # AccessConstraint is a union of all constraint types
-                    "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
-                }
+            current_param = (param_name, param_type, is_optional)
+            current_desc = [description]
+        else:
+            # Continuation of previous parameter description
+            if current_param is not None:
+                current_desc.append(line)
 
-                py_type = type_map.get(param_type, param_type)
+    # Process last parameter
+    if current_param is not None:
+        param_name, param_type, is_optional = current_param
+        desc = " ".join(current_desc)
+        is_keyword_only = "(keyword-only)" in desc
 
-            # If param_type is empty or just whitespace, default to Any
-            if not param_type or not param_type.strip():
-                py_type = "Any"
-            params.append((param_name, py_type, is_optional))
+        # Handle "A or B" union syntax from docstrings
+        if " or " in param_type:
+            # Split and map each type
+            types = [t.strip() for t in param_type.split(" or ")]
+            mapped_types = []
+            for t in types:
+                # Apply type mapping
+                if t == "numpy.ndarray" or t == "ndarray":
+                    mapped_types.append("np.ndarray")
+                elif t == "list":
+                    mapped_types.append("List")
+                elif t == "tuple":
+                    mapped_types.append("Tuple")
+                else:
+                    mapped_types.append(t)
+            py_type = f"Union[{', '.join(mapped_types)}]"
+        else:
+            # Map types to Python type annotations
+            type_map = {
+                "str": "str",
+                "int": "int",
+                "float": "float",
+                "bool": "bool",
+                "numpy.ndarray": "np.ndarray",
+                "ndarray": "np.ndarray",
+                "TimeSystem": "TimeSystem",
+                "AngleFormat": "AngleFormat",
+                "Epoch": "Epoch",
+                "list": "List",
+                "tuple": "Tuple",
+                "dict": "dict",
+                # AccessConstraint is a union of all constraint types
+                "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
+            }
+
+            py_type = type_map.get(param_type, param_type)
+
+        # If param_type is empty or just whitespace, default to Any
+        if not param_type or not param_type.strip():
+            py_type = "Any"
+        params.append((param_name, py_type, is_optional, is_keyword_only))
 
     return params
 
@@ -233,7 +294,13 @@ def parse_init_params_from_docstring(doc: str) -> str:
         return "self, /, *args: Any, **kwargs: Any"
 
     param_strs = []
-    for param_name, param_type, is_optional in params:
+    kw_only_added = False
+    for param_name, param_type, is_optional, is_keyword_only in params:
+        # Add * separator before first keyword-only parameter
+        if is_keyword_only and not kw_only_added:
+            param_strs.append("*")
+            kw_only_added = True
+
         if is_optional:
             param_strs.append(f"{param_name}: {param_type} = ...")
         else:
@@ -250,7 +317,13 @@ def parse_method_params_from_docstring(doc: str) -> str:
         return "self"
 
     param_strs = []
-    for param_name, param_type, is_optional in params:
+    kw_only_added = False
+    for param_name, param_type, is_optional, is_keyword_only in params:
+        # Add * separator before first keyword-only parameter
+        if is_keyword_only and not kw_only_added:
+            param_strs.append("*")
+            kw_only_added = True
+
         if is_optional:
             param_strs.append(f"{param_name}: {param_type} = ...")
         else:
@@ -267,7 +340,13 @@ def parse_classmethod_params_from_docstring(doc: str) -> str:
         return "cls"
 
     param_strs = []
-    for param_name, param_type, is_optional in params:
+    kw_only_added = False
+    for param_name, param_type, is_optional, is_keyword_only in params:
+        # Add * separator before first keyword-only parameter
+        if is_keyword_only and not kw_only_added:
+            param_strs.append("*")
+            kw_only_added = True
+
         if is_optional:
             param_strs.append(f"{param_name}: {param_type} = ...")
         else:
@@ -451,7 +530,13 @@ def parse_function_params_from_docstring(doc: str) -> str:
         return ""
 
     param_strs = []
-    for param_name, param_type, is_optional in params:
+    kw_only_added = False
+    for param_name, param_type, is_optional, is_keyword_only in params:
+        # Add * separator before first keyword-only parameter
+        if is_keyword_only and not kw_only_added:
+            param_strs.append("*")
+            kw_only_added = True
+
         if is_optional:
             param_strs.append(f"{param_name}: {param_type} = ...")
         else:

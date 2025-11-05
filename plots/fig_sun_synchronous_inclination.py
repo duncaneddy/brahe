@@ -34,7 +34,9 @@ eccentricities = [0.0, 0.1, 0.3, 0.5]
 ssi_data = {}
 for e in eccentricities:
     ssi_data[e] = [
-        bh.sun_synchronous_inclination(bh.R_EARTH + a, e, bh.AngleFormat.DEGREES)
+        bh.sun_synchronous_inclination(
+            bh.R_EARTH + a, e, angle_format=bh.AngleFormat.DEGREES
+        )
         for a in alt
     ]
 

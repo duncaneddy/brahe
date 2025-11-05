@@ -34,7 +34,8 @@ mean_data = {}
 for e in eccentricities:
     # Take output mod 360 to wrap from 0 to 360 degrees
     mean_data[e] = [
-        bh.anomaly_true_to_mean(x, e, bh.AngleFormat.DEGREES) % 360 for x in nu
+        bh.anomaly_true_to_mean(x, e, angle_format=bh.AngleFormat.DEGREES) % 360
+        for x in nu
     ]
 
 # Create figure with theme support

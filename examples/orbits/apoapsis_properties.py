@@ -17,7 +17,7 @@ a = bh.R_EARTH + 500.0e3  # Semi-major axis (m)
 e = 0.01  # Eccentricity
 
 # Compute apoapsis velocity (generic)
-apoapsis_velocity = bh.apoapsis_velocity(a, e, bh.GM_EARTH)
+apoapsis_velocity = bh.apoapsis_velocity(a, e, gm=bh.GM_EARTH)
 print(f"Apoapsis velocity: {apoapsis_velocity:.3f} m/s")
 
 # Compute as an apogee velocity (Earth-specific)
@@ -29,7 +29,7 @@ apoapsis_distance = bh.apoapsis_distance(a, e)
 print(f"Apoapsis distance: {apoapsis_distance / 1e3:.3f} km")
 
 # Compute apoapsis altitude (generic)
-apoapsis_altitude = bh.apoapsis_altitude(a, e, bh.R_EARTH)
+apoapsis_altitude = bh.apoapsis_altitude(a, e, r_body=bh.R_EARTH)
 print(f"Apoapsis altitude: {apoapsis_altitude / 1e3:.3f} km")
 
 # Compute as an apogee altitude (Earth-specific)

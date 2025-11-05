@@ -3,32 +3,8 @@
 /// Uses rastro.constants.GM_EARTH as the standard gravitational parameter for the calculation.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///
-/// Returns:
-///     (float): The orbital period of the astronomical object in seconds.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     # Calculate orbital period for ISS-like orbit (400 km altitude)
-///     a = bh.R_EARTH + 400e3
-///     period = bh.orbital_period(a)
-///     print(f"Orbital period: {period/60:.2f} minutes")
-///     ```
-#[pyfunction]
-#[pyo3(text_signature = "(a)")]
-#[pyo3(name = "orbital_period")]
-fn py_orbital_period(a: f64) -> PyResult<f64> {
-    Ok(orbits::orbital_period(a))
-}
-
-/// Computes the orbital period of an astronomical object around a general body.
-///
-/// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
 ///
 /// Returns:
 ///     float: The orbital period of the astronomical object in seconds.
@@ -36,17 +12,69 @@ fn py_orbital_period(a: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate orbital period around the Moon
+///     # Using scalar semi-major axis
+///     a = bh.R_EARTH + 400e3
+///     period = bh.orbital_period(a)
+///     print(f"Orbital period: {period/60:.2f} minutes")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_EARTH + 400e3, 0.001, np.radians(51.6), 0, 0, 0]
+///     period = bh.orbital_period(oe)
+///     print(f"Orbital period: {period/60:.2f} minutes")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a_or_oe)")]
+#[pyo3(name = "orbital_period")]
+fn py_orbital_period(a_or_oe: &Bound<'_, PyAny>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        return Ok(orbits::orbital_period(a));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::orbital_period(oe[0]))
+}
+
+/// Computes the orbital period of an astronomical object around a general body.
+///
+/// Args:
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
+///
+/// Returns:
+///     float: The orbital period of the astronomical object in seconds.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Using scalar semi-major axis
 ///     a = 1900000.0  # 1900 km semi-major axis
 ///     period = bh.orbital_period_general(a, bh.GM_MOON)
 ///     print(f"Lunar orbital period: {period/3600:.2f} hours")
+///
+///     # Using Keplerian elements vector
+///     oe = [1900000.0, 0.01, np.radians(45), 0, 0, 0]
+///     period = bh.orbital_period_general(oe, bh.GM_MOON)
+///     print(f"Lunar orbital period: {period/3600:.2f} hours")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, gm)")]
+#[pyo3(text_signature = "(a_or_oe, gm)")]
 #[pyo3(name = "orbital_period_general")]
-fn py_orbital_period_general(a: f64, gm: f64) -> PyResult<f64> {
-    Ok(orbits::orbital_period_general(a, gm))
+fn py_orbital_period_general(a_or_oe: &Bound<'_, PyAny>, gm: f64) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        return Ok(orbits::orbital_period_general(a, gm));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::orbital_period_general(oe[0], gm))
 }
 
 /// Computes orbital period from an ECI state vector using the vis-viva equation.
@@ -97,8 +125,9 @@ fn py_orbital_period_from_state(
 /// Computes the mean motion of an astronomical object around Earth.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: The mean motion of the astronomical object in radians or degrees.
@@ -106,26 +135,40 @@ fn py_orbital_period_from_state(
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate mean motion for geostationary orbit (35786 km altitude)
+///     # Using scalar semi-major axis
 ///     a = bh.R_EARTH + 35786e3
 ///     n = bh.mean_motion(a, bh.AngleFormat.DEGREES)
 ///     print(f"Mean motion: {n:.6f} deg/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_EARTH + 35786e3, 0.001, np.radians(0), 0, 0, 0]
+///     n = bh.mean_motion(oe, bh.AngleFormat.DEGREES)
+///     print(f"Mean motion: {n:.6f} deg/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, angle_format)")]
+#[pyo3(text_signature = "(a_or_oe, angle_format)")]
 #[pyo3(name = "mean_motion")]
-fn py_mean_motion(a: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::mean_motion(a, angle_format.value))
+fn py_mean_motion(a_or_oe: &Bound<'_, PyAny>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        return Ok(orbits::mean_motion(a, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::mean_motion(oe[0], angle_format.value))
 }
 
 /// Computes the mean motion of an astronomical object around a general body
 /// given a semi-major axis.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
-///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` will be extracted.
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
+///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: The mean motion of the astronomical object in radians or degrees.
@@ -133,17 +176,30 @@ fn py_mean_motion(a: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate mean motion for a Mars orbiter
+///     # Using scalar semi-major axis
 ///     a = 4000000.0  # 4000 km semi-major axis
 ///     n = bh.mean_motion_general(a, bh.GM_MARS, bh.AngleFormat.RADIANS)
 ///     print(f"Mean motion: {n:.6f} rad/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [4000000.0, 0.01, np.radians(30), 0, 0, 0]
+///     n = bh.mean_motion_general(oe, bh.GM_MARS, bh.AngleFormat.RADIANS)
+///     print(f"Mean motion: {n:.6f} rad/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, gm, angle_format)")]
+#[pyo3(text_signature = "(a_or_oe, gm, angle_format)")]
 #[pyo3(name = "mean_motion_general")]
-fn py_mean_motion_general(a: f64, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::mean_motion_general(a, gm, angle_format.value))
+fn py_mean_motion_general(a_or_oe: &Bound<'_, PyAny>, gm: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        return Ok(orbits::mean_motion_general(a, gm, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::mean_motion_general(oe[0], gm, angle_format.value))
 }
 
 /// Computes the semi-major axis of an astronomical object from Earth
@@ -177,7 +233,7 @@ fn py_semimajor_axis(n: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
 ///
 /// Args:
 ///     n (float): The mean motion of the astronomical object in radians or degrees.
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -203,7 +259,7 @@ fn py_semimajor_axis_general(n: f64, gm: f64, angle_format: &PyAngleFormat) -> P
 ///
 /// Args:
 ///     period (float): The orbital period in seconds.
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
 ///     float: The semi-major axis in meters.
@@ -251,8 +307,9 @@ fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
 /// Computes the perigee velocity of an astronomical object around Earth.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at perigee in m/s.
@@ -260,26 +317,43 @@ fn py_semimajor_axis_from_orbital_period(period: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate perigee velocity for Molniya orbit (highly elliptical)
+///     # Using scalar parameters
 ///     a = 26554000.0  # meters
 ///     e = 0.72  # high eccentricity
 ///     v_peri = bh.perigee_velocity(a, e)
 ///     print(f"Perigee velocity: {v_peri:.2f} m/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [26554000.0, 0.72, np.radians(63.4), 0, 0, 0]
+///     v_peri = bh.perigee_velocity(oe)
+///     print(f"Perigee velocity: {v_peri:.2f} m/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "perigee_velocity")]
-fn py_perigee_velocity(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::perigee_velocity(a, e))
+fn py_perigee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::perigee_velocity(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::perigee_velocity(oe[0], oe[1]))
 }
 
 /// Computes the periapsis velocity of an astronomical object around a general body.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at periapsis in m/s.
@@ -287,25 +361,42 @@ fn py_perigee_velocity(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate periapsis velocity for a comet around the Sun
+///     # Using scalar parameters
 ///     a = 5e11  # 5 AU semi-major axis (meters)
 ///     e = 0.95  # highly elliptical
 ///     v_peri = bh.periapsis_velocity(a, e, bh.GM_SUN)
 ///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [5e11, 0.95, np.radians(10), 0, 0, 0]
+///     v_peri = bh.periapsis_velocity(oe, gm=bh.GM_SUN)
+///     print(f"Periapsis velocity: {v_peri/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, gm)")]
+#[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
 #[pyo3(name = "periapsis_velocity")]
-fn py_periapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
-    Ok(orbits::periapsis_velocity(a, e, gm))
+fn py_periapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::periapsis_velocity(a, ecc, gm));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::periapsis_velocity(oe[0], oe[1], gm))
 }
 
 /// Calculate the distance of an object at its periapsis.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The distance of the object at periapsis in meters.
@@ -313,25 +404,42 @@ fn py_periapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate periapsis distance for an elliptical orbit
+///     # Using scalar parameters
 ///     a = 8000000.0  # 8000 km semi-major axis
 ///     e = 0.2  # moderate eccentricity
 ///     r_peri = bh.periapsis_distance(a, e)
 ///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
+///     r_peri = bh.periapsis_distance(oe)
+///     print(f"Periapsis distance: {r_peri/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "periapsis_distance")]
-fn py_periapsis_distance(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::periapsis_distance(a, e))
+fn py_periapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::periapsis_distance(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::periapsis_distance(oe[0], oe[1]))
 }
 
 /// Computes the apogee velocity of an astronomical object around Earth.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at apogee in m/s.
@@ -339,26 +447,43 @@ fn py_periapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate apogee velocity for GTO (Geostationary Transfer Orbit)
+///     # Using scalar parameters
 ///     a = 24400000.0  # meters
 ///     e = 0.73  # high eccentricity
 ///     v_apo = bh.apogee_velocity(a, e)
 ///     print(f"Apogee velocity: {v_apo:.2f} m/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [24400000.0, 0.73, np.radians(7), 0, 0, 0]
+///     v_apo = bh.apogee_velocity(oe)
+///     print(f"Apogee velocity: {v_apo:.2f} m/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apogee_velocity")]
-fn py_apogee_velocity(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::apogee_velocity(a, e))
+fn py_apogee_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::apogee_velocity(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::apogee_velocity(oe[0], oe[1]))
 }
 
 /// Computes the apoapsis velocity of an astronomical object around a general body.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
 ///     float: The magnitude of velocity of the object at apoapsis in m/s.
@@ -366,25 +491,42 @@ fn py_apogee_velocity(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate apoapsis velocity for a Martian satellite
+///     # Using scalar parameters
 ///     a = 10000000.0  # 10000 km semi-major axis
 ///     e = 0.3
 ///     v_apo = bh.apoapsis_velocity(a, e, bh.GM_MARS)
 ///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
+///
+///     # Using Keplerian elements vector
+///     oe = [10000000.0, 0.3, np.radians(30), 0, 0, 0]
+///     v_apo = bh.apoapsis_velocity(oe, gm=bh.GM_MARS)
+///     print(f"Apoapsis velocity: {v_apo/1000:.2f} km/s")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, gm)")]
+#[pyo3(signature = (a_or_oe, e=None, *, gm), text_signature = "(a_or_oe, e=None, *, gm)")]
 #[pyo3(name = "apoapsis_velocity")]
-fn py_apoapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
-    Ok(orbits::apoapsis_velocity(a, e, gm))
+fn py_apoapsis_velocity(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, gm: f64) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::apoapsis_velocity(a, ecc, gm));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::apoapsis_velocity(oe[0], oe[1], gm))
 }
 
 /// Calculate the distance of an object at its apoapsis.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The distance of the object at apoapsis in meters.
@@ -392,26 +534,43 @@ fn py_apoapsis_velocity(a: f64, e: f64, gm: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate apoapsis distance
+///     # Using scalar parameters
 ///     a = 8000000.0  # 8000 km semi-major axis
 ///     e = 0.2  # moderate eccentricity
 ///     r_apo = bh.apoapsis_distance(a, e)
 ///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [8000000.0, 0.2, np.radians(45), 0, 0, 0]
+///     r_apo = bh.apoapsis_distance(oe)
+///     print(f"Apoapsis distance: {r_apo/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apoapsis_distance")]
-fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::apoapsis_distance(a, e))
+fn py_apoapsis_distance(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::apoapsis_distance(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::apoapsis_distance(oe[0], oe[1]))
 }
 
 /// Calculate the altitude above a body's surface at periapsis.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     r_body (float): The radius of the central body in meters.
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
 ///     float: The altitude above the body's surface at periapsis in meters.
@@ -419,25 +578,42 @@ fn py_apoapsis_distance(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate periapsis altitude for Earth satellite
+///     # Using scalar parameters
 ///     a = bh.R_EARTH + 500e3  # 500 km mean altitude
 ///     e = 0.01  # slight eccentricity
 ///     alt_peri = bh.periapsis_altitude(a, e, bh.R_EARTH)
 ///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_EARTH + 500e3, 0.01, np.radians(45), 0, 0, 0]
+///     alt_peri = bh.periapsis_altitude(oe, r_body=bh.R_EARTH)
+///     print(f"Periapsis altitude: {alt_peri/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, r_body)")]
+#[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
 #[pyo3(name = "periapsis_altitude")]
-fn py_periapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
-    Ok(orbits::periapsis_altitude(a, e, r_body))
+fn py_periapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::periapsis_altitude(a, ecc, r_body));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::periapsis_altitude(oe[0], oe[1], r_body))
 }
 
 /// Calculate the altitude above Earth's surface at perigee.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The altitude above Earth's surface at perigee in meters.
@@ -445,26 +621,43 @@ fn py_periapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate perigee altitude for ISS-like orbit
+///     # Using scalar parameters
 ///     a = bh.R_EARTH + 420e3  # 420 km mean altitude
 ///     e = 0.0005  # very nearly circular
 ///     alt = bh.perigee_altitude(a, e)
 ///     print(f"Perigee altitude: {alt/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_EARTH + 420e3, 0.0005, np.radians(51.6), 0, 0, 0]
+///     alt = bh.perigee_altitude(oe)
+///     print(f"Perigee altitude: {alt/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "perigee_altitude")]
-fn py_perigee_altitude(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::perigee_altitude(a, e))
+fn py_perigee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::perigee_altitude(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::perigee_altitude(oe[0], oe[1]))
 }
 
 /// Calculate the altitude above a body's surface at apoapsis.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     r_body (float): The radius of the central body in meters.
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
 /// Returns:
 ///     float: The altitude above the body's surface at apoapsis in meters.
@@ -472,25 +665,42 @@ fn py_perigee_altitude(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate apoapsis altitude for Moon satellite
+///     # Using scalar parameters
 ///     a = bh.R_MOON + 100e3  # 100 km mean altitude
 ///     e = 0.05  # moderate eccentricity
 ///     alt_apo = bh.apoapsis_altitude(a, e, bh.R_MOON)
 ///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_MOON + 100e3, 0.05, np.radians(30), 0, 0, 0]
+///     alt_apo = bh.apoapsis_altitude(oe, r_body=bh.R_MOON)
+///     print(f"Apoapsis altitude: {alt_apo/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, r_body)")]
+#[pyo3(signature = (a_or_oe, e=None, *, r_body), text_signature = "(a_or_oe, e=None, *, r_body)")]
 #[pyo3(name = "apoapsis_altitude")]
-fn py_apoapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
-    Ok(orbits::apoapsis_altitude(a, e, r_body))
+fn py_apoapsis_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, r_body: f64) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::apoapsis_altitude(a, ecc, r_body));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::apoapsis_altitude(oe[0], oe[1], r_body))
 }
 
 /// Calculate the altitude above Earth's surface at apogee.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
 ///
 /// Returns:
 ///     float: The altitude above Earth's surface at apogee in meters.
@@ -498,27 +708,44 @@ fn py_apoapsis_altitude(a: f64, e: f64, r_body: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate apogee altitude for Molniya-type orbit
+///     # Using scalar parameters
 ///     a = 26554000.0  # ~26554 km semi-major axis
 ///     e = 0.7  # highly eccentric
 ///     alt = bh.apogee_altitude(a, e)
 ///     print(f"Apogee altitude: {alt/1000:.2f} km")
+///
+///     # Using Keplerian elements vector
+///     oe = [26554000.0, 0.7, np.radians(63.4), 0, 0, 0]
+///     alt = bh.apogee_altitude(oe)
+///     print(f"Apogee altitude: {alt/1000:.2f} km")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e)")]
+#[pyo3(signature = (a_or_oe, e=None), text_signature = "(a_or_oe, e=None)")]
 #[pyo3(name = "apogee_altitude")]
-fn py_apogee_altitude(a: f64, e: f64) -> PyResult<f64> {
-    Ok(orbits::apogee_altitude(a, e))
+fn py_apogee_altitude(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::apogee_altitude(a, ecc));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::apogee_altitude(oe[0], oe[1]))
 }
 
 /// Computes the inclination for a Sun-synchronous orbit around Earth based on
 /// the J2 gravitational perturbation.
 ///
 /// Args:
-///     a (float): The semi-major axis of the astronomical object in meters.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     a_or_oe (float or array): Either the semi-major axis in meters, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `a` and `e` will be extracted.
+///     e (float, optional): The eccentricity. Required if `a_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: Inclination for a Sun synchronous orbit in degrees or radians.
@@ -526,26 +753,44 @@ fn py_apogee_altitude(a: f64, e: f64) -> PyResult<f64> {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Calculate sun-synchronous inclination for typical Earth observation satellite (600 km)
+///     # Using scalar parameters
 ///     a = bh.R_EARTH + 600e3
 ///     e = 0.001  # nearly circular
 ///     inc = bh.sun_synchronous_inclination(a, e, bh.AngleFormat.DEGREES)
 ///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
+///
+///     # Using Keplerian elements vector
+///     oe = [bh.R_EARTH + 600e3, 0.001, np.radians(97.8), 0, 0, 0]
+///     inc = bh.sun_synchronous_inclination(oe, angle_format=bh.AngleFormat.DEGREES)
+///     print(f"Sun-synchronous inclination: {inc:.2f} degrees")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(a, e, angle_format)")]
+#[pyo3(signature = (a_or_oe, e=None, *, angle_format), text_signature = "(a_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "sun_synchronous_inclination")]
-fn py_sun_synchronous_inclination(a: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::sun_synchronous_inclination(a, e, angle_format.value))
+fn py_sun_synchronous_inclination(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(a) = a_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'a_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::sun_synchronous_inclination(a, ecc, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(a_or_oe, Some(6))?;
+    Ok(orbits::sun_synchronous_inclination(oe[0], oe[1], angle_format.value))
 }
 
 /// Converts eccentric anomaly into mean anomaly.
 ///
 /// Args:
-///     anm_ecc (float): Eccentric anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_ecc_or_oe (float or array): Either the eccentric anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, E] from which `e` and `E` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: Mean anomaly in radians or degrees.
@@ -553,27 +798,44 @@ fn py_sun_synchronous_inclination(a: f64, e: f64, angle_format: &PyAngleFormat) 
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     import math
+///     import numpy as np
 ///
-///     # Convert eccentric to mean anomaly
-///     E = math.pi / 4  # 45 degrees eccentric anomaly
+///     # Using scalar parameters
+///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.1  # eccentricity
 ///     M = bh.anomaly_eccentric_to_mean(E, e, bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
+///
+///     # Using Keplerian elements vector (with eccentric anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.1, np.radians(45), 0, 0, np.pi/4]
+///     M = bh.anomaly_eccentric_to_mean(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: {M:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
+#[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_mean")]
-fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, e, angle_format.value))
+fn py_anomaly_eccentric_to_mean(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_ecc) = anm_ecc_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::anomaly_eccentric_to_mean(anm_ecc, ecc, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_ecc_or_oe, Some(6))?;
+    Ok(orbits::anomaly_eccentric_to_mean(oe[5], oe[1], angle_format.value))
 }
 
 /// Converts mean anomaly into eccentric anomaly.
 ///
 /// Args:
-///     anm_mean (float): Mean anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_mean_or_oe (float or array): Either the mean anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, M] from which `e` and `M` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: Eccentric anomaly in radians or degrees.
@@ -581,18 +843,37 @@ fn py_anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Convert mean to eccentric anomaly (solves Kepler's equation)
+///     # Using scalar parameters
 ///     M = 1.5  # mean anomaly in radians
 ///     e = 0.3  # eccentricity
 ///     E = bh.anomaly_mean_to_eccentric(M, e, bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
+///
+///     # Using Keplerian elements vector (with mean anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.3, np.radians(45), 0, 0, 1.5]
+///     E = bh.anomaly_mean_to_eccentric(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_mean, e, angle_format)")]
+#[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_eccentric")]
-fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    match orbits::anomaly_mean_to_eccentric(anm_mean, e, angle_format.value) {
+fn py_anomaly_mean_to_eccentric(anm_mean_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_mean) = anm_mean_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar"
+        ))?;
+        return match orbits::anomaly_mean_to_eccentric(anm_mean, ecc, angle_format.value) {
+            Ok(value) => Ok(value),
+            Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
+        };
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_mean_or_oe, Some(6))?;
+    match orbits::anomaly_mean_to_eccentric(oe[5], oe[1], angle_format.value) {
         Ok(value) => Ok(value),
         Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
     }
@@ -601,9 +882,11 @@ fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFor
 /// Converts true anomaly into eccentric anomaly.
 ///
 /// Args:
-///     anm_true (float): True anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_true_or_oe (float or array): Either the true anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `e` and `ν` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: Eccentric anomaly in radians or degrees.
@@ -611,27 +894,44 @@ fn py_anomaly_mean_to_eccentric(anm_mean: f64, e: f64, angle_format: &PyAngleFor
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     import math
+///     import numpy as np
 ///
-///     # Convert true to eccentric anomaly
-///     nu = math.pi / 3  # 60 degrees true anomaly
+///     # Using scalar parameters
+///     nu = np.pi / 3  # 60 degrees true anomaly
 ///     e = 0.2  # eccentricity
 ///     E = bh.anomaly_true_to_eccentric(nu, e, bh.AngleFormat.RADIANS)
 ///     print(f"Eccentric anomaly: {E:.4f} radians")
+///
+///     # Using Keplerian elements vector (with true anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.2, np.radians(45), 0, 0, np.pi/3]
+///     E = bh.anomaly_true_to_eccentric(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Eccentric anomaly: {E:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_true, e, angle_format)")]
+#[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_true_to_eccentric")]
-fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::anomaly_true_to_eccentric(anm_true, e, angle_format.value))
+fn py_anomaly_true_to_eccentric(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_true) = anm_true_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_true_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::anomaly_true_to_eccentric(anm_true, ecc, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_true_or_oe, Some(6))?;
+    Ok(orbits::anomaly_true_to_eccentric(oe[5], oe[1], angle_format.value))
 }
 
 /// Converts eccentric anomaly into true anomaly.
 ///
 /// Args:
-///     anm_ecc (float): Eccentric anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_ecc_or_oe (float or array): Either the eccentric anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, E] from which `e` and `E` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_ecc_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: True anomaly in radians or degrees.
@@ -639,27 +939,44 @@ fn py_anomaly_true_to_eccentric(anm_true: f64, e: f64, angle_format: &PyAngleFor
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     import math
+///     import numpy as np
 ///
-///     # Convert eccentric to true anomaly
-///     E = math.pi / 4  # 45 degrees eccentric anomaly
+///     # Using scalar parameters
+///     E = np.pi / 4  # 45 degrees eccentric anomaly
 ///     e = 0.4  # eccentricity
 ///     nu = bh.anomaly_eccentric_to_true(E, e, bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
+///
+///     # Using Keplerian elements vector (with eccentric anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.4, np.radians(45), 0, 0, np.pi/4]
+///     nu = bh.anomaly_eccentric_to_true(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: {nu:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_ecc, e, angle_format)")]
+#[pyo3(signature = (anm_ecc_or_oe, e=None, *, angle_format), text_signature = "(anm_ecc_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_eccentric_to_true")]
-fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::anomaly_eccentric_to_true(anm_ecc, e, angle_format.value))
+fn py_anomaly_eccentric_to_true(anm_ecc_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_ecc) = anm_ecc_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_ecc_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::anomaly_eccentric_to_true(anm_ecc, ecc, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_ecc_or_oe, Some(6))?;
+    Ok(orbits::anomaly_eccentric_to_true(oe[5], oe[1], angle_format.value))
 }
 
 /// Converts true anomaly into mean anomaly.
 ///
 /// Args:
-///     anm_true (float): True anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_true_or_oe (float or array): Either the true anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, ν] from which `e` and `ν` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_true_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: Mean anomaly in radians or degrees.
@@ -667,27 +984,44 @@ fn py_anomaly_eccentric_to_true(anm_ecc: f64, e: f64, angle_format: &PyAngleForm
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     import math
+///     import numpy as np
 ///
-///     # Convert true to mean anomaly
-///     nu = math.pi / 2  # 90 degrees true anomaly
+///     # Using scalar parameters
+///     nu = np.pi / 2  # 90 degrees true anomaly
 ///     e = 0.15  # eccentricity
 ///     M = bh.anomaly_true_to_mean(nu, e, bh.AngleFormat.RADIANS)
 ///     print(f"Mean anomaly: {M:.4f} radians")
+///
+///     # Using Keplerian elements vector (with true anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.15, np.radians(45), 0, 0, np.pi/2]
+///     M = bh.anomaly_true_to_mean(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"Mean anomaly: {M:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_true, e, angle_format)")]
+#[pyo3(signature = (anm_true_or_oe, e=None, *, angle_format), text_signature = "(anm_true_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_true_to_mean")]
-fn py_anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    Ok(orbits::anomaly_true_to_mean(anm_true, e, angle_format.value))
+fn py_anomaly_true_to_mean(anm_true_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_true) = anm_true_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_true_or_oe' is a scalar"
+        ))?;
+        return Ok(orbits::anomaly_true_to_mean(anm_true, ecc, angle_format.value));
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_true_or_oe, Some(6))?;
+    Ok(orbits::anomaly_true_to_mean(oe[5], oe[1], angle_format.value))
 }
 
 /// Converts mean anomaly into true anomaly.
 ///
 /// Args:
-///     anm_mean (float): Mean anomaly in radians or degrees.
-///     e (float): The eccentricity of the astronomical object's orbit (dimensionless).
-///     angle_format (AngleFormat): Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     anm_mean_or_oe (float or array): Either the mean anomaly, or a 6-element
+///         Keplerian elements array [a, e, i, Ω, ω, M] from which `e` and `M` will be extracted.
+///         The anomaly in the vector should match the `angle_format`.
+///     e (float, optional): The eccentricity. Required if `anm_mean_or_oe` is a scalar, ignored if vector.
+///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float: True anomaly in radians or degrees.
@@ -695,18 +1029,37 @@ fn py_anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: &PyAngleFormat) 
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
-///     # Convert mean to true anomaly (combines Kepler's equation + eccentric anomaly conversion)
+///     # Using scalar parameters
 ///     M = 2.0  # mean anomaly in radians
 ///     e = 0.25  # eccentricity
 ///     nu = bh.anomaly_mean_to_true(M, e, bh.AngleFormat.RADIANS)
 ///     print(f"True anomaly: {nu:.4f} radians")
+///
+///     # Using Keplerian elements vector (with mean anomaly at index 5)
+///     oe = [bh.R_EARTH + 500e3, 0.25, np.radians(45), 0, 0, 2.0]
+///     nu = bh.anomaly_mean_to_true(oe, angle_format=bh.AngleFormat.RADIANS)
+///     print(f"True anomaly: {nu:.4f} radians")
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(anm_mean, e, angle_format)")]
+#[pyo3(signature = (anm_mean_or_oe, e=None, *, angle_format), text_signature = "(anm_mean_or_oe, e=None, *, angle_format)")]
 #[pyo3(name = "anomaly_mean_to_true")]
-fn py_anomaly_mean_to_true(anm_mean: f64, e: f64, angle_format: &PyAngleFormat) -> PyResult<f64> {
-    match orbits::anomaly_mean_to_true(anm_mean, e, angle_format.value) {
+fn py_anomaly_mean_to_true(anm_mean_or_oe: &Bound<'_, PyAny>, e: Option<f64>, angle_format: &PyAngleFormat) -> PyResult<f64> {
+    // Try to extract as scalar first
+    if let Ok(anm_mean) = anm_mean_or_oe.extract::<f64>() {
+        let ecc = e.ok_or_else(|| exceptions::PyValueError::new_err(
+            "Parameter 'e' is required when 'anm_mean_or_oe' is a scalar"
+        ))?;
+        return match orbits::anomaly_mean_to_true(anm_mean, ecc, angle_format.value) {
+            Ok(value) => Ok(value),
+            Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
+        };
+    }
+
+    // Try to extract as vector (Keplerian elements)
+    let oe = pyany_to_f64_array1(anm_mean_or_oe, Some(6))?;
+    match orbits::anomaly_mean_to_true(oe[5], oe[1], angle_format.value) {
         Ok(value) => Ok(value),
         Err(err) => Err(exceptions::PyRuntimeError::new_err(err)),
     }

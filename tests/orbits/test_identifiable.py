@@ -17,18 +17,18 @@ class TestSGPPropagatorIdentifiable:
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_name("Test Satellite")
 
-        assert prop.name == "Test Satellite"
-        assert prop.id is None
-        assert prop.uuid is None
+        assert prop.get_name() == "Test Satellite"
+        assert prop.get_id() is None
+        assert prop.get_uuid() is None
 
     def test_sgp_with_id(self):
         """Test with_id method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_id(12345)
 
-        assert prop.id == 12345
-        assert prop.name is None
-        assert prop.uuid is None
+        assert prop.get_id() == 12345
+        assert prop.get_name() is None
+        assert prop.get_uuid() is None
 
     def test_sgp_with_uuid(self):
         """Test with_uuid method."""
@@ -36,21 +36,21 @@ class TestSGPPropagatorIdentifiable:
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_uuid(test_uuid)
 
-        assert prop.uuid == test_uuid
-        assert prop.name is None
-        assert prop.id is None
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_name() is None
+        assert prop.get_id() is None
 
     def test_sgp_with_new_uuid(self):
         """Test with_new_uuid method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_new_uuid()
 
-        assert prop.uuid is not None
-        assert prop.name is None
-        assert prop.id is None
+        assert prop.get_uuid() is not None
+        assert prop.get_name() is None
+        assert prop.get_id() is None
 
         # Verify it's a valid UUID
-        uuid.UUID(prop.uuid)
+        uuid.UUID(prop.get_uuid())
 
     def test_sgp_with_identity(self):
         """Test with_identity method."""
@@ -58,43 +58,43 @@ class TestSGPPropagatorIdentifiable:
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_identity("Satellite A", test_uuid, 999)
 
-        assert prop.name == "Satellite A"
-        assert prop.id == 999
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "Satellite A"
+        assert prop.get_id() == 999
+        assert prop.get_uuid() == test_uuid
 
     def test_sgp_set_name(self):
         """Test set_name method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
 
         prop.set_name("Test Name")
-        assert prop.name == "Test Name"
+        assert prop.get_name() == "Test Name"
 
         prop.set_name(None)
-        assert prop.name is None
+        assert prop.get_name() is None
 
     def test_sgp_set_id(self):
         """Test set_id method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
 
         prop.set_id(42)
-        assert prop.id == 42
+        assert prop.get_id() == 42
 
         prop.set_id(None)
-        assert prop.id is None
+        assert prop.get_id() is None
 
     def test_sgp_generate_uuid(self):
         """Test generate_uuid method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
 
-        assert prop.uuid is None
+        assert prop.get_uuid() is None
 
         prop.generate_uuid()
-        uuid1 = prop.uuid
+        uuid1 = prop.get_uuid()
         assert uuid1 is not None
 
         # Generate another and verify it's different
         prop.generate_uuid()
-        uuid2 = prop.uuid
+        uuid2 = prop.get_uuid()
         assert uuid2 is not None
         assert uuid1 != uuid2
 
@@ -105,15 +105,15 @@ class TestSGPPropagatorIdentifiable:
 
         prop.set_identity("Updated Name", test_uuid, 777)
 
-        assert prop.name == "Updated Name"
-        assert prop.id == 777
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "Updated Name"
+        assert prop.get_id() == 777
+        assert prop.get_uuid() == test_uuid
 
         # Clear all
         prop.set_identity(None, None, None)
-        assert prop.name is None
-        assert prop.id is None
-        assert prop.uuid is None
+        assert prop.get_name() is None
+        assert prop.get_id() is None
+        assert prop.get_uuid() is None
 
     def test_sgp_chaining(self):
         """Test method chaining."""
@@ -121,9 +121,9 @@ class TestSGPPropagatorIdentifiable:
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
         prop = prop.with_name("Chained Satellite").with_id(123).with_uuid(test_uuid)
 
-        assert prop.name == "Chained Satellite"
-        assert prop.id == 123
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "Chained Satellite"
+        assert prop.get_id() == 123
+        assert prop.get_uuid() == test_uuid
 
 
 class TestKeplerianPropagatorIdentifiable:
@@ -145,9 +145,9 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_name("My Orbit")
 
-        assert prop.name == "My Orbit"
-        assert prop.id is None
-        assert prop.uuid is None
+        assert prop.get_name() == "My Orbit"
+        assert prop.get_id() is None
+        assert prop.get_uuid() is None
 
     def test_keplerian_with_id(self):
         """Test with_id method."""
@@ -156,9 +156,9 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_id(54321)
 
-        assert prop.id == 54321
-        assert prop.name is None
-        assert prop.uuid is None
+        assert prop.get_id() == 54321
+        assert prop.get_name() is None
+        assert prop.get_uuid() is None
 
     def test_keplerian_with_uuid(self):
         """Test with_uuid method."""
@@ -168,9 +168,9 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_uuid(test_uuid)
 
-        assert prop.uuid == test_uuid
-        assert prop.name is None
-        assert prop.id is None
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_name() is None
+        assert prop.get_id() is None
 
     def test_keplerian_with_new_uuid(self):
         """Test with_new_uuid method."""
@@ -179,12 +179,12 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_new_uuid()
 
-        assert prop.uuid is not None
-        assert prop.name is None
-        assert prop.id is None
+        assert prop.get_uuid() is not None
+        assert prop.get_name() is None
+        assert prop.get_id() is None
 
         # Verify it's a valid UUID
-        uuid.UUID(prop.uuid)
+        uuid.UUID(prop.get_uuid())
 
     def test_keplerian_with_identity(self):
         """Test with_identity method."""
@@ -194,9 +194,9 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_identity("Orbit X", test_uuid, 888)
 
-        assert prop.name == "Orbit X"
-        assert prop.id == 888
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "Orbit X"
+        assert prop.get_id() == 888
+        assert prop.get_uuid() == test_uuid
 
     def test_keplerian_set_name(self):
         """Test set_name method."""
@@ -205,10 +205,10 @@ class TestKeplerianPropagatorIdentifiable:
         )
 
         prop.set_name("Name 1")
-        assert prop.name == "Name 1"
+        assert prop.get_name() == "Name 1"
 
         prop.set_name(None)
-        assert prop.name is None
+        assert prop.get_name() is None
 
     def test_keplerian_set_id(self):
         """Test set_id method."""
@@ -217,10 +217,10 @@ class TestKeplerianPropagatorIdentifiable:
         )
 
         prop.set_id(100)
-        assert prop.id == 100
+        assert prop.get_id() == 100
 
         prop.set_id(None)
-        assert prop.id is None
+        assert prop.get_id() is None
 
     def test_keplerian_generate_uuid(self):
         """Test generate_uuid method."""
@@ -228,15 +228,15 @@ class TestKeplerianPropagatorIdentifiable:
             self.epoch, self.elements, bh.AngleFormat.DEGREES, 60.0
         )
 
-        assert prop.uuid is None
+        assert prop.get_uuid() is None
 
         prop.generate_uuid()
-        uuid1 = prop.uuid
+        uuid1 = prop.get_uuid()
         assert uuid1 is not None
 
         # Generate another and verify it's different
         prop.generate_uuid()
-        uuid2 = prop.uuid
+        uuid2 = prop.get_uuid()
         assert uuid2 is not None
         assert uuid1 != uuid2
 
@@ -249,15 +249,15 @@ class TestKeplerianPropagatorIdentifiable:
 
         prop.set_identity("ID Test", test_uuid, 555)
 
-        assert prop.name == "ID Test"
-        assert prop.id == 555
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "ID Test"
+        assert prop.get_id() == 555
+        assert prop.get_uuid() == test_uuid
 
         # Clear all
         prop.set_identity(None, None, None)
-        assert prop.name is None
-        assert prop.id is None
-        assert prop.uuid is None
+        assert prop.get_name() is None
+        assert prop.get_id() is None
+        assert prop.get_uuid() is None
 
     def test_keplerian_chaining(self):
         """Test method chaining."""
@@ -267,6 +267,6 @@ class TestKeplerianPropagatorIdentifiable:
         )
         prop = prop.with_name("Chained Orbit").with_id(999).with_uuid(test_uuid)
 
-        assert prop.name == "Chained Orbit"
-        assert prop.id == 999
-        assert prop.uuid == test_uuid
+        assert prop.get_name() == "Chained Orbit"
+        assert prop.get_id() == 999
+        assert prop.get_uuid() == test_uuid

@@ -44,8 +44,8 @@ class TestSGPPropagatorMethods:
         assert prop.satellite_name == "ISS (ZARYA)"
 
         # Verify identity fields are automatically set
-        assert prop.name == "ISS (ZARYA)"
-        assert prop.id == 25544
+        assert prop.get_name() == "ISS (ZARYA)"
+        assert prop.get_id() == 25544
 
     def test_sgppropagator_set_output_format_cartesian(self, iss_tle):
         """Test setting output format to ECI Cartesian."""

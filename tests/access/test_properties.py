@@ -79,11 +79,17 @@ def test_access_properties_creation():
         azimuth_close=135.0,
         elevation_min=10.0,
         elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=5.0,
         off_nadir_max=80.0,
         local_time=43200.0,
         look_direction=bh.LookDirection.RIGHT,
         asc_dsc=bh.AscDsc.ASCENDING,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     assert props is not None
@@ -107,11 +113,17 @@ def test_access_properties_additional_properties_empty():
         azimuth_close=135.0,
         elevation_min=10.0,
         elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=5.0,
         off_nadir_max=80.0,
         local_time=43200.0,
         look_direction=bh.LookDirection.LEFT,
         asc_dsc=bh.AscDsc.DESCENDING,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     # Check that additional is a dict-like object (not necessarily a dict instance)
@@ -130,11 +142,17 @@ def test_access_properties_add_property_types():
         azimuth_close=90.0,
         elevation_min=10.0,
         elevation_max=45.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=0.0,
         off_nadir_max=30.0,
         local_time=0.0,
         look_direction=bh.LookDirection.EITHER,
         asc_dsc=bh.AscDsc.EITHER,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     # Test scalar (float)
@@ -187,11 +205,17 @@ def test_access_properties_numpy_arrays():
         azimuth_close=90.0,
         elevation_min=10.0,
         elevation_max=45.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=0.0,
         off_nadir_max=30.0,
         local_time=0.0,
         look_direction=bh.LookDirection.EITHER,
         asc_dsc=bh.AscDsc.EITHER,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     # Test numpy array
@@ -212,11 +236,17 @@ def test_access_properties_dict_protocol():
         azimuth_close=90.0,
         elevation_min=10.0,
         elevation_max=45.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=0.0,
         off_nadir_max=30.0,
         local_time=0.0,
         look_direction=bh.LookDirection.EITHER,
         asc_dsc=bh.AscDsc.EITHER,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     # Test __setitem__ and __getitem__
@@ -277,11 +307,17 @@ def test_access_properties_repr():
         azimuth_close=135.0,
         elevation_min=10.0,
         elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
         off_nadir_min=5.0,
         off_nadir_max=80.0,
         local_time=43200.0,
         look_direction=bh.LookDirection.EITHER,
         asc_dsc=bh.AscDsc.EITHER,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
     )
 
     # Should have a string representation

@@ -18,7 +18,7 @@ bh.initialize_eop()
 # The group hint ("stations") uses cached data for efficiency
 iss_prop = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "stations")
 
-print(f"Created propagator: {iss_prop.name}")
+print(f"Created propagator: {iss_prop.get_name()}")
 print(f"Epoch: {iss_prop.epoch}")
 
 # Propagate forward 1 orbit period (~93 minutes for ISS)

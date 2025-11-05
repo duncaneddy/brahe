@@ -41,6 +41,7 @@ use nalgebra::{SVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
+use uuid::Uuid;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
@@ -48,7 +49,7 @@ use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cart
 use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
 use crate::propagators::traits::StateProvider;
 use crate::time::Epoch;
-use crate::utils::BraheError;
+use crate::utils::{BraheError, Identifiable};
 
 use super::traits::{
     Interpolatable, InterpolationMethod, OrbitFrame, OrbitRepresentation, OrbitalTrajectory,
@@ -101,6 +102,15 @@ pub struct OrbitTrajectory {
     /// None is used for Cartesian representation.
     /// Some(Radians) or Some(Degrees) can be used for Keplerian elements.
     pub angle_format: Option<AngleFormat>,
+
+    /// Optional user-defined name for identification
+    pub name: Option<String>,
+
+    /// Optional user-defined numeric ID for identification
+    pub id: Option<u64>,
+
+    /// Optional UUID for unique identification
+    pub uuid: Option<uuid::Uuid>,
 
     /// Generic metadata storage supporting arbitrary key-value pairs.
     /// Can store any JSON-serializable data including strings, numbers, booleans,
@@ -173,6 +183,9 @@ impl OrbitTrajectory {
             frame,
             representation,
             angle_format,
+            name: None,
+            id: None,
+            uuid: None,
             metadata: HashMap::new(),
         }
     }
@@ -432,6 +445,9 @@ impl Trajectory for OrbitTrajectory {
             frame: OrbitFrame::ECI, // Default to ECI Cartesian
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
+            name: None,
+            id: None,
+            uuid: None,
             metadata: HashMap::new(),
         })
     }
@@ -725,6 +741,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
             frame,
             representation,
             angle_format,
+            name: None,
+            id: None,
+            uuid: None,
             metadata: HashMap::new(),
         }
     }
@@ -769,6 +788,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
+            name: self.name.clone(),
+            id: self.id,
+            uuid: self.uuid,
             metadata: self.metadata.clone(),
         }
     }
@@ -814,6 +836,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
             frame: OrbitFrame::ECEF,
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
+            name: self.name.clone(),
+            id: self.id,
+            uuid: self.uuid,
             metadata: self.metadata.clone(),
         }
     }
@@ -885,6 +910,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Keplerian,
             angle_format: Some(angle_format),
+            name: self.name.clone(),
+            id: self.id,
+            uuid: self.uuid,
             metadata: self.metadata.clone(),
         }
     }
@@ -983,6 +1011,65 @@ impl StateProvider for OrbitTrajectory {
                 Vector6::zeros()
             }
         }
+    }
+}
+
+impl Identifiable for OrbitTrajectory {
+    fn with_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+
+    fn with_uuid(mut self, uuid: Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self
+    }
+
+    fn with_new_uuid(mut self) -> Self {
+        self.uuid = Some(Uuid::new_v4());
+        self
+    }
+
+    fn with_id(mut self, id: u64) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    fn with_identity(mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) -> Self {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+        self
+    }
+
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+    }
+
+    fn set_id(&mut self, id: Option<u64>) {
+        self.id = id;
+    }
+
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(|s| s.to_string());
+    }
+
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(Uuid::new_v4());
+    }
+
+    fn get_id(&self) -> Option<u64> {
+        self.id
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<Uuid> {
+        self.uuid
     }
 }
 
@@ -2651,5 +2738,54 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
         }
+    }
+
+    #[test]
+    fn test_orbittrajectory_identifiable_with_name() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = traj.with_name("Test Trajectory");
+
+        assert_eq!(traj.get_name(), Some("Test Trajectory"));
+    }
+
+    #[test]
+    fn test_orbittrajectory_identifiable_with_id() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = traj.with_id(12345);
+
+        assert_eq!(traj.get_id(), Some(12345));
+    }
+
+    #[test]
+    fn test_orbittrajectory_identifiable_with_uuid() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = traj.with_new_uuid();
+
+        assert!(traj.get_uuid().is_some());
+    }
+
+    #[test]
+    fn test_orbittrajectory_identifiable_with_identity() {
+        let uuid = Uuid::new_v4();
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = traj.with_identity(Some("Test"), Some(uuid), Some(999));
+
+        assert_eq!(traj.get_name(), Some("Test"));
+        assert_eq!(traj.get_id(), Some(999));
+        assert_eq!(traj.get_uuid(), Some(uuid));
+    }
+
+    #[test]
+    fn test_orbittrajectory_identifiable_set_methods() {
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        traj.set_name(Some("Updated Name"));
+        assert_eq!(traj.get_name(), Some("Updated Name"));
+
+        traj.set_id(Some(777));
+        assert_eq!(traj.get_id(), Some(777));
+
+        traj.generate_uuid();
+        assert!(traj.get_uuid().is_some());
     }
 }

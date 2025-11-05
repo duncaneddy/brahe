@@ -18,7 +18,7 @@ class TestSGPPropagatorIdentifiable:
         prop = prop.with_name("Test Satellite")
 
         assert prop.get_name() == "Test Satellite"
-        assert prop.get_id() is None
+        assert prop.get_id() == 25544
         assert prop.get_uuid() is None
 
     def test_sgp_with_id(self):
@@ -38,7 +38,7 @@ class TestSGPPropagatorIdentifiable:
 
         assert prop.get_uuid() == test_uuid
         assert prop.get_name() is None
-        assert prop.get_id() is None
+        assert prop.get_id() == 25544
 
     def test_sgp_with_new_uuid(self):
         """Test with_new_uuid method."""
@@ -47,7 +47,7 @@ class TestSGPPropagatorIdentifiable:
 
         assert prop.get_uuid() is not None
         assert prop.get_name() is None
-        assert prop.get_id() is None
+        assert prop.get_id() == 25544
 
         # Verify it's a valid UUID
         uuid.UUID(prop.get_uuid())

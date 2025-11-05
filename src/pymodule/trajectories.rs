@@ -1470,6 +1470,120 @@ impl PyOrbitalTrajectory {
         };
         Py::new(py, iter)
     }
+
+    /// Set the trajectory name and return self (builder pattern).
+    ///
+    /// Args:
+    ///     name (str): Name to assign to the trajectory
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Self with name set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_name("My Trajectory")
+    ///     ```
+    fn with_name(slf: PyRefMut<'_, Self>, name: &str) -> Py<Self> {
+        let py = slf.py();
+        let mut traj = slf.trajectory.clone();
+        traj = Identifiable::with_name(traj, name);
+        Py::new(py, PyOrbitalTrajectory { trajectory: traj }).unwrap()
+    }
+
+    /// Set the trajectory numeric ID and return self (builder pattern).
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign to the trajectory
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Self with ID set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_id(12345)
+    ///     ```
+    fn with_id(slf: PyRefMut<'_, Self>, id: u64) -> Py<Self> {
+        let py = slf.py();
+        let mut traj = slf.trajectory.clone();
+        traj = Identifiable::with_id(traj, id);
+        Py::new(py, PyOrbitalTrajectory { trajectory: traj }).unwrap()
+    }
+
+    /// Get the trajectory name.
+    ///
+    /// Returns:
+    ///     str | None: The trajectory name, or None if not set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_name("My Trajectory")
+    ///     print(traj.get_name())  # "My Trajectory"
+    ///     ```
+    fn get_name(&self) -> Option<&str> {
+        Identifiable::get_name(&self.trajectory)
+    }
+
+    /// Get the trajectory numeric ID.
+    ///
+    /// Returns:
+    ///     int | None: The trajectory ID, or None if not set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_id(12345)
+    ///     print(traj.get_id())  # 12345
+    ///     ```
+    fn get_id(&self) -> Option<u64> {
+        Identifiable::get_id(&self.trajectory)
+    }
+
+    /// Get the trajectory UUID.
+    ///
+    /// Returns:
+    ///     str | None: The trajectory UUID as a string, or None if not set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_new_uuid()
+    ///     print(traj.get_uuid())  # e.g., "550e8400-e29b-41d4-a716-446655440000"
+    ///     ```
+    fn get_uuid(&self) -> Option<String> {
+        Identifiable::get_uuid(&self.trajectory).map(|u| u.to_string())
+    }
+
+    /// Generate a new UUID and set it on the trajectory (builder pattern).
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Self with new UUID set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_new_uuid()
+    ///     ```
+    fn with_new_uuid(slf: PyRefMut<'_, Self>) -> Py<Self> {
+        let py = slf.py();
+        let mut traj = slf.trajectory.clone();
+        traj = Identifiable::with_new_uuid(traj);
+        Py::new(py, PyOrbitalTrajectory { trajectory: traj }).unwrap()
+    }
 }
 
 /// Iterator for OrbitTrajectory

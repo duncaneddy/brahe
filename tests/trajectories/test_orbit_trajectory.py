@@ -1793,3 +1793,181 @@ def test_orbittrajectory_states():
     empty_traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
     with pytest.raises(RuntimeError, match="Cannot convert empty trajectory to matrix"):
         empty_traj.states()
+
+
+# ================================
+# Identifiable Trait Tests
+# ================================
+
+
+def test_orbittrajectory_identifiable_with_name():
+    """Test OrbitTrajectory.with_name() method (mirrors Rust test)."""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj = traj.with_name("Test Trajectory")
+
+    assert traj.get_name() == "Test Trajectory"
+
+
+def test_orbittrajectory_identifiable_with_id():
+    """Test OrbitTrajectory.with_id() method (mirrors Rust test)."""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj = traj.with_id(12345)
+
+    assert traj.get_id() == 12345
+
+
+def test_orbittrajectory_identifiable_with_uuid():
+    """Test OrbitTrajectory.with_new_uuid() method (mirrors Rust test)."""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj = traj.with_new_uuid()
+
+    uuid_str = traj.get_uuid()
+    assert uuid_str is not None
+    # Verify it's a valid UUID string format
+    assert len(uuid_str) == 36
+    assert uuid_str.count("-") == 4
+
+
+def test_orbittrajectory_identifiable_get_methods():
+    """Test OrbitTrajectory Identifiable getter methods."""
+    # Test that getters return None when not set
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    assert traj.get_name() is None
+    assert traj.get_id() is None
+    assert traj.get_uuid() is None
+
+    # Test after setting values
+    traj = traj.with_name("My Trajectory")
+    assert traj.get_name() == "My Trajectory"
+
+    traj = traj.with_id(999)
+    assert traj.get_id() == 999
+
+    traj = traj.with_new_uuid()
+    assert traj.get_uuid() is not None
+
+
+def test_orbittrajectory_identifiable_builder_chain():
+    """Test chaining multiple Identifiable builder methods."""
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    # Chain multiple builder methods
+    traj = traj.with_name("Chained Trajectory").with_id(777).with_new_uuid()
+
+    assert traj.get_name() == "Chained Trajectory"
+    assert traj.get_id() == 777
+    assert traj.get_uuid() is not None
+
+
+def test_orbittrajectory_identifiable_preserved_through_conversions():
+    """Test that identity is preserved through frame/representation conversions."""
+    # Create trajectory with identity
+    traj = OrbitTrajectory(OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj = traj.with_name("Conversion Test").with_id(456)
+
+    # Add a state
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state)
+
+    # Convert to Keplerian
+    traj_kep = traj.to_keplerian(AngleFormat.DEGREES)
+    assert traj_kep.get_name() == "Conversion Test"
+    assert traj_kep.get_id() == 456
+
+    # Convert to ECEF
+    traj_ecef = traj.to_ecef()
+    assert traj_ecef.get_name() == "Conversion Test"
+    assert traj_ecef.get_id() == 456
+
+    # Convert back to ECI
+    traj_eci = traj_ecef.to_eci()
+    assert traj_eci.get_name() == "Conversion Test"
+    assert traj_eci.get_id() == 456
+
+
+def test_orbittrajectory_identifiable_from_sgp_propagator():
+    """Test that identity flows from SGP propagator to trajectory."""
+    # Create SGP propagator from 3LE (3-line TLE with name)
+    line0 = "ISS (ZARYA)"
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    propagator = brahe.SGPPropagator.from_3le(line0, line1, line2)
+
+    # Check propagator has the name
+    assert propagator.get_name() == "ISS (ZARYA)"
+
+    # Check trajectory inherited the name
+    traj = propagator.trajectory
+    assert traj.get_name() == "ISS (ZARYA)"
+    # NORAD ID should also be propagated (25544)
+    assert traj.get_id() == 25544
+
+
+def test_orbittrajectory_identifiable_name_override():
+    """Test overriding name on trajectory after propagator initialization."""
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    propagator = brahe.SGPPropagator.from_tle(line1, line2)
+
+    # Set name using with_name - this should update both propagator and trajectory
+    propagator = propagator.with_name("International Space Station")
+
+    # Check both propagator and trajectory have updated name
+    assert propagator.get_name() == "International Space Station"
+    assert propagator.trajectory.get_name() == "International Space Station"
+
+
+def test_sgp_propagator_3le_initialization():
+    """Test that name and ID are properly set when initializing from 3LE."""
+    # Use a valid 3LE with satellite name in line 0 (ISS)
+    line0 = "ISS (ZARYA)"
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    # Initialize propagator from 3LE
+    propagator = brahe.SGPPropagator.from_3le(line0, line1, line2)
+
+    # Verify propagator has the name from line 0
+    assert propagator.get_name() == "ISS (ZARYA)"
+
+    # Verify propagator has the NORAD ID from line 1 (25544)
+    assert propagator.get_id() == 25544
+
+    # Verify trajectory inherited both name and ID
+    traj = propagator.trajectory
+    assert traj.get_name() == "ISS (ZARYA)"
+    assert traj.get_id() == 25544
+
+    # Verify the name and ID are consistent between propagator and trajectory
+    assert propagator.get_name() == traj.get_name()
+    assert propagator.get_id() == traj.get_id()
+
+
+def test_sgp_propagator_tle_no_name():
+    """Test that 2-line TLE initialization has ID but no name."""
+    # Use a valid 2LE (no name in line 0) - same ISS TLE
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    # Initialize propagator from 2LE
+    propagator = brahe.SGPPropagator.from_tle(line1, line2)
+
+    # Verify propagator has no name (should be None)
+    assert propagator.get_name() is None
+
+    # Verify propagator DOES have ID extracted from NORAD catalog number (25544)
+    # ID should always be set from TLE, regardless of whether name is provided
+    assert propagator.get_id() == 25544
+
+    # Verify trajectory also has no name but DOES have NORAD ID
+    traj = propagator.trajectory
+    assert traj.get_name() is None
+    # Trajectory ID should match propagator ID (25544)
+    assert traj.get_id() == 25544
+
+    # Verify consistency
+    assert propagator.get_id() == traj.get_id()

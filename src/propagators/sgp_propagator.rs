@@ -307,6 +307,13 @@ impl SGPPropagator {
         let mut trajectory =
             OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
+        // Set trajectory identity from propagator identity
+        if let Some(n) = name {
+            trajectory = trajectory.with_name(n);
+        }
+        // NORAD ID is always available (norad_id: u32)
+        trajectory = trajectory.with_id(norad_id as u64);
+
         trajectory.add(epoch, initial_state);
 
         Ok(SGPPropagator {
@@ -325,12 +332,7 @@ impl SGPPropagator {
             representation: OrbitRepresentation::Cartesian,
             angle_format: None, // angle_format is not meaningful for Cartesian
             name: name.map(|s| s.to_string()),
-            // Only automatically set ID when name is provided (i.e., from_3le with line0)
-            id: if name.is_some() {
-                Some(norad_id as u64)
-            } else {
-                None
-            },
+            id: Some(norad_id as u64),
             uuid: None,
         })
     }
@@ -795,6 +797,7 @@ impl StateProvider for SGPPropagator {
 impl Identifiable for SGPPropagator {
     fn with_name(mut self, name: &str) -> Self {
         self.name = Some(name.to_string());
+        self.trajectory = self.trajectory.with_name(name);
         self
     }
 
@@ -810,6 +813,7 @@ impl Identifiable for SGPPropagator {
 
     fn with_id(mut self, id: u64) -> Self {
         self.id = Some(id);
+        self.trajectory = self.trajectory.with_id(id);
         self
     }
 
@@ -822,6 +826,7 @@ impl Identifiable for SGPPropagator {
         self.name = name.map(|s| s.to_string());
         self.uuid = uuid;
         self.id = id;
+        self.trajectory = self.trajectory.with_identity(name, uuid, id);
         self
     }
 
@@ -829,18 +834,22 @@ impl Identifiable for SGPPropagator {
         self.name = name.map(|s| s.to_string());
         self.uuid = uuid;
         self.id = id;
+        self.trajectory.set_identity(name, uuid, id);
     }
 
     fn set_id(&mut self, id: Option<u64>) {
         self.id = id;
+        self.trajectory.set_id(id);
     }
 
     fn set_name(&mut self, name: Option<&str>) {
         self.name = name.map(|s| s.to_string());
+        self.trajectory.set_name(name);
     }
 
     fn generate_uuid(&mut self) {
         self.uuid = Some(uuid::Uuid::new_v4());
+        self.trajectory.generate_uuid();
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -894,6 +903,26 @@ mod tests {
         // Verify identity fields are automatically set
         assert_eq!(prop.get_name(), Some(name));
         assert_eq!(prop.get_id(), Some(25544));
+    }
+
+    #[test]
+    fn test_sgppropagator_from_tle_sets_id_without_name() {
+        setup_global_test_eop();
+        // Test that from_tle (2-line TLE without name) still sets ID from NORAD catalog number
+        let propagator = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0);
+        assert!(propagator.is_ok());
+
+        let prop = propagator.unwrap();
+
+        // Verify no name is set
+        assert_eq!(prop.get_name(), None);
+
+        // Verify ID is set from NORAD catalog number (25544)
+        assert_eq!(prop.get_id(), Some(25544));
+
+        // Verify trajectory also has the ID
+        assert_eq!(prop.trajectory.get_id(), Some(25544));
+        assert_eq!(prop.trajectory.get_name(), None);
     }
 
     // OrbitPropagator Trait Tests
@@ -1233,7 +1262,8 @@ mod tests {
             .with_name("My Satellite");
 
         assert_eq!(prop.get_name(), Some("My Satellite"));
-        assert_eq!(prop.get_id(), None);
+        // ID should be set from NORAD catalog number (25544), even when created from 2-line TLE
+        assert_eq!(prop.get_id(), Some(25544));
         assert_eq!(prop.get_uuid(), None);
     }
 
@@ -1259,7 +1289,8 @@ mod tests {
 
         assert_eq!(prop.get_uuid(), Some(test_uuid));
         assert_eq!(prop.get_name(), None);
-        assert_eq!(prop.get_id(), None);
+        // ID should be set from NORAD catalog number (25544), even when created from 2-line TLE
+        assert_eq!(prop.get_id(), Some(25544));
     }
 
     #[test]
@@ -1271,7 +1302,8 @@ mod tests {
 
         assert!(prop.get_uuid().is_some());
         assert_eq!(prop.get_name(), None);
-        assert_eq!(prop.get_id(), None);
+        // ID should be set from NORAD catalog number (25544), even when created from 2-line TLE
+        assert_eq!(prop.get_id(), Some(25544));
     }
 
     #[test]

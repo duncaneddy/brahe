@@ -3331,6 +3331,8 @@
       
         
       
+        
+      
     
     
     
@@ -3410,6 +3412,29 @@
   
   <span class="md-ellipsis">
     Conversions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/time/time_range.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TimeRange
     
   </span>
   
@@ -3626,6 +3651,8 @@
       
         
       
+        
+      
     
     
     
@@ -3722,6 +3749,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../library_api/orbits/altitude_functions.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Altitude Functions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../library_api/orbits/enums.html" class="md-nav__link">
         
   
@@ -3754,6 +3804,8 @@
   
     
     
+      
+        
       
         
       
@@ -3888,6 +3940,29 @@
   
   <span class="md-ellipsis">
     Euler Axis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/attitude/euler_angle_order.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    EulerAngleOrder
     
   </span>
   
@@ -4278,6 +4353,8 @@
       
         
       
+        
+      
     
     
     
@@ -4374,6 +4451,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../library_api/access/constraint_computer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../library_api/access/windows.html" class="md-nav__link">
         
   
@@ -4429,6 +4529,8 @@
   
     
     
+      
+        
       
         
       
@@ -4563,6 +4665,29 @@
   
   <span class="md-ellipsis">
     Access Geometry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/plots/gabbard.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gabbard Diagram
     
   </span>
   
@@ -5699,7 +5824,7 @@ h_p = r_p - R_{body} = a(1-e) - R_{body}
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">e</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># Eccentricity</span>
 </span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="c1"># Compute periapsis velocity (generic)</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">periapsis_velocity</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">periapsis_velocity</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">GM_EARTH</span><span class="p">)</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">periapsis_velocity</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">periapsis_velocity</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">gm</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">GM_EARTH</span><span class="p">)</span>
 </span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Periapsis velocity: </span><span class="si">{</span><span class="n">periapsis_velocity</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m/s&quot;</span><span class="p">)</span>
 </span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># Compute as a perigee velocity (Earth-specific)</span>
@@ -5711,7 +5836,7 @@ h_p = r_p - R_{body} = a(1-e) - R_{body}
 </span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Periapsis distance: </span><span class="si">{</span><span class="n">periapsis_distance</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e3</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> km&quot;</span><span class="p">)</span>
 </span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>
 </span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="c1"># Compute periapsis altitude (generic)</span>
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="n">periapsis_altitude</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">periapsis_altitude</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span><span class="p">)</span>
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="n">periapsis_altitude</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">periapsis_altitude</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">r_body</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span><span class="p">)</span>
 </span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Periapsis altitude: </span><span class="si">{</span><span class="n">periapsis_altitude</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e3</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> km&quot;</span><span class="p">)</span>
 </span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>
 </span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="c1"># Compute as a perigee altitude (Earth-specific)</span>
@@ -5808,7 +5933,7 @@ h_a = r_a - R_{body} = a(1+e) - R_{body}
 </span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">e</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># Eccentricity</span>
 </span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
 </span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="c1"># Compute apoapsis velocity (generic)</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">apoapsis_velocity</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">apoapsis_velocity</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">GM_EARTH</span><span class="p">)</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">apoapsis_velocity</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">apoapsis_velocity</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">gm</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">GM_EARTH</span><span class="p">)</span>
 </span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Apoapsis velocity: </span><span class="si">{</span><span class="n">apoapsis_velocity</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> m/s&quot;</span><span class="p">)</span>
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
 </span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Compute as an apogee velocity (Earth-specific)</span>
@@ -5820,7 +5945,7 @@ h_a = r_a - R_{body} = a(1+e) - R_{body}
 </span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Apoapsis distance: </span><span class="si">{</span><span class="n">apoapsis_distance</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e3</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> km&quot;</span><span class="p">)</span>
 </span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>
 </span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="c1"># Compute apoapsis altitude (generic)</span>
-</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="n">apoapsis_altitude</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">apoapsis_altitude</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span><span class="p">)</span>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="n">apoapsis_altitude</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">apoapsis_altitude</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">r_body</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span><span class="p">)</span>
 </span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Apoapsis altitude: </span><span class="si">{</span><span class="n">apoapsis_altitude</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e3</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> km&quot;</span><span class="p">)</span>
 </span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>
 </span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="c1"># Compute as an apogee altitude (Earth-specific)</span>
@@ -5904,64 +6029,70 @@ i = \arccos{\left(-\frac{2a^{7/2}\dot{\Omega}_{ss}(1-e^2)^2}{3R^2_EJ_2\sqrt{\mu}
 </span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="s2">a_leo = bh.R_EARTH + 800e3  # Semi-major axis</span>
 </span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="s2">e_leo = 0.0  # Circular orbit</span>
 </span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="s2">inc_leo_deg = bh.sun_synchronous_inclination(a_leo, e_leo, bh.AngleFormat.DEGREES)</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="s2">inc_leo_rad = bh.sun_synchronous_inclination(a_leo, e_leo, bh.AngleFormat.RADIANS)</span>
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>
-</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="s2">print(&quot;Sun-synchronous LEO (800 km, circular):&quot;)</span>
-</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_leo_deg:.3f}</span><span class="s2"> degrees&quot;)</span>
-</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_leo_rad:.6f}</span><span class="s2"> radians&quot;)</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="s2">inc_leo_deg = bh.sun_synchronous_inclination(</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="s2">    a_leo, e_leo, angle_format=bh.AngleFormat.DEGREES</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="s2">)</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="s2">inc_leo_rad = bh.sun_synchronous_inclination(</span>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="s2">    a_leo, e_leo, angle_format=bh.AngleFormat.RADIANS</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="s2">)</span>
 </span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>
-</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="s2"># Example 2: Different altitudes</span>
-</span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="s2">altitudes = [500, 600, 700, 800, 900, 1000]  # km</span>
-</span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Sun-synchronous inclination vs altitude (circular orbits):&quot;)</span>
-</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="s2">for alt_km in altitudes:</span>
-</span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="s2">    a = bh.R_EARTH + alt_km * 1e3</span>
-</span><span id="__span-15-23"><a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="s2">    inc = bh.sun_synchronous_inclination(a, 0.0, bh.AngleFormat.DEGREES)</span>
-</span><span id="__span-15-24"><a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="s2">    print(f&quot;  </span><span class="si">{alt_km:4d}</span><span class="s2"> km: </span><span class="si">{inc:.3f}</span><span class="s2"> deg&quot;)</span>
-</span><span id="__span-15-25"><a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a>
-</span><span id="__span-15-26"><a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="s2"># Example 3: Effect of eccentricity</span>
-</span><span id="__span-15-27"><a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="s2">a_fixed = bh.R_EARTH + 700e3</span>
-</span><span id="__span-15-28"><a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="s2">eccentricities = [0.0, 0.001, 0.005, 0.01, 0.02]</span>
+</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="s2">print(&quot;Sun-synchronous LEO (800 km, circular):&quot;)</span>
+</span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_leo_deg:.3f}</span><span class="s2"> degrees&quot;)</span>
+</span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_leo_rad:.6f}</span><span class="s2"> radians&quot;)</span>
+</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>
+</span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="s2"># Example 2: Different altitudes</span>
+</span><span id="__span-15-23"><a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="s2">altitudes = [500, 600, 700, 800, 900, 1000]  # km</span>
+</span><span id="__span-15-24"><a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Sun-synchronous inclination vs altitude (circular orbits):&quot;)</span>
+</span><span id="__span-15-25"><a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="s2">for alt_km in altitudes:</span>
+</span><span id="__span-15-26"><a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="s2">    a = bh.R_EARTH + alt_km * 1e3</span>
+</span><span id="__span-15-27"><a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="s2">    inc = bh.sun_synchronous_inclination(a, 0.0, angle_format=bh.AngleFormat.DEGREES)</span>
+</span><span id="__span-15-28"><a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="s2">    print(f&quot;  </span><span class="si">{alt_km:4d}</span><span class="s2"> km: </span><span class="si">{inc:.3f}</span><span class="s2"> deg&quot;)</span>
 </span><span id="__span-15-29"><a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a>
-</span><span id="__span-15-30"><a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Sun-synchronous inclination vs eccentricity (700 km orbit):&quot;)</span>
-</span><span id="__span-15-31"><a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a><span class="s2">for e in eccentricities:</span>
-</span><span id="__span-15-32"><a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a><span class="s2">    inc = bh.sun_synchronous_inclination(a_fixed, e, bh.AngleFormat.DEGREES)</span>
-</span><span id="__span-15-33"><a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a><span class="s2">    print(f&quot;  e = </span><span class="si">{e:.3f}</span><span class="s2">: </span><span class="si">{inc:.3f}</span><span class="s2"> deg&quot;)</span>
-</span><span id="__span-15-34"><a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a>
-</span><span id="__span-15-35"><a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a><span class="s2"># Example 4: Practical mission example (Landsat-like)</span>
-</span><span id="__span-15-36"><a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a><span class="s2">a_landsat = bh.R_EARTH + 705e3</span>
-</span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="s2">e_landsat = 0.0001</span>
-</span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a><span class="s2">inc_landsat = bh.sun_synchronous_inclination(</span>
-</span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a><span class="s2">    a_landsat, e_landsat, bh.AngleFormat.DEGREES</span>
-</span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a><span class="s2">)</span>
-</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>
-</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Landsat-like orbit (705 km, nearly circular):&quot;)</span>
-</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_landsat:.3f}</span><span class="s2"> deg&quot;)</span>
-</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a><span class="s2">print(f&quot;  Period: {bh.orbital_period(a_landsat) / 60:.3f} min&quot;)</span>
-</span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>
-</span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a><span class="s2"># Expected output:</span>
-</span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a><span class="s2"># Sun-synchronous LEO (800 km, circular):</span>
-</span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a><span class="s2">#   Inclination: 98.603 degrees</span>
-</span><span id="__span-15-49"><a id="__codelineno-15-49" name="__codelineno-15-49" href="#__codelineno-15-49"></a><span class="s2">#   Inclination: 1.720948 radians</span>
-</span><span id="__span-15-50"><a id="__codelineno-15-50" name="__codelineno-15-50" href="#__codelineno-15-50"></a>
-</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a><span class="s2"># Sun-synchronous inclination vs altitude (circular orbits):</span>
-</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a><span class="s2">#    500 km: 97.402 deg</span>
-</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a><span class="s2">#    600 km: 97.788 deg</span>
-</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a><span class="s2">#    700 km: 98.188 deg</span>
-</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a><span class="s2">#    800 km: 98.603 deg</span>
-</span><span id="__span-15-56"><a id="__codelineno-15-56" name="__codelineno-15-56" href="#__codelineno-15-56"></a><span class="s2">#    900 km: 99.033 deg</span>
-</span><span id="__span-15-57"><a id="__codelineno-15-57" name="__codelineno-15-57" href="#__codelineno-15-57"></a><span class="s2">#   1000 km: 99.479 deg</span>
-</span><span id="__span-15-58"><a id="__codelineno-15-58" name="__codelineno-15-58" href="#__codelineno-15-58"></a>
-</span><span id="__span-15-59"><a id="__codelineno-15-59" name="__codelineno-15-59" href="#__codelineno-15-59"></a><span class="s2"># Sun-synchronous inclination vs eccentricity (700 km orbit):</span>
-</span><span id="__span-15-60"><a id="__codelineno-15-60" name="__codelineno-15-60" href="#__codelineno-15-60"></a><span class="s2">#   e = 0.000: 98.188 deg</span>
-</span><span id="__span-15-61"><a id="__codelineno-15-61" name="__codelineno-15-61" href="#__codelineno-15-61"></a><span class="s2">#   e = 0.001: 98.188 deg</span>
-</span><span id="__span-15-62"><a id="__codelineno-15-62" name="__codelineno-15-62" href="#__codelineno-15-62"></a><span class="s2">#   e = 0.005: 98.187 deg</span>
-</span><span id="__span-15-63"><a id="__codelineno-15-63" name="__codelineno-15-63" href="#__codelineno-15-63"></a><span class="s2">#   e = 0.010: 98.186 deg</span>
-</span><span id="__span-15-64"><a id="__codelineno-15-64" name="__codelineno-15-64" href="#__codelineno-15-64"></a><span class="s2">#   e = 0.020: 98.181 deg</span>
-</span><span id="__span-15-65"><a id="__codelineno-15-65" name="__codelineno-15-65" href="#__codelineno-15-65"></a>
-</span><span id="__span-15-66"><a id="__codelineno-15-66" name="__codelineno-15-66" href="#__codelineno-15-66"></a><span class="s2"># Landsat-like orbit (705 km, nearly circular):</span>
-</span><span id="__span-15-67"><a id="__codelineno-15-67" name="__codelineno-15-67" href="#__codelineno-15-67"></a><span class="s2">#   Inclination: 98.208 deg</span>
-</span><span id="__span-15-68"><a id="__codelineno-15-68" name="__codelineno-15-68" href="#__codelineno-15-68"></a><span class="s2">#   Period: 98.878 min</span>
+</span><span id="__span-15-30"><a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a><span class="s2"># Example 3: Effect of eccentricity</span>
+</span><span id="__span-15-31"><a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a><span class="s2">a_fixed = bh.R_EARTH + 700e3</span>
+</span><span id="__span-15-32"><a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a><span class="s2">eccentricities = [0.0, 0.001, 0.005, 0.01, 0.02]</span>
+</span><span id="__span-15-33"><a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a>
+</span><span id="__span-15-34"><a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Sun-synchronous inclination vs eccentricity (700 km orbit):&quot;)</span>
+</span><span id="__span-15-35"><a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a><span class="s2">for e in eccentricities:</span>
+</span><span id="__span-15-36"><a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a><span class="s2">    inc = bh.sun_synchronous_inclination(</span>
+</span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="s2">        a_fixed, e, angle_format=bh.AngleFormat.DEGREES</span>
+</span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a><span class="s2">    )</span>
+</span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a><span class="s2">    print(f&quot;  e = </span><span class="si">{e:.3f}</span><span class="s2">: </span><span class="si">{inc:.3f}</span><span class="s2"> deg&quot;)</span>
+</span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>
+</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a><span class="s2"># Example 4: Practical mission example (Landsat-like)</span>
+</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a><span class="s2">a_landsat = bh.R_EARTH + 705e3</span>
+</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a><span class="s2">e_landsat = 0.0001</span>
+</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a><span class="s2">inc_landsat = bh.sun_synchronous_inclination(</span>
+</span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a><span class="s2">    a_landsat, e_landsat, angle_format=bh.AngleFormat.DEGREES</span>
+</span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a><span class="s2">)</span>
+</span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a>
+</span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a><span class="s2">print(&quot;</span><span class="se">\n</span><span class="s2">Landsat-like orbit (705 km, nearly circular):&quot;)</span>
+</span><span id="__span-15-49"><a id="__codelineno-15-49" name="__codelineno-15-49" href="#__codelineno-15-49"></a><span class="s2">print(f&quot;  Inclination: </span><span class="si">{inc_landsat:.3f}</span><span class="s2"> deg&quot;)</span>
+</span><span id="__span-15-50"><a id="__codelineno-15-50" name="__codelineno-15-50" href="#__codelineno-15-50"></a><span class="s2">print(f&quot;  Period: {bh.orbital_period(a_landsat) / 60:.3f} min&quot;)</span>
+</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>
+</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a><span class="s2"># Expected output:</span>
+</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a><span class="s2"># Sun-synchronous LEO (800 km, circular):</span>
+</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a><span class="s2">#   Inclination: 98.603 degrees</span>
+</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a><span class="s2">#   Inclination: 1.720948 radians</span>
+</span><span id="__span-15-56"><a id="__codelineno-15-56" name="__codelineno-15-56" href="#__codelineno-15-56"></a>
+</span><span id="__span-15-57"><a id="__codelineno-15-57" name="__codelineno-15-57" href="#__codelineno-15-57"></a><span class="s2"># Sun-synchronous inclination vs altitude (circular orbits):</span>
+</span><span id="__span-15-58"><a id="__codelineno-15-58" name="__codelineno-15-58" href="#__codelineno-15-58"></a><span class="s2">#    500 km: 97.402 deg</span>
+</span><span id="__span-15-59"><a id="__codelineno-15-59" name="__codelineno-15-59" href="#__codelineno-15-59"></a><span class="s2">#    600 km: 97.788 deg</span>
+</span><span id="__span-15-60"><a id="__codelineno-15-60" name="__codelineno-15-60" href="#__codelineno-15-60"></a><span class="s2">#    700 km: 98.188 deg</span>
+</span><span id="__span-15-61"><a id="__codelineno-15-61" name="__codelineno-15-61" href="#__codelineno-15-61"></a><span class="s2">#    800 km: 98.603 deg</span>
+</span><span id="__span-15-62"><a id="__codelineno-15-62" name="__codelineno-15-62" href="#__codelineno-15-62"></a><span class="s2">#    900 km: 99.033 deg</span>
+</span><span id="__span-15-63"><a id="__codelineno-15-63" name="__codelineno-15-63" href="#__codelineno-15-63"></a><span class="s2">#   1000 km: 99.479 deg</span>
+</span><span id="__span-15-64"><a id="__codelineno-15-64" name="__codelineno-15-64" href="#__codelineno-15-64"></a>
+</span><span id="__span-15-65"><a id="__codelineno-15-65" name="__codelineno-15-65" href="#__codelineno-15-65"></a><span class="s2"># Sun-synchronous inclination vs eccentricity (700 km orbit):</span>
+</span><span id="__span-15-66"><a id="__codelineno-15-66" name="__codelineno-15-66" href="#__codelineno-15-66"></a><span class="s2">#   e = 0.000: 98.188 deg</span>
+</span><span id="__span-15-67"><a id="__codelineno-15-67" name="__codelineno-15-67" href="#__codelineno-15-67"></a><span class="s2">#   e = 0.001: 98.188 deg</span>
+</span><span id="__span-15-68"><a id="__codelineno-15-68" name="__codelineno-15-68" href="#__codelineno-15-68"></a><span class="s2">#   e = 0.005: 98.187 deg</span>
+</span><span id="__span-15-69"><a id="__codelineno-15-69" name="__codelineno-15-69" href="#__codelineno-15-69"></a><span class="s2">#   e = 0.010: 98.186 deg</span>
+</span><span id="__span-15-70"><a id="__codelineno-15-70" name="__codelineno-15-70" href="#__codelineno-15-70"></a><span class="s2">#   e = 0.020: 98.181 deg</span>
+</span><span id="__span-15-71"><a id="__codelineno-15-71" name="__codelineno-15-71" href="#__codelineno-15-71"></a>
+</span><span id="__span-15-72"><a id="__codelineno-15-72" name="__codelineno-15-72" href="#__codelineno-15-72"></a><span class="s2"># Landsat-like orbit (705 km, nearly circular):</span>
+</span><span id="__span-15-73"><a id="__codelineno-15-73" name="__codelineno-15-73" href="#__codelineno-15-73"></a><span class="s2">#   Inclination: 98.208 deg</span>
+</span><span id="__span-15-74"><a id="__codelineno-15-74" name="__codelineno-15-74" href="#__codelineno-15-74"></a><span class="s2">#   Period: 98.878 min</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -6074,63 +6205,65 @@ i = \arccos{\left(-\frac{2a^{7/2}\dot{\Omega}_{ss}(1-e^2)^2}{3R^2_EJ_2\sqrt{\mu}
 </span><span id="__span-17-26"><a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a><span class="n">ssi_data</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span id="__span-17-27"><a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a><span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">eccentricities</span><span class="p">:</span>
 </span><span id="__span-17-28"><a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>    <span class="n">ssi_data</span><span class="p">[</span><span class="n">e</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-17-29"><a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>        <span class="n">bh</span><span class="o">.</span><span class="n">sun_synchronous_inclination</span><span class="p">(</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
-</span><span id="__span-17-30"><a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alt</span>
-</span><span id="__span-17-31"><a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>    <span class="p">]</span>
-</span><span id="__span-17-32"><a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>
-</span><span id="__span-17-33"><a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a><span class="c1"># Create figure with theme support</span>
+</span><span id="__span-17-29"><a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>        <span class="n">bh</span><span class="o">.</span><span class="n">sun_synchronous_inclination</span><span class="p">(</span>
+</span><span id="__span-17-30"><a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>            <span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">angle_format</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span>
+</span><span id="__span-17-31"><a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>        <span class="p">)</span>
+</span><span id="__span-17-32"><a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alt</span>
+</span><span id="__span-17-33"><a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>    <span class="p">]</span>
 </span><span id="__span-17-34"><a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>
-</span><span id="__span-17-35"><a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>
-</span><span id="__span-17-36"><a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_figure</span><span class="p">(</span><span class="n">theme</span><span class="p">):</span>
-</span><span id="__span-17-37"><a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create figure with theme-specific colors.&quot;&quot;&quot;</span>
-</span><span id="__span-17-38"><a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>    <span class="n">colors</span> <span class="o">=</span> <span class="n">get_theme_colors</span><span class="p">(</span><span class="n">theme</span><span class="p">)</span>
-</span><span id="__span-17-39"><a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a>
-</span><span id="__span-17-40"><a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">()</span>
+</span><span id="__span-17-35"><a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a><span class="c1"># Create figure with theme support</span>
+</span><span id="__span-17-36"><a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>
+</span><span id="__span-17-37"><a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>
+</span><span id="__span-17-38"><a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_figure</span><span class="p">(</span><span class="n">theme</span><span class="p">):</span>
+</span><span id="__span-17-39"><a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create figure with theme-specific colors.&quot;&quot;&quot;</span>
+</span><span id="__span-17-40"><a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>    <span class="n">colors</span> <span class="o">=</span> <span class="n">get_theme_colors</span><span class="p">(</span><span class="n">theme</span><span class="p">)</span>
 </span><span id="__span-17-41"><a id="__codelineno-17-41" name="__codelineno-17-41" href="#__codelineno-17-41"></a>
-</span><span id="__span-17-42"><a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a>    <span class="c1"># Color palette for different eccentricities</span>
-</span><span id="__span-17-43"><a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>    <span class="n">color_palette</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-17-44"><a id="__codelineno-17-44" name="__codelineno-17-44" href="#__codelineno-17-44"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">],</span>
-</span><span id="__span-17-45"><a id="__codelineno-17-45" name="__codelineno-17-45" href="#__codelineno-17-45"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;secondary&quot;</span><span class="p">],</span>
-</span><span id="__span-17-46"><a id="__codelineno-17-46" name="__codelineno-17-46" href="#__codelineno-17-46"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;accent&quot;</span><span class="p">],</span>
-</span><span id="__span-17-47"><a id="__codelineno-17-47" name="__codelineno-17-47" href="#__codelineno-17-47"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">],</span>
-</span><span id="__span-17-48"><a id="__codelineno-17-48" name="__codelineno-17-48" href="#__codelineno-17-48"></a>    <span class="p">]</span>
-</span><span id="__span-17-49"><a id="__codelineno-17-49" name="__codelineno-17-49" href="#__codelineno-17-49"></a>
-</span><span id="__span-17-50"><a id="__codelineno-17-50" name="__codelineno-17-50" href="#__codelineno-17-50"></a>    <span class="c1"># Add traces for each eccentricity</span>
-</span><span id="__span-17-51"><a id="__codelineno-17-51" name="__codelineno-17-51" href="#__codelineno-17-51"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">eccentricities</span><span class="p">):</span>
-</span><span id="__span-17-52"><a id="__codelineno-17-52" name="__codelineno-17-52" href="#__codelineno-17-52"></a>        <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span>
-</span><span id="__span-17-53"><a id="__codelineno-17-53" name="__codelineno-17-53" href="#__codelineno-17-53"></a>            <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
-</span><span id="__span-17-54"><a id="__codelineno-17-54" name="__codelineno-17-54" href="#__codelineno-17-54"></a>                <span class="n">x</span><span class="o">=</span><span class="n">alt</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
-</span><span id="__span-17-55"><a id="__codelineno-17-55" name="__codelineno-17-55" href="#__codelineno-17-55"></a>                <span class="n">y</span><span class="o">=</span><span class="n">ssi_data</span><span class="p">[</span><span class="n">e</span><span class="p">],</span>
-</span><span id="__span-17-56"><a id="__codelineno-17-56" name="__codelineno-17-56" href="#__codelineno-17-56"></a>                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;lines&quot;</span><span class="p">,</span>
-</span><span id="__span-17-57"><a id="__codelineno-17-57" name="__codelineno-17-57" href="#__codelineno-17-57"></a>                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">color_palette</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">color_palette</span><span class="p">)],</span> <span class="n">width</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-</span><span id="__span-17-58"><a id="__codelineno-17-58" name="__codelineno-17-58" href="#__codelineno-17-58"></a>                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;e = </span><span class="si">{</span><span class="n">e</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-</span><span id="__span-17-59"><a id="__codelineno-17-59" name="__codelineno-17-59" href="#__codelineno-17-59"></a>                <span class="n">showlegend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-17-60"><a id="__codelineno-17-60" name="__codelineno-17-60" href="#__codelineno-17-60"></a>            <span class="p">)</span>
-</span><span id="__span-17-61"><a id="__codelineno-17-61" name="__codelineno-17-61" href="#__codelineno-17-61"></a>        <span class="p">)</span>
-</span><span id="__span-17-62"><a id="__codelineno-17-62" name="__codelineno-17-62" href="#__codelineno-17-62"></a>
-</span><span id="__span-17-63"><a id="__codelineno-17-63" name="__codelineno-17-63" href="#__codelineno-17-63"></a>    <span class="c1"># Configure axes</span>
-</span><span id="__span-17-64"><a id="__codelineno-17-64" name="__codelineno-17-64" href="#__codelineno-17-64"></a>    <span class="n">fig</span><span class="o">.</span><span class="n">update_xaxes</span><span class="p">(</span>
-</span><span id="__span-17-65"><a id="__codelineno-17-65" name="__codelineno-17-65" href="#__codelineno-17-65"></a>        <span class="n">tickmode</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
-</span><span id="__span-17-66"><a id="__codelineno-17-66" name="__codelineno-17-66" href="#__codelineno-17-66"></a>        <span class="n">tick0</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-</span><span id="__span-17-67"><a id="__codelineno-17-67" name="__codelineno-17-67" href="#__codelineno-17-67"></a>        <span class="n">dtick</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-17-68"><a id="__codelineno-17-68" name="__codelineno-17-68" href="#__codelineno-17-68"></a>        <span class="n">title_text</span><span class="o">=</span><span class="s2">&quot;Satellite Altitude [km]&quot;</span><span class="p">,</span>
-</span><span id="__span-17-69"><a id="__codelineno-17-69" name="__codelineno-17-69" href="#__codelineno-17-69"></a>        <span class="nb">range</span><span class="o">=</span><span class="p">[</span><span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
-</span><span id="__span-17-70"><a id="__codelineno-17-70" name="__codelineno-17-70" href="#__codelineno-17-70"></a>        <span class="n">showgrid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-17-71"><a id="__codelineno-17-71" name="__codelineno-17-71" href="#__codelineno-17-71"></a>    <span class="p">)</span>
-</span><span id="__span-17-72"><a id="__codelineno-17-72" name="__codelineno-17-72" href="#__codelineno-17-72"></a>
-</span><span id="__span-17-73"><a id="__codelineno-17-73" name="__codelineno-17-73" href="#__codelineno-17-73"></a>    <span class="n">fig</span><span class="o">.</span><span class="n">update_yaxes</span><span class="p">(</span>
-</span><span id="__span-17-74"><a id="__codelineno-17-74" name="__codelineno-17-74" href="#__codelineno-17-74"></a>        <span class="n">tickmode</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
-</span><span id="__span-17-75"><a id="__codelineno-17-75" name="__codelineno-17-75" href="#__codelineno-17-75"></a>        <span class="n">title_text</span><span class="o">=</span><span class="s2">&quot;Inclination [deg]&quot;</span><span class="p">,</span>
-</span><span id="__span-17-76"><a id="__codelineno-17-76" name="__codelineno-17-76" href="#__codelineno-17-76"></a>        <span class="n">showgrid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-17-77"><a id="__codelineno-17-77" name="__codelineno-17-77" href="#__codelineno-17-77"></a>    <span class="p">)</span>
-</span><span id="__span-17-78"><a id="__codelineno-17-78" name="__codelineno-17-78" href="#__codelineno-17-78"></a>
-</span><span id="__span-17-79"><a id="__codelineno-17-79" name="__codelineno-17-79" href="#__codelineno-17-79"></a>    <span class="k">return</span> <span class="n">fig</span>
+</span><span id="__span-17-42"><a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a>    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">()</span>
+</span><span id="__span-17-43"><a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>
+</span><span id="__span-17-44"><a id="__codelineno-17-44" name="__codelineno-17-44" href="#__codelineno-17-44"></a>    <span class="c1"># Color palette for different eccentricities</span>
+</span><span id="__span-17-45"><a id="__codelineno-17-45" name="__codelineno-17-45" href="#__codelineno-17-45"></a>    <span class="n">color_palette</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-17-46"><a id="__codelineno-17-46" name="__codelineno-17-46" href="#__codelineno-17-46"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">],</span>
+</span><span id="__span-17-47"><a id="__codelineno-17-47" name="__codelineno-17-47" href="#__codelineno-17-47"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;secondary&quot;</span><span class="p">],</span>
+</span><span id="__span-17-48"><a id="__codelineno-17-48" name="__codelineno-17-48" href="#__codelineno-17-48"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;accent&quot;</span><span class="p">],</span>
+</span><span id="__span-17-49"><a id="__codelineno-17-49" name="__codelineno-17-49" href="#__codelineno-17-49"></a>        <span class="n">colors</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">],</span>
+</span><span id="__span-17-50"><a id="__codelineno-17-50" name="__codelineno-17-50" href="#__codelineno-17-50"></a>    <span class="p">]</span>
+</span><span id="__span-17-51"><a id="__codelineno-17-51" name="__codelineno-17-51" href="#__codelineno-17-51"></a>
+</span><span id="__span-17-52"><a id="__codelineno-17-52" name="__codelineno-17-52" href="#__codelineno-17-52"></a>    <span class="c1"># Add traces for each eccentricity</span>
+</span><span id="__span-17-53"><a id="__codelineno-17-53" name="__codelineno-17-53" href="#__codelineno-17-53"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">eccentricities</span><span class="p">):</span>
+</span><span id="__span-17-54"><a id="__codelineno-17-54" name="__codelineno-17-54" href="#__codelineno-17-54"></a>        <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span>
+</span><span id="__span-17-55"><a id="__codelineno-17-55" name="__codelineno-17-55" href="#__codelineno-17-55"></a>            <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+</span><span id="__span-17-56"><a id="__codelineno-17-56" name="__codelineno-17-56" href="#__codelineno-17-56"></a>                <span class="n">x</span><span class="o">=</span><span class="n">alt</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
+</span><span id="__span-17-57"><a id="__codelineno-17-57" name="__codelineno-17-57" href="#__codelineno-17-57"></a>                <span class="n">y</span><span class="o">=</span><span class="n">ssi_data</span><span class="p">[</span><span class="n">e</span><span class="p">],</span>
+</span><span id="__span-17-58"><a id="__codelineno-17-58" name="__codelineno-17-58" href="#__codelineno-17-58"></a>                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;lines&quot;</span><span class="p">,</span>
+</span><span id="__span-17-59"><a id="__codelineno-17-59" name="__codelineno-17-59" href="#__codelineno-17-59"></a>                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">color_palette</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">color_palette</span><span class="p">)],</span> <span class="n">width</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+</span><span id="__span-17-60"><a id="__codelineno-17-60" name="__codelineno-17-60" href="#__codelineno-17-60"></a>                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;e = </span><span class="si">{</span><span class="n">e</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-17-61"><a id="__codelineno-17-61" name="__codelineno-17-61" href="#__codelineno-17-61"></a>                <span class="n">showlegend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-17-62"><a id="__codelineno-17-62" name="__codelineno-17-62" href="#__codelineno-17-62"></a>            <span class="p">)</span>
+</span><span id="__span-17-63"><a id="__codelineno-17-63" name="__codelineno-17-63" href="#__codelineno-17-63"></a>        <span class="p">)</span>
+</span><span id="__span-17-64"><a id="__codelineno-17-64" name="__codelineno-17-64" href="#__codelineno-17-64"></a>
+</span><span id="__span-17-65"><a id="__codelineno-17-65" name="__codelineno-17-65" href="#__codelineno-17-65"></a>    <span class="c1"># Configure axes</span>
+</span><span id="__span-17-66"><a id="__codelineno-17-66" name="__codelineno-17-66" href="#__codelineno-17-66"></a>    <span class="n">fig</span><span class="o">.</span><span class="n">update_xaxes</span><span class="p">(</span>
+</span><span id="__span-17-67"><a id="__codelineno-17-67" name="__codelineno-17-67" href="#__codelineno-17-67"></a>        <span class="n">tickmode</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
+</span><span id="__span-17-68"><a id="__codelineno-17-68" name="__codelineno-17-68" href="#__codelineno-17-68"></a>        <span class="n">tick0</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+</span><span id="__span-17-69"><a id="__codelineno-17-69" name="__codelineno-17-69" href="#__codelineno-17-69"></a>        <span class="n">dtick</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-17-70"><a id="__codelineno-17-70" name="__codelineno-17-70" href="#__codelineno-17-70"></a>        <span class="n">title_text</span><span class="o">=</span><span class="s2">&quot;Satellite Altitude [km]&quot;</span><span class="p">,</span>
+</span><span id="__span-17-71"><a id="__codelineno-17-71" name="__codelineno-17-71" href="#__codelineno-17-71"></a>        <span class="nb">range</span><span class="o">=</span><span class="p">[</span><span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+</span><span id="__span-17-72"><a id="__codelineno-17-72" name="__codelineno-17-72" href="#__codelineno-17-72"></a>        <span class="n">showgrid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-17-73"><a id="__codelineno-17-73" name="__codelineno-17-73" href="#__codelineno-17-73"></a>    <span class="p">)</span>
+</span><span id="__span-17-74"><a id="__codelineno-17-74" name="__codelineno-17-74" href="#__codelineno-17-74"></a>
+</span><span id="__span-17-75"><a id="__codelineno-17-75" name="__codelineno-17-75" href="#__codelineno-17-75"></a>    <span class="n">fig</span><span class="o">.</span><span class="n">update_yaxes</span><span class="p">(</span>
+</span><span id="__span-17-76"><a id="__codelineno-17-76" name="__codelineno-17-76" href="#__codelineno-17-76"></a>        <span class="n">tickmode</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
+</span><span id="__span-17-77"><a id="__codelineno-17-77" name="__codelineno-17-77" href="#__codelineno-17-77"></a>        <span class="n">title_text</span><span class="o">=</span><span class="s2">&quot;Inclination [deg]&quot;</span><span class="p">,</span>
+</span><span id="__span-17-78"><a id="__codelineno-17-78" name="__codelineno-17-78" href="#__codelineno-17-78"></a>        <span class="n">showgrid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-17-79"><a id="__codelineno-17-79" name="__codelineno-17-79" href="#__codelineno-17-79"></a>    <span class="p">)</span>
 </span><span id="__span-17-80"><a id="__codelineno-17-80" name="__codelineno-17-80" href="#__codelineno-17-80"></a>
-</span><span id="__span-17-81"><a id="__codelineno-17-81" name="__codelineno-17-81" href="#__codelineno-17-81"></a>
-</span><span id="__span-17-82"><a id="__codelineno-17-82" name="__codelineno-17-82" href="#__codelineno-17-82"></a><span class="c1"># Generate and save both themed versions</span>
-</span><span id="__span-17-83"><a id="__codelineno-17-83" name="__codelineno-17-83" href="#__codelineno-17-83"></a><span class="n">light_path</span><span class="p">,</span> <span class="n">dark_path</span> <span class="o">=</span> <span class="n">save_themed_html</span><span class="p">(</span><span class="n">create_figure</span><span class="p">,</span> <span class="n">OUTDIR</span> <span class="o">/</span> <span class="n">SCRIPT_NAME</span><span class="p">)</span>
-</span><span id="__span-17-84"><a id="__codelineno-17-84" name="__codelineno-17-84" href="#__codelineno-17-84"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Generated </span><span class="si">{</span><span class="n">light_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-17-85"><a id="__codelineno-17-85" name="__codelineno-17-85" href="#__codelineno-17-85"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Generated </span><span class="si">{</span><span class="n">dark_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-81"><a id="__codelineno-17-81" name="__codelineno-17-81" href="#__codelineno-17-81"></a>    <span class="k">return</span> <span class="n">fig</span>
+</span><span id="__span-17-82"><a id="__codelineno-17-82" name="__codelineno-17-82" href="#__codelineno-17-82"></a>
+</span><span id="__span-17-83"><a id="__codelineno-17-83" name="__codelineno-17-83" href="#__codelineno-17-83"></a>
+</span><span id="__span-17-84"><a id="__codelineno-17-84" name="__codelineno-17-84" href="#__codelineno-17-84"></a><span class="c1"># Generate and save both themed versions</span>
+</span><span id="__span-17-85"><a id="__codelineno-17-85" name="__codelineno-17-85" href="#__codelineno-17-85"></a><span class="n">light_path</span><span class="p">,</span> <span class="n">dark_path</span> <span class="o">=</span> <span class="n">save_themed_html</span><span class="p">(</span><span class="n">create_figure</span><span class="p">,</span> <span class="n">OUTDIR</span> <span class="o">/</span> <span class="n">SCRIPT_NAME</span><span class="p">)</span>
+</span><span id="__span-17-86"><a id="__codelineno-17-86" name="__codelineno-17-86" href="#__codelineno-17-86"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Generated </span><span class="si">{</span><span class="n">light_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-87"><a id="__codelineno-17-87" name="__codelineno-17-87" href="#__codelineno-17-87"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Generated </span><span class="si">{</span><span class="n">dark_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </details>
 <p>Most sun-synchronous Earth observation missions operate at altitudes between 500-1000 km with near-zero eccentricity. The launch provider selects the precise inclination based on the above equation to achieve the desired sun-synchronous behavior.</p>

@@ -293,6 +293,10 @@
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/access/constraint_computer.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/access/constraints.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
@@ -310,6 +314,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/attitude/index.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/attitude/euler_angle_order.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
@@ -405,6 +413,10 @@
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/orbits/altitude_functions.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/orbits/enums.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
@@ -426,6 +438,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/plots/access_geometry.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/plots/gabbard.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
@@ -458,6 +474,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/time/epoch.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/time/time_range.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>

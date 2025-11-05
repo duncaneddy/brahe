@@ -28,7 +28,7 @@ def plot_access_polar(
     radial_tick_values=None,
     radial_tick_labels=None,
     radial_range=None,
-    radial_tick_offset=3,
+    radial_tick_offset=8,
 ) -> object:
     """Plot access window geometry in polar coordinates (azimuth/elevation).
 
@@ -566,9 +566,8 @@ def _access_polar_plotly(
     # Create tick values and labels for radial axis
     # Radius represents 90 - elevation, so we need to reverse the labels
     if radial_tick_values is None:
-        base_radii = np.arange(0, 90, 15)
-
-        # Add 3 to each tick value to offset from circle lines
+        # Exclude 0 (zenith/90° elevation), include 90 (horizon/0° elevation)
+        base_radii = np.arange(15, 91, 15)
     else:
         base_radii = np.array(radial_tick_values)
 
@@ -577,9 +576,14 @@ def _access_polar_plotly(
     else:
         tick_labels = radial_tick_labels
 
-    # Set radial range (start slightly above 0 to hide center circle)
+    # Apply offset to tick positions to avoid overlapping with grid circles
+    # The labels will be positioned at base_radii + offset, but still show the correct elevation values
+    tick_positions = base_radii + radial_tick_offset
+
+    # Set radial range - extend to accommodate offset tick labels
     if radial_range is None:
-        radial_range = [0, 90]  # Start at 5 to avoid drawing circle at zenith
+        # Extend range to accommodate the offset tick positions
+        radial_range = [0, max(90, tick_positions[-1])]
 
     layout_config = {
         "title": "Access Window Geometry",
@@ -590,8 +594,8 @@ def _access_polar_plotly(
                 angle=67.5,  # Position radial tick labels at 67.5 degrees (ENE direction)
                 tickangle=90,
                 tickmode="array",
-                tickvals=base_radii.tolist(),
-                ticktext=tick_labels,
+                tickvals=tick_positions.tolist(),  # Use offset positions
+                ticktext=tick_labels,  # But show the actual elevation values
                 showline=False,  # Don't draw the radial line
                 showticklabels=True,
             ),

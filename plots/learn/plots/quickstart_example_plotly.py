@@ -37,7 +37,6 @@ fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO"}],
     show_earth=True,
     backend="plotly",
-    view_distance=1.75,
 )
 
 # Save themed HTML files

@@ -32,7 +32,7 @@ prop = bh.SGPPropagator.from_3le(tle_line0, tle_line1, tle_line2, 60.0)
 
 # Define time range for one orbital period (~92 minutes for ISS)
 epoch = prop.epoch
-duration = 92.0 * 60.0  # seconds
+duration = bh.orbital_period(prop.semi_major_axis) * 60.0  # seconds
 
 # Generate trajectory by propagating
 prop.propagate_to(epoch + duration)

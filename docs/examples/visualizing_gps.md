@@ -2,7 +2,7 @@
 
 In this example we'll show how to visualize the orbits of GPS satellites using Brahe. We'll download the latest TLE data for the GPS constellation from CelesTrak, propagate each satellite for one orbit, and create an interactive 3D plot showing their trajectories around Earth.
 
-This example is similar to the [Downloading & Visualizing TLE Data For Starlink Satellites](downloading_tle_data.md) example, but but adds in propagation for one full orbit before visualization.
+This example is similar to the [Downloading & Visualizing TLE Data For Starlink Satellites](visualizing_starlink.md) example, but but adds in propagation for one full orbit before visualization.
 
 ---
 

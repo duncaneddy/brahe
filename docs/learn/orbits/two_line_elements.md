@@ -209,5 +209,5 @@ The `parse_norad_id` function automatically detects whether a NORAD ID is in num
 
 - [SGP Propagator](../../library_api/propagators/sgp_propagator.md) - Use TLEs with SGP4/SDP4 propagation
 - [Keplerian Elements](../../library_api/orbits/keplerian.md) - Working with orbital elements
-- [Downloading TLE Data](../../examples/downloading_tle_data.md) - How to fetch current TLEs from online sources
+- [Downloading TLE Data](../../examples/visualizing_starlink.md) - How to fetch current TLEs from online sources
 - [Epoch](../time/epoch.md) - Understanding time representation in Brahe

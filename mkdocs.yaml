@@ -201,9 +201,10 @@ nav:
     -   Examples:
             - examples/index.md
             - examples/visualizing_gps.md
-            - examples/downloading_tle_data.md
+            - examples/visualizing_starlink.md
             - examples/ground_contacts.md
-            - examples/doppler_complementation.md
+            - examples/doppler_compensation.md
+            - examples/max_communications_gap.md
             - examples/imaging_opportunities.md
     -   Python API Reference:
             - library_api/index.md

@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "plotly", "numpy"]
+# TIMEOUT = 600
+# ///
 """
 3D Trajectory Plotting Example - Plotly Backend
 

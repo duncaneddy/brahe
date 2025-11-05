@@ -171,5 +171,5 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 
 - [Datasets Overview](index.md) - Understanding satellite ephemeris datasets
 - [Two-Line Elements](../orbits/two_line_elements.md) - TLE and 3LE format details
-- [Downloading TLE Data](../../examples/downloading_tle_data.md) - Practical examples
+- [Downloading TLE Data](../../examples/visualizing_starlink.md) - Practical examples
 - [CelesTrak API Reference](../../library_api/datasets/celestrak.md) - Function documentation

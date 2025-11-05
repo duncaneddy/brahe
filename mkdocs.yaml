@@ -21,9 +21,12 @@ extra_javascript:
     - https://unpkg.com/katex@0/dist/katex.min.js
     - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
     - https://cdn.plot.ly/plotly-latest.min.js
+    - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
+    - javascripts/tablesort.js
 
 plugins:
     - search
+    - table-reader
     # - awesome-nav # Need to spend more time to configure this
     -   mkdocstrings:
             handlers:

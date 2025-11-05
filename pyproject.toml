@@ -73,6 +73,7 @@ docs = [
     "mkdocs-git-revision-date-localized-plugin>=1.4.7",
     "mkdocs-material>=9.6.20",
     "mkdocs-section-index>=0.3.10",
+    "mkdocs-table-reader-plugin>=3.1.0",
     "mkdocstrings>=0.30.0",
     "mkdocstrings-python>=1.18.2",
     "neoteroi-mkdocs>=1.1.3",

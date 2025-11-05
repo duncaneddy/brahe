@@ -805,8 +805,9 @@ def _plot_station_group_plotly(
     # Collect station markers
     station_lats = []
     station_lons = []
+    station_names = []
 
-    for station in stations:
+    for idx, station in enumerate(stations):
         # Extract lat/lon
         if hasattr(station, "latitude") and hasattr(station, "longitude"):
             lat_deg = math.degrees(station.latitude(bh.AngleFormat.RADIANS))
@@ -819,6 +820,13 @@ def _plot_station_group_plotly(
 
         station_lats.append(lat_deg)
         station_lons.append(lon_deg)
+
+        # Extract station name using get_name() if available, otherwise use default
+        if hasattr(station, "get_name"):
+            name = station.get_name()
+            station_names.append(name if name else f"GS {idx + 1}")
+        else:
+            station_names.append(f"GS {idx + 1}")
 
         # Plot communication cone for this station
         circle_points = Geodesic().circle(
@@ -876,6 +884,8 @@ def _plot_station_group_plotly(
                 marker=dict(size=point_size, color=color),
                 name="Ground Stations",
                 showlegend=show_legend,
+                text=station_names,
+                hovertemplate="<b>%{text}</b><br>Lat: %{lat:.2f}°<br>Lon: %{lon:.2f}°<extra></extra>",
             )
         )
 
@@ -956,6 +966,12 @@ def _plot_trajectory_group_plotly(fig, group, show_legend):
     if trajectory is None:
         return
 
+    # Extract satellite name from trajectory using get_name() if available
+    sat_name = "Satellite"
+    if hasattr(trajectory, "get_name"):
+        name = trajectory.get_name()
+        sat_name = name if name else "Satellite"
+
     # Extract lat/lon
     if hasattr(trajectory, "to_matrix"):
         # OrbitTrajectory - use to_matrix() which returns (N, 6) array
@@ -996,8 +1012,9 @@ def _plot_trajectory_group_plotly(fig, group, show_legend):
             lon=lons,
             mode="lines",
             line=dict(color=color, width=line_width),
-            name="Ground Track",
+            name=sat_name,
             showlegend=show_legend,
+            hovertemplate=f"<b>{sat_name}</b><br>Lat: %{{lat:.2f}}°<br>Lon: %{{lon:.2f}}°<extra></extra>",
         )
     )
 

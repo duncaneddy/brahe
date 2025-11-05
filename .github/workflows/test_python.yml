@@ -48,7 +48,7 @@ jobs:
 
 
             -   name: Install dependencies
-                run: uv sync --group test --all-extras --frozen --python python
+                run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
                 
             -   name: Test with python ${{ matrix.python-version }}
                 run: uv run --frozen coverage run -m pytest -m ''

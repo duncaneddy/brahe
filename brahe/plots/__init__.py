@@ -13,7 +13,7 @@ This module provides high-level plotting functions for common astrodynamics visu
 All plot functions support both matplotlib and plotly backends, selected via the `backend` parameter.
 """
 
-from brahe.plots.groundtrack import plot_groundtrack
+from brahe.plots.groundtrack import plot_groundtrack, split_ground_track_at_antimeridian
 from brahe.plots.access_geometry import (
     plot_access_polar,
     plot_access_elevation,
@@ -28,6 +28,7 @@ from brahe.plots.gabbard import plot_gabbard_diagram
 
 __all__ = [
     "plot_groundtrack",
+    "split_ground_track_at_antimeridian",
     "plot_access_polar",
     "plot_access_elevation",
     "plot_access_elevation_azimuth",

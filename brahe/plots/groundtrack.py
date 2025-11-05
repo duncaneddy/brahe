@@ -21,6 +21,76 @@ from brahe.plots.backend import validate_backend, is_scienceplots_available
 from shapely.geometry import shape
 
 
+def split_ground_track_at_antimeridian(lons, lats, threshold=180.0):
+    """Split a ground track into segments at antimeridian crossings.
+
+    When a satellite ground track crosses the antimeridian (±180° longitude), plotting
+    libraries may draw an incorrect line across the entire map. This function detects
+    such crossings and splits the track into separate segments that can be plotted
+    individually.
+
+    Args:
+        lons (list or np.ndarray): Longitude values in degrees
+        lats (list or np.ndarray): Latitude values in degrees (same length as lons)
+        threshold (float, optional): Longitude jump threshold in degrees to detect
+            wraparound. Default: 180.0
+
+    Returns:
+        list of tuples: List of (lon_segment, lat_segment) tuples, where each tuple
+            contains arrays for one continuous segment
+
+    Example:
+        ```python
+        import brahe as bh
+        import numpy as np
+
+        # Ground track that crosses antimeridian
+        lons = [170, 175, 180, -175, -170]
+        lats = [10, 15, 20, 25, 30]
+
+        # Split into segments
+        segments = bh.split_ground_track_at_antimeridian(lons, lats)
+
+        # Plot each segment
+        import matplotlib.pyplot as plt
+        for lon_seg, lat_seg in segments:
+            plt.plot(lon_seg, lat_seg)
+        ```
+    """
+    lons = np.array(lons)
+    lats = np.array(lats)
+
+    if len(lons) != len(lats):
+        raise ValueError("lons and lats must have the same length")
+
+    if len(lons) == 0:
+        return []
+
+    # Find where jumps occur
+    lon_diff = np.diff(lons)
+    wrap_indices = np.where(np.abs(lon_diff) > threshold)[0]
+
+    if len(wrap_indices) == 0:
+        # No wraparound, return single segment
+        return [(lons, lats)]
+
+    # Split into segments
+    segments = []
+    start_idx = 0
+
+    for wrap_idx in wrap_indices:
+        # Add segment up to (and including) the point before the jump
+        end_idx = wrap_idx + 1
+        segments.append((lons[start_idx:end_idx], lats[start_idx:end_idx]))
+        start_idx = end_idx
+
+    # Add final segment
+    if start_idx < len(lons):
+        segments.append((lons[start_idx:], lats[start_idx:]))
+
+    return segments
+
+
 def plot_groundtrack(
     trajectories=None,
     ground_stations=None,
@@ -589,7 +659,7 @@ def _filter_track(states, epochs, track_length, track_units):
     if track_units == "orbits":
         # Calculate orbital period from the last state
         last_state = states[-1]
-        period = bh.orbital_period_from_state(last_state)
+        period = bh.orbital_period_from_state(last_state, bh.GM_EARTH)
 
         # Convert orbits to seconds
         duration = track_length * period
@@ -642,8 +712,8 @@ def _plot_trajectory_group_matplotlib(ax, group):
             epoch = epochs[i]
             # Convert ECI to ECEF
             ecef_state = bh.state_eci_to_ecef(epoch, state)
-            # Convert ECEF to geodetic
-            lat, lon, alt = bh.position_ecef_to_geodetic(
+            # Convert ECEF to geodetic (returns [lon, lat, alt])
+            lon, lat, alt = bh.position_ecef_to_geodetic(
                 ecef_state[:3], bh.AngleFormat.RADIANS
             )
             lats.append(math.degrees(lat))
@@ -778,7 +848,8 @@ def _plot_trajectory_group_plotly(fig, group):
         for i, state in enumerate(states):
             epoch = epochs[i]
             ecef_state = bh.state_eci_to_ecef(epoch, state)
-            lat, lon, alt = bh.position_ecef_to_geodetic(
+            # Convert ECEF to geodetic (returns [lon, lat, alt])
+            lon, lat, alt = bh.position_ecef_to_geodetic(
                 ecef_state[:3], bh.AngleFormat.RADIANS
             )
             lats.append(math.degrees(lat))

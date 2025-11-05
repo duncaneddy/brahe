@@ -52,66 +52,137 @@ The static plot shows the same information in a clean, professional format suita
 - Batch figure generation
 - Custom post-processing with matplotlib
 
-## Key Features
+## Configuration and Customization
 
-### Multiple Trajectories
+### Configuring Track Length
 
-Plot multiple satellites simultaneously with different colors:
+Control how many orbits are displayed using the `track_length` parameter:
 
-```python
-import brahe as bh
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/groundtrack_orbit_config_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/groundtrack_orbit_config_dark.html"  loading="lazy"></iframe>
+</div>
 
-# Create multiple propagators
-prop1 = bh.KeplerianPropagator.from_eci(epoch1, state1, 60.0)
-prop2 = bh.KeplerianPropagator.from_eci(epoch2, state2, 60.0)
+??? "Plot Source"
 
-# Propagate and get trajectories
-prop1.propagate_to(epoch1 + duration)
-prop2.propagate_to(epoch2 + duration)
+    ``` python title="groundtrack_orbit_config.py"
+    --8<-- "./plots/learn/plots/groundtrack_orbit_config.py"
+    ```
 
-# Plot both
-fig = bh.plot_groundtrack(
-    trajectories=[
-        {"trajectory": prop1.trajectory, "color": "red", "line_width": 2},
-        {"trajectory": prop2.trajectory, "color": "blue", "line_width": 2}
-    ],
-    backend="plotly"
-)
-```
+This example shows the same satellite trajectory with three different `track_length` values:
+- Blue: 1 orbit (most recent)
+- Red: 3 orbits
+- Green: 5 orbits (complete trajectory)
+
+The `track_units` parameter can be set to `"orbits"` (default) or `"seconds"` for time-based filtering.
+
+### Multiple Spacecraft
+
+Plot multiple satellites simultaneously to compare orbits or analyze constellations:
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/groundtrack_multiple_spacecraft_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/groundtrack_multiple_spacecraft_dark.html"  loading="lazy"></iframe>
+</div>
+
+??? "Plot Source"
+
+    ``` python title="groundtrack_multiple_spacecraft.py"
+    --8<-- "./plots/learn/plots/groundtrack_multiple_spacecraft.py"
+    ```
+
+This example shows three different LEO orbits:
+- **Red**: Sun-synchronous orbit (98° inclination, 700km altitude)
+- **Blue**: Medium inclination (55°, 600km altitude)
+- **Green**: Equatorial orbit (5° inclination, 800km altitude)
 
 ### Ground Station Networks
 
-Visualize multiple ground stations with different groups and colors:
+Visualize satellite visibility over ground station networks with communication coverage cones:
 
-```python
-import numpy as np
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/groundtrack_nasa_nen_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/groundtrack_nasa_nen_dark.html"  loading="lazy"></iframe>
+</div>
 
-# AWS ground stations
-aws_stations = [
-    bh.PointLocation(np.radians(40.7128), np.radians(-74.0060), 0.0),  # NYC
-    bh.PointLocation(np.radians(37.7749), np.radians(-122.4194), 0.0),  # SF
-]
+??? "Plot Source"
 
-# KSAT ground stations
-ksat_stations = [
-    bh.PointLocation(np.radians(78.2232), np.radians(15.6267), 0.0),  # Svalbard
-]
+    ``` python title="groundtrack_nasa_nen.py"
+    --8<-- "./plots/learn/plots/groundtrack_nasa_nen.py"
+    ```
 
-fig = bh.plot_groundtrack(
-    trajectories=[{"trajectory": traj}],
-    ground_stations=[
-        {"stations": aws_stations, "color": "orange", "alpha": 0.3},
-        {"stations": ksat_stations, "color": "blue", "alpha": 0.3}
-    ],
-    backend="matplotlib"
-)
-```
+This example demonstrates:
+- Loading the NASA Near Earth Network (NEN) ground stations from built-in datasets
+- Plotting communication cones showing 10° minimum elevation visibility
+- Visualizing coverage for a 550km altitude LEO satellite
+
+Available ground station networks include: `"atlas"`, `"aws"`, `"ksat"`, `"leaf"`, `"nasa dsn"`, `"nasa nen"`, `"ssc"`, and `"viasat"`.
+
+### Map Styles
+
+Choose from different basemap styles to suit your presentation needs:
+
+#### Natural Earth (High-Quality Vector)
+
+<figure markdown="span">
+    ![Natural Earth Basemap](../../figures/groundtrack_basemaps_natural_earth_light.svg#only-light)
+    ![Natural Earth Basemap](../../figures/groundtrack_basemaps_natural_earth_dark.svg#only-dark)
+</figure>
+
+#### Stock (Cartopy Built-in)
+
+<figure markdown="span">
+    ![Stock Basemap](../../figures/groundtrack_basemaps_stock_light.svg#only-light)
+    ![Stock Basemap](../../figures/groundtrack_basemaps_stock_dark.svg#only-dark)
+</figure>
+
+#### Plain (No Geographic Features)
+
+<figure markdown="span">
+    ![Plain Basemap](../../figures/groundtrack_basemaps_plain_light.svg#only-light)
+    ![Plain Basemap](../../figures/groundtrack_basemaps_plain_dark.svg#only-dark)
+</figure>
+
+??? "Plot Source"
+
+    ``` python title="groundtrack_basemaps.py"
+    --8<-- "./plots/learn/plots/groundtrack_basemaps.py"
+    ```
+
+Set the `basemap` parameter to `"natural_earth"` (default), `"stock"`, or `None` to control the map style.
+
+## Advanced Examples
+
+### Maximum Coverage Gap Analysis
+
+This advanced example demonstrates how to:
+- Compute access windows between a satellite and ground network
+- Find the longest gap between consecutive contacts
+- Extract and highlight that gap segment on the ground track
+- Handle antimeridian wraparound with custom plotting
+
+<figure markdown="span">
+    ![Maximum Coverage Gap](../../figures/groundtrack_max_gap_light.svg#only-light)
+    ![Maximum Coverage Gap](../../figures/groundtrack_max_gap_dark.svg#only-dark)
+</figure>
+
+??? "Plot Source"
+
+    ``` python title="groundtrack_max_gap.py"
+    --8<-- "./plots/learn/plots/groundtrack_max_gap.py"
+    ```
+
+This example uses the `split_ground_track_at_antimeridian()` helper function to properly handle longitude wraparound when plotting custom ground track segments. The helper function detects jumps across the ±180° boundary and splits the track into separate segments for correct rendering.
+
+## Additional Features
 
 ### Coverage Zones
 
 Add polygon zones for restricted areas, target regions, or sensor footprints:
 
 ```python
+import numpy as np
+
 # Define a restricted zone
 vertices = [
     (np.radians(30.0), np.radians(-100.0)),  # lat, lon
@@ -134,33 +205,15 @@ fig = bh.plot_groundtrack(
 )
 ```
 
-### Track Filtering
+### Map Extent
 
-Control how much of the trajectory is displayed:
-
-```python
-# Show only the last 2 orbits
-fig = bh.plot_groundtrack(
-    trajectories=[{
-        "trajectory": traj,
-        "track_length": 2,
-        "track_units": "orbits"  # or "seconds"
-    }]
-)
-```
-
-### Map Customization
-
-Control map appearance and region:
+Zoom into specific regions using the `extent` parameter:
 
 ```python
+# Focus on North America
 fig = bh.plot_groundtrack(
     trajectories=[{"trajectory": traj}],
-    basemap="natural_earth",  # "stock" or None
-    show_borders=True,
-    show_coastlines=True,
-    show_grid=True,
-    extent=[-180, -60, 20, 50],  # [lon_min, lon_max, lat_min, lat_max]
+    extent=[-130, -60, 20, 50],  # [lon_min, lon_max, lat_min, lat_max]
     backend="matplotlib"
 )
 ```
@@ -169,54 +222,45 @@ fig = bh.plot_groundtrack(
 
 **Mission Planning**: Identify ground contact opportunities and coverage gaps
 
-```python
-# Visualize 24 hours of coverage for a LEO constellation
-for sat in constellation:
-    sat.propagate_to(epoch + 24*3600)
-
-fig = bh.plot_groundtrack(
-    trajectories=[{"trajectory": s.trajectory} for s in constellation],
-    ground_stations=[{"stations": network_stations}],
-    gs_min_elevation=15.0
-)
-```
+Use the ground station networks example above to visualize coverage, or analyze specific gaps with the maximum coverage gap analysis example for detailed mission planning.
 
 **Coverage Analysis**: Determine when targets are accessible
 
 ```python
-# Show which ground stations can see the satellite
+# Load multiple ground station networks and visualize coverage
+nasa_dsn = bh.datasets.groundstations.load("nasa dsn")
+nasa_nen = bh.datasets.groundstations.load("nasa nen")
+
 fig = bh.plot_groundtrack(
     trajectories=[{"trajectory": traj}],
-    ground_stations=[{"stations": all_stations, "alpha": 0.2}],
-    gs_cone_altitude=altitude,  # Satellite altitude for cone calculation
-    gs_min_elevation=10.0  # Minimum elevation angle
+    ground_stations=[
+        {"stations": nasa_dsn, "color": "red", "alpha": 0.3},
+        {"stations": nasa_nen, "color": "blue", "alpha": 0.3}
+    ],
+    gs_cone_altitude=550e3,  # Satellite altitude
+    gs_min_elevation=10.0
 )
 ```
 
-**Orbit Visualization**: Understand satellite behavior
+**Orbit Comparison**: Understand different orbit characteristics
 
-```python
-# Compare different orbit types
-fig = bh.plot_groundtrack(
-    trajectories=[
-        {"trajectory": leo_traj, "color": "red", "label": "LEO"},
-        {"trajectory": meo_traj, "color": "blue", "label": "MEO"},
-        {"trajectory": geo_traj, "color": "green", "label": "GEO"}
-    ]
-)
-```
+See the multiple spacecraft example above to compare sun-synchronous, medium-inclination, and equatorial orbits.
 
 ## Tips
 
 - Use `backend="plotly"` for interactive exploration and presentations
-- Use `backend="matplotlib"` with `scienceplots` for publication-quality figures
+- Use `backend="matplotlib"` for publication-quality static figures
 - Set `gs_cone_altitude` to your satellite's altitude for accurate coverage visualization
 - Adjust `gs_min_elevation` based on antenna pointing constraints (typically 5-15°)
 - Use `extent` parameter to zoom into specific regions of interest
+- Control displayed track length with `track_length` and `track_units` parameters
+- Use `split_ground_track_at_antimeridian()` when creating custom ground track overlays to handle longitude wraparound
+- Choose basemap style based on your audience: `"natural_earth"` for presentations, `"stock"` for quick analysis, `None` for minimal distraction
 
 ## See Also
 
-- [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md)
+- [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md) - Complete function documentation
+- [split_ground_track_at_antimeridian API Reference](../../library_api/plots/ground_tracks.md) - Wraparound handling
 - [Access Geometry](access_geometry.md) - Detailed visibility analysis
 - [PointLocation](../../library_api/access/locations.md) - Ground station definitions
 - [PolygonLocation](../../library_api/access/locations.md) - Zone definitions

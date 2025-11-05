@@ -4664,7 +4664,7 @@
 
 
 <a href="#brahe.plot_trajectory_3d" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_trajectory_3d</span><span class="p">(</span><span class="n">trajectories</span><span class="p">,</span> <span class="n">time_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">view_azimuth</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span> <span class="n">view_elevation</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">view_distance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_earth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">earth_texture</span><span class="o">=</span><span class="s1">&#39;simple&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_trajectory_3d</span><span class="p">(</span><span class="n">trajectories</span><span class="p">,</span> <span class="n">time_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">view_azimuth</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span> <span class="n">view_elevation</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">view_distance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_earth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">earth_texture</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sphere_resolution_lon</span><span class="o">=</span><span class="mi">1080</span><span class="p">,</span> <span class="n">sphere_resolution_lat</span><span class="o">=</span><span class="mi">540</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4824,11 +4824,51 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>'blue_marble', 'simple', or None. Default: 'simple'</p>
+                <p>Texture to use for Earth sphere (plotly only). Options:
+- 'simple': Solid lightblue sphere (fast rendering)
+- 'blue_marble': NASA Blue Marble texture (packaged with brahe, default for plotly)
+- 'natural_earth_50m': Natural Earth 50m shaded relief (auto-downloads ~20MB)
+- 'natural_earth_10m': Natural Earth 10m shaded relief (auto-downloads ~180MB)
+Note: matplotlib always uses a simple solid sphere regardless of this setting.
+Default: 'blue_marble' for plotly</p>
               </div>
             </td>
             <td>
-                  <code>&#39;simple&#39;</code>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sphere_resolution_lon</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Longitude resolution for textured sphere (plotly only).
+Higher values = better quality but slower rendering. Default: 1080</p>
+              </div>
+            </td>
+            <td>
+                  <code>1080</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sphere_resolution_lat</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Latitude resolution for textured sphere (plotly only).
+Higher values = better quality but slower rendering. Default: 540</p>
+              </div>
+            </td>
+            <td>
+                  <code>540</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -4922,13 +4962,30 @@
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">prop</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">KeplerianPropagator</span><span class="o">.</span><span class="n">from_eci</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">)</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">traj</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">propagate</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="n">epoch</span> <span class="o">+</span> <span class="n">bh</span><span class="o">.</span><span class="n">orbital_period</span><span class="p">(</span><span class="n">oe</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="mf">60.0</span><span class="p">)</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Plot 3D trajectory</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Plot 3D trajectory with matplotlib (simple sphere)</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">plot_trajectory_3d</span><span class="p">(</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="p">[{</span><span class="s2">&quot;trajectory&quot;</span><span class="p">:</span> <span class="n">traj</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;LEO Orbit&quot;</span><span class="p">}],</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">units</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">,</span>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">show_earth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="p">)</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># Plot 3D trajectory with plotly (blue marble texture by default)</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">plot_trajectory_3d</span><span class="p">(</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">[{</span><span class="s2">&quot;trajectory&quot;</span><span class="p">:</span> <span class="n">traj</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;LEO Orbit&quot;</span><span class="p">}],</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">units</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">,</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">show_earth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;plotly&#39;</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="p">)</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="c1"># Plot with explicit texture choice</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">plot_trajectory_3d</span><span class="p">(</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="p">[{</span><span class="s2">&quot;trajectory&quot;</span><span class="p">:</span> <span class="n">traj</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;LEO Orbit&quot;</span><span class="p">}],</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">units</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">,</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">show_earth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">earth_texture</span><span class="o">=</span><span class="s1">&#39;natural_earth_50m&#39;</span><span class="p">,</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="p">)</span>
 </span></code></pre></div>
 </details>
 

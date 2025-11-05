@@ -619,10 +619,16 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_bias_precession_nutation, module)?)?;
     module.add_function(wrap_pyfunction!(py_earth_rotation, module)?)?;
     module.add_function(wrap_pyfunction!(py_polar_motion, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_itrf_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_ecef_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_itrf_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_eci_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_ecef_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_itrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_itrf_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_ecef_to_eci, module)?)?;
 

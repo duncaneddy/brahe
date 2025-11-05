@@ -141,3 +141,151 @@ def test_state_eci_to_ecef_circular(eop):
     assert ecef2[3] == approx(ecef[3], abs=tol)
     assert ecef2[4] == approx(ecef[4], abs=tol)
     assert ecef2[5] == approx(ecef[5], abs=tol)
+
+
+def test_rotation_gcrf_to_itrf(static_eop):
+    """Test the explicit GCRF -> ITRF transformation"""
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    r = brahe.rotation_gcrf_to_itrf(epc)
+
+    tol = 1e-8
+    assert r[0, 0] == approx(+0.973104317697535, abs=tol)
+    assert r[0, 1] == approx(+0.230363826239128, abs=tol)
+    assert r[0, 2] == approx(-0.000703163482198, abs=tol)
+
+    assert r[1, 0] == approx(-0.230363800456037, abs=tol)
+    assert r[1, 1] == approx(+0.973104570632801, abs=tol)
+    assert r[1, 2] == approx(+0.000118545366625, abs=tol)
+
+    assert r[2, 0] == approx(+0.000711560162668, abs=tol)
+    assert r[2, 1] == approx(+0.000046626403995, abs=tol)
+    assert r[2, 2] == approx(+0.999999745754024, abs=tol)
+
+
+def test_rotation_itrf_to_gcrf(static_eop):
+    """Test the explicit ITRF -> GCRF transformation"""
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    r = brahe.rotation_itrf_to_gcrf(epc)
+
+    tol = 1e-8
+    assert r[0, 0] == approx(+0.973104317697535, abs=tol)
+    assert r[0, 1] == approx(-0.230363800456037, abs=tol)
+    assert r[0, 2] == approx(+0.000711560162668, abs=tol)
+
+    assert r[1, 0] == approx(+0.230363826239128, abs=tol)
+    assert r[1, 1] == approx(+0.973104570632801, abs=tol)
+    assert r[1, 2] == approx(+0.000046626403995, abs=tol)
+
+    assert r[2, 0] == approx(-0.000703163482198, abs=tol)
+    assert r[2, 1] == approx(+0.000118545366625, abs=tol)
+    assert r[2, 2] == approx(+0.999999745754024, abs=tol)
+
+
+def test_position_gcrf_to_itrf(eop):
+    """Test position transformation from GCRF to ITRF"""
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    p_gcrf = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
+
+    p_itrf = brahe.position_gcrf_to_itrf(epc, p_gcrf)
+
+    assert p_gcrf[0] != p_itrf[0]
+    assert p_gcrf[1] != p_itrf[1]
+    assert p_gcrf[2] != p_itrf[2]
+
+
+def test_position_itrf_to_gcrf(eop):
+    """Test position transformation from ITRF to GCRF"""
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    p_itrf = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
+
+    p_gcrf = brahe.position_itrf_to_gcrf(epc, p_itrf)
+
+    assert p_gcrf[0] != p_itrf[0]
+    assert p_gcrf[1] != p_itrf[1]
+    assert p_gcrf[2] != p_itrf[2]
+
+
+def test_state_gcrf_to_itrf(eop):
+    """Test state transformation from GCRF to ITRF"""
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+
+    # Transform to ITRF
+    itrf = brahe.state_gcrf_to_itrf(epc, gcrf)
+
+    # Verify transformation occurred
+    assert gcrf[0] != itrf[0]
+    assert gcrf[1] != itrf[1]
+    assert gcrf[2] != itrf[2]
+
+
+def test_state_itrf_to_gcrf_circular(eop):
+    """Test round-trip state transformation GCRF -> ITRF -> GCRF"""
+    epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+
+    # Perform circular transformations
+    itrf = brahe.state_gcrf_to_itrf(epc, gcrf)
+    gcrf2 = brahe.state_itrf_to_gcrf(epc, itrf)
+    itrf2 = brahe.state_gcrf_to_itrf(epc, gcrf2)
+
+    tol = 1e-6
+    # Check equivalence of GCRF coordinates
+    assert gcrf2[0] == approx(gcrf[0], abs=tol)
+    assert gcrf2[1] == approx(gcrf[1], abs=tol)
+    assert gcrf2[2] == approx(gcrf[2], abs=tol)
+    assert gcrf2[3] == approx(gcrf[3], abs=tol)
+    assert gcrf2[4] == approx(gcrf[4], abs=tol)
+    assert gcrf2[5] == approx(gcrf[5], abs=tol)
+    # Check equivalence of ITRF coordinates
+    assert itrf2[0] == approx(itrf[0], abs=tol)
+    assert itrf2[1] == approx(itrf[1], abs=tol)
+    assert itrf2[2] == approx(itrf[2], abs=tol)
+    assert itrf2[3] == approx(itrf[3], abs=tol)
+    assert itrf2[4] == approx(itrf[4], abs=tol)
+    assert itrf2[5] == approx(itrf[5], abs=tol)
+
+
+def test_gcrf_itrf_eci_ecef_equivalence(eop):
+    """Test that GCRF/ITRF functions are equivalent to ECI/ECEF functions"""
+    epc = brahe.Epoch.from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    # Test rotation matrices
+    r_gcrf_itrf = brahe.rotation_gcrf_to_itrf(epc)
+    r_eci_ecef = brahe.rotation_eci_to_ecef(epc)
+    assert np.allclose(r_gcrf_itrf, r_eci_ecef)
+
+    r_itrf_gcrf = brahe.rotation_itrf_to_gcrf(epc)
+    r_ecef_eci = brahe.rotation_ecef_to_eci(epc)
+    assert np.allclose(r_itrf_gcrf, r_ecef_eci)
+
+    # Test position transformations
+    p = np.array([brahe.R_EARTH + 500e3, brahe.R_EARTH + 400e3, brahe.R_EARTH + 300e3])
+
+    p_itrf_gcrf = brahe.position_gcrf_to_itrf(epc, p)
+    p_ecef_eci = brahe.position_eci_to_ecef(epc, p)
+    assert np.allclose(p_itrf_gcrf, p_ecef_eci)
+
+    p_gcrf_itrf = brahe.position_itrf_to_gcrf(epc, p)
+    p_eci_ecef = brahe.position_ecef_to_eci(epc, p)
+    assert np.allclose(p_gcrf_itrf, p_eci_ecef)
+
+    # Test state transformations
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    state = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+
+    state_itrf_gcrf = brahe.state_gcrf_to_itrf(epc, state)
+    state_ecef_eci = brahe.state_eci_to_ecef(epc, state)
+    assert np.allclose(state_itrf_gcrf, state_ecef_eci)
+
+    state_gcrf_itrf = brahe.state_itrf_to_gcrf(epc, state_itrf_gcrf)
+    state_eci_ecef = brahe.state_ecef_to_eci(epc, state_ecef_eci)
+    assert np.allclose(state_gcrf_itrf, state_eci_ecef)

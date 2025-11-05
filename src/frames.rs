@@ -172,16 +172,16 @@ pub fn polar_motion(epc: Epoch) -> SMatrix3 {
     matrix3_from_array(&rpm)
 }
 
-/// Computes the combined rotation matrix from the inertial to the Earth-fixed
-/// reference frame. Applies corrections for bias, precession, nutation,
-/// Earth-rotation, and polar motion.
+/// Computes the combined rotation matrix from the GCRF (Geocentric Celestial Reference Frame)
+/// to the ITRF (International Terrestrial Reference Frame). Applies corrections for bias,
+/// precession, nutation, Earth-rotation, and polar motion.
 ///
 /// The transformation is accomplished using the IAU 2006/2000A, CIO-based
 /// theory using classical angles. The method as described in section 5.5 of
 /// the SOFA C transformation cookbook.
 ///
 /// The function will utilize the global Earth orientation and loaded data to
-/// apply corrections for Celestial Intermidate Pole (CIP) and polar motion drift
+/// apply corrections for Celestial Intermediate Pole (CIP) and polar motion drift
 /// derived from empirical observations.
 ///
 /// # Arguments:
@@ -202,25 +202,61 @@ pub fn polar_motion(epc: Epoch) -> SMatrix3 {
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
+/// let r = rotation_gcrf_to_itrf(epc);
+/// ```
+///
+/// # References:
+/// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
+pub fn rotation_gcrf_to_itrf(epc: Epoch) -> SMatrix3 {
+    polar_motion(epc) * earth_rotation(epc) * bias_precession_nutation(epc)
+}
+
+/// Computes the combined rotation matrix from the inertial to the Earth-fixed
+/// reference frame. Applies corrections for bias, precession, nutation,
+/// Earth-rotation, and polar motion.
+///
+/// This function is an alias for [`rotation_gcrf_to_itrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation, and ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation.
+///
+/// # Arguments:
+/// - `epc`: Epoch instant for computation of transformation matrix
+///
+/// # Returns:
+/// - `r`: 3x3 Rotation matrix transforming ECI (GCRF) -> ECEF (ITRF)
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
 /// let r = rotation_eci_to_ecef(epc);
 /// ```
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
 pub fn rotation_eci_to_ecef(epc: Epoch) -> SMatrix3 {
-    polar_motion(epc) * earth_rotation(epc) * bias_precession_nutation(epc)
+    rotation_gcrf_to_itrf(epc)
 }
 
-/// Computes the combined rotation matrix from the Earth-fixed to the inertial
-/// reference frame. Applies corrections for bias, precession, nutation,
-/// Earth-rotation, and polar motion.
+/// Computes the combined rotation matrix from the ITRF (International Terrestrial Reference Frame)
+/// to the GCRF (Geocentric Celestial Reference Frame). Applies corrections for bias,
+/// precession, nutation, Earth-rotation, and polar motion.
 ///
 /// The transformation is accomplished using the IAU 2006/2000A, CIO-based
 /// theory using classical angles. The method as described in section 5.5 of
 /// the SOFA C transformation cookbook.
 ///
 /// The function will utilize the global Earth orientation and loaded data to
-/// apply corrections for Celestial Intermidate Pole (CIP) and polar motion drift
+/// apply corrections for Celestial Intermediate Pole (CIP) and polar motion drift
 /// derived from empirical observations.
 ///
 /// # Arguments:
@@ -241,21 +277,96 @@ pub fn rotation_eci_to_ecef(epc: Epoch) -> SMatrix3 {
 ///
 /// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 ///
+/// let r = rotation_itrf_to_gcrf(epc);
+/// ```
+///
+/// # References:
+/// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
+pub fn rotation_itrf_to_gcrf(epc: Epoch) -> SMatrix3 {
+    rotation_gcrf_to_itrf(epc).transpose()
+}
+
+/// Computes the combined rotation matrix from the Earth-fixed to the inertial
+/// reference frame. Applies corrections for bias, precession, nutation,
+/// Earth-rotation, and polar motion.
+///
+/// This function is an alias for [`rotation_itrf_to_gcrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation, and ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation.
+///
+/// # Arguments:
+/// - `epc`: Epoch instant for computation of transformation matrix
+///
+/// # Returns:
+/// - `r`: 3x3 Rotation matrix transforming ECEF (ITRF) -> ECI (GCRF)
+///
+/// # Examples:
+/// ```
+/// use brahe::eop::*;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
 /// let r = rotation_ecef_to_eci(epc);
 /// ```
 ///
 /// # References:
 /// - [IAU SOFA  Tools For Earth Attitude, Example 5.5](http://www.iausofa.org/2021_0512_C/sofa/sofa_pn_c.pdf) Software Version 18, 2021-04-18
 pub fn rotation_ecef_to_eci(epc: Epoch) -> SMatrix3 {
-    rotation_eci_to_ecef(epc).transpose()
+    rotation_itrf_to_gcrf(epc)
+}
+
+/// Transforms a Cartesian position in GCRF (Geocentric Celestial Reference Frame)
+/// to the equivalent position in ITRF (International Terrestrial Reference Frame).
+///
+/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
+/// theory using classical angles. The method as described in section 5.5 of
+/// the SOFA C transformation cookbook.
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x_gcrf`: Cartesian GCRF position. Units: (*m*)
+///
+/// # Returns
+/// - `x_itrf`: Cartesian ITRF position. Units: (*m*)
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::utils::vector3_from_array;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
+/// // Create Cartesian position in GCRF
+/// let x_gcrf = vector3_from_array([R_EARTH, 0.0, 0.0]);
+///
+/// // Convert to ITRF
+/// let x_itrf = position_gcrf_to_itrf(epc, x_gcrf);
+/// ```
+pub fn position_gcrf_to_itrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
+    rotation_gcrf_to_itrf(epc) * x
 }
 
 /// Transforms a Cartesian Earth-inertial position into the
 /// equivalent Cartesian Earth-fixed position.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// This function is an alias for [`position_gcrf_to_itrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation, and ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation.
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -286,15 +397,54 @@ pub fn rotation_ecef_to_eci(epc: Epoch) -> SMatrix3 {
 /// let x_ecef = position_eci_to_ecef(epc, x_cart);
 /// ```
 pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
-    rotation_eci_to_ecef(epc) * x
+    position_gcrf_to_itrf(epc, x)
+}
+
+/// Transforms a Cartesian position in ITRF (International Terrestrial Reference Frame)
+/// to the equivalent position in GCRF (Geocentric Celestial Reference Frame).
+///
+/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
+/// theory using classical angles. The method as described in section 5.5 of
+/// the SOFA C transformation cookbook.
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x_itrf`: Cartesian ITRF position. Units: (*m*)
+///
+/// # Returns
+/// - `x_gcrf`: Cartesian GCRF position. Units: (*m*)
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::utils::vector3_from_array;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
+/// // Create Cartesian position in ITRF
+/// let x_itrf = vector3_from_array([R_EARTH, 0.0, 0.0]);
+///
+/// // Convert to GCRF
+/// let x_gcrf = position_itrf_to_gcrf(epc, x_itrf);
+/// ```
+pub fn position_itrf_to_gcrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
+    rotation_itrf_to_gcrf(epc) * x
 }
 
 /// Transforms a Cartesian Earth-fixed position into the
 /// equivalent Cartesian Earth-inertial position.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// This function is an alias for [`position_itrf_to_gcrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation, and ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation.
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -325,15 +475,69 @@ pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_ecef_to_eci(epc, x_ecef);
 /// ```
 pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
-    rotation_ecef_to_eci(epc) * x
+    position_itrf_to_gcrf(epc, x)
+}
+
+/// Transforms a Cartesian state in GCRF (Geocentric Celestial Reference Frame)
+/// to the equivalent state in ITRF (International Terrestrial Reference Frame).
+///
+/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
+/// theory using classical angles. The method as described in section 5.5 of
+/// the SOFA C transformation cookbook.
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x_gcrf`: Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - `x_itrf`: Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::utils::vector6_from_array;
+/// use brahe::constants::R_EARTH;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
+/// // Create Cartesian state in GCRF
+/// let x_gcrf = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0]);
+///
+/// // Convert to ITRF state
+/// let x_itrf = state_gcrf_to_itrf(epc, x_gcrf);
+/// ```
+pub fn state_gcrf_to_itrf(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
+    // Compute Sequential Transformation Matrices
+    let bpn = bias_precession_nutation(epc);
+    let r = earth_rotation(epc);
+    let pm = polar_motion(epc);
+
+    // Create Earth's Angular Rotation Vector
+    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
+
+    let r_gcrf = x_gcrf.fixed_rows::<3>(0);
+    let v_gcrf = x_gcrf.fixed_rows::<3>(3);
+
+    let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_gcrf);
+    let v: Vector3<f64> = pm * (r * bpn * v_gcrf - omega_vec.cross(&(r * bpn * r_gcrf)));
+
+    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
 /// Transforms a Cartesian Earth inertial state (position and velocity) into the
 /// equivalent Cartesian Earth-fixed state.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// This function is an alias for [`state_gcrf_to_itrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation, and ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation.
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -364,6 +568,48 @@ pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// let x_ecef = state_eci_to_ecef(epc, x_cart);
 /// ```
 pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
+    state_gcrf_to_itrf(epc, x_eci)
+}
+
+/// Transforms a Cartesian state in ITRF (International Terrestrial Reference Frame)
+/// to the equivalent state in GCRF (Geocentric Celestial Reference Frame).
+///
+/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
+/// theory using classical angles. The method as described in section 5.5 of
+/// the SOFA C transformation cookbook.
+///
+/// # Arguments
+/// - `epc`: Epoch instant for computation of the transformation
+/// - `x_itrf`: Cartesian ITRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - `x_gcrf`: Cartesian GCRF state (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Example
+/// ```
+/// use brahe::eop::*;
+/// use brahe::constants::R_EARTH;
+/// use brahe::utils::vector6_from_array;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::frames::*;
+///
+/// // Quick EOP initialization
+/// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+///
+/// // Create Cartesian state in GCRF
+/// let x_gcrf = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, perigee_velocity(R_EARTH + 500e3, 0.0), 0.0]);
+///
+/// // Convert to ITRF state
+/// let x_itrf = state_gcrf_to_itrf(epc, x_gcrf);
+///
+/// // Convert ITRF state back to GCRF state
+/// let x_gcrf2 = state_itrf_to_gcrf(epc, x_itrf);
+/// ```
+pub fn state_itrf_to_gcrf(epc: Epoch, x_itrf: SVector6) -> SVector6 {
     // Compute Sequential Transformation Matrices
     let bpn = bias_precession_nutation(epc);
     let r = earth_rotation(epc);
@@ -372,11 +618,12 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
     // Create Earth's Angular Rotation Vector
     let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
 
-    let r_eci = x_eci.fixed_rows::<3>(0);
-    let v_eci = x_eci.fixed_rows::<3>(3);
+    let r_itrf = x_itrf.fixed_rows::<3>(0);
+    let v_itrf = x_itrf.fixed_rows::<3>(3);
 
-    let p: Vector3<f64> = Vector3::from(pm * r * bpn * r_eci);
-    let v: Vector3<f64> = pm * (r * bpn * v_eci - omega_vec.cross(&(r * bpn * r_eci)));
+    let p: Vector3<f64> = Vector3::from((pm * r * bpn).transpose() * r_itrf);
+    let v: Vector3<f64> = (r * bpn).transpose()
+        * (pm.transpose() * v_itrf + omega_vec.cross(&(pm.transpose() * r_itrf)));
 
     SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
@@ -384,9 +631,10 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// Transforms a Cartesian Earth-fixed state (position and velocity) into the
 /// equivalent Cartesian Earth-inertial state.
 ///
-/// The transformation is accomplished using the IAU 2006/2000A, CIO-based
-/// theory using classical angles. The method as described in section 5.5 of
-/// the SOFA C transformation cookbook.
+/// This function is an alias for [`state_itrf_to_gcrf`] and uses the IAU 2006/2000A,
+/// CIO-based theory. ECEF refers to the ITRF (International Terrestrial Reference Frame)
+/// implementation, and ECI refers to the GCRF (Geocentric Celestial Reference Frame)
+/// implementation.
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -420,22 +668,7 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_ecef_to_eci(epc, x_ecef);
 /// ```
 pub fn state_ecef_to_eci(epc: Epoch, x_ecef: SVector6) -> SVector6 {
-    // Compute Sequential Transformation Matrices
-    let bpn = bias_precession_nutation(epc);
-    let r = earth_rotation(epc);
-    let pm = polar_motion(epc);
-
-    // Create Earth's Angular Rotation Vector
-    let omega_vec = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-
-    let r_ecef = x_ecef.fixed_rows::<3>(0);
-    let v_ecef = x_ecef.fixed_rows::<3>(3);
-
-    let p: Vector3<f64> = Vector3::from((pm * r * bpn).transpose() * r_ecef);
-    let v: Vector3<f64> = (r * bpn).transpose()
-        * (pm.transpose() * v_ecef + omega_vec.cross(&(pm.transpose() * r_ecef)));
-
-    SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+    state_itrf_to_gcrf(epc, x_ecef)
 }
 
 #[cfg(test)]
@@ -624,5 +857,170 @@ mod tests {
         assert_abs_diff_eq!(ecef2[3], ecef[3], epsilon = tol);
         assert_abs_diff_eq!(ecef2[4], ecef[4], epsilon = tol);
         assert_abs_diff_eq!(ecef2[5], ecef[5], epsilon = tol);
+    }
+
+    #[test]
+    fn test_rotation_gcrf_to_itrf() {
+        // Test case reproduction of Example 5.5 from SOFA cookbook
+        // Testing the explicit GCRF -> ITRF transformation
+
+        // Set Earth orientation parameters for test case
+        set_test_static_eop();
+
+        // Set Epoch
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r = rotation_gcrf_to_itrf(epc);
+
+        let tol = 1.0e-8;
+        assert_abs_diff_eq!(r[(0, 0)], 0.973104317697535, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 1)], 0.230363826239128, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 2)], -0.000703163482198, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(1, 0)], -0.230363800456037, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 1)], 0.973104570632801, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 2)], 0.000118545366625, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(2, 0)], 0.000711560162668, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 1)], 0.000046626403995, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 2)], 0.999999745754024, epsilon = tol);
+    }
+
+    #[test]
+    fn test_rotation_itrf_to_gcrf() {
+        // Test case reproduction of Example 5.5 from SOFA cookbook
+        // Testing the explicit ITRF -> GCRF transformation
+
+        // Set Earth orientation parameters for test case
+        set_test_static_eop();
+
+        // Set Epoch
+        let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r = rotation_itrf_to_gcrf(epc);
+
+        let tol = 1.0e-8;
+        assert_abs_diff_eq!(r[(0, 0)], 0.973104317697535, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 1)], -0.230363800456037, epsilon = tol);
+        assert_abs_diff_eq!(r[(0, 2)], 0.000711560162668, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(1, 0)], 0.230363826239128, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 1)], 0.973104570632801, epsilon = tol);
+        assert_abs_diff_eq!(r[(1, 2)], 0.000046626403995, epsilon = tol);
+
+        assert_abs_diff_eq!(r[(2, 0)], -0.000703163482198, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 1)], 0.000118545366625, epsilon = tol);
+        assert_abs_diff_eq!(r[(2, 2)], 0.999999745754024, epsilon = tol);
+    }
+
+    #[test]
+    fn test_position_gcrf_to_itrf() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let p_gcrf = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let p_itrf = position_gcrf_to_itrf(epc, p_gcrf);
+
+        assert_ne!(p_gcrf[0], p_itrf[0]);
+        assert_ne!(p_gcrf[1], p_itrf[1]);
+        assert_ne!(p_gcrf[2], p_itrf[2]);
+    }
+
+    #[test]
+    fn test_position_itrf_to_gcrf() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let p_itrf = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let p_gcrf = position_itrf_to_gcrf(epc, p_itrf);
+
+        assert_ne!(p_gcrf[0], p_itrf[0]);
+        assert_ne!(p_gcrf[1], p_itrf[1]);
+        assert_ne!(p_gcrf[2], p_itrf[2]);
+    }
+
+    #[test]
+    fn test_state_gcrf_to_itrf() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
+        let gcrf = state_osculating_to_cartesian(oe, DEGREES);
+
+        // Transform to ITRF
+        let itrf = state_gcrf_to_itrf(epc, gcrf);
+
+        // Verify transformation occurred
+        assert_ne!(gcrf[0], itrf[0]);
+        assert_ne!(gcrf[1], itrf[1]);
+        assert_ne!(gcrf[2], itrf[2]);
+    }
+
+    #[test]
+    fn test_state_itrf_to_gcrf_circular() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
+        let gcrf = state_osculating_to_cartesian(oe, DEGREES);
+
+        // Perform circular transformations
+        let itrf = state_gcrf_to_itrf(epc, gcrf);
+        let gcrf2 = state_itrf_to_gcrf(epc, itrf);
+        let itrf2 = state_gcrf_to_itrf(epc, gcrf2);
+
+        let tol = 1e-6;
+        // Check equivalence of GCRF coordinates
+        assert_abs_diff_eq!(gcrf2[0], gcrf[0], epsilon = tol);
+        assert_abs_diff_eq!(gcrf2[1], gcrf[1], epsilon = tol);
+        assert_abs_diff_eq!(gcrf2[2], gcrf[2], epsilon = tol);
+        assert_abs_diff_eq!(gcrf2[3], gcrf[3], epsilon = tol);
+        assert_abs_diff_eq!(gcrf2[4], gcrf[4], epsilon = tol);
+        assert_abs_diff_eq!(gcrf2[5], gcrf[5], epsilon = tol);
+        // Check equivalence of ITRF coordinates
+        assert_abs_diff_eq!(itrf2[0], itrf[0], epsilon = tol);
+        assert_abs_diff_eq!(itrf2[1], itrf[1], epsilon = tol);
+        assert_abs_diff_eq!(itrf2[2], itrf[2], epsilon = tol);
+        assert_abs_diff_eq!(itrf2[3], itrf[3], epsilon = tol);
+        assert_abs_diff_eq!(itrf2[4], itrf[4], epsilon = tol);
+        assert_abs_diff_eq!(itrf2[5], itrf[5], epsilon = tol);
+    }
+
+    #[test]
+    fn test_eci_ecef_gcrf_itrf_equivalence() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
+        let eci = state_osculating_to_cartesian(oe, DEGREES);
+
+        // ECI -> ECEF
+        let ecef = state_eci_to_ecef(epc, eci);
+        // GCRF -> ITRF
+        let itrf = state_gcrf_to_itrf(epc, eci);
+        // ECEF -> ECI2
+        let eci2 = state_ecef_to_eci(epc, ecef);
+        // GCRF -> ITRF
+        let gcrf = state_itrf_to_gcrf(epc, itrf);
+
+        let tol = 1e-6;
+
+        // Check equivalence of produced ITRF/ECEF coordinates
+        assert_abs_diff_eq!(ecef[0], itrf[0], epsilon = tol);
+        assert_abs_diff_eq!(ecef[1], itrf[1], epsilon = tol);
+        assert_abs_diff_eq!(ecef[2], itrf[2], epsilon = tol);
+        assert_abs_diff_eq!(ecef[3], itrf[3], epsilon = tol);
+        assert_abs_diff_eq!(ecef[4], itrf[4], epsilon = tol);
+        assert_abs_diff_eq!(ecef[5], itrf[5], epsilon = tol);
+
+        // Check equivalence of GCRF/ECI coordinates
+        assert_abs_diff_eq!(gcrf[0], eci2[0], epsilon = tol);
+        assert_abs_diff_eq!(gcrf[1], eci2[1], epsilon = tol);
+        assert_abs_diff_eq!(gcrf[2], eci2[2], epsilon = tol);
+        assert_abs_diff_eq!(gcrf[3], eci2[3], epsilon = tol);
+        assert_abs_diff_eq!(gcrf[4], eci2[4], epsilon = tol);
+        assert_abs_diff_eq!(gcrf[5], eci2[5], epsilon = tol);
     }
 }

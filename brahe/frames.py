@@ -14,6 +14,20 @@ Functions are provided for:
 - Rotation matrices (bias-precession-nutation, Earth rotation, polar motion)
 - Position vector transformations
 - State vector (position + velocity) transformations
+
+Naming Conventions:
+  Brahe provides two equivalent sets of function names for frame transformations:
+
+  - ECI/ECEF naming: Traditional coordinate system names (e.g., rotation_eci_to_ecef)
+  - GCRF/ITRF naming: Explicit reference frame names (e.g., rotation_gcrf_to_itrf)
+
+  Both naming conventions provide identical results. Users can choose whichever
+  convention they prefer. The ECI/ECEF names are more intuitive and widely used,
+  while the GCRF/ITRF names explicitly identify the specific reference frame
+  implementations used. The ECI/ECEF names are provided as the default to get
+  the "best" reference frame transformations out-of-the-box, while the
+  GCRF/ITRF names are for users who want to be explicit about the
+  reference frames they are using.
 """
 
 from brahe._brahe import (
@@ -21,13 +35,16 @@ from brahe._brahe import (
     bias_precession_nutation,
     earth_rotation,
     polar_motion,
-    # Complete rotation matrices
+    rotation_gcrf_to_itrf,
+    rotation_itrf_to_gcrf,
     rotation_eci_to_ecef,
     rotation_ecef_to_eci,
-    # Position transformations
+    position_gcrf_to_itrf,
+    position_itrf_to_gcrf,
     position_eci_to_ecef,
     position_ecef_to_eci,
-    # State transformations
+    state_gcrf_to_itrf,
+    state_itrf_to_gcrf,
     state_eci_to_ecef,
     state_ecef_to_eci,
 )
@@ -37,13 +54,16 @@ __all__ = [
     "bias_precession_nutation",
     "earth_rotation",
     "polar_motion",
-    # Complete rotation matrices
+    "rotation_gcrf_to_itrf",
+    "rotation_itrf_to_gcrf",
     "rotation_eci_to_ecef",
     "rotation_ecef_to_eci",
-    # Position transformations
+    "position_gcrf_to_itrf",
+    "position_itrf_to_gcrf",
     "position_eci_to_ecef",
     "position_ecef_to_eci",
-    # State transformations
+    "state_gcrf_to_itrf",
+    "state_itrf_to_gcrf",
     "state_eci_to_ecef",
     "state_ecef_to_eci",
 ]

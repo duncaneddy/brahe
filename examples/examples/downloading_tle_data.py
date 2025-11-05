@@ -56,6 +56,8 @@ fig = bh.plot_trajectory_3d(
     view_azimuth=45.0,
     view_elevation=30.0,
     view_distance=3.0,
+    sphere_resolution_lon=600,  # Reduce sphere texture resolution for performance
+    sphere_resolution_lat=300,
 )
 te = time.time() - ts
 print(f"Created base 3D plot in {te:.2f} seconds.")

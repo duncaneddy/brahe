@@ -2,6 +2,9 @@
 
 This example demonstrates how to download Two-Line Element (TLE) data from the CelesTrak dataset using the Brahe library, and then visualize the complete Starlink satellite constellation in an interactive 3D plot.
 
+!!! warning "Slow Page"
+    This page may load slowly due to the embedded interactive 3D plot. Please be patient while it loads.
+
 ---
 
 ## Initialize Earth Orientation Parameters
@@ -33,13 +36,13 @@ Let's examine the properties of the first satellite to understand the orbital pa
 We'll create an interactive 3D visualization of the entire Starlink constellation using Plotly. We'll use the Natural Earth 50m texture for a realistic Earth representation:
 
 ``` python
---8<-- "./examples/examples/downloading_tle_data.py:49:58"
+--8<-- "./examples/examples/downloading_tle_data.py:49:60"
 ```
 
 Finally, we'll add points for all satellites at the current epoch:
 
 ``` python
---8<-- "./examples/examples/downloading_tle_data.py:64:77"
+--8<-- "./examples/examples/downloading_tle_data.py:66:82"
 ```
 
 

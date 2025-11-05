@@ -13,16 +13,24 @@ Brahe uses the [IAU SOFA](https://www.iausofa.org/) (Standards of Fundamental As
 
 The Geocentric Celestial Reference Frame (GCRF) is the standard modern inertial reference frame for Earth-orbiting satellites. It is aligned with the International Celestial Reference Frame (ICRF) and realized using the positions of distant quasars. The GCRF has its origin at the Earth's center of mass and its axes are fixed with respect to distant stars.
 
-!!! note
-
-    **GCRF is used as the ECI (Earth-Centered Inertial) frame** for all orbital mechanics calculations. This means that orbital propagation, state vectors from TLEs, and Keplerian elements are all defined in the GCRF frame.
+The GCRF is an Earth-centered inertial (ECI) frame, meaning it does not rotate with the Earth.
 
 ### International Terrestrial Reference Frame (ITRF)
 
 The International Terrestrial Reference Frame (ITRF) is the standard Earth-fixed reference frame maintained by the International Earth Rotation and Reference Systems Service (IERS). The ITRF rotates with the Earth and its axes are aligned with the Earth's geographic coordinate system (polar axis and Greenwich meridian).
 
-!!! note
-    **ITRF is used as the ECEF (Earth-Centered Earth-Fixed) frame** for all ground-based calculations. Ground station positions, geodetic coordinates, and topocentric observations are all referenced to the ITRF frame.
+The ITRF is an Earth-centered Earth-fixed (ECEF) frame, meaning it rotates with the Earth.
+
+!!! tip "Naming Conventions"
+
+    Brahe provides two sets of function names for frame transformations, both referring to the same underlying implementations:
+
+    - **ECI/ECEF naming**: Common coordinate system names (e.g., `rotation_eci_to_ecef`, `state_eci_to_ecef`)
+    - **GCRF/ITRF naming**: Explicit reference frame names (e.g., `rotation_gcrf_to_itrf`, `state_gcrf_to_itrf`)
+
+    Both naming conventions are fully supported and provide identical results. The ECI/ECEF names are intuitive and widely used in the astrodynamics community, while the GCRF/ITRF names explicitly identify the specific reference frame implementations. Users can choose whichever naming convention they prefer - all examples in this documentation use the ECI/ECEF convention for simplicity.
+
+    The ECI/ECEF implementation will be updated to use whatever the current "best" reference frame implementations are, while the GCRF/ITRF implementation will always refer to the specific IAU SOFA implementations described above.
 
 ## ECI to ECEF
 

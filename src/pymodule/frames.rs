@@ -66,23 +66,58 @@ unsafe fn py_polar_motion<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyA
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
-/// Computes the combined rotation matrix from the inertial to the Earth-fixed
-/// reference frame. Applies corrections for bias, precession, nutation,
-/// Earth-rotation, and polar motion.
+/// Computes the combined rotation matrix from GCRF (Geocentric Celestial Reference Frame)
+/// to ITRF (International Terrestrial Reference Frame). Applies corrections for bias,
+/// precession, nutation, Earth-rotation, and polar motion.
 ///
 /// The transformation is accomplished using the `IAU 2006/2000A`, `CIO`-based
 /// theory using classical angles. The method as described in section 5.5 of
 /// the SOFA C transformation cookbook.
 ///
 /// The function will utilize the global Earth orientation and loaded data to
-/// apply corrections for Celestial Intermidate Pole (`CIP`) and polar motion drift
+/// apply corrections for Celestial Intermediate Pole (`CIP`) and polar motion drift
 /// derived from empirical observations.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for computation of transformation matrix
 ///
 /// Returns:
-///     (numpy.ndarray): 3x3 rotation matrix transforming `GCRF` -> `ITRF`
+///     numpy.ndarray: 3x3 rotation matrix transforming `GCRF` -> `ITRF`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Get rotation matrix from GCRF to ITRF
+///     R = bh.rotation_gcrf_to_itrf(epc)
+///     print(f"Rotation matrix shape: {R.shape}")
+///     # Output: Rotation matrix shape: (3, 3)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gcrf_to_itrf")]
+unsafe fn py_rotation_gcrf_to_itrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_gcrf_to_itrf(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the combined rotation matrix from the inertial to the Earth-fixed
+/// reference frame. Applies corrections for bias, precession, nutation,
+/// Earth-rotation, and polar motion.
+///
+/// This function is an alias for rotation_gcrf_to_itrf. `ECI` refers to the
+/// `GCRF` (Geocentric Celestial Reference Frame) implementation, and `ECEF` refers
+/// to the `ITRF` (International Terrestrial Reference Frame) implementation.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `ECI` (`GCRF`) -> `ECEF` (`ITRF`)
 ///
 /// Example:
 ///     ```python
@@ -105,23 +140,56 @@ unsafe fn py_rotation_eci_to_ecef<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
-/// Computes the combined rotation matrix from the Earth-fixed to the inertial
-/// reference frame. Applies corrections for bias, precession, nutation,
-/// Earth-rotation, and polar motion.
+/// Computes the combined rotation matrix from ITRF (International Terrestrial Reference Frame)
+/// to GCRF (Geocentric Celestial Reference Frame). Applies corrections for bias,
+/// precession, nutation, Earth-rotation, and polar motion.
 ///
 /// The transformation is accomplished using the `IAU 2006/2000A`, `CIO`-based
 /// theory using classical angles. The method as described in section 5.5 of
 /// the SOFA C transformation cookbook.
 ///
 /// The function will utilize the global Earth orientation and loaded data to
-/// apply corrections for Celestial Intermidate Pole (`CIP`) and polar motion drift
+/// apply corrections for Celestial Intermediate Pole (`CIP`) and polar motion drift
 /// derived from empirical observations.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for computation of transformation matrix
 ///
 /// Returns:
-///     (numpy.ndarray): 3x3 rotation matrix transforming `ITRF` -> `GCRF`
+///     numpy.ndarray: 3x3 rotation matrix transforming `ITRF` -> `GCRF`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Get rotation matrix from ITRF to GCRF
+///     R = bh.rotation_itrf_to_gcrf(epc)
+///     print(f"Rotation matrix shape: {R.shape}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_itrf_to_gcrf")]
+unsafe fn py_rotation_itrf_to_gcrf<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_itrf_to_gcrf(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the combined rotation matrix from the Earth-fixed to the inertial
+/// reference frame. Applies corrections for bias, precession, nutation,
+/// Earth-rotation, and polar motion.
+///
+/// This function is an alias for rotation_itrf_to_gcrf. `ECEF` refers to the
+/// `ITRF` (International Terrestrial Reference Frame) implementation, and `ECI` refers
+/// to the `GCRF` (Geocentric Celestial Reference Frame) implementation.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `ECEF` (`ITRF`) -> `ECI` (`GCRF`)
 ///
 /// Example:
 ///     ```python
@@ -142,12 +210,54 @@ unsafe fn py_rotation_ecef_to_eci<'py>(py: Python<'py>, epc: &PyEpoch) -> Bound<
     matrix_to_numpy!(py, mat, 3, 3, f64)
 }
 
-/// Transforms a position vector from the Earth Centered Inertial (`ECI`/`GCRF`) frame
-/// to the Earth Centered Earth Fixed (`ECEF`/`ITRF`) frame.
+/// Transforms a position vector from GCRF (Geocentric Celestial Reference Frame)
+/// to ITRF (International Terrestrial Reference Frame).
 ///
 /// Applies the full `IAU 2006/2000A` transformation including bias, precession,
 /// nutation, Earth rotation, and polar motion corrections using global Earth
 /// orientation parameters.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for the transformation
+///     x (numpy.ndarray or list): Position vector in `GCRF` frame (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `ITRF` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Position vector in GCRF (meters)
+///     r_gcrf = np.array([7000000.0, 0.0, 0.0])
+///
+///     # Transform to ITRF
+///     r_itrf = bh.position_gcrf_to_itrf(epc, r_gcrf)
+///     print(f"ITRF position: {r_itrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(name = "position_gcrf_to_itrf")]
+fn py_position_gcrf_to_itrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_gcrf_to_itrf(epc.obj, pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a position vector from the Earth Centered Inertial (`ECI`/`GCRF`) frame
+/// to the Earth Centered Earth Fixed (`ECEF`/`ITRF`) frame.
+///
+/// This function is an alias for position_gcrf_to_itrf. Applies the full
+/// `IAU 2006/2000A` transformation including bias, precession, nutation, Earth
+/// rotation, and polar motion corrections using global Earth orientation parameters.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
@@ -184,12 +294,54 @@ fn py_position_eci_to_ecef<'py>(
     Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
-/// Transforms a position vector from the Earth Centered Earth Fixed (`ECEF`/`ITRF`)
-/// frame to the Earth Centered Inertial (`ECI`/`GCRF`) frame.
+/// Transforms a position vector from ITRF (International Terrestrial Reference Frame)
+/// to GCRF (Geocentric Celestial Reference Frame).
 ///
 /// Applies the full `IAU 2006/2000A` transformation including bias, precession,
 /// nutation, Earth rotation, and polar motion corrections using global Earth
 /// orientation parameters.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for the transformation
+///     x (numpy.ndarray or list): Position vector in `ITRF` frame (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `GCRF` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Position in ITRF (ground station)
+///     r_itrf = np.array([4000000.0, 3000000.0, 4000000.0])
+///
+///     # Transform to GCRF
+///     r_gcrf = bh.position_itrf_to_gcrf(epc, r_itrf)
+///     print(f"GCRF position: {r_gcrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x)")]
+#[pyo3(name = "position_itrf_to_gcrf")]
+fn py_position_itrf_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_itrf_to_gcrf(epc.obj, pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a position vector from the Earth Centered Earth Fixed (`ECEF`/`ITRF`)
+/// frame to the Earth Centered Inertial (`ECI`/`GCRF`) frame.
+///
+/// This function is an alias for position_itrf_to_gcrf. Applies the full
+/// `IAU 2006/2000A` transformation including bias, precession, nutation, Earth
+/// rotation, and polar motion corrections using global Earth orientation parameters.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
@@ -226,13 +378,56 @@ fn py_position_ecef_to_eci<'py>(
     Ok(vector_to_numpy!(py, vec, 3, f64))
 }
 
-/// Transforms a state vector (position and velocity) from the Earth Centered
-/// Inertial (`ECI`/`GCRF`) frame to the Earth Centered Earth Fixed (`ECEF`/`ITRF`) frame.
+/// Transforms a state vector (position and velocity) from GCRF (Geocentric Celestial
+/// Reference Frame) to ITRF (International Terrestrial Reference Frame).
 ///
 /// Applies the full `IAU 2006/2000A` transformation including bias, precession,
 /// nutation, Earth rotation, and polar motion corrections using global Earth
 /// orientation parameters. The velocity transformation accounts for the Earth's
 /// rotation rate.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for the transformation
+///     x_gcrf (numpy.ndarray or list): State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # State vector in GCRF [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_gcrf = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+///
+///     # Transform to ITRF
+///     state_itrf = bh.state_gcrf_to_itrf(epc, state_gcrf)
+///     print(f"ITRF state: {state_itrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "state_gcrf_to_itrf")]
+fn py_state_gcrf_to_itrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_gcrf_to_itrf(epc.obj, pyany_to_svector::<6>(&x_gcrf)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a state vector (position and velocity) from the Earth Centered
+/// Inertial (`ECI`/`GCRF`) frame to the Earth Centered Earth Fixed (`ECEF`/`ITRF`) frame.
+///
+/// This function is an alias for state_gcrf_to_itrf. Applies the full
+/// `IAU 2006/2000A` transformation including bias, precession, nutation, Earth
+/// rotation, and polar motion corrections using global Earth orientation parameters.
+/// The velocity transformation accounts for the Earth's rotation rate.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation
@@ -269,13 +464,56 @@ fn py_state_eci_to_ecef<'py>(
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }
 
-/// Transforms a state vector (position and velocity) from the Earth Centered
-/// Earth Fixed (`ECEF`/`ITRF`) frame to the Earth Centered Inertial (`ECI`/`GCRF`) frame.
+/// Transforms a state vector (position and velocity) from ITRF (International Terrestrial
+/// Reference Frame) to GCRF (Geocentric Celestial Reference Frame).
 ///
 /// Applies the full `IAU 2006/2000A` transformation including bias, precession,
 /// nutation, Earth rotation, and polar motion corrections using global Earth
 /// orientation parameters. The velocity transformation accounts for the Earth's
 /// rotation rate.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for the transformation
+///     x_itrf (numpy.ndarray or list): State vector in `ITRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: State vector in `GCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create epoch
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # State vector in ITRF [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_itrf = np.array([4000000.0, 3000000.0, 4000000.0, 100.0, -50.0, 200.0])
+///
+///     # Transform to GCRF
+///     state_gcrf = bh.state_itrf_to_gcrf(epc, state_itrf)
+///     print(f"GCRF state: {state_gcrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_itrf)")]
+#[pyo3(name = "state_itrf_to_gcrf")]
+fn py_state_itrf_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_itrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_itrf_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_itrf)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a state vector (position and velocity) from the Earth Centered
+/// Earth Fixed (`ECEF`/`ITRF`) frame to the Earth Centered Inertial (`ECI`/`GCRF`) frame.
+///
+/// This function is an alias for state_itrf_to_gcrf. Applies the full
+/// `IAU 2006/2000A` transformation including bias, precession, nutation, Earth
+/// rotation, and polar motion corrections using global Earth orientation parameters.
+/// The velocity transformation accounts for the Earth's rotation rate.
 ///
 /// Args:
 ///     epc (Epoch): Epoch instant for the transformation

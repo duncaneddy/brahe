@@ -5,6 +5,9 @@
     <em>Brahe - Practical Astrodynamics</em>
 </p>
 <p align="center">
+<a href="https://duncaneddy.github.io/brahe/latest" target="_blank">
+    <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs">
+</a>
 <a href="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml" target="_blank">
     <img src="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml/badge.svg" alt="Tests">
 </a>
@@ -15,9 +18,6 @@
 </a>
 <a href="https://pypi.org/project/brahe" target="_blank">
     <img src="https://img.shields.io/pypi/v/brahe?color=blue" alt="PyPi">
-</a>
-<a href="https://duncaneddy.github.io/brahe/latest" target="_blank">
-    <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs">
 </a>
 <a href="https://github.com/duncaneddy/brahe/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-green.svg", alt="License">

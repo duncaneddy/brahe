@@ -18,7 +18,7 @@ jobs:
         needs: [ test-rust ]
         uses: ./.github/workflows/test_python.yml
     test-examples:
-        needs: [ test-rust ]
+        # needs: [ test-rust ] # Remove this dependency for optimistic parallel execution
         uses: ./.github/workflows/test_examples.yml
     update-docs:
         needs: [ test-rust, test-python, test-examples ]

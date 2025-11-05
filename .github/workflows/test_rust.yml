@@ -73,7 +73,7 @@ jobs:
                 with:
                     fail_ci_if_error: false
                     verbose: true
-                    use_oidc: false
+                    use_oidc: true
                     
             -   name: Upload Brahe cache directory (Unix)
                 if: runner.os != 'Windows'

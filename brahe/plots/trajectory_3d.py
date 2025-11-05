@@ -12,6 +12,7 @@ from loguru import logger
 
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
+from brahe.plots.texture_utils import load_earth_texture
 from brahe._brahe import OrbitTrajectory, OrbitFrame, OrbitRepresentation
 
 
@@ -24,7 +25,9 @@ def plot_trajectory_3d(
     view_elevation=30.0,
     view_distance=None,
     show_earth=True,
-    earth_texture="simple",
+    earth_texture=None,
+    sphere_resolution_lon=1080,
+    sphere_resolution_lat=540,
     backend="matplotlib",
     width=None,
     height=None,
@@ -45,7 +48,17 @@ def plot_trajectory_3d(
         view_elevation (float, optional): Camera elevation angle (degrees). Default: 30.0
         view_distance (float, optional): Camera distance multiplier. Default: 2.5 (larger = further out)
         show_earth (bool, optional): Show Earth sphere at origin. Default: True
-        earth_texture (str, optional): 'blue_marble', 'simple', or None. Default: 'simple'
+        earth_texture (str, optional): Texture to use for Earth sphere (plotly only). Options:
+            - 'simple': Solid lightblue sphere (fast rendering)
+            - 'blue_marble': NASA Blue Marble texture (packaged with brahe, default for plotly)
+            - 'natural_earth_50m': Natural Earth 50m shaded relief (auto-downloads ~20MB)
+            - 'natural_earth_10m': Natural Earth 10m shaded relief (auto-downloads ~180MB)
+            Note: matplotlib always uses a simple solid sphere regardless of this setting.
+            Default: 'blue_marble' for plotly
+        sphere_resolution_lon (int, optional): Longitude resolution for textured sphere (plotly only).
+            Higher values = better quality but slower rendering. Default: 1080
+        sphere_resolution_lat (int, optional): Latitude resolution for textured sphere (plotly only).
+            Higher values = better quality but slower rendering. Default: 540
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
         width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
         height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
@@ -69,11 +82,28 @@ def plot_trajectory_3d(
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
         traj = prop.propagate(epoch, epoch + bh.orbital_period(oe[0]), 60.0)
 
-        # Plot 3D trajectory
+        # Plot 3D trajectory with matplotlib (simple sphere)
         fig = bh.plot_trajectory_3d(
             [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
             units='km',
             show_earth=True,
+            backend='matplotlib'
+        )
+
+        # Plot 3D trajectory with plotly (blue marble texture by default)
+        fig = bh.plot_trajectory_3d(
+            [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
+            units='km',
+            show_earth=True,
+            backend='plotly'
+        )
+
+        # Plot with explicit texture choice
+        fig = bh.plot_trajectory_3d(
+            [{"trajectory": traj, "color": "red", "label": "LEO Orbit"}],
+            units='km',
+            show_earth=True,
+            earth_texture='natural_earth_50m',
             backend='matplotlib'
         )
         ```
@@ -83,6 +113,10 @@ def plot_trajectory_3d(
     logger.debug(f"Units: {units}, normalize={normalize}, show_earth={show_earth}")
 
     validate_backend(backend)
+
+    # Set backend-specific default textures
+    if earth_texture is None:
+        earth_texture = "simple" if backend == "matplotlib" else "blue_marble"
 
     # Normalize inputs
     traj_groups = _normalize_trajectory_groups(trajectories)
@@ -98,7 +132,6 @@ def plot_trajectory_3d(
             view_elevation,
             view_distance,
             show_earth,
-            earth_texture,
         )
     else:  # plotly
         result = _trajectory_3d_plotly(
@@ -111,6 +144,8 @@ def plot_trajectory_3d(
             view_distance,
             show_earth,
             earth_texture,
+            sphere_resolution_lon,
+            sphere_resolution_lat,
             width,
             height,
         )
@@ -154,7 +189,6 @@ def _trajectory_3d_matplotlib(
     view_elevation,
     view_distance,
     show_earth,
-    earth_texture,
 ):
     """Matplotlib implementation of 3D trajectory plot."""
     # Apply scienceplots if available
@@ -177,7 +211,7 @@ def _trajectory_3d_matplotlib(
 
     # Plot Earth sphere if requested
     if show_earth:
-        _plot_earth_sphere_matplotlib(ax, scale, earth_texture)
+        _plot_earth_sphere_matplotlib(ax, scale)
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -248,6 +282,8 @@ def _trajectory_3d_plotly(
     view_distance,
     show_earth,
     earth_texture,
+    sphere_resolution_lon,
+    sphere_resolution_lat,
     width,
     height,
 ):
@@ -267,7 +303,9 @@ def _trajectory_3d_plotly(
 
     # Plot Earth sphere if requested
     if show_earth:
-        _plot_earth_sphere_plotly(fig, scale, earth_texture)
+        _plot_earth_sphere_plotly(
+            fig, scale, earth_texture, sphere_resolution_lon, sphere_resolution_lat
+        )
 
     # Plot each trajectory
     for i, group in enumerate(traj_groups):
@@ -358,45 +396,136 @@ def _trajectory_3d_plotly(
     return fig
 
 
-def _plot_earth_sphere_matplotlib(ax, scale, texture):
-    """Plot Earth sphere on matplotlib 3D axis."""
-    # Create sphere
+def _plot_earth_sphere_matplotlib(ax, scale):
+    """Plot simple Earth sphere on matplotlib 3D axis."""
+    # Simple solid sphere
     u = np.linspace(0, 2 * np.pi, 50)
     v = np.linspace(0, np.pi, 50)
     x = bh.R_EARTH * scale * np.outer(np.cos(u), np.sin(v))
     y = bh.R_EARTH * scale * np.outer(np.sin(u), np.sin(v))
     z = bh.R_EARTH * scale * np.outer(np.ones(np.size(u)), np.cos(v))
-
-    # Plot sphere
-    if texture == "simple":
-        ax.plot_surface(x, y, z, color="lightblue", alpha=0.6, edgecolor="none")
-    else:
-        # TODO: Add blue marble texture support
-        ax.plot_surface(x, y, z, color="lightblue", alpha=0.6, edgecolor="none")
+    ax.plot_surface(x, y, z, color="lightblue", alpha=0.6, edgecolor="none")
 
 
-def _plot_earth_sphere_plotly(fig, scale, texture):
-    """Plot Earth sphere on plotly 3D figure."""
-    # Create sphere
-    u = np.linspace(0, 2 * np.pi, 50)
-    v = np.linspace(0, np.pi, 50)
-    x = bh.R_EARTH * scale * np.outer(np.cos(u), np.sin(v))
-    y = bh.R_EARTH * scale * np.outer(np.sin(u), np.sin(v))
-    z = bh.R_EARTH * scale * np.outer(np.ones(np.size(u)), np.cos(v))
+def _plot_earth_sphere_plotly(fig, scale, texture, n_lon=1080, n_lat=540):
+    """Plot Earth sphere on plotly 3D figure using Mesh3d with optional texture mapping."""
+    # Load texture if requested
+    texture_img = load_earth_texture(texture)
 
-    # Add sphere surface with higher opacity for better visibility
-    # Note: Plotly Surface doesn't support gradient opacity, so using uniform value
-    fig.add_trace(
-        go.Surface(
-            x=x,
-            y=y,
-            z=z,
-            colorscale="Blues",
-            showscale=False,
-            opacity=0.7,
-            name="Earth",
+    if texture_img is None:
+        # Simple solid sphere using Surface (faster for untextured)
+        u = np.linspace(0, 2 * np.pi, 50)
+        v = np.linspace(0, np.pi, 50)
+        x = bh.R_EARTH * scale * np.outer(np.cos(u), np.sin(v))
+        y = bh.R_EARTH * scale * np.outer(np.sin(u), np.sin(v))
+        z = bh.R_EARTH * scale * np.outer(np.ones(np.size(u)), np.cos(v))
+
+        fig.add_trace(
+            go.Surface(
+                x=x,
+                y=y,
+                z=z,
+                colorscale="Blues",
+                showscale=False,
+                opacity=0.7,
+                name="Earth",
+            )
         )
-    )
+    else:
+        # Textured sphere using Mesh3d with facecolor
+        # Use configurable resolution for texture quality/performance trade-off
+
+        # Generate sphere vertices
+        lons = np.linspace(0, 2 * np.pi, n_lon)
+        lats = np.linspace(0, np.pi, n_lat)
+
+        vertices = []
+        for lat in lats:
+            for lon in lons:
+                x = bh.R_EARTH * scale * np.sin(lat) * np.cos(lon)
+                y = bh.R_EARTH * scale * np.sin(lat) * np.sin(lon)
+                z = bh.R_EARTH * scale * np.cos(lat)
+                vertices.append([x, y, z])
+
+        vertices = np.array(vertices)
+        x_verts, y_verts, z_verts = vertices[:, 0], vertices[:, 1], vertices[:, 2]
+
+        # Generate triangular faces
+        faces = []
+        for i in range(n_lat - 1):
+            for j in range(n_lon - 1):
+                # Vertex indices
+                v0 = i * n_lon + j
+                v1 = i * n_lon + (j + 1)
+                v2 = (i + 1) * n_lon + j
+                v3 = (i + 1) * n_lon + (j + 1)
+
+                # Two triangles per quad
+                faces.append([v0, v1, v2])
+                faces.append([v1, v3, v2])
+
+        faces = np.array(faces)
+        i_faces, j_faces, k_faces = faces[:, 0], faces[:, 1], faces[:, 2]
+
+        # Map texture to face colors
+        # Get texture dimensions
+        img_array = np.array(texture_img)
+        img_height, img_width = img_array.shape[:2]
+
+        # For each face, compute the average texture coordinate and sample color
+        face_colors = []
+        for face in faces:
+            # Get vertices of this face
+            v_indices = face
+
+            # Compute average latitude/longitude for this face
+            avg_x = np.mean(vertices[v_indices, 0])
+            avg_y = np.mean(vertices[v_indices, 1])
+            avg_z = np.mean(vertices[v_indices, 2])
+
+            # Convert back to lat/lon
+            r = np.sqrt(avg_x**2 + avg_y**2 + avg_z**2)
+            if r > 0:
+                lat = np.arccos(avg_z / r)
+                lon = np.arctan2(avg_y, avg_x)
+            else:
+                lat, lon = 0, 0
+
+            # Map to texture coordinates (0 to 1)
+            # lon: 0 to 2π maps to 0 to 1
+            # lat: 0 to π maps to 0 to 1
+            u_coord = (lon % (2 * np.pi)) / (2 * np.pi)
+            v_coord = lat / np.pi
+
+            # Sample texture at this location
+            tex_x = int(u_coord * (img_width - 1))
+            tex_y = int(v_coord * (img_height - 1))
+
+            # Get RGB color from texture
+            rgb = img_array[tex_y, tex_x, :3]
+            face_colors.append(f"rgb({rgb[0]},{rgb[1]},{rgb[2]})")
+
+        # Create Mesh3d with face colors
+        fig.add_trace(
+            go.Mesh3d(
+                x=x_verts,
+                y=y_verts,
+                z=z_verts,
+                i=i_faces,
+                j=j_faces,
+                k=k_faces,
+                facecolor=face_colors,
+                showscale=False,
+                name="Earth",
+                lighting=dict(
+                    ambient=0.6,
+                    diffuse=0.8,
+                    specular=0.2,
+                    roughness=0.8,
+                ),
+                lightposition=dict(x=10000, y=10000, z=10000),
+            )
+        )
 
 
 def _set_axes_equal(ax):

@@ -37,6 +37,7 @@ dependencies = [
     "plotly>=6.3.0",
     "cartopy>=0.23.0",
     "shapely>=2.0.0",
+    "pillow>=10.0.0",
     "requests>=2.31.0",
     "loguru>=0.7.0",
 ]

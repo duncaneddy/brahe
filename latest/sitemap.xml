@@ -41,7 +41,11 @@
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
-         <loc>https://duncaneddy.github.io/brahe/latest/examples/doppler_compensation.html</loc>
+         <loc>https://duncaneddy.github.io/brahe/latest/examples/doppler_complementation.html</loc>
+         <lastmod>2025-11-05</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/examples/downloading_tle_data.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>
@@ -58,10 +62,6 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/examples/visualizing_gps.html</loc>
-         <lastmod>2025-11-05</lastmod>
-    </url>
-    <url>
-         <loc>https://duncaneddy.github.io/brahe/latest/examples/visualizing_starlink.html</loc>
          <lastmod>2025-11-05</lastmod>
     </url>
     <url>

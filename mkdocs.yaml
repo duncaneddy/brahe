@@ -201,6 +201,7 @@ nav:
     -   Examples:
             - examples/index.md
             - examples/downloading_tle_data.md
+            - examples/visualizing_gps.md
             - examples/ground_contacts.md
             - examples/doppler_complementation.md
             - examples/imaging_opportunities.md

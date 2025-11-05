@@ -149,12 +149,28 @@ def check_flags(
     enable_ci_only: bool = False,
     enable_slow: bool = False,
     enable_ignore: bool = False,
-) -> tuple[bool, str]:
-    """Check if example/plot should be skipped based on FLAGS."""
+) -> tuple[bool, str, int | None]:
+    """Check if example/plot should be skipped based on FLAGS and return custom TIMEOUT if set.
+
+    Returns:
+        tuple[bool, str, int | None]: (should_skip, reason, timeout_seconds)
+        timeout_seconds is None if not specified in the file.
+    """
+    timeout_seconds = None
+
     try:
         content = file_path.read_text()
         first_lines = "\n".join(content.split("\n")[:10])
 
+        # Parse TIMEOUT if present
+        if "TIMEOUT = " in first_lines:
+            import re
+
+            timeout_match = re.search(r"TIMEOUT = (\d+)", first_lines)
+            if timeout_match:
+                timeout_seconds = int(timeout_match.group(1))
+
+        # Parse FLAGS if present
         if "FLAGS = [" in first_lines:
             import re
 
@@ -165,18 +181,20 @@ def check_flags(
                 flags = [f.strip().strip('"').strip("'") for f in flags_str.split(",")]
 
                 if "IGNORE" in flags and not enable_ignore:
-                    return True, "ignored"
+                    return True, "ignored", timeout_seconds
                 if "CI-ONLY" in flags and not enable_ci_only:
-                    return True, "ci-only"
+                    return True, "ci-only", timeout_seconds
                 if "SLOW" in flags and not enable_slow:
-                    return True, "slow"
+                    return True, "slow", timeout_seconds
     except Exception:
         pass
 
-    return False, ""
+    return False, "", timeout_seconds
 
 
-def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str, str]:
+def test_rust_example(
+    file_path: Path, verbose: bool = False, timeout: int = 300
+) -> tuple[bool, str, str]:
     """Test a single Rust example. Returns (success, stdout, stderr)."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as tmp:
         deps = RUST_DEPS.replace("%REPO_ROOT%", str(REPO_ROOT))
@@ -194,7 +212,7 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
             ["rust-script", "--toolchain", "nightly", tmp_path],
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
             env=env,
         )
 
@@ -210,7 +228,7 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
                 console.print(result.stderr)
             return False, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
-        error_msg = "Test timed out after 60 seconds"
+        error_msg = f"Test timed out after {timeout} seconds"
         if verbose:
             console.print(f"[red]{error_msg}[/red]")
         return False, "", error_msg
@@ -224,7 +242,7 @@ def test_rust_example(file_path: Path, verbose: bool = False) -> tuple[bool, str
 
 
 def test_python_example(
-    file_path: Path, verbose: bool = False
+    file_path: Path, verbose: bool = False, timeout: int = 120
 ) -> tuple[bool, str, str]:
     """Test a single Python example. Returns (success, stdout, stderr)."""
     # Use .venv/bin/python directly to avoid uv environment warnings
@@ -237,7 +255,7 @@ def test_python_example(
             [str(python_exe), str(file_path)],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=timeout,
             cwd=REPO_ROOT,
         )
 
@@ -253,7 +271,7 @@ def test_python_example(
                 console.print(result.stderr)
             return False, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
-        error_msg = "Test timed out after 60 seconds"
+        error_msg = f"Test timed out after {timeout} seconds"
         if verbose:
             console.print(f"[red]{error_msg}[/red]")
         return False, "", error_msg
@@ -366,7 +384,7 @@ def list_examples(
         row = [example_name, has_python, has_rust]
 
         if show_flags:
-            _, reason = check_flags(rust_file)
+            _, reason, _ = check_flags(rust_file)
             row.append(reason.upper() if reason else "")
 
         table.add_row(*row)
@@ -383,6 +401,12 @@ def test_examples(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
     lang: Optional[str] = typer.Option(
         None, "--lang", help="Filter by language: python/py or rust/rs"
+    ),
+    timeout: Optional[int] = typer.Option(
+        None,
+        "--timeout",
+        "-t",
+        help="Override timeout in seconds (default: Python=120s, Rust=300s)",
     ),
 ):
     """
@@ -439,7 +463,9 @@ def test_examples(
 
             for rust_file in rust_files:
                 rel_path = rust_file.relative_to(REPO_ROOT)
-                should_skip, reason = check_flags(rust_file, ci_only, slow, ignore)
+                should_skip, reason, file_timeout = check_flags(
+                    rust_file, ci_only, slow, ignore
+                )
 
                 rust_results.total += 1
 
@@ -450,7 +476,13 @@ def test_examples(
                             f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
                         )
                 else:
-                    passed, stdout, stderr = test_rust_example(rust_file, verbose)
+                    # CLI timeout overrides file timeout
+                    effective_timeout = (
+                        timeout if timeout is not None else (file_timeout or 300)
+                    )
+                    passed, stdout, stderr = test_rust_example(
+                        rust_file, verbose, effective_timeout
+                    )
 
                     if passed:
                         rust_results.passed += 1
@@ -490,7 +522,9 @@ def test_examples(
 
             for py_file in python_files:
                 rel_path = py_file.relative_to(REPO_ROOT)
-                should_skip, reason = check_flags(py_file, ci_only, slow, ignore)
+                should_skip, reason, file_timeout = check_flags(
+                    py_file, ci_only, slow, ignore
+                )
 
                 python_results.total += 1
 
@@ -501,7 +535,13 @@ def test_examples(
                             f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
                         )
                 else:
-                    passed, stdout, stderr = test_python_example(py_file, verbose)
+                    # CLI timeout overrides file timeout
+                    effective_timeout = (
+                        timeout if timeout is not None else (file_timeout or 120)
+                    )
+                    passed, stdout, stderr = test_python_example(
+                        py_file, verbose, effective_timeout
+                    )
 
                     if passed:
                         python_results.passed += 1
@@ -620,6 +660,12 @@ def test_example(
         None, "--lang", "-l", help="Language: rust, python, or both (default)"
     ),
     verbose: bool = typer.Option(True, "--verbose/--quiet", "-v/-q"),
+    timeout: Optional[int] = typer.Option(
+        None,
+        "--timeout",
+        "-t",
+        help="Override timeout in seconds (default: Python=120s, Rust=300s)",
+    ),
 ):
     """
     Test a specific example.
@@ -718,7 +764,12 @@ def test_example(
     # Test Rust if requested and found
     if test_rust_lang and rust_file:
         console.print(f"[blue]Testing Rust: {rust_file.relative_to(REPO_ROOT)}[/blue]")
-        passed, stdout, stderr = test_rust_example(rust_file, verbose)
+        _, _, rust_timeout = check_flags(rust_file)
+        # CLI timeout overrides file timeout
+        effective_timeout = timeout if timeout is not None else (rust_timeout or 300)
+        passed, stdout, stderr = test_rust_example(
+            rust_file, verbose, effective_timeout
+        )
         if passed:
             console.print("[green]✓ PASS[/green]")
         else:
@@ -737,7 +788,12 @@ def test_example(
     # Test Python if requested and found
     if test_python_lang and py_file:
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
-        passed, stdout, stderr = test_python_example(py_file, verbose)
+        _, _, py_timeout = check_flags(py_file)
+        # CLI timeout overrides file timeout
+        effective_timeout = timeout if timeout is not None else (py_timeout or 120)
+        passed, stdout, stderr = test_python_example(
+            py_file, verbose, effective_timeout
+        )
         if passed:
             console.print("[green]✓ PASS[/green]")
         else:
@@ -775,7 +831,12 @@ def test_example(
 
 
 @app.command()
-def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
+def make_plots(
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    timeout: Optional[int] = typer.Option(
+        None, "--timeout", "-t", help="Override timeout in seconds (default: 120s)"
+    ),
+):
     """
     Generate all documentation plots and figures.
     """
@@ -806,17 +867,31 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
         task = progress.add_task("Generating figures...", total=len(plot_files))
 
         for plot_file in plot_files:
-            result = subprocess.run(
-                [str(python_exe), str(plot_file)],
-                cwd=REPO_ROOT,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env={
-                    **subprocess.os.environ,
-                    "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
-                },
+            # Get timeout from file or use CLI override
+            _, _, file_timeout = check_flags(plot_file)
+            effective_timeout = (
+                timeout if timeout is not None else (file_timeout or 120)
             )
+
+            try:
+                result = subprocess.run(
+                    [str(python_exe), str(plot_file)],
+                    cwd=REPO_ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=effective_timeout,
+                    env={
+                        **subprocess.os.environ,
+                        "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
+                    },
+                )
+            except subprocess.TimeoutExpired:
+                error_msg = f"Timed out after {effective_timeout} seconds"
+                all_outputs.append((plot_file.name, "", error_msg, 1))
+                failed_plots.append((plot_file.name, "", error_msg))
+                progress.update(task, advance=1)
+                continue
 
             # Store output for later display
             all_outputs.append(
@@ -875,6 +950,9 @@ def make_plot(
         help="Plot name (e.g., 'attitude_representations', 'subdir/plot_name', or 'attitude_representations.py')",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
+    timeout: Optional[int] = typer.Option(
+        None, "--timeout", "-t", help="Override timeout in seconds (default: 120s)"
+    ),
 ):
     """
     Generate a specific plot.
@@ -919,18 +997,29 @@ def make_plot(
 
     console.print(f"\n[bold blue]Generating {plot_file.name}[/bold blue]\n")
 
+    # Get timeout from file or use CLI override
+    _, _, file_timeout = check_flags(plot_file)
+    effective_timeout = timeout if timeout is not None else (file_timeout or 120)
+
     python_exe = REPO_ROOT / ".venv" / "bin" / "python"
-    result = subprocess.run(
-        [str(python_exe), str(plot_file)],
-        cwd=REPO_ROOT,
-        stdout=None,
-        stderr=subprocess.PIPE,
-        text=True,
-        env={
-            **subprocess.os.environ,
-            "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
-        },
-    )
+    try:
+        result = subprocess.run(
+            [str(python_exe), str(plot_file)],
+            cwd=REPO_ROOT,
+            stdout=None,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=effective_timeout,
+            env={
+                **subprocess.os.environ,
+                "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
+            },
+        )
+    except subprocess.TimeoutExpired:
+        console.print(
+            f"[red]✗ Plot generation timed out after {effective_timeout} seconds[/red]\n"
+        )
+        raise typer.Exit(1)
 
     if result.returncode != 0:
         console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]\n")
@@ -967,7 +1056,7 @@ def list_plots(show_flags: bool = typer.Option(False, "--flags")):
         rel_path = plot_file.relative_to(PLOTS_DIR)
         row = [str(rel_path)]
         if show_flags:
-            _, reason = check_flags(plot_file)
+            _, reason, _ = check_flags(plot_file)
             row.append(reason.upper() if reason else "")
         table.add_row(*row)
 

@@ -151,6 +151,6 @@ The following features have been considered for future releases but are not curr
     - [ ] Mission Analysis Examples
     - [ ] Advanced Access Computation Examples
     - [ ] Custom Perturbation Models
-- [ ] Improved Documentation
 - [ ] Attitude dynamics module
 - [ ] WASM bindings for web-based applications
+- [ ] Datasets module for Jonathan McDowell's Satellite Catalog

@@ -9,7 +9,7 @@ This example demonstrates how to download Two-Line Element (TLE) data from the C
 Before starting, we need to import brahe and ensure that we have Earth orientation parameters initialized. We'll use `initialize_eop()`, which provides a [CachingEOPProvider](../library_api/eop/caching_provider.md) to deliver up-to-date Earth orientation parameters.
 
 ``` python
---8<-- "./examples/examples/downloading_tle_data.py:20:22"
+--8<-- "./examples/examples/downloading_tle_data.py:19:22"
 ```
 
 ## Download Starlink TLEs

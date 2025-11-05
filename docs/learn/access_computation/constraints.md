@@ -251,6 +251,8 @@ Python users can create fully custom constraints by implementing the `AccessCons
 !!! note "Custom Constraints in Rust"
     Rust users implement the `AccessConstraint` trait directly. This provides maximum performance but requires recompiling the library.
 
+---
+
 ## See Also
 
 - [Locations](locations.md) - Ground location types

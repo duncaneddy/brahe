@@ -46,6 +46,8 @@ epochs = [epoch + dt for dt in times]
 states = prop.propagate_multiple(epochs)  # Returns array of states
 ```
 
+---
+
 ## See Also
 
 - [KeplerianPropagator](keplerian_propagator.md) - Analytical two-body propagator

@@ -130,6 +130,8 @@ Convert locations back to GeoJSON format:
     --8<-- "./examples/access/locations/exporting_to_geojson.rs:5"
     ```
 
+---
+
 ## See Also
 
 - [Constraints](constraints.md) - Defining access criteria for locations

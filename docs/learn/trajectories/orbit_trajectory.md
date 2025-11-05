@@ -212,6 +212,8 @@ A complete example showing propagation, frame conversion, and analysis:
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_workflow.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide

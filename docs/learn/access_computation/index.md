@@ -164,6 +164,8 @@ This section provides a complete reference of all types, traits, and functions i
 - `Descending` - Satellite moving from north to south
 - `Either` - Either direction acceptable
 
+---
+
 ## See Also
 
 - [Locations](locations.md) - Ground location types and GeoJSON support

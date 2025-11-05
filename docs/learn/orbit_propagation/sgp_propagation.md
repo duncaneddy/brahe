@@ -226,6 +226,8 @@ Like Keplerian propagators, SGP propagators support identity tracking:
     --8<-- "./examples/orbit_propagation/sgp_propagation/identity_tracking.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Orbit Propagation Overview](index.md) - Propagation concepts and trait hierarchy

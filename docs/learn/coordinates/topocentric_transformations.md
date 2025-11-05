@@ -148,6 +148,8 @@ The same conversion is available from SEZ coordinates:
 !!! info
     Both ENZ and SEZ produce identical azimuth-elevation-range results for the same physical position. The choice between them is purely a matter of intermediate representation.
 
+---
+
 ## See Also
 
 - [Topocentric Coordinates API Reference](../../library_api/coordinates/topocentric.md) - Complete function documentation

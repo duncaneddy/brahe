@@ -75,6 +75,8 @@ You can convert quaternions to all other attitude representations and vice versa
     --8<-- "examples/attitude/quaternion_conversions.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Quaternion API Reference](../../library_api/attitude/quaternion.md)

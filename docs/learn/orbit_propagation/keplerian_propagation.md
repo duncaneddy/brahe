@@ -246,6 +246,8 @@ Track propagators with names, IDs, or UUIDs for multi-satellite scenarios.
     --8<-- "./examples/orbit_propagation/keplerian_propagation/identity_tracking.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Orbit Propagation Overview](index.md) - Propagation concepts and trait hierarchy

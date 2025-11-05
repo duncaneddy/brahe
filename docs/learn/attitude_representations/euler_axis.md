@@ -47,6 +47,8 @@ Convert between Euler axis and other attitude representations:
     --8<-- "examples/attitude/euler_axis_conversions.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Euler Axis API Reference](../../library_api/attitude/euler_axis.md)

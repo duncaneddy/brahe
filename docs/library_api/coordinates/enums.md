@@ -32,6 +32,8 @@ Specifies whether angles are in radians or degrees.
 - `RADIANS` - Angles are in radians
 - `DEGREES` - Angles are in degrees
 
+---
+
 ## See Also
 
 - [Topocentric Coordinates](topocentric.md)

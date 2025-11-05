@@ -222,6 +222,8 @@ fig = bh.plot_groundtrack(
 - Use `split_ground_track_at_antimeridian()` when creating custom ground track overlays to handle longitude wraparound
 - Choose basemap style based on your audience: `"natural_earth"` for presentations, `"stock"` for quick analysis, `None` for minimal distraction
 
+---
+
 ## See Also
 
 - [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md) - Complete function documentation

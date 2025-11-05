@@ -47,6 +47,8 @@ Automatically compute custom properties for each access window during the search
 !!! tip "Property Computer Performance"
     Property computers are called once per access window after boundaries are refined. For performance-critical applications, minimize expensive calculations like coordinate transformations.
 
+---
+
 ## See Also
 
 - [Access Computation Overview](index.md)

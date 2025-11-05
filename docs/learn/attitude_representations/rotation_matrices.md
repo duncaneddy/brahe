@@ -93,6 +93,8 @@ Convert between rotation matrices and other attitude representations:
     --8<-- "examples/attitude/rotation_matrix_conversions.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Rotation Matrix API Reference](../../library_api/attitude/rotation_matrix.md)

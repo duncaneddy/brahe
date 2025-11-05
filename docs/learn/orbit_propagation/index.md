@@ -70,6 +70,8 @@ Brahe currently provides two propagator implementations:
 - `KeplerianPropagator`: An analytic two-body propagator using Keplerian orbital elements. Suitable for high-level mission design and long-term propagation where perturbations are negligible.
 - `SGPPropagator`: An analytic propagator based on the SGP4/SDP4 models using TLE data. Suitable for tracking Earth-orbiting satellites with moderate accuracy.
 
+---
+
 ## See Also
 
 - [Keplerian Propagation](keplerian_propagation.md) - Analytical two-body propagator

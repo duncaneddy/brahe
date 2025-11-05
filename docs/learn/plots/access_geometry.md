@@ -151,6 +151,8 @@ Time-series plots show how elevation angle changes throughout a satellite pass, 
     --8<-- "./plots/learn/plots/access_elevation_matplotlib.py"
     ```
 
+---
+
 ## See Also
 
 - [plot_access_polar API Reference](../../library_api/plots/access_geometry.md)

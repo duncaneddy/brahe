@@ -26,6 +26,8 @@ These utilities are useful for displaying results to users in a more intuitive f
 
 See [String Formatting](string_formatting.md) for complete details.
 
+---
+
 ## See Also
 
 - [Caching](caching.md) - Cache directory management

@@ -29,6 +29,8 @@ Use `STrajectory6` when:
 - State dimension is always 6
 - Not using orbit-specific features (use OrbitTrajectory for that)
 
+---
+
 ## See Also
 
 - [DTrajectory](dtrajectory.md) - Variable dimension trajectory

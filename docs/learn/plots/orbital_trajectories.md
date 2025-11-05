@@ -187,6 +187,8 @@ fig = bh.plot_keplerian_trajectory(
 )
 ```
 
+---
+
 ## See Also
 
 - [plot_cartesian_trajectory API Reference](../../library_api/plots/orbital_trajectories.md)

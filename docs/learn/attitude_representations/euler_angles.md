@@ -53,6 +53,8 @@ Convert between Euler angles and other attitude representations:
     --8<-- "examples/attitude/euler_angle_conversions.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Euler Angles API Reference](../../library_api/attitude/euler_angles.md)

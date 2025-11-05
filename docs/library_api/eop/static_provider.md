@@ -100,6 +100,8 @@ vel_eci = bh.position_ecef_to_eci(epoch, vel_ecef)
 - Applications requiring current EOP data
 - High-accuracy simulations
 
+---
+
 ## See Also
 
 - [FileEOPProvider](file_provider.md) - File-based EOP for production use

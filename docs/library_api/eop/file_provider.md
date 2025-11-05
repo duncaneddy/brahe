@@ -104,6 +104,8 @@ filepath = bh.download_c04_eop_file("./data")
 provider = bh.FileEOPProvider.from_standard_file(filepath)
 ```
 
+---
+
 ## See Also
 
 - [StaticEOPProvider](static_provider.md) - Built-in historical EOP data

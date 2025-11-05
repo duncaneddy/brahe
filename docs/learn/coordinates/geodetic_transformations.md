@@ -79,6 +79,8 @@ For the same longitude, latitude, and altitude values, geodetic and geocentric c
 
 For most applications, it's best to use geodetic coordinates since any computational overhead is negligible compared to the improved accuracy near Earth's surface.
 
+---
+
 ## See Also
 
 - [Geodetic Coordinates API Reference](../../library_api/coordinates/geodetic.md) - Complete function documentation

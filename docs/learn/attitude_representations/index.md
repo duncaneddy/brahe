@@ -39,6 +39,8 @@ Brahe provides functions to convert between all attitude representations. You ca
 
 - Representing single rotations about an axis
 
+---
+
 ## See Also
 
 - [API Reference - Attitude](../../library_api/attitude/index.md)

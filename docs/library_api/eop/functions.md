@@ -270,6 +270,8 @@ print(f"Interpolation: {bh.get_global_eop_interpolation()}")
 print(f"Extrapolation: {bh.get_global_eop_extrapolation()}")
 ```
 
+---
+
 ## See Also
 
 - [FileEOPProvider](file_provider.md)

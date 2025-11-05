@@ -166,6 +166,8 @@ The `OrbitTrajectory` implementation is specialized for orbital mechanics applic
 - Representation conversions: Cartesian ↔ Keplerian
 - Implements traits: `Trajectory`, `Interpolatable`, `OrbitalTrajectory`
 
+---
+
 ## See Also
 
 - [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory implementation

@@ -180,6 +180,8 @@ Epochs can be converted to human-readable strings in various formats and time sy
     --8<-- "./examples/time/epoch_string_output.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Epoch API Reference](../../library_api/time/epoch.md)

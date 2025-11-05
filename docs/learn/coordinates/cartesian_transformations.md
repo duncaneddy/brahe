@@ -96,6 +96,8 @@ After propagating or receiving Cartesian state data, you often want to convert b
     ```
 
 
+---
+
 ## See Also
 
 - [Cartesian Coordinates API Reference](../../library_api/coordinates/cartesian.md) - Complete function documentation

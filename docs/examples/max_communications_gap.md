@@ -7,6 +7,8 @@
 
 This example will demonstrate how to predict the maximium communications gap between a satellite and a ground station network.
 
+---
+
 ## See Also
 
 - [Access Computation](../learn/access_computation/index.md)

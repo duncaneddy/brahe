@@ -205,6 +205,8 @@ The `parse_norad_id` function automatically detects whether a NORAD ID is in num
     --8<-- "examples/orbits/tle_parse_norad_id.rs:7:17"
     ```
 
+---
+
 ## See Also
 
 - [SGP Propagator](../../library_api/propagators/sgp_propagator.md) - Use TLEs with SGP4/SDP4 propagation

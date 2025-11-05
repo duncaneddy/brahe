@@ -71,6 +71,8 @@ query_epoch = epoch + 43200.0  # 12 hours later
 interpolated_state = traj_static.interpolate(query_epoch)
 ```
 
+---
+
 ## See Also
 
 - [InterpolationMethod](../orbits/enums.md#interpolationmethod) - Interpolation options

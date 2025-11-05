@@ -63,6 +63,8 @@ The matplotlib backend produces publication-ready 3D figures with customizable v
     --8<-- "./plots/learn/plots/trajectory_3d_matplotlib.py"
     ```
 
+---
+
 ## See Also
 
 - [plot_trajectory_3d API Reference](../../library_api/plots/3d_trajectory.md)

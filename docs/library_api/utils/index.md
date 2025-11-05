@@ -18,6 +18,8 @@ The utilities module provides support functions for:
 | [Threading](threading.md) | Functions for configuring the thread pool |
 | [Formatting](formatting.md) | Functions for formatting values as strings |
 
+---
+
 ## See Also
 
 - [Utilities Learn Section](../../learn/utilities/index.md) - Conceptual guides and examples

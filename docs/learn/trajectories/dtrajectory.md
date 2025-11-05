@@ -197,6 +197,8 @@ Convert trajectory data to matrix format for analysis or export:
     --8<-- "./examples/trajectories/dtrajectory/dtrajectory_matrix.rs:4"
     ```
 
+---
+
 ## See Also
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide

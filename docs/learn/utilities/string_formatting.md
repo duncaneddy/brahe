@@ -125,6 +125,8 @@ Time formatting is useful for:
     - Use **long format** for reports, documentation, and user-facing output where clarity is important
     - Use **short format** for tables, logs, and situations where space is limited
 
+---
+
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities

@@ -122,6 +122,8 @@ Here's a complete example demonstrating all threading configuration functions:
     --8<-- "./examples/utilities/parallelization.rs:7"
     ```
 
+---
+
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities

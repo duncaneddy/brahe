@@ -166,6 +166,8 @@ This example shows how to create a simple LEO orbit and visualize it in 3D. It d
     --8<-- "./plots/learn/plots/quickstart_example_matplotlib.py:8"
     ```
 
+---
+
 ## See Also
 
 - [Ground Track Plotting](ground_tracks.md) - Satellite ground tracks and coverage

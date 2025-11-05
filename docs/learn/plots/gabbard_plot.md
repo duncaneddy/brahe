@@ -53,6 +53,8 @@ The matplotlib backend produces publication-quality figures for research papers 
 - Use `backend="plotly"` to identify outliers and explore specific objects interactively
 - Add reference lines for altitude constraints (e.g., ISS orbit, debris-heavy regions)
 
+---
+
 ## See Also
 
 - [Keplerian Elements](../orbits/index.md) - Understanding orbital parameters

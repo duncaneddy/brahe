@@ -88,6 +88,8 @@ Use `OrbitRepresentation` to specify element type:
 - `MEAN_ELEMENTS` - Mean orbital elements with mean anomaly
 - `OSCULATING_ELEMENTS` - Osculating elements with true anomaly
 
+---
+
 ## See Also
 
 - [SGPPropagator](sgp_propagator.md) - SGP4/SDP4 propagator for TLE data

@@ -219,6 +219,8 @@ The `STrajectory<R>` family includes other compile-time sized variants:
 
 All variants share the same API and support the same operations.
 
+---
+
 ## See Also
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide

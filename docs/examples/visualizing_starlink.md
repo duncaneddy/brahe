@@ -59,6 +59,8 @@ The resulting plot shows the complete Starlink constellation orbiting Earth. The
 --8<-- "./examples/examples/visualizing_starlink.py:19:79"
 ```
 
+---
+
 ## See Also
 
 - [CelesTrak Dataset](../learn/datasets/celestrak.md) - More details on using CelesTrak datasets

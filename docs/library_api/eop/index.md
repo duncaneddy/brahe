@@ -55,6 +55,8 @@ pos_eci = [7000000.0, 0.0, 0.0]  # meters
 pos_ecef = bh.position_eci_to_ecef(epoch, pos_eci)
 ```
 
+---
+
 ## See Also
 
 - [Frames](../frames.md) - Coordinate frame transformations that use EOP

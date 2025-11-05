@@ -178,6 +178,8 @@ While not common it is possible to directly access Earth orientation parameters 
 
 You can find more functions to access specific subsets of Earth orientation data in the [API Reference](../../library_api/eop/functions.md).
 
+---
+
 ## See Also
 
 - [StaticEOPProvider API Reference](../../library_api/eop/static_provider.md)

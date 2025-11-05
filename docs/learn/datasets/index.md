@@ -47,6 +47,8 @@ Brahe's datasets module aims to:
 - **Respect providers**: Follow best practices and rate limiting
 - **Stay current**: Update data sources as the ecosystem evolves
 
+---
+
 ## See Also
 
 - [CelesTrak Data Source](celestrak.md) - TLE ephemeris data

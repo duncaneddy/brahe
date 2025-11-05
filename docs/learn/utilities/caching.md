@@ -119,6 +119,8 @@ Here's a complete example demonstrating all cache directory functions:
 
     If you're working on server with multiple users using Brahe, you can share the same cache directory by setting the `BRAHE_CACHE` environment variable to a common location. This avoids duplicate downloads of EOP and TLE data.
 
+---
+
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities

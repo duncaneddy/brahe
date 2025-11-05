@@ -74,6 +74,8 @@ OrbitTrajectory has the same API as [STrajectory6](strajectory6.md) and [DTrajec
 
 See [STrajectory6](strajectory6.md) or [DTrajectory](dtrajectory.md) for full API documentation.
 
+---
+
 ## See Also
 
 - [STrajectory6](strajectory6.md) - Non-frame-aware 6D trajectory

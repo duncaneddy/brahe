@@ -204,6 +204,8 @@ plt.grid(True)
 plt.show()
 ```
 
+---
+
 ## See Also
 
 - [STrajectory6](strajectory6.md) - Fixed 6D trajectory (faster)

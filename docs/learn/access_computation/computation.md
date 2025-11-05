@@ -101,6 +101,8 @@ The `AccessSearchConfig` struct controls algorithm behavior:
 - **0**: Auto-detect CPU cores (recommended)
 - **N > 0**: Use exactly N threads for parallel work
 
+---
+
 ## See Also
 
 - [Locations](locations.md) - Ground location types and properties

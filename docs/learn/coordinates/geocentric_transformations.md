@@ -66,6 +66,8 @@ The reverse transformation converts Cartesian ECEF coordinates back to geocentri
 !!! info
     Latitude values are automatically constrained to the valid range [-90°, +90°] or [$-\frac{\pi}{2}$, $+\frac{\pi}{2}$] during conversion.
 
+---
+
 ## See Also
 
 - [Geocentric Coordinates API Reference](../../library_api/coordinates/geodetic.md#geocentric-conversions) - Complete function documentation

@@ -116,6 +116,8 @@ All groundstations include these standard properties:
 
 Additional properties may be included in future releases as data becomes available.
 
+---
+
 ## See Also
 
 - [Datasets Overview](index.md) - Understanding datasets in Brahe

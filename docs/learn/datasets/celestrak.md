@@ -167,6 +167,8 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 
 **Note**: Group names and contents evolve as missions launch, deorbit, or change status. Visit [CelesTrak GP Element Sets](https://celestrak.org/NORAD/elements) for the current complete list.
 
+---
+
 ## See Also
 
 - [Datasets Overview](index.md) - Understanding satellite ephemeris datasets

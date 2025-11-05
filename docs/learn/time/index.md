@@ -39,6 +39,8 @@ The `Epoch` type represents a specific instant in time, defined by both a time r
 
 It is the core type used throughout the brahe package to represent time and provides many advandages as 
 
+---
+
 ## See Also
 
 - [Epoch](epoch.md) - Complete guide to the Epoch type

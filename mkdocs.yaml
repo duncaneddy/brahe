@@ -200,11 +200,10 @@ nav:
                 - Access: learn/cli/access.md
     -   Examples:
             - examples/index.md
-            - Downloading TLE Data: examples/downloading_tle_data.md
-            - Visualizing Orbital Trajectories: examples/visualizing_orbital_trajectories.md
-            - Predicting Ground Contacts: examples/ground_contacts.md
-            - Calculating Doppler Complensation: examples/doppler_complementation.md
-            - Computing Imaging Opportunities: examples/imaging_opportunities.md
+            - examples/downloading_tle_data.md
+            - examples/ground_contacts.md
+            - examples/doppler_complementation.md
+            - examples/imaging_opportunities.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:

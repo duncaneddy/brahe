@@ -21,8 +21,10 @@ The plotly backend allows you to zoom into specific regions and hover over point
 
 The matplotlib backend produces publication-quality figures for research papers and technical reports.
 
-![Gabbard Diagram](../../figures/gabbard_matplotlib_light.svg#only-light)
-![Gabbard Diagram](../../figures/gabbard_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Gabbard Diagram](../../figures/gabbard_matplotlib_light.svg#only-light)
+    ![Gabbard Diagram](../../figures/gabbard_matplotlib_dark.svg#only-dark)
+</figure>
 
 ??? "Plot Source"
 
@@ -51,8 +53,6 @@ The matplotlib backend produces publication-quality figures for research papers 
 ## Tips
 
 - Use `backend="plotly"` to identify outliers and explore specific objects interactively
-- For debris analysis, color-code by time since breakup to see evolution
-- Compare pre- and post-event diagrams to quantify breakup energy
 - Add reference lines for altitude constraints (e.g., ISS orbit, debris-heavy regions)
 
 ## See Also

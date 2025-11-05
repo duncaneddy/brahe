@@ -72,7 +72,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
    rustup default nightly
    ```
 
-3. **Python 3.9+** with development headers:
+3. **Python 3.10+** with development headers:
    ```bash
    # On Ubuntu/Debian
    sudo apt-get install python3-dev
@@ -204,7 +204,7 @@ cargo doc --open
 
 **Import errors after installation**
 - Verify installation: `pip show brahe`
-- Check Python version: `python --version` (must be 3.9+)
+- Check Python version: `python --version` (must be 3.10+)
 - Try reinstalling: `pip install --force-reinstall brahe`
 
 **Cartopy installation fails**

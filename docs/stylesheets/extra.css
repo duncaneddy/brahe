@@ -16,6 +16,11 @@
     display: block;
 }
 
+/* Increase main column width */
+.md-grid {
+  max-width: 1440px; 
+}
+
 /* Material for MkDocs sets this attribute on <html> */
 [data-md-color-scheme="default"] .plotly-embed .only-light { display: block; }
 [data-md-color-scheme="default"] .plotly-embed .only-dark  { display: none;  }

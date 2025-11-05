@@ -149,18 +149,22 @@ This example shows how to create a simple LEO orbit and visualize it in 3D. It d
   <iframe class="only-dark"  src="../../figures/plot_quickstart_example_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
-``` python
---8<-- "./plots/learn/plots/quickstart_example_plotly.py:20"
-```
+???+ "Plot Source"
+    ``` python title="quickstart_example_plotly.py"
+    --8<-- "./plots/learn/plots/quickstart_example_plotly.py:20"
+    ```
 
 ### Static Plot (Matplotlib)
 
-![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_light.svg#only-light)
-![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_light.svg#only-light)
+    ![Quick Start Example](../../figures/plot_quickstart_example_matplotlib_dark.svg#only-dark)
+</figure>
 
-``` python
---8<-- "./plots/learn/plots/quickstart_example_matplotlib.py:8"
-```
+???+  "Plot Source"
+    ``` python title="quickstart_example_matplotlib.py"
+    --8<-- "./plots/learn/plots/quickstart_example_matplotlib.py:8"
+    ```
 
 ## See Also
 

@@ -2177,11 +2177,17 @@ impl PyAccessWindow {
                     azimuth_close: 0.0,
                     elevation_min: 0.0,
                     elevation_max: 0.0,
+                    elevation_open: 0.0,
+                    elevation_close: 0.0,
                     off_nadir_min: 0.0,
                     off_nadir_max: 0.0,
                     local_time: 0.0,
                     look_direction: LookDirection::Either,
                     asc_dsc: AscDsc::Either,
+                    center_lon: 0.0,
+                    center_lat: 0.0,
+                    center_alt: 0.0,
+                    center_ecef: [0.0, 0.0, 0.0],
                     additional: std::collections::HashMap::new(),
                 },
             },
@@ -2378,6 +2384,24 @@ impl PyAccessWindow {
         self.window.properties.elevation_max
     }
 
+    /// Get elevation angle at window opening (degrees).
+    ///
+    /// Returns:
+    ///     float: Elevation at window open
+    #[getter]
+    fn elevation_open(&self) -> f64 {
+        self.window.properties.elevation_open
+    }
+
+    /// Get elevation angle at window closing (degrees).
+    ///
+    /// Returns:
+    ///     float: Elevation at window close
+    #[getter]
+    fn elevation_close(&self) -> f64 {
+        self.window.properties.elevation_close
+    }
+
     /// Get minimum off-nadir angle during access (degrees).
     ///
     /// Returns:
@@ -2423,6 +2447,42 @@ impl PyAccessWindow {
         PyAscDsc { value: self.window.properties.asc_dsc }
     }
 
+    /// Get location center longitude (degrees).
+    ///
+    /// Returns:
+    ///     float: Longitude in degrees
+    #[getter]
+    fn center_lon(&self) -> f64 {
+        self.window.properties.center_lon
+    }
+
+    /// Get location center latitude (degrees).
+    ///
+    /// Returns:
+    ///     float: Latitude in degrees
+    #[getter]
+    fn center_lat(&self) -> f64 {
+        self.window.properties.center_lat
+    }
+
+    /// Get location center altitude (meters).
+    ///
+    /// Returns:
+    ///     float: Altitude in meters
+    #[getter]
+    fn center_alt(&self) -> f64 {
+        self.window.properties.center_alt
+    }
+
+    /// Get location center ECEF coordinates (meters).
+    ///
+    /// Returns:
+    ///     list[float]: ECEF coordinates [x, y, z] in meters
+    #[getter]
+    fn center_ecef(&self) -> [f64; 3] {
+        self.window.properties.center_ecef
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "AccessWindow(start={}, end={}, duration={:.2}s)",
@@ -2437,18 +2497,24 @@ impl PyAccessWindow {
 ///
 /// AccessProperties contains geometric properties (azimuth, elevation, off-nadir angles,
 /// local time, look direction, ascending/descending) computed over an access window,
-/// plus a dictionary of additional custom properties.
+/// plus location coordinates, plus a dictionary of additional custom properties.
 ///
 /// Attributes:
 ///     azimuth_open (float): Azimuth angle at window opening (degrees, 0-360)
 ///     azimuth_close (float): Azimuth angle at window closing (degrees, 0-360)
 ///     elevation_min (float): Minimum elevation angle (degrees)
 ///     elevation_max (float): Maximum elevation angle (degrees)
+///     elevation_open (float): Elevation angle at window opening (degrees)
+///     elevation_close (float): Elevation angle at window closing (degrees)
 ///     off_nadir_min (float): Minimum off-nadir angle (degrees)
 ///     off_nadir_max (float): Maximum off-nadir angle (degrees)
 ///     local_time (float): Local solar time (seconds since midnight, 0-86400)
 ///     look_direction (LookDirection): Required look direction (Left or Right)
 ///     asc_dsc (AscDsc): Pass type (Ascending or Descending)
+///     center_lon (float): Location center longitude (degrees)
+///     center_lat (float): Location center latitude (degrees)
+///     center_alt (float): Location center altitude (meters)
+///     center_ecef (list[float]): Location center ECEF coordinates [x, y, z] (meters)
 ///
 /// Example:
 ///     ```python
@@ -2481,11 +2547,17 @@ impl PyAccessProperties {
         azimuth_close: f64,
         elevation_min: f64,
         elevation_max: f64,
+        elevation_open: f64,
+        elevation_close: f64,
         off_nadir_min: f64,
         off_nadir_max: f64,
         local_time: f64,
         look_direction: &PyLookDirection,
         asc_dsc: &PyAscDsc,
+        center_lon: f64,
+        center_lat: f64,
+        center_alt: f64,
+        center_ecef: [f64; 3],
     ) -> Self {
         Self {
             properties: AccessProperties {
@@ -2493,11 +2565,17 @@ impl PyAccessProperties {
                 azimuth_close,
                 elevation_min,
                 elevation_max,
+                elevation_open,
+                elevation_close,
                 off_nadir_min,
                 off_nadir_max,
                 local_time,
                 look_direction: look_direction.value,
                 asc_dsc: asc_dsc.value,
+                center_lon,
+                center_lat,
+                center_alt,
+                center_ecef,
                 additional: std::collections::HashMap::new(),
             },
         }
@@ -2524,6 +2602,16 @@ impl PyAccessProperties {
     }
 
     #[getter]
+    fn elevation_open(&self) -> f64 {
+        self.properties.elevation_open
+    }
+
+    #[getter]
+    fn elevation_close(&self) -> f64 {
+        self.properties.elevation_close
+    }
+
+    #[getter]
     fn off_nadir_min(&self) -> f64 {
         self.properties.off_nadir_min
     }
@@ -2546,6 +2634,34 @@ impl PyAccessProperties {
     #[getter]
     fn asc_dsc(&self) -> PyAscDsc {
         PyAscDsc { value: self.properties.asc_dsc }
+    }
+
+    /// Get location center longitude (degrees).
+    ///
+    /// Returns:
+    ///     float: Longitude in degrees
+    #[getter]
+    fn center_lon(&self) -> f64 {
+        self.properties.center_lon
+    }
+
+    /// Get location center latitude (degrees).
+    ///
+    /// Returns:
+    ///     float: Latitude in degrees
+    #[getter]
+    fn center_lat(&self) -> f64 {
+        self.properties.center_lat
+    }
+
+    #[getter]
+    fn center_alt(&self) -> f64 {
+        self.properties.center_alt
+    }
+
+    #[getter]
+    fn center_ecef(&self) -> [f64; 3] {
+        self.properties.center_ecef
     }
 
     /// Get additional properties as a dict-like wrapper.

@@ -14,7 +14,11 @@ All plot functions support both matplotlib and plotly backends, selected via the
 """
 
 from brahe.plots.groundtrack import plot_groundtrack
-from brahe.plots.access_geometry import plot_access_polar, plot_access_elevation
+from brahe.plots.access_geometry import (
+    plot_access_polar,
+    plot_access_elevation,
+    plot_access_elevation_azimuth,
+)
 from brahe.plots.trajectories import (
     plot_cartesian_trajectory,
     plot_keplerian_trajectory,
@@ -26,6 +30,7 @@ __all__ = [
     "plot_groundtrack",
     "plot_access_polar",
     "plot_access_elevation",
+    "plot_access_elevation_azimuth",
     "plot_cartesian_trajectory",
     "plot_keplerian_trajectory",
     "plot_trajectory_3d",

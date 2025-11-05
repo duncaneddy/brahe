@@ -23,8 +23,10 @@ Cartesian plots display position and velocity components in ECI coordinates, use
 
 ### Static Cartesian Plot (Matplotlib)
 
-![Cartesian Trajectory Plot](../../figures/plot_cartesian_trajectory_matplotlib_light.svg#only-light)
-![Cartesian Trajectory Plot](../../figures/plot_cartesian_trajectory_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Cartesian Trajectory Plot](../../figures/plot_cartesian_trajectory_matplotlib_light.svg#only-light)
+    ![Cartesian Trajectory Plot](../../figures/plot_cartesian_trajectory_matplotlib_dark.svg#only-dark)
+</figure>
 
 ???+ "Plot Source"
 
@@ -58,8 +60,10 @@ Keplerian plots display classical orbital elements, ideal for understanding long
 
 ### Static Keplerian Plot (Matplotlib)
 
-![Keplerian Trajectory Plot](../../figures/plot_keplerian_trajectory_matplotlib_light.svg#only-light)
-![Keplerian Trajectory Plot](../../figures/plot_keplerian_trajectory_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Keplerian Trajectory Plot](../../figures/plot_keplerian_trajectory_matplotlib_light.svg#only-light)
+    ![Keplerian Trajectory Plot](../../figures/plot_keplerian_trajectory_matplotlib_dark.svg#only-dark)
+</figure>
 
 ???+ "Plot Source"
 
@@ -101,8 +105,10 @@ Comparing propagators in Cartesian space shows position and velocity component d
 
 ##### Static Cartesian Comparison (Matplotlib)
 
-![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_light.svg#only-light)
-![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_light.svg#only-light)
+    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_dark.svg#only-dark)
+</figure>
 
 ???+ "Plot Source"
 
@@ -129,8 +135,10 @@ Comparing propagators using Keplerian elements reveals how orbital parameters ev
 
 ##### Static Keplerian Comparison (Matplotlib)
 
-![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_light.svg#only-light)
-![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_light.svg#only-light)
+    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_dark.svg#only-dark)
+</figure>
 
 ???+ "Plot Source"
 

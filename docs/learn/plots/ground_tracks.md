@@ -36,8 +36,10 @@ The interactive plot allows you to:
 
 The matplotlib backend produces publication-ready static figures ideal for reports and papers.
 
-![Ground Track Plot](../../figures/plot_groundtrack_matplotlib_light.svg#only-light)
-![Ground Track Plot](../../figures/plot_groundtrack_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![Ground Track Plot](../../figures/plot_groundtrack_matplotlib_light.svg#only-light)
+    ![Ground Track Plot](../../figures/plot_groundtrack_matplotlib_dark.svg#only-dark)
+</figure>
 
 ??? "Plot Source"
 

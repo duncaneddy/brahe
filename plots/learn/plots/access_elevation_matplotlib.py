@@ -38,7 +38,8 @@ accesses = bh.location_accesses([station], [prop], epoch, epoch + duration, cons
 if len(accesses) > 0:
     # Light mode
     fig = bh.plot_access_elevation(
-        [{"access_window": accesses[0], "propagator": prop}],  # Use first access window
+        [{"access_window": accesses[0]}],  # Use first access window
+        prop,  # Propagator for interpolation
         backend="matplotlib",
     )
 
@@ -56,9 +57,8 @@ if len(accesses) > 0:
     # Dark mode
     with plt.style.context("dark_background"):
         fig = bh.plot_access_elevation(
-            [
-                {"access_window": accesses[0], "propagator": prop}
-            ],  # Use first access window
+            [{"access_window": accesses[0]}],  # Use first access window
+            prop,  # Propagator for interpolation
             backend="matplotlib",
         )
 

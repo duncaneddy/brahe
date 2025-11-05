@@ -794,6 +794,7 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
 
     python_exe = REPO_ROOT / ".venv" / "bin" / "python"
     failed_plots = []
+    all_outputs = []  # Store all outputs to print at the end
 
     with Progress(
         SpinnerColumn(),
@@ -805,35 +806,55 @@ def make_plots(verbose: bool = typer.Option(False, "--verbose", "-v")):
         task = progress.add_task("Generating figures...", total=len(plot_files))
 
         for plot_file in plot_files:
-            if verbose:
-                console.print(f"Generating {plot_file.name}...")
-
             result = subprocess.run(
                 [str(python_exe), str(plot_file)],
                 cwd=REPO_ROOT,
-                stdout=None,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 env={
                     **subprocess.os.environ,
                     "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
-                    "PYTHONUNBUFFERED": "1",
                 },
             )
 
+            # Store output for later display
+            all_outputs.append(
+                (plot_file.name, result.stdout, result.stderr, result.returncode)
+            )
+
             if result.returncode != 0:
-                failed_plots.append((plot_file.name, result.stderr))
-                console.print(f"[red]✗ Failed to generate {plot_file.name}[/red]")
+                failed_plots.append((plot_file.name, result.stdout, result.stderr))
 
             progress.update(task, advance=1)
+
+    # Print all captured outputs
+    if verbose:
+        console.print("\n[bold]Output from all plots:[/bold]")
+        for plot_name, stdout, stderr, returncode in all_outputs:
+            console.print(f"\n[bold cyan]{'=' * 80}[/bold cyan]")
+            console.print(f"[bold cyan]{plot_name}[/bold cyan]")
+            console.print(f"[bold cyan]{'=' * 80}[/bold cyan]")
+
+            if stdout.strip():
+                console.print("\n[bold]STDOUT:[/bold]")
+                console.print(stdout)
+
+            if stderr.strip():
+                console.print("\n[bold]STDERR:[/bold]")
+                console.print(stderr)
 
     # Print detailed error information for failed plots
     if failed_plots:
         console.print("\n[bold red]Failed Plot Details:[/bold red]")
-        for plot_name, stderr in failed_plots:
+        for plot_name, stdout, stderr in failed_plots:
             console.print(f"\n[bold yellow]{'=' * 80}[/bold yellow]")
             console.print(f"[bold cyan]{plot_name}[/bold cyan]")
             console.print(f"[bold yellow]{'=' * 80}[/bold yellow]")
+
+            if stdout.strip():
+                console.print("\n[bold]STDOUT:[/bold]")
+                console.print(stdout)
 
             if stderr.strip():
                 console.print("\n[bold]STDERR:[/bold]")
@@ -908,7 +929,6 @@ def make_plot(
         env={
             **subprocess.os.environ,
             "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
-            "PYTHONUNBUFFERED": "1",
         },
     )
 

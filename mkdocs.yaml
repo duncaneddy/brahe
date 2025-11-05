@@ -24,6 +24,7 @@ extra_javascript:
 
 plugins:
     - search
+    # - awesome-nav # Need to spend more time to configure this
     -   mkdocstrings:
             handlers:
                 python:
@@ -94,6 +95,7 @@ markdown_extensions:
     - admonition
     - footnotes
     - tables
+    - md_in_html
     -   toc:
             permalink: true
             toc_depth: 3

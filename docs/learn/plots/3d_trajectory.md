@@ -30,8 +30,10 @@ The interactive visualization shows the ISS orbit in 3D space with Earth at the 
 
 The matplotlib backend produces publication-ready 3D figures with customizable viewing angles.
 
-![3D Trajectory Plot](../../figures/plot_trajectory_3d_matplotlib_light.svg#only-light)
-![3D Trajectory Plot](../../figures/plot_trajectory_3d_matplotlib_dark.svg#only-dark)
+<figure markdown="span">
+    ![3D Trajectory Plot](../../figures/plot_trajectory_3d_matplotlib_light.svg#only-light)
+    ![3D Trajectory Plot](../../figures/plot_trajectory_3d_matplotlib_dark.svg#only-dark)
+</figure>
 
 ??? "Plot Source"
 

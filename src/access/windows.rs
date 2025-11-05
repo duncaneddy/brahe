@@ -592,17 +592,29 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
     let look_direction = compute_look_direction(&state_mid_ecef, &location_ecef);
     let asc_dsc = compute_asc_dsc(&state_mid_ecef);
 
+    // Extract location coordinates for storage (convert angles to degrees for consistency)
+    let center_lon = location_geodetic[0].to_degrees();
+    let center_lat = location_geodetic[1].to_degrees();
+    let center_alt = location_geodetic[2];
+    let center_ecef = [location_ecef[0], location_ecef[1], location_ecef[2]];
+
     // Create base properties
     let mut properties = AccessProperties::new(
         azimuth_open,
         azimuth_close,
         elevation_min,
         elevation_max,
+        elevation_open,
+        elevation_close,
         off_nadir_min,
         off_nadir_max,
         local_time,
         look_direction,
         asc_dsc,
+        center_lon,
+        center_lat,
+        center_alt,
+        center_ecef,
     );
 
     // Call custom property computers if provided

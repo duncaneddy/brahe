@@ -82,10 +82,12 @@ pub enum PropertyValue {
 /// # Core Properties
 /// - Azimuth angles at window open/close
 /// - Min/max elevation angles
+/// - Elevation angles at window open/close
 /// - Min/max off-nadir angles
 /// - Local solar time at midtime
 /// - Look direction (left/right)
 /// - Ascending/descending pass indicator
+/// - Location center coordinates (lon, lat, alt, ECEF)
 ///
 /// # Additional Properties
 /// Custom properties can be added via the `additional` HashMap using the
@@ -102,11 +104,17 @@ pub enum PropertyValue {
 ///     135.0,  // azimuth_close
 ///     10.0,   // elevation_min
 ///     85.0,   // elevation_max
+///     12.0,   // elevation_open
+///     10.5,   // elevation_close
 ///     5.0,    // off_nadir_min
 ///     80.0,   // off_nadir_max
 ///     43200.0, // local_time (noon)
 ///     LookDirection::Right,
 ///     AscDsc::Ascending,
+///     0.0,    // center_lon (degrees)
+///     45.0,   // center_lat (degrees)
+///     0.0,    // center_alt (meters)
+///     [4517.59e3, 4517.59e3, 0.0], // center_ecef
 /// );
 ///
 /// // Add custom property
@@ -127,6 +135,12 @@ pub struct AccessProperties {
     /// Maximum elevation angle during access (degrees, typically at midtime)
     pub elevation_max: f64,
 
+    /// Elevation angle at window open (degrees, above horizon)
+    pub elevation_open: f64,
+
+    /// Elevation angle at window close (degrees, above horizon)
+    pub elevation_close: f64,
+
     /// Minimum off-nadir angle during access (degrees, typically at midtime)
     pub off_nadir_min: f64,
 
@@ -142,6 +156,19 @@ pub struct AccessProperties {
     /// Ascending or descending pass
     pub asc_dsc: AscDsc,
 
+    // ===== Location coordinates (for plotting and analysis) =====
+    /// Location center longitude (degrees, -180 to 180)
+    pub center_lon: f64,
+
+    /// Location center latitude (degrees, -90 to 90)
+    pub center_lat: f64,
+
+    /// Location center altitude (meters above WGS84 ellipsoid)
+    pub center_alt: f64,
+
+    /// Location center ECEF coordinates [x, y, z] (meters)
+    pub center_ecef: [f64; 3],
+
     // ===== Extensible properties (user-defined) =====
     /// Additional custom properties
     #[serde(default)]
@@ -156,33 +183,51 @@ impl AccessProperties {
     /// * `azimuth_close` - Azimuth at window close (degrees, 0-360)
     /// * `elevation_min` - Minimum elevation angle (degrees)
     /// * `elevation_max` - Maximum elevation angle (degrees)
+    /// * `elevation_open` - Elevation at window open (degrees)
+    /// * `elevation_close` - Elevation at window close (degrees)
     /// * `off_nadir_min` - Minimum off-nadir angle (degrees)
     /// * `off_nadir_max` - Maximum off-nadir angle (degrees)
     /// * `local_time` - Local solar time at midtime (seconds since midnight)
     /// * `look_direction` - Look direction (Left or Right)
     /// * `asc_dsc` - Ascending or descending pass
+    /// * `center_lon` - Location longitude (degrees)
+    /// * `center_lat` - Location latitude (degrees)
+    /// * `center_alt` - Location altitude (meters)
+    /// * `center_ecef` - Location ECEF coordinates [x, y, z] (meters)
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         azimuth_open: f64,
         azimuth_close: f64,
         elevation_min: f64,
         elevation_max: f64,
+        elevation_open: f64,
+        elevation_close: f64,
         off_nadir_min: f64,
         off_nadir_max: f64,
         local_time: f64,
         look_direction: LookDirection,
         asc_dsc: AscDsc,
+        center_lon: f64,
+        center_lat: f64,
+        center_alt: f64,
+        center_ecef: [f64; 3],
     ) -> Self {
         Self {
             azimuth_open,
             azimuth_close,
             elevation_min,
             elevation_max,
+            elevation_open,
+            elevation_close,
             off_nadir_min,
             off_nadir_max,
             local_time,
             look_direction,
             asc_dsc,
+            center_lon,
+            center_lat,
+            center_alt,
+            center_ecef,
             additional: HashMap::new(),
         }
     }
@@ -409,22 +454,34 @@ mod tests {
             135.0,
             10.0,
             85.0,
+            12.0,
+            10.5,
             5.0,
             80.0,
             43200.0,
             LookDirection::Right,
             AscDsc::Ascending,
+            0.0,
+            45.0,
+            0.0,
+            [4517.59e3, 4517.59e3, 0.0],
         );
 
         assert_eq!(props.azimuth_open, 45.0);
         assert_eq!(props.azimuth_close, 135.0);
         assert_eq!(props.elevation_min, 10.0);
         assert_eq!(props.elevation_max, 85.0);
+        assert_eq!(props.elevation_open, 12.0);
+        assert_eq!(props.elevation_close, 10.5);
         assert_eq!(props.off_nadir_min, 5.0);
         assert_eq!(props.off_nadir_max, 80.0);
         assert_eq!(props.local_time, 43200.0);
         assert_eq!(props.look_direction, LookDirection::Right);
         assert_eq!(props.asc_dsc, AscDsc::Ascending);
+        assert_eq!(props.center_lon, 0.0);
+        assert_eq!(props.center_lat, 45.0);
+        assert_eq!(props.center_alt, 0.0);
+        assert_eq!(props.center_ecef, [4517.59e3, 4517.59e3, 0.0]);
         assert!(props.additional.is_empty());
     }
 
@@ -435,11 +492,17 @@ mod tests {
             135.0,
             10.0,
             85.0,
+            12.0,
+            10.5,
             5.0,
             80.0,
             43200.0,
             LookDirection::Right,
             AscDsc::Ascending,
+            0.0,
+            45.0,
+            0.0,
+            [4517.59e3, 4517.59e3, 0.0],
         );
 
         // Add property
@@ -612,8 +675,14 @@ mod tests {
                 0.0,
                 0.0,
                 0.0,
+                0.0,
+                0.0,
                 crate::access::LookDirection::Either,
                 crate::access::AscDsc::Either,
+                0.0,
+                45.0,
+                0.0,
+                [4517.59e3, 4517.59e3, 0.0],
             ),
         };
 

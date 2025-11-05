@@ -275,7 +275,7 @@ def _normalize_station_groups(ground_stations):
         "color": None,
         "alpha": 0.3,
         "point_size": 5.0,
-        "show_ring": True,
+        "show_ring": False,
         "ring_color": None,
         "ring_width": 1.0,
     }
@@ -787,7 +787,7 @@ def _plot_zone_group_plotly(fig, group):
 
     # Extract vertices
     if hasattr(zone, "vertices"):
-        vertices = zone.vertices()
+        vertices = zone.vertices
     else:
         vertices = zone
 

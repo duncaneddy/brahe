@@ -123,9 +123,8 @@ print(f"  Points in gap segment: {len(gap_lons)}")
 segments = bh.split_ground_track_at_antimeridian(gap_lons, gap_lats)
 print(f"  Track segments (after wraparound split): {len(segments)}")
 
-# Create base plot with full ground track and stations
+# Create base plot with stations only (no full trajectory)
 fig = bh.plot_groundtrack(
-    trajectories=[{"trajectory": full_traj, "color": "lightgray", "line_width": 1}],
     ground_stations=[{"stations": nen_stations, "color": "blue", "alpha": 0.2}],
     gs_cone_altitude=420e3,
     gs_min_elevation=10.0,
@@ -133,9 +132,9 @@ fig = bh.plot_groundtrack(
     backend="matplotlib",
 )
 
-# Overlay the maximum gap segment in red using custom plotting
+# Plot only the maximum gap segment in red using custom plotting
 ax = fig.get_axes()[0]
-for lon_seg, lat_seg in segments:
+for i, (lon_seg, lat_seg) in enumerate(segments):
     ax.plot(
         lon_seg,
         lat_seg,
@@ -143,7 +142,7 @@ for lon_seg, lat_seg in segments:
         linewidth=3,
         transform=ccrs.Geodetic(),
         zorder=10,
-        label="Max Gap" if lon_seg is segments[0][0] else "",
+        label="Max Gap" if i == 0 else "",
     )
 
 # Add legend
@@ -164,7 +163,6 @@ plt.close(fig)
 # Create dark mode version
 with plt.style.context("dark_background"):
     fig_dark = bh.plot_groundtrack(
-        trajectories=[{"trajectory": full_traj, "color": "gray", "line_width": 1}],
         ground_stations=[{"stations": nen_stations, "color": "blue", "alpha": 0.2}],
         gs_cone_altitude=420e3,
         gs_min_elevation=10.0,
@@ -172,9 +170,9 @@ with plt.style.context("dark_background"):
         backend="matplotlib",
     )
 
-    # Overlay gap segment
+    # Plot only the maximum gap segment
     ax_dark = fig_dark.get_axes()[0]
-    for lon_seg, lat_seg in segments:
+    for i, (lon_seg, lat_seg) in enumerate(segments):
         ax_dark.plot(
             lon_seg,
             lat_seg,
@@ -182,7 +180,7 @@ with plt.style.context("dark_background"):
             linewidth=3,
             transform=ccrs.Geodetic(),
             zorder=10,
-            label="Max Gap" if lon_seg is segments[0][0] else "",
+            label="Max Gap" if i == 0 else "",
         )
 
     ax_dark.legend(loc="lower left")

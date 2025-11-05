@@ -54,28 +54,6 @@ The static plot shows the same information in a clean, professional format suita
 
 ## Configuration and Customization
 
-### Configuring Track Length
-
-Control how many orbits are displayed using the `track_length` parameter:
-
-<div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/groundtrack_orbit_config_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/groundtrack_orbit_config_dark.html"  loading="lazy"></iframe>
-</div>
-
-??? "Plot Source"
-
-    ``` python title="groundtrack_orbit_config.py"
-    --8<-- "./plots/learn/plots/groundtrack_orbit_config.py"
-    ```
-
-This example shows the same satellite trajectory with three different `track_length` values:
-- Blue: 1 orbit (most recent)
-- Red: 3 orbits
-- Green: 5 orbits (complete trajectory)
-
-The `track_units` parameter can be set to `"orbits"` (default) or `"seconds"` for time-based filtering.
-
 ### Multiple Spacecraft
 
 Plot multiple satellites simultaneously to compare orbits or analyze constellations:
@@ -98,7 +76,7 @@ This example shows three different LEO orbits:
 
 ### Ground Station Networks
 
-Visualize satellite visibility over ground station networks with communication coverage cones:
+Visualize satellite visibility over ground station networks with geodetic coverage zones:
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../../figures/groundtrack_nasa_nen_light.html" loading="lazy"></iframe>
@@ -113,8 +91,11 @@ Visualize satellite visibility over ground station networks with communication c
 
 This example demonstrates:
 - Loading the NASA Near Earth Network (NEN) ground stations from built-in datasets
-- Plotting communication cones showing 10° minimum elevation visibility
-- Visualizing coverage for a 550km altitude LEO satellite
+- Computing geodetic coverage zones for each station at 10° minimum elevation
+- Displaying coverage as semi-transparent filled polygons on the map
+- Visualizing actual ground footprints for a 550km altitude LEO satellite
+
+The coverage zones are computed as properly transformed geodetic shapes, showing the actual region on Earth's surface where the satellite is visible above the minimum elevation angle.
 
 Available ground station networks include: `"atlas"`, `"aws"`, `"ksat"`, `"leaf"`, `"nasa dsn"`, `"nasa nen"`, `"ssc"`, and `"viasat"`.
 
@@ -129,18 +110,18 @@ Choose from different basemap styles to suit your presentation needs:
     ![Natural Earth Basemap](../../figures/groundtrack_basemaps_natural_earth_dark.svg#only-dark)
 </figure>
 
-#### Stock (Cartopy Built-in)
+#### Stock (Cartopy Built-in, Minimal)
 
 <figure markdown="span">
     ![Stock Basemap](../../figures/groundtrack_basemaps_stock_light.svg#only-light)
     ![Stock Basemap](../../figures/groundtrack_basemaps_stock_dark.svg#only-dark)
 </figure>
 
-#### Plain (No Geographic Features)
+#### Blue Marble (Satellite Imagery)
 
 <figure markdown="span">
-    ![Plain Basemap](../../figures/groundtrack_basemaps_plain_light.svg#only-light)
-    ![Plain Basemap](../../figures/groundtrack_basemaps_plain_dark.svg#only-dark)
+    ![Blue Marble Basemap](../../figures/groundtrack_basemaps_blue_marble_light.svg#only-light)
+    ![Blue Marble Basemap](../../figures/groundtrack_basemaps_blue_marble_dark.svg#only-dark)
 </figure>
 
 ??? "Plot Source"
@@ -149,16 +130,23 @@ Choose from different basemap styles to suit your presentation needs:
     --8<-- "./plots/learn/plots/groundtrack_basemaps.py"
     ```
 
-Set the `basemap` parameter to `"natural_earth"` (default), `"stock"`, or `None` to control the map style.
+The basemap styles offer different visualization approaches:
+- **Natural Earth**: High-quality vector map with political boundaries and natural features (default)
+- **Stock**: Minimal Cartopy background without geographic features, ideal for clean presentations
+- **Blue Marble**: NASA satellite imagery texture provides photorealistic Earth background
+
+Set the `basemap` parameter to `"natural_earth"` (default), `"stock"`, or `None` to control the map style. For Blue Marble, use `basemap=None` and manually overlay the texture image.
 
 ## Advanced Examples
 
 ### Maximum Coverage Gap Analysis
 
-This advanced example demonstrates how to:
+This advanced example identifies the longest period without ground station contact and visualizes only that critical gap segment:
+
+This demonstrates how to:
 - Compute access windows between a satellite and ground network
 - Find the longest gap between consecutive contacts
-- Extract and highlight that gap segment on the ground track
+- Extract and plot only the gap segment (without the full 24-hour ground track)
 - Handle antimeridian wraparound with custom plotting
 
 <figure markdown="span">

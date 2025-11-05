@@ -3,14 +3,16 @@ Ground Track Basemap Styles Example
 
 This script demonstrates different basemap styles available for ground track plots:
 - natural_earth: High-quality vector basemap from Natural Earth Data
-- stock: Cartopy's built-in coastlines and borders
-- None: Plain background without geographic features
+- stock: Cartopy's built-in coastlines only
+- blue_marble: NASA Blue Marble satellite imagery background
 """
 
 import os
 import pathlib
 import brahe as bh
 import matplotlib.pyplot as plt
+from brahe.plots.texture_utils import get_blue_marble_texture_path
+from PIL import Image
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -48,10 +50,12 @@ fig_ne.savefig(
 print(f"✓ Generated {SCRIPT_NAME}_natural_earth_light.svg")
 plt.close(fig_ne)
 
-# 2. Stock - Cartopy built-in features
+# 2. Stock - Cartopy built-in features (no outlines)
 fig_stock = bh.plot_groundtrack(
     trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
     basemap="stock",
+    show_borders=False,  # Remove country borders
+    show_coastlines=False,  # Remove coastlines
     backend="matplotlib",
 )
 fig_stock.savefig(
@@ -60,17 +64,30 @@ fig_stock.savefig(
 print(f"✓ Generated {SCRIPT_NAME}_stock_light.svg")
 plt.close(fig_stock)
 
-# 3. None - Plain background
-fig_plain = bh.plot_groundtrack(
+# 3. Blue Marble - NASA satellite imagery
+# Load Blue Marble texture
+blue_marble_path = get_blue_marble_texture_path()
+blue_marble_img = Image.open(blue_marble_path)
+
+fig_bluemarble = bh.plot_groundtrack(
     trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
-    basemap=None,
+    basemap=None,  # No basemap, we'll add the image manually
     backend="matplotlib",
 )
-fig_plain.savefig(
-    OUTDIR / f"{SCRIPT_NAME}_plain_light.svg", dpi=300, bbox_inches="tight"
+ax_bm = fig_bluemarble.get_axes()[0]
+# Display Blue Marble as background
+ax_bm.imshow(
+    blue_marble_img,
+    origin="upper",
+    extent=[-180, 180, -90, 90],
+    transform=ax_bm.projection,
+    zorder=0,
 )
-print(f"✓ Generated {SCRIPT_NAME}_plain_light.svg")
-plt.close(fig_plain)
+fig_bluemarble.savefig(
+    OUTDIR / f"{SCRIPT_NAME}_blue_marble_light.svg", dpi=300, bbox_inches="tight"
+)
+print(f"✓ Generated {SCRIPT_NAME}_blue_marble_light.svg")
+plt.close(fig_bluemarble)
 
 # Generate dark mode versions
 with plt.style.context("dark_background"):
@@ -93,6 +110,8 @@ with plt.style.context("dark_background"):
     fig_stock_dark = bh.plot_groundtrack(
         trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
         basemap="stock",
+        show_borders=False,  # Remove country borders
+        show_coastlines=False,  # Remove coastlines
         backend="matplotlib",
     )
     fig_stock_dark.patch.set_facecolor("#1c1e24")
@@ -104,17 +123,25 @@ with plt.style.context("dark_background"):
     print(f"✓ Generated {SCRIPT_NAME}_stock_dark.svg")
     plt.close(fig_stock_dark)
 
-    # Plain (dark)
-    fig_plain_dark = bh.plot_groundtrack(
+    # Blue Marble (dark)
+    fig_bluemarble_dark = bh.plot_groundtrack(
         trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
-        basemap=None,
+        basemap=None,  # No basemap, we'll add the image manually
         backend="matplotlib",
     )
-    fig_plain_dark.patch.set_facecolor("#1c1e24")
-    for ax in fig_plain_dark.get_axes():
-        ax.set_facecolor("#1c1e24")
-    fig_plain_dark.savefig(
-        OUTDIR / f"{SCRIPT_NAME}_plain_dark.svg", dpi=300, bbox_inches="tight"
+    ax_bm_dark = fig_bluemarble_dark.get_axes()[0]
+    ax_bm_dark.imshow(
+        blue_marble_img,
+        origin="upper",
+        extent=[-180, 180, -90, 90],
+        transform=ax_bm_dark.projection,
+        zorder=0,
     )
-    print(f"✓ Generated {SCRIPT_NAME}_plain_dark.svg")
-    plt.close(fig_plain_dark)
+    fig_bluemarble_dark.patch.set_facecolor("#1c1e24")
+    for ax in fig_bluemarble_dark.get_axes():
+        ax.set_facecolor("#1c1e24")
+    fig_bluemarble_dark.savefig(
+        OUTDIR / f"{SCRIPT_NAME}_blue_marble_dark.svg", dpi=300, bbox_inches="tight"
+    )
+    print(f"✓ Generated {SCRIPT_NAME}_blue_marble_dark.svg")
+    plt.close(fig_bluemarble_dark)

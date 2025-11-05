@@ -2671,6 +2671,8 @@
       
         
       
+        
+      
     
     
     
@@ -2744,7 +2746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/downloading_tle_data.html" class="md-nav__link">
+      <a href="../../examples/visualizing_starlink.html" class="md-nav__link">
         
   
   
@@ -2790,12 +2792,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/doppler_complementation.html" class="md-nav__link">
+      <a href="../../examples/doppler_compensation.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Calculating Doppler Compensation
+    Doppler compensation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/max_communications_gap.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finding Communications Gaps
     
   </span>
   
@@ -5197,8 +5222,8 @@
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Create a sun-synchronous orbit satellite</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">epoch</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">Epoch</span><span class="o">.</span><span class="n">from_datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">TimeSystem</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">oe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">600e3</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">97.8</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">state</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">RADIANS</span><span class="p">)</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">oe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">bh</span><span class="o">.</span><span class="n">R_EARTH</span> <span class="o">+</span> <span class="mf">600e3</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="mf">97.8</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">state</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">state_osculating_to_cartesian</span><span class="p">(</span><span class="n">oe</span><span class="p">,</span> <span class="n">bh</span><span class="o">.</span><span class="n">AngleFormat</span><span class="o">.</span><span class="n">DEGREES</span><span class="p">)</span>
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">propagator</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">KeplerianPropagator</span><span class="o">.</span><span class="n">from_eci</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">)</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="s2">&quot;EO-Sat&quot;</span><span class="p">)</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="c1"># Define access constraint (minimum 5° elevation)</span>
@@ -5352,6 +5377,7 @@
 <li><strong><code>frequency_bands</code></strong>: List of supported frequency bands (e.g., <code>["S", "X", "Ka"]</code>)</li>
 </ul>
 <p>Additional properties may be included in future releases as data becomes available.</p>
+<hr />
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="index.html">Datasets Overview</a> - Understanding datasets in Brahe</li>
@@ -5379,7 +5405,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 3, 2025 08:43:00 UTC">2025-11-03</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 5, 2025 20:36:29 UTC">2025-11-05</span>
   </span>
 
     
@@ -5453,6 +5479,10 @@
         <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
       
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+      
+        <script src="https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js"></script>
+      
+        <script src="../../javascripts/tablesort.js"></script>
       
     
   </body>

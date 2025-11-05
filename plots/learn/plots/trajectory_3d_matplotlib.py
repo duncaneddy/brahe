@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "matplotlib", "numpy"]
+# TIMEOUT = 600
+# ///
 """
 3D Trajectory Plotting Example - Matplotlib Backend
 

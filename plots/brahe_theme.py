@@ -94,6 +94,22 @@ def apply_brahe_theme(fig, theme="light", show_grid=True):
         zeroline=False,
     )
 
+    # Update geo styling for maps (if present)
+    geo_colors = (
+        {
+            "coastlinecolor": "#e0e0e0",
+            "countrycolor": "#e0e0e0",
+            "landcolor": "#2a2a2a",
+        }
+        if theme == "dark"
+        else {
+            "coastlinecolor": "black",
+            "countrycolor": "black",
+            "landcolor": "lightgray",
+        }
+    )
+    fig.update_geos(**geo_colors)
+
     return fig
 
 

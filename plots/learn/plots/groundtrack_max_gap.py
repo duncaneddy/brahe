@@ -128,7 +128,9 @@ fig = bh.plot_groundtrack(
     ground_stations=[{"stations": nen_stations, "color": "blue", "alpha": 0.2}],
     gs_cone_altitude=420e3,
     gs_min_elevation=10.0,
-    basemap="natural_earth",
+    basemap="stock",
+    show_borders=False,
+    show_coastlines=False,
     backend="matplotlib",
 )
 
@@ -166,7 +168,9 @@ with plt.style.context("dark_background"):
         ground_stations=[{"stations": nen_stations, "color": "blue", "alpha": 0.2}],
         gs_cone_altitude=420e3,
         gs_min_elevation=10.0,
-        basemap="natural_earth",
+        basemap="stock",
+        show_borders=False,
+        show_coastlines=False,
         backend="matplotlib",
     )
 

@@ -137,6 +137,11 @@ The basemap styles offer different visualization approaches:
 
 Set the `basemap` parameter to `"natural_earth"` (default), `"stock"`, or `None` to control the map style. For Blue Marble, use `basemap=None` and manually overlay the texture image.
 
+!!! note "Backend Capabilities"
+    **Matplotlib backend** supports all basemap styles including Natural Earth shapefiles and Blue Marble textures.
+
+    **Plotly backend** uses Scattergeo which only supports outline-based maps with solid colors. Custom textures (Natural Earth shapefiles, Blue Marble imagery) are not available in the plotly backend. Use `basemap="natural_earth"` for a light gray landmass color or `basemap="stock"` for tan.
+
 ## Advanced Examples
 
 ### Maximum Coverage Gap Analysis

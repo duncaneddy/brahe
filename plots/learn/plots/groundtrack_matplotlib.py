@@ -6,7 +6,6 @@ It shows the ISS ground track with a ground station communication cone.
 """
 
 import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
 
 # Initialize EOP data
@@ -20,11 +19,11 @@ tle_line2 = "2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.497000175366
 # Create SGP4 propagator
 prop = bh.SGPPropagator.from_3le(tle_line0, tle_line1, tle_line2, 60.0)
 
-# Define ground station (Cape Canaveral)
-lat = np.radians(28.3922)  # Latitude in radians
-lon = np.radians(-80.6077)  # Longitude in radians
+# Define ground station (San Francisco)
+lat = 37.7749  # Latitude in degrees
+lon = -122.4194  # Longitude in degrees
 alt = 0.0  # Altitude in meters
-station = bh.PointLocation(lat, lon, alt).with_name("Cape Canaveral")
+station = bh.PointLocation(lon, lat, alt).with_name("Cape Canaveral")
 
 # Define time range for one orbital period (~92 minutes for ISS)
 epoch = prop.epoch

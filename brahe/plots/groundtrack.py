@@ -103,6 +103,7 @@ def plot_groundtrack(
     border_width=0.5,
     show_grid=False,
     show_ticks=True,
+    show_legend=False,
     extent=None,
     backend="matplotlib",
 ) -> object:
@@ -143,6 +144,7 @@ def plot_groundtrack(
         border_width (float, optional): Border line width. Default: 0.5
         show_grid (bool, optional): Show lat/lon grid. Default: False
         show_ticks (bool, optional): Show lat/lon tick marks. Default: True
+        show_legend (bool, optional): Show legend (plotly only). Default: False
         extent (list, optional): [lon_min, lon_max, lat_min, lat_max] to zoom. Default: None (global)
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
 
@@ -234,6 +236,7 @@ def plot_groundtrack(
             border_width,
             show_grid,
             show_ticks,
+            show_legend,
             extent,
         )
 
@@ -411,6 +414,7 @@ def _groundtrack_plotly(
     border_width,
     show_grid,
     show_ticks,
+    show_legend,
     extent,
 ):
     """Plotly implementation of ground track plot."""
@@ -443,15 +447,17 @@ def _groundtrack_plotly(
 
     # Plot ground stations (simplified - full implementation would include cones)
     for group in station_groups:
-        _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation)
+        _plot_station_group_plotly(
+            fig, group, gs_cone_altitude, gs_min_elevation, show_legend
+        )
 
     # Plot polygon zones
     for group in zone_groups:
-        _plot_zone_group_plotly(fig, group)
+        _plot_zone_group_plotly(fig, group, show_legend)
 
     # Plot trajectories
     for group in trajectory_groups:
-        _plot_trajectory_group_plotly(fig, group)
+        _plot_trajectory_group_plotly(fig, group, show_legend)
 
     return fig
 
@@ -477,6 +483,36 @@ def _compute_communication_cone_radius(elevation_deg, altitude_m):
     eta = math.asin(math.cos(ele_rad) * math.sin(rho))
     lam = math.pi / 2.0 - eta - ele_rad
     return lam
+
+
+def _color_to_rgba(color, alpha):
+    """Convert a color (name, hex, or RGB tuple) to RGBA string for plotly.
+
+    Args:
+        color: Color as string name, hex code, or RGB/RGBA tuple
+        alpha: Alpha transparency value (0.0 to 1.0)
+
+    Returns:
+        str: RGBA color string like 'rgba(255, 0, 0, 0.5)'
+    """
+    import matplotlib.colors as mcolors
+
+    # Convert color to RGB
+    if isinstance(color, str):
+        # Handle named colors or hex codes
+        rgb = mcolors.to_rgb(color)
+    elif isinstance(color, (list, tuple)):
+        # Already RGB or RGBA
+        rgb = color[:3]
+    else:
+        # Default to blue if unknown format
+        rgb = (0, 0, 1)
+
+    # Convert to 0-255 range and create RGBA string
+    r = int(rgb[0] * 255)
+    g = int(rgb[1] * 255)
+    b = int(rgb[2] * 255)
+    return f"rgba({r}, {g}, {b}, {alpha})"
 
 
 def _plot_station_group_matplotlib(ax, group, gs_cone_altitude, gs_min_elevation):
@@ -745,16 +781,29 @@ def _plot_trajectory_group_matplotlib(ax, group):
     )
 
 
-def _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation):
+def _plot_station_group_plotly(
+    fig, group, gs_cone_altitude, gs_min_elevation, show_legend
+):
     """Plot a group of ground stations with communication cones (plotly)."""
+    from cartopy.geodesic import Geodesic
+
     stations = group.get("stations", [])
     color = group.get("color", "blue")
+    alpha = group.get("alpha", 0.3)
+    point_size = group.get("point_size", 8)
 
-    # Simplified plotly implementation - just plot station points
-    lats = []
-    lons = []
+    # Compute cone radius
+    cone_radius_rad = _compute_communication_cone_radius(
+        gs_min_elevation, gs_cone_altitude
+    )
+    cone_radius_m = cone_radius_rad * bh.R_EARTH
+
+    # Collect station markers
+    station_lats = []
+    station_lons = []
 
     for station in stations:
+        # Extract lat/lon
         if hasattr(station, "latitude") and hasattr(station, "longitude"):
             lat_deg = math.degrees(station.latitude(bh.AngleFormat.RADIANS))
             lon_deg = math.degrees(station.longitude(bh.AngleFormat.RADIANS))
@@ -763,24 +812,77 @@ def _plot_station_group_plotly(fig, group, gs_cone_altitude, gs_min_elevation):
             if abs(lat_deg) <= math.pi and abs(lon_deg) <= math.pi:
                 lat_deg = math.degrees(lat_deg)
                 lon_deg = math.degrees(lon_deg)
-        lats.append(lat_deg)
-        lons.append(lon_deg)
 
-    fig.add_trace(
-        go.Scattergeo(
-            lat=lats,
-            lon=lons,
-            mode="markers",
-            marker=dict(size=8, color=color),
-            name="Ground Stations",
+        station_lats.append(lat_deg)
+        station_lons.append(lon_deg)
+
+        # Plot communication cone for this station
+        circle_points = Geodesic().circle(
+            lon=lon_deg,
+            lat=lat_deg,
+            radius=cone_radius_m,
+            n_samples=100,
+            endpoint=False,
         )
-    )
+
+        # Convert circle points to lat/lon lists
+        cone_lons = [pt[0] for pt in circle_points]
+        cone_lats = [pt[1] for pt in circle_points]
+
+        # Reverse the order to fix winding direction for Plotly fill
+        # Plotly's fill="toself" is sensitive to winding order
+        cone_lons = cone_lons[::-1]
+        cone_lats = cone_lats[::-1]
+
+        # Close the polygon
+        cone_lons_closed = cone_lons + [cone_lons[0]]
+        cone_lats_closed = cone_lats + [cone_lats[0]]
+
+        # Convert color to RGBA for alpha transparency
+        rgba_color = _color_to_rgba(color, alpha)
+
+        # For closed circles, don't split at antimeridian - Plotly handles it
+        # Only check if circle extends beyond valid lat/lon ranges
+        max_lat = max(cone_lats_closed)
+        min_lat = min(cone_lats_closed)
+
+        # Skip circles that extend to extreme latitudes (polar regions)
+        # These can cause rendering artifacts
+        if max_lat < 85 and min_lat > -85:
+            fig.add_trace(
+                go.Scattergeo(
+                    lat=cone_lats_closed,
+                    lon=cone_lons_closed,
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="toself",
+                    fillcolor=rgba_color,
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
+    # Plot all station markers as a single trace
+    if station_lats:
+        fig.add_trace(
+            go.Scattergeo(
+                lat=station_lats,
+                lon=station_lons,
+                mode="markers",
+                marker=dict(size=point_size, color=color),
+                name="Ground Stations",
+                showlegend=show_legend,
+            )
+        )
 
 
-def _plot_zone_group_plotly(fig, group):
+def _plot_zone_group_plotly(fig, group, show_legend):
     """Plot a polygon zone group (plotly)."""
     zone = group.get("zone")
     fill_color = group.get("fill_color", "blue")
+    fill_alpha = group.get("fill_alpha", 0.3)
+    edge = group.get("edge", True)
+    edge_color = group.get("edge_color", fill_color)
 
     if zone is None:
         return
@@ -798,31 +900,48 @@ def _plot_zone_group_plotly(fig, group):
             lat = math.degrees(vertex.latitude(bh.AngleFormat.RADIANS))
             lon = math.degrees(vertex.longitude(bh.AngleFormat.RADIANS))
         else:
-            lat, lon = vertex[0], vertex[1]
+            # vertices are [lon, lat, alt] tuples
+            lon, lat = vertex[0], vertex[1]
             if abs(lat) <= math.pi and abs(lon) <= math.pi:
                 lat = math.degrees(lat)
                 lon = math.degrees(lon)
         lats.append(lat)
         lons.append(lon)
 
-    # Close the polygon
-    lats.append(lats[0])
-    lons.append(lons[0])
+    # Reverse the order to fix winding direction for Plotly fill
+    # Plotly's fill="toself" is sensitive to winding order
+    lons = lons[::-1]
+    lats = lats[::-1]
 
-    fig.add_trace(
-        go.Scattergeo(
-            lat=lats,
-            lon=lons,
-            mode="lines",
-            line=dict(color=fill_color, width=2),
-            fill="toself",
-            fillcolor=fill_color,
-            name="Zone",
+    # Split at antimeridian if needed
+    segments = split_ground_track_at_antimeridian(lons, lats)
+
+    # Plot each segment
+    for seg_idx, (seg_lons, seg_lats) in enumerate(segments):
+        # Close the polygon
+        seg_lons_closed = list(seg_lons) + [seg_lons[0]]
+        seg_lats_closed = list(seg_lats) + [seg_lats[0]]
+
+        # Convert fill color to RGBA
+        rgba_fill = _color_to_rgba(fill_color, fill_alpha)
+
+        fig.add_trace(
+            go.Scattergeo(
+                lat=seg_lats_closed,
+                lon=seg_lons_closed,
+                mode="lines",
+                line=dict(
+                    color=edge_color if edge else rgba_fill, width=2 if edge else 0
+                ),
+                fill="toself",
+                fillcolor=rgba_fill,
+                name="Zone" if seg_idx == 0 else None,  # Only show in legend once
+                showlegend=show_legend and seg_idx == 0,
+            )
         )
-    )
 
 
-def _plot_trajectory_group_plotly(fig, group):
+def _plot_trajectory_group_plotly(fig, group, show_legend):
     """Plot a trajectory group (plotly)."""
     trajectory = group.get("trajectory")
     color = group.get("color", "red")
@@ -874,6 +993,7 @@ def _plot_trajectory_group_plotly(fig, group):
             mode="lines",
             line=dict(color=color, width=line_width),
             name="Ground Track",
+            showlegend=show_legend,
         )
     )
 

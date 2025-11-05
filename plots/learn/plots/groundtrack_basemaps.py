@@ -72,6 +72,8 @@ blue_marble_img = Image.open(blue_marble_path)
 fig_bluemarble = bh.plot_groundtrack(
     trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
     basemap=None,  # No basemap, we'll add the image manually
+    show_borders=False,  # Remove country borders
+    show_coastlines=False,  # Remove coastlines
     backend="matplotlib",
 )
 ax_bm = fig_bluemarble.get_axes()[0]
@@ -127,6 +129,8 @@ with plt.style.context("dark_background"):
     fig_bluemarble_dark = bh.plot_groundtrack(
         trajectories=[{"trajectory": traj, "color": "red", "line_width": 2}],
         basemap=None,  # No basemap, we'll add the image manually
+        show_borders=False,  # Remove country borders
+        show_coastlines=False,  # Remove coastlines
         backend="matplotlib",
     )
     ax_bm_dark = fig_bluemarble_dark.get_axes()[0]

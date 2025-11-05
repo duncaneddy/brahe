@@ -25,6 +25,8 @@ def plot_cartesian_trajectory(
     show_grid=False,
     matplotlib_config=None,
     plotly_config=None,
+    width=None,
+    height=None,
 ) -> object:
     """Plot Cartesian orbital elements (position and velocity) vs time.
 
@@ -55,6 +57,8 @@ def plot_cartesian_trajectory(
             - ylabel_pad (float): Padding for y-axis labels. Default: 10
             - figsize (tuple): Figure size (width, height). Default: (15, 10)
         plotly_config (dict, optional): Plotly-specific configuration (reserved for future use)
+        width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
+        height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
     Returns:
         Generated figure object
@@ -128,6 +132,8 @@ def plot_cartesian_trajectory(
             velocity_units,
             show_title,
             show_grid,
+            width,
+            height,
         )
 
     elapsed = time.time() - start_time
@@ -146,6 +152,8 @@ def plot_keplerian_trajectory(
     show_grid=False,
     matplotlib_config=None,
     plotly_config=None,
+    width=None,
+    height=None,
 ) -> object:
     """Plot Keplerian orbital elements vs time.
 
@@ -179,6 +187,8 @@ def plot_keplerian_trajectory(
             - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
         plotly_config (dict, optional): Plotly-specific configuration:
             - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
+        width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
+        height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
     Returns:
         Generated figure object
@@ -256,6 +266,8 @@ def plot_keplerian_trajectory(
             show_title,
             show_grid,
             set_angle_ylim,
+            width,
+            height,
         )
 
     elapsed = time.time() - start_time
@@ -467,7 +479,14 @@ def _cartesian_elements_matplotlib(
 
 
 def _cartesian_elements_plotly(
-    traj_groups, time_range, position_units, velocity_units, show_title, show_grid
+    traj_groups,
+    time_range,
+    position_units,
+    velocity_units,
+    show_title,
+    show_grid,
+    width,
+    height,
 ):
     """Plotly implementation of Cartesian elements plot."""
     # Create 2x3 subplot layout
@@ -670,6 +689,12 @@ def _cartesian_elements_plotly(
     layout_config = {}
     if show_title:
         layout_config["title_text"] = "Cartesian Orbital Elements"
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
 
     fig.update_layout(**layout_config)
 
@@ -922,6 +947,8 @@ def _keplerian_elements_plotly(
     show_title,
     show_grid,
     set_angle_ylim,
+    width,
+    height,
 ):
     """Plotly implementation of Keplerian elements plot."""
     # Create 2x3 subplot layout
@@ -1165,6 +1192,12 @@ def _keplerian_elements_plotly(
     layout_config = {}
     if show_title:
         layout_config["title_text"] = "Keplerian Orbital Elements"
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
 
     fig.update_layout(**layout_config)
 

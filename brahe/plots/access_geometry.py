@@ -23,6 +23,12 @@ def plot_access_polar(
     time_step=5.0,
     elevation_mask=None,
     backend="matplotlib",
+    width=None,
+    height=None,
+    radial_tick_values=None,
+    radial_tick_labels=None,
+    radial_range=None,
+    radial_tick_offset=3,
 ) -> object:
     """Plot access window geometry in polar coordinates (azimuth/elevation).
 
@@ -48,6 +54,16 @@ def plot_access_polar(
             - callable: Function taking azimuth (degrees) returning elevation (degrees)
             - array: Elevation values at each azimuth (evaluated at 360 points around horizon)
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
+        height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
+        radial_tick_values (array-like, optional): Custom radial tick positions (in radius units: 90-elevation).
+            Default: [15, 30, 45, 60, 75, 90] (corresponding to elevations 75°, 60°, 45°, 30°, 15°, 0°)
+        radial_tick_labels (array-like, optional): Custom labels for radial ticks.
+            Default: ["75°", "60°", "45°", "30°", "15°", "0°"]
+        radial_range (tuple, optional): (min, max) range for radial axis. Default: (0, 90) for matplotlib,
+            auto-calculated for plotly to accommodate offset ticks
+        radial_tick_offset (float, optional): Offset for radial tick positions in plotly (to avoid overlapping
+            with circle lines). Default: 3. Set to 0 for no offset. Only applies to plotly.
 
     Returns:
         Generated figure object
@@ -98,6 +114,9 @@ def plot_access_polar(
             num_samples,
             time_step,
             elevation_mask,
+            radial_tick_values,
+            radial_tick_labels,
+            radial_range,
         )
     else:  # plotly
         result = _access_polar_plotly(
@@ -107,6 +126,12 @@ def plot_access_polar(
             num_samples,
             time_step,
             elevation_mask,
+            width,
+            height,
+            radial_tick_values,
+            radial_tick_labels,
+            radial_range,
+            radial_tick_offset,
         )
 
     elapsed = time.time() - start_time
@@ -120,6 +145,8 @@ def plot_access_elevation(
     num_samples=None,
     time_step=5.0,
     backend="matplotlib",
+    width=None,
+    height=None,
 ) -> object:
     """Plot elevation angle vs time for access windows.
 
@@ -136,6 +163,8 @@ def plot_access_elevation(
             - label (str, optional): Legend label
 
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        width (int, optional): Figure width in pixels (plotly only). Default: 1400
+        height (int, optional): Figure height in pixels (plotly only). Default: 700
 
     Returns:
         Generated figure object
@@ -182,7 +211,7 @@ def plot_access_elevation(
         )
     else:  # plotly
         result = _access_elevation_plotly(
-            window_groups, propagator, num_samples, time_step
+            window_groups, propagator, num_samples, time_step, width, height
         )
 
     elapsed = time.time() - start_time
@@ -197,6 +226,8 @@ def plot_access_elevation_azimuth(
     time_step=5.0,
     elevation_mask=None,
     backend="matplotlib",
+    width=None,
+    height=None,
 ) -> object:
     """Plot elevation vs azimuth for access windows (observed horizon plot).
 
@@ -220,6 +251,8 @@ def plot_access_elevation_azimuth(
             - callable: Function taking azimuth (degrees) returning elevation (degrees)
             - array: Elevation values at each azimuth (evaluated at 360 points)
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        width (int, optional): Figure width in pixels (plotly only). Default: 1400
+        height (int, optional): Figure height in pixels (plotly only). Default: 700
 
     Returns:
         Generated figure object
@@ -270,7 +303,13 @@ def plot_access_elevation_azimuth(
         )
     else:  # plotly
         result = _access_elevation_azimuth_plotly(
-            window_groups, propagator, num_samples, time_step, elevation_mask
+            window_groups,
+            propagator,
+            num_samples,
+            time_step,
+            elevation_mask,
+            width,
+            height,
         )
 
     elapsed = time.time() - start_time
@@ -311,6 +350,9 @@ def _access_polar_matplotlib(
     num_samples,
     time_step,
     elevation_mask,
+    radial_tick_values,
+    radial_tick_labels,
+    radial_range,
 ):
     """Matplotlib implementation of access polar plot."""
     # Apply scienceplots if available
@@ -325,10 +367,21 @@ def _access_polar_matplotlib(
     ax.set_theta_direction(-1)
 
     # Radius is 90 - elevation, so 0 at center (zenith), 90 at edge (horizon)
-    # Always show full range from zenith to horizon
-    ax.set_ylim(0, 90)
-    ax.set_yticks(np.arange(0, 91, 15))
-    ax.set_yticklabels([f"{int(90 - r)}°" for r in np.arange(0, 91, 15)])
+    # Set radial range
+    if radial_range is None:
+        radial_range = (0, 90)
+    ax.set_ylim(radial_range[0], radial_range[1])
+
+    # Set radial ticks
+    if radial_tick_values is None:
+        radial_tick_values = np.arange(
+            15, 91, 15
+        )  # Exclude 0 (zenith), include 90 (horizon)
+    if radial_tick_labels is None:
+        radial_tick_labels = [f"{int(90 - r)}°" for r in radial_tick_values]
+
+    ax.set_yticks(radial_tick_values)
+    ax.set_yticklabels(radial_tick_labels)
 
     # Plot elevation mask if provided
     if elevation_mask is not None:
@@ -401,6 +454,12 @@ def _access_polar_plotly(
     num_samples,
     time_step,
     elevation_mask,
+    width,
+    height,
+    radial_tick_values,
+    radial_tick_labels,
+    radial_range,
+    radial_tick_offset,
 ):
     """Plotly implementation of access polar plot."""
     fig = go.Figure()
@@ -506,29 +565,52 @@ def _access_polar_plotly(
 
     # Create tick values and labels for radial axis
     # Radius represents 90 - elevation, so we need to reverse the labels
-    tick_radii = np.arange(0, 91, 15)  # [0, 15, 30, 45, 60, 75, 90]
-    tick_labels = [f"{int(90 - r)}°" for r in tick_radii]  # ["90°", "75°", ..., "0°"]
+    if radial_tick_values is None:
+        base_radii = np.arange(0, 90, 15)
 
-    fig.update_layout(
-        title="Access Window Geometry",
-        polar=dict(
+        # Add 3 to each tick value to offset from circle lines
+    else:
+        base_radii = np.array(radial_tick_values)
+
+    if radial_tick_labels is None:
+        tick_labels = [f"{int(90 - r)}°" for r in base_radii]
+    else:
+        tick_labels = radial_tick_labels
+
+    # Set radial range (start slightly above 0 to hide center circle)
+    if radial_range is None:
+        radial_range = [0, 90]  # Start at 5 to avoid drawing circle at zenith
+
+    layout_config = {
+        "title": "Access Window Geometry",
+        "polar": dict(
             bgcolor="rgba(0,0,0,0)",
             radialaxis=dict(
-                range=[0, 90],  # Always show full range from zenith to horizon
-                angle=90,
+                range=radial_range,
+                angle=67.5,  # Position radial tick labels at 67.5 degrees (ENE direction)
                 tickangle=90,
                 tickmode="array",
-                tickvals=tick_radii.tolist(),
+                tickvals=base_radii.tolist(),
                 ticktext=tick_labels,
+                showline=False,  # Don't draw the radial line
+                showticklabels=True,
             ),
             angularaxis=dict(
                 direction="clockwise",
                 rotation=90,
             ),
         ),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-    )
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(0,0,0,0)",
+    }
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
+
+    fig.update_layout(**layout_config)
 
     return fig
 
@@ -586,6 +668,8 @@ def _access_elevation_plotly(
     propagator: Union[KeplerianPropagator, SGPPropagator],
     num_samples,
     time_step,
+    width,
+    height,
 ):
     """Plotly implementation of elevation vs time plot."""
     fig = go.Figure()
@@ -645,12 +729,20 @@ def _access_elevation_plotly(
             )
         )
 
-    fig.update_layout(
-        title="Elevation Profile",
-        xaxis_title="Time",
-        yaxis_title="Elevation (degrees)",
-        yaxis=dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
-    )
+    layout_config = {
+        "title": "Elevation Profile",
+        "xaxis_title": "Time",
+        "yaxis_title": "Elevation (degrees)",
+        "yaxis": dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
+    }
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
+
+    fig.update_layout(**layout_config)
 
     return fig
 
@@ -733,6 +825,8 @@ def _access_elevation_azimuth_plotly(
     num_samples,
     time_step,
     elevation_mask,
+    width,
+    height,
 ):
     """Plotly implementation of elevation vs azimuth plot."""
     fig = go.Figure()
@@ -820,13 +914,21 @@ def _access_elevation_azimuth_plotly(
             )
         )
 
-    fig.update_layout(
-        title="Elevation vs Azimuth",
-        xaxis_title="Azimuth (degrees)",
-        yaxis_title="Elevation (degrees)",
-        xaxis=dict(range=[0, 360]),
-        yaxis=dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
-    )
+    layout_config = {
+        "title": "Elevation vs Azimuth",
+        "xaxis_title": "Azimuth (degrees)",
+        "yaxis_title": "Elevation (degrees)",
+        "xaxis": dict(range=[0, 360]),
+        "yaxis": dict(range=[0, 90], tickmode="linear", tick0=0, dtick=15),
+    }
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
+
+    fig.update_layout(**layout_config)
 
     return fig
 

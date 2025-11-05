@@ -28,13 +28,13 @@ station = bh.PointLocation(lon, lat, alt).with_name("Cape Canaveral")
 
 # Define time range (one day to capture multiple passes)
 epoch = prop.epoch
-duration = 24.0 * 3600.0  # 24 hours in seconds
+duration = 7.0 * 24.0 * 3600.0  # 24 hours in seconds
 
 
 # Define sinusoidal elevation mask: 15° + 10° * sin(2*azimuth)
 # This varies between 5° and 25° around the horizon
 def elevation_mask(az):
-    return 10.0 + 10.0 * np.sin(np.radians(2 * az))
+    return 15.0 + 10.0 * np.sin(np.radians(2 * az)) + 5.0 * np.sin(np.radians(3 * az))
 
 
 # Create ElevationMaskConstraint from the sinusoidal mask function
@@ -50,6 +50,7 @@ print(f"Computed {len(accesses)} access windows")
 # Filter for passes longer than 5 minutes (300 seconds) to show complete passes
 min_duration = 300.0  # seconds
 long_passes = [acc for acc in accesses if acc.duration > min_duration]
+print(f"Filtered to {len(long_passes)} long passes (> {min_duration} seconds)")
 
 # Create elevation vs azimuth plots (light and dark mode)
 if len(long_passes) > 0:
@@ -68,7 +69,6 @@ if len(long_passes) > 0:
         backend="matplotlib",
     )
 
-    # Save light mode figure
     fig.savefig(
         "docs/figures/plot_access_elevation_azimuth_matplotlib_light.svg",
         dpi=300,
@@ -94,7 +94,6 @@ if len(long_passes) > 0:
         for ax in fig.get_axes():
             ax.set_facecolor("#1c1e24")
 
-        # Save dark mode figure
         fig.savefig(
             "docs/figures/plot_access_elevation_azimuth_matplotlib_dark.svg",
             dpi=300,

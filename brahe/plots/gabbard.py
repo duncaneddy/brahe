@@ -21,6 +21,8 @@ def plot_gabbard_diagram(
     altitude_units="km",
     period_units="min",
     backend="matplotlib",
+    width=None,
+    height=None,
 ):
     """Plot Gabbard diagram showing orbital period vs apogee/perigee altitude.
 
@@ -44,6 +46,8 @@ def plot_gabbard_diagram(
         altitude_units (str, optional): 'km' or 'm'. Default: 'km'
         period_units (str, optional): 'min' or 's'. Default: 'min'
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
+        height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
     Returns:
         Figure object (matplotlib.figure.Figure or plotly.graph_objects.Figure)
@@ -97,7 +101,9 @@ def plot_gabbard_diagram(
     if backend == "matplotlib":
         result = _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units)
     else:  # plotly
-        result = _gabbard_plotly(object_groups, epoch, altitude_units, period_units)
+        result = _gabbard_plotly(
+            object_groups, epoch, altitude_units, period_units, width, height
+        )
 
     elapsed = time.time() - start_time
     logger.info(f"Gabbard diagram plot completed in {elapsed:.2f}s")
@@ -272,7 +278,7 @@ def _gabbard_matplotlib(object_groups, epoch, altitude_units, period_units):
     return fig
 
 
-def _gabbard_plotly(object_groups, epoch, altitude_units, period_units):
+def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, height):
     """Plotly implementation of Gabbard diagram."""
     # Create figure
     fig = go.Figure()
@@ -384,13 +390,21 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units):
         )
 
     # Update layout
-    fig.update_layout(
-        title="Gabbard Diagram",
-        xaxis_title=f"Orbital Period ({period_units})",
-        yaxis_title=f"Apogee / Perigee Altitude ({altitude_units})",
-        hovermode="closest",
-        showlegend=True,
-    )
+    layout_config = {
+        "title": "Gabbard Diagram",
+        "xaxis_title": f"Orbital Period ({period_units})",
+        "yaxis_title": f"Apogee / Perigee Altitude ({altitude_units})",
+        "hovermode": "closest",
+        "showlegend": True,
+    }
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
+
+    fig.update_layout(**layout_config)
 
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")

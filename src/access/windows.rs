@@ -679,7 +679,7 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStat
 /// * `constraint` - Access constraints
 /// * `property_computers` - Optional custom property computers
 /// * `time_step` - Search grid step (default: 60 seconds)
-/// * `time_tolerance` - Boundary refinement tolerance (default: 0.01 seconds)
+/// * `time_tolerance` - Boundary refinement tolerance (default: 0.001 seconds, ~0.01° elevation precision)
 ///
 /// # Returns
 /// List of complete AccessWindow objects
@@ -694,7 +694,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
     time_step: Option<f64>,
     time_tolerance: Option<f64>,
 ) -> Vec<AccessWindow> {
-    let time_tolerance = time_tolerance.unwrap_or(0.01);
+    let time_tolerance = time_tolerance.unwrap_or(0.001);
 
     // Create search config from time_step parameter
     let config = AccessSearchConfig {
@@ -746,7 +746,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         };
 
         // Refine closing boundary
-        // Start at coarse_end (condition=false) and search backward
+        // Start at coarse_end (last point where condition=true) and search forward
         let refined_end = if coarse_end < search_end {
             // Evaluate condition at coarse_end to confirm
             let sat_state = propagator.state_ecef(coarse_end);
@@ -756,13 +756,13 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
                 location,
                 propagator,
                 coarse_end,
-                StepDirection::Backward,
+                StepDirection::Forward, // Search forward to find where constraint becomes false
                 config.initial_time_step,
                 end_condition,
                 constraint,
                 time_tolerance,
-                coarse_end, // min_bound
-                search_end, // max_bound
+                coarse_end, // min_bound (starting point)
+                search_end, // max_bound (allow stepping forward to search end)
             )
         } else {
             coarse_end
@@ -1186,5 +1186,98 @@ mod tests {
         assert!(name1.starts_with("Access-"));
         assert!(name2.starts_with("Access-"));
         assert!(name3.starts_with("Access-"));
+    }
+
+    /// Test that validates elevation at access window boundaries matches the constraint threshold.
+    /// This test documents Issue: Elevation values at window open/close should match the constraint
+    /// threshold within a tight tolerance (0.001°).
+    #[test]
+    #[serial]
+    fn test_elevation_boundary_precision() {
+        setup_global_test_eop();
+
+        // Create NYC ground station (lon, lat, alt)
+        let location = PointLocation::new(-74.0060, 40.7128, 0.0);
+
+        // Create LEO satellite (500 km altitude, 97.8° inclination - typical sun-synchronous)
+        let oe = Vector6::new(
+            R_EARTH + 500e3,       // a (meters)
+            0.001,                 // e (nearly circular)
+            97.8_f64.to_radians(), // i (radians) - sun-synchronous
+            0.0,                   // RAAN
+            0.0,                   // argp
+            0.0,                   // M
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        // Search for 24 hours with 5.0° elevation constraint
+        let search_end = epoch + 86400.0; // 24 hours in seconds
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Find access windows with default settings (currently 0.01s time tolerance)
+        let windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(60.0), // Grid step
+            None,       // Use default time tolerance
+        );
+
+        // Should find at least one window
+        assert!(
+            !windows.is_empty(),
+            "Expected to find at least 1 access window for LEO satellite over NYC in 24 hours"
+        );
+
+        // Validate each window's boundary elevations match the 5.0° constraint
+        let tolerance = 0.001; // degrees
+        let constraint_elevation = 5.0; // degrees
+
+        for (i, window) in windows.iter().enumerate() {
+            let elevation_open = window.properties.elevation_open;
+            let elevation_close = window.properties.elevation_close;
+
+            let error_open = (elevation_open - constraint_elevation).abs();
+            let error_close = (elevation_close - constraint_elevation).abs();
+
+            assert!(
+                error_open <= tolerance,
+                "Window {}: elevation_open = {:.6}° differs from constraint ({:.1}°) by {:.6}° (tolerance: {:.3}°)",
+                i,
+                elevation_open,
+                constraint_elevation,
+                error_open,
+                tolerance
+            );
+
+            assert!(
+                error_close <= tolerance,
+                "Window {}: elevation_close = {:.6}° differs from constraint ({:.1}°) by {:.6}° (tolerance: {:.3}°)",
+                i,
+                elevation_close,
+                constraint_elevation,
+                error_close,
+                tolerance
+            );
+        }
+
+        // Print summary for debugging
+        println!(
+            "\nValidated {} access windows - all boundary elevations within {:.3}° of {:.1}° constraint",
+            windows.len(),
+            tolerance,
+            constraint_elevation
+        );
     }
 }

@@ -26,6 +26,8 @@ def plot_trajectory_3d(
     show_earth=True,
     earth_texture="simple",
     backend="matplotlib",
+    width=None,
+    height=None,
 ) -> object:
     """Plot 3D trajectory in ECI frame.
 
@@ -45,6 +47,8 @@ def plot_trajectory_3d(
         show_earth (bool, optional): Show Earth sphere at origin. Default: True
         earth_texture (str, optional): 'blue_marble', 'simple', or None. Default: 'simple'
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
+        width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
+        height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
     Returns:
         Generated figure object
@@ -107,6 +111,8 @@ def plot_trajectory_3d(
             view_distance,
             show_earth,
             earth_texture,
+            width,
+            height,
         )
 
     elapsed = time.time() - start_time
@@ -242,6 +248,8 @@ def _trajectory_3d_plotly(
     view_distance,
     show_earth,
     earth_texture,
+    width,
+    height,
 ):
     """Plotly implementation of 3D trajectory plot."""
     fig = go.Figure()
@@ -315,9 +323,9 @@ def _trajectory_3d_plotly(
         view_distance = 2.5  # Default: zoom out to 2.5x distance
 
     # Configure layout
-    fig.update_layout(
-        title="3D Trajectory (ECI Frame)",
-        scene=dict(
+    layout_config = {
+        "title": "3D Trajectory (ECI Frame)",
+        "scene": dict(
             xaxis_title=f"X ({unit_label})",
             yaxis_title=f"Y ({unit_label})",
             zaxis_title=f"Z ({unit_label})",
@@ -337,7 +345,15 @@ def _trajectory_3d_plotly(
                 )
             ),
         ),
-    )
+    }
+
+    # Only set width/height if explicitly provided
+    if width is not None:
+        layout_config["width"] = width
+    if height is not None:
+        layout_config["height"] = height
+
+    fig.update_layout(**layout_config)
 
     return fig
 

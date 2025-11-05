@@ -47,8 +47,15 @@ accesses = bh.location_accesses([station], [prop], epoch, epoch + duration, cons
 
 # Create polar access plot
 if len(accesses) > 0:
+    # Use first 3 access windows
+    num_windows = min(3, len(accesses))
+    windows_to_plot = [
+        {"access_window": accesses[i], "label": f"Access {i + 1}"}
+        for i in range(num_windows)
+    ]
+
     fig = bh.plot_access_polar(
-        [{"access_window": accesses[0]}],  # Use first access window
+        windows_to_plot,
         prop,  # Propagator for interpolation
         min_elevation=10.0,
         backend="plotly",

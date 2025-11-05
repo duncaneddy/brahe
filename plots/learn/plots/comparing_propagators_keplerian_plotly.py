@@ -46,7 +46,7 @@ prop_sgp.propagate_to(epoch + duration)
 traj_kep = prop_kep.trajectory
 traj_sgp = prop_sgp.trajectory
 
-# Create comparison plot using Keplerian elements with fixed angle limits
+# Create comparison plot using Keplerian elements with fixed angle and eccentricity limits
 fig = bh.plot_keplerian_trajectory(
     [
         {"trajectory": prop_kep.trajectory, "color": "blue", "label": "Keplerian"},
@@ -55,7 +55,7 @@ fig = bh.plot_keplerian_trajectory(
     sma_units="km",
     angle_units="deg",
     backend="plotly",
-    plotly_config={"set_angle_ylim": True},
+    plotly_config={"set_angle_ylim": True, "set_eccentricity_ylim": True},
 )
 
 # Save themed HTML files

@@ -38,7 +38,7 @@ prop_sgp.propagate_to(epoch + duration)
 traj_kep = prop_kep.trajectory
 traj_sgp = prop_sgp.trajectory
 
-# Create comparison plot using Keplerian elements in light mode
+# Create comparison plot using Keplerian elements in light mode with fixed angle and eccentricity limits
 fig = bh.plot_keplerian_trajectory(
     [
         {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
@@ -47,7 +47,11 @@ fig = bh.plot_keplerian_trajectory(
     sma_units="km",
     angle_units="deg",
     backend="matplotlib",
-    matplotlib_config={"dark_mode": False, "set_angle_ylim": True},
+    matplotlib_config={
+        "dark_mode": False,
+        "set_angle_ylim": True,
+        "set_eccentricity_ylim": True,
+    },
 )
 
 # Save light mode figure
@@ -60,7 +64,7 @@ print(
     "Comparing propagators (Keplerian) plot (matplotlib, light mode) saved to: docs/figures/comparing_propagators_keplerian_matplotlib_light.svg"
 )
 
-# Create comparison plot using Keplerian elements in dark mode
+# Create comparison plot using Keplerian elements in dark mode with fixed angle and eccentricity limits
 fig = bh.plot_keplerian_trajectory(
     [
         {"trajectory": traj_kep, "color": "blue", "label": "Keplerian"},
@@ -69,7 +73,11 @@ fig = bh.plot_keplerian_trajectory(
     sma_units="km",
     angle_units="deg",
     backend="matplotlib",
-    matplotlib_config={"dark_mode": True, "set_angle_ylim": True},
+    matplotlib_config={
+        "dark_mode": True,
+        "set_angle_ylim": True,
+        "set_eccentricity_ylim": True,
+    },
 )
 
 # Set background color to match Plotly dark theme

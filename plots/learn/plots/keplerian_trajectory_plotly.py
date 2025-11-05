@@ -44,6 +44,7 @@ fig = bh.plot_keplerian_trajectory(
     sma_units="km",
     angle_units="deg",
     backend="plotly",
+    plotly_config={"set_angle_ylim": True},
 )
 
 # Save themed HTML files

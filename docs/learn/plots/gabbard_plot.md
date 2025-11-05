@@ -48,8 +48,6 @@ The matplotlib backend produces publication-quality figures for research papers 
 
 **Wide vertical separation**: High eccentricity (elliptical orbits)
 
-**Clustered points**: Objects with similar orbital characteristics
-
 ## Tips
 
 - Use `backend="plotly"` to identify outliers and explore specific objects interactively

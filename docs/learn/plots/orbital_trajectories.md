@@ -2,8 +2,6 @@
 
 Orbital element trajectory plots track how position, velocity, and orbital parameters evolve over time. Brahe provides two complementary views: Cartesian plots showing state vectors (x, y, z, vx, vy, vz) and Keplerian plots showing classical elements (a, e, i, Ω, ω, ν). These visualizations are essential for analyzing perturbations, verifying propagators, and understanding orbital dynamics.
 
-See also: [plot_cartesian_trajectory](../../library_api/plots/orbital_trajectories.md), [plot_keplerian_trajectory](../../library_api/plots/orbital_trajectories.md)
-
 ## Cartesian State Vector Plots
 
 Cartesian plots display position and velocity components in ECI coordinates, useful for debugging propagators and analyzing state evolution.
@@ -15,7 +13,7 @@ Cartesian plots display position and velocity components in ECI coordinates, use
   <iframe class="only-dark"  src="../../figures/cartesian_trajectory_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
-???+ "Plot Source"
+??? "Plot Source"
 
     ``` python title="cartesian_trajectory_plotly.py"
     --8<-- "./plots/learn/plots/cartesian_trajectory_plotly.py"
@@ -28,7 +26,7 @@ Cartesian plots display position and velocity components in ECI coordinates, use
     ![Cartesian Trajectory Plot](../../figures/plot_cartesian_trajectory_matplotlib_dark.svg#only-dark)
 </figure>
 
-???+ "Plot Source"
+??? "Plot Source"
 
     ``` python title="cartesian_trajectory_matplotlib.py"
     --8<-- "./plots/learn/plots/cartesian_trajectory_matplotlib.py"
@@ -52,7 +50,7 @@ Keplerian plots display classical orbital elements, ideal for understanding long
   <iframe class="only-dark"  src="../../figures/keplerian_trajectory_plotly_dark.html"  loading="lazy"></iframe>
 </div>
 
-???+ "Plot Source"
+??? "Plot Source"
 
     ``` python title="keplerian_trajectory_plotly.py"
     --8<-- "./plots/learn/plots/keplerian_trajectory_plotly.py"
@@ -65,7 +63,7 @@ Keplerian plots display classical orbital elements, ideal for understanding long
     ![Keplerian Trajectory Plot](../../figures/plot_keplerian_trajectory_matplotlib_dark.svg#only-dark)
 </figure>
 
-???+ "Plot Source"
+??? "Plot Source"
 
     ``` python title="keplerian_trajectory_matplotlib.py"
     --8<-- "./plots/learn/plots/keplerian_trajectory_matplotlib.py"
@@ -80,84 +78,76 @@ The 2×3 subplot layout shows:
 - **Argument of periapsis (ω)**: Orbit orientation in plane
 - **Mean anomaly (M)**: Position along orbit
 
-## Analyzing Perturbations
-
-### Comparing Propagators
+## Comparing Different Propagators
 
 Compare different propagators to verify agreement or identify perturbation effects. These examples show how Keplerian (two-body) and SGP4 propagators diverge over time due to atmospheric drag and other perturbations.
-
-#### Cartesian State Comparison
-
-Comparing propagators in Cartesian space shows position and velocity component differences:
-
-##### Interactive Cartesian Comparison (Plotly)
-
-<div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/comparing_propagators_cartesian_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/comparing_propagators_cartesian_plotly_dark.html"  loading="lazy"></iframe>
-</div>
-
-???+ "Plot Source"
-
-    ``` python title="comparing_propagators_cartesian_plotly.py"
-    --8<-- "./plots/learn/plots/comparing_propagators_cartesian_plotly.py"
-    ```
-
-##### Static Cartesian Comparison (Matplotlib)
-
-<figure markdown="span">
-    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_light.svg#only-light)
-    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_dark.svg#only-dark)
-</figure>
-
-???+ "Plot Source"
-
-    ``` python title="comparing_propagators_cartesian_matplotlib.py"
-    --8<-- "./plots/learn/plots/comparing_propagators_cartesian_matplotlib.py"
-    ```
-
-#### Keplerian Element Comparison
-
-Comparing propagators using Keplerian elements reveals how orbital parameters evolve differently:
-
-##### Interactive Keplerian Comparison (Plotly)
-
-<div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/comparing_propagators_keplerian_plotly_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/comparing_propagators_keplerian_plotly_dark.html"  loading="lazy"></iframe>
-</div>
-
-???+ "Plot Source"
-
-    ``` python title="comparing_propagators_keplerian_plotly.py"
-    --8<-- "./plots/learn/plots/comparing_propagators_keplerian_plotly.py"
-    ```
-
-##### Static Keplerian Comparison (Matplotlib)
-
-<figure markdown="span">
-    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_light.svg#only-light)
-    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_dark.svg#only-dark)
-</figure>
-
-???+ "Plot Source"
-
-    ``` python title="comparing_propagators_keplerian_matplotlib.py"
-    --8<-- "./plots/learn/plots/comparing_propagators_keplerian_matplotlib.py"
-    ```
-
-#### Understanding the Differences
 
 The plots show how the two propagation methods diverge:
 
 - **Keplerian (blue)**: Assumes pure two-body dynamics with no perturbations
 - **SGP4 (red)**: Includes atmospheric drag and other perturbations
 
-For LEO satellites like the ISS, differences become visible within a few orbits:
+For near-circular LEO orbits, we notice there is significant variation in the argument of perigee (ω) and mean anomaly (M) over time due to numerical instability and ill-conditioning of these elements for near-circular orbits.
 
-- **Semi-major axis**: Decreases over time in SGP4 due to atmospheric drag
-- **Eccentricity**: Small variations from drag-induced orbital decay
-- **Position/Velocity**: Growing separation between the two models
+### Cartesian State Comparison
+
+Comparing propagators in Cartesian space shows position and velocity component differences:
+
+#### Interactive Cartesian Comparison (Plotly)
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/comparing_propagators_cartesian_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/comparing_propagators_cartesian_plotly_dark.html"  loading="lazy"></iframe>
+</div>
+
+??? "Plot Source"
+
+    ``` python title="comparing_propagators_cartesian_plotly.py"
+    --8<-- "./plots/learn/plots/comparing_propagators_cartesian_plotly.py"
+    ```
+
+#### Static Cartesian Comparison (Matplotlib)
+
+<figure markdown="span">
+    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_light.svg#only-light)
+    ![Comparing Propagators Cartesian Plot](../../figures/comparing_propagators_cartesian_matplotlib_dark.svg#only-dark)
+</figure>
+
+??? "Plot Source"
+
+    ``` python title="comparing_propagators_cartesian_matplotlib.py"
+    --8<-- "./plots/learn/plots/comparing_propagators_cartesian_matplotlib.py"
+    ```
+
+### Keplerian Element Comparison
+
+Comparing propagators using Keplerian elements reveals how orbital parameters evolve differently:
+
+#### Interactive Keplerian Comparison (Plotly)
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../figures/comparing_propagators_keplerian_plotly_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../figures/comparing_propagators_keplerian_plotly_dark.html"  loading="lazy"></iframe>
+</div>
+
+??? "Plot Source"
+
+    ``` python title="comparing_propagators_keplerian_plotly.py"
+    --8<-- "./plots/learn/plots/comparing_propagators_keplerian_plotly.py"
+    ```
+
+#### Static Keplerian Comparison (Matplotlib)
+
+<figure markdown="span">
+    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_light.svg#only-light)
+    ![Comparing Propagators Keplerian Plot](../../figures/comparing_propagators_keplerian_matplotlib_dark.svg#only-dark)
+</figure>
+
+??? "Plot Source"
+
+    ``` python title="comparing_propagators_keplerian_matplotlib.py"
+    --8<-- "./plots/learn/plots/comparing_propagators_keplerian_matplotlib.py"
+    ```
 
 ## Unit Customization
 

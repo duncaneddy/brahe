@@ -4,8 +4,6 @@ Access geometry plots visualize satellite visibility from ground stations, showi
 
 All plot types support optional **elevation masks** to visualize terrain obstructions, antenna constraints, or other azimuth-dependent visibility limits.
 
-See also: [plot_access_polar](../../library_api/plots/access_geometry.md), [plot_access_elevation_azimuth](../../library_api/plots/access_geometry.md), [plot_access_elevation](../../library_api/plots/access_geometry.md)
-
 ## Polar Access Plot (Azimuth/Elevation)
 
 Polar plots display the satellite's path across the sky in azimuth-elevation coordinates, providing an intuitive "looking up" view from the ground station.
@@ -152,44 +150,6 @@ Time-series plots show how elevation angle changes throughout a satellite pass, 
     ``` python title="access_elevation_matplotlib.py"
     --8<-- "./plots/learn/plots/access_elevation_matplotlib.py"
     ```
-
-## Generating Access Windows
-
-Both plot types require access windows computed using `location_accesses`:
-
-```python
-import brahe as bh
-import numpy as np
-
-bh.initialize_eop()
-
-# Create satellite propagator
-tle_line0 = "ISS (ZARYA)"
-tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999"
-tle_line2 = "2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601"
-prop = bh.SGPPropagator.from_3le(tle_line0, tle_line1, tle_line2, 60.0)
-
-# Define ground station
-station = bh.PointLocation(
-    np.radians(40.7128),   # Latitude (rad)
-    np.radians(-74.0060),  # Longitude (rad)
-    0.0                    # Altitude (m)
-).with_name("New York")
-
-# Compute access windows over 24 hours
-epoch = prop.epoch
-constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
-accesses = bh.location_accesses(
-    [station], [prop],
-    epoch, epoch + 24*3600,
-    constraint
-)
-
-# Plot first access window
-if len(accesses) > 0:
-    fig_polar = bh.plot_access_polar(accesses[0])
-    fig_elev = bh.plot_access_elevation(accesses[0])
-```
 
 ## See Also
 

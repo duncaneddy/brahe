@@ -185,8 +185,10 @@ def plot_keplerian_trajectory(
             - ylabel_pad (float): Padding for y-axis labels. Default: 10
             - figsize (tuple): Figure size (width, height). Default: (15, 10)
             - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
+            - set_eccentricity_ylim (bool): Set y-axis limits to [0, 1]. Default: False
         plotly_config (dict, optional): Plotly-specific configuration:
             - set_angle_ylim (bool): Set y-axis limits to [0, 360°] or [0, 2π]. Default: False
+            - set_eccentricity_ylim (bool): Set y-axis limits to [0, 1]. Default: False
         width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
         height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
 
@@ -240,6 +242,7 @@ def plot_keplerian_trajectory(
         ylabel_pad = matplotlib_config.get("ylabel_pad", 10)
         figsize = matplotlib_config.get("figsize", (15, 10))
         set_angle_ylim = matplotlib_config.get("set_angle_ylim", False)
+        set_eccentricity_ylim = matplotlib_config.get("set_eccentricity_ylim", False)
         result = _keplerian_elements_matplotlib(
             traj_groups,
             time_range,
@@ -254,9 +257,11 @@ def plot_keplerian_trajectory(
             ylabel_pad,
             figsize,
             set_angle_ylim,
+            set_eccentricity_ylim,
         )
     else:  # plotly
         set_angle_ylim = plotly_config.get("set_angle_ylim", False)
+        set_eccentricity_ylim = plotly_config.get("set_eccentricity_ylim", False)
         result = _keplerian_elements_plotly(
             traj_groups,
             time_range,
@@ -266,6 +271,7 @@ def plot_keplerian_trajectory(
             show_title,
             show_grid,
             set_angle_ylim,
+            set_eccentricity_ylim,
             width,
             height,
         )
@@ -728,6 +734,7 @@ def _keplerian_elements_matplotlib(
     ylabel_pad,
     figsize,
     set_angle_ylim,
+    set_eccentricity_ylim,
 ):
     """Matplotlib implementation of Keplerian elements plot."""
     # Apply scienceplots if available
@@ -924,6 +931,10 @@ def _keplerian_elements_matplotlib(
         axes[1, 1].set_ylim(angle_ylim)  # Arg. Periapsis
         axes[1, 2].set_ylim(angle_ylim)  # Mean Anomaly
 
+    # Set y-axis limits for eccentricity plot if requested
+    if set_eccentricity_ylim:
+        axes[0, 1].set_ylim(0, 1)  # Eccentricity
+
     # Apply ylabel padding for better alignment
     for ax in axes.flat:
         ax.set_xlabel(time_label)
@@ -947,6 +958,7 @@ def _keplerian_elements_plotly(
     show_title,
     show_grid,
     set_angle_ylim,
+    set_eccentricity_ylim,
     width,
     height,
 ):
@@ -1187,6 +1199,10 @@ def _keplerian_elements_plotly(
         fig.update_yaxes(range=angle_range, row=2, col=1)  # RAAN
         fig.update_yaxes(range=angle_range, row=2, col=2)  # Arg. Periapsis
         fig.update_yaxes(range=angle_range, row=2, col=3)  # Mean Anomaly
+
+    # Set y-axis limits for eccentricity plot if requested
+    if set_eccentricity_ylim:
+        fig.update_yaxes(range=[0, 1], row=1, col=2)  # Eccentricity
 
     # Update layout with optional title and grid settings
     layout_config = {}

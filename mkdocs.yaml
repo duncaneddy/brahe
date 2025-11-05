@@ -185,9 +185,9 @@ nav:
                 - String Formatting: learn/utilities/string_formatting.md
             - Plots:
                 - learn/plots/index.md
-                - Ground Tracks: learn/plots/ground_tracks.md
                 - Orbital Trajectories: learn/plots/orbital_trajectories.md
                 - 3D Trajectory: learn/plots/3d_trajectory.md
+                - Ground Tracks: learn/plots/ground_tracks.md
                 - Access Geometry: learn/plots/access_geometry.md
                 - Gabbard Plots: learn/plots/gabbard_plot.md
             - Command Line Interface:

@@ -12,6 +12,8 @@ use crate::datasets::serializers::{
 use crate::propagators::SGPPropagator;
 use crate::utils::BraheError;
 use crate::utils::cache::get_celestrak_cache_dir;
+use crate::utils::threading::get_thread_pool;
+use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -171,16 +173,22 @@ pub fn get_tles_as_propagators(
 ) -> Result<Vec<SGPPropagator>, BraheError> {
     let ephemeris = get_tles(group)?;
 
-    let mut propagators = Vec::new();
-    for (name, line1, line2) in ephemeris {
-        match SGPPropagator::from_3le(Some(&name), &line1, &line2, step_size) {
-            Ok(prop) => propagators.push(prop),
-            Err(e) => {
-                // Log warning but continue with other satellites
-                eprintln!("Warning: Failed to create propagator for {}: {}", name, e);
-            }
-        }
-    }
+    // Use global thread pool (default: 90% of cores) for parallel propagator creation
+    let propagators: Vec<SGPPropagator> = get_thread_pool().install(|| {
+        ephemeris
+            .par_iter()
+            .filter_map(|(name, line1, line2)| {
+                match SGPPropagator::from_3le(Some(name), line1, line2, step_size) {
+                    Ok(prop) => Some(prop),
+                    Err(e) => {
+                        // Log warning but continue with other satellites
+                        eprintln!("Warning: Failed to create propagator for {}: {}", name, e);
+                        None
+                    }
+                }
+            })
+            .collect()
+    });
 
     if propagators.is_empty() {
         return Err(BraheError::Error(format!(

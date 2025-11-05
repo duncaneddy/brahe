@@ -26,13 +26,13 @@ oe_iss = np.array(
     [
         bh.R_EARTH + 420e3,  # Semi-major axis (m)
         0.0005,  # Eccentricity
-        np.radians(51.6),  # Inclination
-        np.radians(45.0),  # RAAN
-        np.radians(30.0),  # Argument of perigee
-        np.radians(0.0),  # Mean anomaly
+        51.6,  # Inclination
+        45.0,  # RAAN
+        30.0,  # Argument of perigee
+        0.0,  # Mean anomaly
     ]
 )
-state_iss = bh.state_osculating_to_cartesian(oe_iss, bh.AngleFormat.RADIANS)
+state_iss = bh.state_osculating_to_cartesian(oe_iss, bh.AngleFormat.DEGREES)
 prop_iss = bh.KeplerianPropagator.from_eci(epoch, state_iss, 60.0)
 
 # Polar orbit (Sun-synchronous-like, ~550 km altitude)
@@ -40,13 +40,13 @@ oe_polar = np.array(
     [
         bh.R_EARTH + 550e3,  # Semi-major axis (m)
         0.001,  # Eccentricity
-        np.radians(97.8),  # Inclination (near-polar)
-        np.radians(180.0),  # RAAN
-        np.radians(60.0),  # Argument of perigee
-        np.radians(0.0),  # Mean anomaly
+        97.8,  # Inclination (near-polar)
+        180.0,  # RAAN
+        60.0,  # Argument of perigee
+        0.0,  # Mean anomaly
     ]
 )
-state_polar = bh.state_osculating_to_cartesian(oe_polar, bh.AngleFormat.RADIANS)
+state_polar = bh.state_osculating_to_cartesian(oe_polar, bh.AngleFormat.DEGREES)
 prop_polar = bh.KeplerianPropagator.from_eci(epoch, state_polar, 60.0)
 
 # Define time range - one orbital period of the lower orbit

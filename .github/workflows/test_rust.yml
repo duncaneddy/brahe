@@ -41,6 +41,8 @@ jobs:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [nightly]
         needs: build-rust
+        environment:
+          name: release
         permissions:
             contents: read
             id-token: write
@@ -116,7 +118,7 @@ jobs:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
             -   name: Run Rust doc tests
-                run: cargo test --doc --features ci
+                run: cargo test --doc --features ci -- --test-threads=1
     pre-cache-python:
         runs-on: ${{ matrix.os }}
         strategy:

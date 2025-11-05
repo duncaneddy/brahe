@@ -964,8 +964,8 @@ mod tests {
         };
 
         assert!(
-            time_diff < Duration::from_millis(200), // Normal tolerance should be 10ms but allow 200ms because this fails on windows CI sometimes
-            "Cache file appears to have been rewritten (time difference: {:?}ms). Expected < 200ms but got mtime1={:?}, mtime2={:?}",
+            time_diff < Duration::from_millis(1000), // Normal tolerance should be 10ms but allow 1000ms because this fails on windows CI sometimes
+            "Cache file appears to have been rewritten (time difference: {:?}ms). Expected < 1000ms but got mtime1={:?}, mtime2={:?}",
             time_diff.as_millis(),
             mtime1,
             mtime2

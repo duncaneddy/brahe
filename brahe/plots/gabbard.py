@@ -319,14 +319,29 @@ def _gabbard_plotly(object_groups, epoch, altitude_units, period_units, width, h
                 # Calculate orbital period
                 period = bh.orbital_period(a) * period_scale
 
-                # Check if object has get_id() method and use it for hover text
+                # Check for identifier in priority order: both, ID, name, then generic
+                name = None
                 obj_id = None
+
+                if hasattr(obj, "get_name"):
+                    name = obj.get_name()
+
                 if hasattr(obj, "get_id"):
                     obj_id = obj.get_id()
 
-                if obj_id is not None:
-                    hover_text_apogee.append(f"ID: {obj_id}")
-                    hover_text_perigee.append(f"ID: {obj_id}")
+                # Determine display text based on what's available
+                if name and obj_id is not None:
+                    identifier = f"{name} - {obj_id}"
+                elif obj_id is not None:
+                    identifier = str(obj_id)
+                elif name:
+                    identifier = name
+                else:
+                    identifier = None
+
+                if identifier:
+                    hover_text_apogee.append(identifier)
+                    hover_text_perigee.append(identifier)
                 else:
                     hover_text_apogee.append("Apogee")
                     hover_text_perigee.append("Perigee")

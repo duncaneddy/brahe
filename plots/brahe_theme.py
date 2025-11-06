@@ -147,7 +147,7 @@ def save_themed_html(fig_generator, outfile_base, custom_css=None):
     outdir = outfile_base.parent
     filename = outfile_base.stem
 
-    # Default CSS to remove body margins/padding
+    # Default CSS to remove body margins/padding and constrain plot
     if custom_css is None:
         custom_css = """
 <style>
@@ -155,6 +155,14 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+}
+.plotly-graph-div {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.js-plotly-plot {
+    width: 100% !important;
 }
 </style>
 """
@@ -170,7 +178,11 @@ body {
     apply_brahe_theme(fig_light, "light")
     light_path = outdir / f"{filename}_light.html"
     html_light = pio.to_html(
-        fig_light, include_plotlyjs="cdn", full_html=False, auto_play=False
+        fig_light,
+        include_plotlyjs="cdn",
+        full_html=False,
+        auto_play=False,
+        config={"responsive": True},
     )
     html_light = custom_css + html_light
     with open(light_path, "w") as f:
@@ -184,7 +196,11 @@ body {
     apply_brahe_theme(fig_dark, "dark")
     dark_path = outdir / f"{filename}_dark.html"
     html_dark = pio.to_html(
-        fig_dark, include_plotlyjs="cdn", full_html=False, auto_play=False
+        fig_dark,
+        include_plotlyjs="cdn",
+        full_html=False,
+        auto_play=False,
+        config={"responsive": True},
     )
     html_dark = custom_css + html_dark
     with open(dark_path, "w") as f:

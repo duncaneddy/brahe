@@ -9,13 +9,13 @@ In this example we'll find upcoming imaging opportunities for the ICEYE constell
 First, we'll import the necessary libraries, initialize Earth orientation parameters, download the latest TLE data for all active spacecraft and filter it to select just the ICEYE spacecraft:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:18:27"
+--8<-- "./examples/examples/imaging_opportunities.py:19:28"
 ```
 
 We download all active satellites from CelesTrak and filter for ICEYE spacecraft:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:39:41"
+--8<-- "./examples/examples/imaging_opportunities.py:40:42"
 ```
 
 ## Constellation Visualization
@@ -23,7 +23,7 @@ We download all active satellites from CelesTrak and filter for ICEYE spacecraft
 Before getting further into the analysis, it's useful to visualize the 3D geometry of the constellation. We propagate each satellite for one orbital period and create a 3D visualization:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:65:86"
+--8<-- "./examples/examples/imaging_opportunities.py:66:87"
 ```
 
 The resulting plot shows the ICEYE constellation orbits in 3D space:
@@ -38,7 +38,7 @@ The resulting plot shows the ICEYE constellation orbits in 3D space:
 We define San Francisco as our imaging target:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:96:100"
+--8<-- "./examples/examples/imaging_opportunities.py:97:101"
 ```
 
 ## Constraint Specification
@@ -46,7 +46,7 @@ We define San Francisco as our imaging target:
 In this case, we want to collect a descending-pass, right-looking image collected from between 35 and 45 degrees off-nadir angle. We compose these requirements using Brahe's constraint system:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:116:122"
+--8<-- "./examples/examples/imaging_opportunities.py:117:123"
 ```
 
 This creates a composite constraint that requires **all three conditions** to be satisfied simultaneously:
@@ -60,7 +60,7 @@ This creates a composite constraint that requires **all three conditions** to be
 Now we'll compute all imaging opportunities between the constellation and San Francisco over a 7-day period:
 
 ``` python
---8<-- "./examples/examples/imaging_opportunities.py:128:138"
+--8<-- "./examples/examples/imaging_opportunities.py:129:139"
 ```
 
 Below is a table of the first 10 imaging opportunities. Click on any column header to sort:
@@ -72,7 +72,7 @@ Below is a table of the first 10 imaging opportunities. Click on any column head
 ## Full Code Example
 
 ```python title="imaging_opportunities.py"
---8<-- "./examples/examples/imaging_opportunities.py:18:198"
+--8<-- "./examples/examples/imaging_opportunities.py:19:198"
 ```
 
 ---

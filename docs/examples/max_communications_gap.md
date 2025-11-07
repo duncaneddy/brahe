@@ -11,19 +11,19 @@ The maximum contact gap is a significant factor in the reactivity (speed from re
 First, we'll import the necessary libraries, initialize Earth orientation parameters, download the latest TLE data for all active spacecraft, and filter to select just the Umbra satellites:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:21:32"
+--8<-- "./examples/examples/max_communications_gap.py:22:33"
 ```
 
 We download all active satellite TLEs from CelesTrak as propagators and filter for satellites with "UMBRA" in their name:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:42:45"
+--8<-- "./examples/examples/max_communications_gap.py:43:46"
 ```
 
 Next, we load the 5 specific KSAT ground stations that will support communications:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:52:56"
+--8<-- "./examples/examples/max_communications_gap.py:53:57"
 ```
 
 ## Constellation Visualization
@@ -31,7 +31,7 @@ Next, we load the 5 specific KSAT ground stations that will support communicatio
 Before getting further into the analysis, it's useful to visualize the 3D geometry of the constellation. We propagate each satellite for one orbit and plot their trajectories:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:65:86"
+--8<-- "./examples/examples/max_communications_gap.py:66:87"
 ```
 
 The resulting plot shows the complete Umbra constellation orbiting Earth:
@@ -46,7 +46,7 @@ The resulting plot shows the complete Umbra constellation orbiting Earth:
 To figure out the contact gaps, we first need to compute all ground contacts over the 7-day propagation window. We reset the propagators and compute access windows with a 5° minimum elevation constraint:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:95:110"
+--8<-- "./examples/examples/max_communications_gap.py:96:111"
 ```
 
 ## Max Gap Computation
@@ -54,7 +54,7 @@ To figure out the contact gaps, we first need to compute all ground contacts ove
 Next we'll compute the contact gaps over the course of the simulation. The contact gap is defined as the time between the last contact for a spacecraft and the next contact for that spacecraft. The gap is always computed on a per-spacecraft basis:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:118:148"
+--8<-- "./examples/examples/max_communications_gap.py:119:149"
 ```
 
 The 10 longest contact gaps are shown below:
@@ -66,7 +66,7 @@ The 10 longest contact gaps are shown below:
 The distribution of gaps for the constellation is shown in this histogram:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:205:256"
+--8<-- "./examples/examples/max_communications_gap.py:206:257"
 ```
 
 <div class="plotly-embed">
@@ -77,7 +77,7 @@ The distribution of gaps for the constellation is shown in this histogram:
 To better understand what percentage of gaps fall below a certain duration, we create a cumulative distribution plot. This shows the percentage of gaps that are less than or equal to each duration value:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:261:337"
+--8<-- "./examples/examples/max_communications_gap.py:262:338"
 ```
 
 <div class="plotly-embed">
@@ -92,7 +92,7 @@ The cumulative distribution plot includes reference lines at the 25th, 50th, 75t
 Finally, we'll visualize the 3 longest gaps on a ground track plot to see where they occur. For each gap, we extract the satellite's ground track during that time period and plot it as a colored segment. We also interpolate to the ±180° edges to avoid visual gaps at the antimeridian. This type of visualization can be helpful in understanding ground network design and where additional ground stations might help:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:343:503"
+--8<-- "./examples/examples/max_communications_gap.py:344:504"
 ```
 
 <figure markdown="span">
@@ -103,7 +103,7 @@ Finally, we'll visualize the 3 longest gaps on a ground track plot to see where 
 ## Full Code Example
 
 ```python title="max_communications_gap.py"
---8<-- "./examples/examples/max_communications_gap.py:21:506"
+--8<-- "./examples/examples/max_communications_gap.py:22:507"
 ```
 
 ---

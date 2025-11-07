@@ -11,19 +11,19 @@ To accomplish this we'll define a custom access property computer that calculate
 First, we'll import the necessary libraries, initialize Earth orientation parameters, download the TLE for the ISS (25544) from CelesTrak, and load the NASA Near Earth Network ground station network, and select the Cape Canaveral ground station.
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:21:31"
+--8<-- "./examples/examples/doppler_compensation.py:preamble"
 ```
 
 We download the ISS TLE directly by NORAD ID and load all NASA NEN ground stations:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:125:125"
+--8<-- "./examples/examples/doppler_compensation.py:download_iss"
 ```
 
 Then select Cape Canaveral from the loaded stations:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:134:141"
+--8<-- "./examples/examples/doppler_compensation.py:load_nen_stations"
 ```
 
 ## Custom Doppler Shift Property Computer
@@ -143,7 +143,7 @@ $$
 We create a custom property computer that calculates the line-of-sight velocity from the satellite state and computes Doppler compensation for both S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz):
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:38:117"
+--8<-- "./examples/examples/doppler_compensation.py:custom_doppler_computer"
 ```
 
 The property computer extracts the satellite velocity from the provided ECEF state, projects it onto the line-of-sight unit vector to get the line-of-sight velocity, and applies the Doppler formula for both frequency bands.
@@ -155,7 +155,7 @@ The property computer extracts the satellite velocity from the provided ECEF sta
 Next, we'll compute the access windows between the ISS and the Cape Canaveral ground station over a 72-hour period with our custom Doppler shift property computer to calculate the Doppler compensation required to establish S-band and X-band communications during each access.
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:194:213"
+--8<-- "./examples/examples/doppler_compensation.py:access_computation"
 ```
 
 This computes all access windows where the ISS rises above 5° elevation as viewed from Cape Canaveral, and automatically calculates the Doppler compensation frequencies at the midpoint of each window using our custom property computer.
@@ -165,7 +165,7 @@ This computes all access windows where the ISS rises above 5° elevation as view
 We first visualize the ISS ground track over one orbital period, showing Cape Canaveral's location and its communication cone based on the 5° minimum elevation constraint:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:154:183"
+--8<-- "./examples/examples/doppler_compensation.py:ground_track"
 ```
 
 The resulting plot shows the ISS ground track in red and Cape Canaveral with its communication cone in blue:
@@ -178,18 +178,6 @@ The resulting plot shows the ISS ground track in red and Cape Canaveral with its
 ## Doppler Compensation Analysis
 
 For detailed analysis, we select one access window extract the computed doppler compensation value. This provides a high-resolution profile showing how the Doppler compensation varies as the satellite approaches, reaches closest approach, and recedes:
-
-``` python
---8<-- "./examples/examples/doppler_compensation.py:263:270"
-```
-
-We then visualize the line-of-sight velocity and Doppler compensation requirements over time:
-
-``` python
---8<-- "./examples/examples/doppler_compensation.py:299:390"
-```
-
-The plots below show the line-of-sight velocity and Doppler compensation profiles for a typical ISS pass:
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/doppler_compensation_doppler_light.html" loading="lazy"></iframe>
@@ -205,6 +193,10 @@ The middle and bottom panels show the Doppler compensation frequencies with **op
 
 Note that X-band requires approximately 3.8× more compensation than S-band due to its higher carrier frequency (8.4 GHz vs 2.2 GHz). The uplink compensation includes the $(c - v_{los})$ denominator term for proper pre-compensation.
 
+``` python
+--8<-- "./examples/examples/doppler_compensation.py:doppler_visualization"
+```
+
 ## Doppler Compensation Data
 
 Below is a table of sampled Doppler compensation values during the access window. The compensation frequency indicates the adjustment needed for the ground station equipment:
@@ -219,7 +211,7 @@ Below is a table of sampled Doppler compensation values during the access window
 ## Full Code Example
 
 ```python title="doppler_compensation.py"
---8<-- "./examples/examples/doppler_compensation.py:21:393"
+--8<-- "./examples/examples/doppler_compensation.py:all"
 ```
 
 ---

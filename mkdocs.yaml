@@ -28,6 +28,19 @@ plugins:
     - search
     - table-reader
     # - awesome-nav # Need to spend more time to configure this
+    - minify:
+        minify_html: true
+        minify_js: true
+        minify_css: true
+        htmlmin_opts:
+            remove_comments: true
+        cache_safe: true
+        js_files:
+            - javascripts/katex.js
+            - javascripts/tablesort.js
+        css_files:
+            - stylesheets/extra.css
+            - stylesheets/neoteroi-mkdocs.css
     -   mkdocstrings:
             handlers:
                 python:

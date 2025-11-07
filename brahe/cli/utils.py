@@ -27,14 +27,6 @@ def parse_numeric_expression(expr: Union[str, float]) -> float:
 
     Raises:
         ValueError: If the expression is invalid or unsafe
-
-    Examples:
-        >>> parse_numeric_expression(500000.0)
-        500000.0
-        >>> parse_numeric_expression("R_EARTH+500e3")
-        6878137.0
-        >>> parse_numeric_expression("2*R_EARTH")
-        12756274.0
     """
     # If already a number, return it
     if isinstance(expr, (int, float)):

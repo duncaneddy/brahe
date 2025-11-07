@@ -1354,10 +1354,11 @@ impl PyEpoch {
     ///     float: The day of year as a floating-point number (1.0 to 366.999...)
     ///
     /// Example:
-    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
-    ///     >>> doy = epoch.day_of_year()
-    ///     >>> print(f"Day of year: {doy}")
-    ///     Day of year: 100.5
+    ///     ```python
+    ///     epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
+    ///     doy = epoch.day_of_year()
+    ///     print(f"Day of year: {doy}")
+    ///     ```
     pub fn day_of_year(&self) -> f64 {
         self.obj.day_of_year()
     }
@@ -1374,10 +1375,11 @@ impl PyEpoch {
     ///     float: The day of year as a floating-point number (1.0 to 366.999...)
     ///
     /// Example:
-    ///     >>> epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
-    ///     >>> doy_tai = epoch.day_of_year_as_time_system(brahe.TimeSystem.TAI)
-    ///     >>> print(f"Day of year in TAI: {doy_tai}")
-    ///     Day of year in TAI: 100.50042824074075
+    ///     ```python
+    ///     epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    ///     doy_tai = epoch.day_of_year_as_time_system(brahe.TimeSystem.TAI)
+    ///     print(f"Day of year in TAI: {doy_tai}")
+    ///     ```
     pub fn day_of_year_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
         self.obj.day_of_year_as_time_system(time_system.ts)
     }
@@ -1444,12 +1446,14 @@ impl PyEpoch {
 ///     step (float): Time step in seconds between consecutive epochs
 ///
 /// Examples:
-///     >>> from brahe import Epoch, TimeRange, TimeSystem
-///     >>> start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
-///     >>> end = start + 3600.0  # One hour later
-///     >>> time_range = TimeRange(start, end, 60.0)  # 60-second steps
-///     >>> for epoch in time_range:
-///     ...     print(epoch)
+///     ```python
+///     from brahe import Epoch, TimeRange, TimeSystem
+///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+///     end = start + 3600.0  # One hour later
+///     time_range = TimeRange(start, end, 60.0)  # 60-second steps
+///     for epoch in time_range:
+///         print(epoch)
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TimeRange")]
 struct PyTimeRange {

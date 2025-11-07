@@ -41,6 +41,8 @@ plugins:
                         docstring_section_style: table
                         merge_init_into_class: true
                         show_if_no_docstring: false
+                        filters:
+                            - "!^__.*__$"
                         show_signature_annotations: true
                         separate_signature: true
                         show_root_heading: true

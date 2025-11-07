@@ -1314,10 +1314,11 @@ fn py_norad_id_alpha5_to_numeric(alpha5_id: String) -> PyResult<u32> {
 ///     Epoch: Extracted epoch in UTC time system
 ///
 /// Examples:
-///     >>> line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
-///     >>> epoch = epoch_from_tle(line1)
-///     >>> epoch.year()
-///     2021
+///     ```python
+///     line1 = "1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
+///     epoch = epoch_from_tle(line1)
+///     epoch.year()
+///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(line1)")]
 #[pyo3(name = "epoch_from_tle")]

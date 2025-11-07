@@ -172,11 +172,32 @@ jobs:
           name: sdist
           path: dist-sdist
 
-      - name: Combine artifacts
+      - name: Combine and rename artifacts
         run: |
           mkdir -p dist
-          cp -v dist-wheels/*.whl dist/ 2>/dev/null || echo "No wheels found"
-          cp -v dist-sdist/*.tar.gz dist/ 2>/dev/null || echo "No sdist found"
+
+          # Copy and rename wheels to include "latest" instead of version
+          for wheel in dist-wheels/*.whl 2>/dev/null; do
+            if [ -f "$wheel" ]; then
+              # Extract filename and replace version with "latest"
+              filename=$(basename "$wheel")
+              # Replace version pattern (e.g., 0.1.0, 1.2.3) with "latest"
+              new_filename=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-|\.whl)/-latest\1/')
+              cp -v "$wheel" "dist/$new_filename"
+            fi
+          done
+
+          # Copy and rename sdist to include "latest" instead of version
+          for sdist in dist-sdist/*.tar.gz 2>/dev/null; do
+            if [ -f "$sdist" ]; then
+              filename=$(basename "$sdist")
+              # Replace version pattern with "latest"
+              new_filename=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz/-latest.tar.gz/')
+              cp -v "$sdist" "dist/$new_filename"
+            fi
+          done
+
+          echo "Renamed artifacts:"
           ls -lh dist/
 
       - name: Upload assets to latest release

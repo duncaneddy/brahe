@@ -92,7 +92,7 @@ The cumulative distribution plot includes reference lines at the 25th, 50th, 75t
 Finally, we'll visualize the 3 longest gaps on a ground track plot to see where they occur. For each gap, we extract the satellite's ground track during that time period and plot it as a colored segment. We also interpolate to the ±180° edges to avoid visual gaps at the antimeridian. This type of visualization can be helpful in understanding ground network design and where additional ground stations might help:
 
 ``` python
---8<-- "./examples/examples/max_communications_gap.py:343:502"
+--8<-- "./examples/examples/max_communications_gap.py:343:503"
 ```
 
 <figure markdown="span">
@@ -103,7 +103,7 @@ Finally, we'll visualize the 3 longest gaps on a ground track plot to see where 
 ## Full Code Example
 
 ```python title="max_communications_gap.py"
---8<-- "./examples/examples/max_communications_gap.py:21:502"
+--8<-- "./examples/examples/max_communications_gap.py:21:506"
 ```
 
 ---

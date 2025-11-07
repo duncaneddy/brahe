@@ -32,11 +32,11 @@ It also contains many new features, improvements to core functionality, and bett
     - [x] State Trajectory Plots
     - [x] 3D Orbit Plots
     - [x] Gabbard Plots
-- [ ] Documentation
+- [x] Documentation
     - [x] Automatically compiled and checked code samples
     - [x] User Guide
     - [x] API Reference
-    - [ ] Examples
+    - [x] Examples
 - [x] CI/CD Pipeline
     - [x] Documentation-only fast releases
     - [x] MacOS testing and builds

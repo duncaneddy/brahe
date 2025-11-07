@@ -4,12 +4,21 @@ on:
     push:
         branches:
             - main
-        # Only run if files outside docs/examples/plots changed
-        paths-ignore:
-            - 'docs/**'
+        # Only run if source/test files changed
+        paths:
             - 'examples/**'
             - 'plots/**'
-            - 'mkdocs.yaml'
+            - 'brahe/**'
+            - 'src/**'
+            - 'tests/**'
+            - 'test_assets/**'
+            - 'data/**'
+            - 'Cargo.toml'
+            - 'Cargo.lock'
+            - 'pyproject.toml'
+            - 'uv.lock'
+            - '.github/workflows/unit_tests.yml'
+            - '.github/workflows/test_*.yml'
 
 jobs:
     test-rust:

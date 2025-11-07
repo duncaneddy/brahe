@@ -449,6 +449,7 @@ This shows the formatted output without modifying `CHANGELOG.md` or deleting fra
 ### Releases Without Changelog Fragments
 
 If you create a release when there are no changelog fragments in `news/`:
+
 - The release workflow will succeed
 - A minimal release will be created with "No significant changes"
 - This is useful for releases that only contain dependency updates or internal changes

@@ -177,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_set_num_threads_reinitialize() {
         // Test that we can reinitialize the thread pool without panicking
         set_num_threads(2);
@@ -272,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_max_threads_reflects_set_num_threads() {
         let test_values = [1, 2, 4, 8];
 
@@ -288,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_thread_pool_arc_cloning() {
         // Set initial pool
         set_num_threads(4);

@@ -1214,14 +1214,31 @@ def clean():
         REPO_ROOT / "target",
         REPO_ROOT / "dist",
         REPO_ROOT / "docs" / "site",
+        REPO_ROOT / "build",
+        REPO_ROOT / ".ruff_cache",
+        REPO_ROOT / ".mypy_cache",
+        REPO_ROOT / ".pytest_cache",
     ]
+
+    import shutil
 
     for dir_path in dirs_to_remove:
         if dir_path.exists():
-            import shutil
-
             shutil.rmtree(dir_path)
             console.print(f"Removed {dir_path.relative_to(REPO_ROOT)}")
+
+    # Remove all __pycache__ directories (excluding .venv)
+    for pycache_dir in REPO_ROOT.glob("**/__pycache__"):
+        if pycache_dir.exists() and ".venv" not in pycache_dir.parts:
+            shutil.rmtree(pycache_dir)
+            console.print(f"Removed {pycache_dir.relative_to(REPO_ROOT)}")
+
+    # Remove *.so files in brahe/
+    brahe_dir = REPO_ROOT / "brahe"
+    if brahe_dir.exists():
+        for so_file in brahe_dir.glob("*.so"):
+            so_file.unlink()
+            console.print(f"Removed {so_file.relative_to(REPO_ROOT)}")
 
     # Remove HTML figures
     for html_file in FIGURE_OUTPUT_DIR.glob("*.html"):

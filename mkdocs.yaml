@@ -103,9 +103,11 @@ markdown_extensions:
             permalink: true
             toc_depth: 3
     -   pymdownx.highlight:
+            linenums: true
             anchor_linenums: true
             line_spans: __span
             pygments_lang_class: true
+            linenums_style: table
     -   pymdownx.inlinehilite
     -   pymdownx.snippets
     -   pymdownx.superfences
@@ -266,6 +268,7 @@ nav:
                 - Locations: library_api/access/locations.md
                 - Constraints: library_api/access/constraints.md
                 - Constraint Computer: library_api/access/constraint_computer.md
+                - Properties: library_api/access/properties.md
                 - Windows: library_api/access/windows.md
                 - Enumerations: library_api/access/enums.md
             - Plots:

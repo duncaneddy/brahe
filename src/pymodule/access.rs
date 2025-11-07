@@ -10,7 +10,8 @@ use crate::access::constraints::{
 };
 use crate::access::location::{AccessibleLocation, PointLocation, PolygonLocation};
 use crate::access::properties::{
-    AccessProperties, AccessPropertyComputer, PropertyValue,
+    AccessProperties, AccessPropertyComputer, DopplerComputer, PropertyValue, RangeComputer,
+    RangeRateComputer, SamplingConfig,
 };
 use crate::access::windows::{AccessSearchConfig, AccessWindow};
 use crate::utils::identifiable::Identifiable;
@@ -63,7 +64,7 @@ impl PyPropertiesDict {
         props_dict
             .get_item(&key)?
             .ok_or_else(|| exceptions::PyKeyError::new_err(format!("Key '{}' not found", key)))
-            .map(|item| item.into())
+            .map(|item| item.unbind())
     }
 
     /// Set a property value by key.
@@ -2982,6 +2983,301 @@ impl PyAdditionalPropertiesDict {
 }
 
 // ================================
+// SamplingConfig
+// ================================
+
+/// Sampling configuration for access property computation.
+///
+/// Determines how many times and when to sample satellite states during
+/// an access window for property calculations.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Sample at start, middle, and end
+///     config = bh.SamplingConfig.relative_points([0.0, 0.5, 1.0])
+///
+///     # Sample every 0.1 seconds
+///     config = bh.SamplingConfig.fixed_interval(0.1, 0.0)
+///
+///     # Sample at 10 evenly-spaced points
+///     config = bh.SamplingConfig.fixed_count(10)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SamplingConfig")]
+#[derive(Clone)]
+pub struct PySamplingConfig {
+    config: SamplingConfig,
+}
+
+#[pymethods]
+impl PySamplingConfig {
+    /// Create a midpoint sampling configuration (single sample at window center).
+    ///
+    /// Returns:
+    ///     SamplingConfig: Midpoint sampling configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     config = bh.SamplingConfig.midpoint()
+    ///     ```
+    #[staticmethod]
+    fn midpoint() -> Self {
+        PySamplingConfig {
+            config: SamplingConfig::Midpoint,
+        }
+    }
+
+    /// Create a relative points sampling configuration.
+    ///
+    /// Args:
+    ///     relative_times (list[float]): Relative times from 0.0 (window start) to 1.0 (window end)
+    ///
+    /// Returns:
+    ///     SamplingConfig: Relative points sampling configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     # Sample at start, quarter, middle, three-quarters, and end
+    ///     config = bh.SamplingConfig.relative_points([0.0, 0.25, 0.5, 0.75, 1.0])
+    ///     ```
+    #[staticmethod]
+    fn relative_points(relative_times: Vec<f64>) -> Self {
+        PySamplingConfig {
+            config: SamplingConfig::RelativePoints(relative_times),
+        }
+    }
+
+    /// Create a fixed interval sampling configuration.
+    ///
+    /// Args:
+    ///     interval (float): Time between samples (seconds)
+    ///     offset (float): Time offset from window start (seconds)
+    ///
+    /// Returns:
+    ///     SamplingConfig: Fixed interval sampling configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     # Sample every 0.1 seconds, starting at window open
+    ///     config = bh.SamplingConfig.fixed_interval(0.1, 0.0)
+    ///     ```
+    #[staticmethod]
+    fn fixed_interval(interval: f64, offset: f64) -> Self {
+        PySamplingConfig {
+            config: SamplingConfig::FixedInterval { interval, offset },
+        }
+    }
+
+    /// Create a fixed count sampling configuration.
+    ///
+    /// Args:
+    ///     count (int): Number of evenly-spaced sample points (including endpoints)
+    ///
+    /// Returns:
+    ///     SamplingConfig: Fixed count sampling configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     # Sample at 10 evenly-spaced points
+    ///     config = bh.SamplingConfig.fixed_count(10)
+    ///     ```
+    #[staticmethod]
+    fn fixed_count(count: usize) -> Self {
+        PySamplingConfig {
+            config: SamplingConfig::FixedCount(count),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.config {
+            SamplingConfig::Midpoint => "SamplingConfig.midpoint()".to_string(),
+            SamplingConfig::RelativePoints(times) => {
+                format!("SamplingConfig.relative_points({:?})", times)
+            }
+            SamplingConfig::FixedInterval { interval, offset } => {
+                format!(
+                    "SamplingConfig.fixed_interval(interval={}, offset={})",
+                    interval, offset
+                )
+            }
+            SamplingConfig::FixedCount(count) => {
+                format!("SamplingConfig.fixed_count({})", count)
+            }
+        }
+    }
+}
+
+// ================================
+// Property Computers
+// ================================
+
+/// Computes Doppler shift during access windows.
+///
+/// Calculates uplink and/or downlink Doppler shifts based on satellite velocity
+/// and line-of-sight geometry.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Doppler for GPS L1 downlink
+///     config = bh.SamplingConfig.midpoint()
+///     computer = bh.DopplerComputer(
+///         uplink_frequency=None,
+///         downlink_frequency=1.57542e9,  # Hz
+///         sampling_config=config
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "DopplerComputer")]
+pub struct PyDopplerComputer {
+    #[allow(dead_code)]
+    computer: DopplerComputer,
+}
+
+#[pymethods]
+impl PyDopplerComputer {
+    /// Create a new Doppler computer.
+    ///
+    /// Args:
+    ///     uplink_frequency (float | None): Uplink frequency in Hz (optional)
+    ///     downlink_frequency (float | None): Downlink frequency in Hz (optional)
+    ///     sampling_config (SamplingConfig): Sampling configuration
+    ///
+    /// Returns:
+    ///     DopplerComputer: New Doppler computer instance
+    ///
+    /// Note:
+    ///     At least one frequency (uplink or downlink) must be specified.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     config = bh.SamplingConfig.midpoint()
+    ///     computer = bh.DopplerComputer(None, 1.57542e9, config)
+    ///     ```
+    #[new]
+    fn new(
+        uplink_frequency: Option<f64>,
+        downlink_frequency: Option<f64>,
+        sampling_config: &PySamplingConfig,
+    ) -> Self {
+        PyDopplerComputer {
+            computer: DopplerComputer::new(
+                uplink_frequency,
+                downlink_frequency,
+                sampling_config.config.clone(),
+            ),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DopplerComputer(uplink_frequency={:?}, downlink_frequency={:?})",
+            self.computer.uplink_frequency, self.computer.downlink_frequency
+        )
+    }
+}
+
+/// Computes range (distance) during access windows.
+///
+/// Calculates the distance between satellite and ground location.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     config = bh.SamplingConfig.fixed_interval(0.1 / 86400.0, 0.0)
+///     computer = bh.RangeComputer(config)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "RangeComputer")]
+pub struct PyRangeComputer {
+    #[allow(dead_code)]
+    computer: RangeComputer,
+}
+
+#[pymethods]
+impl PyRangeComputer {
+    /// Create a new range computer.
+    ///
+    /// Args:
+    ///     sampling_config (SamplingConfig): Sampling configuration
+    ///
+    /// Returns:
+    ///     RangeComputer: New range computer instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     config = bh.SamplingConfig.midpoint()
+    ///     computer = bh.RangeComputer(config)
+    ///     ```
+    #[new]
+    fn new(sampling_config: &PySamplingConfig) -> Self {
+        PyRangeComputer {
+            computer: RangeComputer::new(sampling_config.config.clone()),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        "RangeComputer()".to_string()
+    }
+}
+
+/// Computes range rate (radial velocity) during access windows.
+///
+/// Calculates the rate of change of distance between satellite and ground location.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     config = bh.SamplingConfig.fixed_interval(0.1 / 86400.0, 0.0)
+///     computer = bh.RangeRateComputer(config)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "RangeRateComputer")]
+pub struct PyRangeRateComputer {
+    #[allow(dead_code)]
+    computer: RangeRateComputer,
+}
+
+#[pymethods]
+impl PyRangeRateComputer {
+    /// Create a new range rate computer.
+    ///
+    /// Args:
+    ///     sampling_config (SamplingConfig): Sampling configuration
+    ///
+    /// Returns:
+    ///     RangeRateComputer: New range rate computer instance
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     config = bh.SamplingConfig.midpoint()
+    ///     computer = bh.RangeRateComputer(config)
+    ///     ```
+    #[new]
+    fn new(sampling_config: &PySamplingConfig) -> Self {
+        PyRangeRateComputer {
+            computer: RangeRateComputer::new(sampling_config.config.clone()),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        "RangeRateComputer()".to_string()
+    }
+}
+
+// ================================
 // AccessPropertyComputer
 // ================================
 
@@ -3000,35 +3296,56 @@ impl PyAdditionalPropertiesDict {
 ///     import numpy as np
 ///
 ///     class DopplerComputer(bh.AccessPropertyComputer):
-///         '''Computes Doppler shift at window midtime.'''
+///         '''Computes Doppler shift time series during access windows.'''
 ///
-///         def compute(self, window: bh.AccessWindow, satellite_state_ecef: np.ndarray, location_ecef: np.ndarray) -> dict:
+///         def sampling_config(self) -> bh.SamplingConfig:
+///             '''Configure sampling at 1 Hz during access windows.'''
+///             return bh.SamplingConfig.fixed_interval(1.0, 0.0)
+///
+///         def compute(
+///             self,
+///             window: bh.AccessWindow,
+///             sample_epochs: np.ndarray,
+///             sample_states_ecef: np.ndarray,
+///             location_ecef: np.ndarray,
+///             location_geodetic: np.ndarray
+///         ) -> dict:
 ///             '''
 ///             Args:
 ///                 window (AccessWindow): AccessWindow with timing information
-///                 satellite_state_ecef (ndarray): Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+///                 sample_epochs (ndarray): Sample epochs in MJD [N]
+///                 sample_states_ecef (ndarray): Satellite states [N x 6] in ECEF (m, m/s)
 ///                 location_ecef (ndarray or list): Location position [x,y,z] in ECEF (m)
+///                 location_geodetic (ndarray or list): Location geodetic [lon,lat,alt] (deg, deg, m)
 ///
 ///             Returns:
-///                 dict: Property name -> value
+///                 dict: Property name -> value (scalar, list, or dict for time series)
 ///             '''
-///             # Extract velocity
-///             vx, vy, vz = satellite_state_ecef[3:6]
+///             # Compute Doppler shift at each sample
+///             doppler_values = []
+///             for state in sample_states_ecef:
+///                 sat_pos = state[:3]
+///                 sat_vel = state[3:6]
 ///
-///             # Line-of-sight vector
-///             sat_pos = satellite_state_ecef[:3]
-///             los = location_ecef - sat_pos
-///             los_unit = los / np.linalg.norm(los)
+///                 # Line-of-sight vector
+///                 los = sat_pos - location_ecef
+///                 los_unit = los / np.linalg.norm(los)
 ///
-///             # Radial velocity
-///             sat_vel = np.array([vx, vy, vz])
-///             radial_velocity = np.dot(sat_vel, los_unit)
+///                 # Radial velocity
+///                 radial_velocity = np.dot(sat_vel, los_unit)
 ///
-///             # Doppler shift (L-band)
-///             freq_hz = 1.57542e9  # GPS L1
-///             doppler_hz = -radial_velocity * freq_hz / bh.C_LIGHT
+///                 # Doppler shift (L-band)
+///                 freq_hz = 1.57542e9  # GPS L1
+///                 doppler_hz = -radial_velocity * freq_hz / bh.C_LIGHT
+///                 doppler_values.append(doppler_hz)
 ///
-///             return {"doppler_shift": doppler_hz}
+///             # Return time series
+///             return {
+///                 "doppler_shift": {
+///                     "times": sample_epochs.tolist(),
+///                     "values": doppler_values
+///                 }
+///             }
 ///
 ///         def property_names(self) -> list:
 ///             '''Return list of property names this computer produces.'''
@@ -3060,14 +3377,38 @@ impl PyAccessPropertyComputer {
         PyAccessPropertyComputer {}
     }
 
+    /// Return sampling configuration for this property computer.
+    ///
+    /// Override this method to specify how you want the satellite states to be
+    /// sampled during the access window.
+    ///
+    /// Returns:
+    ///     SamplingConfig: The sampling configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     class MyComputer(bh.AccessPropertyComputer):
+    ///         def sampling_config(self) -> bh.SamplingConfig:
+    ///             return bh.SamplingConfig.midpoint()
+    ///     ```
+    fn sampling_config(&self) -> PyResult<PySamplingConfig> {
+        Err(exceptions::PyNotImplementedError::new_err(
+            "Subclasses must implement sampling_config() method",
+        ))
+    }
+
     /// Compute custom properties for an access window.
     ///
     /// Override this method in your subclass to implement custom property calculations.
     ///
     /// Args:
     ///     window (AccessWindow): Access window with timing information
-    ///     satellite_state_ecef (ndarray): Satellite state in ECEF [x,y,z,vx,vy,vz] (meters, m/s)
+    ///     sample_epochs (ndarray): Sample epochs in MJD (Modified Julian Date)
+    ///     sample_states_ecef (ndarray): Satellite states in ECEF (N x 6) [x,y,z,vx,vy,vz] (meters, m/s)
     ///     location_ecef (ndarray or list): Location position in ECEF [x,y,z] (meters)
+    ///     location_geodetic (ndarray or list): Location geodetic coordinates [lon,lat,alt] (radians, meters)
     ///
     /// Returns:
     ///     dict: Dictionary mapping property names (str) to values (scalar, list, dict, etc.)
@@ -3075,8 +3416,10 @@ impl PyAccessPropertyComputer {
     fn compute(
         &self,
         window: &PyAccessWindow,
-        satellite_state_ecef: PyReadonlyArray1<f64>,
+        sample_epochs: PyReadonlyArray1<f64>,
+        sample_states_ecef: PyReadonlyArray2<f64>,
         location_ecef: &Bound<'_, PyAny>,
+        location_geodetic: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyDict>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement compute() method",
@@ -3097,6 +3440,54 @@ impl PyAccessPropertyComputer {
     }
 }
 
+// ================================
+// Property Computer Holder
+// ================================
+
+/// Enum to hold either a native Rust property computer or a Python-wrapped one.
+/// This allows built-in property computers to execute purely in Rust without
+/// Python round-trip overhead, while custom Python property computers use the wrapper.
+enum PropertyComputerHolder {
+    /// Native Rust property computer (built-in types like DopplerComputer)
+    RustNative(Box<dyn AccessPropertyComputer>),
+    /// Python-defined property computer wrapped for Rust trait system
+    PythonWrapper(RustAccessPropertyComputerWrapper),
+}
+
+impl AccessPropertyComputer for PropertyComputerHolder {
+    fn sampling_config(&self) -> SamplingConfig {
+        match self {
+            PropertyComputerHolder::RustNative(computer) => computer.sampling_config(),
+            PropertyComputerHolder::PythonWrapper(wrapper) => wrapper.sampling_config(),
+        }
+    }
+
+    fn compute(
+        &self,
+        window: &AccessWindow,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
+        location_ecef: &nalgebra::Vector3<f64>,
+        location_geodetic: &nalgebra::Vector3<f64>,
+    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+        match self {
+            PropertyComputerHolder::RustNative(computer) => {
+                computer.compute(window, sample_epochs, sample_states_ecef, location_ecef, location_geodetic)
+            }
+            PropertyComputerHolder::PythonWrapper(wrapper) => {
+                wrapper.compute(window, sample_epochs, sample_states_ecef, location_ecef, location_geodetic)
+            }
+        }
+    }
+
+    fn property_names(&self) -> Vec<String> {
+        match self {
+            PropertyComputerHolder::RustNative(computer) => computer.property_names(),
+            PropertyComputerHolder::PythonWrapper(wrapper) => wrapper.property_names(),
+        }
+    }
+}
+
 // Internal wrapper that implements the Rust AccessPropertyComputer trait
 // by calling Python methods
 #[allow(dead_code)]
@@ -3112,21 +3503,54 @@ impl RustAccessPropertyComputerWrapper {
 }
 
 impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
+    fn sampling_config(&self) -> SamplingConfig {
+        Python::attach(|py| {
+            let py_obj = self.py_computer.bind(py);
+            py_obj
+                .call_method0("sampling_config")
+                .and_then(|result| {
+                    let py_config: &Bound<'_, PyAny> = &result;
+                    // Try to extract as PySamplingConfig
+                    if let Ok(config) = py_config.extract::<PySamplingConfig>() {
+                        Ok(config.config.clone())
+                    } else {
+                        Err(pyo3::PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                            "sampling_config() must return a SamplingConfig",
+                        ))
+                    }
+                })
+                .unwrap_or(SamplingConfig::Midpoint)
+        })
+    }
+
     fn compute(
         &self,
         window: &AccessWindow,
-        state_provider: &dyn crate::propagators::traits::StateProvider,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
-        _location_geodetic: &nalgebra::Vector3<f64>,
+        location_geodetic: &nalgebra::Vector3<f64>,
     ) -> Result<HashMap<String, PropertyValue>, BraheError> {
         Python::attach(|py| {
-            // Get satellite state at midtime
-            let midtime = window.midtime();
-            let sat_state = state_provider.state_ecef(midtime);
+            // Convert sample_epochs to numpy array (1D)
+            let epochs_array = sample_epochs.to_pyarray(py).to_owned();
 
-            // Convert to numpy arrays
-            let sat_state_array = sat_state.as_slice().to_pyarray(py).to_owned();
+            // Convert sample_states_ecef to numpy array (N x 6)
+            let states_array = numpy::PyArray2::from_vec2(
+                py,
+                &sample_states_ecef
+                    .iter()
+                    .map(|state| state.as_slice().to_vec())
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(|e| BraheError::Error(format!("Failed to create states array: {}", e)))?
+            .to_owned();
+
+            // Convert location_ecef to numpy array
             let loc_array = location_ecef.as_slice().to_pyarray(py).to_owned();
+
+            // Convert location_geodetic to numpy array
+            let loc_geodetic_array = location_geodetic.as_slice().to_pyarray(py).to_owned();
 
             // Create Python AccessWindow
             let py_window = Py::new(
@@ -3140,7 +3564,10 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
             // Call Python compute method
             let py_obj = self.py_computer.bind(py);
             let result_dict = py_obj
-                .call_method1("compute", (py_window, sat_state_array, loc_array))
+                .call_method1(
+                    "compute",
+                    (py_window, epochs_array, states_array, loc_array, loc_geodetic_array),
+                )
                 .map_err(|e| {
                     BraheError::Error(format!("Python compute() method failed: {}", e))
                 })?;
@@ -3777,10 +4204,29 @@ fn py_location_accesses(
     };
 
     // Process property computers if provided
-    let rust_property_computers: Vec<RustAccessPropertyComputerWrapper> = if let Some(computers) = property_computers {
+    // Try to extract built-in Rust computers directly for zero-overhead execution,
+    // otherwise wrap Python-defined computers
+    let rust_property_computers: Vec<PropertyComputerHolder> = if let Some(computers) = property_computers {
         computers
             .into_iter()
-            .map(RustAccessPropertyComputerWrapper::new)
+            .map(|py_computer| {
+                Python::attach(|py| {
+                    let obj = py_computer.bind(py);
+
+                    // Try to extract as built-in property computers
+                    // If successful, use the underlying Rust implementation directly
+                    if let Ok(doppler) = obj.downcast::<PyDopplerComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
+                    } else if let Ok(range) = obj.downcast::<PyRangeComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
+                    } else if let Ok(range_rate) = obj.downcast::<PyRangeRateComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
+                    } else {
+                        // Custom Python property computer - use wrapper
+                        PropertyComputerHolder::PythonWrapper(RustAccessPropertyComputerWrapper::new(py_computer))
+                    }
+                })
+            })
             .collect()
     } else {
         Vec::new()
@@ -3851,7 +4297,7 @@ fn py_location_accesses(
                 time_tolerance,
             )
         }
-    });
+    })?;
 
     // Convert to Python windows
     Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect())

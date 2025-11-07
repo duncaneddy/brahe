@@ -17,13 +17,13 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 We download the ISS TLE directly by NORAD ID and load all NASA NEN ground stations:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:92:93"
+--8<-- "./examples/examples/doppler_compensation.py:125:125"
 ```
 
 Then select Cape Canaveral from the loaded stations:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:102:109"
+--8<-- "./examples/examples/doppler_compensation.py:134:141"
 ```
 
 ## Custom Doppler Shift Property Computer
@@ -143,7 +143,7 @@ $$
 We create a custom property computer that calculates the line-of-sight velocity from the satellite state and computes Doppler compensation for both S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz):
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:38:84"
+--8<-- "./examples/examples/doppler_compensation.py:38:117"
 ```
 
 The property computer extracts the satellite velocity from the provided ECEF state, projects it onto the line-of-sight unit vector to get the line-of-sight velocity, and applies the Doppler formula for both frequency bands.
@@ -155,7 +155,7 @@ The property computer extracts the satellite velocity from the provided ECEF sta
 Next, we'll compute the access windows between the ISS and the Cape Canaveral ground station over a 72-hour period with our custom Doppler shift property computer to calculate the Doppler compensation required to establish S-band and X-band communications during each access.
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:164:188"
+--8<-- "./examples/examples/doppler_compensation.py:194:213"
 ```
 
 This computes all access windows where the ISS rises above 5° elevation as viewed from Cape Canaveral, and automatically calculates the Doppler compensation frequencies at the midpoint of each window using our custom property computer.
@@ -165,7 +165,7 @@ This computes all access windows where the ISS rises above 5° elevation as view
 We first visualize the ISS ground track over one orbital period, showing Cape Canaveral's location and its communication cone based on the 5° minimum elevation constraint:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:123:162"
+--8<-- "./examples/examples/doppler_compensation.py:154:183"
 ```
 
 The resulting plot shows the ISS ground track in red and Cape Canaveral with its communication cone in blue:
@@ -177,16 +177,16 @@ The resulting plot shows the ISS ground track in red and Cape Canaveral with its
 
 ## Doppler Compensation Analysis
 
-For detailed analysis, we select one access window and sample the Doppler shift at 0.1 second intervals throughout the pass. This provides a high-resolution profile showing how the Doppler compensation varies as the satellite approaches, reaches closest approach, and recedes:
+For detailed analysis, we select one access window extract the computed doppler compensation value. This provides a high-resolution profile showing how the Doppler compensation varies as the satellite approaches, reaches closest approach, and recedes:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:213:283"
+--8<-- "./examples/examples/doppler_compensation.py:263:270"
 ```
 
 We then visualize the line-of-sight velocity and Doppler compensation requirements over time:
 
 ``` python
---8<-- "./examples/examples/doppler_compensation.py:304:385"
+--8<-- "./examples/examples/doppler_compensation.py:299:390"
 ```
 
 The plots below show the line-of-sight velocity and Doppler compensation profiles for a typical ISS pass:
@@ -219,7 +219,7 @@ Below is a table of sampled Doppler compensation values during the access window
 ## Full Code Example
 
 ```python title="doppler_compensation.py"
---8<-- "./examples/examples/doppler_compensation.py:21:394"
+--8<-- "./examples/examples/doppler_compensation.py:21:393"
 ```
 
 ---

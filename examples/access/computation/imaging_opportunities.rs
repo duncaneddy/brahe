@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None,
         Some(&config),
         None,
-    );
+    )?;
 
     println!("Found {} imaging opportunities", windows.len());
 

@@ -16,6 +16,7 @@ use crate::orbits::keplerian::orbital_period_from_state;
 use crate::propagators::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::traits::Identifiable;
+use crate::utils::BraheError;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
 
@@ -636,10 +637,32 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
             properties: properties.clone(),
         };
 
-        // Use propagator's StateProvider trait directly
+        // Use propagator's StateProvider trait with sampling
         for computer in computers {
-            let additional =
-                computer.compute(&temp_window, propagator, &location_ecef, &location_geodetic)?;
+            // Get sampling configuration
+            let sampling_config = computer.sampling_config();
+
+            // Generate sample epochs based on configuration
+            let sample_epochs = sampling_config.generate_sample_epochs(window_open, window_close);
+
+            // Get states at sample epochs
+            let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
+                .iter()
+                .map(|&epoch| propagator.state_ecef(epoch))
+                .collect();
+
+            // Convert epochs to MJD for property computer interface
+            let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
+
+            // Compute properties with sampled states
+            let additional = computer.compute(
+                &temp_window,
+                &sample_epochs_mjd,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )?;
+
             for (key, value) in additional {
                 properties.add_property(key, value);
             }
@@ -682,7 +705,7 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStat
 /// * `time_tolerance` - Boundary refinement tolerance (default: 0.001 seconds, ~0.01° elevation precision)
 ///
 /// # Returns
-/// List of complete AccessWindow objects
+/// Result containing list of complete AccessWindow objects, or error if property computation fails
 #[allow(clippy::too_many_arguments)]
 pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
     location: &L,
@@ -693,7 +716,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     time_step: Option<f64>,
     time_tolerance: Option<f64>,
-) -> Vec<AccessWindow> {
+) -> Result<Vec<AccessWindow>, BraheError> {
     let time_tolerance = time_tolerance.unwrap_or(0.001);
 
     // Create search config from time_step parameter
@@ -768,26 +791,14 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
             coarse_end
         };
 
-        // Compute properties (with error reporting)
-        let properties = match compute_window_properties_internal(
+        // Compute properties (propagate errors instead of skipping)
+        let properties = compute_window_properties_internal(
             refined_start,
             refined_end,
             location,
             propagator,
             property_computers,
-        ) {
-            Ok(props) => props,
-            Err(e) => {
-                // Log error and skip this window
-                eprintln!(
-                    "Warning: Skipping access window due to property computation error: {}",
-                    e
-                );
-                eprintln!("  Window start: {:?}", refined_start);
-                eprintln!("  Window end: {:?}", refined_end);
-                continue;
-            }
-        };
+        )?;
 
         // Create complete window
         windows.push(AccessWindow::new(
@@ -799,7 +810,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         ));
     }
 
-    windows
+    Ok(windows)
 }
 
 #[cfg(test)]
@@ -987,7 +998,8 @@ mod tests {
             None,
             Some(60.0),
             Some(0.1),
-        );
+        )
+        .unwrap();
 
         // Should find at least one window
         assert!(
@@ -1232,7 +1244,8 @@ mod tests {
             None,
             Some(60.0), // Grid step
             None,       // Use default time tolerance
-        );
+        )
+        .unwrap();
 
         // Should find at least one window
         assert!(

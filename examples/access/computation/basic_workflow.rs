@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None, // Use default config
         None, // No custom property computers
         None, // No progress callback
-    );
+    )?;
 
     // Process results
     println!("Found {} access windows", windows.len());

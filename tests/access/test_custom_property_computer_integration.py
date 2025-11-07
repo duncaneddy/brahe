@@ -6,6 +6,7 @@ the location access computation pipeline and that computed properties are
 correctly attached to access windows.
 """
 
+import pytest
 import brahe as bh
 import numpy as np
 
@@ -18,21 +19,31 @@ class NorthernHemispherePropertyComputer(bh.AccessPropertyComputer):
     satellite's ECEF z-coordinate is >= 0 (northern hemisphere).
     """
 
-    def compute(self, window, satellite_state_ecef, location_ecef):
+    def compute(
+        self,
+        window,
+        sample_epochs,
+        sample_states_ecef,
+        location_ecef,
+        location_geodetic,
+    ):
         """
         Check if satellite is in northern hemisphere at window midtime.
 
         Args:
             window: AccessWindow object
-            satellite_state_ecef: Satellite state vector [x, y, z, vx, vy, vz] in ECEF
+            sample_epochs: Sample epochs in MJD
+            sample_states_ecef: Satellite states in ECEF (N×6 array)
             location_ecef: Location position [x, y, z] in ECEF
+            location_geodetic: Location geodetic coordinates [lon, lat, alt] in radians/meters
 
         Returns:
             dict: Property dictionary with 'northern_hemisphere' boolean
         """
-        # The state passed in is at midtime by the RustAccessPropertyComputerWrapper
+        # Use the midpoint state (middle of the sample array)
         # Check if z-coordinate >= 0 (northern hemisphere in ECEF)
-        z_coord = satellite_state_ecef[2]
+        mid_idx = len(sample_states_ecef) // 2
+        z_coord = sample_states_ecef[mid_idx, 2]
 
         return {"northern_hemisphere": bool(z_coord >= 0.0)}
 
@@ -165,18 +176,28 @@ def test_custom_property_computer_polar_orbit():
     print("✓ Property computer correctly distinguishes satellite hemisphere")
 
 
-def test_property_computer_error_handling(capfd):
+def test_property_computer_error_handling():
     """
-    Test that property computer errors are properly reported to the user.
+    Test that property computer errors are properly propagated to the user.
 
-    When a property computer raises an exception, the error should be logged
-    to stderr and the window should be skipped.
+    When a property computer raises an exception, the error should be propagated
+    immediately to the caller instead of silently skipping windows.
     """
 
     class BrokenPropertyComputer(bh.AccessPropertyComputer):
         """Property computer that intentionally errors."""
 
-        def compute(self, window, satellite_state_ecef, location_ecef):
+        def sampling_config(self):
+            return bh.SamplingConfig.midpoint()
+
+        def compute(
+            self,
+            window,
+            sample_epochs,
+            sample_states_ecef,
+            location_ecef,
+            location_geodetic,
+        ):
             raise ValueError("Intentional test error!")
 
         def property_names(self):
@@ -202,38 +223,27 @@ def test_property_computer_error_handling(capfd):
 
     broken_computer = BrokenPropertyComputer()
 
-    # Run with broken property computer
-    windows = bh.location_accesses(
-        location,
-        propagator,
-        epoch,
-        search_end,
-        constraint,
-        property_computers=[broken_computer],
-        config=config,
-    )
+    with pytest.raises(Exception) as exc_info:
+        bh.location_accesses(
+            location,
+            propagator,
+            epoch,
+            search_end,
+            constraint,
+            property_computers=[broken_computer],
+            config=config,
+        )
 
-    # Should find 0 windows since all fail property computation
-    assert len(windows) == 0, (
-        f"Expected 0 windows (all should fail), found {len(windows)}"
-    )
-
-    # Check that error messages were printed to stderr
-    captured = capfd.readouterr()
-    assert "Warning: Skipping access window" in captured.err, (
-        "Expected warning message in stderr"
-    )
-    assert "property computation error" in captured.err, (
-        "Expected property computation error message"
-    )
-    assert "Intentional test error" in captured.err, (
-        "Expected specific error message from broken computer"
+    # Verify the error message contains our intentional error
+    error_msg = str(exc_info.value)
+    assert "Intentional test error" in error_msg, (
+        f"Expected 'Intentional test error' in error message, got: {error_msg}"
     )
 
     print(
-        "\n✓ Error handling working: broken property computer errors are reported to user"
+        "\n✓ Error handling working: broken property computer errors are propagated to caller"
     )
-    print(f"✓ Found {captured.err.count('Warning')} warning messages in stderr")
+    print(f"✓ Error message: {exc_info.value}")
 
 
 def test_property_computer_is_called():
@@ -249,7 +259,14 @@ def test_property_computer_is_called():
         def __init__(self):
             self.call_count = 0
 
-        def compute(self, window, satellite_state_ecef, location_ecef):
+        def compute(
+            self,
+            window,
+            sample_epochs,
+            sample_states_ecef,
+            location_ecef,
+            location_geodetic,
+        ):
             self.call_count += 1
             return {"call_number": float(self.call_count)}
 
@@ -312,4 +329,74 @@ def test_property_computer_is_called():
 
     print(
         f"\n✓ Property computer called {tracker.call_count} times for {len(windows)} windows"
+    )
+
+
+def test_property_computer_wrong_signature_raises_error():
+    """
+    Test that property computer with wrong signature raises clear error.
+
+    This test verifies that when a user provides a property computer with an
+    incorrect compute() signature (e.g., missing location_geodetic parameter),
+    the error is immediately raised instead of silently returning 0 accesses.
+    """
+
+    class WrongSignatureComputer(bh.AccessPropertyComputer):
+        """Property computer with INTENTIONALLY WRONG signature for testing."""
+
+        def sampling_config(self):
+            return bh.SamplingConfig.midpoint()
+
+        def compute(self, window, sample_epochs, sample_states_ecef, location_ecef):
+            """
+            WRONG: Missing location_geodetic parameter!
+
+            This signature is intentionally missing the required location_geodetic parameter
+            to test that the error is caught and propagated properly.
+            """
+            return {"dummy_property": 42.0}
+
+        def property_names(self):
+            return ["dummy_property"]
+
+    # Set up test scenario
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+
+    oe = np.array([bh.R_EARTH + 500e3, 0.0, np.radians(45.0), 0.0, 0.0, 0.0])
+    propagator = bh.KeplerianPropagator(
+        epoch,
+        oe,
+        frame=bh.OrbitFrame.ECI,
+        representation=bh.OrbitRepresentation.KEPLERIAN,
+        angle_format=bh.AngleFormat.RADIANS,
+        step_size=60.0,
+    )
+
+    period = 5676.0
+    search_end = epoch + period
+
+    constraint = bh.ElevationConstraint(5.0)
+
+    # Create computer with wrong signature
+    wrong_computer = WrongSignatureComputer()
+
+    with pytest.raises(Exception) as exc_info:
+        bh.location_accesses(
+            location,
+            propagator,
+            epoch,
+            search_end,
+            constraint,
+            property_computers=[wrong_computer],
+        )
+
+    # Verify the error message mentions the signature issue
+    error_msg = str(exc_info.value).lower()
+    assert (
+        "compute()" in error_msg or "takes" in error_msg or "positional" in error_msg
+    ), f"Error message should mention signature issue, got: {exc_info.value}"
+
+    print(
+        f"\n✓ Property computer with wrong signature correctly raised error: {exc_info.value}"
     )

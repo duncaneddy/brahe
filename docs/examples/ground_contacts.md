@@ -53,9 +53,9 @@ We'll compute the ground contacts between NISAR and the NASA Near Earth Network 
 
 Below is the table of the first 20 contact windows. Click on any column header to sort:
 
-<!-- <div markdown="1" data-sortable="true"> -->
+<div class="center-table" markdown="1">
 {{ read_csv('figures/ground_contacts_windows.csv') }}
-<!-- </div> -->
+</div>
 
 ## Analyze Contact Statistics
 

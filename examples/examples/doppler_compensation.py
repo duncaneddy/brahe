@@ -9,9 +9,9 @@ Calculating Doppler Compensation for ISS Communication
 This example demonstrates how to:
 1. Download TLE data for the ISS from CelesTrak
 2. Load NASA Near Earth Network ground stations
-3. Create a custom property computer for Doppler shift calculation
-4. Compute access windows with Doppler compensation frequencies
-5. Analyze detailed Doppler profile during a single pass
+3. Create a custom property computer with time-series sampling for Doppler shift
+4. Compute access windows with Doppler compensation time series (sampled at 0.1s)
+5. Extract and analyze detailed Doppler profiles during passes
 6. Visualize ground track and Doppler shift over time
 
 The example shows S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz) Doppler
@@ -41,47 +41,82 @@ X_BAND_FREQ = 8.4e9  # Hz (downlink)
 
 
 class DopplerComputer(bh.AccessPropertyComputer):
-    """Compute Doppler shift for S-band and X-band communications."""
+    """Compute Doppler shift time series for S-band and X-band communications."""
 
-    def compute(self, window, satellite_state_ecef, location_ecef):
-        """Calculate Doppler compensation frequencies at window midpoint.
+    def sampling_config(self):
+        """Configure sampling at 10 Hz during access windows."""
+        interval_hz = 10.0  # 10 samples per second
+        interval_s = 1.0 / interval_hz
+        return bh.SamplingConfig.fixed_interval(interval_s, 0.0)
+
+    def compute(
+        self, window, sample_times, sample_states_ecef, location_ecef, location_geodetic
+    ):
+        """Calculate Doppler compensation frequencies at each sample point.
 
         Args:
             window: AccessWindow with timing information
-            satellite_state_ecef: Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
-            location_ecef: Location position [x,y,z] in ECEF (m)
+            sample_times: Sample epochs in MJD [N]
+            sample_states_ecef: Satellite states [N x 6] in ECEF (m, m/s)
+            location_ecef: Location position [3] in ECEF (m)
+            location_geodetic: Location geodetic coords [lon, lat, alt] in (degrees, degrees, m)
 
         Returns:
-            dict: Doppler compensation frequencies in Hz
+            dict: Time series of Doppler compensation frequencies in Hz
         """
-        # Extract satellite position and velocity
-        sat_pos = np.array(satellite_state_ecef[:3])
-        sat_vel = np.array(satellite_state_ecef[3:6])
         loc_pos = np.array(location_ecef)
 
-        # Compute line-of-sight vector (from ground station to satellite)
-        los_vec = sat_pos - loc_pos
-        los_unit = los_vec / np.linalg.norm(los_vec)
+        # Compute Doppler at each sample point
+        doppler_s_band_list = []
+        doppler_x_band_list = []
+        v_los_list = []
 
-        # Compute line-of-sight velocity (negative when approaching, positive when receding)
-        v_los = np.dot(sat_vel, los_unit)
+        for state in sample_states_ecef:
+            # Extract satellite position and velocity
+            sat_pos = state[:3]
+            sat_vel = state[3:6]
 
-        # Compute Doppler compensation from first principles
-        # Uplink (S-band): Δf_x = f_x^0 × v_los / (c - v_los)
-        #   Ground pre-compensates transmit frequency so spacecraft receives design frequency
-        # Downlink (X-band): Δf_r = -f_x^d × v_los / c
-        #   Ground adjusts receive frequency to match Doppler-shifted spacecraft transmission
-        doppler_s_band = S_BAND_FREQ * v_los / (bh.C_LIGHT - v_los)  # Uplink
-        doppler_x_band = -X_BAND_FREQ * v_los / bh.C_LIGHT  # Downlink
+            # Compute line-of-sight vector (from ground station to satellite)
+            los_vec = sat_pos - loc_pos
+            los_unit = los_vec / np.linalg.norm(los_vec)
 
+            # Compute line-of-sight velocity (negative when approaching, positive when receding)
+            v_los = np.dot(sat_vel, los_unit)
+
+            # Compute Doppler compensation from first principles
+            # Uplink (S-band): Δf_x = f_x^0 × v_los / (c - v_los)
+            #   Ground pre-compensates transmit frequency so spacecraft receives design frequency
+            # Downlink (X-band): Δf_r = -f_x^d × v_los / c
+            #   Ground adjusts receive frequency to match Doppler-shifted spacecraft transmission
+            doppler_s = S_BAND_FREQ * v_los / (bh.C_LIGHT - v_los)  # Uplink
+            doppler_x = -X_BAND_FREQ * v_los / bh.C_LIGHT  # Downlink
+
+            doppler_s_band_list.append(doppler_s)
+            doppler_x_band_list.append(doppler_x)
+            v_los_list.append(v_los)
+
+        # Convert sample times to relative times (seconds from window open)
+        relative_times = (sample_times - window.window_open.mjd()) * 86400.0
+
+        # Return as time series
         return {
-            "doppler_s_band": float(doppler_s_band),
-            "doppler_x_band": float(doppler_x_band),
+            "doppler_s_band": {
+                "times": relative_times.tolist(),
+                "values": doppler_s_band_list,
+            },
+            "doppler_x_band": {
+                "times": relative_times.tolist(),
+                "values": doppler_x_band_list,
+            },
+            "v_los": {
+                "times": relative_times.tolist(),
+                "values": v_los_list,
+            },
         }
 
     def property_names(self):
         """List properties this computer provides."""
-        return ["doppler_s_band", "doppler_x_band"]
+        return ["doppler_s_band", "doppler_x_band", "v_los"]
 
 
 # Download TLE data for ISS from CelesTrak
@@ -90,7 +125,6 @@ class DopplerComputer(bh.AccessPropertyComputer):
 print("Downloading ISS TLE from CelesTrak...")
 start_time = time.time()
 iss = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
-iss = iss.with_name("ISS")
 elapsed = time.time() - start_time
 print(f"Downloaded ISS TLE in {elapsed:.2f} seconds.")
 print(f"Epoch: {iss.epoch}")
@@ -117,17 +151,13 @@ print(f"Loaded {len(nen_stations)} NASA NEN ground stations in {elapsed:.2f} sec
 
 
 # Propagate ISS for one orbit to create ground track visualization
-print("\nPropagating ISS for one orbit...")
 start_time = time.time()
+print("\nCreating ground track visualization...")
 orbital_period = bh.orbital_period(iss.semi_major_axis)
 iss.propagate_to(iss.epoch + orbital_period)
-elapsed = time.time() - start_time
-print(f"Orbital period: {orbital_period / 60:.1f} minutes")
-print(f"Propagated ISS for one orbit in {elapsed:.2f} seconds.")
+
 
 # Create ground track visualization
-print("\nCreating ground track visualization...")
-start_time = time.time()
 fig_groundtrack = bh.plot_groundtrack(
     trajectories=[
         {
@@ -148,7 +178,6 @@ fig_groundtrack = bh.plot_groundtrack(
     ],
     gs_cone_altitude=iss.semi_major_axis - bh.R_EARTH,
     gs_min_elevation=5.0,
-    basemap="natural_earth",
     show_borders=True,
     show_coastlines=True,
     show_legend=False,
@@ -158,6 +187,7 @@ elapsed = time.time() - start_time
 print(f"Created ground track visualization in {elapsed:.2f} seconds.")
 
 # Reset propagator and compute 72-hour access windows with Doppler properties
+start_time = time.time()
 print("\nComputing 72-hour access windows with Doppler compensation...")
 iss.reset()
 
@@ -171,7 +201,6 @@ iss.propagate_to(epoch_end)
 constraint = bh.ElevationConstraint(min_elevation_deg=5.0)
 doppler_computer = DopplerComputer()
 
-start_time = time.time()
 windows = bh.location_accesses(
     [cape_canaveral],
     [iss],
@@ -189,20 +218,27 @@ if len(windows) == 0:
 
 # Print sample of access windows with Doppler properties
 print("\n" + "=" * 100)
-print("Sample Access Windows with Doppler Compensation (first 5)")
+print("Sample Access Windows with Doppler Time Series (first 5)")
 print("=" * 100)
 print(
-    f"{'Start Time':<25} {'Duration':>10} {'Max Elev':>10} {'S-band Δf':>13} {'X-band Δf':>13}"
+    f"{'Start Time':<25} {'Duration':>10} {'Max Elev':>10} {'# Samples':>10} {'Peak S-band':>13} {'Peak X-band':>13}"
 )
 print("-" * 100)
 for i, window in enumerate(windows[:5]):
     duration_min = window.duration / 60.0
     max_elev = window.properties.elevation_max
-    doppler_s = window.properties.additional.get("doppler_s_band", 0.0) / 1000.0
-    doppler_x = window.properties.additional.get("doppler_x_band", 0.0) / 1000.0
+
+    # Extract time series data
+    doppler_s_ts = window.properties.additional["doppler_s_band"]
+    doppler_x_ts = window.properties.additional["doppler_x_band"]
+
+    n_samples = len(doppler_s_ts["values"])
+    peak_s = max(abs(v) for v in doppler_s_ts["values"]) / 1000.0
+    peak_x = max(abs(v) for v in doppler_x_ts["values"]) / 1000.0
+
     start_str = str(window.start).split(".")[0]  # Remove fractional seconds
     print(
-        f"{start_str:<25} {duration_min:>8.1f} m {max_elev:>8.1f}° {doppler_s:>10.2f} kHz {doppler_x:>10.2f} kHz"
+        f"{start_str:<25} {duration_min:>8.1f} m {max_elev:>8.1f}° {n_samples:>10} {peak_s:>10.2f} kHz {peak_x:>10.2f} kHz"
     )
 print("=" * 100)
 
@@ -222,61 +258,25 @@ print(
 )
 print(f"Window duration: {selected_window.duration / 60:.1f} minutes")
 
-# Sample Doppler shift at 0.1 second intervals during the selected window
-sample_interval = 0.1  # seconds
-num_samples = int(selected_window.duration / sample_interval) + 1
-
-times_utc = []
-times_rel = []  # Relative to window start
-doppler_s_band_list = []
-doppler_x_band_list = []
-v_los_list = []
-
-# Get Cape Canaveral position in ECEF
-cape_ecef = np.array(cape_canaveral.center_ecef())
-
-print(f"Sampling Doppler at {num_samples} points (0.1s interval)...")
+# Extract precomputed time series from window properties
+print("Extracting precomputed Doppler time series...")
 start_time = time.time()
 
-for i in range(num_samples):
-    # Compute epoch for this sample
-    t_rel = i * sample_interval
-    epoch = selected_window.start + t_rel
+doppler_s_ts = selected_window.properties.additional["doppler_s_band"]
+doppler_x_ts = selected_window.properties.additional["doppler_x_band"]
+v_los_ts = selected_window.properties.additional["v_los"]
 
-    # Get ISS state at this epoch from trajectory
-    # Use linear interpolation to get state at exact epoch
-    state_eci = iss.trajectory.interpolate_linear(epoch)
+# Convert relative times to UTC epochs
+times_utc = [selected_window.start + t for t in doppler_s_ts["times"]]
 
-    # Convert to ECEF
-    state_ecef = bh.state_eci_to_ecef(epoch, state_eci)
-
-    # Extract position and velocity
-    sat_pos = state_ecef[:3]
-    sat_vel = state_ecef[3:6]
-
-    # Compute line-of-sight vector (from ground station to satellite)
-    los_vec = sat_pos - cape_ecef
-    los_unit = los_vec / np.linalg.norm(los_vec)
-
-    # Compute line-of-sight velocity
-    v_los = np.dot(sat_vel, los_unit)
-
-    # Compute Doppler compensation frequency
-    doppler_s = S_BAND_FREQ * v_los / (bh.C_LIGHT - v_los)  # Uplink
-    doppler_x = -X_BAND_FREQ * v_los / bh.C_LIGHT  # Downlink
-
-    times_utc.append(epoch)
-    times_rel.append(t_rel)
-    doppler_s_band_list.append(doppler_s)
-    doppler_x_band_list.append(doppler_x)
-    v_los_list.append(v_los)
+num_samples = len(doppler_s_ts["times"])
 
 elapsed = time.time() - start_time
-print(f"Sampled Doppler profile in {elapsed:.2f} seconds.")
+print(f"Extracted {num_samples} samples (0.1s interval) in {elapsed:.2f} seconds.")
 
 # Export ~10 evenly-spaced samples to CSV
 csv_path = OUTDIR / f"{SCRIPT_NAME}_data.csv"
-num_csv_samples = 10
+num_csv_samples = 11
 csv_indices = np.linspace(0, len(times_utc) - 1, num_csv_samples, dtype=int)
 
 with open(csv_path, "w", newline="") as csvfile:
@@ -287,8 +287,8 @@ with open(csv_path, "w", newline="") as csvfile:
         writer.writerow(
             [
                 time_str,
-                f"{doppler_s_band_list[idx] / 1000.0:.2f}",
-                f"{doppler_x_band_list[idx] / 1000.0:.2f}",
+                f"{doppler_s_ts['values'][idx] / 1000.0:.2f}",
+                f"{doppler_x_ts['values'][idx] / 1000.0:.2f}",
             ]
         )
 
@@ -299,10 +299,10 @@ print("\nCreating Doppler compensation visualization...")
 start_time = time.time()
 
 # Convert times to minutes relative to window start for better readability
-times_rel_min = [t / 60.0 for t in times_rel]
-doppler_s_band_khz = [d / 1000.0 for d in doppler_s_band_list]
-doppler_x_band_khz = [d / 1000.0 for d in doppler_x_band_list]
-v_los_km_s = [v / 1000.0 for v in v_los_list]  # Convert m/s to km/s
+times_rel_min = [t / 60.0 for t in doppler_s_ts["times"]]
+doppler_s_band_khz = [d / 1000.0 for d in doppler_s_ts["values"]]
+doppler_x_band_khz = [d / 1000.0 for d in doppler_x_ts["values"]]
+v_los_km_s = [v / 1000.0 for v in v_los_ts["values"]]  # Convert m/s to km/s
 
 # Create figure with three subplots
 fig_doppler = make_subplots(
@@ -415,5 +415,5 @@ print(f"✓ Generated {light_path}")
 print(f"✓ Generated {dark_path}")
 
 print("\nDoppler Compensation Analysis Complete!")
-print(f"Peak S-band Doppler: {max(abs(d) for d in doppler_s_band_list) / 1000:.2f} kHz")
-print(f"Peak X-band Doppler: {max(abs(d) for d in doppler_x_band_list) / 1000:.2f} kHz")
+print(f"Peak S-band Doppler: {max(abs(d) for d in doppler_s_band_khz):.2f} kHz")
+print(f"Peak X-band Doppler: {max(abs(d) for d in doppler_x_band_khz):.2f} kHz")

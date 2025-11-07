@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::propagators::traits::StateProvider;
+use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::constraints::{AscDsc, LookDirection};
@@ -68,6 +68,202 @@ pub enum PropertyValue {
 
     /// Arbitrary JSON value for complex data
     Json(serde_json::Value),
+}
+
+// ================================
+// SamplingConfig Enum
+// ================================
+
+/// Configuration for sampling satellite states during an access window.
+///
+/// This enum defines how property computers should sample satellite states
+/// within an access window. Different sampling strategies are useful for
+/// different types of properties.
+///
+/// # Examples
+/// ```
+/// use brahe::access::SamplingConfig;
+///
+/// // Single point at window midpoint
+/// let midpoint = SamplingConfig::Midpoint;
+///
+/// // Sample at start, middle, and end
+/// let relative = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
+///
+/// // Sample every 10 seconds
+/// let interval = SamplingConfig::FixedInterval { interval: 10.0, offset: 0.0 };
+///
+/// // Sample at 10 evenly-spaced points
+/// let count = SamplingConfig::FixedCount(10);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SamplingConfig {
+    /// Single sample at window midpoint
+    Midpoint,
+
+    /// Sample at specific relative times (0.0 = window_open, 1.0 = window_close)
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::access::SamplingConfig;
+    ///
+    /// // Sample at start, quarter, middle, three-quarters, and end
+    /// let config = SamplingConfig::RelativePoints(vec![0.0, 0.25, 0.5, 0.75, 1.0]);
+    /// ```
+    RelativePoints(Vec<f64>),
+
+    /// Sample at fixed time intervals (seconds)
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::access::SamplingConfig;
+    ///
+    /// // Sample every 0.1 seconds starting at window open
+    /// let config = SamplingConfig::FixedInterval { interval: 0.1, offset: 0.0 };
+    /// ```
+    FixedInterval {
+        /// Time between samples (seconds)
+        interval: f64,
+        /// Time offset from window_open (seconds)
+        offset: f64,
+    },
+
+    /// Sample at N evenly-spaced points (including endpoints)
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::access::SamplingConfig;
+    ///
+    /// // Sample at 10 evenly-spaced points
+    /// let config = SamplingConfig::FixedCount(10);
+    /// ```
+    FixedCount(usize),
+}
+
+impl SamplingConfig {
+    /// Generate sample epochs based on the sampling configuration.
+    ///
+    /// # Arguments
+    /// * `window_open` - Window start time
+    /// * `window_close` - Window end time
+    ///
+    /// # Returns
+    /// Vector of sample epochs
+    ///
+    /// # Panics
+    /// - `FixedInterval`: Panics if interval ≤ 0, offset < 0, or no samples generated within window
+    /// - `FixedCount`: Panics if count = 0
+    /// - `RelativePoints`: Panics if empty or any value outside [0.0, 1.0]
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::access::SamplingConfig;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let window_open = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let window_close = window_open + 3600.0; // 1 hour later
+    ///
+    /// // Midpoint
+    /// let config = SamplingConfig::Midpoint;
+    /// let epochs = config.generate_sample_epochs(window_open, window_close);
+    /// assert_eq!(epochs.len(), 1);
+    /// assert_eq!(epochs[0], window_open + 1800.0);
+    ///
+    /// // Relative points
+    /// let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
+    /// let epochs = config.generate_sample_epochs(window_open, window_close);
+    /// assert_eq!(epochs.len(), 3);
+    /// assert_eq!(epochs[0], window_open);
+    /// assert_eq!(epochs[1], window_open + 1800.0);
+    /// assert_eq!(epochs[2], window_close);
+    /// ```
+    pub fn generate_sample_epochs(&self, window_open: Epoch, window_close: Epoch) -> Vec<Epoch> {
+        let duration = window_close - window_open; // seconds
+
+        match self {
+            SamplingConfig::Midpoint => {
+                vec![window_open + duration * 0.5]
+            }
+
+            SamplingConfig::RelativePoints(relative_times) => {
+                if relative_times.is_empty() {
+                    panic!("SamplingConfig::RelativePoints: relative_times cannot be empty");
+                }
+
+                // Validate all points are in [0.0, 1.0]
+                for &t in relative_times.iter() {
+                    if !(0.0..=1.0).contains(&t) {
+                        panic!(
+                            "SamplingConfig::RelativePoints: all relative times must be in [0.0, 1.0], got {}",
+                            t
+                        );
+                    }
+                }
+
+                relative_times
+                    .iter()
+                    .map(|&t| window_open + duration * t)
+                    .collect()
+            }
+
+            SamplingConfig::FixedInterval { interval, offset } => {
+                if *interval <= 0.0 {
+                    panic!(
+                        "SamplingConfig::FixedInterval: interval must be positive, got {}",
+                        interval
+                    );
+                }
+
+                if *offset < 0.0 {
+                    panic!(
+                        "SamplingConfig::FixedInterval: offset must be non-negative, got {}",
+                        offset
+                    );
+                }
+
+                if *offset > duration {
+                    panic!(
+                        "SamplingConfig::FixedInterval: offset ({}) exceeds window duration ({})",
+                        offset, duration
+                    );
+                }
+
+                let mut epochs = Vec::new();
+                let mut t = *offset; // seconds from window_open
+
+                while t <= duration {
+                    epochs.push(window_open + t);
+                    t += interval;
+                }
+
+                if epochs.is_empty() {
+                    panic!(
+                        "SamplingConfig::FixedInterval: no samples generated within window (interval too large)"
+                    );
+                }
+
+                epochs
+            }
+
+            SamplingConfig::FixedCount(count) => {
+                if *count == 0 {
+                    panic!("SamplingConfig::FixedCount: count must be positive, got 0");
+                }
+
+                if *count == 1 {
+                    return vec![window_open + duration * 0.5];
+                }
+
+                // Generate N evenly-spaced points including endpoints
+                (0..*count)
+                    .map(|i| {
+                        let fraction = i as f64 / (*count as f64 - 1.0);
+                        window_open + duration * fraction
+                    })
+                    .collect()
+            }
+        }
+    }
 }
 
 // ================================
@@ -261,12 +457,12 @@ impl AccessProperties {
 ///
 /// Implement this trait to add custom property calculations to access windows.
 /// The compute method is called once per access window after core properties
-/// are calculated.
+/// are calculated. The sampling configuration determines how many satellite
+/// states are provided to the compute method.
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::access::{AccessPropertyComputer, AccessWindow, PropertyValue};
-/// use brahe::propagators::traits::StateProvider;
+/// use brahe::access::{AccessPropertyComputer, AccessWindow, PropertyValue, SamplingConfig};
 /// use brahe::utils::BraheError;
 /// use std::collections::HashMap;
 /// use nalgebra::Vector3;
@@ -274,23 +470,36 @@ impl AccessProperties {
 /// struct DopplerComputer;
 ///
 /// impl AccessPropertyComputer for DopplerComputer {
+///     fn sampling_config(&self) -> SamplingConfig {
+///         // Sample every 0.1 seconds
+///         SamplingConfig::FixedInterval { interval: 0.1 / 86400.0, offset: 0.0 }
+///     }
+///
 ///     fn compute(
 ///         &self,
 ///         window: &AccessWindow,
-///         state_provider: &dyn StateProvider,
+///         sample_epochs: &[f64],
+///         sample_states_ecef: &[nalgebra::SVector<f64, 6>],
 ///         location_ecef: &Vector3<f64>,
 ///         location_geodetic: &Vector3<f64>,
 ///     ) -> Result<HashMap<String, PropertyValue>, BraheError> {
 ///         let mut props = HashMap::new();
 ///
-///         // Compute Doppler shift at midtime
-///         let midtime = window.midtime();
-///         let state_ecef = state_provider.state_ecef(midtime);
+///         // Compute Doppler shift at each sample point
+///         let doppler_values: Vec<f64> = sample_states_ecef.iter().map(|state| {
+///             // ... compute Doppler shift from state and location ...
+///             2500.0  // Example value
+///         }).collect();
 ///
-///         // ... compute Doppler shift from state and location ...
-///         let doppler = 2500.0;  // Example value
+///         // Convert to relative times (seconds from window open)
+///         let relative_times: Vec<f64> = sample_epochs.iter()
+///             .map(|&epoch| (epoch - window.window_open.mjd()) * 86400.0)
+///             .collect();
 ///
-///         props.insert("doppler_shift".to_string(), PropertyValue::Scalar(doppler));
+///         props.insert("doppler_shift".to_string(), PropertyValue::TimeSeries {
+///             times: relative_times,
+///             values: doppler_values,
+///         });
 ///         Ok(props)
 ///     }
 ///
@@ -300,11 +509,26 @@ impl AccessProperties {
 /// }
 /// ```
 pub trait AccessPropertyComputer: Send + Sync {
+    /// Return the sampling configuration for this property computer.
+    ///
+    /// The sampling configuration determines how satellite states are sampled
+    /// during the access window. The sampled states are then provided to the
+    /// compute method.
+    ///
+    /// # Returns
+    /// The sampling configuration to use for this property computer
+    fn sampling_config(&self) -> SamplingConfig;
+
     /// Compute additional properties for an access window.
+    ///
+    /// This method receives pre-sampled satellite states based on the sampling
+    /// configuration returned by `sampling_config()`. The number of samples
+    /// corresponds to the sampling strategy used.
     ///
     /// # Arguments
     /// * `window` - The access window (contains times and core properties)
-    /// * `state_provider` - State computation interface via StateProvider trait
+    /// * `sample_epochs` - Sample epochs in MJD (Modified Julian Date)
+    /// * `sample_states_ecef` - ECEF states [x,y,z,vx,vy,vz] at each sample epoch (m, m/s)
     /// * `location_ecef` - Location ECEF position [x, y, z] (meters)
     /// * `location_geodetic` - Location geodetic coordinates [lon, lat, alt] (radians, meters)
     ///
@@ -312,13 +536,15 @@ pub trait AccessPropertyComputer: Send + Sync {
     /// HashMap of property name -> PropertyValue
     ///
     /// # Notes
-    /// - `state_provider.state_ecef(epoch)` returns ECEF state [x,y,z,vx,vy,vz] (m, m/s)
-    /// - You can sample at arbitrary epochs within the window
-    /// - For time-series properties, you control the sampling rate
+    /// - For single-point sampling (e.g., Midpoint), arrays will have length 1
+    /// - For time-series sampling, use PropertyValue::TimeSeries with relative times
+    /// - Relative times should be in seconds from window_open: (epoch - window_open.mjd()) * 86400.0
+    /// - The return type is automatically detected: single sample -> Scalar/Vector, multiple -> TimeSeries
     fn compute(
         &self,
         window: &AccessWindow,
-        state_provider: &dyn StateProvider,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
         location_geodetic: &nalgebra::Vector3<f64>,
     ) -> Result<HashMap<String, PropertyValue>, BraheError>;
@@ -333,6 +559,358 @@ pub trait AccessPropertyComputer: Send + Sync {
 // and are re-exported from the access module for convenience.
 
 // ================================
+// Built-in Property Computers
+// ================================
+
+/// Computes Doppler shift for uplink and/or downlink communications.
+///
+/// This property computer calculates Doppler frequency shifts caused by relative
+/// motion between the satellite and ground station. It supports separate uplink
+/// and downlink frequency configurations.
+///
+/// # Physics
+///
+/// - **Uplink Doppler**: Δf = f₀ × v_los / (c - v_los)
+///   - Ground station pre-compensates transmit frequency so satellite receives design frequency
+/// - **Downlink Doppler**: Δf = -f₀ × v_los / c
+///   - Ground station adjusts receive frequency to match Doppler-shifted spacecraft transmission
+///
+/// where v_los is the line-of-sight velocity (positive = receding, negative = approaching)
+///
+/// # Examples
+///
+/// ```
+/// use brahe::access::{DopplerComputer, SamplingConfig};
+///
+/// // S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz)
+/// let computer = DopplerComputer::new(
+///     Some(2.2e9),  // uplink frequency (Hz)
+///     Some(8.4e9),  // downlink frequency (Hz)
+///     SamplingConfig::FixedInterval { interval: 0.1 / 86400.0, offset: 0.0 }
+/// );
+///
+/// // Downlink only
+/// let downlink_only = DopplerComputer::new(
+///     None,
+///     Some(8.4e9),
+///     SamplingConfig::Midpoint
+/// );
+/// ```
+#[derive(Clone)]
+pub struct DopplerComputer {
+    /// Uplink frequency in Hz (optional)
+    pub uplink_frequency: Option<f64>,
+    /// Downlink frequency in Hz (optional)
+    pub downlink_frequency: Option<f64>,
+    /// Sampling configuration for time-series computation
+    pub sampling_config: SamplingConfig,
+}
+
+impl DopplerComputer {
+    /// Create a new Doppler computer.
+    ///
+    /// # Arguments
+    ///
+    /// * `uplink_frequency` - Optional uplink frequency in Hz
+    /// * `downlink_frequency` - Optional downlink frequency in Hz
+    /// * `sampling_config` - Sampling configuration for the access window
+    ///
+    /// # Returns
+    ///
+    /// New DopplerComputer instance
+    ///
+    /// # Notes
+    ///
+    /// At least one frequency (uplink or downlink) must be specified.
+    pub fn new(
+        uplink_frequency: Option<f64>,
+        downlink_frequency: Option<f64>,
+        sampling_config: SamplingConfig,
+    ) -> Self {
+        Self {
+            uplink_frequency,
+            downlink_frequency,
+            sampling_config,
+        }
+    }
+}
+
+impl AccessPropertyComputer for DopplerComputer {
+    fn sampling_config(&self) -> SamplingConfig {
+        self.sampling_config.clone()
+    }
+
+    fn compute(
+        &self,
+        window: &AccessWindow,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
+        location_ecef: &nalgebra::Vector3<f64>,
+        _location_geodetic: &nalgebra::Vector3<f64>,
+    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+        let mut props = HashMap::new();
+
+        // Compute line-of-sight velocities at each sample
+        let v_los_values: Vec<f64> = sample_states_ecef
+            .iter()
+            .map(|state| {
+                let sat_pos = state.fixed_rows::<3>(0);
+                let sat_vel = state.fixed_rows::<3>(3);
+
+                // Line-of-sight vector (from ground station to satellite)
+                let los_vec = sat_pos - location_ecef;
+                let los_unit = los_vec.normalize();
+
+                // Line-of-sight velocity (positive = receding, negative = approaching)
+                sat_vel.dot(&los_unit)
+            })
+            .collect();
+
+        // Convert to relative times (seconds from window open)
+        let relative_times: Vec<f64> = sample_epochs
+            .iter()
+            .map(|&epoch| (epoch - window.window_open.mjd()) * 86400.0)
+            .collect();
+
+        // Compute uplink Doppler if frequency specified
+        if let Some(f_uplink) = self.uplink_frequency {
+            let doppler_uplink: Vec<f64> = v_los_values
+                .iter()
+                .map(|&v_los| f_uplink * v_los / (crate::constants::C_LIGHT - v_los))
+                .collect();
+
+            let value = if doppler_uplink.len() == 1 {
+                PropertyValue::Scalar(doppler_uplink[0])
+            } else {
+                PropertyValue::TimeSeries {
+                    times: relative_times.clone(),
+                    values: doppler_uplink,
+                }
+            };
+
+            props.insert("doppler_uplink".to_string(), value);
+        }
+
+        // Compute downlink Doppler if frequency specified
+        if let Some(f_downlink) = self.downlink_frequency {
+            let doppler_downlink: Vec<f64> = v_los_values
+                .iter()
+                .map(|&v_los| -f_downlink * v_los / crate::constants::C_LIGHT)
+                .collect();
+
+            let value = if doppler_downlink.len() == 1 {
+                PropertyValue::Scalar(doppler_downlink[0])
+            } else {
+                PropertyValue::TimeSeries {
+                    times: relative_times,
+                    values: doppler_downlink,
+                }
+            };
+
+            props.insert("doppler_downlink".to_string(), value);
+        }
+
+        Ok(props)
+    }
+
+    fn property_names(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        if self.uplink_frequency.is_some() {
+            names.push("doppler_uplink".to_string());
+        }
+        if self.downlink_frequency.is_some() {
+            names.push("doppler_downlink".to_string());
+        }
+        names
+    }
+}
+
+/// Computes range (distance) between satellite and ground station.
+///
+/// This property computer calculates the instantaneous slant range from the
+/// ground station to the satellite at each sample point.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::access::{RangeComputer, SamplingConfig};
+///
+/// // Compute range every second
+/// let computer = RangeComputer::new(
+///     SamplingConfig::FixedInterval { interval: 1.0 / 86400.0, offset: 0.0 }
+/// );
+/// ```
+#[derive(Clone)]
+pub struct RangeComputer {
+    /// Sampling configuration for time-series computation
+    pub sampling_config: SamplingConfig,
+}
+
+impl RangeComputer {
+    /// Create a new range computer.
+    ///
+    /// # Arguments
+    ///
+    /// * `sampling_config` - Sampling configuration for the access window
+    ///
+    /// # Returns
+    ///
+    /// New RangeComputer instance
+    pub fn new(sampling_config: SamplingConfig) -> Self {
+        Self { sampling_config }
+    }
+}
+
+impl AccessPropertyComputer for RangeComputer {
+    fn sampling_config(&self) -> SamplingConfig {
+        self.sampling_config.clone()
+    }
+
+    fn compute(
+        &self,
+        window: &AccessWindow,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
+        location_ecef: &nalgebra::Vector3<f64>,
+        _location_geodetic: &nalgebra::Vector3<f64>,
+    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+        let mut props = HashMap::new();
+
+        // Compute range at each sample
+        let range_values: Vec<f64> = sample_states_ecef
+            .iter()
+            .map(|state| {
+                let sat_pos = state.fixed_rows::<3>(0);
+                (sat_pos - location_ecef).norm()
+            })
+            .collect();
+
+        // Convert to relative times (seconds from window open)
+        let relative_times: Vec<f64> = sample_epochs
+            .iter()
+            .map(|&epoch| (epoch - window.window_open.mjd()) * 86400.0)
+            .collect();
+
+        let value = if range_values.len() == 1 {
+            PropertyValue::Scalar(range_values[0])
+        } else {
+            PropertyValue::TimeSeries {
+                times: relative_times,
+                values: range_values,
+            }
+        };
+
+        props.insert("range".to_string(), value);
+
+        Ok(props)
+    }
+
+    fn property_names(&self) -> Vec<String> {
+        vec!["range".to_string()]
+    }
+}
+
+/// Computes range rate (line-of-sight velocity) between satellite and ground station.
+///
+/// This property computer calculates the instantaneous rate of change of range
+/// (also known as radial velocity or line-of-sight velocity) at each sample point.
+///
+/// # Sign Convention
+///
+/// - Positive range rate: satellite moving away from ground station (receding)
+/// - Negative range rate: satellite moving toward ground station (approaching)
+///
+/// # Examples
+///
+/// ```
+/// use brahe::access::{RangeRateComputer, SamplingConfig};
+///
+/// // Compute range rate at midpoint
+/// let computer = RangeRateComputer::new(SamplingConfig::Midpoint);
+///
+/// // Compute range rate time series
+/// let computer = RangeRateComputer::new(
+///     SamplingConfig::FixedCount(50)  // 50 evenly-spaced points
+/// );
+/// ```
+#[derive(Clone)]
+pub struct RangeRateComputer {
+    /// Sampling configuration for time-series computation
+    pub sampling_config: SamplingConfig,
+}
+
+impl RangeRateComputer {
+    /// Create a new range rate computer.
+    ///
+    /// # Arguments
+    ///
+    /// * `sampling_config` - Sampling configuration for the access window
+    ///
+    /// # Returns
+    ///
+    /// New RangeRateComputer instance
+    pub fn new(sampling_config: SamplingConfig) -> Self {
+        Self { sampling_config }
+    }
+}
+
+impl AccessPropertyComputer for RangeRateComputer {
+    fn sampling_config(&self) -> SamplingConfig {
+        self.sampling_config.clone()
+    }
+
+    fn compute(
+        &self,
+        window: &AccessWindow,
+        sample_epochs: &[f64],
+        sample_states_ecef: &[nalgebra::SVector<f64, 6>],
+        location_ecef: &nalgebra::Vector3<f64>,
+        _location_geodetic: &nalgebra::Vector3<f64>,
+    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+        let mut props = HashMap::new();
+
+        // Compute range rate at each sample
+        let range_rate_values: Vec<f64> = sample_states_ecef
+            .iter()
+            .map(|state| {
+                let sat_pos = state.fixed_rows::<3>(0);
+                let sat_vel = state.fixed_rows::<3>(3);
+
+                // Line-of-sight vector (from ground station to satellite)
+                let los_vec = sat_pos - location_ecef;
+                let los_unit = los_vec.normalize();
+
+                // Range rate (line-of-sight velocity)
+                sat_vel.dot(&los_unit)
+            })
+            .collect();
+
+        // Convert to relative times (seconds from window open)
+        let relative_times: Vec<f64> = sample_epochs
+            .iter()
+            .map(|&epoch| (epoch - window.window_open.mjd()) * 86400.0)
+            .collect();
+
+        let value = if range_rate_values.len() == 1 {
+            PropertyValue::Scalar(range_rate_values[0])
+        } else {
+            PropertyValue::TimeSeries {
+                times: relative_times,
+                values: range_rate_values,
+            }
+        };
+
+        props.insert("range_rate".to_string(), value);
+
+        Ok(props)
+    }
+
+    fn property_names(&self) -> Vec<String> {
+        vec!["range_rate".to_string()]
+    }
+}
+
+// ================================
 // Tests
 // ================================
 
@@ -344,6 +922,7 @@ mod tests {
     use crate::constants::AngleFormat;
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::propagators::KeplerianPropagator;
+    use crate::propagators::traits::StateProvider;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
 
@@ -614,18 +1193,22 @@ mod tests {
     struct TestPropertyComputer;
 
     impl AccessPropertyComputer for TestPropertyComputer {
+        fn sampling_config(&self) -> SamplingConfig {
+            SamplingConfig::Midpoint
+        }
+
         fn compute(
             &self,
-            window: &AccessWindow,
-            state_provider: &dyn StateProvider,
+            _window: &AccessWindow,
+            _sample_epochs: &[f64],
+            sample_states_ecef: &[nalgebra::SVector<f64, 6>],
             _location_ecef: &nalgebra::Vector3<f64>,
             _location_geodetic: &nalgebra::Vector3<f64>,
         ) -> Result<HashMap<String, PropertyValue>, BraheError> {
             let mut props = HashMap::new();
 
-            // Sample at midtime
-            let midtime = window.midtime();
-            let state = state_provider.state_ecef(midtime);
+            // Use first (and only) sample for midpoint configuration
+            let state = &sample_states_ecef[0];
 
             // Compute a simple property (altitude)
             let altitude = state.fixed_rows::<3>(0).norm() - 6371e3;
@@ -700,10 +1283,30 @@ mod tests {
         let location_ecef = location.center_ecef();
         let location_geodetic = Vector3::new(0.0_f64.to_radians(), 45.0_f64.to_radians(), 0.0);
 
-        // Compute properties using StateProvider trait directly
+        // Get sampling configuration and generate sample epochs
         let computer = TestPropertyComputer;
+        let sampling_config = computer.sampling_config();
+        let sample_epochs =
+            sampling_config.generate_sample_epochs(window.window_open, window.window_close);
+
+        // Get states at sample epochs using StateProvider trait
+        let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
+            .iter()
+            .map(|&epoch| prop.state_ecef(epoch))
+            .collect();
+
+        // Convert epochs to MJD for property computer interface
+        let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
+
+        // Compute properties with sampled states
         let props = computer
-            .compute(&window, &prop, &location_ecef, &location_geodetic)
+            .compute(
+                &window,
+                &sample_epochs_mjd,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
             .unwrap();
 
         // Check property exists
@@ -711,5 +1314,778 @@ mod tests {
 
         // Check property names
         assert_eq!(computer.property_names(), vec!["altitude_km"]);
+    }
+
+    // ================================
+    // SamplingConfig Tests
+    // ================================
+
+    #[test]
+    fn test_sampling_config_midpoint() {
+        let config = SamplingConfig::Midpoint;
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0; // 1 hour later
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        assert_eq!(epochs.len(), 1);
+        assert_eq!(epochs[0], window_open + 1800.0); // Midpoint
+    }
+
+    #[test]
+    fn test_sampling_config_relative_points() {
+        let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0; // 1 hour later
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        assert_eq!(epochs.len(), 3);
+        assert_eq!(epochs[0], window_open); // Start
+        assert_eq!(epochs[1], window_open + 1800.0); // Middle
+        assert_eq!(epochs[2], window_close); // End
+    }
+
+    #[test]
+    #[should_panic(expected = "all relative times must be in [0.0, 1.0]")]
+    fn test_sampling_config_relative_points_out_of_bounds_negative() {
+        // Values outside [0, 1] should panic
+        let config = SamplingConfig::RelativePoints(vec![-0.5, 0.0, 0.5]);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "all relative times must be in [0.0, 1.0]")]
+    fn test_sampling_config_relative_points_out_of_bounds_positive() {
+        // Values outside [0, 1] should panic
+        let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.5]);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "relative_times cannot be empty")]
+    fn test_sampling_config_relative_points_empty() {
+        // Empty vector should panic
+        let config = SamplingConfig::RelativePoints(vec![]);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    fn test_sampling_config_fixed_interval() {
+        let config = SamplingConfig::FixedInterval {
+            interval: 600.0, // 10 minutes in seconds
+            offset: 0.0,
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3000.0; // 50 minutes later
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        // Should have samples at 0, 600, 1200, 1800, 2400, 3000 seconds from open
+        assert_eq!(epochs.len(), 6);
+        assert_eq!(epochs[0], window_open);
+        assert_eq!(epochs[1], window_open + 600.0);
+        assert_eq!(epochs[2], window_open + 1200.0);
+        assert_eq!(epochs[3], window_open + 1800.0);
+        assert_eq!(epochs[4], window_open + 2400.0);
+        assert_eq!(epochs[5], window_open + 3000.0);
+    }
+
+    #[test]
+    fn test_sampling_config_fixed_interval_with_offset() {
+        let config = SamplingConfig::FixedInterval {
+            interval: 1200.0, // 20 minutes in seconds
+            offset: 600.0,    // Start at 10 minutes
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3000.0; // 50 minutes later
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        // Should have samples at 600, 1800, 3000 seconds from open
+        assert_eq!(epochs.len(), 3);
+        assert_eq!(epochs[0], window_open + 600.0);
+        assert_eq!(epochs[1], window_open + 1800.0);
+        assert_eq!(epochs[2], window_open + 3000.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "interval must be positive")]
+    fn test_sampling_config_fixed_interval_zero() {
+        // Zero interval should panic
+        let config = SamplingConfig::FixedInterval {
+            interval: 0.0,
+            offset: 0.0,
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "interval must be positive")]
+    fn test_sampling_config_fixed_interval_negative() {
+        // Negative interval should panic
+        let config = SamplingConfig::FixedInterval {
+            interval: -0.1,
+            offset: 0.0,
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "offset must be non-negative")]
+    fn test_sampling_config_fixed_interval_negative_offset() {
+        // Negative offset should panic
+        let config = SamplingConfig::FixedInterval {
+            interval: 600.0,
+            offset: -100.0,
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "offset")]
+    fn test_sampling_config_fixed_interval_offset_beyond_window() {
+        // If offset is beyond window duration, should panic
+        let config = SamplingConfig::FixedInterval {
+            interval: 600.0,
+            offset: 4000.0, // Offset beyond window duration
+        };
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0; // 1 hour = 3600 seconds
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    fn test_sampling_config_fixed_count() {
+        let config = SamplingConfig::FixedCount(5);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 2400.0; // 40 minutes
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        // 5 evenly-spaced points: 0, 600, 1200, 1800, 2400 seconds
+        assert_eq!(epochs.len(), 5);
+        assert_eq!(epochs[0], window_open);
+        assert_eq!(epochs[1], window_open + 600.0);
+        assert_eq!(epochs[2], window_open + 1200.0);
+        assert_eq!(epochs[3], window_open + 1800.0);
+        assert_eq!(epochs[4], window_open + 2400.0);
+    }
+
+    #[test]
+    fn test_sampling_config_fixed_count_single() {
+        let config = SamplingConfig::FixedCount(1);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        // Single point should be at midpoint
+        assert_eq!(epochs.len(), 1);
+        assert_eq!(epochs[0], window_open + 1800.0);
+    }
+
+    #[test]
+    fn test_sampling_config_fixed_count_two() {
+        let config = SamplingConfig::FixedCount(2);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        let epochs = config.generate_sample_epochs(window_open, window_close);
+
+        // Two points: start and end
+        assert_eq!(epochs.len(), 2);
+        assert_eq!(epochs[0], window_open);
+        assert_eq!(epochs[1], window_close);
+    }
+
+    #[test]
+    #[should_panic(expected = "count must be positive")]
+    fn test_sampling_config_fixed_count_zero() {
+        // Zero count should panic
+        let config = SamplingConfig::FixedCount(0);
+        let window_open =
+            crate::time::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let window_close = window_open + 3600.0;
+
+        config.generate_sample_epochs(window_open, window_close);
+    }
+
+    #[test]
+    fn test_sampling_config_serialization() {
+        // Midpoint
+        let config = SamplingConfig::Midpoint;
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SamplingConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config, deserialized);
+
+        // RelativePoints
+        let config = SamplingConfig::RelativePoints(vec![0.0, 0.5, 1.0]);
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SamplingConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config, deserialized);
+
+        // FixedInterval
+        let config = SamplingConfig::FixedInterval {
+            interval: 0.1,
+            offset: 0.05,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SamplingConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config, deserialized);
+
+        // FixedCount
+        let config = SamplingConfig::FixedCount(10);
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SamplingConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config, deserialized);
+    }
+
+    #[test]
+    fn test_doppler_computer_downlink() {
+        setup_global_test_eop();
+
+        let computer = DopplerComputer::new(
+            None,
+            Some(2.2e9), // S-band downlink
+            SamplingConfig::Midpoint,
+        );
+
+        // Create a simple access window
+        let window_open = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let window_close = window_open + 60.0; // 1 minute window
+
+        // Satellite approaching station (negative range rate = approaching)
+        let sample_epochs = vec![window_open.mjd() + 30.0 / 86400.0]; // midpoint
+
+        let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
+        let sat_pos = nalgebra::Vector3::new(1000000.0, 2000000.0, 3000000.0);
+
+        // Velocity toward station (approaching)
+        let to_station = (location_ecef - sat_pos).normalize();
+        let approaching_velocity = to_station * 1000.0; // 1000 m/s toward station
+
+        let sample_states = vec![nalgebra::SVector::<f64, 6>::new(
+            sat_pos[0],
+            sat_pos[1],
+            sat_pos[2],
+            approaching_velocity[0],
+            approaching_velocity[1],
+            approaching_velocity[2],
+        )];
+        let location_geodetic = nalgebra::Vector3::new(0.0, 0.0, 0.0); // not used
+
+        let temp_window = crate::access::AccessWindow {
+            window_open,
+            window_close,
+            location_name: None,
+            location_id: None,
+            location_uuid: None,
+            satellite_name: None,
+            satellite_id: None,
+            satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
+            properties: crate::access::AccessProperties::new(
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                crate::access::LookDirection::Either,
+                crate::access::AscDsc::Either,
+                0.0,
+                0.0,
+                0.0,
+                [0.0, 0.0, 0.0],
+            ),
+        };
+
+        let result = computer
+            .compute(
+                &temp_window,
+                &sample_epochs,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
+            .unwrap();
+
+        // Check that doppler_downlink property exists
+        assert!(result.contains_key("doppler_downlink"));
+
+        // Verify it's a scalar value (single sample)
+        if let PropertyValue::Scalar(doppler) = result.get("doppler_downlink").unwrap() {
+            // For approaching satellite, doppler should be positive (frequency increase)
+            // Basic sanity check: doppler should be reasonable for typical satellite velocities
+            assert!(
+                *doppler > 0.0,
+                "Doppler should be positive for approaching satellite"
+            );
+            assert!(
+                *doppler < 100000.0,
+                "Doppler should be reasonable (<100 kHz)"
+            );
+        } else {
+            panic!("Expected scalar value");
+        }
+    }
+
+    #[test]
+    fn test_doppler_computer_uplink() {
+        setup_global_test_eop();
+
+        let computer = DopplerComputer::new(
+            Some(2.0e9), // S-band uplink
+            None,
+            SamplingConfig::Midpoint,
+        );
+
+        let window_open = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let window_close = window_open + 60.0;
+
+        // Satellite receding from station (positive range rate = receding)
+        let sample_epochs = vec![window_open.mjd() + 30.0 / 86400.0];
+
+        let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
+        let sat_pos = nalgebra::Vector3::new(1000000.0, 2000000.0, 3000000.0);
+
+        // Velocity away from station (receding)
+        let from_station = (sat_pos - location_ecef).normalize();
+        let receding_velocity = from_station * 1000.0; // 1000 m/s away from station
+
+        let sample_states = vec![nalgebra::SVector::<f64, 6>::new(
+            sat_pos[0],
+            sat_pos[1],
+            sat_pos[2],
+            receding_velocity[0],
+            receding_velocity[1],
+            receding_velocity[2],
+        )];
+        let location_geodetic = nalgebra::Vector3::new(0.0, 0.0, 0.0);
+
+        let temp_window = crate::access::AccessWindow {
+            window_open,
+            window_close,
+            location_name: None,
+            location_id: None,
+            location_uuid: None,
+            satellite_name: None,
+            satellite_id: None,
+            satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
+            properties: crate::access::AccessProperties::new(
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                crate::access::LookDirection::Either,
+                crate::access::AscDsc::Either,
+                0.0,
+                0.0,
+                0.0,
+                [0.0, 0.0, 0.0],
+            ),
+        };
+
+        let result = computer
+            .compute(
+                &temp_window,
+                &sample_epochs,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
+            .unwrap();
+
+        assert!(result.contains_key("doppler_uplink"));
+
+        if let PropertyValue::Scalar(doppler) = result.get("doppler_uplink").unwrap() {
+            // For receding satellite, uplink pre-compensation should be positive
+            assert!(
+                *doppler > 0.0,
+                "Uplink doppler should be positive for receding satellite"
+            );
+            assert!(*doppler < 100000.0, "Doppler should be reasonable");
+        } else {
+            panic!("Expected scalar value");
+        }
+    }
+
+    #[test]
+    fn test_doppler_computer_both_frequencies() {
+        setup_global_test_eop();
+
+        let computer = DopplerComputer::new(
+            Some(2.0e9), // uplink
+            Some(2.2e9), // downlink
+            SamplingConfig::FixedCount(3),
+        );
+
+        let window_open = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let window_close: crate::time::Epoch = window_open + 120.0; // 2 minutes
+
+        let config = SamplingConfig::FixedCount(3);
+        let sample_epochs = config.generate_sample_epochs(window_open, window_close);
+
+        let sample_states = vec![
+            nalgebra::SVector::<f64, 6>::new(
+                1000000.0, 2000000.0, 3000000.0, -1000.0, -500.0, -200.0,
+            ),
+            nalgebra::SVector::<f64, 6>::new(
+                1010000.0, 2005000.0, 3002000.0, -800.0, -400.0, -150.0,
+            ),
+            nalgebra::SVector::<f64, 6>::new(
+                1020000.0, 2010000.0, 3004000.0, -600.0, -300.0, -100.0,
+            ),
+        ];
+
+        let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
+        let location_geodetic = nalgebra::Vector3::new(0.0, 0.0, 0.0);
+
+        // Convert epochs to MJD for property computer interface
+        let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
+
+        let temp_window = crate::access::AccessWindow {
+            window_open,
+            window_close,
+            location_name: None,
+            location_id: None,
+            location_uuid: None,
+            satellite_name: None,
+            satellite_id: None,
+            satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
+            properties: crate::access::AccessProperties::new(
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                crate::access::LookDirection::Either,
+                crate::access::AscDsc::Either,
+                0.0,
+                0.0,
+                0.0,
+                [0.0, 0.0, 0.0],
+            ),
+        };
+
+        let result = computer
+            .compute(
+                &temp_window,
+                &sample_epochs_mjd,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
+            .unwrap();
+
+        // Should have both uplink and downlink
+        assert!(result.contains_key("doppler_uplink"));
+        assert!(result.contains_key("doppler_downlink"));
+
+        // Both should be time series (3 samples)
+        match result.get("doppler_uplink").unwrap() {
+            PropertyValue::TimeSeries { times, values } => {
+                assert_eq!(times.len(), 3);
+                assert_eq!(values.len(), 3);
+            }
+            _ => panic!("Expected time series value"),
+        }
+
+        match result.get("doppler_downlink").unwrap() {
+            PropertyValue::TimeSeries { times, values } => {
+                assert_eq!(times.len(), 3);
+                assert_eq!(values.len(), 3);
+            }
+            _ => panic!("Expected time series value"),
+        }
+    }
+
+    #[test]
+    fn test_range_computer() {
+        setup_global_test_eop();
+
+        let computer = RangeComputer::new(SamplingConfig::FixedCount(2));
+
+        let window_open = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let window_close: crate::time::Epoch = window_open + 60.0;
+
+        let config = SamplingConfig::FixedCount(2);
+        let sample_epochs = config.generate_sample_epochs(window_open, window_close);
+
+        let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
+
+        // Two satellite positions at different distances
+        let sample_states = vec![
+            nalgebra::SVector::<f64, 6>::new(
+                location_ecef[0] + 1000000.0,
+                location_ecef[1],
+                location_ecef[2],
+                0.0,
+                0.0,
+                0.0,
+            ),
+            nalgebra::SVector::<f64, 6>::new(
+                location_ecef[0] + 2000000.0,
+                location_ecef[1],
+                location_ecef[2],
+                0.0,
+                0.0,
+                0.0,
+            ),
+        ];
+
+        let location_geodetic = nalgebra::Vector3::new(0.0, 0.0, 0.0);
+
+        // Convert epochs to MJD for property computer interface
+        let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
+
+        let temp_window = crate::access::AccessWindow {
+            window_open,
+            window_close,
+            location_name: None,
+            location_id: None,
+            location_uuid: None,
+            satellite_name: None,
+            satellite_id: None,
+            satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
+            properties: crate::access::AccessProperties::new(
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                crate::access::LookDirection::Either,
+                crate::access::AscDsc::Either,
+                0.0,
+                0.0,
+                0.0,
+                [0.0, 0.0, 0.0],
+            ),
+        };
+
+        let result = computer
+            .compute(
+                &temp_window,
+                &sample_epochs_mjd,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
+            .unwrap();
+
+        assert!(result.contains_key("range"));
+
+        match result.get("range").unwrap() {
+            PropertyValue::TimeSeries { times, values } => {
+                assert_eq!(times.len(), 2);
+                assert_eq!(values.len(), 2);
+
+                // First range should be ~1000 km
+                assert!(
+                    (values[0] - 1000000.0).abs() < 1.0,
+                    "First range should be ~1000 km"
+                );
+
+                // Second range should be ~2000 km
+                assert!(
+                    (values[1] - 2000000.0).abs() < 1.0,
+                    "Second range should be ~2000 km"
+                );
+            }
+            _ => panic!("Expected time series value"),
+        }
+    }
+
+    #[test]
+    fn test_range_rate_computer() {
+        setup_global_test_eop();
+
+        let computer = RangeRateComputer::new(SamplingConfig::Midpoint);
+
+        let window_open = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let window_close = window_open + 60.0;
+
+        let sample_epochs = vec![window_open.mjd() + 30.0 / 86400.0];
+
+        let location_ecef = nalgebra::Vector3::new(4000000.0, 1000000.0, 4500000.0);
+
+        // Satellite moving directly away from station
+        let sat_to_station =
+            location_ecef - nalgebra::Vector3::new(1000000.0, 2000000.0, 3000000.0);
+        let los_direction = sat_to_station.normalize();
+
+        // Velocity of 1000 m/s in line-of-sight direction (receding)
+        let velocity = -los_direction * 1000.0;
+
+        let sample_states = vec![nalgebra::SVector::<f64, 6>::new(
+            1000000.0,
+            2000000.0,
+            3000000.0,
+            velocity[0],
+            velocity[1],
+            velocity[2],
+        )];
+
+        let location_geodetic = nalgebra::Vector3::new(0.0, 0.0, 0.0);
+
+        let temp_window = crate::access::AccessWindow {
+            window_open,
+            window_close,
+            location_name: None,
+            location_id: None,
+            location_uuid: None,
+            satellite_name: None,
+            satellite_id: None,
+            satellite_uuid: None,
+            name: None,
+            id: None,
+            uuid: None,
+            properties: crate::access::AccessProperties::new(
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                crate::access::LookDirection::Either,
+                crate::access::AscDsc::Either,
+                0.0,
+                0.0,
+                0.0,
+                [0.0, 0.0, 0.0],
+            ),
+        };
+
+        let result = computer
+            .compute(
+                &temp_window,
+                &sample_epochs,
+                &sample_states,
+                &location_ecef,
+                &location_geodetic,
+            )
+            .unwrap();
+
+        assert!(result.contains_key("range_rate"));
+
+        if let PropertyValue::Scalar(range_rate) = result.get("range_rate").unwrap() {
+            // Should be ~1000 m/s (receding is positive)
+            assert!(
+                (*range_rate - 1000.0).abs() < 1.0,
+                "Range rate should be ~1000 m/s, got {}",
+                range_rate
+            );
+        } else {
+            panic!("Expected scalar value");
+        }
     }
 }

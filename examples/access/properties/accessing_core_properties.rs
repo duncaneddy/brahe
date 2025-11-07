@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None,
         None,
         None,
-    );
+    )?;
 
     // Access core properties from first window
     if !windows.is_empty() {

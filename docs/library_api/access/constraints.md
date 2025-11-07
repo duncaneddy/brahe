@@ -41,9 +41,3 @@ Constraints define criteria that must be satisfied for satellite access.
 ### ConstraintNot
 
 ::: brahe.ConstraintNot
-
-## Custom Constraints
-
-### AccessPropertyComputer
-
-::: brahe.AccessPropertyComputer

@@ -1,4 +1,4 @@
-/// Python bindings for the new trajectory architecture
+/// Python bindings for trajectory traits and orbital trajectory.
 // Import traits needed by trajectory metho
 /// Interpolation method for trajectory state estimation.
 ///

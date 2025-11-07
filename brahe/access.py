@@ -44,9 +44,13 @@ from brahe._brahe import (
     AccessWindow,
     AccessProperties,
     AccessSearchConfig,
+    SamplingConfig,
     # Property Computers
     AccessPropertyComputer,
     AccessConstraintComputer,
+    DopplerComputer,
+    RangeComputer,
+    RangeRateComputer,
     # Access Computation
     location_accesses,
     # Threading
@@ -77,9 +81,13 @@ __all__ = [
     "AccessWindow",
     "AccessProperties",
     "AccessSearchConfig",
+    "SamplingConfig",
     # Property Computers
     "AccessPropertyComputer",
     "AccessConstraintComputer",
+    "DopplerComputer",
+    "RangeComputer",
+    "RangeRateComputer",
     # Access Computation
     "location_accesses",
     # Threading

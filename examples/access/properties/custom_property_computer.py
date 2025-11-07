@@ -14,19 +14,33 @@ bh.initialize_eop()
 class MinRangeComputer(bh.AccessPropertyComputer):
     """Compute minimum range during access window."""
 
-    def compute(self, window, satellite_state_ecef, location_ecef):
+    def sampling_config(self):
+        """Sample at window midpoint."""
+        return bh.SamplingConfig.midpoint()
+
+    def compute(
+        self,
+        window,
+        sample_epochs,
+        sample_states_ecef,
+        location_ecef,
+        location_geodetic,
+    ):
         """Calculate range at window midpoint.
 
         Args:
             window: AccessWindow with timing information
-            satellite_state_ecef: Satellite state [x,y,z,vx,vy,vz] in ECEF (m, m/s)
+            sample_epochs: Sample epochs in MJD [N]
+            sample_states_ecef: Satellite states [N x 6] in ECEF (m, m/s)
             location_ecef: Location position [x,y,z] in ECEF (m)
+            location_geodetic: Location geodetic coords [lon, lat, alt] in (degrees, degrees, m)
 
         Returns:
             dict: Property values
         """
-        # Compute range using already-sampled satellite state at midtime
-        range_vec = satellite_state_ecef[:3] - location_ecef
+        # Compute range using sampled satellite state at midtime (first/only sample)
+        satellite_state = sample_states_ecef[0]
+        range_vec = satellite_state[:3] - location_ecef
         range_km = np.linalg.norm(range_vec) / 1000.0
 
         # Return as dictionary with raw Python values
@@ -45,7 +59,7 @@ tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  99
 tle_line2 = "2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601"
 propagator = bh.SGPPropagator.from_tle(tle_line1, tle_line2, 60.0)
 
-epoch_start = bh.Epoch.from_datetime(2025, 11, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+epoch_start = propagator.epoch
 epoch_end = epoch_start + 86400.0 * 7
 constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 

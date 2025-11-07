@@ -35,7 +35,7 @@ fn main() {
         None,
         None,
         None
-    );
+    ).unwrap();
 
     assert!(!windows.is_empty(), "Should find at least one access window");
 

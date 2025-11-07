@@ -13,6 +13,7 @@ use crate::access::properties::AccessPropertyComputer;
 use crate::access::windows::{AccessSearchConfig, AccessWindow, find_access_windows};
 use crate::propagators::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
+use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
 use rayon::prelude::*;
 
@@ -93,7 +94,7 @@ fn compute_accesses_sequential<L, P>(
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     search_config: &AccessSearchConfig,
     time_tolerance: Option<f64>,
-) -> Vec<AccessWindow>
+) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation,
     P: IdentifiableStateProvider,
@@ -111,7 +112,7 @@ where
                 property_computers,
                 Some(search_config.initial_time_step),
                 time_tolerance,
-            );
+            )?;
             all_windows.append(&mut windows);
         }
     }
@@ -123,7 +124,7 @@ where
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    all_windows
+    Ok(all_windows)
 }
 
 /// Parallel access computation using rayon
@@ -137,7 +138,7 @@ fn compute_accesses_parallel<L, P>(
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     search_config: &AccessSearchConfig,
     time_tolerance: Option<f64>,
-) -> Vec<AccessWindow>
+) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
     P: IdentifiableStateProvider + Sync,
@@ -149,9 +150,9 @@ where
         .collect();
 
     // Compute windows in parallel
-    let mut all_windows: Vec<AccessWindow> = pairs
+    let results: Result<Vec<Vec<AccessWindow>>, BraheError> = pairs
         .par_iter()
-        .flat_map(|(location, propagator)| {
+        .map(|(location, propagator)| {
             find_access_windows(
                 *location,
                 *propagator,
@@ -165,6 +166,8 @@ where
         })
         .collect();
 
+    let mut all_windows: Vec<AccessWindow> = results?.into_iter().flatten().collect();
+
     // Sort by window start time
     all_windows.sort_by(|a, b| {
         a.window_open
@@ -172,7 +175,7 @@ where
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    all_windows
+    Ok(all_windows)
 }
 
 // ================================
@@ -197,7 +200,8 @@ where
 /// * `time_tolerance` - Optional boundary refinement tolerance (default: 0.01s)
 ///
 /// # Returns
-/// Vector of `AccessWindow` objects sorted by start time
+/// Result containing vector of `AccessWindow` objects sorted by start time,
+/// or error if property computation fails
 ///
 /// # Examples
 /// ```
@@ -233,7 +237,7 @@ where
 ///     None,
 ///     None,
 ///     None,
-/// );
+/// ).unwrap();
 ///
 /// // Windows contains all periods when satellite is above 10 degrees elevation
 /// for window in windows {
@@ -251,7 +255,7 @@ pub fn location_accesses<L, P, Locs, Props>(
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     config: Option<&AccessSearchConfig>,
     time_tolerance: Option<f64>,
-) -> Vec<AccessWindow>
+) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
     P: IdentifiableStateProvider + Sync,
@@ -373,7 +377,8 @@ mod tests {
             None,
             Some(&config),
             Some(0.1),
-        );
+        )
+        .unwrap();
 
         // Should find at least one window
         assert!(
@@ -458,7 +463,8 @@ mod tests {
             None,
             Some(&config),
             Some(0.1),
-        );
+        )
+        .unwrap();
 
         // Should find windows from multiple satellites
         assert!(
@@ -507,7 +513,8 @@ mod tests {
             None,
             Some(&config),
             Some(0.1),
-        );
+        )
+        .unwrap();
 
         // Should find windows for multiple locations
         assert!(
@@ -574,7 +581,8 @@ mod tests {
             None,
             Some(&config),
             Some(0.1),
-        );
+        )
+        .unwrap();
 
         // Should find windows for multiple location-satellite pairs
         assert!(

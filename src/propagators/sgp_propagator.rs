@@ -125,7 +125,7 @@ fn convert_state_from_spg4_frame(
     }
 }
 
-/// SGP4 propagator using TLE data with the new architecture
+/// SGP4 propagator
 #[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub struct SGPPropagator {

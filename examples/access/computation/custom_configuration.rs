@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None,
         Some(&config),
         None,
-    );
+    )?;
 
     println!(
         "Found {} access windows with custom configuration",

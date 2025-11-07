@@ -44,7 +44,7 @@ fn main() {
         None,
         None,
         None,
-    );
+    ).unwrap();
 
     // Display results
     println!("\nTotal access windows: {}", windows.len());

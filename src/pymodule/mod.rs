@@ -780,6 +780,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyAccessProperties>()?;
     module.add_class::<PyAccessSearchConfig>()?;
     module.add_class::<PyAdditionalPropertiesDict>()?;
+    module.add_class::<PySamplingConfig>()?;
+    module.add_class::<PyDopplerComputer>()?;
+    module.add_class::<PyRangeComputer>()?;
+    module.add_class::<PyRangeRateComputer>()?;
     module.add_class::<PyAccessPropertyComputer>()?;
     module.add_class::<PyAccessConstraintComputer>()?;
 

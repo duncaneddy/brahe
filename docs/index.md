@@ -67,8 +67,6 @@ We want to make it easy for people to use and build on the work without worrying
 
 ## Quick Start
 
-### Python
-
 To install the latest release of brahe for Python, simply run:
 
 ```bash
@@ -87,7 +85,19 @@ And do something fun like calculate the orbital-period of a satellite in low Ear
 --8<-- "./examples/common/orbital_period.py:9"
 ```
 
-Here are some common operations to get you started:
+or find the when the ISS will next pass overhead:
+
+``` python
+--8<-- "./examples/common/simple_access.py:9"
+```
+
+---
+
+### Additional Examples
+
+If you want to see more examples of how to use brahe, here are some additional quick examples. You can find even more with full source code in the [Examples](./examples/index.md) section of the documentation.
+
+#### Python
 
 **Working with Time:**
 ``` python
@@ -110,7 +120,7 @@ Here are some common operations to get you started:
 
 ----
 
-### Rust
+#### Rust
 
 To use brahe in your Rust project, add it to your `Cargo.toml`:
 

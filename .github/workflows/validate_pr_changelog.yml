@@ -1,0 +1,117 @@
+name: Validate PR Changelog
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for changelog entries
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prBody = context.payload.pull_request.body || '';
+            const prNumber = context.payload.pull_request.number;
+
+            // Define changelog sections to check
+            const sections = ['Added', 'Changed', 'Fixed', 'Removed'];
+            let hasValidEntry = false;
+            const foundEntries = [];
+
+            for (const section of sections) {
+              // Match section header followed by list items (not HTML comments)
+              const pattern = new RegExp(`###\\s+${section}\\s*\\n((?:- (?!<!--).*\\n?)*)`, 'i');
+              const match = prBody.match(pattern);
+
+              if (match) {
+                const content = match[1].trim();
+                // Filter out empty lines and HTML comments
+                const lines = content.split('\n').filter(line => {
+                  const trimmed = line.trim();
+                  return trimmed && !trimmed.startsWith('<!--');
+                });
+
+                if (lines.length > 0) {
+                  hasValidEntry = true;
+                  foundEntries.push(`${section}: ${lines.length} item(s)`);
+                }
+              }
+            }
+
+            if (!hasValidEntry) {
+              const comment = `## ⚠️ Changelog Entry Required
+
+            This pull request does not have any changelog entries. Please add at least one entry under the appropriate section(s) in the PR description:
+
+            - **Added** - for new features
+            - **Changed** - for changes in existing functionality
+            - **Fixed** - for bug fixes
+            - **Removed** - for removed features
+
+            ### Example:
+            \`\`\`markdown
+            ### Fixed
+            - Fixed memory leak in trajectory interpolation
+            - Corrected EOP data loading for edge cases
+            \`\`\`
+
+            These entries will be automatically converted to changelog fragments when the PR is merged.`;
+
+              // Find existing bot comments
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+              });
+
+              const botComment = comments.find(comment =>
+                comment.user.type === 'Bot' &&
+                comment.body.includes('Changelog Entry Required')
+              );
+
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: comment,
+                });
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: comment,
+                });
+              }
+
+              core.setFailed('No changelog entries found in PR description');
+            } else {
+              console.log(`✅ Changelog validation passed`);
+              console.log(`Found entries: ${foundEntries.join(', ')}`);
+
+              // Optionally delete the warning comment if it exists
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+              });
+
+              const botComment = comments.find(comment =>
+                comment.user.type === 'Bot' &&
+                comment.body.includes('Changelog Entry Required')
+              );
+
+              if (botComment) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                });
+                console.log('Deleted previous warning comment');
+              }
+            }

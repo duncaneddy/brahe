@@ -6,32 +6,142 @@ on:
       - v[0-9].[0-9]+.[0-9]+
 
 jobs:
-  update-bundled-data:
-    uses: ./.github/workflows/update_bundled_data.yml
+  # Validate that tag version matches package versions
+  validate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Extract version from tag
+        id: extract
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Validate Cargo.toml version
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          if [ "$CARGO_VERSION" != "${{ steps.extract.outputs.version }}" ]; then
+            echo "ERROR: Tag version (${{ steps.extract.outputs.version }}) does not match Cargo.toml version ($CARGO_VERSION)"
+            exit 1
+          fi
+          echo "Cargo.toml version matches: $CARGO_VERSION"
+
+      - name: Validate pyproject.toml version
+        run: |
+          # pyproject.toml version is dynamic, synced to Cargo.toml, so just verify Cargo.toml is correct
+          echo "Python version is dynamic and synced to Cargo.toml"
 
   test-rust:
     uses: ./.github/workflows/test_rust.yml
-    needs: [update-bundled-data]
+    needs: [validate-version]
+
   test-python:
     uses: ./.github/workflows/test_python.yml
-    needs: [ test-rust ]
+    needs: [test-rust]
+
   test-examples:
     uses: ./.github/workflows/test_examples.yml
-    needs: [ update-bundled-data ]
+    needs: [test-rust]
+
+  # Generate release notes using towncrier
+  generate-release-notes:
+    runs-on: ubuntu-latest
+    needs: [validate-version, test-python, test-examples]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Install towncrier
+        run: uv pip install towncrier
+
+      - name: Check for changelog fragments
+        id: check-fragments
+        run: |
+          if [ -n "$(find news/ -maxdepth 1 -name '*.md' ! -name '.template.md' ! -name 'README.md' -type f)" ]; then
+            echo "has_fragments=true" >> $GITHUB_OUTPUT
+            echo "Found changelog fragments"
+          else
+            echo "has_fragments=false" >> $GITHUB_OUTPUT
+            echo "No changelog fragments found"
+          fi
+
+      - name: Generate release notes
+        if: steps.check-fragments.outputs.has_fragments == 'true'
+        run: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+          uv run towncrier build --version $VERSION --yes
+          echo "Release notes generated for version $VERSION"
+
+      - name: Create empty release notes
+        if: steps.check-fragments.outputs.has_fragments == 'false'
+        run: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+          echo "No significant changes for this release." > release_notes.md
+          echo "No changelog fragments found - created empty release notes"
+
+      - name: Commit updated CHANGELOG and cleanup fragments
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add CHANGELOG.md and any deleted fragment files
+          git add CHANGELOG.md news/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update CHANGELOG for v${{ needs.validate-version.outputs.version }} [skip ci]"
+            git push origin HEAD:main
+            echo "CHANGELOG updated and fragments cleaned up"
+          fi
+
+      - name: Extract release notes for this version
+        if: steps.check-fragments.outputs.has_fragments == 'true'
+        run: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+          # Extract the section for this version from CHANGELOG.md
+          awk "/^## v?$VERSION/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
+          echo "Extracted release notes:"
+          cat release_notes.md
+
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release_notes.md
+
   update-docs:
     uses: ./.github/workflows/update_docs.yml
-    needs: [ test-python, test-examples ]
+    needs: [generate-release-notes]
     with:
       version: ${{ github.ref_name }}
 
   python-build-source:
-    needs: [update-docs]
+    needs: [generate-release-notes]
     runs-on: ubuntu-latest
     environment: release
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.12' ]
+        os: [ubuntu-latest]
+        python-version: ['3.12']
         rust-toolchain: [nightly]
 
     steps:
@@ -75,12 +185,12 @@ jobs:
         name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
 
   python-build-wheels:
-    needs: [update-docs]
+    needs: [generate-release-notes]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-          os: [ ubuntu-latest, macos-latest, windows-latest ]
-          python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+          os: [ubuntu-latest, macos-latest, windows-latest]
+          python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
           rust-toolchain: [nightly]
     environment: release
 
@@ -111,7 +221,7 @@ jobs:
       with:
         command: build
         rust-toolchain: ${{ matrix.rust-toolchain }}
-        args: --release -i python${{ matrix.python-version }} 
+        args: --release -i python${{ matrix.python-version }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -142,7 +252,7 @@ jobs:
 
   release-rust:
     runs-on: ubuntu-latest
-    needs: [ python-build-source, python-build-wheels, update-docs ]
+    needs: [python-build-source, python-build-wheels]
     environment: release
     permissions:
       id-token: write
@@ -159,4 +269,81 @@ jobs:
           rustup update ${{ env.RUST_TOOLCHAIN }}
           rustup default ${{ env.RUST_TOOLCHAIN }}
       - name: Publish to crates.io
-        run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  # Create GitHub Release as draft with all artifacts
+  create-github-release:
+    runs-on: ubuntu-latest
+    needs: [release-python, release-rust, update-docs, validate-version]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare artifacts for release
+        run: |
+          mkdir -p release-artifacts
+          cp -r *-source/* release-artifacts/ 2>/dev/null || true
+          cp -r *-wheel/* release-artifacts/ 2>/dev/null || true
+          ls -lah release-artifacts/
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body_path: release_notes.md
+          draft: true
+          prerelease: false
+          files: release-artifacts/*
+
+  # Update the "latest" release tag and artifacts
+  update-latest-release:
+    runs-on: ubuntu-latest
+    needs: [create-github-release, validate-version]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare artifacts for latest release
+        run: |
+          mkdir -p release-artifacts
+          cp -r *-source/* release-artifacts/ 2>/dev/null || true
+          cp -r *-wheel/* release-artifacts/ 2>/dev/null || true
+          ls -lah release-artifacts/
+
+      - name: Update latest tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -fa latest -m "Latest stable release: ${{ github.ref_name }}"
+          git push origin latest --force
+
+      - name: Update latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Release (${{ github.ref_name }})
+          body: |
+            This is the latest stable release of Brahe.
+
+            Current version: **${{ github.ref_name }}** (v${{ needs.validate-version.outputs.version }})
+
+            For detailed release notes, see the [versioned release](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}).
+          draft: false
+          prerelease: true
+          files: release-artifacts/*

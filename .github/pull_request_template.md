@@ -4,17 +4,21 @@
 
 <!-- Provide a brief description of the changes in this PR -->
 
+## Changelog
+
+**Fill in at least one section below.** Entries will be automatically converted to changelog fragments when this PR is merged.
+
 ### Added
-- <!-- List new features added in this PR -->
+- <!-- New features added in this PR -->
 
 ### Changed
-- <!-- List changes made in this PR -->
+- <!-- Changes to existing functionality -->
 
 ### Fixed
-- <!-- List bugs fixed in this PR -->
+- <!-- Bug fixes -->
 
 ### Removed
-- <!-- List features removed in this PR -->
+- <!-- Removed features or functionality -->
 
 ## Related Issue
 <!-- If this PR addresses a specific issue, please provide the issue number here -->

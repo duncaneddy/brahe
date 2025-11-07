@@ -1,0 +1,96 @@
+name: Create Changelog Fragments
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  create-fragments:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Parse PR body and create fragments
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import os
+          import re
+
+          pr_number = os.environ['PR_NUMBER']
+          pr_body = os.environ.get('PR_BODY', '')
+
+          # Define changelog sections to extract
+          sections = {
+              'added': 'Added',
+              'changed': 'Changed',
+              'fixed': 'Fixed',
+              'removed': 'Removed'
+          }
+
+          fragments_created = []
+
+          for section_key, section_name in sections.items():
+              # Match section header followed by list items
+              # Pattern: ### Added\n- item1\n- item2
+              pattern = rf'###\s+{section_name}\s*\n((?:- (?!<!--).*\n?)*)'
+              match = re.search(pattern, pr_body, re.MULTILINE | re.IGNORECASE)
+
+              if match:
+                  content = match.group(1).strip()
+
+                  # Filter out empty lines and HTML comments
+                  lines = [
+                      line.strip()
+                      for line in content.split('\n')
+                      if line.strip() and not line.strip().startswith('<!--')
+                  ]
+
+                  if lines:
+                      # Create fragment file
+                      fragment_path = f'news/{pr_number}.{section_key}.md'
+                      with open(fragment_path, 'w') as f:
+                          for line in lines:
+                              f.write(f'{line}\n')
+                      fragments_created.append(fragment_path)
+                      print(f'Created {fragment_path}')
+
+          if not fragments_created:
+              print('No changelog entries found in PR body')
+              # Create a marker file to indicate no changes
+              marker_path = f'news/{pr_number}.skip.md'
+              with open(marker_path, 'w') as f:
+                  f.write('<!-- No changelog entries -->\n')
+              fragments_created.append(marker_path)
+              print(f'Created marker file {marker_path}')
+
+          # Output for next step
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'FRAGMENTS_CREATED={",".join(fragments_created)}\n')
+          PYTHON_SCRIPT
+
+      - name: Commit fragments
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add news/
+          if git diff --staged --quiet; then
+            echo "No fragments to commit"
+          else
+            git commit -m "Add changelog fragments for PR #${{ github.event.pull_request.number }} [skip ci]"
+            git push origin main
+            echo "Changelog fragments committed successfully"
+          fi

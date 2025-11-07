@@ -367,3 +367,148 @@ The following plot shows time system offsets from UTC:
 This will:
 - Embed the interactive Plotly plot
 - Add a collapsible section showing the source code
+
+## Pull Request Changelog
+
+### Automatic Changelog Generation
+
+When you create a pull request, you must fill in the changelog section in the PR description. The changelog uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format with four categories:
+
+- **Added** - New features
+- **Changed** - Changes to existing functionality
+- **Fixed** - Bug fixes
+- **Removed** - Removed features or functionality
+
+### How It Works
+
+1. **Fill in PR description**: When opening a PR, add entries under the appropriate changelog section(s)
+   ```markdown
+   ### Fixed
+   - Fixed memory leak in trajectory interpolation
+   - Corrected EOP data loading for edge cases
+   ```
+
+2. **Validation**: A GitHub Action checks that at least one changelog section has entries
+   - PR will fail validation if all sections are empty
+   - You'll receive a comment with instructions if validation fails
+
+3. **Automatic fragment creation**: When the PR is merged:
+   - A GitHub Action parses your changelog entries
+   - Creates fragment files in `news/` directory (e.g., `123.added.md`, `123.fixed.md`)
+   - Commits the fragments to the main branch
+
+4. **Release compilation**: During release:
+   - Towncrier collects all fragments from `news/`
+   - Generates formatted release notes
+   - Updates `CHANGELOG.md` with the new version section
+   - Deletes fragment files
+
+### Example PR Changelog
+
+```markdown
+## Changelog
+
+### Added
+- Support for new SGP4 propagation mode
+- EOP data caching to improve performance
+
+### Fixed
+- Memory leak in trajectory interpolation
+- Edge case in geodetic coordinate conversion
+```
+
+This will automatically create:
+- `news/123.added.md` with both Added items
+- `news/123.fixed.md` with both Fixed items
+
+### Manual Fragment Creation (Rare)
+
+In rare cases where you need to create fragments manually, see `news/README.md` for instructions. Fragment files use the format `<PR#>.<type>.md` where type is one of: `added`, `changed`, `fixed`, `removed`.
+
+### Previewing the Changelog
+
+To see what changelog fragments are currently queued:
+
+```bash
+# List all fragment files
+ls -la news/*.md
+
+# Or see just the fragment names
+find news/ -name '*.md' ! -name '.template.md' ! -name 'README.md'
+```
+
+To see what the next release changelog would look like without making changes:
+
+```bash
+# Preview the changelog for the next release
+uv run towncrier build --version 1.2.3 --draft
+```
+
+This shows the formatted output without modifying `CHANGELOG.md` or deleting fragments.
+
+### Releases Without Changelog Fragments
+
+If you create a release when there are no changelog fragments in `news/`:
+- The release workflow will succeed
+- A minimal release will be created with "No significant changes"
+- This is useful for releases that only contain dependency updates or internal changes
+
+## Release Process
+
+### Initiating a Release
+
+Before creating a release:
+
+1. **Update version** in `Cargo.toml`:
+   ```bash
+   # Edit version in Cargo.toml
+   vim Cargo.toml  # Update version = "1.2.3"
+   ```
+
+2. **Run quality checks**:
+   ```bash
+   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && uv run make.py test-examples && uv run make.py make-plots && uv run mkdocs build --strict
+   ```
+
+3. **Push version tag**:
+   ```bash
+   git add Cargo.toml
+   git commit -m "Prepare release v1.2.3"
+   git push origin main
+   git tag v1.2.3
+   git push origin v1.2.3
+   ```
+
+### Automated Workflow
+
+**Note**: Changelog fragments are automatically created from PR descriptions. You don't need to manually create fragment files.
+
+Once the tag is pushed, GitHub Actions automatically:
+
+1. Validates version matches between tag and `Cargo.toml`
+2. Runs all tests (Rust, Python, examples)
+3. Generates release notes with towncrier (commits CHANGELOG.md)
+4. Builds documentation and deploys to GitHub Pages
+5. Builds Python wheels and source distribution
+6. Publishes to PyPI and crates.io
+7. Creates **draft** GitHub Release with artifacts and release notes
+8. Updates "latest" tag and release
+
+### Completing the Release
+
+After automation completes:
+
+1. **Review draft release** at `https://github.com/duncaneddy/brahe/releases`
+2. **Edit release notes** (optional):
+   - Add highlights or breaking changes
+   - Include migration notes if needed
+3. **Publish release** by clicking "Publish release"
+
+### Verification
+
+After publishing, verify:
+
+- PyPI: [https://pypi.org/project/brahe/](https://pypi.org/project/brahe/)
+- Crates.io: [https://crates.io/crates/brahe](https://crates.io/crates/brahe)
+- Docs: [https://duncaneddy.github.io/brahe/latest/](https://duncaneddy.github.io/brahe/latest/)
+- GitHub: [https://github.com/duncaneddy/brahe/releases](https://github.com/duncaneddy/brahe/releases)

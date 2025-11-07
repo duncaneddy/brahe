@@ -81,6 +81,7 @@ docs = [
 ]
 dev = [
     "pre-commit>=4.3.0",
+    "towncrier>=25.8.0",
     { include-group = "test" },
     { include-group = "docs" },
 ]
@@ -106,3 +107,34 @@ addopts = "-m 'not ci'"
 [tool.ruff.lint]
 # Ignore F403 (import * used) in __init__.py for backward compatibility pattern
 extend-ignore = ["F403"]
+
+[tool.towncrier]
+# Changelog configuration using Keep a Changelog format
+package = "brahe"
+filename = "CHANGELOG.md"
+directory = "news"
+template = "news/.template.md"
+title_format = "## [{version}] - {project_date}"
+issue_format = "[#{issue}](https://github.com/duncaneddy/brahe/pull/{issue})"
+underlines = ["", "", ""]
+start_string = "<!-- towncrier release notes start -->\n"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true

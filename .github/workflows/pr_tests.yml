@@ -1,0 +1,56 @@
+name: PR Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test-rust:
+    uses: ./.github/workflows/test_rust.yml
+
+  test-python:
+    uses: ./.github/workflows/test_python.yml
+    needs: [test-rust]
+
+  test-examples:
+    uses: ./.github/workflows/test_examples.yml
+    needs: [test-rust]
+
+  # Build docs to verify no breakage, but don't deploy
+  build-docs:
+    runs-on: ubuntu-latest
+    needs: [test-python, test-examples]
+    env:
+      RUST_TOOLCHAIN: nightly
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ env.RUST_TOOLCHAIN }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --group docs --all-extras --frozen
+
+      - name: Build Python extension
+        run: uv pip install -e .
+
+      - name: Generate type stubs
+        run: ./scripts/generate_stubs.sh
+
+      - name: Build documentation (verify only, no deployment)
+        run: uv run mkdocs build --strict

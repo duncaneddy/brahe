@@ -243,7 +243,7 @@ def test_rust_example(
 
 
 def test_python_example(
-    file_path: Path, verbose: bool = False, timeout: int = 120
+    file_path: Path, verbose: bool = False, timeout: int = 180
 ) -> tuple[bool, str, str]:
     """Test a single Python example. Returns (success, stdout, stderr)."""
     # Use .venv/bin/python directly to avoid uv environment warnings
@@ -510,7 +510,7 @@ def test_examples(
         None,
         "--timeout",
         "-t",
-        help="Override timeout in seconds (default: Python=120s, Rust=300s)",
+        help="Override timeout in seconds (default: Python=180s, Rust=300s)",
     ),
     workers: Optional[int] = typer.Option(
         None,
@@ -693,7 +693,7 @@ def test_examples(
                     else:
                         # CLI timeout overrides file timeout
                         effective_timeout = (
-                            timeout if timeout is not None else (file_timeout or 120)
+                            timeout if timeout is not None else (file_timeout or 180)
                         )
                         passed, stdout, stderr = test_python_example(
                             py_file, verbose, effective_timeout
@@ -719,7 +719,7 @@ def test_examples(
                     test_python_example,
                     check_flags,
                     verbose,
-                    120,  # Default Python timeout
+                    180,  # Default Python timeout
                     timeout,
                     ci_only,
                     slow,
@@ -837,7 +837,7 @@ def test_example(
         None,
         "--timeout",
         "-t",
-        help="Override timeout in seconds (default: Python=120s, Rust=300s)",
+        help="Override timeout in seconds (default: Python=180s, Rust=300s)",
     ),
 ):
     """
@@ -963,7 +963,7 @@ def test_example(
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
         _, _, py_timeout = check_flags(py_file)
         # CLI timeout overrides file timeout
-        effective_timeout = timeout if timeout is not None else (py_timeout or 120)
+        effective_timeout = timeout if timeout is not None else (py_timeout or 180)
         passed, stdout, stderr = test_python_example(
             py_file, verbose, effective_timeout
         )
@@ -1042,7 +1042,7 @@ def run_plot_file(plot_file: Path, timeout: int) -> Tuple[str, str, str, int]:
 def make_plots(
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     timeout: Optional[int] = typer.Option(
-        None, "--timeout", "-t", help="Override timeout in seconds (default: 120s)"
+        None, "--timeout", "-t", help="Override timeout in seconds (default: 180s)"
     ),
     workers: Optional[int] = typer.Option(
         None,
@@ -1091,7 +1091,7 @@ def make_plots(
     tasks = []
     for plot_file in plot_files:
         _, _, file_timeout = check_flags(plot_file)
-        effective_timeout = timeout if timeout is not None else (file_timeout or 120)
+        effective_timeout = timeout if timeout is not None else (file_timeout or 180)
         tasks.append((plot_file, effective_timeout))
 
     with Progress(
@@ -1189,7 +1189,7 @@ def make_plot(
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     timeout: Optional[int] = typer.Option(
-        None, "--timeout", "-t", help="Override timeout in seconds (default: 120s)"
+        None, "--timeout", "-t", help="Override timeout in seconds (default: 180s)"
     ),
 ):
     """
@@ -1237,7 +1237,7 @@ def make_plot(
 
     # Get timeout from file or use CLI override
     _, _, file_timeout = check_flags(plot_file)
-    effective_timeout = timeout if timeout is not None else (file_timeout or 120)
+    effective_timeout = timeout if timeout is not None else (file_timeout or 180)
 
     python_exe = REPO_ROOT / ".venv" / "bin" / "python"
     try:

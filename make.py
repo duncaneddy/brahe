@@ -12,7 +12,8 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Callable, Tuple
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -282,6 +283,109 @@ def test_python_example(
         return False, "", error_msg
 
 
+def run_files_parallel(
+    files: List[Path],
+    test_fn: Callable[[Path, bool, int], Tuple[bool, str, str]],
+    check_flags_fn: Callable[[Path, bool, bool, bool], Tuple[bool, str, Optional[int]]],
+    verbose: bool,
+    default_timeout: int,
+    cli_timeout: Optional[int],
+    ci_only: bool,
+    slow: bool,
+    ignore: bool,
+    num_workers: int,
+    progress: Progress,
+    task_id,
+    results: TestResults,
+) -> None:
+    """
+    Run test files in parallel using ProcessPoolExecutor.
+
+    Args:
+        files: List of file paths to test
+        test_fn: Function to test a single file (test_rust_example or test_python_example)
+        check_flags_fn: Function to check file flags
+        verbose: Show detailed output
+        default_timeout: Default timeout for tests
+        cli_timeout: CLI-specified timeout override
+        ci_only: Include CI-ONLY tests
+        slow: Include SLOW tests
+        ignore: Include IGNORE tests
+        num_workers: Number of worker processes
+        progress: Rich progress instance
+        task_id: Progress task ID
+        results: TestResults object to update
+    """
+    # Filter files and prepare tasks
+    tasks = []
+    for file_path in files:
+        should_skip, reason, file_timeout = check_flags_fn(
+            file_path, ci_only, slow, ignore
+        )
+        results.total += 1
+
+        if should_skip:
+            results.skipped += 1
+            if verbose:
+                rel_path = file_path.relative_to(REPO_ROOT)
+                console.print(f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]")
+            progress.update(task_id, advance=1)
+        else:
+            # Determine effective timeout
+            effective_timeout = (
+                cli_timeout
+                if cli_timeout is not None
+                else (file_timeout or default_timeout)
+            )
+            tasks.append((file_path, effective_timeout))
+
+    # Run tasks in parallel
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        # Submit all tasks
+        future_to_file = {
+            executor.submit(test_fn, file_path, False, timeout): (file_path, timeout)
+            for file_path, timeout in tasks
+        }
+
+        # Process results as they complete
+        for future in as_completed(future_to_file):
+            file_path, timeout = future_to_file[future]
+            rel_path = file_path.relative_to(REPO_ROOT)
+
+            try:
+                passed, stdout, stderr = future.result()
+
+                if passed:
+                    results.passed += 1
+                    if verbose:
+                        console.print(f"  {rel_path}...[green]PASS[/green]")
+                        if stdout:
+                            console.print(stdout, style="dim")
+                else:
+                    results.failed += 1
+                    results.failures.append(str(rel_path))
+                    results.error_details.append((str(rel_path), stdout, stderr))
+                    console.print(f"  {rel_path}...[red]FAIL[/red]")
+                    if verbose:
+                        if stdout:
+                            console.print("[red]STDOUT:[/red]")
+                            console.print(stdout)
+                        if stderr:
+                            console.print("[red]STDERR:[/red]")
+                            console.print(stderr)
+            except Exception as e:
+                # Handle exceptions from worker processes
+                results.failed += 1
+                results.failures.append(str(rel_path))
+                error_msg = f"Worker exception: {str(e)}"
+                results.error_details.append((str(rel_path), "", error_msg))
+                console.print(f"  {rel_path}...[red]FAIL[/red]")
+                if verbose:
+                    console.print(f"[red]Error: {error_msg}[/red]")
+
+            progress.update(task_id, advance=1)
+
+
 # ===== Testing Commands =====
 
 
@@ -408,9 +512,21 @@ def test_examples(
         "-t",
         help="Override timeout in seconds (default: Python=120s, Rust=300s)",
     ),
+    workers: Optional[int] = typer.Option(
+        None,
+        "--workers",
+        "-w",
+        help="Number of parallel workers (default: min(cpu_count, 8), Rust uses min(cpu_count//2, 4))",
+    ),
+    serial: bool = typer.Option(
+        False, "--serial", help="Run sequentially instead of in parallel"
+    ),
 ):
     """
     Test all documentation examples.
+
+    By default, examples are tested in parallel using multiple workers.
+    Use --serial to run sequentially (useful for debugging).
 
     Equivalent to: make test-examples
     With --strict: make test-examples-strict
@@ -446,10 +562,26 @@ def test_examples(
         f"\n[bold blue]Testing Documentation Examples{lang_filter_msg}[/bold blue]\n"
     )
 
+    # Determine number of workers
+    # Rust compilation is more resource-intensive, so use fewer workers
+    if serial:
+        rust_workers = 1
+        python_workers = 1
+    elif workers is not None:
+        rust_workers = max(1, workers)
+        python_workers = max(1, workers)
+    else:
+        cpu_count = os.cpu_count() or 4
+        rust_workers = min(cpu_count // 2, 4)  # Conservative for Rust
+        python_workers = min(cpu_count, 8)  # More aggressive for Python
+
     # Test Rust examples
     rust_results = TestResults()
     if test_rust:
         console.print("[bold]Testing Rust Examples[/bold]")
+        if rust_workers > 1:
+            console.print(f"[dim]Running with {rust_workers} parallel workers[/dim]")
+
         rust_files = sorted(EXAMPLES_DIR.glob("**/*.rs"))
 
         with Progress(
@@ -461,42 +593,61 @@ def test_examples(
         ) as progress:
             task = progress.add_task("Testing Rust examples...", total=len(rust_files))
 
-            for rust_file in rust_files:
-                rel_path = rust_file.relative_to(REPO_ROOT)
-                should_skip, reason, file_timeout = check_flags(
-                    rust_file, ci_only, slow, ignore
-                )
-
-                rust_results.total += 1
-
-                if should_skip:
-                    rust_results.skipped += 1
-                    if verbose:
-                        console.print(
-                            f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
-                        )
-                else:
-                    # CLI timeout overrides file timeout
-                    effective_timeout = (
-                        timeout if timeout is not None else (file_timeout or 300)
-                    )
-                    passed, stdout, stderr = test_rust_example(
-                        rust_file, verbose, effective_timeout
+            if rust_workers == 1:
+                # Sequential execution
+                for rust_file in rust_files:
+                    rel_path = rust_file.relative_to(REPO_ROOT)
+                    should_skip, reason, file_timeout = check_flags(
+                        rust_file, ci_only, slow, ignore
                     )
 
-                    if passed:
-                        rust_results.passed += 1
+                    rust_results.total += 1
+
+                    if should_skip:
+                        rust_results.skipped += 1
                         if verbose:
-                            console.print(f"  {rel_path}...[green]PASS[/green]")
+                            console.print(
+                                f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
+                            )
                     else:
-                        rust_results.failed += 1
-                        rust_results.failures.append(str(rel_path))
-                        rust_results.error_details.append(
-                            (str(rel_path), stdout, stderr)
+                        # CLI timeout overrides file timeout
+                        effective_timeout = (
+                            timeout if timeout is not None else (file_timeout or 300)
                         )
-                        console.print(f"  {rel_path}...[red]FAIL[/red]")
+                        passed, stdout, stderr = test_rust_example(
+                            rust_file, verbose, effective_timeout
+                        )
 
-                progress.update(task, advance=1)
+                        if passed:
+                            rust_results.passed += 1
+                            if verbose:
+                                console.print(f"  {rel_path}...[green]PASS[/green]")
+                        else:
+                            rust_results.failed += 1
+                            rust_results.failures.append(str(rel_path))
+                            rust_results.error_details.append(
+                                (str(rel_path), stdout, stderr)
+                            )
+                            console.print(f"  {rel_path}...[red]FAIL[/red]")
+
+                    progress.update(task, advance=1)
+            else:
+                # Parallel execution
+                run_files_parallel(
+                    rust_files,
+                    test_rust_example,
+                    check_flags,
+                    verbose,
+                    300,  # Default Rust timeout
+                    timeout,
+                    ci_only,
+                    slow,
+                    ignore,
+                    rust_workers,
+                    progress,
+                    task,
+                    rust_results,
+                )
 
         console.print(
             f"[blue]Rust: {rust_results.total} total, {rust_results.passed} passed, "
@@ -507,6 +658,9 @@ def test_examples(
     python_results = TestResults()
     if test_python:
         console.print("[bold]Testing Python Examples[/bold]")
+        if python_workers > 1:
+            console.print(f"[dim]Running with {python_workers} parallel workers[/dim]")
+
         python_files = sorted(EXAMPLES_DIR.glob("**/*.py"))
 
         with Progress(
@@ -520,42 +674,61 @@ def test_examples(
                 "Testing Python examples...", total=len(python_files)
             )
 
-            for py_file in python_files:
-                rel_path = py_file.relative_to(REPO_ROOT)
-                should_skip, reason, file_timeout = check_flags(
-                    py_file, ci_only, slow, ignore
-                )
-
-                python_results.total += 1
-
-                if should_skip:
-                    python_results.skipped += 1
-                    if verbose:
-                        console.print(
-                            f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
-                        )
-                else:
-                    # CLI timeout overrides file timeout
-                    effective_timeout = (
-                        timeout if timeout is not None else (file_timeout or 120)
-                    )
-                    passed, stdout, stderr = test_python_example(
-                        py_file, verbose, effective_timeout
+            if python_workers == 1:
+                # Sequential execution
+                for py_file in python_files:
+                    rel_path = py_file.relative_to(REPO_ROOT)
+                    should_skip, reason, file_timeout = check_flags(
+                        py_file, ci_only, slow, ignore
                     )
 
-                    if passed:
-                        python_results.passed += 1
+                    python_results.total += 1
+
+                    if should_skip:
+                        python_results.skipped += 1
                         if verbose:
-                            console.print(f"  {rel_path}...[green]PASS[/green]")
+                            console.print(
+                                f"  {rel_path}...[yellow]SKIP ({reason})[/yellow]"
+                            )
                     else:
-                        python_results.failed += 1
-                        python_results.failures.append(str(rel_path))
-                        python_results.error_details.append(
-                            (str(rel_path), stdout, stderr)
+                        # CLI timeout overrides file timeout
+                        effective_timeout = (
+                            timeout if timeout is not None else (file_timeout or 120)
                         )
-                        console.print(f"  {rel_path}...[red]FAIL[/red]")
+                        passed, stdout, stderr = test_python_example(
+                            py_file, verbose, effective_timeout
+                        )
 
-                progress.update(task, advance=1)
+                        if passed:
+                            python_results.passed += 1
+                            if verbose:
+                                console.print(f"  {rel_path}...[green]PASS[/green]")
+                        else:
+                            python_results.failed += 1
+                            python_results.failures.append(str(rel_path))
+                            python_results.error_details.append(
+                                (str(rel_path), stdout, stderr)
+                            )
+                            console.print(f"  {rel_path}...[red]FAIL[/red]")
+
+                    progress.update(task, advance=1)
+            else:
+                # Parallel execution
+                run_files_parallel(
+                    python_files,
+                    test_python_example,
+                    check_flags,
+                    verbose,
+                    120,  # Default Python timeout
+                    timeout,
+                    ci_only,
+                    slow,
+                    ignore,
+                    python_workers,
+                    progress,
+                    task,
+                    python_results,
+                )
 
         console.print(
             f"[blue]Python: {python_results.total} total, {python_results.passed} passed, "
@@ -830,15 +1003,62 @@ def test_example(
 # ===== Plot/Figure Commands =====
 
 
+def run_plot_file(plot_file: Path, timeout: int) -> Tuple[str, str, str, int]:
+    """
+    Run a single plot file and return results.
+
+    Args:
+        plot_file: Path to plot file
+        timeout: Timeout in seconds
+
+    Returns:
+        Tuple of (plot_name, stdout, stderr, returncode)
+    """
+    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
+
+    try:
+        result = subprocess.run(
+            [str(python_exe), str(plot_file)],
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+            env={
+                **subprocess.os.environ,
+                "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
+            },
+        )
+        return (plot_file.name, result.stdout, result.stderr, result.returncode)
+    except subprocess.TimeoutExpired:
+        error_msg = f"Timed out after {timeout} seconds"
+        return (plot_file.name, "", error_msg, 1)
+    except Exception as e:
+        error_msg = f"Exception: {str(e)}"
+        return (plot_file.name, "", error_msg, 1)
+
+
 @app.command()
 def make_plots(
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     timeout: Optional[int] = typer.Option(
         None, "--timeout", "-t", help="Override timeout in seconds (default: 120s)"
     ),
+    workers: Optional[int] = typer.Option(
+        None,
+        "--workers",
+        "-w",
+        help="Number of parallel workers (default: min(cpu_count, 8))",
+    ),
+    serial: bool = typer.Option(
+        False, "--serial", help="Run sequentially instead of in parallel"
+    ),
 ):
     """
     Generate all documentation plots and figures.
+
+    By default, plots are generated in parallel using multiple workers.
+    Use --serial to run sequentially (useful for debugging).
     """
     console.print("\n[bold blue]Generating Documentation Figures[/bold blue]\n")
 
@@ -853,9 +1073,26 @@ def make_plots(
         console.print("[yellow]No plot files found in plots/[/yellow]\n")
         return
 
-    python_exe = REPO_ROOT / ".venv" / "bin" / "python"
+    # Determine number of workers
+    if serial:
+        num_workers = 1
+    elif workers is not None:
+        num_workers = max(1, workers)
+    else:
+        num_workers = min(os.cpu_count() or 4, 8)
+
+    if num_workers > 1:
+        console.print(f"[dim]Running with {num_workers} parallel workers[/dim]\n")
+
     failed_plots = []
     all_outputs = []  # Store all outputs to print at the end
+
+    # Prepare tasks with timeouts
+    tasks = []
+    for plot_file in plot_files:
+        _, _, file_timeout = check_flags(plot_file)
+        effective_timeout = timeout if timeout is not None else (file_timeout or 120)
+        tasks.append((plot_file, effective_timeout))
 
     with Progress(
         SpinnerColumn(),
@@ -864,44 +1101,45 @@ def make_plots(
         TaskProgressColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("Generating figures...", total=len(plot_files))
+        task_id = progress.add_task("Generating figures...", total=len(tasks))
 
-        for plot_file in plot_files:
-            # Get timeout from file or use CLI override
-            _, _, file_timeout = check_flags(plot_file)
-            effective_timeout = (
-                timeout if timeout is not None else (file_timeout or 120)
-            )
-
-            try:
-                result = subprocess.run(
-                    [str(python_exe), str(plot_file)],
-                    cwd=REPO_ROOT,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=effective_timeout,
-                    env={
-                        **subprocess.os.environ,
-                        "BRAHE_FIGURE_OUTPUT_DIR": str(FIGURE_OUTPUT_DIR),
-                    },
+        if num_workers == 1:
+            # Sequential execution
+            for plot_file, effective_timeout in tasks:
+                plot_name, stdout, stderr, returncode = run_plot_file(
+                    plot_file, effective_timeout
                 )
-            except subprocess.TimeoutExpired:
-                error_msg = f"Timed out after {effective_timeout} seconds"
-                all_outputs.append((plot_file.name, "", error_msg, 1))
-                failed_plots.append((plot_file.name, "", error_msg))
-                progress.update(task, advance=1)
-                continue
+                all_outputs.append((plot_name, stdout, stderr, returncode))
 
-            # Store output for later display
-            all_outputs.append(
-                (plot_file.name, result.stdout, result.stderr, result.returncode)
-            )
+                if returncode != 0:
+                    failed_plots.append((plot_name, stdout, stderr))
 
-            if result.returncode != 0:
-                failed_plots.append((plot_file.name, result.stdout, result.stderr))
+                progress.update(task_id, advance=1)
+        else:
+            # Parallel execution
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                future_to_plot = {
+                    executor.submit(run_plot_file, plot_file, eff_timeout): (
+                        plot_file,
+                        eff_timeout,
+                    )
+                    for plot_file, eff_timeout in tasks
+                }
 
-            progress.update(task, advance=1)
+                for future in as_completed(future_to_plot):
+                    try:
+                        plot_name, stdout, stderr, returncode = future.result()
+                        all_outputs.append((plot_name, stdout, stderr, returncode))
+
+                        if returncode != 0:
+                            failed_plots.append((plot_name, stdout, stderr))
+                    except Exception as e:
+                        plot_file, _ = future_to_plot[future]
+                        error_msg = f"Worker exception: {str(e)}"
+                        all_outputs.append((plot_file.name, "", error_msg, 1))
+                        failed_plots.append((plot_file.name, "", error_msg))
+
+                    progress.update(task_id, advance=1)
 
     # Print all captured outputs
     if verbose:

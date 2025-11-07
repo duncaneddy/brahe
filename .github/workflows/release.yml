@@ -319,11 +319,31 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Prepare artifacts for latest release
+      - name: Prepare and rename artifacts for latest release
         run: |
           mkdir -p release-artifacts
-          cp -r *-source/* release-artifacts/ 2>/dev/null || true
-          cp -r *-wheel/* release-artifacts/ 2>/dev/null || true
+
+          # Copy and rename wheels to include "latest" instead of version
+          for wheel in *-wheel/*.whl 2>/dev/null; do
+            if [ -f "$wheel" ]; then
+              filename=$(basename "$wheel")
+              # Replace version pattern (e.g., 0.1.0, 1.2.3) with "latest"
+              new_filename=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-|\.whl)/-latest\1/')
+              cp -v "$wheel" "release-artifacts/$new_filename"
+            fi
+          done
+
+          # Copy and rename source distribution to include "latest" instead of version
+          for sdist in *-source/*.tar.gz 2>/dev/null; do
+            if [ -f "$sdist" ]; then
+              filename=$(basename "$sdist")
+              # Replace version pattern with "latest"
+              new_filename=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz/-latest.tar.gz/')
+              cp -v "$sdist" "release-artifacts/$new_filename"
+            fi
+          done
+
+          echo "Renamed artifacts for latest release:"
           ls -lah release-artifacts/
 
       - name: Update latest tag

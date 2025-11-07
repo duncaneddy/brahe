@@ -76,6 +76,11 @@ jobs:
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh
 
+      - name: Download CHANGELOG
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+
       - name: Copy CHANGELOG to docs
         run: cp CHANGELOG.md docs/changelog.md
 

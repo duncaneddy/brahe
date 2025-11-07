@@ -128,6 +128,12 @@ jobs:
           name: release-notes
           path: release_notes.md
 
+      - name: Upload CHANGELOG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
   update-docs:
     uses: ./.github/workflows/update_docs.yml
     needs: [generate-release-notes]
@@ -147,6 +153,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
+
+    - name: Download CHANGELOG
+      uses: actions/download-artifact@v4
+      with:
+        name: changelog
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -260,6 +271,10 @@ jobs:
       RUST_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v5
+      - name: Download CHANGELOG
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -324,7 +339,7 @@ jobs:
           mkdir -p release-artifacts
 
           # Copy and rename wheels to include "latest" instead of version
-          for wheel in *-wheel/*.whl 2>/dev/null; do
+          for wheel in *-wheel/*.whl; do
             if [ -f "$wheel" ]; then
               filename=$(basename "$wheel")
               # Replace version pattern (e.g., 0.1.0, 1.2.3) with "latest"
@@ -334,7 +349,7 @@ jobs:
           done
 
           # Copy and rename source distribution to include "latest" instead of version
-          for sdist in *-source/*.tar.gz 2>/dev/null; do
+          for sdist in *-source/*.tar.gz; do
             if [ -f "$sdist" ]; then
               filename=$(basename "$sdist")
               # Replace version pattern with "latest"

@@ -2659,7 +2659,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4163,6 +4163,8 @@
       
         
       
+        
+      
     
     
     
@@ -4263,6 +4265,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -5440,18 +5465,28 @@ that have a preferred look direction.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
         <p>Initialize instance.</p>
 
@@ -5544,18 +5579,28 @@ that have a preferred look direction.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 
@@ -5632,18 +5677,28 @@ that have a preferred look direction.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 
@@ -5720,18 +5775,28 @@ that have a preferred look direction.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for right-looking only satellites</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint accepting either direction</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirectionConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Compare look directions</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">RIGHT</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">LookDirection</span><span class="o">.</span><span class="n">LEFT</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 
@@ -6094,21 +6159,34 @@ the Z-component of the velocity vector in ECEF coordinates.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Accept either type</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Accept either type</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
         <p>Initialize instance.</p>
 
@@ -6204,21 +6282,34 @@ the Z-component of the velocity vector in ECEF coordinates.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Accept either type</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Accept either type</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 
@@ -6298,21 +6389,34 @@ the Z-component of the velocity vector in ECEF coordinates.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Accept either type</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Accept either type</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 
@@ -6392,21 +6496,34 @@ the Z-component of the velocity vector in ECEF coordinates.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Accept either type</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
-</span></code></pre></div>
+  <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">brahe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bh</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Create a constraint for ascending passes only</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Create a constraint for descending passes only</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="c1"># Accept either type</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">constraint</span> <span class="o">=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDscConstraint</span><span class="p">(</span><span class="n">allowed</span><span class="o">=</span><span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">EITHER</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="c1"># Compare pass types</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">!=</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">DESCENDING</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">assert</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span> <span class="o">==</span> <span class="n">bh</span><span class="o">.</span><span class="n">AscDsc</span><span class="o">.</span><span class="n">ASCENDING</span>
+</span></code></pre></div></td></tr></table></div>
 </details>
     </div>
 

@@ -2806,7 +2806,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4305,6 +4305,8 @@
       
         
       
+        
+      
     
     
     
@@ -4407,6 +4409,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/access/properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -5000,8 +5025,8 @@
 <h3 id="frame"><code>frame</code><a class="headerlink" href="#frame" title="Permanent link">&para;</a></h3>
 <p>Transform state vectors between ECI and ECEF reference frames.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>&lt;FROM_FRAME&gt;<span class="w"> </span>&lt;TO_FRAME&gt;<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;x&gt;<span class="w"> </span>&lt;y&gt;<span class="w"> </span>&lt;z&gt;<span class="w"> </span>&lt;vx&gt;<span class="w"> </span>&lt;vy&gt;<span class="w"> </span>&lt;vz&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>&lt;FROM_FRAME&gt;<span class="w"> </span>&lt;TO_FRAME&gt;<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;x&gt;<span class="w"> </span>&lt;y&gt;<span class="w"> </span>&lt;z&gt;<span class="w"> </span>&lt;vx&gt;<span class="w"> </span>&lt;vy&gt;<span class="w"> </span>&lt;vz&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>FROM_FRAME</code> - Source reference frame: <code>ECI</code> or <code>ECEF</code>
 - <code>TO_FRAME</code> - Target reference frame: <code>ECI</code> or <code>ECEF</code>
@@ -5011,29 +5036,29 @@
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Convert ECI state to ECEF at a specific epoch:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># [-1176064.179304, -6776827.196931, 15961.825213, 6895.376569, -1196.636908, 0.240602]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="c1"># [-1176064.179304, -6776827.196931, 15961.825213, 6895.376569, -1196.636908, 0.240602]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Convert ECEF back to ECI:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECEF<span class="w"> </span>ECI<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>--<span class="w"> </span>-1176064.179<span class="w"> </span>-6776827.197<span class="w"> </span><span class="m">15961</span>.825<span class="w"> </span><span class="m">6895</span>.377<span class="w"> </span>-1196.637<span class="w"> </span><span class="m">0</span>.241
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECEF<span class="w"> </span>ECI<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>--<span class="w"> </span>-1176064.179<span class="w"> </span>-6776827.197<span class="w"> </span><span class="m">15961</span>.825<span class="w"> </span><span class="m">6895</span>.377<span class="w"> </span>-1196.637<span class="w"> </span><span class="m">0</span>.241
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># [6878137.000016, 0.000312, -0.000213, 0.000018, 7500.000440, 0.000398]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># [6878137.000016, 0.000312, -0.000213, 0.000018, 7500.000440, 0.000398]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Low-precision output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--format<span class="w"> </span>.2f
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>frame<span class="w"> </span>ECI<span class="w"> </span>ECEF<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--format<span class="w"> </span>.2f
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># [1234308.01, 6766461.20, 15974.24, -6884.83, 1255.90, 0.25]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># [1234308.01, 6766461.20, 15974.24, -6884.83, 1255.90, 0.25]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="coordinates"><code>coordinates</code><a class="headerlink" href="#coordinates" title="Permanent link">&para;</a></h3>
 <p>Convert between coordinate system representations.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>&lt;FROM_SYSTEM&gt;<span class="w"> </span>&lt;TO_SYSTEM&gt;<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;x1&gt;<span class="w"> </span>&lt;x2&gt;<span class="w"> </span>&lt;x3&gt;<span class="w"> </span>&lt;x4&gt;<span class="w"> </span>&lt;x5&gt;<span class="w"> </span>&lt;x6&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>&lt;FROM_SYSTEM&gt;<span class="w"> </span>&lt;TO_SYSTEM&gt;<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;x1&gt;<span class="w"> </span>&lt;x2&gt;<span class="w"> </span>&lt;x3&gt;<span class="w"> </span>&lt;x4&gt;<span class="w"> </span>&lt;x5&gt;<span class="w"> </span>&lt;x6&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>FROM_SYSTEM</code> - Source coordinate system (see below)
 - <code>TO_SYSTEM</code> - Target coordinate system (see below)
@@ -5052,52 +5077,53 @@ Output:
 <p><strong>Examples:</strong></p>
 <h4 id="keplerian-to-cartesian-eci">Keplerian to Cartesian (ECI)<a class="headerlink" href="#keplerian-to-cartesian-eci" title="Permanent link">&para;</a></h4>
 <p>Convert orbital elements to ECI state (no epoch required):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># [6871258.863000, 0.000000, 0.000000, 0.000000, -1034.183142, 7549.721055]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="c1"># [6871258.863000, 0.000000, 0.000000, 0.000000, -1034.183142, 7549.721055]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>With different true anomaly (45°):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">45</span><span class="w"> </span>--as-degrees
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">45</span><span class="w"> </span>--as-degrees
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># [4853256.459155, -660529.749078, 4821984.763637, -5390.543500, -730.545720, 5333.113819]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="c1"># [4853256.459155, -660529.749078, 4821984.763637, -5390.543500, -730.545720, 5333.113819]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h4 id="cartesian-to-keplerian">Cartesian to Keplerian<a class="headerlink" href="#cartesian-to-keplerian" title="Permanent link">&para;</a></h4>
 <p>Convert ECI state back to orbital elements:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>cartesian<span class="w"> </span>keplerian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span>--<span class="w"> </span><span class="m">6871258</span>.863<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>-1034.183<span class="w"> </span><span class="m">7549</span>.721
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>cartesian<span class="w"> </span>keplerian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span>--<span class="w"> </span><span class="m">6871258</span>.863<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>-1034.183<span class="w"> </span><span class="m">7549</span>.721
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># [6878136.866355, 0.001000, 97.799999, 0.000000, 0.000000, 0.000000]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="c1"># [6878136.866355, 0.001000, 97.799999, 0.000000, 0.000000, 0.000000]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h4 id="geodetic-to-cartesian-ecef">Geodetic to Cartesian (ECEF)<a class="headerlink" href="#geodetic-to-cartesian-ecef" title="Permanent link">&para;</a></h4>
 <p>Convert geodetic coordinates (New York City) to ECEF:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>geodetic<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">286</span>.0060<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>geodetic<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">286</span>.0060<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># [1334224.912305, -4651969.287142, 4140677.827068]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="c1"># [1334224.912305, -4651969.287142, 4140677.827068]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Note:</strong> Order is [lon, lat, alt]. Longitude 286° = -74° (use positive east longitude, or handle negative with <code>--</code>)</p>
 <h4 id="ecef-cartesian-to-geodetic">ECEF Cartesian to Geodetic<a class="headerlink" href="#ecef-cartesian-to-geodetic" title="Permanent link">&para;</a></h4>
-<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--from-frame<span class="w"> </span>ECEF<span class="w"> </span>cartesian<span class="w"> </span>geodetic<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">1334915</span>.0<span class="w"> </span><span class="m">4652372</span>.0<span class="w"> </span><span class="m">4075345</span>.0<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div>
+<p><div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--from-frame<span class="w"> </span>ECEF<span class="w"> </span>cartesian<span class="w"> </span>geodetic<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">1334915</span>.0<span class="w"> </span><span class="m">4652372</span>.0<span class="w"> </span><span class="m">4075345</span>.0<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># [73.990114, 40.288227, -41917.492259]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># [73.990114, 40.288227, -41917.492259]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h4 id="keplerian-to-geodetic-via-ecef">Keplerian to Geodetic (via ECEF)<a class="headerlink" href="#keplerian-to-geodetic-via-ecef" title="Permanent link">&para;</a></h4>
 <p>Convert satellite orbital elements to ground track position at epoch:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># First to cartesian ECI, then specify ECEF and geodetic</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>keplerian<span class="w"> </span>geodetic<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span>
+<span class="normal"><a href="#__codelineno-18-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a><span class="c1"># First to cartesian ECI, then specify ECEF and geodetic</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--as-degrees<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>keplerian<span class="w"> </span>geodetic<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># [-99.845171, 0.133796, 493121.978692]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-19-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1"></a><span class="c1"># [-99.845171, 0.133796, 493121.978692]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h4 id="cartesian-eci-to-ecef-frame-change">Cartesian ECI to ECEF (frame change)<a class="headerlink" href="#cartesian-eci-to-ecef-frame-change" title="Permanent link">&para;</a></h4>
-<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--from-frame<span class="w"> </span>ECI<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>cartesian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
-</span></code></pre></div>
+<p><div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-20-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>--from-frame<span class="w"> </span>ECI<span class="w"> </span>--to-frame<span class="w"> </span>ECEF<span class="w"> </span>cartesian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7500</span><span class="w"> </span><span class="m">0</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># [-1176064.179304, -6776827.196931, 15961.825213, 6895.376569, -1196.636908, 0.240602]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-21-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1"></a><span class="c1"># [-1176064.179304, -6776827.196931, 15961.825213, 6895.376569, -1196.636908, 0.240602]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Alternative:</strong> Use <code>brahe transform frame</code> for dedicated ECI↔ECEF transformations.</p>
 <hr />
 <h2 id="coordinate-system-details">Coordinate System Details<a class="headerlink" href="#coordinate-system-details" title="Permanent link">&para;</a></h2>
@@ -5116,12 +5142,13 @@ Output:
 - GEO (35786km): <code>a = R_EARTH + 35786e3 = 42164137 m</code>
 - SSO inclination: ~97.8° (for 500km altitude)</p>
 <p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Sun-synchronous orbit, 500km altitude, 97.8° inclination</span>
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-22-1">1</a></span>
+<span class="normal"><a href="#__codelineno-22-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a><span class="c1"># Sun-synchronous orbit, 500km altitude, 97.8° inclination</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>keplerian<span class="w"> </span>cartesian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="m">97</span>.8<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># [6871258.863000, 0.000000, 0.000000, 0.000000, -1034.183142, 7549.721055]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-23-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1"></a><span class="c1"># [6871258.863000, 0.000000, 0.000000, 0.000000, -1034.183142, 7549.721055]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="cartesian-eciecef">Cartesian (ECI/ECEF)<a class="headerlink" href="#cartesian-eciecef" title="Permanent link">&para;</a></h3>
 <p><strong>Format:</strong> <code>[x, y, z, vx, vy, vz]</code></p>
 <ul>
@@ -5137,12 +5164,13 @@ Output:
 - Z-axis aligned with Earth's rotation axis
 - X-axis through 0° latitude, 0° longitude</p>
 <p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Circular equatorial orbit in ECI</span>
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>cartesian<span class="w"> </span>keplerian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7668</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-24-1">1</a></span>
+<span class="normal"><a href="#__codelineno-24-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1"></a><span class="c1"># Circular equatorial orbit in ECI</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2"></a>brahe<span class="w"> </span>transform<span class="w"> </span>coordinates<span class="w"> </span>cartesian<span class="w"> </span>keplerian<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="m">6878137</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">7668</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>--as-degrees
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># [6980085.332943, 0.014606, 0.000000, 180.000000, 0.000000, 0.000000]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-25-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1"></a><span class="c1"># [6980085.332943, 0.014606, 0.000000, 180.000000, 0.000000, 0.000000]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="geodetic-coordinates">Geodetic Coordinates<a class="headerlink" href="#geodetic-coordinates" title="Permanent link">&para;</a></h3>
 <p><strong>Format:</strong> <code>[lon, lat, alt, 0, 0, 0]</code></p>
 <ul>

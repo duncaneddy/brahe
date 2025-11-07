@@ -2893,7 +2893,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4392,6 +4392,8 @@
       
         
       
+        
+      
     
     
     
@@ -4494,6 +4496,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/access/properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -5173,8 +5198,8 @@
 <h3 id="convert"><code>convert</code><a class="headerlink" href="#convert" title="Permanent link">&para;</a></h3>
 <p>Convert between time formats and time systems.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;INPUT_FORMAT&gt;<span class="w"> </span>&lt;OUTPUT_FORMAT&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;INPUT_FORMAT&gt;<span class="w"> </span>&lt;OUTPUT_FORMAT&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>EPOCH</code> - Time value to convert
 - <code>INPUT_FORMAT</code> - Format of input: <code>mjd</code>, <code>jd</code>, <code>string</code>, <code>gps_date</code>, <code>gps_nanoseconds</code>
@@ -5184,35 +5209,35 @@
 - <code>--output-time-system [UTC|GPS|TAI|UT1|TT]</code> - Time system of output</p>
 <p><strong>Examples:</strong></p>
 <p>Convert ISO-8601 string to Modified Julian Date:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>mjd<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>mjd<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 60310.0</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="c1"># 60310.0</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Convert MJD to Julian Date:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="m">60310</span>.0<span class="w"> </span>mjd<span class="w"> </span>jd<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="m">60310</span>.0<span class="w"> </span>mjd<span class="w"> </span>jd<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 2460310.5</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># 2460310.5</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Convert between time systems (UTC to TAI):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>string<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>TAI
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>string<span class="w"> </span>string<span class="w"> </span>--input-time-system<span class="w"> </span>UTC<span class="w"> </span>--output-time-system<span class="w"> </span>TAI
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 2024-01-01 00:00:37.000 TAI</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># 2024-01-01 00:00:37.000 TAI</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Convert GPS time to UTC:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;1356998418000000000&quot;</span><span class="w"> </span>gps_nanoseconds<span class="w"> </span>string<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>convert<span class="w"> </span><span class="s2">&quot;1356998418000000000&quot;</span><span class="w"> </span>gps_nanoseconds<span class="w"> </span>string<span class="w"> </span>--output-time-system<span class="w"> </span>UTC
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 2023-01-06 00:00:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="c1"># 2023-01-06 00:00:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="add"><code>add</code><a class="headerlink" href="#add" title="Permanent link">&para;</a></h3>
 <p>Add a time offset to an epoch.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;SECONDS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;SECONDS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>EPOCH</code> - Starting epoch (ISO-8601 string, MJD, or JD)
 - <code>SECONDS</code> - Number of seconds to add (can be negative)</p>
@@ -5221,97 +5246,106 @@ Output:
 - <code>--output-time-system [UTC|GPS|TAI|UT1|TT]</code> - Output time system (default: <code>UTC</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Add 1 hour (3600 seconds):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">3600</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">3600</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 2024-01-01 01:00:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="c1"># 2024-01-01 01:00:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Add 1 day (86400 seconds):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">86400</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">86400</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># 2024-01-02 00:00:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="c1"># 2024-01-02 00:00:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Subtract 30 minutes (negative seconds):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span>--<span class="w"> </span>-1800
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span>--<span class="w"> </span>-1800
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># 2024-01-01 11:30:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="c1"># 2024-01-01 11:30:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Output as MJD:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">86400</span><span class="w"> </span>--output-format<span class="w"> </span>mjd
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="m">86400</span><span class="w"> </span>--output-format<span class="w"> </span>mjd
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># 60311.0</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># 60311.0</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="time-system-offset"><code>time-system-offset</code><a class="headerlink" href="#time-system-offset" title="Permanent link">&para;</a></h3>
 <p>Calculate the offset between two time systems at a given epoch.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;SOURCE&gt;<span class="w"> </span>&lt;TARGET&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span>&lt;EPOCH&gt;<span class="w"> </span>&lt;SOURCE&gt;<span class="w"> </span>&lt;TARGET&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>EPOCH</code> - Epoch to calculate offset at (ISO-8601 string)
 - <code>SOURCE</code> - Source time system: <code>UTC</code>, <code>GPS</code>, <code>TAI</code>, <code>UT1</code>, <code>TT</code>
 - <code>TARGET</code> - Target time system (same options)</p>
 <p><strong>Examples:</strong></p>
 <p>UTC to TAI offset:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>UTC<span class="w"> </span>TAI
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-19-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>UTC<span class="w"> </span>TAI
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># 37.0</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-20-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1"></a><span class="c1"># 37.0</span>
+</span></code></pre></div></td></tr></table></div>
 (TAI is 37 seconds ahead of UTC in 2024)</p>
 <p>GPS to UTC offset:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>GPS<span class="w"> </span>UTC
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-21-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>GPS<span class="w"> </span>UTC
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># -18.0</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-22-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a><span class="c1"># -18.0</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>TAI to TT offset:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>TAI<span class="w"> </span>TT
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-23-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>time-system-offset<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span>TAI<span class="w"> </span>TT
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># 32.184</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-24-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1"></a><span class="c1"># 32.184</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="range"><code>range</code><a class="headerlink" href="#range" title="Permanent link">&para;</a></h3>
 <p>Generate a sequence of epochs over a time range.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span>&lt;EPOCH_START&gt;<span class="w"> </span>&lt;EPOCH_END&gt;<span class="w"> </span>&lt;STEP&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-25-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span>&lt;EPOCH_START&gt;<span class="w"> </span>&lt;EPOCH_END&gt;<span class="w"> </span>&lt;STEP&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>EPOCH_START</code> - Start of time range (ISO-8601 string)
 - <code>EPOCH_END</code> - End of time range (ISO-8601 string)
 - <code>STEP</code> - Step size in seconds</p>
 <p><strong>Examples:</strong></p>
 <p>Generate epochs every 30 minutes for 1 hour:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-01T01:00:00Z&quot;</span><span class="w"> </span><span class="m">1800</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-26-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-01T01:00:00Z&quot;</span><span class="w"> </span><span class="m">1800</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># 2024-01-01 00:00:00.000 UTC</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># 2024-01-01 00:30:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-27-1">1</a></span>
+<span class="normal"><a href="#__codelineno-27-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1"></a><span class="c1"># 2024-01-01 00:00:00.000 UTC</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2"></a><span class="c1"># 2024-01-01 00:30:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Generate epochs every 6 hours for 1 day:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-02T00:00:00Z&quot;</span><span class="w"> </span><span class="m">21600</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-28-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-02T00:00:00Z&quot;</span><span class="w"> </span><span class="m">21600</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># 2024-01-01 00:00:00.000 UTC</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="c1"># 2024-01-01 06:00:00.000 UTC</span>
-</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="c1"># 2024-01-01 12:00:00.000 UTC</span>
-</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># 2024-01-01 18:00:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-29-1">1</a></span>
+<span class="normal"><a href="#__codelineno-29-2">2</a></span>
+<span class="normal"><a href="#__codelineno-29-3">3</a></span>
+<span class="normal"><a href="#__codelineno-29-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1"></a><span class="c1"># 2024-01-01 00:00:00.000 UTC</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2"></a><span class="c1"># 2024-01-01 06:00:00.000 UTC</span>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3"></a><span class="c1"># 2024-01-01 12:00:00.000 UTC</span>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4"></a><span class="c1"># 2024-01-01 18:00:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Generate epochs every minute for 5 minutes:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-01T12:05:00Z&quot;</span><span class="w"> </span><span class="m">60</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-30-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1"></a>brahe<span class="w"> </span><span class="nb">time</span><span class="w"> </span>range<span class="w"> </span><span class="s2">&quot;2024-01-01T12:00:00Z&quot;</span><span class="w"> </span><span class="s2">&quot;2024-01-01T12:05:00Z&quot;</span><span class="w"> </span><span class="m">60</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># 2024-01-01 12:00:00.000 UTC</span>
-</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="c1"># 2024-01-01 12:01:00.000 UTC</span>
-</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="c1"># 2024-01-01 12:02:00.000 UTC</span>
-</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="c1"># 2024-01-01 12:03:00.000 UTC</span>
-</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="c1"># 2024-01-01 12:04:00.000 UTC</span>
-</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="c1"># 2024-01-01 12:05:00.000 UTC</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-31-1">1</a></span>
+<span class="normal"><a href="#__codelineno-31-2">2</a></span>
+<span class="normal"><a href="#__codelineno-31-3">3</a></span>
+<span class="normal"><a href="#__codelineno-31-4">4</a></span>
+<span class="normal"><a href="#__codelineno-31-5">5</a></span>
+<span class="normal"><a href="#__codelineno-31-6">6</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1"></a><span class="c1"># 2024-01-01 12:00:00.000 UTC</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2"></a><span class="c1"># 2024-01-01 12:01:00.000 UTC</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3"></a><span class="c1"># 2024-01-01 12:02:00.000 UTC</span>
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4"></a><span class="c1"># 2024-01-01 12:03:00.000 UTC</span>
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5"></a><span class="c1"># 2024-01-01 12:04:00.000 UTC</span>
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6"></a><span class="c1"># 2024-01-01 12:05:00.000 UTC</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h2 id="time-systems">Time Systems<a class="headerlink" href="#time-systems" title="Permanent link">&para;</a></h2>
 <h3 id="utc-coordinated-universal-time">UTC (Coordinated Universal Time)<a class="headerlink" href="#utc-coordinated-universal-time" title="Permanent link">&para;</a></h3>
@@ -5344,38 +5378,45 @@ Output:
 <li>Always 32.184 seconds ahead of TAI</li>
 </ul>
 <h3 id="offset-relationships">Offset Relationships<a class="headerlink" href="#offset-relationships" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>TT  = TAI + 32.184s
-</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>TAI = GPS + 19s
-</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>TAI = UTC + (leap seconds, currently 37s)
-</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>UT1 = UTC + (DUT1, from EOP data)
-</span></code></pre></div>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-32-1">1</a></span>
+<span class="normal"><a href="#__codelineno-32-2">2</a></span>
+<span class="normal"><a href="#__codelineno-32-3">3</a></span>
+<span class="normal"><a href="#__codelineno-32-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1"></a>TT  = TAI + 32.184s
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2"></a>TAI = GPS + 19s
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3"></a>TAI = UTC + (leap seconds, currently 37s)
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4"></a>UT1 = UTC + (DUT1, from EOP data)
+</span></code></pre></div></td></tr></table></div>
 <hr />
 <h2 id="time-formats">Time Formats<a class="headerlink" href="#time-formats" title="Permanent link">&para;</a></h2>
 <h3 id="iso-8601-string-string">ISO-8601 String (<code>string</code>)<a class="headerlink" href="#iso-8601-string-string" title="Permanent link">&para;</a></h3>
 <p>Human-readable format with timezone:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>2024-01-01T00:00:00Z
-</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>2024-12-31T23:59:59.123Z
-</span></code></pre></div></p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-33-1">1</a></span>
+<span class="normal"><a href="#__codelineno-33-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1"></a>2024-01-01T00:00:00Z
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2"></a>2024-12-31T23:59:59.123Z
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="modified-julian-date-mjd">Modified Julian Date (<code>mjd</code>)<a class="headerlink" href="#modified-julian-date-mjd" title="Permanent link">&para;</a></h3>
 <p>Days since 1858-11-17 00:00:00 UTC:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>60310.0         # 2024-01-01 00:00:00 UTC
-</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>60310.5         # 2024-01-01 12:00:00 UTC
-</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>60310.25        # 2024-01-01 06:00:00 UTC
-</span></code></pre></div></p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-34-1">1</a></span>
+<span class="normal"><a href="#__codelineno-34-2">2</a></span>
+<span class="normal"><a href="#__codelineno-34-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1"></a>60310.0         # 2024-01-01 00:00:00 UTC
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2"></a>60310.5         # 2024-01-01 12:00:00 UTC
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3"></a>60310.25        # 2024-01-01 06:00:00 UTC
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="julian-date-jd">Julian Date (<code>jd</code>)<a class="headerlink" href="#julian-date-jd" title="Permanent link">&para;</a></h3>
 <p>Days since -4712-01-01 12:00:00 UTC:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>2460310.5       # 2024-01-01 00:00:00 UTC
-</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>2460311.0       # 2024-01-01 12:00:00 UTC
-</span></code></pre></div></p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-35-1">1</a></span>
+<span class="normal"><a href="#__codelineno-35-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1"></a>2460310.5       # 2024-01-01 00:00:00 UTC
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2"></a>2460311.0       # 2024-01-01 12:00:00 UTC
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Relationship:</strong> <code>JD = MJD + 2400000.5</code></p>
 <h3 id="gps-date-gps_date">GPS Date (<code>gps_date</code>)<a class="headerlink" href="#gps-date-gps_date" title="Permanent link">&para;</a></h3>
 <p>GPS week number and seconds:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>2295:0.0        # GPS Week 2295, 0 seconds
-</span></code></pre></div></p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-36-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1"></a>2295:0.0        # GPS Week 2295, 0 seconds
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="gps-nanoseconds-gps_nanoseconds">GPS Nanoseconds (<code>gps_nanoseconds</code>)<a class="headerlink" href="#gps-nanoseconds-gps_nanoseconds" title="Permanent link">&para;</a></h3>
 <p>Nanoseconds since GPS epoch (1980-01-06 00:00:00 UTC):
-<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>1356998418000000000
-</span></code></pre></div></p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-37-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1"></a>1356998418000000000
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <hr />
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

@@ -2788,7 +2788,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4287,6 +4287,8 @@
       
         
       
+        
+      
     
     
     
@@ -4389,6 +4391,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/access/properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -4959,8 +4984,8 @@
 <h3 id="compute"><code>compute</code><a class="headerlink" href="#compute" title="Permanent link">&para;</a></h3>
 <p>Compute satellite access windows for a ground location.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span>&lt;NORAD_ID&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span>&lt;NORAD_ID&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>NORAD_ID</code> - NORAD catalog ID of the satellite (integer)</p>
 <p><strong>Location Options</strong> (choose one):</p>
@@ -4991,151 +5016,238 @@
 </ul>
 <p><strong>Examples:</strong></p>
 <p>ISS passes over New York City (next 7 days):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Found 18 access window(s)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>...
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span>
+<span class="normal"><a href="#__codelineno-2-2">2</a></span>
+<span class="normal"><a href="#__codelineno-2-3">3</a></span>
+<span class="normal"><a href="#__codelineno-2-4">4</a></span>
+<span class="normal"><a href="#__codelineno-2-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><span class="c1"># Found 18 access window(s)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a>...
+</span></code></pre></div></td></tr></table></div></p>
 <p>GPS satellite passes (15° minimum elevation):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">32260</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--min-elevation<span class="w"> </span><span class="m">15</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">32260</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--min-elevation<span class="w"> </span><span class="m">15</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Access Windows for NAVSTAR 60 (USA 196) (NORAD ID: 32260)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># Minimum elevation: 15.0°</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Found 8 access window(s)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span>
+<span class="normal"><a href="#__codelineno-4-2">2</a></span>
+<span class="normal"><a href="#__codelineno-4-3">3</a></span>
+<span class="normal"><a href="#__codelineno-4-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># Access Windows for NAVSTAR 60 (USA 196) (NORAD ID: 32260)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><span class="c1"># Minimum elevation: 15.0°</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><span class="c1"># Found 8 access window(s)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Custom time range:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--start-time<span class="w"> </span><span class="s2">&quot;2024-06-01T00:00:00Z&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--duration<span class="w"> </span><span class="m">1</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span>
+<span class="normal"><a href="#__codelineno-5-2">2</a></span>
+<span class="normal"><a href="#__codelineno-5-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="w">  </span>--start-time<span class="w"> </span><span class="s2">&quot;2024-06-01T00:00:00Z&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a><span class="w">  </span>--duration<span class="w"> </span><span class="m">1</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Found 2 access window(s)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span>
+<span class="normal"><a href="#__codelineno-6-2">2</a></span>
+<span class="normal"><a href="#__codelineno-6-3">3</a></span>
+<span class="normal"><a href="#__codelineno-6-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><span class="c1"># Found 2 access window(s)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Use ground station database:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--gs-provider<span class="w"> </span>ksat<span class="w"> </span>--gs-name<span class="w"> </span><span class="s2">&quot;Svalbard&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--gs-provider<span class="w"> </span>ksat<span class="w"> </span>--gs-name<span class="w"> </span><span class="s2">&quot;Svalbard&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Location: 78.2300° lat, 15.4100° lon, 0 m alt</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Found 19 access window(s)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span>
+<span class="normal"><a href="#__codelineno-8-2">2</a></span>
+<span class="normal"><a href="#__codelineno-8-3">3</a></span>
+<span class="normal"><a href="#__codelineno-8-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><span class="c1"># Location: 78.2300° lat, 15.4100° lon, 0 m alt</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4"></a><span class="c1"># Found 19 access window(s)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Simple output format:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--output-format<span class="w"> </span>simple
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--output-format<span class="w"> </span>simple
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Found 18 access window(s)</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># 1. 2025-11-03 18:36:18.197 UTC | 2025-11-03 18:38:16.000 UTC | 1m 57s | Max Elev: 11.9° | Az: 150°-114°</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># 2. 2025-11-03 20:11:37.226 UTC | 2025-11-03 20:16:16.000 UTC | 4m 38s | Max Elev: 20.6° | Az: 255°-351°</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span>
+<span class="normal"><a href="#__codelineno-10-2">2</a></span>
+<span class="normal"><a href="#__codelineno-10-3">3</a></span>
+<span class="normal"><a href="#__codelineno-10-4">4</a></span>
+<span class="normal"><a href="#__codelineno-10-5">5</a></span>
+<span class="normal"><a href="#__codelineno-10-6">6</a></span>
+<span class="normal"><a href="#__codelineno-10-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><span class="c1"># Found 18 access window(s)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5"></a>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6"></a><span class="c1"># 1. 2025-11-03 18:36:18.197 UTC | 2025-11-03 18:38:16.000 UTC | 1m 57s | Max Elev: 11.9° | Az: 150°-114°</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7"></a><span class="c1"># 2. 2025-11-03 20:11:37.226 UTC | 2025-11-03 20:16:16.000 UTC | 4m 38s | Max Elev: 20.6° | Az: 255°-351°</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Export to JSON:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--output-file<span class="w"> </span>passes.json
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span>--output-file<span class="w"> </span>passes.json
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Found 18 access window(s)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span>
+<span class="normal"><a href="#__codelineno-12-2">2</a></span>
+<span class="normal"><a href="#__codelineno-12-3">3</a></span>
+<span class="normal"><a href="#__codelineno-12-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4"></a><span class="c1"># Found 18 access window(s)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Sort by maximum elevation (highest first):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span>--sort-by<span class="w"> </span>max_elevation<span class="w"> </span>--sort-order<span class="w"> </span>descending<span class="w"> </span>--max-results<span class="w"> </span><span class="m">5</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span>
+<span class="normal"><a href="#__codelineno-13-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><span class="w">  </span>--sort-by<span class="w"> </span>max_elevation<span class="w"> </span>--sort-order<span class="w"> </span>descending<span class="w"> </span>--max-results<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Found 5 access window(s)</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="c1"># ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="c1"># ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="c1"># │       1 │ 2025-1… │ 2025-… │ 6       │   77.0 │     321 │    148 │</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="c1"># │         │ 05:22:… │ 05:28… │ minutes │        │         │        │</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="c1"># │         │         │        │ 31.74   │        │         │        │</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="c1"># │       2 │ 2025-1… │ 2025-… │ 6       │   69.8 │     319 │    151 │</span>
-</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="c1"># │         │ 06:58:… │ 07:04… │ minutes │        │         │        │</span>
-</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="c1"># │         │         │        │ 30.04   │        │         │        │</span>
-</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a><span class="c1"># │       3 │ 2025-1… │ 2025-… │ 6       │   57.9 │     206 │     46 │</span>
-</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a><span class="c1"># │         │ 18:34:… │ 18:40… │ minutes │        │         │        │</span>
-</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a><span class="c1"># │         │         │        │ 7.79    │        │         │        │</span>
-</span><span id="__span-14-25"><a id="__codelineno-14-25" name="__codelineno-14-25" href="#__codelineno-14-25"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-14-26"><a id="__codelineno-14-26" name="__codelineno-14-26" href="#__codelineno-14-26"></a><span class="c1"># │       4 │ 2025-1… │ 2025-… │ 6       │   52.9 │     204 │     48 │</span>
-</span><span id="__span-14-27"><a id="__codelineno-14-27" name="__codelineno-14-27" href="#__codelineno-14-27"></a><span class="c1"># │         │ 16:58:… │ 17:04… │ minutes │        │         │        │</span>
-</span><span id="__span-14-28"><a id="__codelineno-14-28" name="__codelineno-14-28" href="#__codelineno-14-28"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-14-29"><a id="__codelineno-14-29" name="__codelineno-14-29" href="#__codelineno-14-29"></a><span class="c1"># │         │         │        │ 9.76    │        │         │        │</span>
-</span><span id="__span-14-30"><a id="__codelineno-14-30" name="__codelineno-14-30" href="#__codelineno-14-30"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a><span class="c1"># │       5 │ 2025-1… │ 2025-… │ 5       │   52.6 │     227 │     22 │</span>
-</span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="c1"># │         │ 17:46:… │ 17:52… │ minutes │        │         │        │</span>
-</span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a><span class="c1"># │         │         │        │ 59.45   │        │         │        │</span>
-</span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-14-36"><a id="__codelineno-14-36" name="__codelineno-14-36" href="#__codelineno-14-36"></a><span class="c1"># └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-14-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-14-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-14-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-14-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-14-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-14-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-14-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-14-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-14-10">10</a></span>
+<span class="normal"><a href="#__codelineno-14-11">11</a></span>
+<span class="normal"><a href="#__codelineno-14-12">12</a></span>
+<span class="normal"><a href="#__codelineno-14-13">13</a></span>
+<span class="normal"><a href="#__codelineno-14-14">14</a></span>
+<span class="normal"><a href="#__codelineno-14-15">15</a></span>
+<span class="normal"><a href="#__codelineno-14-16">16</a></span>
+<span class="normal"><a href="#__codelineno-14-17">17</a></span>
+<span class="normal"><a href="#__codelineno-14-18">18</a></span>
+<span class="normal"><a href="#__codelineno-14-19">19</a></span>
+<span class="normal"><a href="#__codelineno-14-20">20</a></span>
+<span class="normal"><a href="#__codelineno-14-21">21</a></span>
+<span class="normal"><a href="#__codelineno-14-22">22</a></span>
+<span class="normal"><a href="#__codelineno-14-23">23</a></span>
+<span class="normal"><a href="#__codelineno-14-24">24</a></span>
+<span class="normal"><a href="#__codelineno-14-25">25</a></span>
+<span class="normal"><a href="#__codelineno-14-26">26</a></span>
+<span class="normal"><a href="#__codelineno-14-27">27</a></span>
+<span class="normal"><a href="#__codelineno-14-28">28</a></span>
+<span class="normal"><a href="#__codelineno-14-29">29</a></span>
+<span class="normal"><a href="#__codelineno-14-30">30</a></span>
+<span class="normal"><a href="#__codelineno-14-31">31</a></span>
+<span class="normal"><a href="#__codelineno-14-32">32</a></span>
+<span class="normal"><a href="#__codelineno-14-33">33</a></span>
+<span class="normal"><a href="#__codelineno-14-34">34</a></span>
+<span class="normal"><a href="#__codelineno-14-35">35</a></span>
+<span class="normal"><a href="#__codelineno-14-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4"></a><span class="c1"># Found 5 access window(s)</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6"></a><span class="c1"># ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7"></a><span class="c1"># ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8"></a><span class="c1"># ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9"></a><span class="c1"># ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10"></a><span class="c1"># ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11"></a><span class="c1"># │       1 │ 2025-1… │ 2025-… │ 6       │   77.0 │     321 │    148 │</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12"></a><span class="c1"># │         │ 05:22:… │ 05:28… │ minutes │        │         │        │</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14"></a><span class="c1"># │         │         │        │ 31.74   │        │         │        │</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16"></a><span class="c1"># │       2 │ 2025-1… │ 2025-… │ 6       │   69.8 │     319 │    151 │</span>
+</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17"></a><span class="c1"># │         │ 06:58:… │ 07:04… │ minutes │        │         │        │</span>
+</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19"></a><span class="c1"># │         │         │        │ 30.04   │        │         │        │</span>
+</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21"></a><span class="c1"># │       3 │ 2025-1… │ 2025-… │ 6       │   57.9 │     206 │     46 │</span>
+</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22"></a><span class="c1"># │         │ 18:34:… │ 18:40… │ minutes │        │         │        │</span>
+</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24"></a><span class="c1"># │         │         │        │ 7.79    │        │         │        │</span>
+</span><span id="__span-14-25"><a id="__codelineno-14-25" name="__codelineno-14-25"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-14-26"><a id="__codelineno-14-26" name="__codelineno-14-26"></a><span class="c1"># │       4 │ 2025-1… │ 2025-… │ 6       │   52.9 │     204 │     48 │</span>
+</span><span id="__span-14-27"><a id="__codelineno-14-27" name="__codelineno-14-27"></a><span class="c1"># │         │ 16:58:… │ 17:04… │ minutes │        │         │        │</span>
+</span><span id="__span-14-28"><a id="__codelineno-14-28" name="__codelineno-14-28"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-14-29"><a id="__codelineno-14-29" name="__codelineno-14-29"></a><span class="c1"># │         │         │        │ 9.76    │        │         │        │</span>
+</span><span id="__span-14-30"><a id="__codelineno-14-30" name="__codelineno-14-30"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31"></a><span class="c1"># │       5 │ 2025-1… │ 2025-… │ 5       │   52.6 │     227 │     22 │</span>
+</span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32"></a><span class="c1"># │         │ 17:46:… │ 17:52… │ minutes │        │         │        │</span>
+</span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34"></a><span class="c1"># │         │         │        │ 59.45   │        │         │        │</span>
+</span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-14-36"><a id="__codelineno-14-36" name="__codelineno-14-36"></a><span class="c1"># └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Sort by duration (longest passes first):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>--sort-by<span class="w"> </span>duration<span class="w"> </span>--sort-order<span class="w"> </span>descending
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span>
+<span class="normal"><a href="#__codelineno-15-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2"></a><span class="w">  </span>--sort-by<span class="w"> </span>duration<span class="w"> </span>--sort-order<span class="w"> </span>descending
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Found 18 access window(s)</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="c1"># ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="c1"># ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c1"># ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="c1"># │       1 │ 2025-1… │ 2025-… │ 6       │   53.8 │     204 │     47 │</span>
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="c1"># │         │ 16:58:… │ 17:05… │ minutes │        │         │        │</span>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="c1"># │         │         │        │ 24.76   │        │         │        │</span>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
-</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="c1"># │       2 │ 2025-1… │ 2025-… │ 6       │   59.5 │     206 │     45 │</span>
-</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="c1"># │         │ 18:34:… │ 18:41… │ minutes │        │         │        │</span>
-</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
-</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="c1"># └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-16-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-16-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-16-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-16-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-16-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-16-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-16-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-16-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-16-10">10</a></span>
+<span class="normal"><a href="#__codelineno-16-11">11</a></span>
+<span class="normal"><a href="#__codelineno-16-12">12</a></span>
+<span class="normal"><a href="#__codelineno-16-13">13</a></span>
+<span class="normal"><a href="#__codelineno-16-14">14</a></span>
+<span class="normal"><a href="#__codelineno-16-15">15</a></span>
+<span class="normal"><a href="#__codelineno-16-16">16</a></span>
+<span class="normal"><a href="#__codelineno-16-17">17</a></span>
+<span class="normal"><a href="#__codelineno-16-18">18</a></span>
+<span class="normal"><a href="#__codelineno-16-19">19</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a><span class="c1"># Access Windows for ISS (ZARYA) (NORAD ID: 25544)</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2"></a><span class="c1"># Location: 40.7128° lat, -74.0060° lon, 0 m alt</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3"></a><span class="c1"># Minimum elevation: 10.0°</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4"></a><span class="c1"># Found 18 access window(s)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6"></a><span class="c1"># ┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7"></a><span class="c1"># ┃         ┃ Start   ┃ End    ┃         ┃    Max ┃   Start ┃        ┃</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8"></a><span class="c1"># ┃ Contact ┃ Time    ┃ Time   ┃         ┃   Elev ┃      Az ┃ End Az ┃</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9"></a><span class="c1"># ┃       # ┃ (UTC)   ┃ (UTC)  ┃ Durati… ┃  (deg) ┃   (deg) ┃  (deg) ┃</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10"></a><span class="c1"># ┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11"></a><span class="c1"># │       1 │ 2025-1… │ 2025-… │ 6       │   53.8 │     204 │     47 │</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12"></a><span class="c1"># │         │ 16:58:… │ 17:05… │ minutes │        │         │        │</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14"></a><span class="c1"># │         │         │        │ 24.76   │        │         │        │</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15"></a><span class="c1"># │         │         │        │ seconds │        │         │        │</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16"></a><span class="c1"># │       2 │ 2025-1… │ 2025-… │ 6       │   59.5 │     206 │     45 │</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17"></a><span class="c1"># │         │ 18:34:… │ 18:41… │ minutes │        │         │        │</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18"></a><span class="c1"># │         │ UTC     │ UTC    │ and     │        │         │        │</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19"></a><span class="c1"># └─────────┴─────────┴────────┴─────────┴────────┴─────────┴────────┘</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h2 id="tips">Tips<a class="headerlink" href="#tips" title="Permanent link">&para;</a></h2>
 <h3 id="norad-catalog-ids">NORAD Catalog IDs<a class="headerlink" href="#norad-catalog-ids" title="Permanent link">&para;</a></h3>
 <p>Find NORAD IDs using the datasets command:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Search for satellite by name</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;ISS&quot;</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Show TLE with NORAD ID</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span><span class="m">25544</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span>
+<span class="normal"><a href="#__codelineno-17-2">2</a></span>
+<span class="normal"><a href="#__codelineno-17-3">3</a></span>
+<span class="normal"><a href="#__codelineno-17-4">4</a></span>
+<span class="normal"><a href="#__codelineno-17-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># Search for satellite by name</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;ISS&quot;</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4"></a><span class="c1"># Show TLE with NORAD ID</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span><span class="m">25544</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>See <a href="datasets.html">Datasets CLI</a> for more details.</p>
 <h3 id="negative-longitudes">Negative Longitudes<a class="headerlink" href="#negative-longitudes" title="Permanent link">&para;</a></h3>
 <p>For westerly longitudes, use negative values with <code>=</code> or <code>--</code>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Method 1: Negative longitude</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="o">=</span>-74.0060
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Method 2: After -- separator</span>
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--<span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span>
+<span class="normal"><a href="#__codelineno-18-2">2</a></span>
+<span class="normal"><a href="#__codelineno-18-3">3</a></span>
+<span class="normal"><a href="#__codelineno-18-4">4</a></span>
+<span class="normal"><a href="#__codelineno-18-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a><span class="c1"># Method 1: Negative longitude</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="o">=</span>-74.0060
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3"></a>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4"></a><span class="c1"># Method 2: After -- separator</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5"></a>brahe<span class="w"> </span>access<span class="w"> </span>compute<span class="w"> </span><span class="m">25544</span><span class="w"> </span>--<span class="w"> </span>--lat<span class="w"> </span><span class="m">40</span>.7128<span class="w"> </span>--lon<span class="w"> </span>-74.0060
+</span></code></pre></div></td></tr></table></div></p>
 <h3 id="output-formats">Output Formats<a class="headerlink" href="#output-formats" title="Permanent link">&para;</a></h3>
 <p><strong>table</strong> (default):
 - ASCII table with columns

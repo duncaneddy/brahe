@@ -2791,7 +2791,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4290,6 +4290,8 @@
       
         
       
+        
+      
     
     
     
@@ -4392,6 +4394,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/access/properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -4971,8 +4996,8 @@
 <h3 id="orbital-period"><code>orbital-period</code><a class="headerlink" href="#orbital-period" title="Permanent link">&para;</a></h3>
 <p>Calculate the orbital period from semi-major axis.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>SEMI_MAJOR_AXIS</code> - Semi-major axis in meters (supports constants)</p>
 <p><strong>Options:</strong>
@@ -4981,42 +5006,42 @@
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>LEO orbit period (500km altitude):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 5676.977164</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="c1"># 5676.977164</span>
+</span></code></pre></div></td></tr></table></div>
 (Period: ~94.6 minutes)</p>
 <p>With different units:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>minutes
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>minutes
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 94.616286</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># 94.616286</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>GEO orbit period (should be ~24 hours):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+35786e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>hours
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="s2">&quot;R_EARTH+35786e3&quot;</span><span class="w"> </span>--units<span class="w"> </span>hours
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 23.934441</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># 23.934441</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Moon's orbit (using GM_EARTH):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span>384400e3<span class="w"> </span>--units<span class="w"> </span>days
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span>384400e3<span class="w"> </span>--units<span class="w"> </span>days
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 27.451894</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="c1"># 27.451894</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Mars orbit (using GM_SUN):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="m">227</span>.9e9<span class="w"> </span>--gm<span class="w"> </span>GM_SUN<span class="w"> </span>--units<span class="w"> </span>days
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>orbital-period<span class="w"> </span><span class="m">227</span>.9e9<span class="w"> </span>--gm<span class="w"> </span>GM_SUN<span class="w"> </span>--units<span class="w"> </span>days
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># 686.794481</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><span class="c1"># 686.794481</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="sma-from-period"><code>sma-from-period</code><a class="headerlink" href="#sma-from-period" title="Permanent link">&para;</a></h3>
 <p>Calculate semi-major axis from orbital period.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span>&lt;PERIOD&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span>&lt;PERIOD&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>PERIOD</code> - Orbital period (supports expressions)</p>
 <p><strong>Options:</strong>
@@ -5025,32 +5050,33 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Find altitude for 90-minute orbit:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">90</span><span class="w"> </span>--units<span class="w"> </span>minutes
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">90</span><span class="w"> </span>--units<span class="w"> </span>minutes
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># 6652555.699659</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="c1"># 6652555.699659</span>
+</span></code></pre></div></td></tr></table></div>
 (Semi-major axis: ~6653 km → altitude ~275 km)</p>
 <p>Find GEO altitude (24-hour period):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">24</span><span class="w"> </span>--units<span class="w"> </span>hours
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">24</span><span class="w"> </span>--units<span class="w"> </span>hours
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># 42241095.663660</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="c1"># 42241095.663660</span>
+</span></code></pre></div></td></tr></table></div>
 (Semi-major axis: ~42164 km → altitude ~35786 km above Earth surface)</p>
 <p>Calculate altitude:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># SMA - R_EARTH = altitude</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;scale=2; (</span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">90</span><span class="w"> </span>--units<span class="w"> </span>minutes<span class="k">)</span><span class="s2"> - 6378137) / 1000&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>bc
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1">1</a></span>
+<span class="normal"><a href="#__codelineno-16-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a><span class="c1"># SMA - R_EARTH = altitude</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;scale=2; (</span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>sma-from-period<span class="w"> </span><span class="m">90</span><span class="w"> </span>--units<span class="w"> </span>minutes<span class="k">)</span><span class="s2"> - 6378137) / 1000&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>bc
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># 274.41</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># 274.41</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="mean-motion"><code>mean-motion</code><a class="headerlink" href="#mean-motion" title="Permanent link">&para;</a></h3>
 <p>Calculate mean motion (radians per second).</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>mean-motion<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>mean-motion<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>SEMI_MAJOR_AXIS</code> - Semi-major axis in meters (supports constants)</p>
 <p><strong>Options:</strong>
@@ -5058,17 +5084,17 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Mean motion for LEO (500km):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>mean-motion<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-19-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>mean-motion<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># 0.001107</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-20-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1"></a><span class="c1"># 0.001107</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="anomaly-conversion"><code>anomaly-conversion</code><a class="headerlink" href="#anomaly-conversion" title="Permanent link">&para;</a></h3>
 <p>Convert between mean, eccentric, and true anomaly.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>&lt;ANOMALY&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span>&lt;INPUT_ANOMALY&gt;<span class="w"> </span>&lt;OUTPUT_ANOMALY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-21-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>&lt;ANOMALY&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span>&lt;INPUT_ANOMALY&gt;<span class="w"> </span>&lt;OUTPUT_ANOMALY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>ANOMALY</code> - Anomaly value to convert (supports expressions)
 - <code>ECCENTRICITY</code> - Orbital eccentricity (supports expressions)
@@ -5079,36 +5105,36 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Mean anomaly to true anomaly (circular orbit):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span><span class="m">0</span>.785<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>mean<span class="w"> </span><span class="nb">true</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-22-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span><span class="m">0</span>.785<span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>mean<span class="w"> </span><span class="nb">true</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># 0.785000</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-23-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1"></a><span class="c1"># 0.785000</span>
+</span></code></pre></div></td></tr></table></div>
 (For circular orbit, mean = eccentric = true)</p>
 <p>Mean to true (eccentric orbit):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">45</span>.0<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>mean<span class="w"> </span><span class="nb">true</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-24-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">45</span>.0<span class="w"> </span><span class="m">0</span>.1<span class="w"> </span>mean<span class="w"> </span><span class="nb">true</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># 53.849399</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-25-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1"></a><span class="c1"># 53.849399</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>True to mean anomaly:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">90</span>.0<span class="w"> </span><span class="m">0</span>.05<span class="w"> </span><span class="nb">true</span><span class="w"> </span>mean
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-26-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">90</span>.0<span class="w"> </span><span class="m">0</span>.05<span class="w"> </span><span class="nb">true</span><span class="w"> </span>mean
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># 84.272810</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-27-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1"></a><span class="c1"># 84.272810</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Eccentric to true anomaly:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">60</span>.0<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span>eccentric<span class="w"> </span><span class="nb">true</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-28-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>anomaly-conversion<span class="w"> </span>--as-degrees<span class="w"> </span><span class="m">60</span>.0<span class="w"> </span><span class="m">0</span>.2<span class="w"> </span>eccentric<span class="w"> </span><span class="nb">true</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># 70.528779</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-29-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1"></a><span class="c1"># 70.528779</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="sun-sync-inclination"><code>sun-sync-inclination</code><a class="headerlink" href="#sun-sync-inclination" title="Permanent link">&para;</a></h3>
 <p>Calculate the inclination required for a sun-synchronous orbit.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-30-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>SEMI_MAJOR_AXIS</code> - Semi-major axis in meters (supports constants)
 - <code>ECCENTRICITY</code> - Eccentricity (supports expressions)</p>
@@ -5117,36 +5143,36 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Sun-sync inclination for 500km circular orbit:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-31-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># 97.401744</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-32-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1"></a><span class="c1"># 97.401744</span>
+</span></code></pre></div></td></tr></table></div>
 (Inclination: ~97.42°)</p>
 <p>Sun-sync for 600km orbit:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+600e3&quot;</span><span class="w"> </span><span class="m">0</span>.001
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-33-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+600e3&quot;</span><span class="w"> </span><span class="m">0</span>.001
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># 97.787587</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-34-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1"></a><span class="c1"># 97.787587</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Sun-sync for 800km orbit:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+800e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-35-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+800e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="c1"># 98.603036</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-36-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1"></a><span class="c1"># 98.603036</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Output in radians:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>--no-as-degrees
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-37-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>sun-sync-inclination<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0<span class="w"> </span>--no-as-degrees
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="c1"># 1.699981</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-38-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1"></a><span class="c1"># 1.699981</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="perigee-velocity"><code>perigee-velocity</code><a class="headerlink" href="#perigee-velocity" title="Permanent link">&para;</a></h3>
 <p>Calculate orbital velocity at perigee (closest approach).</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-39-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>SEMI_MAJOR_AXIS</code> - Semi-major axis in meters (supports constants)
 - <code>ECCENTRICITY</code> - Eccentricity (supports expressions)</p>
@@ -5154,29 +5180,29 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Circular orbit velocity (500km):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-40-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="c1"># 7612.608558</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-41-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1"></a><span class="c1"># 7612.608558</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Eccentric orbit perigee velocity:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.1
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-42-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.1
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="c1"># 8416.055421</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-43-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1"></a><span class="c1"># 8416.055421</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>GTO perigee velocity (highly eccentric):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+24000e3&quot;</span><span class="w"> </span><span class="m">0</span>.73
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-44-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+24000e3&quot;</span><span class="w"> </span><span class="m">0</span>.73
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="c1"># 9169.158794</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-45-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1"></a><span class="c1"># 9169.158794</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="apogee-velocity"><code>apogee-velocity</code><a class="headerlink" href="#apogee-velocity" title="Permanent link">&para;</a></h3>
 <p>Calculate orbital velocity at apogee (farthest point).</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-46-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span>&lt;SEMI_MAJOR_AXIS&gt;<span class="w"> </span>&lt;ECCENTRICITY&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>SEMI_MAJOR_AXIS</code> - Semi-major axis in meters (supports constants)
 - <code>ECCENTRICITY</code> - Eccentricity (supports expressions)</p>
@@ -5184,26 +5210,28 @@ Output:
 - <code>--format &lt;fmt&gt;</code> - Output format string (default: <code>f</code>)</p>
 <p><strong>Examples:</strong></p>
 <p>Circular orbit (apogee = perigee):
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-47-1"><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-47-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-47-1"><a id="__codelineno-47-1" name="__codelineno-47-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.0
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-48-1"><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="c1"># 7612.608558</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-48-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-48-1"><a id="__codelineno-48-1" name="__codelineno-48-1"></a><span class="c1"># 7612.608558</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Eccentric orbit apogee velocity:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-49-1"><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.1
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-49-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-49-1"><a id="__codelineno-49-1" name="__codelineno-49-1"></a>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s2">&quot;R_EARTH+500e3&quot;</span><span class="w"> </span><span class="m">0</span>.1
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-50-1"><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="c1"># 6885.863526</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-50-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-50-1"><a id="__codelineno-50-1" name="__codelineno-50-1"></a><span class="c1"># 6885.863526</span>
+</span></code></pre></div></td></tr></table></div>
 (Lower velocity at apogee)</p>
 <p>Compare perigee vs apogee:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-51-1"><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Perigee: </span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s1">&#39;R_EARTH+500e3&#39;</span><span class="w"> </span><span class="m">0</span>.1<span class="k">)</span><span class="s2"> m/s&quot;</span>
-</span><span id="__span-51-2"><a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Apogee:  </span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s1">&#39;R_EARTH+500e3&#39;</span><span class="w"> </span><span class="m">0</span>.1<span class="k">)</span><span class="s2"> m/s&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-51-1">1</a></span>
+<span class="normal"><a href="#__codelineno-51-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-51-1"><a id="__codelineno-51-1" name="__codelineno-51-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Perigee: </span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>perigee-velocity<span class="w"> </span><span class="s1">&#39;R_EARTH+500e3&#39;</span><span class="w"> </span><span class="m">0</span>.1<span class="k">)</span><span class="s2"> m/s&quot;</span>
+</span><span id="__span-51-2"><a id="__codelineno-51-2" name="__codelineno-51-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Apogee:  </span><span class="k">$(</span>brahe<span class="w"> </span>orbits<span class="w"> </span>apogee-velocity<span class="w"> </span><span class="s1">&#39;R_EARTH+500e3&#39;</span><span class="w"> </span><span class="m">0</span>.1<span class="k">)</span><span class="s2"> m/s&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-52-1"><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a><span class="c1"># Perigee: 8416.055421 m/s</span>
-</span><span id="__span-52-2"><a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a><span class="c1"># Apogee:  6885.863526 m/s</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-52-1">1</a></span>
+<span class="normal"><a href="#__codelineno-52-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-52-1"><a id="__codelineno-52-1" name="__codelineno-52-1"></a><span class="c1"># Perigee: 8416.055421 m/s</span>
+</span><span id="__span-52-2"><a id="__codelineno-52-2" name="__codelineno-52-2"></a><span class="c1"># Apogee:  6885.863526 m/s</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <hr />
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

@@ -2815,7 +2815,7 @@
   
   
   <span class="md-ellipsis">
-    Doppler compensation
+    Calculating Doppler Compensation
     
   </span>
   
@@ -4314,6 +4314,8 @@
       
         
       
+        
+      
     
     
     
@@ -4416,6 +4418,29 @@
   
   <span class="md-ellipsis">
     Constraint Computer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library_api/access/properties.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Properties
     
   </span>
   
@@ -5017,203 +5042,306 @@
 <h3 id="celestrak-download"><code>celestrak download</code><a class="headerlink" href="#celestrak-download" title="Permanent link">&para;</a></h3>
 <p>Download satellite ephemeris data from CelesTrak and save to file.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>&lt;GROUP&gt;<span class="w"> </span>&lt;FILEPATH&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>&lt;GROUP&gt;<span class="w"> </span>&lt;FILEPATH&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>GROUP</code> - Satellite group name (e.g., 'stations', 'starlink', 'gps-ops')
 - <code>FILEPATH</code> - Output file path for TLE data</p>
 <p><strong>Examples:</strong></p>
 <p>Download space station TLEs:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>stations<span class="w"> </span>~/satellite_data/stations.txt
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>stations<span class="w"> </span>~/satellite_data/stations.txt
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/stations.txt
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/stations.txt
+</span></code></pre></div></td></tr></table></div></p>
 <p>Download Starlink constellation:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>starlink<span class="w"> </span>~/satellite_data/starlink.txt
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>starlink<span class="w"> </span>~/satellite_data/starlink.txt
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/starlink.txt
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/starlink.txt
+</span></code></pre></div></td></tr></table></div></p>
 <p>Download GPS satellites:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>gps-ops<span class="w"> </span>~/satellite_data/gps.txt
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>download<span class="w"> </span>--group<span class="w"> </span>gps-ops<span class="w"> </span>~/satellite_data/gps.txt
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/gps.txt
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a>✓<span class="w"> </span>Downloaded<span class="w"> </span>stations<span class="w"> </span>satellites<span class="w"> </span>to<span class="w"> </span>~/satellite_data/gps.txt
+</span></code></pre></div></td></tr></table></div></p>
 <p>See available groups:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="celestrak-lookup"><code>celestrak lookup</code><a class="headerlink" href="#celestrak-lookup" title="Permanent link">&para;</a></h3>
 <p>Look up a satellite by name and display its NORAD ID and TLE.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span>&lt;NAME&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span>&lt;NAME&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>NAME</code> - Satellite name (partial match supported)</p>
 <p><strong>Examples:</strong></p>
 <p>Find ISS:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;ISS&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;ISS&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># ISS (ZARYA) [NORAD ID: 25544]</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># TLE Lines:</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1">#   1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1">#   2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># ✓ Found satellite &#39;ISS (ZARYA)&#39;</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span>
+<span class="normal"><a href="#__codelineno-10-2">2</a></span>
+<span class="normal"><a href="#__codelineno-10-3">3</a></span>
+<span class="normal"><a href="#__codelineno-10-4">4</a></span>
+<span class="normal"><a href="#__codelineno-10-5">5</a></span>
+<span class="normal"><a href="#__codelineno-10-6">6</a></span>
+<span class="normal"><a href="#__codelineno-10-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><span class="c1"># ISS (ZARYA) [NORAD ID: 25544]</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><span class="c1"># TLE Lines:</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><span class="c1">#   1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5"></a><span class="c1">#   2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7"></a><span class="c1"># ✓ Found satellite &#39;ISS (ZARYA)&#39;</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Find Hubble Space Telescope:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;HST&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;HST&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># HST [NORAD ID: 20580]</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># TLE Lines:</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">#   1 20580U 90037B   25306.35384425  .00007204  00000+0  25387-3 0  9994</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1">#   2 20580  28.4668 187.2184 0001915 134.9270 225.1481 15.27276544753814</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># ✓ Found satellite &#39;HST&#39;</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span>
+<span class="normal"><a href="#__codelineno-12-2">2</a></span>
+<span class="normal"><a href="#__codelineno-12-3">3</a></span>
+<span class="normal"><a href="#__codelineno-12-4">4</a></span>
+<span class="normal"><a href="#__codelineno-12-5">5</a></span>
+<span class="normal"><a href="#__codelineno-12-6">6</a></span>
+<span class="normal"><a href="#__codelineno-12-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><span class="c1"># HST [NORAD ID: 20580]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3"></a><span class="c1"># TLE Lines:</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4"></a><span class="c1">#   1 20580U 90037B   25306.35384425  .00007204  00000+0  25387-3 0  9994</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5"></a><span class="c1">#   2 20580  28.4668 187.2184 0001915 134.9270 225.1481 15.27276544753814</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7"></a><span class="c1"># ✓ Found satellite &#39;HST&#39;</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Find by partial name:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;CAPELLA&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>lookup<span class="w"> </span><span class="s2">&quot;CAPELLA&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># CAPELLA-11 (ACADIA-1) [NORAD ID: 57693]</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># TLE Lines:</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1">#   1 57693U 23126A   25306.12190313 -.00002119  00000+0 -25509-3 0  9998</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1">#   2 57693  53.0104  84.6427 0002550 126.4571 233.6640 14.78979627118491</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># ✓ Found satellite &#39;CAPELLA-11 (ACADIA-1)&#39;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span>
+<span class="normal"><a href="#__codelineno-14-2">2</a></span>
+<span class="normal"><a href="#__codelineno-14-3">3</a></span>
+<span class="normal"><a href="#__codelineno-14-4">4</a></span>
+<span class="normal"><a href="#__codelineno-14-5">5</a></span>
+<span class="normal"><a href="#__codelineno-14-6">6</a></span>
+<span class="normal"><a href="#__codelineno-14-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><span class="c1"># CAPELLA-11 (ACADIA-1) [NORAD ID: 57693]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3"></a><span class="c1"># TLE Lines:</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4"></a><span class="c1">#   1 57693U 23126A   25306.12190313 -.00002119  00000+0 -25509-3 0  9998</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5"></a><span class="c1">#   2 57693  53.0104  84.6427 0002550 126.4571 233.6640 14.78979627118491</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6"></a>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7"></a><span class="c1"># ✓ Found satellite &#39;CAPELLA-11 (ACADIA-1)&#39;</span>
+</span></code></pre></div></td></tr></table></div>
 (Shows first match)</p>
 <hr />
 <h3 id="celestrak-show"><code>celestrak show</code><a class="headerlink" href="#celestrak-show" title="Permanent link">&para;</a></h3>
 <p>Display TLE information and computed orbital parameters for a satellite.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span>&lt;NORAD_ID&gt;
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span>&lt;NORAD_ID&gt;
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>NORAD_ID</code> - NORAD catalog ID (integer)</p>
 <p><strong>Examples:</strong></p>
 <p>Show ISS TLE and orbit info:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span><span class="m">25544</span><span class="w"> </span>-s
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>show<span class="w"> </span><span class="m">25544</span><span class="w"> </span>-s
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># ISS (ZARYA) [NORAD ID: 25544]</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="c1"># TLE Lines:</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1">#   Line 1: 1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="c1">#   Line 2: 2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="c1"># Orbital Elements:</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="c1">#   Epoch:              2025-11-02 10:09:34.283 UTC</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="c1">#   Ephemeris Age:      21h 16m 13s</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="c1">#   Semi-major axis:    6795.7 km</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="c1">#   Eccentricity:       0.0004969</span>
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="c1">#   Inclination:        51.6344°</span>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="c1">#   RAAN:               342.0717°</span>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="c1">#   Arg of Perigee:     8.9436°</span>
-</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="c1">#   Mean Anomaly:       351.1640°</span>
-</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>
-</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="c1"># Orbital Characteristics:</span>
-</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="c1">#   Orbital Period:     92.9 min (1.55 hours)</span>
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="c1">#   Mean Motion:        15.497 rev/day</span>
-</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a><span class="c1">#   Perigee Altitude:   414.2 km</span>
-</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a><span class="c1">#   Apogee Altitude:    421.0 km</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-17-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-17-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-17-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-17-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-17-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-17-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-17-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-17-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-17-10">10</a></span>
+<span class="normal"><a href="#__codelineno-17-11">11</a></span>
+<span class="normal"><a href="#__codelineno-17-12">12</a></span>
+<span class="normal"><a href="#__codelineno-17-13">13</a></span>
+<span class="normal"><a href="#__codelineno-17-14">14</a></span>
+<span class="normal"><a href="#__codelineno-17-15">15</a></span>
+<span class="normal"><a href="#__codelineno-17-16">16</a></span>
+<span class="normal"><a href="#__codelineno-17-17">17</a></span>
+<span class="normal"><a href="#__codelineno-17-18">18</a></span>
+<span class="normal"><a href="#__codelineno-17-19">19</a></span>
+<span class="normal"><a href="#__codelineno-17-20">20</a></span>
+<span class="normal"><a href="#__codelineno-17-21">21</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># ISS (ZARYA) [NORAD ID: 25544]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2"></a>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3"></a><span class="c1"># TLE Lines:</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4"></a><span class="c1">#   Line 1: 1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5"></a><span class="c1">#   Line 2: 2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6"></a>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7"></a><span class="c1"># Orbital Elements:</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8"></a><span class="c1">#   Epoch:              2025-11-02 10:09:34.283 UTC</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9"></a><span class="c1">#   Ephemeris Age:      21h 16m 13s</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10"></a><span class="c1">#   Semi-major axis:    6795.7 km</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11"></a><span class="c1">#   Eccentricity:       0.0004969</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12"></a><span class="c1">#   Inclination:        51.6344°</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13"></a><span class="c1">#   RAAN:               342.0717°</span>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14"></a><span class="c1">#   Arg of Perigee:     8.9436°</span>
+</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15"></a><span class="c1">#   Mean Anomaly:       351.1640°</span>
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16"></a>
+</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17"></a><span class="c1"># Orbital Characteristics:</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18"></a><span class="c1">#   Orbital Period:     92.9 min (1.55 hours)</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19"></a><span class="c1">#   Mean Motion:        15.497 rev/day</span>
+</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20"></a><span class="c1">#   Perigee Altitude:   414.2 km</span>
+</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21"></a><span class="c1">#   Apogee Altitude:    421.0 km</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Show GPS satellite:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># brahe datasets celestrak show 32260</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a><span class="c1"># brahe datasets celestrak show 32260</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># ╭──────────────────────────────────────────────────────────────────────────────────────╮</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="c1"># │ NAVSTAR 60 (USA 196)                                                                 │</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="c1"># │ NORAD ID: 32260                                                                      │</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="c1"># ╭───────────────────────────────────── TLE Lines ──────────────────────────────────────╮</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="c1"># │  Line 1:  1 32260U 07047A   25305.87057871  .00000045  00000+0  00000+0 0  9996      │</span>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># │  Line 2:  2 32260  53.9265  89.4464 0164696  84.6485 277.2299  2.00566111132250      │</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="c1"># ╭────────────────────────────────── Orbital Elements ──────────────────────────────────╮</span>
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># │  Epoch            2025-11-01 20:53:38.001 UTC                                        │</span>
-</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="c1"># │  Ephemeris Age                 1d 10h 32m 23s                                        │</span>
-</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="c1"># │  Semi-major axis                   26560.1 km                                        │</span>
-</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="c1"># │  Eccentricity                       0.0164696                                        │</span>
-</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="c1"># │  Inclination                         53.9265°                                        │</span>
-</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="c1"># │  RAAN                                89.4464°                                        │</span>
-</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="c1"># │  Arg of Perigee                      84.6485°                                        │</span>
-</span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="c1"># │  Mean Anomaly                       277.2299°                                        │</span>
-</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
-</span><span id="__span-19-19"><a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="c1"># ╭────────────────────────────── Orbital Characteristics ───────────────────────────────╮</span>
-</span><span id="__span-19-20"><a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="c1"># │  Orbital Period    718.0 min (11.97 hours)                                           │</span>
-</span><span id="__span-19-21"><a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="c1"># │  Mean Motion                 2.006 rev/day                                           │</span>
-</span><span id="__span-19-22"><a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="c1"># │  Perigee Altitude               19744.6 km                                           │</span>
-</span><span id="__span-19-23"><a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="c1"># │  Apogee Altitude                20619.4 km                                           │</span>
-</span><span id="__span-19-24"><a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-19-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-19-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-19-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-19-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-19-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-19-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-19-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-19-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-19-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-19-10">10</a></span>
+<span class="normal"><a href="#__codelineno-19-11">11</a></span>
+<span class="normal"><a href="#__codelineno-19-12">12</a></span>
+<span class="normal"><a href="#__codelineno-19-13">13</a></span>
+<span class="normal"><a href="#__codelineno-19-14">14</a></span>
+<span class="normal"><a href="#__codelineno-19-15">15</a></span>
+<span class="normal"><a href="#__codelineno-19-16">16</a></span>
+<span class="normal"><a href="#__codelineno-19-17">17</a></span>
+<span class="normal"><a href="#__codelineno-19-18">18</a></span>
+<span class="normal"><a href="#__codelineno-19-19">19</a></span>
+<span class="normal"><a href="#__codelineno-19-20">20</a></span>
+<span class="normal"><a href="#__codelineno-19-21">21</a></span>
+<span class="normal"><a href="#__codelineno-19-22">22</a></span>
+<span class="normal"><a href="#__codelineno-19-23">23</a></span>
+<span class="normal"><a href="#__codelineno-19-24">24</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1"></a><span class="c1"># ╭──────────────────────────────────────────────────────────────────────────────────────╮</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2"></a><span class="c1"># │ NAVSTAR 60 (USA 196)                                                                 │</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3"></a><span class="c1"># │ NORAD ID: 32260                                                                      │</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5"></a><span class="c1"># ╭───────────────────────────────────── TLE Lines ──────────────────────────────────────╮</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6"></a><span class="c1"># │  Line 1:  1 32260U 07047A   25305.87057871  .00000045  00000+0  00000+0 0  9996      │</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7"></a><span class="c1"># │  Line 2:  2 32260  53.9265  89.4464 0164696  84.6485 277.2299  2.00566111132250      │</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9"></a><span class="c1"># ╭────────────────────────────────── Orbital Elements ──────────────────────────────────╮</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10"></a><span class="c1"># │  Epoch            2025-11-01 20:53:38.001 UTC                                        │</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11"></a><span class="c1"># │  Ephemeris Age                 1d 10h 32m 23s                                        │</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12"></a><span class="c1"># │  Semi-major axis                   26560.1 km                                        │</span>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13"></a><span class="c1"># │  Eccentricity                       0.0164696                                        │</span>
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14"></a><span class="c1"># │  Inclination                         53.9265°                                        │</span>
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15"></a><span class="c1"># │  RAAN                                89.4464°                                        │</span>
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16"></a><span class="c1"># │  Arg of Perigee                      84.6485°                                        │</span>
+</span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17"></a><span class="c1"># │  Mean Anomaly                       277.2299°                                        │</span>
+</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
+</span><span id="__span-19-19"><a id="__codelineno-19-19" name="__codelineno-19-19"></a><span class="c1"># ╭────────────────────────────── Orbital Characteristics ───────────────────────────────╮</span>
+</span><span id="__span-19-20"><a id="__codelineno-19-20" name="__codelineno-19-20"></a><span class="c1"># │  Orbital Period    718.0 min (11.97 hours)                                           │</span>
+</span><span id="__span-19-21"><a id="__codelineno-19-21" name="__codelineno-19-21"></a><span class="c1"># │  Mean Motion                 2.006 rev/day                                           │</span>
+</span><span id="__span-19-22"><a id="__codelineno-19-22" name="__codelineno-19-22"></a><span class="c1"># │  Perigee Altitude               19744.6 km                                           │</span>
+</span><span id="__span-19-23"><a id="__codelineno-19-23" name="__codelineno-19-23"></a><span class="c1"># │  Apogee Altitude                20619.4 km                                           │</span>
+</span><span id="__span-19-24"><a id="__codelineno-19-24" name="__codelineno-19-24"></a><span class="c1"># ╰──────────────────────────────────────────────────────────────────────────────────────╯</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="celestrak-list-groups"><code>celestrak list-groups</code><a class="headerlink" href="#celestrak-list-groups" title="Permanent link">&para;</a></h3>
 <p>List commonly used CelesTrak satellite groups.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-20-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Examples:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-21-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>list-groups
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>Common<span class="w"> </span>CelesTrak<span class="w"> </span>Satellite<span class="w"> </span>Groups
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>┃<span class="w"> </span>Group<span class="w"> </span>Name<span class="w">           </span>┃<span class="w"> </span>Description<span class="w">                                         </span>┃
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>│<span class="w"> </span>active<span class="w">               </span>│<span class="w"> </span>All<span class="w"> </span>active<span class="w"> </span>satellites<span class="w">                               </span>│
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>│<span class="w"> </span>stations<span class="w">             </span>│<span class="w"> </span>Space<span class="w"> </span>stations<span class="w"> </span><span class="o">(</span>ISS,<span class="w"> </span>Tiangong,<span class="w"> </span>etc.<span class="o">)</span><span class="w">                </span>│
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>│<span class="w"> </span>last-30-days<span class="w">         </span>│<span class="w"> </span>Satellites<span class="w"> </span>launched<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>last<span class="w"> </span><span class="m">30</span><span class="w"> </span>days<span class="w">             </span>│
-</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>│<span class="w"> </span>gnss<span class="w">                 </span>│<span class="w"> </span>All<span class="w"> </span>GNSS<span class="w"> </span>satellites<span class="w"> </span><span class="o">(</span>GPS,<span class="w"> </span>Galileo,<span class="w"> </span>GLONASS,<span class="w"> </span>Beidou<span class="o">)</span><span class="w"> </span>│
-</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>│<span class="w"> </span>gps-ops<span class="w">              </span>│<span class="w"> </span>Operational<span class="w"> </span>GPS<span class="w"> </span>satellites<span class="w">                          </span>│
-</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>│<span class="w"> </span>galileo<span class="w">              </span>│<span class="w"> </span>Galileo<span class="w"> </span>navigation<span class="w"> </span>satellites<span class="w">                       </span>│
-</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>│<span class="w"> </span>beidou<span class="w">               </span>│<span class="w"> </span>Beidou<span class="w"> </span>navigation<span class="w"> </span>satellites<span class="w">                        </span>│
-</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>│<span class="w"> </span>glo-ops<span class="w">              </span>│<span class="w"> </span>Operational<span class="w"> </span>GLONASS<span class="w"> </span>satellites<span class="w">                      </span>│
-</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>│<span class="w"> </span>geo<span class="w">                  </span>│<span class="w"> </span>Geostationary<span class="w"> </span>satellites<span class="w">                            </span>│
-</span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>│<span class="w"> </span>gpz<span class="w">                  </span>│<span class="w"> </span>Geostationary<span class="w"> </span>protected<span class="w"> </span>zone<span class="w"> </span>satellites<span class="w">             </span>│
-</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>│<span class="w"> </span>gpz-plus<span class="w">             </span>│<span class="w"> </span>Geostationary<span class="w"> </span>protected<span class="w"> </span>zone<span class="w"> </span>plus<span class="w"> </span>satellites<span class="w">        </span>│
-</span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>│<span class="w"> </span>weather<span class="w">              </span>│<span class="w"> </span>Weather<span class="w"> </span>satellites<span class="w">                                  </span>│
-</span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>│<span class="w"> </span>noaa<span class="w">                 </span>│<span class="w"> </span>NOAA<span class="w"> </span>satellites<span class="w">                                     </span>│
-</span><span id="__span-22-19"><a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>│<span class="w"> </span>goes<span class="w">                 </span>│<span class="w"> </span>GOES<span class="w"> </span>weather<span class="w"> </span>satellites<span class="w">                             </span>│
-</span><span id="__span-22-20"><a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>│<span class="w"> </span>starlink<span class="w">             </span>│<span class="w"> </span>SpaceX<span class="w"> </span>Starlink<span class="w"> </span>constellation<span class="w">                       </span>│
-</span><span id="__span-22-21"><a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>│<span class="w"> </span>oneweb<span class="w">               </span>│<span class="w"> </span>OneWeb<span class="w"> </span>constellation<span class="w">                                </span>│
-</span><span id="__span-22-22"><a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a>│<span class="w"> </span>kuiper<span class="w">               </span>│<span class="w"> </span>Amazon<span class="w"> </span>Kuiper<span class="w"> </span>constellation<span class="w">                         </span>│
-</span><span id="__span-22-23"><a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>│<span class="w"> </span>qianfan<span class="w">              </span>│<span class="w"> </span>Qianfan<span class="w"> </span>constellation<span class="w">                               </span>│
-</span><span id="__span-22-24"><a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a>│<span class="w"> </span>hulianwang<span class="w">           </span>│<span class="w"> </span>Hulianwang<span class="w"> </span>constellation<span class="w">                            </span>│
-</span><span id="__span-22-25"><a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a>│<span class="w"> </span>planet<span class="w">               </span>│<span class="w"> </span>Planet<span class="w"> </span>Labs<span class="w"> </span>imaging<span class="w"> </span>satellites<span class="w">                      </span>│
-</span><span id="__span-22-26"><a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a>│<span class="w"> </span>iridium<span class="w">              </span>│<span class="w"> </span>Iridium<span class="w"> </span>constellation<span class="w">                               </span>│
-</span><span id="__span-22-27"><a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a>│<span class="w"> </span>iridium-NEXT<span class="w">         </span>│<span class="w"> </span>Iridium<span class="w"> </span>NEXT<span class="w"> </span>constellation<span class="w">                          </span>│
-</span><span id="__span-22-28"><a id="__codelineno-22-28" name="__codelineno-22-28" href="#__codelineno-22-28"></a>│<span class="w"> </span>intelsat<span class="w">             </span>│<span class="w"> </span>Intelsat<span class="w"> </span>satellites<span class="w">                                 </span>│
-</span><span id="__span-22-29"><a id="__codelineno-22-29" name="__codelineno-22-29" href="#__codelineno-22-29"></a>│<span class="w"> </span>eutelsat<span class="w">             </span>│<span class="w"> </span>Eutelsat<span class="w"> </span>satellites<span class="w">                                 </span>│
-</span><span id="__span-22-30"><a id="__codelineno-22-30" name="__codelineno-22-30" href="#__codelineno-22-30"></a>│<span class="w"> </span>ses<span class="w">                  </span>│<span class="w"> </span>SES<span class="w"> </span>satellites<span class="w">                                      </span>│
-</span><span id="__span-22-31"><a id="__codelineno-22-31" name="__codelineno-22-31" href="#__codelineno-22-31"></a>│<span class="w"> </span>orbcomm<span class="w">              </span>│<span class="w"> </span>Orbcomm<span class="w"> </span>satellites<span class="w">                                  </span>│
-</span><span id="__span-22-32"><a id="__codelineno-22-32" name="__codelineno-22-32" href="#__codelineno-22-32"></a>│<span class="w"> </span>globalstar<span class="w">           </span>│<span class="w"> </span>Globalstar<span class="w"> </span>satellites<span class="w">                               </span>│
-</span><span id="__span-22-33"><a id="__codelineno-22-33" name="__codelineno-22-33" href="#__codelineno-22-33"></a>│<span class="w"> </span>sarsat<span class="w">               </span>│<span class="w"> </span>Search<span class="w"> </span>and<span class="w"> </span>rescue<span class="w"> </span>satellites<span class="w">                        </span>│
-</span><span id="__span-22-34"><a id="__codelineno-22-34" name="__codelineno-22-34" href="#__codelineno-22-34"></a>│<span class="w"> </span>cubesat<span class="w">              </span>│<span class="w"> </span>CubeSats<span class="w">                                            </span>│
-</span><span id="__span-22-35"><a id="__codelineno-22-35" name="__codelineno-22-35" href="#__codelineno-22-35"></a>│<span class="w"> </span>amateur<span class="w">              </span>│<span class="w"> </span>Amateur<span class="w"> </span>radio<span class="w"> </span>satellites<span class="w">                            </span>│
-</span><span id="__span-22-36"><a id="__codelineno-22-36" name="__codelineno-22-36" href="#__codelineno-22-36"></a>│<span class="w"> </span>science<span class="w">              </span>│<span class="w"> </span>Science<span class="w"> </span>satellites<span class="w">                                  </span>│
-</span><span id="__span-22-37"><a id="__codelineno-22-37" name="__codelineno-22-37" href="#__codelineno-22-37"></a>│<span class="w"> </span>weather<span class="w">              </span>│<span class="w"> </span>Weather<span class="w"> </span>satellites<span class="w">                                  </span>│
-</span><span id="__span-22-38"><a id="__codelineno-22-38" name="__codelineno-22-38" href="#__codelineno-22-38"></a>│<span class="w"> </span>geodetic<span class="w">             </span>│<span class="w"> </span>Geodetic<span class="w"> </span>satellites<span class="w">                                 </span>│
-</span><span id="__span-22-39"><a id="__codelineno-22-39" name="__codelineno-22-39" href="#__codelineno-22-39"></a>│<span class="w"> </span>cosmos-2251-debris<span class="w">   </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Cosmos<span class="w"> </span><span class="m">2251</span><span class="w"> </span>collision<span class="w">                   </span>│
-</span><span id="__span-22-40"><a id="__codelineno-22-40" name="__codelineno-22-40" href="#__codelineno-22-40"></a>│<span class="w"> </span>iridium-33-debris<span class="w">    </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Iridium<span class="w"> </span><span class="m">33</span><span class="w"> </span>collision<span class="w">                    </span>│
-</span><span id="__span-22-41"><a id="__codelineno-22-41" name="__codelineno-22-41" href="#__codelineno-22-41"></a>│<span class="w"> </span>fengyun-1c-debris<span class="w">    </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Fengyun-1C<span class="w"> </span>ASAT<span class="w"> </span><span class="nb">test</span><span class="w">                    </span>│
-</span><span id="__span-22-42"><a id="__codelineno-22-42" name="__codelineno-22-42" href="#__codelineno-22-42"></a>│<span class="w"> </span>cosmos-1408-debris<span class="w">   </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Cosmos<span class="w"> </span><span class="m">1408</span><span class="w"> </span>ASAT<span class="w"> </span><span class="nb">test</span><span class="w">                   </span>│
-</span><span id="__span-22-43"><a id="__codelineno-22-43" name="__codelineno-22-43" href="#__codelineno-22-43"></a>└──────────────────────┴─────────────────────────────────────────────────────┘
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-22-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-22-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-22-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-22-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-22-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-22-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-22-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-22-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-22-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-22-10">10</a></span>
+<span class="normal"><a href="#__codelineno-22-11">11</a></span>
+<span class="normal"><a href="#__codelineno-22-12">12</a></span>
+<span class="normal"><a href="#__codelineno-22-13">13</a></span>
+<span class="normal"><a href="#__codelineno-22-14">14</a></span>
+<span class="normal"><a href="#__codelineno-22-15">15</a></span>
+<span class="normal"><a href="#__codelineno-22-16">16</a></span>
+<span class="normal"><a href="#__codelineno-22-17">17</a></span>
+<span class="normal"><a href="#__codelineno-22-18">18</a></span>
+<span class="normal"><a href="#__codelineno-22-19">19</a></span>
+<span class="normal"><a href="#__codelineno-22-20">20</a></span>
+<span class="normal"><a href="#__codelineno-22-21">21</a></span>
+<span class="normal"><a href="#__codelineno-22-22">22</a></span>
+<span class="normal"><a href="#__codelineno-22-23">23</a></span>
+<span class="normal"><a href="#__codelineno-22-24">24</a></span>
+<span class="normal"><a href="#__codelineno-22-25">25</a></span>
+<span class="normal"><a href="#__codelineno-22-26">26</a></span>
+<span class="normal"><a href="#__codelineno-22-27">27</a></span>
+<span class="normal"><a href="#__codelineno-22-28">28</a></span>
+<span class="normal"><a href="#__codelineno-22-29">29</a></span>
+<span class="normal"><a href="#__codelineno-22-30">30</a></span>
+<span class="normal"><a href="#__codelineno-22-31">31</a></span>
+<span class="normal"><a href="#__codelineno-22-32">32</a></span>
+<span class="normal"><a href="#__codelineno-22-33">33</a></span>
+<span class="normal"><a href="#__codelineno-22-34">34</a></span>
+<span class="normal"><a href="#__codelineno-22-35">35</a></span>
+<span class="normal"><a href="#__codelineno-22-36">36</a></span>
+<span class="normal"><a href="#__codelineno-22-37">37</a></span>
+<span class="normal"><a href="#__codelineno-22-38">38</a></span>
+<span class="normal"><a href="#__codelineno-22-39">39</a></span>
+<span class="normal"><a href="#__codelineno-22-40">40</a></span>
+<span class="normal"><a href="#__codelineno-22-41">41</a></span>
+<span class="normal"><a href="#__codelineno-22-42">42</a></span>
+<span class="normal"><a href="#__codelineno-22-43">43</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a>Common<span class="w"> </span>CelesTrak<span class="w"> </span>Satellite<span class="w"> </span>Groups
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3"></a>┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4"></a>┃<span class="w"> </span>Group<span class="w"> </span>Name<span class="w">           </span>┃<span class="w"> </span>Description<span class="w">                                         </span>┃
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5"></a>┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6"></a>│<span class="w"> </span>active<span class="w">               </span>│<span class="w"> </span>All<span class="w"> </span>active<span class="w"> </span>satellites<span class="w">                               </span>│
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7"></a>│<span class="w"> </span>stations<span class="w">             </span>│<span class="w"> </span>Space<span class="w"> </span>stations<span class="w"> </span><span class="o">(</span>ISS,<span class="w"> </span>Tiangong,<span class="w"> </span>etc.<span class="o">)</span><span class="w">                </span>│
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8"></a>│<span class="w"> </span>last-30-days<span class="w">         </span>│<span class="w"> </span>Satellites<span class="w"> </span>launched<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>last<span class="w"> </span><span class="m">30</span><span class="w"> </span>days<span class="w">             </span>│
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9"></a>│<span class="w"> </span>gnss<span class="w">                 </span>│<span class="w"> </span>All<span class="w"> </span>GNSS<span class="w"> </span>satellites<span class="w"> </span><span class="o">(</span>GPS,<span class="w"> </span>Galileo,<span class="w"> </span>GLONASS,<span class="w"> </span>Beidou<span class="o">)</span><span class="w"> </span>│
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10"></a>│<span class="w"> </span>gps-ops<span class="w">              </span>│<span class="w"> </span>Operational<span class="w"> </span>GPS<span class="w"> </span>satellites<span class="w">                          </span>│
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11"></a>│<span class="w"> </span>galileo<span class="w">              </span>│<span class="w"> </span>Galileo<span class="w"> </span>navigation<span class="w"> </span>satellites<span class="w">                       </span>│
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12"></a>│<span class="w"> </span>beidou<span class="w">               </span>│<span class="w"> </span>Beidou<span class="w"> </span>navigation<span class="w"> </span>satellites<span class="w">                        </span>│
+</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13"></a>│<span class="w"> </span>glo-ops<span class="w">              </span>│<span class="w"> </span>Operational<span class="w"> </span>GLONASS<span class="w"> </span>satellites<span class="w">                      </span>│
+</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14"></a>│<span class="w"> </span>geo<span class="w">                  </span>│<span class="w"> </span>Geostationary<span class="w"> </span>satellites<span class="w">                            </span>│
+</span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15"></a>│<span class="w"> </span>gpz<span class="w">                  </span>│<span class="w"> </span>Geostationary<span class="w"> </span>protected<span class="w"> </span>zone<span class="w"> </span>satellites<span class="w">             </span>│
+</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16"></a>│<span class="w"> </span>gpz-plus<span class="w">             </span>│<span class="w"> </span>Geostationary<span class="w"> </span>protected<span class="w"> </span>zone<span class="w"> </span>plus<span class="w"> </span>satellites<span class="w">        </span>│
+</span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17"></a>│<span class="w"> </span>weather<span class="w">              </span>│<span class="w"> </span>Weather<span class="w"> </span>satellites<span class="w">                                  </span>│
+</span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18"></a>│<span class="w"> </span>noaa<span class="w">                 </span>│<span class="w"> </span>NOAA<span class="w"> </span>satellites<span class="w">                                     </span>│
+</span><span id="__span-22-19"><a id="__codelineno-22-19" name="__codelineno-22-19"></a>│<span class="w"> </span>goes<span class="w">                 </span>│<span class="w"> </span>GOES<span class="w"> </span>weather<span class="w"> </span>satellites<span class="w">                             </span>│
+</span><span id="__span-22-20"><a id="__codelineno-22-20" name="__codelineno-22-20"></a>│<span class="w"> </span>starlink<span class="w">             </span>│<span class="w"> </span>SpaceX<span class="w"> </span>Starlink<span class="w"> </span>constellation<span class="w">                       </span>│
+</span><span id="__span-22-21"><a id="__codelineno-22-21" name="__codelineno-22-21"></a>│<span class="w"> </span>oneweb<span class="w">               </span>│<span class="w"> </span>OneWeb<span class="w"> </span>constellation<span class="w">                                </span>│
+</span><span id="__span-22-22"><a id="__codelineno-22-22" name="__codelineno-22-22"></a>│<span class="w"> </span>kuiper<span class="w">               </span>│<span class="w"> </span>Amazon<span class="w"> </span>Kuiper<span class="w"> </span>constellation<span class="w">                         </span>│
+</span><span id="__span-22-23"><a id="__codelineno-22-23" name="__codelineno-22-23"></a>│<span class="w"> </span>qianfan<span class="w">              </span>│<span class="w"> </span>Qianfan<span class="w"> </span>constellation<span class="w">                               </span>│
+</span><span id="__span-22-24"><a id="__codelineno-22-24" name="__codelineno-22-24"></a>│<span class="w"> </span>hulianwang<span class="w">           </span>│<span class="w"> </span>Hulianwang<span class="w"> </span>constellation<span class="w">                            </span>│
+</span><span id="__span-22-25"><a id="__codelineno-22-25" name="__codelineno-22-25"></a>│<span class="w"> </span>planet<span class="w">               </span>│<span class="w"> </span>Planet<span class="w"> </span>Labs<span class="w"> </span>imaging<span class="w"> </span>satellites<span class="w">                      </span>│
+</span><span id="__span-22-26"><a id="__codelineno-22-26" name="__codelineno-22-26"></a>│<span class="w"> </span>iridium<span class="w">              </span>│<span class="w"> </span>Iridium<span class="w"> </span>constellation<span class="w">                               </span>│
+</span><span id="__span-22-27"><a id="__codelineno-22-27" name="__codelineno-22-27"></a>│<span class="w"> </span>iridium-NEXT<span class="w">         </span>│<span class="w"> </span>Iridium<span class="w"> </span>NEXT<span class="w"> </span>constellation<span class="w">                          </span>│
+</span><span id="__span-22-28"><a id="__codelineno-22-28" name="__codelineno-22-28"></a>│<span class="w"> </span>intelsat<span class="w">             </span>│<span class="w"> </span>Intelsat<span class="w"> </span>satellites<span class="w">                                 </span>│
+</span><span id="__span-22-29"><a id="__codelineno-22-29" name="__codelineno-22-29"></a>│<span class="w"> </span>eutelsat<span class="w">             </span>│<span class="w"> </span>Eutelsat<span class="w"> </span>satellites<span class="w">                                 </span>│
+</span><span id="__span-22-30"><a id="__codelineno-22-30" name="__codelineno-22-30"></a>│<span class="w"> </span>ses<span class="w">                  </span>│<span class="w"> </span>SES<span class="w"> </span>satellites<span class="w">                                      </span>│
+</span><span id="__span-22-31"><a id="__codelineno-22-31" name="__codelineno-22-31"></a>│<span class="w"> </span>orbcomm<span class="w">              </span>│<span class="w"> </span>Orbcomm<span class="w"> </span>satellites<span class="w">                                  </span>│
+</span><span id="__span-22-32"><a id="__codelineno-22-32" name="__codelineno-22-32"></a>│<span class="w"> </span>globalstar<span class="w">           </span>│<span class="w"> </span>Globalstar<span class="w"> </span>satellites<span class="w">                               </span>│
+</span><span id="__span-22-33"><a id="__codelineno-22-33" name="__codelineno-22-33"></a>│<span class="w"> </span>sarsat<span class="w">               </span>│<span class="w"> </span>Search<span class="w"> </span>and<span class="w"> </span>rescue<span class="w"> </span>satellites<span class="w">                        </span>│
+</span><span id="__span-22-34"><a id="__codelineno-22-34" name="__codelineno-22-34"></a>│<span class="w"> </span>cubesat<span class="w">              </span>│<span class="w"> </span>CubeSats<span class="w">                                            </span>│
+</span><span id="__span-22-35"><a id="__codelineno-22-35" name="__codelineno-22-35"></a>│<span class="w"> </span>amateur<span class="w">              </span>│<span class="w"> </span>Amateur<span class="w"> </span>radio<span class="w"> </span>satellites<span class="w">                            </span>│
+</span><span id="__span-22-36"><a id="__codelineno-22-36" name="__codelineno-22-36"></a>│<span class="w"> </span>science<span class="w">              </span>│<span class="w"> </span>Science<span class="w"> </span>satellites<span class="w">                                  </span>│
+</span><span id="__span-22-37"><a id="__codelineno-22-37" name="__codelineno-22-37"></a>│<span class="w"> </span>weather<span class="w">              </span>│<span class="w"> </span>Weather<span class="w"> </span>satellites<span class="w">                                  </span>│
+</span><span id="__span-22-38"><a id="__codelineno-22-38" name="__codelineno-22-38"></a>│<span class="w"> </span>geodetic<span class="w">             </span>│<span class="w"> </span>Geodetic<span class="w"> </span>satellites<span class="w">                                 </span>│
+</span><span id="__span-22-39"><a id="__codelineno-22-39" name="__codelineno-22-39"></a>│<span class="w"> </span>cosmos-2251-debris<span class="w">   </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Cosmos<span class="w"> </span><span class="m">2251</span><span class="w"> </span>collision<span class="w">                   </span>│
+</span><span id="__span-22-40"><a id="__codelineno-22-40" name="__codelineno-22-40"></a>│<span class="w"> </span>iridium-33-debris<span class="w">    </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Iridium<span class="w"> </span><span class="m">33</span><span class="w"> </span>collision<span class="w">                    </span>│
+</span><span id="__span-22-41"><a id="__codelineno-22-41" name="__codelineno-22-41"></a>│<span class="w"> </span>fengyun-1c-debris<span class="w">    </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Fengyun-1C<span class="w"> </span>ASAT<span class="w"> </span><span class="nb">test</span><span class="w">                    </span>│
+</span><span id="__span-22-42"><a id="__codelineno-22-42" name="__codelineno-22-42"></a>│<span class="w"> </span>cosmos-1408-debris<span class="w">   </span>│<span class="w"> </span>Debris<span class="w"> </span>from<span class="w"> </span>Cosmos<span class="w"> </span><span class="m">1408</span><span class="w"> </span>ASAT<span class="w"> </span><span class="nb">test</span><span class="w">                   </span>│
+</span><span id="__span-22-43"><a id="__codelineno-22-43" name="__codelineno-22-43"></a>└──────────────────────┴─────────────────────────────────────────────────────┘
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="celestrak-search"><code>celestrak search</code><a class="headerlink" href="#celestrak-search" title="Permanent link">&para;</a></h3>
 <p>Search for satellites by name pattern within a group.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span>&lt;PATTERN&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-23-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span>&lt;PATTERN&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Arguments:</strong>
 - <code>PATTERN</code> - Name search pattern (case-insensitive)</p>
 <p><strong>Options:</strong>
@@ -5222,99 +5350,141 @@ Output:
 - <code>--columns &lt;preset&gt;</code> - Columns to display: 'minimal', 'default', 'all', or comma-separated list</p>
 <p><strong>Examples:</strong></p>
 <p>Search for Capella satellites:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;Capella&quot;</span>
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-24-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;Capella&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># CAPELLA-11 (ACADIA-1) (NORAD: 57693)</span>
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="c1"># CAPELLA-14 (ACADIA-4) (NORAD: 59444)</span>
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="c1"># CAPELLA-13 (ACADIA-3) (NORAD: 60419)</span>
-</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># CAPELLA-15 (ACADIA-5) (NORAD: 60544)</span>
-</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="c1"># CAPELLA-17 (ACADIA-7) (NORAD: 64583)</span>
-</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="c1"># CAPELLA-16 (ACADIA-6) (NORAD: 65318)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-25-1">1</a></span>
+<span class="normal"><a href="#__codelineno-25-2">2</a></span>
+<span class="normal"><a href="#__codelineno-25-3">3</a></span>
+<span class="normal"><a href="#__codelineno-25-4">4</a></span>
+<span class="normal"><a href="#__codelineno-25-5">5</a></span>
+<span class="normal"><a href="#__codelineno-25-6">6</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1"></a><span class="c1"># CAPELLA-11 (ACADIA-1) (NORAD: 57693)</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2"></a><span class="c1"># CAPELLA-14 (ACADIA-4) (NORAD: 59444)</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3"></a><span class="c1"># CAPELLA-13 (ACADIA-3) (NORAD: 60419)</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4"></a><span class="c1"># CAPELLA-15 (ACADIA-5) (NORAD: 60544)</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5"></a><span class="c1"># CAPELLA-17 (ACADIA-7) (NORAD: 64583)</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6"></a><span class="c1"># CAPELLA-16 (ACADIA-6) (NORAD: 65318)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Search for GPS satellites in specific group:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;GPS II&quot;</span><span class="w"> </span>--group<span class="w"> </span>gps-ops
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-26-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;GPS II&quot;</span><span class="w"> </span>--group<span class="w"> </span>gps-ops
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># GPS BIIR-2  (PRN 13) (NORAD: 24876)</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># GPS BIIR-4  (PRN 20) (NORAD: 26360)</span>
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="c1"># GPS BIIR-5  (PRN 22) (NORAD: 26407)</span>
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># GPS BIIR-8  (PRN 16) (NORAD: 27663)</span>
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="c1"># GPS BIIR-11 (PRN 19) (NORAD: 28190)</span>
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="c1"># GPS BIIR-13 (PRN 02) (NORAD: 28474)</span>
-</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="c1"># GPS BIIRM-1 (PRN 17) (NORAD: 28874)</span>
-</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="c1"># GPS BIIRM-2 (PRN 31) (NORAD: 29486)</span>
-</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="c1"># GPS BIIRM-3 (PRN 12) (NORAD: 29601)</span>
-</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="c1"># GPS BIIRM-4 (PRN 15) (NORAD: 32260)</span>
-</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="c1"># GPS BIIRM-5 (PRN 29) (NORAD: 32384)</span>
-</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="c1"># GPS BIIRM-6 (PRN 07) (NORAD: 32711)</span>
-</span><span id="__span-27-13"><a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="c1"># GPS BIIRM-8 (PRN 05) (NORAD: 35752)</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-27-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-27-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-27-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-27-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-27-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-27-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-27-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-27-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-27-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-27-10">10</a></span>
+<span class="normal"><a href="#__codelineno-27-11">11</a></span>
+<span class="normal"><a href="#__codelineno-27-12">12</a></span>
+<span class="normal"><a href="#__codelineno-27-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1"></a><span class="c1"># GPS BIIR-2  (PRN 13) (NORAD: 24876)</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2"></a><span class="c1"># GPS BIIR-4  (PRN 20) (NORAD: 26360)</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3"></a><span class="c1"># GPS BIIR-5  (PRN 22) (NORAD: 26407)</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4"></a><span class="c1"># GPS BIIR-8  (PRN 16) (NORAD: 27663)</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5"></a><span class="c1"># GPS BIIR-11 (PRN 19) (NORAD: 28190)</span>
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6"></a><span class="c1"># GPS BIIR-13 (PRN 02) (NORAD: 28474)</span>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7"></a><span class="c1"># GPS BIIRM-1 (PRN 17) (NORAD: 28874)</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8"></a><span class="c1"># GPS BIIRM-2 (PRN 31) (NORAD: 29486)</span>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9"></a><span class="c1"># GPS BIIRM-3 (PRN 12) (NORAD: 29601)</span>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10"></a><span class="c1"># GPS BIIRM-4 (PRN 15) (NORAD: 32260)</span>
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11"></a><span class="c1"># GPS BIIRM-5 (PRN 29) (NORAD: 32384)</span>
+</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12"></a><span class="c1"># GPS BIIRM-6 (PRN 07) (NORAD: 32711)</span>
+</span><span id="__span-27-13"><a id="__codelineno-27-13" name="__codelineno-27-13"></a><span class="c1"># GPS BIIRM-8 (PRN 05) (NORAD: 35752)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>Search with table output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;CAPELLA&quot;</span><span class="w"> </span>--group<span class="w"> </span>active<span class="w"> </span>--table
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-28-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>celestrak<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;CAPELLA&quot;</span><span class="w"> </span>--group<span class="w"> </span>active<span class="w"> </span>--table
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┓</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="c1"># ┃ Name               ┃ ID     ┃ Epoch                ┃ Age        ┃ Period (min) ┃ SMA (km)  ┃ Ecc      ┃ Inc (°) ┃ RAAN (°)  ┃ ArgP (°)  ┃ MA (°)  ┃</span>
-</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="c1"># ┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━┩</span>
-</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># │ CAPELLA-11         │ 57693  │ 2025-11-02           │ 1d 5h 13m  │ 97.4         │ 7010.7    │ 0.000255 │ 53.01   │ 84.64     │ 126.46    │ 233.66  │</span>
-</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="c1"># │ (ACADIA-1)         │        │ 02:55:32.430 UTC     │ 39s        │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="c1"># │ CAPELLA-14         │ 59444  │ 2025-11-02           │ 20h 33m 2s │ 95.7         │ 6930.2    │ 0.000330 │ 45.61   │ 6.37      │ 226.89    │ 133.18  │</span>
-</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="c1"># │ (ACADIA-4)         │        │ 11:36:09.001 UTC     │            │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="c1"># │ CAPELLA-13         │ 60419  │ 2025-11-01           │ 1d 23h 48m │ 96.8         │ 6983.4    │ 0.000158 │ 53.00   │ 332.08    │ 93.30     │ 266.82  │</span>
-</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="c1"># │ (ACADIA-3)         │        │ 08:20:23.000 UTC     │ 48s        │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="c1"># │ CAPELLA-15         │ 60544  │ 2025-11-01           │ 2d 4h 11m  │ 96.5         │ 6968.5    │ 0.000478 │ 97.70   │ 18.46     │ 121.04    │ 239.13  │</span>
-</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="c1"># │ (ACADIA-5)         │        │ 03:57:45.954 UTC     │ 25s        │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a><span class="c1"># │ CAPELLA-17         │ 64583  │ 2025-11-02           │ 1d 31m 29s │ 96.4         │ 6963.2    │ 0.000327 │ 97.76   │ 58.71     │ 21.22     │ 338.91  │</span>
-</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="c1"># │ (ACADIA-7)         │        │ 07:37:41.806 UTC     │            │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-14"><a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a><span class="c1"># │ CAPELLA-16         │ 65318  │ 2025-11-02           │ 1d 3h 57m  │ 96.6         │ 6973.1    │ 0.000296 │ 97.76   │ 19.81     │ 275.26    │ 84.83   │</span>
-</span><span id="__span-29-15"><a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a><span class="c1"># │ (ACADIA-6)         │        │ 04:11:12.548 UTC     │ 58s        │              │           │          │         │           │           │         │</span>
-</span><span id="__span-29-16"><a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a><span class="c1"># └────────────────────┴────────┴──────────────────────┴────────────┴──────────────┴───────────┴──────────┴─────────┴───────────┴───────────┴─────────┘</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-29-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-29-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-29-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-29-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-29-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-29-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-29-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-29-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-29-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-29-10">10</a></span>
+<span class="normal"><a href="#__codelineno-29-11">11</a></span>
+<span class="normal"><a href="#__codelineno-29-12">12</a></span>
+<span class="normal"><a href="#__codelineno-29-13">13</a></span>
+<span class="normal"><a href="#__codelineno-29-14">14</a></span>
+<span class="normal"><a href="#__codelineno-29-15">15</a></span>
+<span class="normal"><a href="#__codelineno-29-16">16</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1"></a><span class="c1"># ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┓</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2"></a><span class="c1"># ┃ Name               ┃ ID     ┃ Epoch                ┃ Age        ┃ Period (min) ┃ SMA (km)  ┃ Ecc      ┃ Inc (°) ┃ RAAN (°)  ┃ ArgP (°)  ┃ MA (°)  ┃</span>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3"></a><span class="c1"># ┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━┩</span>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4"></a><span class="c1"># │ CAPELLA-11         │ 57693  │ 2025-11-02           │ 1d 5h 13m  │ 97.4         │ 7010.7    │ 0.000255 │ 53.01   │ 84.64     │ 126.46    │ 233.66  │</span>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5"></a><span class="c1"># │ (ACADIA-1)         │        │ 02:55:32.430 UTC     │ 39s        │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6"></a><span class="c1"># │ CAPELLA-14         │ 59444  │ 2025-11-02           │ 20h 33m 2s │ 95.7         │ 6930.2    │ 0.000330 │ 45.61   │ 6.37      │ 226.89    │ 133.18  │</span>
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7"></a><span class="c1"># │ (ACADIA-4)         │        │ 11:36:09.001 UTC     │            │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8"></a><span class="c1"># │ CAPELLA-13         │ 60419  │ 2025-11-01           │ 1d 23h 48m │ 96.8         │ 6983.4    │ 0.000158 │ 53.00   │ 332.08    │ 93.30     │ 266.82  │</span>
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9"></a><span class="c1"># │ (ACADIA-3)         │        │ 08:20:23.000 UTC     │ 48s        │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10"></a><span class="c1"># │ CAPELLA-15         │ 60544  │ 2025-11-01           │ 2d 4h 11m  │ 96.5         │ 6968.5    │ 0.000478 │ 97.70   │ 18.46     │ 121.04    │ 239.13  │</span>
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11"></a><span class="c1"># │ (ACADIA-5)         │        │ 03:57:45.954 UTC     │ 25s        │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12"></a><span class="c1"># │ CAPELLA-17         │ 64583  │ 2025-11-02           │ 1d 31m 29s │ 96.4         │ 6963.2    │ 0.000327 │ 97.76   │ 58.71     │ 21.22     │ 338.91  │</span>
+</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13"></a><span class="c1"># │ (ACADIA-7)         │        │ 07:37:41.806 UTC     │            │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-14"><a id="__codelineno-29-14" name="__codelineno-29-14"></a><span class="c1"># │ CAPELLA-16         │ 65318  │ 2025-11-02           │ 1d 3h 57m  │ 96.6         │ 6973.1    │ 0.000296 │ 97.76   │ 19.81     │ 275.26    │ 84.83   │</span>
+</span><span id="__span-29-15"><a id="__codelineno-29-15" name="__codelineno-29-15"></a><span class="c1"># │ (ACADIA-6)         │        │ 04:11:12.548 UTC     │ 58s        │              │           │          │         │           │           │         │</span>
+</span><span id="__span-29-16"><a id="__codelineno-29-16" name="__codelineno-29-16"></a><span class="c1"># └────────────────────┴────────┴──────────────────────┴────────────┴──────────────┴───────────┴──────────┴─────────┴───────────┴───────────┴─────────┘</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h2 id="ground-station-commands">Ground Station Commands<a class="headerlink" href="#ground-station-commands" title="Permanent link">&para;</a></h2>
 <h3 id="groundstations-list-providers"><code>groundstations list-providers</code><a class="headerlink" href="#groundstations-list-providers" title="Permanent link">&para;</a></h3>
 <p>List available ground station providers.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-providers
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-30-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-providers
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Examples:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-providers
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-31-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-providers
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># Available groundstation providers:</span>
-</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="c1">#   - atlas</span>
-</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="c1">#   - aws</span>
-</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="c1">#   - ksat</span>
-</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="c1">#   - leaf</span>
-</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="c1">#   - ssc</span>
-</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="c1">#   - viasat</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-32-1">1</a></span>
+<span class="normal"><a href="#__codelineno-32-2">2</a></span>
+<span class="normal"><a href="#__codelineno-32-3">3</a></span>
+<span class="normal"><a href="#__codelineno-32-4">4</a></span>
+<span class="normal"><a href="#__codelineno-32-5">5</a></span>
+<span class="normal"><a href="#__codelineno-32-6">6</a></span>
+<span class="normal"><a href="#__codelineno-32-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1"></a><span class="c1"># Available groundstation providers:</span>
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2"></a><span class="c1">#   - atlas</span>
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3"></a><span class="c1">#   - aws</span>
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4"></a><span class="c1">#   - ksat</span>
+</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5"></a><span class="c1">#   - leaf</span>
+</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6"></a><span class="c1">#   - ssc</span>
+</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7"></a><span class="c1">#   - viasat</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <h3 id="groundstations-list-stations"><code>groundstations list-stations</code><a class="headerlink" href="#groundstations-list-stations" title="Permanent link">&para;</a></h3>
 <p>List ground stations, optionally filtered by provider.</p>
 <p><strong>Syntax:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-33-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p><strong>Options:</strong>
 - <code>--provider &lt;name&gt;</code> - Filter by provider name</p>
 <p><strong>Examples:</strong></p>
 <p>List all ground stations:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-34-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># All Groundstations (96 total):</span>
-</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="c1">#   Absheron: 40.470° lat, 49.490° lon, 0 m alt [S, X]</span>
-</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="c1">#   Accra: 5.600° lat, -0.300° lon, 0 m alt [L, S, X, Ka]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-35-1">1</a></span>
+<span class="normal"><a href="#__codelineno-35-2">2</a></span>
+<span class="normal"><a href="#__codelineno-35-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1"></a><span class="c1"># All Groundstations (96 total):</span>
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2"></a><span class="c1">#   Absheron: 40.470° lat, 49.490° lon, 0 m alt [S, X]</span>
+</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3"></a><span class="c1">#   Accra: 5.600° lat, -0.300° lon, 0 m alt [L, S, X, Ka]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <p>List KSAT stations only:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations<span class="w"> </span>--provider<span class="w"> </span>ksat
-</span></code></pre></div>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-36-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1"></a>brahe<span class="w"> </span>datasets<span class="w"> </span>groundstations<span class="w"> </span>list-stations<span class="w"> </span>--provider<span class="w"> </span>ksat
+</span></code></pre></div></td></tr></table></div>
 Output:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="c1"># KSAT Groundstations (36 total):</span>
-</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="c1">#   Athens: 37.850° lat, 22.620° lon, 0 m alt [S, X, Optical]</span>
-</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="c1">#   Awarua: -46.530° lat, 168.380° lon, 0 m alt [S, X, Ka]</span>
-</span></code></pre></div></p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-37-1">1</a></span>
+<span class="normal"><a href="#__codelineno-37-2">2</a></span>
+<span class="normal"><a href="#__codelineno-37-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1"></a><span class="c1"># KSAT Groundstations (36 total):</span>
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2"></a><span class="c1">#   Athens: 37.850° lat, 22.620° lon, 0 m alt [S, X, Optical]</span>
+</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3"></a><span class="c1">#   Awarua: -46.530° lat, 168.380° lon, 0 m alt [S, X, Ka]</span>
+</span></code></pre></div></td></tr></table></div></p>
 <hr />
 <hr />
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

@@ -77,6 +77,24 @@ def test_time_properties_as_getters():
     assert window.start < window.midtime < window.end
 
 
+def test_t_start_and_t_end_aliases():
+    """Test that t_start and t_end are valid aliases for start and end."""
+    window = create_test_window()
+
+    # Test t_start and t_end exist and return Epoch objects
+    assert isinstance(window.t_start, bh.Epoch)
+    assert isinstance(window.t_end, bh.Epoch)
+
+    # Verify they return the same values as other aliases
+    assert window.t_start == window.window_open
+    assert window.t_start == window.start
+    assert window.t_end == window.window_close
+    assert window.t_end == window.end
+
+    # Verify t_start < t_end
+    assert window.t_start < window.t_end
+
+
 def test_identifiable_properties():
     """Test that AccessWindow has Identifiable properties (name, id, uuid)."""
     window = create_test_window()

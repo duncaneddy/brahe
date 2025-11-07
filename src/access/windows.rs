@@ -149,6 +149,16 @@ impl AccessWindow {
         self.window_close
     }
 
+    /// Get window start time (alias for `start`)
+    pub fn t_start(&self) -> Epoch {
+        self.window_open
+    }
+
+    /// Get window end time (alias for `end`)
+    pub fn t_end(&self) -> Epoch {
+        self.window_close
+    }
+
     /// Get window midtime
     pub fn midtime(&self) -> Epoch {
         self.window_open + (self.window_close - self.window_open) / 2.0

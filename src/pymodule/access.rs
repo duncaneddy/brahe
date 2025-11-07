@@ -2233,6 +2233,24 @@ impl PyAccessWindow {
         PyEpoch { obj: self.window.end() }
     }
 
+    /// Get the start time of the access window (alias for window_open/start).
+    ///
+    /// Returns:
+    ///     Epoch: Opening time of the window
+    #[getter]
+    fn t_start(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.t_start() }
+    }
+
+    /// Get the end time of the access window (alias for window_close/end).
+    ///
+    /// Returns:
+    ///     Epoch: Closing time of the window
+    #[getter]
+    fn t_end(&self) -> PyEpoch {
+        PyEpoch { obj: self.window.t_end() }
+    }
+
     /// Get the midpoint time of the access window.
     ///
     /// Returns:

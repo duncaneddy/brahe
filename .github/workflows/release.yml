@@ -42,16 +42,16 @@ jobs:
 
   test-python:
     uses: ./.github/workflows/test_python.yml
-    needs: [test-rust]
+    needs: [validate-version]
 
   test-examples:
     uses: ./.github/workflows/test_examples.yml
-    needs: [test-rust]
+    needs: [validate-version]
 
   # Generate release notes using towncrier
   generate-release-notes:
     runs-on: ubuntu-latest
-    needs: [validate-version, test-python, test-examples]
+    needs: [validate-version, test-rust, test-python, test-examples]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

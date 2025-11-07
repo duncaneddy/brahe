@@ -1566,4 +1566,72 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_dtrajectory_interpolate_before_start() {
+        // Create a trajectory for testing
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            DVector::from_vec(vec![60.0, 120.0, 180.0, 240.0, 300.0, 360.0]),
+            DVector::from_vec(vec![120.0, 240.0, 360.0, 480.0, 600.0, 720.0]),
+        ];
+
+        let traj = DTrajectory::from_data(epochs, states).unwrap();
+
+        // Test interpolation before trajectory start
+        let before_start = t0 - 10.0;
+        let result = traj.interpolate_linear(&before_start);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation before start"),
+        }
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&before_start);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation before start"),
+        }
+    }
+
+    #[test]
+    fn test_dtrajectory_interpolate_after_end() {
+        // Create a trajectory for testing
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let epochs = vec![t0, t1, t2];
+        let states = vec![
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            DVector::from_vec(vec![60.0, 120.0, 180.0, 240.0, 300.0, 360.0]),
+            DVector::from_vec(vec![120.0, 240.0, 360.0, 480.0, 600.0, 720.0]),
+        ];
+
+        let traj = DTrajectory::from_data(epochs, states).unwrap();
+
+        // Test interpolation after trajectory end
+        let after_end = t0 + 130.0;
+        let result = traj.interpolate_linear(&after_end);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation after end"),
+        }
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&after_end);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation after end"),
+        }
+    }
 }

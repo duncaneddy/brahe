@@ -1121,6 +1121,72 @@ def test_orbittrajectory_interpolatable_interpolate():
         )
 
 
+def test_orbittrajectory_interpolate_before_start():
+    """Rust test: test_orbittrajectory_interpolate_before_start"""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+        ]
+    )
+
+    traj = OrbitTrajectory.from_orbital_data(
+        epochs,
+        states,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    # Test interpolation before trajectory start
+    before_start = t0 - 10.0
+    with pytest.raises(Exception):
+        traj.interpolate_linear(before_start)
+
+    # Also test with interpolate() method
+    with pytest.raises(Exception):
+        traj.interpolate(before_start)
+
+
+def test_orbittrajectory_interpolate_after_end():
+    """Rust test: test_orbittrajectory_interpolate_after_end"""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    t1 = t0 + 60.0
+    t2 = t0 + 120.0
+
+    epochs = [t0, t1, t2]
+    states = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [60.0, 120.0, 180.0, 240.0, 300.0, 360.0],
+            [120.0, 240.0, 360.0, 480.0, 600.0, 720.0],
+        ]
+    )
+
+    traj = OrbitTrajectory.from_orbital_data(
+        epochs,
+        states,
+        OrbitFrame.ECI,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    # Test interpolation after trajectory end
+    after_end = t0 + 130.0
+    with pytest.raises(Exception):
+        traj.interpolate_linear(after_end)
+
+    # Also test with interpolate() method
+    with pytest.raises(Exception):
+        traj.interpolate(after_end)
+
+
 def test_orbittrajectory_orbitaltrajectory_from_orbital_data():
     """Rust: test_orbittrajectory_orbitaltrajectory_from_orbital_data"""
     epochs = [

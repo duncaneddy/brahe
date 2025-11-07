@@ -951,3 +951,61 @@ def test_strajectory_interpolatable_interpolate():
 
     # Verify the actual values for completeness
     assert abs(result_interpolate[0] - 7030e3) < 1e-6
+
+
+def test_strajectory_interpolate_before_start():
+    """Rust test: test_strajectory_interpolate_before_start"""
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+
+    # Create a trajectory with states from t0 to t0+120s
+    epochs = [
+        t0,
+        t0 + 60.0,
+        t0 + 120.0,
+    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+        ]
+    )
+    traj = STrajectory6.from_data(epochs, states)
+
+    # Test interpolation before trajectory start
+    before_start = t0 - 10.0
+    with pytest.raises(Exception):
+        traj.interpolate_linear(before_start)
+
+    # Also test with interpolate() method
+    with pytest.raises(Exception):
+        traj.interpolate(before_start)
+
+
+def test_strajectory_interpolate_after_end():
+    """Rust test: test_strajectory_interpolate_after_end"""
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+
+    # Create a trajectory with states from t0 to t0+120s
+    epochs = [
+        t0,
+        t0 + 60.0,
+        t0 + 120.0,
+    ]
+    states = np.array(
+        [
+            [7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+            [7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0],
+        ]
+    )
+    traj = STrajectory6.from_data(epochs, states)
+
+    # Test interpolation after trajectory end
+    after_end = t0 + 130.0
+    with pytest.raises(Exception):
+        traj.interpolate_linear(after_end)
+
+    # Also test with interpolate() method
+    with pytest.raises(Exception):
+        traj.interpolate(after_end)

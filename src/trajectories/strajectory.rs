@@ -1567,4 +1567,72 @@ mod tests {
         // Verify the actual values for completeness
         assert_abs_diff_eq!(result_interpolate[0], 7030e3, epsilon = 1e-6);
     }
+
+    #[test]
+    fn test_strajectory_interpolate_before_start() {
+        // Setup EOP for any frame conversions if needed
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Create a trajectory with states from t0 to t0+120s
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+        ];
+        let traj = STrajectory6::from_data(epochs, states).unwrap();
+
+        // Test interpolation before trajectory start
+        let before_start = t0 - 10.0;
+        let result = traj.interpolate_linear(&before_start);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation before start"),
+        }
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&before_start);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation before start"),
+        }
+    }
+
+    #[test]
+    fn test_strajectory_interpolate_after_end() {
+        // Setup EOP for any frame conversions if needed
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Create a trajectory with states from t0 to t0+120s
+        let epochs = vec![t0, t0 + 60.0, t0 + 120.0];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7120e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+        ];
+        let traj = STrajectory6::from_data(epochs, states).unwrap();
+
+        // Test interpolation after trajectory end
+        let after_end = t0 + 130.0;
+        let result = traj.interpolate_linear(&after_end);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation after end"),
+        }
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&after_end);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::OutOfBoundsError(_)) => {} // Expected error type
+            _ => panic!("Expected OutOfBoundsError for interpolation after end"),
+        }
+    }
 }

@@ -378,6 +378,25 @@ pub trait Interpolatable: Trajectory {
             return Ok(only_state);
         }
 
+        // Explicit bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
         // Get indices before and after the target epoch (single search operation each)
         let idx1 = self.index_before_epoch(epoch)?;
         let idx2 = self.index_after_epoch(epoch)?;
@@ -416,6 +435,25 @@ pub trait Interpolatable: Trajectory {
             + std::ops::Mul<f64, Output = Self::StateVector>
             + std::ops::Add<Output = Self::StateVector>,
     {
+        // Explicit bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
         self.interpolate_linear(epoch)
     }
 }

@@ -17,7 +17,7 @@ jobs:
     needs: [ test-rust ]
   test-examples:
     uses: ./.github/workflows/test_examples.yml
-    needs: [ test-rust ]
+    needs: [ update-bundled-data ]
   update-docs:
     uses: ./.github/workflows/update_docs.yml
     needs: [ test-python, test-examples ]

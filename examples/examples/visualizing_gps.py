@@ -2,6 +2,7 @@
 # /// script
 # dependencies = ["brahe", "plotly"]
 # FLAGS = ["CI-ONLY"]
+# TIMEOUT = 300
 # ///
 
 """

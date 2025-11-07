@@ -14,7 +14,7 @@ sgp4/
 Cargo.lock
 
 # Build Artifacts - Python
-rastro_python/build/*
+brahe/build/*
 __pycache__/
 *.py[cod]
 *$py.class
@@ -27,6 +27,7 @@ wheels/
 *.so
 *.dylib
 .python-version
+dist/
 
 # Build Artifacts - Validation
 /build

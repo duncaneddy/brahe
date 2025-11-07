@@ -1,12 +1,7 @@
 [project]
 name = "brahe"
 dynamic = ["version"]
-description = """
-Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.
-The north-star of the development is enabling users to solve meaningful problems
-and answer questions quickly, easily, and correctly.
-"""
+description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
@@ -82,6 +77,8 @@ docs = [
 dev = [
     "pre-commit>=4.3.0",
     "towncrier>=25.8.0",
+    "maturin>=1.0,<2.0",
+    "twine>=5.0.0",
     { include-group = "test" },
     { include-group = "docs" },
 ]

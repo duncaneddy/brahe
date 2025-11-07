@@ -1,22 +1,17 @@
 [package]
 name = "brahe"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
-description = """
-Brahe is a modern satellite dynamics library for research and engineering
-applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy. 
-The north-star of the development is enabling users to solve meaningful problems 
-and answer questions quickly, easily, and correctly.
-"""
-homepage = "https://https://duncaneddy.github.io/brahe/"
+description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
+homepage = "https://duncaneddy.github.io/brahe/"
 documentation = "https://docs.rs/brahe/"
 repository = "https://github.com/duncaneddy/brahe/"
 keywords = ["space", "astrodynamics", "satellite"]
 categories = ["science"]
 readme = "README.md"
 license = "MIT"
-exclude = [
+exclude = [ # We need to keep the size down for crates.io these don't need to be included
     "/test_data",
     "/tests",
     "/scripts",
@@ -26,10 +21,7 @@ exclude = [
     "/examples",
     "/plots",
     "/test_assets",
-    "/data/textures/world.topo.200410.3x5400x2700.png",
-    # "/data/eop/",
-    # "/data/gravity_models/",
-    # "/data/space_weather",
+    "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
     "make.py",
     "mkdocs.yaml",
     "uv.lock"

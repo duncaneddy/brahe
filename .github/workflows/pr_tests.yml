@@ -16,6 +16,66 @@ jobs:
     uses: ./.github/workflows/test_examples.yml
     needs: [test-rust]
 
+  # Validate crates.io package builds correctly and is under size limit
+  validate-rust-package:
+    runs-on: ubuntu-latest
+    needs: [test-rust]
+    env:
+      RUST_TOOLCHAIN: nightly
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ env.RUST_TOOLCHAIN }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Build and validate Rust package
+        run: uv run python make.py build --lang rust
+
+  # Validate PyPI packages build correctly with proper metadata
+  validate-python-package:
+    runs-on: ubuntu-latest
+    needs: [test-python]
+    env:
+      RUST_TOOLCHAIN: nightly
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ env.RUST_TOOLCHAIN }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Build and validate Python package
+        run: uv run python make.py build --lang python
+
   # Build docs to verify no breakage, but don't deploy
   build-docs:
     runs-on: ubuntu-latest

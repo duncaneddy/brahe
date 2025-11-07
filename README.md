@@ -12,7 +12,7 @@
     <img src="https://github.com/duncaneddy/brahe/actions/workflows/unit_tests.yml/badge.svg" alt="Tests">
 </a>
 <a href="https://codecov.io/gh/duncaneddy/brahe">  
-  <img src="https://codecov.io/gh/duncaneddy/brahe/graph/badge.svg?token=1JDXP549Q4"></a>
+    <img src="https://codecov.io/gh/duncaneddy/brahe/graph/badge.svg?token=1JDXP549Q4"></a>
 <a href="https://crates.io/crates/brahe" target="_blank">
     <img src="https://img.shields.io/crates/v/brahe.svg" alt="Crate">
 </a>

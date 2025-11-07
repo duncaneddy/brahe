@@ -1,12 +1,12 @@
 [project]
 name = "brahe"
+dynamic = ["version"]
 description = """
 Brahe is a modern satellite dynamics library for research and engineering
 applications. It is designed to be easy-to-learn, high-performance, and quick-to-deploy.
 The north-star of the development is enabling users to solve meaningful problems
 and answer questions quickly, easily, and correctly.
 """
-version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }

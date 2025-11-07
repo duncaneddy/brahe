@@ -148,6 +148,7 @@ pub fn get_max_threads() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_default_thread_count() {
@@ -169,6 +170,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     #[should_panic(expected = "Number of threads must be at least 1")]
     fn test_set_num_threads_zero_panics() {
         set_num_threads(0);
@@ -190,6 +192,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_set_max_threads() {
         let num_cpus_val = num_cpus::get();
 
@@ -203,6 +206,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_set_ludicrous_speed() {
         let num_cpus_val = num_cpus::get();
 
@@ -226,6 +230,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_reinitialize_changes_thread_count() {
         // Initialize with specific thread count
         set_num_threads(3);
@@ -242,6 +247,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_mixed_function_reinitialization() {
         // Start with specific thread count
         set_num_threads(2);

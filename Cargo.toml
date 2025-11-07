@@ -16,7 +16,24 @@ keywords = ["space", "astrodynamics", "satellite"]
 categories = ["science"]
 readme = "README.md"
 license = "MIT"
-exclude = ["/test_data", "/test", "/scripts", "/docs", "/brahe", ".github"]
+exclude = [
+    "/test_data",
+    "/tests",
+    "/scripts",
+    "/docs",
+    "/brahe",
+    ".github",
+    "/examples",
+    "/plots",
+    "/test_assets",
+    "/data/textures/world.topo.200410.3x5400x2700.png",
+    # "/data/eop/",
+    # "/data/gravity_models/",
+    # "/data/space_weather",
+    "make.py",
+    "mkdocs.yaml",
+    "uv.lock"
+]
 
 [lib]
 name = "brahe"

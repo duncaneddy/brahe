@@ -7,7 +7,7 @@ applications. It is designed to be easy-to-learn, high-performance, and quick-to
 The north-star of the development is enabling users to solve meaningful problems
 and answer questions quickly, easily, and correctly.
 """
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
 keywords = ["space", "astrodynamics", "satellite", "research"]

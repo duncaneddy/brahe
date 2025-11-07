@@ -4750,102 +4750,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#core-modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Core Modules
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Core Modules">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#time" class="md-nav__link">
-    <span class="md-ellipsis">
-      Time
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#coordinates" class="md-nav__link">
-    <span class="md-ellipsis">
-      Coordinates
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#frames" class="md-nav__link">
-    <span class="md-ellipsis">
-      Frames
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#orbits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Orbits
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#propagators" class="md-nav__link">
-    <span class="md-ellipsis">
-      Propagators
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#attitude" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attitude
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#trajectories" class="md-nav__link">
-    <span class="md-ellipsis">
-      Trajectories
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#earth-orientation-parameters-eop" class="md-nav__link">
-    <span class="md-ellipsis">
-      Earth Orientation Parameters (EOP)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#constants" class="md-nav__link">
-    <span class="md-ellipsis">
-      Constants
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#navigation" class="md-nav__link">
     <span class="md-ellipsis">
       Navigation
@@ -4875,46 +4779,6 @@
 
 <h1 id="python-api-reference">Python API Reference<a class="headerlink" href="#python-api-reference" title="Permanent link">&para;</a></h1>
 <p>This section provides comprehensive documentation for the Brahe Python API. All classes, functions, and modules are documented with detailed descriptions, parameters, return values, and usage examples.</p>
-<h2 id="core-modules">Core Modules<a class="headerlink" href="#core-modules" title="Permanent link">&para;</a></h2>
-<h3 id="time">Time<a class="headerlink" href="#time" title="Permanent link">&para;</a></h3>
-<p>The time module provides precise time representation and conversion between different time systems (UTC, TAI, GPS, TT, UT1). The <code>Epoch</code> class is the foundational time representation used throughout Brahe.</p>
-<p><strong>Key Components:</strong>
-- <code>Epoch</code>: High-precision time representation with nanosecond accuracy
-- Time system conversions and utilities</p>
-<h3 id="coordinates">Coordinates<a class="headerlink" href="#coordinates" title="Permanent link">&para;</a></h3>
-<p>Coordinate transformation functions for converting between various coordinate systems used in astrodynamics.</p>
-<p><strong>Key Components:</strong>
-- Cartesian coordinates (position and velocity vectors)
-- Geodetic coordinates (latitude, longitude, altitude)
-- Geocentric coordinates
-- Topocentric coordinates (East-North-Up, South-East-Zenith)</p>
-<h3 id="frames">Frames<a class="headerlink" href="#frames" title="Permanent link">&para;</a></h3>
-<p>Reference frame transformations between Earth-Centered Inertial (ECI) and Earth-Centered Earth-Fixed (ECEF) coordinate frames using IAU 2006/2000A models.</p>
-<h3 id="orbits">Orbits<a class="headerlink" href="#orbits" title="Permanent link">&para;</a></h3>
-<p>Orbital mechanics representations and Two-Line Element handling.</p>
-<p><strong>Key Components:</strong>
-- Keplerian orbital elements
-- Two-Line Element (TLE) format parsing and validation
-- Orbital property calculations</p>
-<h3 id="propagators">Propagators<a class="headerlink" href="#propagators" title="Permanent link">&para;</a></h3>
-<p>Orbit propagators for predicting satellite positions over time.</p>
-<p><strong>Key Components:</strong>
-- Keplerian propagator (analytical two-body dynamics)
-- SGP4/SDP4 propagator (TLE-based orbit prediction)</p>
-<h3 id="attitude">Attitude<a class="headerlink" href="#attitude" title="Permanent link">&para;</a></h3>
-<p>Attitude representation and conversion between different rotation parameterizations.</p>
-<p><strong>Key Components:</strong>
-- Quaternions
-- Rotation matrices (Direction Cosine Matrices)
-- Euler angles (various sequences)
-- Euler axis-angle representation</p>
-<h3 id="trajectories">Trajectories<a class="headerlink" href="#trajectories" title="Permanent link">&para;</a></h3>
-<p>High-level trajectory containers with interpolation support for storing and querying orbital states over time.</p>
-<h3 id="earth-orientation-parameters-eop">Earth Orientation Parameters (EOP)<a class="headerlink" href="#earth-orientation-parameters-eop" title="Permanent link">&para;</a></h3>
-<p>Earth orientation parameter data management for high-precision coordinate frame transformations.</p>
-<h3 id="constants">Constants<a class="headerlink" href="#constants" title="Permanent link">&para;</a></h3>
-<p>Mathematical, physical, and time-related constants used throughout the library.</p>
-<hr />
 <h2 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h2>
 <p>Use the sidebar to navigate through the detailed API documentation for each module. Each page includes:</p>
 <ul>
@@ -4922,7 +4786,6 @@
 <li>Detailed parameter descriptions</li>
 <li>Return value specifications</li>
 <li>Usage examples</li>
-<li>References to related functionality</li>
 </ul>
 <p>All documentation is automatically generated from the source code docstrings to ensure accuracy and consistency.</p>
 
@@ -4947,7 +4810,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2025 04:12:26 UTC">2025-10-23</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 7, 2025 02:34:18 UTC">2025-11-07</span>
   </span>
 
     

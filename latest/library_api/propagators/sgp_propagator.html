@@ -4068,24 +4068,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__doc__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;__doc__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__module__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;__module__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#brahe.SGPPropagator.arg_perigee" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;arg_perigee
@@ -4188,24 +4170,6 @@
   <a href="#brahe.SGPPropagator.trajectory" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trajectory
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__repr__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__str__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__str__
     </span>
   </a>
   
@@ -5303,24 +5267,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__doc__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;__doc__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__module__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;__module__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#brahe.SGPPropagator.arg_perigee" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;arg_perigee
@@ -5423,24 +5369,6 @@
   <a href="#brahe.SGPPropagator.trajectory" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trajectory
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__repr__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#brahe.SGPPropagator.__str__" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__str__
     </span>
   </a>
   
@@ -5896,70 +5824,6 @@ model used for tracking objects in Earth orbit.</p>
 
 
 
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="brahe.SGPPropagator.__doc__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">__doc__</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#brahe.SGPPropagator.__doc__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__doc__</span> <span class="o">=</span> <span class="s1">&#39;Python wrapper for SGPPropagator (replaces TLE)</span><span class="se">\n</span><span class="s1">SGP4/SDP4 satellite propagator using TLE data.</span><span class="se">\n\n</span><span class="s1">The SGP (Simplified General Perturbations) propagator implements the SGP4/SDP4 models</span><span class="se">\n</span><span class="s1">for propagating satellites using Two-Line Element (TLE) orbital data. This is the standard</span><span class="se">\n</span><span class="s1">model used for tracking objects in Earth orbit.</span><span class="se">\n\n</span><span class="s1">Example:</span><span class="se">\n</span><span class="s1">    ```python</span><span class="se">\n</span><span class="s1">    import brahe as bh</span><span class="se">\n\n</span><span class="s1">    # ISS TLE data (example)</span><span class="se">\n</span><span class="s1">    line1 = &quot;1 25544U 98067A   24001.50000000  .00016717  00000-0  30000-3 0  9005&quot;</span><span class="se">\n</span><span class="s1">    line2 = &quot;2 25544  51.6400 150.0000 0003000 100.0000 260.0000 15.50000000300000&quot;</span><span class="se">\n\n</span><span class="s1">    # Create propagator</span><span class="se">\n</span><span class="s1">    prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)</span><span class="se">\n\n</span><span class="s1">    # Propagate to a specific epoch</span><span class="se">\n</span><span class="s1">    epc = bh.Epoch.from_datetime(2024, 1, 2, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)</span><span class="se">\n</span><span class="s1">    state_eci = prop.state(epc)</span><span class="se">\n</span><span class="s1">    print(f&quot;Position: </span><span class="si">{state_eci[:3]}</span><span class="s1">&quot;)</span><span class="se">\n</span><span class="s1">    print(f&quot;Velocity: </span><span class="si">{state_eci[3:]}</span><span class="s1">&quot;)</span><span class="se">\n\n</span><span class="s1">    # Propagate multiple epochs</span><span class="se">\n</span><span class="s1">    epochs = [epc + i*60.0 for i in range(10)]  # 10 minutes</span><span class="se">\n</span><span class="s1">    states = prop.states(epochs)</span><span class="se">\n</span><span class="s1">    ```&#39;</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to 'utf-8'.
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="brahe.SGPPropagator.__module__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">__module__</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#brahe.SGPPropagator.__module__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__module__</span> <span class="o">=</span> <span class="s1">&#39;brahe._brahe&#39;</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>str(object='') -&gt; str
-str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
-<p>Create a new string object from the given object. If encoding or
-errors is specified, then the object must expose a data buffer
-that will be decoded using the given encoding and error handler.
-Otherwise, returns the result of object.<strong>str</strong>() (if defined)
-or repr(object).
-encoding defaults to 'utf-8'.
-errors defaults to 'strict'.</p>
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -6719,54 +6583,6 @@ errors defaults to 'strict'.</p>
 
 
 
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="brahe.SGPPropagator.__repr__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">__repr__</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-method descriptor"><code>method descriptor</code></small>
-  </span>
-
-<a href="#brahe.SGPPropagator.__repr__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__repr__</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return repr(self).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="brahe.SGPPropagator.__str__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">__str__</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-method descriptor"><code>method descriptor</code></small>
-  </span>
-
-<a href="#brahe.SGPPropagator.__str__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__str__</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return str(self).</p>
-
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-function">
 

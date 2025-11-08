@@ -16,6 +16,9 @@ authors:
   - name: Duncan Eddy
     orcid: 0009-0000-2832-9711
     affiliation: 1
+  - name: Mykel J. Kochenderfer
+    orcid: 0000-0002-7238-9663
+    affiliation: 1
 affiliations:
  - name: Stanford University
    index: 1

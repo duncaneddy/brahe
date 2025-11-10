@@ -11,7 +11,10 @@ use crate::constants::AngleFormat;
 use crate::constants::DEGREES;
 use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
-use crate::frames::{state_ecef_to_eci, state_eci_to_ecef};
+use crate::frames::{
+    state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
+    state_gcrf_to_itrf, state_itrf_to_gcrf,
+};
 use crate::orbits::keplerian::mean_motion;
 use crate::propagators::traits::{OrbitPropagator, StateProvider};
 use crate::time::Epoch;
@@ -311,7 +314,10 @@ impl KeplerianPropagator {
                 // First convert to ECI frame if needed
                 let eci_state = match frame {
                     OrbitFrame::ECI => state,
+                    OrbitFrame::GCRF => state,
+                    OrbitFrame::EME2000 => state_eme2000_to_gcrf(state),
                     OrbitFrame::ECEF => state_ecef_to_eci(epoch, state),
+                    OrbitFrame::ITRF => state_itrf_to_gcrf(epoch, state),
                 };
 
                 // Convert Cartesian to osculating elements
@@ -348,7 +354,10 @@ impl KeplerianPropagator {
                 // Convert to original frame if needed
                 match self.frame {
                     OrbitFrame::ECI => eci_cartesian,
+                    OrbitFrame::GCRF => eci_cartesian,
+                    OrbitFrame::EME2000 => state_gcrf_to_eme2000(eci_cartesian),
                     OrbitFrame::ECEF => state_eci_to_ecef(epoch, eci_cartesian),
+                    OrbitFrame::ITRF => state_gcrf_to_itrf(epoch, eci_cartesian),
                 }
             }
             OrbitRepresentation::Keplerian => {
@@ -514,6 +523,17 @@ impl StateProvider for KeplerianPropagator {
     }
 
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+        // Keplerian propagation is in ECI/GCRF frame
+        // state_eci already returns the Cartesian state in ECI/GCRF
+        self.state_gcrf(epoch)
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        let eci_state = self.state_eci(epoch);
+        state_eci_to_ecef(epoch, eci_state)
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
         // Get state in original format
         let state = self.propagate_internal(epoch);
 
@@ -521,9 +541,15 @@ impl StateProvider for KeplerianPropagator {
         state_osculating_to_cartesian(state, AngleFormat::Radians)
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
-        let eci_state = self.state_eci(epoch);
-        state_eci_to_ecef(epoch, eci_state)
+    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
+        let gcrf_state = self.state_gcrf(epoch);
+        state_gcrf_to_itrf(epoch, gcrf_state)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+        // Get GCRF state and convert to EME2000
+        let gcrf_state = self.state_gcrf(epoch);
+        state_gcrf_to_eme2000(gcrf_state)
     }
 
     fn state_as_osculating_elements(
@@ -1138,6 +1164,27 @@ mod tests {
 
         // Convert back into osculating elements via ECI
         let eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state);
+        let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
+
+        // Confirm equality within small tolerance
+        for i in 0..6 {
+            assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_itrf() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let state = propagator.state_itrf(epoch + orbital_period(elements[0]));
+
+        // Convert back into osculating elements via ECI
+        let eci_state = state_itrf_to_gcrf(epoch + orbital_period(elements[0]), state);
         let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
 
         // Confirm equality within small tolerance

@@ -275,6 +275,32 @@ impl PySGPPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Compute state at a specific epoch in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_gcrf(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_eme2000(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
     /// Compute states at multiple epochs.
     ///
     /// Args:
@@ -1478,6 +1504,32 @@ impl PyKeplerianPropagator {
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.state_ecef(epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Compute state at a specific epoch in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.state_gcrf(epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Compute state at a specific epoch in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.state_eme2000(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 

@@ -73,6 +73,36 @@ impl PyOrbitFrame {
         PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ECEF }
     }
 
+    /// Geocentric Celestial Reference Frame (IAU 2006/2000A).
+    ///
+    /// Returns:
+    ///     OrbitFrame: GCRF frame constant
+    #[classattr]
+    #[pyo3(name = "GCRF")]
+    fn gcrf() -> Self {
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::GCRF }
+    }
+
+    /// Earth Mean Equator and Equinox of J2000.0 frame.
+    ///
+    /// Returns:
+    ///     OrbitFrame: EME2000 frame constant
+    #[classattr]
+    #[pyo3(name = "EME2000")]
+    fn eme2000() -> Self {
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::EME2000 }
+    }
+
+    /// International Terrestrial Reference Frame.
+    ///
+    /// Returns:
+    ///     OrbitFrame: ITRF frame constant
+    #[classattr]
+    #[pyo3(name = "ITRF")]
+    fn itrf() -> Self {
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ITRF }
+    }
+
     /// Get the full name of the reference frame.
     ///
     /// Returns:
@@ -81,6 +111,9 @@ impl PyOrbitFrame {
         match self.frame {
             trajectories::traits::OrbitFrame::ECI => "Earth-Centered Inertial",
             trajectories::traits::OrbitFrame::ECEF => "Earth-Centered Earth-Fixed",
+            trajectories::traits::OrbitFrame::GCRF => "Geocentric Celestial Reference Frame",
+            trajectories::traits::OrbitFrame::EME2000 => "Earth Mean Equator and Equinox of J2000.0",
+            trajectories::traits::OrbitFrame::ITRF => "International Terrestrial Reference Frame",
         }
     }
 
@@ -88,6 +121,9 @@ impl PyOrbitFrame {
         match self.frame {
             trajectories::traits::OrbitFrame::ECI => "ECI".to_string(),
             trajectories::traits::OrbitFrame::ECEF => "ECEF".to_string(),
+            trajectories::traits::OrbitFrame::GCRF => "GCRF".to_string(),
+            trajectories::traits::OrbitFrame::EME2000 => "EME2000".to_string(),
+            trajectories::traits::OrbitFrame::ITRF => "ITRF".to_string(),
         }
     }
 
@@ -1023,6 +1059,72 @@ impl PyOrbitalTrajectory {
     #[pyo3(text_signature = "()")]
     pub fn to_ecef(&self) -> Self {
         let new_trajectory = self.trajectory.to_ecef();
+        PyOrbitalTrajectory { trajectory: new_trajectory }
+    }
+
+    /// Convert to GCRF (Geocentric Celestial Reference Frame) frame in Cartesian representation.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Trajectory in GCRF Cartesian frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.EME2000, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    ///     traj.add(epc, state)
+    ///     traj_gcrf = traj.to_gcrf()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn to_gcrf(&self) -> Self {
+        let new_trajectory = self.trajectory.to_gcrf();
+        PyOrbitalTrajectory { trajectory: new_trajectory }
+    }
+
+    /// Convert to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame in Cartesian representation.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Trajectory in EME2000 Cartesian frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    ///     traj.add(epc, state)
+    ///     traj_eme2000 = traj.to_eme2000()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn to_eme2000(&self) -> Self {
+        let new_trajectory = self.trajectory.to_eme2000();
+        PyOrbitalTrajectory { trajectory: new_trajectory }
+    }
+
+    /// Convert to ITRF (International Terrestrial Reference Frame) frame in Cartesian representation.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Trajectory in ITRF Cartesian frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    ///     traj.add(epc, state)
+    ///     traj_itrf = traj.to_itrf()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn to_itrf(&self) -> Self {
+        let new_trajectory = self.trajectory.to_itrf();
         PyOrbitalTrajectory { trajectory: new_trajectory }
     }
 

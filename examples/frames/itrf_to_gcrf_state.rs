@@ -1,4 +1,4 @@
-//! Transform state vector (position and velocity) from ECEF to ECI
+//! Transform state vector (position and velocity) from ITRF to GCRF
 
 #[allow(unused_imports)]
 use brahe as bh;
@@ -26,41 +26,41 @@ fn main() {
     println!("  ω    = {:.4}°", oe[4]);
     println!("  M    = {:.4}°\n", oe[5]);
 
-    // Convert to ECI Cartesian state
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    // Convert to GCRF Cartesian state
+    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
 
     // Define epoch
     let epc = bh::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     println!("Epoch: {}", epc);
-    println!("ECI state vector:");
-    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_eci[0], state_eci[1], state_eci[2]);
-    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_eci[3], state_eci[4], state_eci[5]);
+    println!("GCRF state vector:");
+    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf[0], state_gcrf[1], state_gcrf[2]);
+    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_gcrf[3], state_gcrf[4], state_gcrf[5]);
     // Position: [1848964.106, -434937.468, 6560410.530] m
     // Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-    // Transform to ECEF
-    let state_ecef = bh::state_eci_to_ecef(epc, state_eci);
+    // Transform to ITRF
+    let state_itrf = bh::state_gcrf_to_itrf(epc, state_gcrf);
 
-    println!("ECEF state vector:");
-    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_ecef[0], state_ecef[1], state_ecef[2]);
-    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_ecef[3], state_ecef[4], state_ecef[5]);
+    println!("ITRF state vector:");
+    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_itrf[0], state_itrf[1], state_itrf[2]);
+    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_itrf[3], state_itrf[4], state_itrf[5]);
     // Position: [757164.267, 1725863.563, 6564672.302] m
     // Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 
-    // Transform back to ECI
-    let state_eci_back = bh::state_ecef_to_eci(epc, state_ecef);
+    // Transform back to GCRF
+    let state_gcrf_back = bh::state_itrf_to_gcrf(epc, state_itrf);
 
-    println!("\nECI state vector (transformed from ECEF):");
-    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_eci_back[0], state_eci_back[1], state_eci_back[2]);
-    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s", state_eci_back[3], state_eci_back[4], state_eci_back[5]);
+    println!("\nGCRF state vector (transformed from ITRF):");
+    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf_back[0], state_gcrf_back[1], state_gcrf_back[2]);
+    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s", state_gcrf_back[3], state_gcrf_back[4], state_gcrf_back[5]);
     // Position: [1848964.106, -434937.468, 6560410.530] m
     // Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
     // Verify round-trip transformation
-    let diff_pos = (na::Vector3::new(state_eci[0], state_eci[1], state_eci[2]) -
-                    na::Vector3::new(state_eci_back[0], state_eci_back[1], state_eci_back[2])).norm();
-    let diff_vel = (na::Vector3::new(state_eci[3], state_eci[4], state_eci[5]) -
-                    na::Vector3::new(state_eci_back[3], state_eci_back[4], state_eci_back[5])).norm();
+    let diff_pos = (na::Vector3::new(state_gcrf[0], state_gcrf[1], state_gcrf[2]) -
+                    na::Vector3::new(state_gcrf_back[0], state_gcrf_back[1], state_gcrf_back[2])).norm();
+    let diff_vel = (na::Vector3::new(state_gcrf[3], state_gcrf[4], state_gcrf[5]) -
+                    na::Vector3::new(state_gcrf_back[3], state_gcrf_back[4], state_gcrf_back[5])).norm();
     println!("\nRound-trip error:");
     println!("  Position: {:.6e} m", diff_pos);
     println!("  Velocity: {:.6e} m/s", diff_vel);

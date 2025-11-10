@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Get ECI to ECEF rotation matrix and use it to transform position vectors
+Get GCRF to ITRF rotation matrix and use it to transform position vectors
 """
 
 import brahe as bh
@@ -13,19 +13,19 @@ bh.initialize_eop()
 # Define epoch
 epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, time_system=bh.UTC)
 
-# Get rotation matrix from ECI to ECEF
-R_eci_to_ecef = bh.rotation_eci_to_ecef(epc)
+# Get rotation matrix from GCRF to ITRF
+R_gcrf_to_itrf = bh.rotation_gcrf_to_itrf(epc)
 
 print(f"Epoch: {epc}")  # Epoch: 2024-01-01 12:00:00 UTC
-print("\nECI to ECEF rotation matrix:")
+print("\nGCRF to ITRF rotation matrix:")
 print(
-    f"  [{R_eci_to_ecef[0, 0]:10.7f}, {R_eci_to_ecef[0, 1]:10.7f}, {R_eci_to_ecef[0, 2]:10.7f}]"
+    f"  [{R_gcrf_to_itrf[0, 0]:10.7f}, {R_gcrf_to_itrf[0, 1]:10.7f}, {R_gcrf_to_itrf[0, 2]:10.7f}]"
 )
 print(
-    f"  [{R_eci_to_ecef[1, 0]:10.7f}, {R_eci_to_ecef[1, 1]:10.7f}, {R_eci_to_ecef[1, 2]:10.7f}]"
+    f"  [{R_gcrf_to_itrf[1, 0]:10.7f}, {R_gcrf_to_itrf[1, 1]:10.7f}, {R_gcrf_to_itrf[1, 2]:10.7f}]"
 )
 print(
-    f"  [{R_eci_to_ecef[2, 0]:10.7f}, {R_eci_to_ecef[2, 1]:10.7f}, {R_eci_to_ecef[2, 2]:10.7f}]\n"
+    f"  [{R_gcrf_to_itrf[2, 0]:10.7f}, {R_gcrf_to_itrf[2, 1]:10.7f}, {R_gcrf_to_itrf[2, 2]:10.7f}]\n"
 )
 # [ 0.1794538, -0.9837663, -0.0003836]
 # [ 0.9837637,  0.1794542, -0.0022908]
@@ -43,25 +43,25 @@ oe = np.array(
     ]
 )
 
-# Convert to ECI Cartesian state and extract position
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
-pos_eci = state_eci[0:3]
+# Convert to GCRF Cartesian state and extract position
+state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+pos_gcrf = state_gcrf[0:3]
 
-print("Position in ECI:")
-print(f"  [{pos_eci[0]:.3f}, {pos_eci[1]:.3f}, {pos_eci[2]:.3f}] m\n")
+print("Position in GCRF:")
+print(f"  [{pos_gcrf[0]:.3f}, {pos_gcrf[1]:.3f}, {pos_gcrf[2]:.3f}] m\n")
 # [1848964.106, -434937.468, 6560410.530] m
 
 # Transform position using rotation matrix
-pos_ecef = R_eci_to_ecef @ pos_eci
+pos_itrf = R_gcrf_to_itrf @ pos_gcrf
 
-print("Position in ECEF (using rotation matrix):")
-print(f"  [{pos_ecef[0]:.3f}, {pos_ecef[1]:.3f}, {pos_ecef[2]:.3f}] m")
+print("Position in ITRF (using rotation matrix):")
+print(f"  [{pos_itrf[0]:.3f}, {pos_itrf[1]:.3f}, {pos_itrf[2]:.3f}] m")
 # [757164.267, 1725863.563, 6564672.302] m
 
 # Verify using position transformation function
-pos_ecef_direct = bh.position_eci_to_ecef(epc, pos_eci)
-print("\nPosition in ECEF (using position_eci_to_ecef):")
+pos_itrf_direct = bh.position_gcrf_to_itrf(epc, pos_gcrf)
+print("\nPosition in ITRF (using position_gcrf_to_itrf):")
 print(
-    f"  [{pos_ecef_direct[0]:.3f}, {pos_ecef_direct[1]:.3f}, {pos_ecef_direct[2]:.3f}] m"
+    f"  [{pos_itrf_direct[0]:.3f}, {pos_itrf_direct[1]:.3f}, {pos_itrf_direct[2]:.3f}] m"
 )
 # [757164.267, 1725863.563, 6564672.302] m

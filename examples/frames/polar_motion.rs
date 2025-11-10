@@ -45,10 +45,10 @@ fn main() {
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_tirs[0], pos_tirs[1], pos_tirs[2]);
     // [757159.942, 1725870.003, 6564671.107] m
 
-    // Apply polar motion to get ITRF (ECEF)
+    // Apply polar motion to get ITRF
     let pos_itrf = r_pm * pos_tirs;
 
-    println!("Satellite position in ITRF (ECEF):");
+    println!("Satellite position in ITRF:");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_itrf[0], pos_itrf[1], pos_itrf[2]);
     // [757164.267, 1725863.563, 6564672.302] m
 
@@ -59,10 +59,10 @@ fn main() {
     // Position change magnitude: 7.849 m
 
     // Verify against full transformation
-    let pos_ecef_direct = bh::position_eci_to_ecef(epc, pos_gcrf);
-    println!("\nVerification using position_eci_to_ecef:");
-    println!("  [{:.3}, {:.3}, {:.3}] m", pos_ecef_direct[0], pos_ecef_direct[1], pos_ecef_direct[2]);
-    let max_diff = (pos_itrf - pos_ecef_direct).abs().max();
+    let pos_itrf_direct = bh::position_gcrf_to_itrf(epc, pos_gcrf);
+    println!("\nVerification using position_gcrf_to_itrf:");
+    println!("  [{:.3}, {:.3}, {:.3}] m", pos_itrf_direct[0], pos_itrf_direct[1], pos_itrf_direct[2]);
+    let max_diff = (pos_itrf - pos_itrf_direct).abs().max();
     println!("  Max difference: {:.2e} m", max_diff);
     // [757164.267, 1725863.563, 6564672.302] m
     // Max difference: 1.16e-10 m

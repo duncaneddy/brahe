@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Transform state vector (position and velocity) from ECEF to ECI
+Transform state vector (position and velocity) from ITRF to GCRF
 """
 
 import brahe as bh
@@ -31,45 +31,47 @@ print(f"  Ω    = {oe[3]:.4f}°")
 print(f"  ω    = {oe[4]:.4f}°")
 print(f"  M    = {oe[5]:.4f}°\n")
 
-# Convert to ECI Cartesian state
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+# Convert to GCRF Cartesian state
+state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
 
 # Define epoch
 epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, time_system=bh.UTC)
 print(f"Epoch: {epc}")
-print("ECI state vector:")
-print(f"  Position: [{state_eci[0]:.3f}, {state_eci[1]:.3f}, {state_eci[2]:.3f}] m")
-print(f"  Velocity: [{state_eci[3]:.6f}, {state_eci[4]:.6f}, {state_eci[5]:.6f}] m/s\n")
+print("GCRF state vector:")
+print(f"  Position: [{state_gcrf[0]:.3f}, {state_gcrf[1]:.3f}, {state_gcrf[2]:.3f}] m")
+print(
+    f"  Velocity: [{state_gcrf[3]:.6f}, {state_gcrf[4]:.6f}, {state_gcrf[5]:.6f}] m/s\n"
+)
 # Position: [1848964.106, -434937.468, 6560410.530] m
 # Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-# Transform to ECEF
-state_ecef = bh.state_eci_to_ecef(epc, state_eci)
+# Transform to ITRF
+state_itrf = bh.state_gcrf_to_itrf(epc, state_gcrf)
 
-print("ECEF state vector:")
-print(f"  Position: [{state_ecef[0]:.3f}, {state_ecef[1]:.3f}, {state_ecef[2]:.3f}] m")
+print("ITRF state vector:")
+print(f"  Position: [{state_itrf[0]:.3f}, {state_itrf[1]:.3f}, {state_itrf[2]:.3f}] m")
 print(
-    f"  Velocity: [{state_ecef[3]:.6f}, {state_ecef[4]:.6f}, {state_ecef[5]:.6f}] m/s\n"
+    f"  Velocity: [{state_itrf[3]:.6f}, {state_itrf[4]:.6f}, {state_itrf[5]:.6f}] m/s\n"
 )
 # Position: [757164.267, 1725863.563, 6564672.302] m
 # Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 
-# Transform back to ECI
-state_eci_back = bh.state_ecef_to_eci(epc, state_ecef)
+# Transform back to GCRF
+state_gcrf_back = bh.state_itrf_to_gcrf(epc, state_itrf)
 
-print("\nECI state vector (transformed from ECEF):")
+print("\nGCRF state vector (transformed from ITRF):")
 print(
-    f"  Position: [{state_eci_back[0]:.3f}, {state_eci_back[1]:.3f}, {state_eci_back[2]:.3f}] m"
+    f"  Position: [{state_gcrf_back[0]:.3f}, {state_gcrf_back[1]:.3f}, {state_gcrf_back[2]:.3f}] m"
 )
 print(
-    f"  Velocity: [{state_eci_back[3]:.6f}, {state_eci_back[4]:.6f}, {state_eci_back[5]:.6f}] m/s"
+    f"  Velocity: [{state_gcrf_back[3]:.6f}, {state_gcrf_back[4]:.6f}, {state_gcrf_back[5]:.6f}] m/s"
 )
 # Position: [1848964.106, -434937.468, 6560410.530] m
 # Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
 # Verify round-trip transformation
-diff_pos = np.linalg.norm(state_eci[0:3] - state_eci_back[0:3])
-diff_vel = np.linalg.norm(state_eci[3:6] - state_eci_back[3:6])
+diff_pos = np.linalg.norm(state_gcrf[0:3] - state_gcrf_back[0:3])
+diff_vel = np.linalg.norm(state_gcrf[3:6] - state_gcrf_back[3:6])
 print("\nRound-trip error:")
 print(f"  Position: {diff_pos:.6e} m")
 print(f"  Velocity: {diff_vel:.6e} m/s")

@@ -59,7 +59,7 @@ print(
 # Transform to ITRF at specific epoch
 state_itrf = bh.state_gcrf_to_itrf(epc, state_gcrf)
 
-print("\nECEF state vector:")
+print("\nITRF state vector:")
 print(f"  Position: [{state_itrf[0]:.3f}, {state_itrf[1]:.3f}, {state_itrf[2]:.3f}] m")
 print(
     f"  Velocity: [{state_itrf[3]:.6f}, {state_itrf[4]:.6f}, {state_itrf[5]:.6f}] m/s"

@@ -1,4 +1,4 @@
-//! Get ECEF to ECI rotation matrix and use it to transform position vectors
+//! Get ITRF to GCRF rotation matrix and use it to transform position vectors
 
 #[allow(unused_imports)]
 use brahe as bh;
@@ -11,23 +11,23 @@ fn main() {
     let epc = bh::Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     let epc = epc + 12.0 * 3600.0;  // Add 12 hours
 
-    // Get rotation matrix from ECEF to ECI
-    let r_ecef_to_eci = bh::rotation_ecef_to_eci(epc);
+    // Get rotation matrix from ITRF to GCRF
+    let r_itrf_to_gcrf = bh::rotation_itrf_to_gcrf(epc);
 
     println!("Epoch: 2024-01-01 12:00:00 UTC");
-    println!("\nECEF to ECI rotation matrix:");
-    println!("  [{:10.7}, {:10.7}, {:10.7}]", r_ecef_to_eci[(0, 0)], r_ecef_to_eci[(0, 1)], r_ecef_to_eci[(0, 2)]);
-    println!("  [{:10.7}, {:10.7}, {:10.7}]", r_ecef_to_eci[(1, 0)], r_ecef_to_eci[(1, 1)], r_ecef_to_eci[(1, 2)]);
-    println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_ecef_to_eci[(2, 0)], r_ecef_to_eci[(2, 1)], r_ecef_to_eci[(2, 2)]);
+    println!("\nITRF to GCRF rotation matrix:");
+    println!("  [{:10.7}, {:10.7}, {:10.7}]", r_itrf_to_gcrf[(0, 0)], r_itrf_to_gcrf[(0, 1)], r_itrf_to_gcrf[(0, 2)]);
+    println!("  [{:10.7}, {:10.7}, {:10.7}]", r_itrf_to_gcrf[(1, 0)], r_itrf_to_gcrf[(1, 1)], r_itrf_to_gcrf[(1, 2)]);
+    println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_itrf_to_gcrf[(2, 0)], r_itrf_to_gcrf[(2, 1)], r_itrf_to_gcrf[(2, 2)]);
     // [ 0.1794538,  0.9837637,  0.0023225]
     // [-0.9837663,  0.1794542,  0.0000338]
     // [-0.0003836, -0.0022908,  0.9999973]
 
-    // Verify it's the transpose of ECI to ECEF rotation
-    let r_eci_to_ecef = bh::rotation_eci_to_ecef(epc);
-    let diff = (r_ecef_to_eci - r_eci_to_ecef.transpose()).abs();
+    // Verify it's the transpose of GCRF to ITRF rotation
+    let r_gcrf_to_itrf = bh::rotation_gcrf_to_itrf(epc);
+    let diff = (r_itrf_to_gcrf - r_gcrf_to_itrf.transpose()).abs();
     let max_diff = diff.max();
-    println!("Verification: R_ecef_to_eci = R_eci_to_ecef^T");
+    println!("Verification: R_itrf_to_gcrf = R_gcrf_to_itrf^T");
     println!("  Max difference: {:.2e}\n", max_diff);
     // Max difference: 0.00e+00
 
@@ -41,27 +41,27 @@ fn main() {
         45.0,                  // Mean anomaly (deg)
     );
 
-    // Convert to ECI Cartesian state and extract position
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
-    let pos_eci_orig = na::Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
+    // Convert to GCRF Cartesian state and extract position
+    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let pos_gcrf_orig = na::Vector3::new(state_gcrf[0], state_gcrf[1], state_gcrf[2]);
 
-    // Transform to ECEF
-    let pos_ecef = bh::position_eci_to_ecef(epc, pos_eci_orig);
+    // Transform to ITRF
+    let pos_itrf = bh::position_gcrf_to_itrf(epc, pos_gcrf_orig);
 
-    println!("Satellite position in ECEF:");
-    println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_ecef[0], pos_ecef[1], pos_ecef[2]);
+    println!("Satellite position in ITRF:");
+    println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_itrf[0], pos_itrf[1], pos_itrf[2]);
     // [757164.267, 1725863.563, 6564672.302] m
 
-    // Transform back to ECI using rotation matrix
-    let pos_eci = r_ecef_to_eci * pos_ecef;
+    // Transform back to GCRF using rotation matrix
+    let pos_gcrf = r_itrf_to_gcrf * pos_itrf;
 
-    println!("Satellite position in ECI (using rotation matrix):");
-    println!("  [{:.3}, {:.3}, {:.3}] m", pos_eci[0], pos_eci[1], pos_eci[2]);
+    println!("Satellite position in GCRF (using rotation matrix):");
+    println!("  [{:.3}, {:.3}, {:.3}] m", pos_gcrf[0], pos_gcrf[1], pos_gcrf[2]);
     // [1848964.106, -434937.468, 6560410.530] m
 
     // Verify using position transformation function
-    let pos_eci_direct = bh::position_ecef_to_eci(epc, pos_ecef);
-    println!("\nSatellite position in ECI (using position_ecef_to_eci):");
-    println!("  [{:.3}, {:.3}, {:.3}] m", pos_eci_direct[0], pos_eci_direct[1], pos_eci_direct[2]);
+    let pos_gcrf_direct = bh::position_itrf_to_gcrf(epc, pos_itrf);
+    println!("\nSatellite position in GCRF (using position_itrf_to_gcrf):");
+    println!("  [{:.3}, {:.3}, {:.3}] m", pos_gcrf_direct[0], pos_gcrf_direct[1], pos_gcrf_direct[2]);
     // [1848964.106, -434937.468, 6560410.530] m
 }

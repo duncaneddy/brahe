@@ -1,4 +1,4 @@
-//! Transform state vector (position and velocity) from ECI to ECEF
+//! Transform state vector (position and velocity) from GCRF to ITRF
 
 #[allow(unused_imports)]
 use brahe as bh;
@@ -37,23 +37,23 @@ fn main() {
     println!("Epoch: {}", epc);
     // Epoch: 2024-01-01 12:00:00.000 UTC
 
-    // Convert to ECI Cartesian state
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    // Convert to GCRF Cartesian state
+    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
 
-    println!("ECI state vector:");
-    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_eci[0], state_eci[1], state_eci[2]);
-    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_eci[3], state_eci[4], state_eci[5]);
-    // ECI state vector:
+    println!("GCRF state vector:");
+    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf[0], state_gcrf[1], state_gcrf[2]);
+    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_gcrf[3], state_gcrf[4], state_gcrf[5]);
+    // GCRF state vector:
     //   Position: [1848964.106, -434937.468, 6560410.530] m
     //   Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-    // Transform to ECEF at specific epoch
-    let state_ecef = bh::state_eci_to_ecef(epc, state_eci);
+    // Transform to ITRF at specific epoch
+    let state_itrf = bh::state_gcrf_to_itrf(epc, state_gcrf);
 
-    println!("\nECEF state vector:");
-    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_ecef[0], state_ecef[1], state_ecef[2]);
-    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s", state_ecef[3], state_ecef[4], state_ecef[5]);
-    // ECEF state vector:
+    println!("\nITRF state vector:");
+    println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_itrf[0], state_itrf[1], state_itrf[2]);
+    println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s", state_itrf[3], state_itrf[4], state_itrf[5]);
+    // ITRF state vector:
     //   Position: [757164.267, 1725863.563, 6564672.302] m
     //   Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 }

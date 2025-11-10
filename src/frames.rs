@@ -1387,4 +1387,31 @@ mod tests {
         assert_abs_diff_eq!(gcrf[4], v_expected[1], epsilon = tol);
         assert_abs_diff_eq!(gcrf[5], v_expected[2], epsilon = tol);
     }
+
+    #[test]
+    fn test_eme2000_gcrf_roundtrip() {
+        let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
+        let eme2000 = state_osculating_to_cartesian(oe, DEGREES);
+
+        // Perform circular transformations
+        let gcrf = state_eme2000_to_gcrf(eme2000);
+        let eme2000_2 = state_gcrf_to_eme2000(gcrf);
+        let gcrf_2 = state_eme2000_to_gcrf(eme2000_2);
+
+        let tol = 1e-7;
+        // Check equivalence of EME2000 coordinates
+        assert_abs_diff_eq!(eme2000_2[0], eme2000[0], epsilon = tol);
+        assert_abs_diff_eq!(eme2000_2[1], eme2000[1], epsilon = tol);
+        assert_abs_diff_eq!(eme2000_2[2], eme2000[2], epsilon = tol);
+        assert_abs_diff_eq!(eme2000_2[3], eme2000[3], epsilon = tol);
+        assert_abs_diff_eq!(eme2000_2[4], eme2000[4], epsilon = tol);
+        assert_abs_diff_eq!(eme2000_2[5], eme2000[5], epsilon = tol);
+        // Check equivalence of GCRF coordinates
+        assert_abs_diff_eq!(gcrf_2[0], gcrf[0], epsilon = tol);
+        assert_abs_diff_eq!(gcrf_2[1], gcrf[1], epsilon = tol);
+        assert_abs_diff_eq!(gcrf_2[2], gcrf[2], epsilon = tol);
+        assert_abs_diff_eq!(gcrf_2[3], gcrf[3], epsilon = tol);
+        assert_abs_diff_eq!(gcrf_2[4], gcrf[4], epsilon = tol);
+        assert_abs_diff_eq!(gcrf_2[5], gcrf[5], epsilon = tol);
+    }
 }

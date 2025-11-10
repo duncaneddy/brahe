@@ -168,7 +168,11 @@ nav:
                 - learn/coordinates/geocentric_transformations.md
                 - learn/coordinates/geodetic_transformations.md
                 - learn/coordinates/topocentric_transformations.md
-            - Reference Frame Transformations: learn/frame_transformations.md
+            - Reference Frame Transformations:
+                - learn/frames/index.md
+                - learn/frames/eci_ecef.md
+                - learn/frames/gcrf_itrf.md
+                - learn/frames/eme2000_gcrf.md
             - Orbits:
                 - learn/orbits/index.md
                 - Anomaly Conversions: learn/orbits/anomalies.md

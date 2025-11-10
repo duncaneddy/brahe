@@ -256,7 +256,11 @@ nav:
                 - Geodetic & Geocentric: library_api/coordinates/geodetic.md
                 - Topocentric: library_api/coordinates/topocentric.md
                 - Enumerations: library_api/coordinates/enums.md
-            - Frames: library_api/frames.md
+            - Frames:
+                - library_api/frames/index.md
+                - ECI ↔ ECEF: library_api/frames/eci_ecef.md
+                - GCRF ↔ ITRF: library_api/frames/gcrf_itrf.md
+                - EME2000 ↔ GCRF: library_api/frames/eme2000_gcrf.md
             - Orbits:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md

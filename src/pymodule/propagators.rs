@@ -1787,3 +1787,111 @@ impl PyKeplerianPropagator {
         self.__repr__()
     }
 }
+
+/// Propagate multiple propagators to a target epoch in parallel.
+///
+/// This function takes a list of propagators and calls `propagate_to` on each one
+/// in parallel using the global thread pool. Each propagator's internal state is updated
+/// to reflect the new epoch.
+///
+/// All propagators in the list must be of the same type (either all `KeplerianPropagator`
+/// or all `SGPPropagator`). Mixing propagator types is not supported.
+///
+/// Args:
+///     propagators (List[KeplerianPropagator] or List[SGPPropagator]): List of propagators to update.
+///     target_epoch (Epoch): The epoch to propagate all propagators to.
+///
+/// Returns:
+///     None: Propagators are updated in place.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///
+///     # Create multiple propagators
+///     propagators = []
+///     for i in range(10):
+///         oe = np.array([bh.R_EARTH + 500e3 + i*10e3, 0.001, 98.0, i*10.0, 0.0, 0.0])
+///         state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
+///         propagators.append(prop)
+///
+///     # Propagate all to target epoch in parallel
+///     target = epoch + 3600.0  # 1 hour later
+///     bh.par_propagate_to(propagators, target)
+///
+///     # All propagators are now at target epoch
+///     for prop in propagators:
+///         assert prop.current_epoch() == target
+///     ```
+#[pyfunction(name = "par_propagate_to")]
+fn py_par_propagate_to(
+    propagators: &Bound<'_, PyAny>,
+    target_epoch: &PyEpoch,
+) -> PyResult<()> {
+    use pyo3::types::PyList;
+
+    // Check if propagators is a list
+    if !propagators.is_instance_of::<PyList>() {
+        return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "propagators must be a list of KeplerianPropagator or SGPPropagator"
+        ));
+    }
+
+    let prop_list = propagators.downcast::<PyList>()?;
+    if prop_list.is_empty() {
+        return Ok(()); // No propagators to process
+    }
+
+    // Determine propagator type from first element
+    let first = prop_list.get_item(0)?;
+
+    if first.is_instance_of::<PyKeplerianPropagator>() {
+        // Process as Keplerian propagators
+        let mut props: Vec<propagators::KeplerianPropagator> = Vec::new();
+
+        for item in prop_list.iter() {
+            let py_prop = item.downcast::<PyKeplerianPropagator>()?;
+            props.push(py_prop.borrow().propagator.clone());
+        }
+
+        // Call Rust parallel propagation function
+        propagators::par_propagate_to(&mut props, target_epoch.obj);
+
+        // Update Python objects with new state
+        for (i, item) in prop_list.iter().enumerate() {
+            let mut py_prop = item.downcast::<PyKeplerianPropagator>()?.borrow_mut();
+            py_prop.propagator = props[i].clone();
+        }
+
+        Ok(())
+    } else if first.is_instance_of::<PySGPPropagator>() {
+        // Process as SGP propagators
+        let mut props: Vec<propagators::SGPPropagator> = Vec::new();
+
+        for item in prop_list.iter() {
+            let py_prop = item.downcast::<PySGPPropagator>()?;
+            props.push(py_prop.borrow().propagator.clone());
+        }
+
+        // Call Rust parallel propagation function
+        propagators::par_propagate_to(&mut props, target_epoch.obj);
+
+        // Update Python objects with new state
+        for (i, item) in prop_list.iter().enumerate() {
+            let mut py_prop = item.downcast::<PySGPPropagator>()?.borrow_mut();
+            py_prop.propagator = props[i].clone();
+        }
+
+        Ok(())
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "propagators must be a list of KeplerianPropagator or SGPPropagator"
+        ))
+    }
+}

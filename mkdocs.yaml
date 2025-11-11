@@ -189,6 +189,7 @@ nav:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
                 - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
+                - Parallel Propagation: learn/orbit_propagation/parallel_propagation.md
             - Access Computation:
                 - learn/access_computation/index.md
                 - Locations: learn/access_computation/locations.md
@@ -275,6 +276,7 @@ nav:
                 - library_api/propagators/index.md
                 - KeplerianPropagator: library_api/propagators/keplerian_propagator.md
                 - SGPPropagator: library_api/propagators/sgp_propagator.md
+                - Functions: library_api/propagators/functions.md
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md

@@ -698,6 +698,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
+    module.add_function(wrap_pyfunction!(py_par_propagate_to, module)?)?;
 
     // TLE Support
     module.add_function(wrap_pyfunction!(py_validate_tle_lines, module)?)?;

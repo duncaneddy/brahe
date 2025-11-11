@@ -571,9 +571,9 @@ def test_examples(
         rust_workers = max(1, workers)
         python_workers = max(1, workers)
     else:
-        cpu_count = os.cpu_count() or 4
-        rust_workers = min(cpu_count // 2, 4)  # Conservative for Rust
-        python_workers = min(cpu_count, 8)  # More aggressive for Python
+        cpu_count = os.cpu_count() or 1
+        rust_workers = max(cpu_count - 1, 1)
+        python_workers = max(cpu_count - 1, 1)
 
     # Test Rust examples
     rust_results = TestResults()

@@ -253,9 +253,9 @@ Output:
 ## See Also
 
 - [Coordinate Systems](../coordinates/index.md) - Conceptual overview
-- [Reference Frames](../frame_transformations.md) - ECI/ECEF details
+- [Reference Frames](../frames/index.md) - ECI/ECEF details
 - [Coordinates API](../../library_api/coordinates/index.md) - Python API
-- [Frames API](../../library_api/frames.md) - Frame conversion functions
+- [Frames API](../../library_api/frames/index.md) - Frame conversion functions
 - [Orbits API](../../library_api/orbits/index.md) - Orbital elements
 - [Time CLI](time.md) - Time conversions
 - [Orbits CLI](orbits.md) - Orbital mechanics calculations

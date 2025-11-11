@@ -16,6 +16,8 @@ This example demonstrates how to:
 The example shows the complete workflow from data download to statistical analysis.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import csv
 import os
@@ -26,6 +28,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Configuration for output files
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -37,8 +40,10 @@ os.makedirs(OUTDIR, exist_ok=True)
 # NORAD ID: 65053
 print("Downloading NISAR TLE from CelesTrak...")
 start_time = time.time()
+# --8<-- [start:download_nisar]
 nisar = bh.datasets.celestrak.get_tle_by_id_as_propagator(65053, 60.0)
 nisar = nisar.with_name("NISAR")
+# --8<-- [end:download_nisar]
 elapsed = time.time() - start_time
 print(f"Downloaded NISAR TLE in {elapsed:.2f} seconds.")
 print(f"Epoch: {nisar.epoch}")
@@ -47,15 +52,19 @@ print(f"Semi-major axis: {nisar.semi_major_axis / 1000:.1f} km")
 # Load NASA Near Earth Network ground stations
 print("\nLoading NASA Near Earth Network ground stations...")
 start_time = time.time()
+# --8<-- [start:load_nen_stations]
 nen_stations = bh.datasets.groundstations.load("nasa nen")
+# --8<-- [end:load_nen_stations]
 elapsed = time.time() - start_time
 print(f"Loaded {len(nen_stations)} NASA NEN ground stations in {elapsed:.2f} seconds.")
 
 # Propagate NISAR for 3 orbits to create ground track visualization
 print("\nPropagating NISAR for 3 orbits...")
 start_time = time.time()
+# --8<-- [start:propagate_nisar]
 orbital_period = bh.orbital_period(nisar.semi_major_axis)
 nisar.propagate_to(nisar.epoch + 3 * orbital_period)
+# --8<-- [end:propagate_nisar]
 elapsed = time.time() - start_time
 print(f"Orbital period: {orbital_period / 60:.1f} minutes")
 print(f"Propagated NISAR for 3 orbits in {elapsed:.2f} seconds.")
@@ -63,6 +72,7 @@ print(f"Propagated NISAR for 3 orbits in {elapsed:.2f} seconds.")
 # Create ground track visualization with communication cones
 print("\nCreating ground track visualization with communication cones...")
 start_time = time.time()
+# --8<-- [start:visualize_orbit]
 fig_groundtrack = bh.plot_groundtrack(
     trajectories=[
         {
@@ -89,12 +99,14 @@ fig_groundtrack = bh.plot_groundtrack(
     show_legend=False,
     backend="plotly",
 )
+# --8<-- [end:visualize_orbit]
 elapsed = time.time() - start_time
 print(f"Created ground track visualization in {elapsed:.2f} seconds.")
 
 start_time = time.time()
 # Reset propagator and compute 7-day access windows
 print("\nComputing 7-day ground contacts...")
+# --8<-- [start:compute_contacts]
 nisar.reset()
 
 epoch_start = nisar.epoch
@@ -108,6 +120,7 @@ constraint = bh.ElevationConstraint(min_elevation_deg=5.0)
 windows = bh.location_accesses(
     nen_stations, [nisar], epoch_start, epoch_end, constraint
 )
+# --8<-- [end:compute_contacts]
 elapsed = time.time() - start_time
 print(f"Computed {len(windows)} contact windows in {elapsed:.2f} seconds.")
 
@@ -160,6 +173,7 @@ print(f"✓ Exported first 20 contact windows to {csv_path}")
 
 # Analyze contact statistics
 print("\nAnalyzing contact statistics...")
+# --8<-- [start:analyze_contacts]
 
 # Group contacts by station
 station_contacts = {}
@@ -178,12 +192,15 @@ for station, contacts in station_contacts.items():
 
 # Sort by average daily contacts
 sorted_stations = sorted(station_daily_avg.items(), key=lambda x: x[1], reverse=True)
+# --8<-- [end:analyze_contacts]
 
 print("\nAverage Daily Contacts per Station:")
 print("-" * 40)
 for station, avg in sorted_stations:
     total = len(station_contacts[station])
     print(f"{station:<20}: {avg:>5.1f} contacts/day ({total} total)")
+
+# --8<-- [start:visualize_contacts]
 
 # Figure 1: Daily contacts per station (bar chart)
 stations_list = [s[0] for s in sorted_stations]
@@ -249,12 +266,14 @@ fig_duration.update_layout(
         )
     ],
 )
+# --8<-- [end:visualize_contacts]
 
 print("\nContact Duration Statistics:")
 print(f"  Mean: {mean_duration:.1f} minutes")
 print(f"  Median: {median_duration:.1f} minutes")
 print(f"  Min: {np.min(durations):.1f} minutes")
 print(f"  Max: {max_duration:.1f} minutes")
+# --8<-- [end:all]
 
 # ============================================================================
 # Plot Output Section (for documentation generation)

@@ -59,5 +59,5 @@ pos_ecef = bh.position_eci_to_ecef(epoch, pos_eci)
 
 ## See Also
 
-- [Frames](../frames.md) - Coordinate frame transformations that use EOP
+- [Frames](../frames/index.md) - Coordinate frame transformations that use EOP
 - [Epoch](../time/epoch.md) - Time representation

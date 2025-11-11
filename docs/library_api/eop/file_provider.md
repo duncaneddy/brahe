@@ -110,4 +110,4 @@ provider = bh.FileEOPProvider.from_standard_file(filepath)
 
 - [StaticEOPProvider](static_provider.md) - Built-in historical EOP data
 - [EOP Functions](functions.md) - Global EOP management
-- [Frames](../frames.md) - Coordinate transformations using EOP
+- [Frames](../frames/index.md) - Coordinate transformations using EOP

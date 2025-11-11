@@ -289,3 +289,150 @@ def test_gcrf_itrf_eci_ecef_equivalence(eop):
     state_gcrf_itrf = brahe.state_itrf_to_gcrf(epc, state_itrf_gcrf)
     state_eci_ecef = brahe.state_ecef_to_eci(epc, state_ecef_eci)
     assert np.allclose(state_gcrf_itrf, state_eci_ecef)
+
+
+# EME2000 <> GCRF transformation tests
+def test_bias_eme2000():
+    """Test the bias matrix computation for GCRF to EME2000"""
+    r_eme2000 = brahe.bias_eme2000()
+
+    # Independently define expected values
+    dξ = -16.6170e-3 * brahe.AS2RAD  # radians
+    dη = -6.8192e-3 * brahe.AS2RAD  # radians
+    dα = -14.6e-3 * brahe.AS2RAD  # radians
+
+    tol = 1e-9
+    assert r_eme2000[0, 0] == approx(1.0 - 0.5 * (dα**2 + dξ**2), abs=tol)
+    assert r_eme2000[0, 1] == approx(dα, abs=tol)
+    assert r_eme2000[0, 2] == approx(-dξ, abs=tol)
+
+    assert r_eme2000[1, 0] == approx(-dα - dη * dξ, abs=tol)
+    assert r_eme2000[1, 1] == approx(1.0 - 0.5 * (dα**2 + dη**2), abs=tol)
+    assert r_eme2000[1, 2] == approx(-dη, abs=tol)
+
+    assert r_eme2000[2, 0] == approx(dξ - dη * dα, abs=tol)
+    assert r_eme2000[2, 1] == approx(dη + dξ * dα, abs=tol)
+    assert r_eme2000[2, 2] == approx(1.0 - 0.5 * (dη**2 + dξ**2), abs=tol)
+
+
+def test_rotation_gcrf_to_eme2000():
+    """Test GCRF to EME2000 rotation matrix matches bias matrix"""
+    r_e2g = brahe.rotation_gcrf_to_eme2000()
+    r_eme2000 = brahe.bias_eme2000()
+
+    tol = 1e-9
+    for i in range(3):
+        for j in range(3):
+            assert r_e2g[i, j] == approx(r_eme2000[i, j], abs=tol)
+
+
+def test_rotation_eme2000_to_gcrf():
+    """Test EME2000 to GCRF rotation matrix is transpose of inverse"""
+    r_g2e = brahe.rotation_eme2000_to_gcrf()
+    r_e2g = brahe.rotation_gcrf_to_eme2000().T
+
+    tol = 1e-9
+    for i in range(3):
+        for j in range(3):
+            assert r_g2e[i, j] == approx(r_e2g[i, j], abs=tol)
+
+
+def test_position_gcrf_to_eme2000():
+    """Test position transformation from GCRF to EME2000"""
+    p_gcrf = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
+
+    p_eme2000 = brahe.position_gcrf_to_eme2000(p_gcrf)
+    r_e2g = brahe.rotation_gcrf_to_eme2000()
+
+    p_eme2000_expected = r_e2g @ p_gcrf
+
+    tol = 1e-9
+    assert p_eme2000[0] == approx(p_eme2000_expected[0], abs=tol)
+    assert p_eme2000[1] == approx(p_eme2000_expected[1], abs=tol)
+    assert p_eme2000[2] == approx(p_eme2000_expected[2], abs=tol)
+
+
+def test_position_eme2000_to_gcrf():
+    """Test position transformation from EME2000 to GCRF"""
+    p_eme2000 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0])
+
+    p_gcrf = brahe.position_eme2000_to_gcrf(p_eme2000)
+    r_g2e = brahe.rotation_eme2000_to_gcrf()
+
+    p_gcrf_expected = r_g2e @ p_eme2000
+
+    tol = 1e-9
+    assert p_gcrf[0] == approx(p_gcrf_expected[0], abs=tol)
+    assert p_gcrf[1] == approx(p_gcrf_expected[1], abs=tol)
+    assert p_gcrf[2] == approx(p_gcrf_expected[2], abs=tol)
+
+
+def test_state_gcrf_to_eme2000():
+    """Test state transformation from GCRF to EME2000"""
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    eme2000 = brahe.state_gcrf_to_eme2000(gcrf)
+    r_e2g = brahe.rotation_gcrf_to_eme2000()
+
+    r_gcrf = gcrf[:3]
+    v_gcrf = gcrf[3:]
+
+    p_expected = r_e2g @ r_gcrf
+    v_expected = r_e2g @ v_gcrf
+
+    tol = 1e-9
+    assert eme2000[0] == approx(p_expected[0], abs=tol)
+    assert eme2000[1] == approx(p_expected[1], abs=tol)
+    assert eme2000[2] == approx(p_expected[2], abs=tol)
+    assert eme2000[3] == approx(v_expected[0], abs=tol)
+    assert eme2000[4] == approx(v_expected[1], abs=tol)
+    assert eme2000[5] == approx(v_expected[2], abs=tol)
+
+
+def test_state_eme2000_to_gcrf():
+    """Test state transformation from EME2000 to GCRF"""
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    eme2000 = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    gcrf = brahe.state_eme2000_to_gcrf(eme2000)
+    r_g2e = brahe.rotation_eme2000_to_gcrf()
+
+    r_eme2000 = eme2000[:3]
+    v_eme2000 = eme2000[3:]
+
+    p_expected = r_g2e @ r_eme2000
+    v_expected = r_g2e @ v_eme2000
+
+    tol = 1e-9
+    assert gcrf[0] == approx(p_expected[0], abs=tol)
+    assert gcrf[1] == approx(p_expected[1], abs=tol)
+    assert gcrf[2] == approx(p_expected[2], abs=tol)
+    assert gcrf[3] == approx(v_expected[0], abs=tol)
+    assert gcrf[4] == approx(v_expected[1], abs=tol)
+    assert gcrf[5] == approx(v_expected[2], abs=tol)
+
+
+def test_eme2000_gcrf_roundtrip():
+    """Test round-trip state transformation EME2000 -> GCRF -> EME2000"""
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    eme2000 = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+
+    # Perform circular transformations
+    gcrf = brahe.state_eme2000_to_gcrf(eme2000)
+    eme2000_2 = brahe.state_gcrf_to_eme2000(gcrf)
+    gcrf_2 = brahe.state_eme2000_to_gcrf(eme2000_2)
+
+    tol = 1e-7
+    # Check equivalence of EME2000 coordinates
+    assert eme2000_2[0] == approx(eme2000[0], abs=tol)
+    assert eme2000_2[1] == approx(eme2000[1], abs=tol)
+    assert eme2000_2[2] == approx(eme2000[2], abs=tol)
+    assert eme2000_2[3] == approx(eme2000[3], abs=tol)
+    assert eme2000_2[4] == approx(eme2000[4], abs=tol)
+    assert eme2000_2[5] == approx(eme2000[5], abs=tol)
+    # Check equivalence of GCRF coordinates
+    assert gcrf_2[0] == approx(gcrf[0], abs=tol)
+    assert gcrf_2[1] == approx(gcrf[1], abs=tol)
+    assert gcrf_2[2] == approx(gcrf[2], abs=tol)
+    assert gcrf_2[3] == approx(gcrf[3], abs=tol)
+    assert gcrf_2[4] == approx(gcrf[4], abs=tol)
+    assert gcrf_2[5] == approx(gcrf[5], abs=tol)

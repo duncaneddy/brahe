@@ -19,6 +19,8 @@ The maximum contact gap is a significant factor in the reactivity (speed from re
 uplink) and latency (time from collection to delivery) for satellite imaging constellations.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import csv
 import os
@@ -31,6 +33,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Configuration for output files
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -40,21 +43,25 @@ os.makedirs(OUTDIR, exist_ok=True)
 # Download TLE data for all active satellites as propagators and filter for Umbra
 print("Downloading active satellite TLEs from CelesTrak...")
 start_time = time.time()
+# --8<-- [start:download_umbra]
 all_active_props = bh.datasets.celestrak.get_tles_as_propagators("active", 60.0)
 
 # Filter for Umbra satellites (name contains "UMBRA")
 umbra_props = [prop for prop in all_active_props if "UMBRA" in prop.get_name().upper()]
+# --8<-- [end:download_umbra]
 print(f"Found {len(umbra_props)} Umbra satellites")
 elapsed = time.time() - start_time
 
 # Load specific KSAT ground stations
 print("\nLoading KSAT ground stations...")
 start_time = time.time()
+# --8<-- [start:load_ksat]
 all_ksat = bh.datasets.groundstations.load("ksat")
 
 # Filter for the 5 specific stations mentioned in the problem
 station_names = ["Svalbard", "Punta Arenas", "Hartebeesthoek", "Awarua", "Athens"]
 ksat_stations = [s for s in all_ksat if s.get_name() in station_names]
+# --8<-- [end:load_ksat]
 elapsed = time.time() - start_time
 print(f"Loaded {len(ksat_stations)} KSAT ground stations in {elapsed:.2f} seconds:")
 for station in ksat_stations:
@@ -63,6 +70,7 @@ for station in ksat_stations:
 # Create 3D constellation visualization
 print("\nPropagating Umbra satellites for one orbit each...")
 start_time = time.time()
+# --8<-- [start:orbit_visualization]
 for prop in umbra_props:
     orbital_period = bh.orbital_period(prop.semi_major_axis)
     prop.propagate_to(prop.epoch + orbital_period)
@@ -85,6 +93,7 @@ fig_3d = bh.plot_trajectory_3d(
     view_elevation=30.0,
     view_distance=2.0,
 )
+# --8<-- [end:orbit_visualization]
 elapsed = time.time() - start_time
 print(f"Created 3D visualization in {elapsed:.2f} seconds.")
 
@@ -92,6 +101,7 @@ print(f"Created 3D visualization in {elapsed:.2f} seconds.")
 print("\nComputing 7-day ground contacts...")
 start_time = time.time()
 
+# --8<-- [start:access_computation]
 # Reset all propagators
 for prop in umbra_props:
     prop.reset()
@@ -109,6 +119,7 @@ constraint = bh.ElevationConstraint(min_elevation_deg=5.0)
 windows = bh.location_accesses(
     ksat_stations, umbra_props, epoch_start, epoch_end, constraint
 )
+# --8<-- [end:access_computation]
 elapsed = time.time() - start_time
 print(f"Computed {len(windows)} contact windows in {elapsed:.2f} seconds.")
 
@@ -116,6 +127,7 @@ print(f"Computed {len(windows)} contact windows in {elapsed:.2f} seconds.")
 print("\nComputing communication gaps...")
 start_time = time.time()
 
+# --8<-- [start:gap_computation]
 # Group windows by spacecraft
 spacecraft_windows = {}
 for window in windows:
@@ -149,6 +161,7 @@ for sat_name, sat_windows in spacecraft_windows.items():
 
 # Sort gaps by duration (longest first)
 gaps.sort(key=lambda g: g["duration"], reverse=True)
+# --8<-- [end:gap_computation]
 
 elapsed = time.time() - start_time
 print(f"Computed {len(gaps)} communication gaps in {elapsed:.2f} seconds.")
@@ -203,6 +216,7 @@ print(f"\n✓ Exported top 10 gaps to {csv_path}")
 
 # Analyze gap distribution statistics
 print("\nGap Distribution Statistics:")
+# --8<-- [gap_statistics]
 gap_durations = [g["duration"] for g in gaps]
 mean_gap = np.mean(gap_durations)
 median_gap = np.median(gap_durations)
@@ -255,9 +269,12 @@ fig_histogram.update_layout(
         )
     ],
 )
+# --8<-- [end:gap_statistics]
 
 # Create cumulative distribution plot
 print("\nCreating cumulative distribution plot...")
+
+# --8<-- [start:cumulative_distribution]
 # Sort gap durations and compute cumulative percentages
 sorted_gap_durations_hours = sorted(gap_durations_hours)
 cumulative_percentages = [
@@ -336,10 +353,13 @@ fig_cumulative.update_layout(
     annotations=annotations,
     yaxis=dict(range=[0, 105]),
 )
+# --8<-- [end:cumulative_distribution]
 
 # Create ground track visualization for top 3 longest gaps
 print("\nCreating ground track visualization for top 3 longest gaps...")
 start_time = time.time()
+
+# --8<-- [start:gap_visualization]
 
 # Get the top 3 gaps
 top_3_gaps = gaps[:3]
@@ -502,9 +522,11 @@ ax.set_title(
     "KSAT Network (5 stations, 5° elevation)",
     fontsize=12,
 )
+# --8<-- [end:gap_visualization]
 
 elapsed = time.time() - start_time
 print(f"Created ground track visualization in {elapsed:.2f} seconds.")
+# --8<-- [end:all]
 
 # ============================================================================
 # Plot Output Section (for documentation generation)

@@ -106,4 +106,4 @@ vel_eci = bh.position_ecef_to_eci(epoch, vel_ecef)
 
 - [FileEOPProvider](file_provider.md) - File-based EOP for production use
 - [EOP Functions](functions.md) - Global EOP management
-- [Frames](../frames.md) - Coordinate transformations
+- [Frames](../frames/index.md) - Coordinate transformations

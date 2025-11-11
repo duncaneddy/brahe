@@ -18,6 +18,8 @@ The example shows S-band uplink (2.2 GHz) and X-band downlink (8.4 GHz) Doppler
 compensation required for maintaining stable communication links.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import csv
 import os
@@ -29,11 +31,14 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Configuration for output files
 SCRIPT_NAME = pathlib.Path(__file__).stem
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 os.makedirs(OUTDIR, exist_ok=True)
+
+# --8<-- [start:custom_doppler_computer]
 
 # Communication frequency bands
 S_BAND_FREQ = 2.2e9  # Hz (uplink)
@@ -119,12 +124,17 @@ class DopplerComputer(bh.AccessPropertyComputer):
         return ["doppler_s_band", "doppler_x_band", "v_los"]
 
 
+# --8<-- [end:custom_doppler_computer]
+
+
 # Download TLE data for ISS from CelesTrak
 # ISS (International Space Station)
 # NORAD ID: 25544
 print("Downloading ISS TLE from CelesTrak...")
 start_time = time.time()
+# --8<-- [start:download_iss]
 iss = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
+# --8<-- [end:download_iss]
 elapsed = time.time() - start_time
 print(f"Downloaded ISS TLE in {elapsed:.2f} seconds.")
 print(f"Epoch: {iss.epoch}")
@@ -133,6 +143,7 @@ print(f"Semi-major axis: {iss.semi_major_axis / 1000:.1f} km")
 # Load NASA Near Earth Network ground stations
 print("\nLoading NASA Near Earth Network ground stations...")
 start_time = time.time()
+# --8<-- [start:load_nen_stations]
 nen_stations = bh.datasets.groundstations.load("nasa nen")
 
 # Select Cape Canaveral ground station
@@ -141,6 +152,7 @@ for station in nen_stations:
     if "Merrit Island" in station.get_name():
         cape_canaveral = station
         break
+# --8<-- [end:load_nen_stations]
 
 if cape_canaveral is None:
     print("Error: Cape Canaveral ground station not found.")
@@ -153,6 +165,7 @@ print(f"Loaded {len(nen_stations)} NASA NEN ground stations in {elapsed:.2f} sec
 # Propagate ISS for one orbit to create ground track visualization
 start_time = time.time()
 print("\nCreating ground track visualization...")
+# --8<-- [start:ground_track]
 orbital_period = bh.orbital_period(iss.semi_major_axis)
 iss.propagate_to(iss.epoch + orbital_period)
 
@@ -183,6 +196,7 @@ fig_groundtrack = bh.plot_groundtrack(
     show_legend=False,
     backend="plotly",
 )
+# --8<-- [end:ground_track]
 elapsed = time.time() - start_time
 print(f"Created ground track visualization in {elapsed:.2f} seconds.")
 
@@ -190,6 +204,8 @@ print(f"Created ground track visualization in {elapsed:.2f} seconds.")
 start_time = time.time()
 print("\nComputing 72-hour access windows with Doppler compensation...")
 iss.reset()
+
+# --8<-- [start:access_computation]
 
 epoch_start = iss.epoch
 epoch_end = epoch_start + 72 * 3600.0  # 72 hours in seconds
@@ -209,6 +225,8 @@ windows = bh.location_accesses(
     constraint,
     property_computers=[doppler_computer],
 )
+
+# --8<-- [end:access_computation]
 elapsed = time.time() - start_time
 print(f"Computed {len(windows)} access windows in {elapsed:.2f} seconds.")
 
@@ -297,6 +315,8 @@ print(f"✓ Exported {num_csv_samples} samples to {csv_path}")
 # Create Doppler vs time visualization
 print("\nCreating Doppler compensation visualization...")
 start_time = time.time()
+
+# --8<-- [start:doppler_visualization]
 
 # Convert times to minutes relative to window start for better readability
 times_rel_min = [t / 60.0 for t in doppler_s_ts["times"]]
@@ -390,6 +410,7 @@ fig_doppler.update_layout(
     title="Doppler Compensation for ISS Pass over Cape Canaveral",
     showlegend=False,
 )
+# --8<-- [end:doppler_visualization]
 
 elapsed = time.time() - start_time
 print(f"Created Doppler visualization in {elapsed:.2f} seconds.")

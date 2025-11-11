@@ -17,10 +17,13 @@ This example demonstrates how to:
 The example shows the complete workflow from data download to visualization.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import brahe as bh
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Download TLE data for all Starlink satellites from CelesTrak
 # The get_tles_as_propagators function:
@@ -29,12 +32,23 @@ bh.initialize_eop()
 #   - Sets default propagation step size (60 seconds)
 print("Downloading Starlink TLEs from CelesTrak...")
 start_time = time.time()
+# --8<-- [start:download_starlink]
 propagators = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+
+# Filter out any re-enerting spacecraft with < 350 km semi-major axis
+# This can sometimes cause numerical issues with the propagator for very low orbit
+# when eccentricity becomes negative.
+propagators = [
+    prop for prop in propagators if prop.semi_major_axis >= (bh.R_EARTH + 350.0e3)
+]
+
+# --8<-- [end:download_starlink]
 elapsed = time.time() - start_time
 print(
     f"Initialized propagators for {len(propagators)} Starlink satellites in {elapsed:.2f} seconds."
 )
 
+# --8<-- [start:inspect_data]
 # Inspect the first satellite
 first_sat = propagators[0]
 print(f"\nFirst satellite: {first_sat.get_name()}")
@@ -42,11 +56,13 @@ print(f"Epoch: {first_sat.epoch}")
 print(f"Semi-major axis: {first_sat.semi_major_axis / 1000:.1f} km")
 print(f"Inclination: {first_sat.inclination:.1f} degrees")
 print(f"Eccentricity: {first_sat.eccentricity:.6f}")
+# --8<-- [end:inspect_data]
 
 
 # Create interactive 3D plot with Earth texture
 print("\nCreating 3D visualization of satellites...")
 ts = time.time()
+# --8<-- [start:orbit_visualization]
 fig = bh.plot_trajectory_3d(
     [],  # Empty trajectory list; we'll add markers for each satellite
     units="km",
@@ -59,10 +75,12 @@ fig = bh.plot_trajectory_3d(
     sphere_resolution_lon=600,  # Reduce sphere texture resolution for performance
     sphere_resolution_lat=300,
 )
+# --8<-- [end:orbit_visualization]
 te = time.time() - ts
 print(f"Created base 3D plot in {te:.2f} seconds.")
 
 ts = time.time()
+# --8<-- [start:add_satellite_markers]
 # Get the current time for display
 epc = bh.Epoch.now()
 
@@ -78,8 +96,10 @@ for prop in propagators:
         name=prop.get_name(),
         showlegend=False,
     )
+# --8<-- [end:add_satellite_markers]
 te = time.time() - ts
 print(f"Added satellite markers in {te:.2f} seconds.")
+# --8<-- [end:all]
 
 # ============================================================================
 # Plot Output Section (for documentation generation)

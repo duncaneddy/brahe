@@ -70,6 +70,7 @@ docs = [
     "mkdocs-awesome-nav>=3.2.0",
     "mkdocs-git-revision-date-localized-plugin>=1.4.7",
     "mkdocs-material>=9.6.20",
+    "mkdocs-minify-plugin>=0.8.0",
     "mkdocs-section-index>=0.3.10",
     "mkdocs-table-reader-plugin>=3.1.0",
     "mkdocstrings>=0.30.0",

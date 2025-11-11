@@ -21,6 +21,10 @@ from brahe import (
     state_cartesian_to_osculating,
     state_eci_to_ecef,
     state_ecef_to_eci,
+    state_gcrf_to_itrf,
+    state_itrf_to_gcrf,
+    state_gcrf_to_eme2000,
+    state_eme2000_to_gcrf,
 )
 from brahe._brahe import PanicException
 
@@ -1376,6 +1380,299 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
         assert state_out[i] == pytest.approx(state_base[i], abs=tol)
 
 
+def test_orbittrajectory_orbitaltrajectory_to_itrf():
+    """Rust: test_orbittrajectory_orbitaltrajectory_to_itrf"""
+    tol = 1e-6
+
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    state_base = state_gcrf_to_itrf(
+        epoch,
+        state_osculating_to_cartesian(
+            np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
+            AngleFormat.DEGREES,
+        ),
+    )
+
+    # No transformation needed if already in ITRF
+    traj = OrbitTrajectory(
+        OrbitFrame.ITRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    traj.add(epoch, state_base)
+    itrf_traj = traj.to_itrf()
+    assert itrf_traj.frame == OrbitFrame.ITRF
+    assert itrf_traj.representation == OrbitRepresentation.CARTESIAN
+    assert len(itrf_traj) == 1
+    epoch_out, state_out = itrf_traj.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert GCRF to ITRF
+    gcrf_traj = OrbitTrajectory(
+        OrbitFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    gcrf_state = state_itrf_to_gcrf(epoch, state_base)
+    gcrf_traj.add(epoch, gcrf_state)
+    itrf_from_gcrf = gcrf_traj.to_itrf()
+    assert itrf_from_gcrf.frame == OrbitFrame.ITRF
+    assert itrf_from_gcrf.representation == OrbitRepresentation.CARTESIAN
+    assert len(itrf_from_gcrf) == 1
+    epoch_out, state_out = itrf_from_gcrf.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert EME2000 to ITRF
+    eme2000_traj = OrbitTrajectory(
+        OrbitFrame.EME2000,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    eme2000_state = state_gcrf_to_eme2000(gcrf_state)
+    eme2000_traj.add(epoch, eme2000_state)
+    itrf_from_eme2000 = eme2000_traj.to_itrf()
+    assert itrf_from_eme2000.frame == OrbitFrame.ITRF
+    assert itrf_from_eme2000.representation == OrbitRepresentation.CARTESIAN
+    assert len(itrf_from_eme2000) == 1
+    epoch_out, state_out = itrf_from_eme2000.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to ITRF - Radians
+    kep_traj = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
+    )
+    kep_state_rad = state_cartesian_to_osculating(gcrf_state, AngleFormat.RADIANS)
+    kep_traj.add(epoch, kep_state_rad)
+    itrf_from_kep_rad = kep_traj.to_itrf()
+    assert itrf_from_kep_rad.frame == OrbitFrame.ITRF
+    assert itrf_from_kep_rad.representation == OrbitRepresentation.CARTESIAN
+    assert len(itrf_from_kep_rad) == 1
+    epoch_out, state_out = itrf_from_kep_rad.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to ITRF - Degrees
+    kep_traj_deg = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+    )
+    kep_state_deg = state_cartesian_to_osculating(gcrf_state, AngleFormat.DEGREES)
+    kep_traj_deg.add(epoch, kep_state_deg)
+    itrf_from_kep_deg = kep_traj_deg.to_itrf()
+    assert itrf_from_kep_deg.frame == OrbitFrame.ITRF
+    assert itrf_from_kep_deg.representation == OrbitRepresentation.CARTESIAN
+    assert len(itrf_from_kep_deg) == 1
+    epoch_out, state_out = itrf_from_kep_deg.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+
+def test_orbittrajectory_orbitaltrajectory_to_gcrf():
+    """Rust: test_orbittrajectory_orbitaltrajectory_to_gcrf"""
+    tol = 1e-6
+
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    state_base = state_osculating_to_cartesian(
+        np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
+        AngleFormat.DEGREES,
+    )
+
+    # No transformation needed if already in GCRF
+    traj = OrbitTrajectory(
+        OrbitFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    traj.add(epoch, state_base)
+    gcrf_traj = traj.to_gcrf()
+    assert gcrf_traj.frame == OrbitFrame.GCRF
+    assert gcrf_traj.representation == OrbitRepresentation.CARTESIAN
+    assert len(gcrf_traj) == 1
+    epoch_out, state_out = gcrf_traj.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert ITRF to GCRF
+    itrf_traj = OrbitTrajectory(
+        OrbitFrame.ITRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    itrf_state = state_gcrf_to_itrf(epoch, state_base)
+    itrf_traj.add(epoch, itrf_state)
+    gcrf_from_itrf = itrf_traj.to_gcrf()
+    assert gcrf_from_itrf.frame == OrbitFrame.GCRF
+    assert gcrf_from_itrf.representation == OrbitRepresentation.CARTESIAN
+    assert len(gcrf_from_itrf) == 1
+    epoch_out, state_out = gcrf_from_itrf.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert EME2000 to GCRF
+    eme2000_traj = OrbitTrajectory(
+        OrbitFrame.EME2000,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    eme2000_state = state_gcrf_to_eme2000(state_base)
+    eme2000_traj.add(epoch, eme2000_state)
+    gcrf_from_eme2000 = eme2000_traj.to_gcrf()
+    assert gcrf_from_eme2000.frame == OrbitFrame.GCRF
+    assert gcrf_from_eme2000.representation == OrbitRepresentation.CARTESIAN
+    assert len(gcrf_from_eme2000) == 1
+    epoch_out, state_out = gcrf_from_eme2000.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to GCRF - Radians
+    kep_traj = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
+    )
+    kep_state_rad = state_cartesian_to_osculating(state_base, AngleFormat.RADIANS)
+    kep_traj.add(epoch, kep_state_rad)
+    gcrf_from_kep_rad = kep_traj.to_gcrf()
+    assert gcrf_from_kep_rad.frame == OrbitFrame.GCRF
+    assert gcrf_from_kep_rad.representation == OrbitRepresentation.CARTESIAN
+    assert len(gcrf_from_kep_rad) == 1
+    epoch_out, state_out = gcrf_from_kep_rad.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to GCRF - Degrees
+    kep_traj_deg = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+    )
+    kep_state_deg = state_cartesian_to_osculating(state_base, AngleFormat.DEGREES)
+    kep_traj_deg.add(epoch, kep_state_deg)
+    gcrf_from_kep_deg = kep_traj_deg.to_gcrf()
+    assert gcrf_from_kep_deg.frame == OrbitFrame.GCRF
+    assert gcrf_from_kep_deg.representation == OrbitRepresentation.CARTESIAN
+    assert len(gcrf_from_kep_deg) == 1
+    epoch_out, state_out = gcrf_from_kep_deg.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+
+def test_orbittrajectory_orbitaltrajectory_to_eme2000():
+    """Rust: test_orbittrajectory_orbitaltrajectory_to_eme2000"""
+    tol = 1e-6
+
+    epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    state_base = state_gcrf_to_eme2000(
+        state_osculating_to_cartesian(
+            np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
+            AngleFormat.DEGREES,
+        )
+    )
+
+    # No transformation needed if already in EME2000
+    traj = OrbitTrajectory(
+        OrbitFrame.EME2000,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+
+    traj.add(epoch, state_base)
+    eme2000_traj = traj.to_eme2000()
+    assert eme2000_traj.frame == OrbitFrame.EME2000
+    assert eme2000_traj.representation == OrbitRepresentation.CARTESIAN
+    assert len(eme2000_traj) == 1
+    epoch_out, state_out = eme2000_traj.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert GCRF to EME2000
+    gcrf_traj = OrbitTrajectory(
+        OrbitFrame.GCRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    gcrf_state = state_eme2000_to_gcrf(state_base)
+    gcrf_traj.add(epoch, gcrf_state)
+    eme2000_from_gcrf = gcrf_traj.to_eme2000()
+    assert eme2000_from_gcrf.frame == OrbitFrame.EME2000
+    assert eme2000_from_gcrf.representation == OrbitRepresentation.CARTESIAN
+    assert len(eme2000_from_gcrf) == 1
+    epoch_out, state_out = eme2000_from_gcrf.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert ITRF to EME2000
+    itrf_traj = OrbitTrajectory(
+        OrbitFrame.ITRF,
+        OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    itrf_state = state_gcrf_to_itrf(epoch, gcrf_state)
+    itrf_traj.add(epoch, itrf_state)
+    eme2000_from_itrf = itrf_traj.to_eme2000()
+    assert eme2000_from_itrf.frame == OrbitFrame.EME2000
+    assert eme2000_from_itrf.representation == OrbitRepresentation.CARTESIAN
+    assert len(eme2000_from_itrf) == 1
+    epoch_out, state_out = eme2000_from_itrf.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to EME2000 - Radians
+    kep_traj = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.RADIANS,
+    )
+    kep_state_rad = state_cartesian_to_osculating(gcrf_state, AngleFormat.RADIANS)
+    kep_traj.add(epoch, kep_state_rad)
+    eme2000_from_kep_rad = kep_traj.to_eme2000()
+    assert eme2000_from_kep_rad.frame == OrbitFrame.EME2000
+    assert eme2000_from_kep_rad.representation == OrbitRepresentation.CARTESIAN
+    assert len(eme2000_from_kep_rad) == 1
+    epoch_out, state_out = eme2000_from_kep_rad.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+    # Convert Keplerian to EME2000 - Degrees
+    kep_traj_deg = OrbitTrajectory(
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+    )
+    kep_state_deg = state_cartesian_to_osculating(gcrf_state, AngleFormat.DEGREES)
+    kep_traj_deg.add(epoch, kep_state_deg)
+    eme2000_from_kep_deg = kep_traj_deg.to_eme2000()
+    assert eme2000_from_kep_deg.frame == OrbitFrame.EME2000
+    assert eme2000_from_kep_deg.representation == OrbitRepresentation.CARTESIAN
+    assert len(eme2000_from_kep_deg) == 1
+    epoch_out, state_out = eme2000_from_kep_deg.get(0)
+    assert epoch_out.jd() == epoch.jd()
+    for i in range(6):
+        assert state_out[i] == pytest.approx(state_base[i], abs=tol)
+
+
 def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
     """Rust: test_orbittrajectory_orbitaltrajectory_to_keplerian_deg"""
     tol = 1e-6
@@ -1668,6 +1965,222 @@ def test_orbittrajectory_stateprovider_state_ecef_from_keplerian():
     # Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
     state_eci_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
     expected = state_eci_to_ecef(epoch, state_eci_cart)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_gcrf():
+    """Test state_gcrf() for GCRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_gcrf)
+
+    # Query GCRF state
+    result = traj.state_gcrf(epoch)
+    for i in range(6):
+        assert result[i] == pytest.approx(state_gcrf[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_gcrf_from_keplerian():
+    """Test state_gcrf() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep)
+
+    # Query GCRF Cartesian state
+    result = traj.state_gcrf(epoch)
+
+    # Convert Keplerian to Cartesian manually for comparison
+    expected = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_gcrf_from_itrf():
+    """Test state_gcrf() for ITRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ITRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_itrf)
+
+    # Query GCRF state
+    result = traj.state_gcrf(epoch)
+
+    # Convert ITRF to GCRF manually for comparison
+    expected = state_itrf_to_gcrf(epoch, state_itrf)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_gcrf_from_eme2000():
+    """Test state_gcrf() for EME2000 Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.EME2000, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_eme2000 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_eme2000)
+
+    # Query GCRF state
+    result = traj.state_gcrf(epoch)
+
+    # Convert EME2000 to GCRF manually for comparison
+    expected = state_eme2000_to_gcrf(state_eme2000)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_itrf():
+    """Test state_itrf() for ITRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ITRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_itrf)
+
+    # Query ITRF state
+    result = traj.state_itrf(epoch)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(state_itrf[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_itrf_from_keplerian():
+    """Test state_itrf() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep)
+
+    # Query ITRF state
+    result = traj.state_itrf(epoch)
+
+    # Convert Keplerian -> GCRF Cartesian -> ITRF manually for comparison
+    state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    expected = state_gcrf_to_itrf(epoch, state_gcrf_cart)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_itrf_from_gcrf():
+    """Test state_itrf() for GCRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_gcrf)
+
+    # Query ITRF state
+    result = traj.state_itrf(epoch)
+
+    # Convert GCRF to ITRF manually for comparison
+    expected = state_gcrf_to_itrf(epoch, state_gcrf)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_itrf_from_eme2000():
+    """Test state_itrf() for EME2000 Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.EME2000, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_eme2000 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_eme2000)
+
+    # Query ITRF state
+    result = traj.state_itrf(epoch)
+
+    # Convert EME2000 -> GCRF -> ITRF manually for comparison
+    state_gcrf = state_eme2000_to_gcrf(state_eme2000)
+    expected = state_gcrf_to_itrf(epoch, state_gcrf)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_eme2000():
+    """Test state_eme2000() for EME2000 Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.EME2000, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_eme2000 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_eme2000)
+
+    # Query EME2000 state
+    result = traj.state_eme2000(epoch)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(state_eme2000[i], abs=1e-6)
+
+
+def test_orbittrajectory_stateprovider_state_eme2000_from_keplerian():
+    """Test state_eme2000() for Keplerian trajectory"""
+    traj = OrbitTrajectory(
+        OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
+    )
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_kep = np.array([R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
+    traj.add(epoch, state_kep)
+
+    # Query EME2000 state
+    result = traj.state_eme2000(epoch)
+
+    # Convert Keplerian -> GCRF Cartesian -> EME2000 manually for comparison
+    state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    expected = state_gcrf_to_eme2000(state_gcrf_cart)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_eme2000_from_gcrf():
+    """Test state_eme2000() for GCRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state_gcrf)
+
+    # Query EME2000 state
+    result = traj.state_eme2000(epoch)
+
+    # Convert GCRF to EME2000 manually for comparison
+    expected = state_gcrf_to_eme2000(state_gcrf)
+
+    for i in range(6):
+        assert result[i] == pytest.approx(expected[i], abs=1e-3)
+
+
+def test_orbittrajectory_stateprovider_state_eme2000_from_itrf():
+    """Test state_eme2000() for ITRF Cartesian trajectory"""
+    traj = OrbitTrajectory(OrbitFrame.ITRF, OrbitRepresentation.CARTESIAN, None)
+
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    traj.add(epoch, state_itrf)
+
+    # Query EME2000 state
+    result = traj.state_eme2000(epoch)
+
+    # Convert ITRF -> GCRF -> EME2000 manually for comparison
+    state_gcrf = state_itrf_to_gcrf(epoch, state_itrf)
+    expected = state_gcrf_to_eme2000(state_gcrf)
 
     for i in range(6):
         assert result[i] == pytest.approx(expected[i], abs=1e-3)

@@ -6,6 +6,9 @@ on:
 
 jobs:
   validate:
+    if: |
+      !contains(github.event.pull_request.labels.*.name, 'changelog') &&
+      !contains(github.event.pull_request.labels.*.name, 'automated')
     runs-on: ubuntu-latest
     steps:
       - name: Check for changelog entries

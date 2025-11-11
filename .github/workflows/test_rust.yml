@@ -23,7 +23,7 @@ jobs:
             -   name: Build Rust package
                 run: cargo build
             -   name: Upload Rust build artifacts
-                uses: actions/upload-artifact@v4
+                uses: actions/upload-artifact@v5
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: |
@@ -77,7 +77,7 @@ jobs:
                     
             -   name: Upload Brahe cache directory (Unix)
                 if: runner.os != 'Windows'
-                uses: actions/upload-artifact@v4
+                uses: actions/upload-artifact@v5
                 with:
                     name: brahe-cache-${{ runner.os }}
                     path: ~/.cache/brahe/
@@ -85,7 +85,7 @@ jobs:
                     if-no-files-found: ignore
             -   name: Upload Brahe cache directory (Windows)
                 if: runner.os == 'Windows'
-                uses: actions/upload-artifact@v4
+                uses: actions/upload-artifact@v5
                 with:
                     name: brahe-cache-${{ runner.os }}
                     path: ~\\.cache\\brahe\\

@@ -34,6 +34,14 @@ print("Downloading Starlink TLEs from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_starlink]
 propagators = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+
+# Filter out any re-enerting spacecraft with < 350 km semi-major axis
+# This can sometimes cause numerical issues with the propagator for very low orbit
+# when eccentricity becomes negative.
+propagators = [
+    prop for prop in propagators if prop.semi_major_axis >= (bh.EARTH_RADIUS + 350.0e3)
+]
+
 # --8<-- [end:download_starlink]
 elapsed = time.time() - start_time
 print(

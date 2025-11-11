@@ -35,7 +35,7 @@ jobs:
           git config user.email github-actions[bot]@users.noreply.github.com
 
       - name: Download figures artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: doc-figures
           path: docs/figures/
@@ -65,7 +65,7 @@ jobs:
       - name: Download Brahe cache directory
         id: download-cache
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: brahe-cache
           path: ~/.cache/brahe/
@@ -78,7 +78,7 @@ jobs:
 
       - name: Download CHANGELOG
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: changelog
 

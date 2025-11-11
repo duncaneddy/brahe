@@ -57,7 +57,7 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v4
+                uses: actions/download-artifact@v6
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
@@ -110,7 +110,7 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v4
+                uses: actions/download-artifact@v6
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/

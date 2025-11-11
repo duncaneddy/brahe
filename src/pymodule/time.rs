@@ -491,7 +491,7 @@ impl PyEpoch {
             let arg = args.get_item(0)?;
 
             // Try string
-            if let Ok(s) = arg.downcast::<PyString>() {
+            if let Ok(s) = arg.cast::<PyString>() {
                 let datestr = s.to_str()?;
                 return match time::Epoch::from_string(datestr) {
                     Some(epoch) => Ok(PyEpoch { obj: epoch }),
@@ -502,7 +502,7 @@ impl PyEpoch {
             }
 
             // Try datetime
-            if let Ok(dt) = arg.downcast::<PyDateTime>() {
+            if let Ok(dt) = arg.cast::<PyDateTime>() {
                 let year = dt.get_year() as u32;
                 let month = dt.get_month();
                 let day = dt.get_day();
@@ -1036,7 +1036,7 @@ impl PyEpoch {
         // Import datetime.timezone module and get UTC timezone
         let datetime_mod = py.import("datetime")?;
         let timezone_utc = datetime_mod.getattr("timezone")?.getattr("utc")?;
-        let tzinfo = timezone_utc.downcast::<pyo3::types::PyTzInfo>()?;
+        let tzinfo = timezone_utc.cast::<pyo3::types::PyTzInfo>()?;
 
         // Create Python datetime object with UTC timezone
         PyDateTime::new(

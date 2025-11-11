@@ -177,7 +177,7 @@ jobs:
           mkdir -p dist
 
           # Copy and rename wheels to include "latest" instead of version
-          for wheel in dist-wheels/*.whl 2>/dev/null; do
+          for wheel in dist-wheels/*.whl; do
             if [ -f "$wheel" ]; then
               # Extract filename and replace version with "latest"
               filename=$(basename "$wheel")
@@ -188,7 +188,7 @@ jobs:
           done
 
           # Copy and rename sdist to include "latest" instead of version
-          for sdist in dist-sdist/*.tar.gz 2>/dev/null; do
+          for sdist in dist-sdist/*.tar.gz; do
             if [ -f "$sdist" ]; then
               filename=$(basename "$sdist")
               # Replace version pattern with "latest"

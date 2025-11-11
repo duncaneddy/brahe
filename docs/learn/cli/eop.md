@@ -167,7 +167,7 @@ brahe eop get-lod "2024-01-01T00:00:00Z"
 ## See Also
 
 - [Earth Orientation Data](../eop/what_is_eop_data.md) - Conceptual overview
-- [Reference Frames](../frame_transformations.md) - ECI/ECEF transformations
+- [Reference Frames](../frames/index.md) - ECI/ECEF transformations
 - [Transform CLI](transform.md) - Frame transformations (use EOP)
 - [Time CLI](time.md) - UT1 time system
 - [EOP API](../../library_api/eop/index.md) - Python EOP provider classes

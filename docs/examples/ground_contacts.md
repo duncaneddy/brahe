@@ -9,23 +9,23 @@ In this example we'll predict ground contacts between the NISAR radar satellite 
 First, we'll import the necessary libraries, initialize Earth orientation parameters, download the TLE for NISAR (NORAD ID 65053) from CelesTrak, and load the NASA Near Earth Network ground station network.
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:19:28"
+--8<-- "./examples/examples/ground_contacts.py:preamble"
 ```
 
 We download the NISAR TLE directly by NORAD ID and load all NASA NEN ground stations:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:40:41"
+--8<-- "./examples/examples/ground_contacts.py:download_nisar"
 ```
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:50:50"
+--8<-- "./examples/examples/ground_contacts.py:load_nen_stations"
 ```
 
 We then propagate NISAR for 3 orbital periods to prepare for ground track visualization:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:57:58"
+--8<-- "./examples/examples/ground_contacts.py:propagate_nisar"
 ```
 
 ## Ground Track Visualization
@@ -33,7 +33,7 @@ We then propagate NISAR for 3 orbital periods to prepare for ground track visual
 Next we'll visualize the ground track and communication cones for NISAR over a 3-orbit period. The communication cones show the coverage area of each ground station based on a 5° minimum elevation angle:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:66:91"
+--8<-- "./examples/examples/ground_contacts.py:visualize_orbit"
 ```
 
 The resulting plot shows NISAR's ground track in red and the NASA Near Earth Network stations with their communication cones in blue:
@@ -48,7 +48,7 @@ The resulting plot shows NISAR's ground track in red and the NASA Near Earth Net
 We'll compute the ground contacts between NISAR and the NASA Near Earth Network ground stations over a 7-day period using Brahe's access computation tools. We use an elevation constraint of 5° minimum elevation:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:98:110"
+--8<-- "./examples/examples/ground_contacts.py:compute_contacts"
 ```
 
 Below is the table of the first 20 contact windows. Click on any column header to sort:
@@ -64,13 +64,13 @@ Finally, we'll analyze the contact statistics, including the average daily conta
 We group the contact windows by station and compute the average daily contacts:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:164:190"
+--8<-- "./examples/examples/ground_contacts.py:analyze_contacts"
 ```
 
 Then we create two visualizations: a bar chart of average daily contacts per station, and a histogram of contact duration distribution:
 
 ``` python
---8<-- "./examples/examples/ground_contacts.py:188:251"
+--8<-- "./examples/examples/ground_contacts.py:visualize_contacts"
 ```
 
 The daily contacts bar chart shows which stations have the most frequent visibility to NISAR:
@@ -90,7 +90,7 @@ The duration histogram shows the distribution of contact lengths, with statistic
 ## Full Code Example
 
 ```python title="ground_contacts.py"
---8<-- "./examples/examples/ground_contacts.py:19:257"
+--8<-- "./examples/examples/ground_contacts.py:all"
 ```
 
 ## See Also

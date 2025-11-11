@@ -47,6 +47,14 @@ from brahe._brahe import (
     state_itrf_to_gcrf,
     state_eci_to_ecef,
     state_ecef_to_eci,
+    # EME2000 <> GCRF transformations
+    bias_eme2000,
+    rotation_gcrf_to_eme2000,
+    rotation_eme2000_to_gcrf,
+    position_gcrf_to_eme2000,
+    position_eme2000_to_gcrf,
+    state_gcrf_to_eme2000,
+    state_eme2000_to_gcrf,
 )
 
 __all__ = [
@@ -66,4 +74,12 @@ __all__ = [
     "state_itrf_to_gcrf",
     "state_eci_to_ecef",
     "state_ecef_to_eci",
+    # EME2000 <> GCRF transformations
+    "bias_eme2000",
+    "rotation_gcrf_to_eme2000",
+    "rotation_eme2000_to_gcrf",
+    "position_gcrf_to_eme2000",
+    "position_eme2000_to_gcrf",
+    "state_gcrf_to_eme2000",
+    "state_eme2000_to_gcrf",
 ]

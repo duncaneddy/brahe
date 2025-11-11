@@ -16,6 +16,8 @@ This example demonstrates how to:
 The example shows the complete workflow from constellation download to opportunity computation.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import csv
 import os
@@ -25,6 +27,7 @@ import brahe as bh
 import numpy as np
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Configuration for output files
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -36,9 +39,11 @@ os.makedirs(OUTDIR, exist_ok=True)
 print("Downloading ICEYE constellation TLEs from CelesTrak...")
 start_time = time.time()
 
+# --8<-- [start:ephemeris_download]
 # Get all active satellites and filter for ICEYE
 all_sats = bh.datasets.celestrak.get_tles_as_propagators("active", 60.0)
 iceye_sats = [sat for sat in all_sats if "ICEYE" in sat.get_name().upper()]
+# --8<-- [end:ephemeris_download]
 
 elapsed = time.time() - start_time
 print(f"Loaded {len(iceye_sats)} ICEYE satellites in {elapsed:.2f} seconds.")
@@ -62,6 +67,8 @@ if len(iceye_sats) > 5:
 # Propagate all satellites for one orbital period for visualization
 print("\nPropagating constellation for visualization...")
 start_time = time.time()
+
+# --8<-- [start:constellation_propagation]
 for sat in iceye_sats:
     orbital_period = bh.orbital_period(sat.semi_major_axis)
     sat.propagate_to(sat.epoch + orbital_period)
@@ -85,6 +92,7 @@ fig_3d = bh.plot_trajectory_3d(
     view_elevation=30.0,
     view_distance=2.0,
 )
+# --8<-- [end:constellation_propagation]
 elapsed = time.time() - start_time
 print(f"Created 3D visualization in {elapsed:.2f} seconds.")
 
@@ -93,12 +101,14 @@ print("\nResetting propagators for access computation...")
 for sat in iceye_sats:
     sat.reset()
 
+# --8<-- [start:target_definition]
 # Define San Francisco target location
 san_francisco = bh.PointLocation(
     lon=-122.4194,  # longitude in degrees
     lat=37.7749,  # latitude in degrees
     alt=0.0,  # altitude in meters
 ).with_name("San Francisco")
+# --8<-- [end:target_definition]
 
 print(f"\nTarget Location: {san_francisco.get_name()}")
 print(f"  Longitude: {san_francisco.lon:.4f}°")
@@ -114,6 +124,7 @@ print("  - Descending pass only")
 print("  - Right-looking geometry")
 print("  - Off-nadir angle: 35-45 degrees")
 
+# --8<-- [start:constraint_definition]
 constraint = bh.ConstraintAll(
     constraints=[
         bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING),
@@ -121,11 +132,13 @@ constraint = bh.ConstraintAll(
         bh.OffNadirConstraint(min_off_nadir_deg=35.0, max_off_nadir_deg=45.0),
     ]
 )
+# --8<-- [end:constraint_definition]
 
 # Compute imaging opportunities over 7-day period
 print("\nComputing 7-day imaging opportunities...")
 start_time = time.time()
 
+# --8<-- [start:opportunity_computation]
 epoch_start = iceye_sats[0].epoch
 epoch_end = epoch_start + 7 * 86400.0  # 7 days in seconds
 
@@ -137,6 +150,7 @@ for sat in iceye_sats:
 windows = bh.location_accesses(
     [san_francisco], iceye_sats, epoch_start, epoch_end, constraint
 )
+# --8<-- [end:opportunity_computation]
 elapsed = time.time() - start_time
 print(f"Computed {len(windows)} imaging opportunities in {elapsed:.2f} seconds.")
 
@@ -175,7 +189,9 @@ with open(csv_path, "w", newline="") as csvfile:
     )
     for window in windows[:10]:  # Only export first 10 for documentation
         duration_sec = window.duration
-        off_nadir = window.properties.off_nadir_max
+        off_nadir = (
+            window.properties.off_nadir_max - window.properties.off_nadir_min
+        ) / 2 + window.properties.off_nadir_min
         start_str = str(window.start).split(".")[0]  # Remove fractional seconds
         end_str = str(window.end).split(".")[0]
         writer.writerow(
@@ -196,6 +212,7 @@ print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
 print(f"  Average duration: {np.mean([w.duration for w in windows]):.1f} seconds")
 print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
+# --8<-- [end:all]
 
 # ============================================================================
 # Plot Output Section (for documentation generation)

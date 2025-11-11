@@ -12,7 +12,7 @@ This example demonstrates how to download Two-Line Element (TLE) data from the C
 Before starting, we need to import brahe and ensure that we have Earth orientation parameters initialized. We'll use `initialize_eop()`, which provides a [CachingEOPProvider](../library_api/eop/caching_provider.md) to deliver up-to-date Earth orientation parameters.
 
 ``` python
---8<-- "./examples/examples/visualizing_starlink.py:19:22"
+--8<-- "./examples/examples/visualizing_starlink.py:preamble"
 ```
 
 ## Download Starlink TLEs
@@ -20,7 +20,7 @@ Before starting, we need to import brahe and ensure that we have Earth orientati
 We'll use the [CelesTrak dataset](../library_api/datasets/celestrak.md) to fetch the latest TLE data for all Starlink satellites. The `get_tles_as_propagators` function downloads the data and creates SGP4 propagators in one step:
 
 ``` python
---8<-- "./examples/examples/visualizing_starlink.py:30:35"
+--8<-- "./examples/examples/visualizing_starlink.py:download_starlink"
 ```
 
 ## Inspect Satellite Data
@@ -28,7 +28,7 @@ We'll use the [CelesTrak dataset](../library_api/datasets/celestrak.md) to fetch
 Let's examine the properties of the first satellite to understand the orbital parameters:
 
 ``` python
---8<-- "./examples/examples/visualizing_starlink.py:38:43"
+--8<-- "./examples/examples/visualizing_starlink.py:inspect_data"
 ```
 
 ## Visualize in 3D
@@ -36,13 +36,13 @@ Let's examine the properties of the first satellite to understand the orbital pa
 We'll create an interactive 3D visualization of the entire Starlink constellation using Plotly. We'll use the Natural Earth 50m texture for a realistic Earth representation:
 
 ``` python
---8<-- "./examples/examples/visualizing_starlink.py:49:60"
+--8<-- "./examples/examples/visualizing_starlink.py:orbit_visualization"
 ```
 
 Finally, we'll add points for all satellites at the current epoch:
 
 ``` python
---8<-- "./examples/examples/visualizing_starlink.py:66:82"
+--8<-- "./examples/examples/visualizing_starlink.py:add_satellite_markers"
 ```
 
 
@@ -56,7 +56,7 @@ The resulting plot shows the complete Starlink constellation orbiting Earth. The
 ## Full Code Example
 
 ```python title="visualizing_starlink.py"
---8<-- "./examples/examples/visualizing_starlink.py:19:79"
+--8<-- "./examples/examples/visualizing_starlink.py:all"
 ```
 
 ---

@@ -162,6 +162,39 @@ pub trait StateProvider {
     /// in the ECEF frame.
     fn state_ecef(&self, epoch: Epoch) -> Vector6<f64>;
 
+    /// Returns the state at the given epoch in Geocentric Celestial Reference Frame (GCRF)
+    /// Cartesian coordinates.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// A 6-element vector containing position (m) and velocity (m/s) components
+    /// in the GCRF frame.
+    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64>;
+
+    /// Returns the state at the given epoch in International Terrestrial Reference Frame (ITRF)
+    /// Cartesian coordinates.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// A 6-element vector containing position (m) and velocity (m/s) components
+    /// in the ITRF frame.
+    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64>;
+
+    /// Returns the state at the given epoch in Earth Mean Equator and Equinox of J2000.0 (EME2000)
+    /// Cartesian coordinates.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// A 6-element vector containing position (m) and velocity (m/s) components
+    /// in the EME2000 frame.
+    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64>;
+
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
     /// # Arguments
@@ -206,6 +239,45 @@ pub trait StateProvider {
     /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
     fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
         epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs in Geocentric Celestial Reference Frame (GCRF)
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
+    ///   in the GCRF frame.
+    fn states_gcrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_gcrf(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs in International Terrestrial Reference Frame (ITRF)
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
+    ///   in the ITRF frame.
+    fn states_itrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs.iter().map(|&epoch| self.state_itrf(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs in Earth Mean Equator and Equinox of J2000.0 (EME2000)
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
+    ///   in the EME2000 frame.
+    fn states_eme2000(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_eme2000(epoch))
+            .collect()
     }
 
     /// Returns states at multiple epochs as osculating orbital elements.

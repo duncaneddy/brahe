@@ -34,7 +34,7 @@ use crate::attitude::RotationMatrix;
 use crate::constants::RADIANS;
 use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
 use crate::coordinates::state_cartesian_to_osculating;
-use crate::frames::{polar_motion, state_ecef_to_eci};
+use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
 };
@@ -109,11 +109,17 @@ fn convert_state_from_spg4_frame(
     match representation {
         OrbitRepresentation::Cartesian => match frame {
             OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
+            OrbitFrame::GCRF => state_ecef_to_eci(epoch, ecef_state),
+            OrbitFrame::EME2000 => {
+                let gcrf_state = state_ecef_to_eci(epoch, ecef_state);
+                state_gcrf_to_eme2000(gcrf_state)
+            }
             OrbitFrame::ECEF => ecef_state,
+            OrbitFrame::ITRF => ecef_state,
         },
         OrbitRepresentation::Keplerian => {
-            if frame != OrbitFrame::ECI {
-                panic!("Keplerian elements must be in ECI frame");
+            if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF {
+                panic!("Keplerian elements must be in ECI or GCRF frame");
             }
 
             if let Some(format) = angle_format {
@@ -762,19 +768,34 @@ impl StateProvider for SGPPropagator {
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        self.state_itrf(epoch)
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
         let state_pef = self.state_pef(epoch);
 
         // Step 2: PEF to ECEF
-
         #[allow(non_snake_case)]
         let PM = polar_motion(epoch);
 
-        let r_ecef = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
-        let v_ecef = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
+        let r_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
+        let v_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
 
         Vector6::new(
-            r_ecef[0], r_ecef[1], r_ecef[2], v_ecef[0], v_ecef[1], v_ecef[2],
+            r_itrf[0], r_itrf[1], r_itrf[2], v_itrf[0], v_itrf[1], v_itrf[2],
         )
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+        // Get ECEF state and convert to GCRF/ECI
+        let state_itrf = self.state_itrf(epoch);
+        state_itrf_to_gcrf(epoch, state_itrf)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+        // Get GCRF state and convert to EME2000
+        let gcrf_state = self.state_gcrf(epoch);
+        state_gcrf_to_eme2000(gcrf_state)
     }
 
     fn state_as_osculating_elements(
@@ -1531,7 +1552,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_ecef_values() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -1551,7 +1572,27 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    fn test_sgppropagator_state_itrf_values() {
+        setup_global_test_eop_original_brahe();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // State in ECEF/ITRF frame
+        let state = prop.state_itrf(epoch);
+
+        assert_eq!(state.len(), 6);
+        // ECEF/ITRF frame
+        assert_abs_diff_eq!(state[0], -3953198.5496517573, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[1], 1427508.1713723878, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[2], 5243621.714247745, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[3], -3414.313706718372, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[4], -7222.549343535009, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[5], -583.7798954042405, epsilon = 1.5e-1);
+    }
+
+    #[test]
+    #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eci_values() {
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
@@ -1568,5 +1609,46 @@ mod tests {
         assert_abs_diff_eq!(state[3], 2704.171077071122, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[4], 7840.6666110244705, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[5], -586.3906587951877, epsilon = 1.5e-1);
+    }
+
+    #[test]
+    #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    fn test_sgppropagator_state_gcrf_values() {
+        setup_global_test_eop_original_brahe();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // State in ECI/GCRF frame
+        let state = prop.state_gcrf(epoch);
+
+        assert_eq!(state.len(), 6);
+        // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
+        assert_abs_diff_eq!(state[0], 4086521.040536244, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[1], -1001422.0787863219, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[2], 5240097.960898061, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[3], 2704.171077071122, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[4], 7840.6666110244705, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[5], -586.3906587951877, epsilon = 1.5e-1);
+    }
+
+    #[test]
+    #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
+    fn test_sgppropagator_state_eme2000_values() {
+        setup_global_test_eop_original_brahe();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // State in EME2000 frame
+        let state = prop.state_eme2000(epoch);
+
+        assert_eq!(state.len(), 6);
+        // EME2000 frame (GCRF with bias transformation applied)
+        // Expected values computed from GCRF state with bias matrix
+        assert_abs_diff_eq!(state[0], 4086547.890843119, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[1], -1001422.5866752749, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[2], 5240072.135733086, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[3], 2704.1707451936, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[4], 7840.6666131931, epsilon = 1.5e-1);
+        assert_abs_diff_eq!(state[5], -586.3938863063, epsilon = 1.5e-1);
     }
 }

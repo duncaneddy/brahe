@@ -39,10 +39,16 @@ pub enum TrajectoryEvictionPolicy {
 /// Enumeration of orbit reference frames
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitFrame {
-    /// Earth-Centered Inertial
+    /// Earth-Centered Inertial (legacy, ambiguous - prefer GCRF or EME2000)
     ECI,
-    /// Earth-Centered Earth-Fixed
+    /// Earth-Centered Earth-Fixed (legacy, ambiguous - prefer ITRF)
     ECEF,
+    /// Geocentric Celestial Reference Frame (IAU 2006/2000A)
+    GCRF,
+    /// International Terrestrial Reference Frame
+    ITRF,
+    /// Earth Mean Equator and Equinox of J2000.0
+    EME2000,
 }
 
 impl fmt::Display for OrbitFrame {
@@ -50,6 +56,9 @@ impl fmt::Display for OrbitFrame {
         match self {
             OrbitFrame::ECI => write!(f, "ECI"),
             OrbitFrame::ECEF => write!(f, "ECEF"),
+            OrbitFrame::GCRF => write!(f, "GCRF"),
+            OrbitFrame::ITRF => write!(f, "ITRF"),
+            OrbitFrame::EME2000 => write!(f, "EME2000"),
         }
     }
 }
@@ -59,6 +68,11 @@ impl fmt::Debug for OrbitFrame {
         match self {
             OrbitFrame::ECI => write!(f, "OrbitFrame(Earth-Centered Inertial)"),
             OrbitFrame::ECEF => write!(f, "OrbitFrame(Earth-Centered Earth-Fixed)"),
+            OrbitFrame::GCRF => write!(f, "OrbitFrame(Geocentric Celestial Reference Frame)"),
+            OrbitFrame::ITRF => write!(f, "OrbitFrame(International Terrestrial Reference Frame)"),
+            OrbitFrame::EME2000 => {
+                write!(f, "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)")
+            }
         }
     }
 }
@@ -548,6 +562,36 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// * `Ok(Self)` - New trajectory in ECEF frame
     /// * `Err(BraheError)` - If conversion fails
     fn to_ecef(&self) -> Self
+    where
+        Self: Sized;
+
+    /// Convert to Geocentric Celestial Reference Frame (GCRF).
+    ///
+    /// Returns a new trajectory in the GCRF frame.
+    ///
+    /// # Returns
+    /// * `Self` - New trajectory in GCRF frame
+    fn to_gcrf(&self) -> Self
+    where
+        Self: Sized;
+
+    /// Convert to Earth Mean Equator and Equinox of J2000.0 (EME2000) frame.
+    ///
+    /// Returns a new trajectory in the EME2000 frame.
+    ///
+    /// # Returns
+    /// * `Self` - New trajectory in EME2000 frame
+    fn to_eme2000(&self) -> Self
+    where
+        Self: Sized;
+
+    /// Convert to International Terrestrial Reference Frame (ITRF).
+    ///
+    /// Returns a new trajectory in the ITRF frame.
+    ///
+    /// # Returns
+    /// * `Self` - New trajectory in ITRF frame
+    fn to_itrf(&self) -> Self
     where
         Self: Sized;
 

@@ -1,16 +1,6 @@
 # SGP Propagator
 
-The SGP4/SDP4 propagator for satellite orbit propagation using Two-Line Element (TLE) data.
-
-::: brahe.SGPPropagator
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      heading_level: 2
-
-## Overview
-
-The SGP (Simplified General Perturbations) propagator implements the SGP4/SDP4 models for propagating satellites using TLE orbital data. This is the standard model used for tracking objects in Earth orbit and is maintained by NORAD/Space Force.
+The SGP4/SDP4 propagator for satellite orbit propagation using Two-Line Element (TLE) data. The SGP (Simplified General Perturbations) propagator implements the SGP4/SDP4 models for propagating satellites using TLE orbital data. This is the standard model used for tracking objects in Earth orbit and is maintained by NORAD/Space Force.
 
 **Key Features**:
 - Industry-standard orbit propagation
@@ -45,6 +35,15 @@ times = np.linspace(0, 86400, 100)  # 1 day in 100 steps
 epochs = [epoch + dt for dt in times]
 states = prop.propagate_multiple(epochs)  # Returns array of states
 ```
+
+## Class Reference
+
+::: brahe.SGPPropagator
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 2
+
 
 ---
 

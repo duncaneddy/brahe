@@ -58,5 +58,5 @@ docs/figures/*
 # Pyting Annotations for docstrings
 brahe/_brahe.pyi
 
-# JOSS paper
-joss/jats/*
+# JOSS build byproducts
+joss/jats/

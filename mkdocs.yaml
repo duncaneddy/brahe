@@ -28,6 +28,19 @@ plugins:
     - search
     - table-reader
     # - awesome-nav # Need to spend more time to configure this
+    - minify:
+        minify_html: true
+        minify_js: true
+        minify_css: true
+        htmlmin_opts:
+            remove_comments: true
+        cache_safe: true
+        js_files:
+            - javascripts/katex.js
+            - javascripts/tablesort.js
+        css_files:
+            - stylesheets/extra.css
+            - stylesheets/neoteroi-mkdocs.css
     -   mkdocstrings:
             handlers:
                 python:
@@ -155,7 +168,11 @@ nav:
                 - learn/coordinates/geocentric_transformations.md
                 - learn/coordinates/geodetic_transformations.md
                 - learn/coordinates/topocentric_transformations.md
-            - Reference Frame Transformations: learn/frame_transformations.md
+            - Reference Frame Transformations:
+                - learn/frames/index.md
+                - learn/frames/eci_ecef.md
+                - learn/frames/gcrf_itrf.md
+                - learn/frames/eme2000_gcrf.md
             - Orbits:
                 - learn/orbits/index.md
                 - Anomaly Conversions: learn/orbits/anomalies.md
@@ -239,7 +256,11 @@ nav:
                 - Geodetic & Geocentric: library_api/coordinates/geodetic.md
                 - Topocentric: library_api/coordinates/topocentric.md
                 - Enumerations: library_api/coordinates/enums.md
-            - Frames: library_api/frames.md
+            - Frames:
+                - library_api/frames/index.md
+                - ECI ↔ ECEF: library_api/frames/eci_ecef.md
+                - GCRF ↔ ITRF: library_api/frames/gcrf_itrf.md
+                - EME2000 ↔ GCRF: library_api/frames/eme2000_gcrf.md
             - Orbits:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md

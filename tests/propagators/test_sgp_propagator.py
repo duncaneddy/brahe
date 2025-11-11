@@ -347,6 +347,57 @@ class TestSGPPropagatorStateProviderTrait:
         diff_norm = np.linalg.norm(state_ecef - state_eci)
         assert diff_norm > 0.0
 
+    def test_sgppropagator_analyticpropagator_state_gcrf(self, iss_tle):
+        """Test state_gcrf method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        state_gcrf = prop.state_gcrf(epoch)
+
+        assert len(state_gcrf) == 6
+        assert all(np.isfinite(state_gcrf))
+
+        # GCRF state should be similar to ECI (both inertial frames)
+        state_eci = prop.state_eci(epoch)
+        # States should be close but not identical due to frame definition differences
+        diff_norm = np.linalg.norm(state_gcrf - state_eci)
+        assert diff_norm < 100.0  # Within 100m (reasonable for frame differences)
+
+    def test_sgppropagator_analyticpropagator_state_itrf(self, iss_tle):
+        """Test state_itrf method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        state_itrf = prop.state_itrf(epoch)
+
+        assert len(state_itrf) == 6
+        assert all(np.isfinite(state_itrf))
+
+        # ITRF state should be different from GCRF due to frame rotation
+        state_gcrf = prop.state_gcrf(epoch)
+        diff_norm = np.linalg.norm(state_itrf - state_gcrf)
+        assert diff_norm > 0.0
+
+        # ITRF should be similar to ECEF (both Earth-fixed frames)
+        state_ecef = prop.state_ecef(epoch)
+        diff_norm = np.linalg.norm(state_itrf - state_ecef)
+        assert diff_norm < 100.0  # Within 100m (reasonable for frame differences)
+
+    def test_sgppropagator_analyticpropagator_state_eme2000(self, iss_tle):
+        """Test state_eme2000 method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        state_eme2000 = prop.state_eme2000(epoch)
+
+        assert len(state_eme2000) == 6
+        assert all(np.isfinite(state_eme2000))
+
+        # EME2000 state should be very similar to GCRF (constant bias transformation)
+        state_gcrf = prop.state_gcrf(epoch)
+        diff_norm = np.linalg.norm(state_eme2000 - state_gcrf)
+        assert diff_norm < 100.0  # Within 100m (should be small bias difference)
+
     def test_sgppropagator_analyticpropagator_states(self, iss_tle):
         """Test states method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)

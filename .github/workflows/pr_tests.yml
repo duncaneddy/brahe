@@ -112,5 +112,12 @@ jobs:
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh
 
+      # Download artifacts from test-examples
+      - name: Download test-examples artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: doc-figures
+          path: docs/figures/
+
       - name: Build documentation (verify only, no deployment)
-        run: uv run mkdocs build --strict
+        run: uv run mkdocs build

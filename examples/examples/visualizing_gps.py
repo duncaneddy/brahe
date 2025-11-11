@@ -2,6 +2,7 @@
 # /// script
 # dependencies = ["brahe", "plotly"]
 # FLAGS = ["CI-ONLY"]
+# TIMEOUT = 300
 # ///
 
 """
@@ -16,10 +17,13 @@ This example demonstrates how to:
 The example shows the complete workflow from data download to visualization.
 """
 
+# --8<-- [start:all]
+# --8<-- [start:preamble]
 import time
 import brahe as bh
 
 bh.initialize_eop()
+# --8<-- [end:preamble]
 
 # Download TLE data for all GPS satellites from CelesTrak
 # The get_tles_as_propagators function:
@@ -28,23 +32,30 @@ bh.initialize_eop()
 #   - Sets default propagation step size (60 seconds)
 print("Downloading GPS TLEs from CelesTrak...")
 start_time = time.time()
+# --8<-- [start:download_gps]
 propagators = bh.datasets.celestrak.get_tles_as_propagators("gps-ops", 60.0)
+# --8<-- [end:download_gps]
 elapsed = time.time() - start_time
 print(
     f"Initialized propagators for {len(propagators)} GPS satellites in {elapsed:.2f} seconds."
 )
 
 ts = time.time()
+# --8<-- [start:propagate_gps]
 # Propagate each satellite one orbit
 for prop in propagators:
+    # --8<-- [start:compute_orbital_period]
     orbital_period = bh.orbital_period(prop.semi_major_axis)
+    # --8<-- [end:compute_orbital_period]
     prop.propagate_to(prop.epoch + orbital_period)
+# --8<-- [end:propagate_gps]
 te = time.time() - ts
 print(f"Propagated all satellites to one orbit in {te:.2f} seconds.")
 
 # Create interactive 3D plot with Earth texture
 print("\nCreating 3D visualization of satellites...")
 ts = time.time()
+# --8<-- [start:orbit_visualization]
 fig = bh.plot_trajectory_3d(
     [
         {
@@ -63,8 +74,10 @@ fig = bh.plot_trajectory_3d(
     view_elevation=30.0,
     view_distance=2.0,
 )
+# --8<-- [end:orbit_visualization]
 te = time.time() - ts
 print(f"Created base 3D plot in {te:.2f} seconds.")
+# --8<-- [end:all]
 
 # ============================================================================
 # Plot Output Section (for documentation generation)

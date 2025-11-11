@@ -276,4 +276,4 @@ print(f"Extrapolation: {bh.get_global_eop_extrapolation()}")
 
 - [FileEOPProvider](file_provider.md)
 - [StaticEOPProvider](static_provider.md)
-- [Frames](../frames.md) - Frame transformations that use EOP
+- [Frames](../frames/index.md) - Frame transformations that use EOP

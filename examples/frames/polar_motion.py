@@ -49,10 +49,10 @@ print("Satellite position in TIRS:")
 print(f"  [{pos_tirs[0]:.3f}, {pos_tirs[1]:.3f}, {pos_tirs[2]:.3f}] m\n")
 # [757159.942, 1725870.003, 6564671.107] m
 
-# Apply polar motion to get ITRF (ECEF)
+# Apply polar motion to get ITRF
 pos_itrf = R_pm @ pos_tirs
 
-print("Satellite position in ITRF (ECEF):")
+print("Satellite position in ITRF:")
 print(f"  [{pos_itrf[0]:.3f}, {pos_itrf[1]:.3f}, {pos_itrf[2]:.3f}] m")
 # [757164.267, 1725863.563, 6564672.302] m
 
@@ -63,11 +63,11 @@ print("Note: Polar motion effects are typically centimeters to meters")
 # Position change magnitude: 7.849 m
 
 # Verify against full transformation
-pos_ecef_direct = bh.position_eci_to_ecef(epc, pos_gcrf)
-print("\nVerification using position_eci_to_ecef:")
+pos_itrf_direct = bh.position_gcrf_to_itrf(epc, pos_gcrf)
+print("\nVerification using position_gcrf_to_itrf:")
 print(
-    f"  [{pos_ecef_direct[0]:.3f}, {pos_ecef_direct[1]:.3f}, {pos_ecef_direct[2]:.3f}] m"
+    f"  [{pos_itrf_direct[0]:.3f}, {pos_itrf_direct[1]:.3f}, {pos_itrf_direct[2]:.3f}] m"
 )
-print(f"  Max difference: {np.max(np.abs(pos_itrf - pos_ecef_direct)):.2e} m")
+print(f"  Max difference: {np.max(np.abs(pos_itrf - pos_itrf_direct)):.2e} m")
 # [757164.267, 1725863.563, 6564672.302] m
 # Max difference: 1.16e-10 m

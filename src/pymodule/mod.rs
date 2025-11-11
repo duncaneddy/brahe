@@ -94,7 +94,7 @@ fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> P
 
     // Downcast to PyArray<f64, Ix1>
     let pyarray = arr_f64
-        .downcast::<PyArray<f64, Ix1>>()
+        .cast::<PyArray<f64, Ix1>>()
         .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
 
     // Convert to vector
@@ -177,7 +177,7 @@ fn pyany_to_f64_array2(
     })?;
 
     // Downcast to PyArray<f64, Ix2>
-    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+    let pyarray = arr_f64.cast::<PyArray<f64, Ix2>>().map_err(|_| {
         exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
     })?;
 
@@ -276,7 +276,7 @@ fn pyany_to_svector<const N: usize>(arr: &Bound<'_, PyAny>) -> PyResult<na::SVec
 
     // Downcast to PyArray<f64, Ix1>
     let pyarray = arr_f64
-        .downcast::<PyArray<f64, Ix1>>()
+        .cast::<PyArray<f64, Ix1>>()
         .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
 
     // Convert to vector
@@ -372,7 +372,7 @@ fn pyany_to_smatrix<const R: usize, const C: usize>(
     })?;
 
     // Downcast to PyArray<f64, Ix2>
-    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+    let pyarray = arr_f64.cast::<PyArray<f64, Ix2>>().map_err(|_| {
         exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
     })?;
 

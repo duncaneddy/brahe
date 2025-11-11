@@ -1921,7 +1921,7 @@ fn py_par_propagate_to(
         ));
     }
 
-    let prop_list = propagators.downcast::<PyList>()?;
+    let prop_list = propagators.cast::<PyList>()?;
     if prop_list.is_empty() {
         return Ok(()); // No propagators to process
     }
@@ -1934,7 +1934,7 @@ fn py_par_propagate_to(
         let mut props: Vec<propagators::KeplerianPropagator> = Vec::new();
 
         for item in prop_list.iter() {
-            let py_prop = item.downcast::<PyKeplerianPropagator>()?;
+            let py_prop = item.cast::<PyKeplerianPropagator>()?;
             props.push(py_prop.borrow().propagator.clone());
         }
 
@@ -1943,7 +1943,7 @@ fn py_par_propagate_to(
 
         // Update Python objects with new state
         for (i, item) in prop_list.iter().enumerate() {
-            let mut py_prop = item.downcast::<PyKeplerianPropagator>()?.borrow_mut();
+            let mut py_prop = item.cast::<PyKeplerianPropagator>()?.borrow_mut();
             py_prop.propagator = props[i].clone();
         }
 
@@ -1953,7 +1953,7 @@ fn py_par_propagate_to(
         let mut props: Vec<propagators::SGPPropagator> = Vec::new();
 
         for item in prop_list.iter() {
-            let py_prop = item.downcast::<PySGPPropagator>()?;
+            let py_prop = item.cast::<PySGPPropagator>()?;
             props.push(py_prop.borrow().propagator.clone());
         }
 
@@ -1962,7 +1962,7 @@ fn py_par_propagate_to(
 
         // Update Python objects with new state
         for (i, item) in prop_list.iter().enumerate() {
-            let mut py_prop = item.downcast::<PySGPPropagator>()?.borrow_mut();
+            let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
             py_prop.propagator = props[i].clone();
         }
 

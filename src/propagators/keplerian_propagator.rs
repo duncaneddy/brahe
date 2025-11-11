@@ -1194,6 +1194,47 @@ mod tests {
     }
 
     #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_gcrf() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let state = propagator.state_gcrf(epoch + orbital_period(elements[0]));
+
+        // Convert back into osculating elements (GCRF is inertial, direct conversion)
+        let computed_elements = state_cartesian_to_osculating(state, DEGREES);
+
+        // Confirm equality within small tolerance
+        for i in 0..6 {
+            assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_state_eme2000() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let state = propagator.state_eme2000(epoch + orbital_period(elements[0]));
+
+        // Convert back into osculating elements via GCRF
+        let gcrf_state = state_eme2000_to_gcrf(state);
+        let computed_elements = state_cartesian_to_osculating(gcrf_state, DEGREES);
+
+        // Confirm equality within small tolerance
+        for i in 0..6 {
+            assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
     fn test_keplerianpropagator_analyticpropagator_state_as_osculating_elements() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();

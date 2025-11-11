@@ -301,6 +301,19 @@ impl PySGPPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Compute state at a specific epoch in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_itrf(epoch.obj);
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
     /// Compute states at multiple epochs.
     ///
     /// Args:
@@ -1530,6 +1543,19 @@ impl PyKeplerianPropagator {
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
         let state = self.propagator.state_eme2000(epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Compute state at a specific epoch in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.state_itrf(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 

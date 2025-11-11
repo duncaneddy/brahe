@@ -18,6 +18,8 @@ from brahe import (
     state_cartesian_to_osculating,
     state_eci_to_ecef,
     state_ecef_to_eci,
+    state_itrf_to_gcrf,
+    state_eme2000_to_gcrf,
     PanicException,
 )
 
@@ -257,8 +259,10 @@ def test_keplerianpropagator_orbitpropagator_step_by():
     new_state = propagator.current_state()
     for i in range(5):
         assert abs(new_state[i] - elements[i]) < 1e-6
-    # Mean anomaly should have changed
+
+    # Mean anomaly should have advanced by mean motion * 120s
     assert new_state[5] != elements[5]
+    assert new_state[5] == elements[5] + (120.0 / orbital_period(elements[0])) * 360.0
 
 
 def test_keplerian_orbitpropagator_step_past():
@@ -646,6 +650,80 @@ def test_keplerianpropagator_analyticpropagator_state_ecef():
     eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state)
     computed_elements = state_cartesian_to_osculating(
         eci_state, angle_format=AngleFormat.DEGREES
+    )
+
+    # Confirm equality within small tolerance
+    for i in range(6):
+        assert abs(computed_elements[i] - elements[i]) < 1e-6
+
+
+def test_keplerianpropagator_analyticpropagator_state_gcrf():
+    """Test state_gcrf() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    state = propagator.state_gcrf(epoch + orbital_period(elements[0]))
+
+    # Convert back into osculating elements (GCRF is inertial, direct conversion)
+    computed_elements = state_cartesian_to_osculating(
+        state, angle_format=AngleFormat.DEGREES
+    )
+
+    # Confirm equality within small tolerance
+    for i in range(6):
+        assert abs(computed_elements[i] - elements[i]) < 1e-6
+
+
+def test_keplerianpropagator_analyticpropagator_state_itrf():
+    """Test state_itrf() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    state = propagator.state_itrf(epoch + orbital_period(elements[0]))
+
+    # Convert back into osculating elements via GCRF
+    gcrf_state = state_itrf_to_gcrf(epoch + orbital_period(elements[0]), state)
+    computed_elements = state_cartesian_to_osculating(
+        gcrf_state, angle_format=AngleFormat.DEGREES
+    )
+
+    # Confirm equality within small tolerance
+    for i in range(6):
+        assert abs(computed_elements[i] - elements[i]) < 1e-6
+
+
+def test_keplerianpropagator_analyticpropagator_state_eme2000():
+    """Test state_eme2000() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    state = propagator.state_eme2000(epoch + orbital_period(elements[0]))
+
+    # Convert back into osculating elements via GCRF
+    gcrf_state = state_eme2000_to_gcrf(state)
+    computed_elements = state_cartesian_to_osculating(
+        gcrf_state, angle_format=AngleFormat.DEGREES
     )
 
     # Confirm equality within small tolerance

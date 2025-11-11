@@ -1402,7 +1402,6 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn epoch_at_idx(&self, index: usize) -> PyResult<PyEpoch> {
-        use crate::traits::Trajectory;
         match self.trajectory.epoch_at_idx(index) {
             Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
@@ -1432,7 +1431,6 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn state_at_idx<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::traits::Trajectory;
         match self.trajectory.state_at_idx(index) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
@@ -1463,7 +1461,6 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -1492,7 +1489,6 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_eci(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -1521,8 +1517,91 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_ecef(&self.trajectory, epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get state in GCRF Cartesian frame at specified epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time for state query
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector in GCRF Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Create ITRF trajectory
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+    ///     state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
+    ///     traj.add(epc, state_itrf)
+    ///
+    ///     # Get GCRF state (automatically converted from ITRF)
+    ///     state_gcrf = traj.state_gcrf(epc)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = StateProvider::state_gcrf(&self.trajectory, epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get state in ITRF Cartesian frame at specified epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time for state query
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector in ITRF Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Create GCRF trajectory
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+    ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     traj.add(epc, state_gcrf)
+    ///
+    ///     # Get ITRF state (automatically converted from GCRF)
+    ///     state_itrf = traj.state_itrf(epc)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = StateProvider::state_itrf(&self.trajectory, epoch.obj);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get state in EME2000 Cartesian frame at specified epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time for state query
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector in EME2000 Cartesian [x, y, z, vx, vy, vz] (meters, m/s)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Create GCRF trajectory
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
+    ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     traj.add(epc, state_gcrf)
+    ///
+    ///     # Get EME2000 state (automatically converted from GCRF)
+    ///     state_eme2000 = traj.state_eme2000(epc)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = StateProvider::state_eme2000(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1558,7 +1637,6 @@ impl PyOrbitalTrajectory {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> Bound<'a, PyArray<f64, Ix1>> {
-        use crate::propagators::traits::StateProvider;
         let state = StateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value);
         state.as_slice().to_pyarray(py).to_owned()
     }
@@ -2176,7 +2254,6 @@ impl PyTrajectory {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn state_at_idx<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::traits::Trajectory;
         match self.trajectory.state_at_idx(index) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
@@ -2204,7 +2281,6 @@ impl PyTrajectory {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn epoch_at_idx(&self, index: usize) -> PyResult<PyEpoch> {
-        use crate::traits::Trajectory;
         match self.trajectory.epoch_at_idx(index) {
             Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
@@ -3034,7 +3110,6 @@ impl PySTrajectory6 {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn state_at_idx<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::traits::Trajectory;
         match self.trajectory.state_at_idx(index) {
             Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
@@ -3062,7 +3137,6 @@ impl PySTrajectory6 {
     ///     ```
     #[pyo3(text_signature = "(index)")]
     pub fn epoch_at_idx(&self, index: usize) -> PyResult<PyEpoch> {
-        use crate::traits::Trajectory;
         match self.trajectory.epoch_at_idx(index) {
             Ok(epoch) => Ok(PyEpoch { obj: epoch }),
             Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),

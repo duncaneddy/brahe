@@ -955,14 +955,15 @@ impl OrbitalTrajectory for OrbitTrajectory {
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
-                // Just need to convert to Cartesian below
-                for (_e, s) in self.into_iter() {
+                // Keplerian to Cartesian (in GCRF/ECI), then GCRF to ITRF
+                for (e, s) in self.into_iter() {
                     let state_cartesian = state_osculating_to_cartesian(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
                     );
-                    states_converted.push(state_cartesian);
+                    let state_itrf = state_gcrf_to_itrf(e, state_cartesian);
+                    states_converted.push(state_itrf);
                 }
                 states_converted
             }
@@ -3157,6 +3158,256 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_orbittrajectory_orbitaltrajectory_to_gcrf() {
+        setup_global_test_eop();
+        let tol = 1e-6;
+
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state_base = state_osculating_to_cartesian(
+            Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
+            DEGREES,
+        );
+
+        // No transformation needed if already in GCRF
+        let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        traj.add(epoch, state_base);
+        let gcrf_traj = traj.to_gcrf();
+        assert_eq!(gcrf_traj.frame, OrbitFrame::GCRF);
+        assert_eq!(gcrf_traj.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(gcrf_traj.angle_format, None);
+        assert_eq!(gcrf_traj.len(), 1);
+        let (epoch_out, state_out) = gcrf_traj.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert ECI to GCRF (should be same since ECI is treated as GCRF)
+        let mut eci_traj =
+            OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        eci_traj.add(epoch, state_base);
+        let gcrf_from_eci = eci_traj.to_gcrf();
+        assert_eq!(gcrf_from_eci.frame, OrbitFrame::GCRF);
+        assert_eq!(gcrf_from_eci.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(gcrf_from_eci.angle_format, None);
+        assert_eq!(gcrf_from_eci.len(), 1);
+        let (epoch_out, state_out) = gcrf_from_eci.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert EME2000 to GCRF
+        let mut eme2000_traj =
+            OrbitTrajectory::new(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+        let eme2000_state = state_gcrf_to_eme2000(state_base);
+        eme2000_traj.add(epoch, eme2000_state);
+        let gcrf_from_eme2000 = eme2000_traj.to_gcrf();
+        assert_eq!(gcrf_from_eme2000.frame, OrbitFrame::GCRF);
+        assert_eq!(
+            gcrf_from_eme2000.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(gcrf_from_eme2000.angle_format, None);
+        assert_eq!(gcrf_from_eme2000.len(), 1);
+        let (epoch_out, state_out) = gcrf_from_eme2000.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert ITRF to GCRF
+        let mut itrf_traj =
+            OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+        let itrf_state = state_gcrf_to_itrf(epoch, state_base);
+        itrf_traj.add(epoch, itrf_state);
+        let gcrf_from_itrf = itrf_traj.to_gcrf();
+        assert_eq!(gcrf_from_itrf.frame, OrbitFrame::GCRF);
+        assert_eq!(
+            gcrf_from_itrf.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(gcrf_from_itrf.angle_format, None);
+        assert_eq!(gcrf_from_itrf.len(), 1);
+        let (epoch_out, state_out) = gcrf_from_itrf.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert Keplerian to GCRF - Radians
+        let mut kep_traj = OrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let kep_state_rad = state_cartesian_to_osculating(state_base, RADIANS);
+        kep_traj.add(epoch, kep_state_rad);
+        let gcrf_from_kep_rad = kep_traj.to_gcrf();
+        assert_eq!(gcrf_from_kep_rad.frame, OrbitFrame::GCRF);
+        assert_eq!(
+            gcrf_from_kep_rad.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(gcrf_from_kep_rad.angle_format, None);
+        assert_eq!(gcrf_from_kep_rad.len(), 1);
+        let (epoch_out, state_out) = gcrf_from_kep_rad.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert Keplerian to GCRF - Degrees
+        let mut kep_traj_deg = OrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        let kep_state_deg = state_cartesian_to_osculating(state_base, DEGREES);
+        kep_traj_deg.add(epoch, kep_state_deg);
+        let gcrf_from_kep_deg = kep_traj_deg.to_gcrf();
+        assert_eq!(gcrf_from_kep_deg.frame, OrbitFrame::GCRF);
+        assert_eq!(
+            gcrf_from_kep_deg.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(gcrf_from_kep_deg.angle_format, None);
+        assert_eq!(gcrf_from_kep_deg.len(), 1);
+        let (epoch_out, state_out) = gcrf_from_kep_deg.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_orbitaltrajectory_to_eme2000() {
+        setup_global_test_eop();
+        let tol = 1e-6;
+
+        let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state_base = state_gcrf_to_eme2000(state_osculating_to_cartesian(
+            Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
+            DEGREES,
+        ));
+
+        // No transformation needed if already in EME2000
+        let mut traj =
+            OrbitTrajectory::new(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+        traj.add(epoch, state_base);
+        let eme2000_traj = traj.to_eme2000();
+        assert_eq!(eme2000_traj.frame, OrbitFrame::EME2000);
+        assert_eq!(eme2000_traj.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(eme2000_traj.angle_format, None);
+        assert_eq!(eme2000_traj.len(), 1);
+        let (epoch_out, state_out) = eme2000_traj.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert GCRF to EME2000
+        let mut gcrf_traj =
+            OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let gcrf_state = state_eme2000_to_gcrf(state_base);
+        gcrf_traj.add(epoch, gcrf_state);
+        let eme2000_from_gcrf = gcrf_traj.to_eme2000();
+        assert_eq!(eme2000_from_gcrf.frame, OrbitFrame::EME2000);
+        assert_eq!(
+            eme2000_from_gcrf.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(eme2000_from_gcrf.angle_format, None);
+        assert_eq!(eme2000_from_gcrf.len(), 1);
+        let (epoch_out, state_out) = eme2000_from_gcrf.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert ECI to EME2000
+        let mut eci_traj =
+            OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        eci_traj.add(epoch, gcrf_state);
+        let eme2000_from_eci = eci_traj.to_eme2000();
+        assert_eq!(eme2000_from_eci.frame, OrbitFrame::EME2000);
+        assert_eq!(
+            eme2000_from_eci.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(eme2000_from_eci.angle_format, None);
+        assert_eq!(eme2000_from_eci.len(), 1);
+        let (epoch_out, state_out) = eme2000_from_eci.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert ITRF to EME2000
+        let mut itrf_traj =
+            OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+        let itrf_state = state_gcrf_to_itrf(epoch, gcrf_state);
+        itrf_traj.add(epoch, itrf_state);
+        let eme2000_from_itrf = itrf_traj.to_eme2000();
+        assert_eq!(eme2000_from_itrf.frame, OrbitFrame::EME2000);
+        assert_eq!(
+            eme2000_from_itrf.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(eme2000_from_itrf.angle_format, None);
+        assert_eq!(eme2000_from_itrf.len(), 1);
+        let (epoch_out, state_out) = eme2000_from_itrf.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert Keplerian to EME2000 - Radians
+        let mut kep_traj = OrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let kep_state_rad = state_cartesian_to_osculating(gcrf_state, RADIANS);
+        kep_traj.add(epoch, kep_state_rad);
+        let eme2000_from_kep_rad = kep_traj.to_eme2000();
+        assert_eq!(eme2000_from_kep_rad.frame, OrbitFrame::EME2000);
+        assert_eq!(
+            eme2000_from_kep_rad.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(eme2000_from_kep_rad.angle_format, None);
+        assert_eq!(eme2000_from_kep_rad.len(), 1);
+        let (epoch_out, state_out) = eme2000_from_kep_rad.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+
+        // Convert Keplerian to EME2000 - Degrees
+        let mut kep_traj_deg = OrbitTrajectory::new(
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        let kep_state_deg = state_cartesian_to_osculating(gcrf_state, DEGREES);
+        kep_traj_deg.add(epoch, kep_state_deg);
+        let eme2000_from_kep_deg = kep_traj_deg.to_eme2000();
+        assert_eq!(eme2000_from_kep_deg.frame, OrbitFrame::EME2000);
+        assert_eq!(
+            eme2000_from_kep_deg.representation,
+            OrbitRepresentation::Cartesian
+        );
+        assert_eq!(eme2000_from_kep_deg.angle_format, None);
+        assert_eq!(eme2000_from_kep_deg.len(), 1);
+        let (epoch_out, state_out) = eme2000_from_kep_deg.get(0).unwrap();
+        assert_eq!(epoch_out, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_out[i], state_base[i], epsilon = tol);
+        }
+    }
+
     // StateProvider Trait Tests
 
     #[test]
@@ -3473,6 +3724,92 @@ mod tests {
         // Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
         let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
         let expected = state_gcrf_to_itrf(epoch, state_gcrf_cart);
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_stateprovider_state_eme2000() {
+        // Test StateProvider::state_eme2000() for EME2000 Cartesian trajectory
+        let mut traj =
+            OrbitTrajectory::new(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state_eme2000 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add(epoch, state_eme2000);
+
+        // Query state
+        let result = traj.state_eme2000(epoch);
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(result[i], state_eme2000[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_stateprovider_state_eme2000_from_keplerian() {
+        // Test StateProvider::state_eme2000() for Keplerian trajectory
+        let mut traj = OrbitTrajectory::new(
+            OrbitFrame::GCRF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state_kep = Vector6::new(R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0);
+        traj.add(epoch, state_kep);
+
+        // Query EME2000 state
+        let result = traj.state_eme2000(epoch);
+
+        // Convert Keplerian -> GCRF Cartesian -> EME2000 manually for comparison
+        let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let expected = state_gcrf_to_eme2000(state_gcrf_cart);
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_stateprovider_state_eme2000_from_gcrf() {
+        // Test StateProvider::state_eme2000() for GCRF Cartesian trajectory
+        let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state_gcrf = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add(epoch, state_gcrf);
+
+        // Query EME2000 state
+        let result = traj.state_eme2000(epoch);
+
+        // Convert GCRF to EME2000 manually for comparison
+        let expected = state_gcrf_to_eme2000(state_gcrf);
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_stateprovider_state_eme2000_from_itrf() {
+        setup_global_test_eop();
+
+        // Test StateProvider::state_eme2000() for ITRF Cartesian trajectory
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state_itrf = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj.add(epoch, state_itrf);
+
+        // Query EME2000 state
+        let result = traj.state_eme2000(epoch);
+
+        // Convert ITRF -> GCRF -> EME2000 manually for comparison
+        let state_gcrf = state_itrf_to_gcrf(epoch, state_itrf);
+        let expected = state_gcrf_to_eme2000(state_gcrf);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);

@@ -213,6 +213,10 @@
          <lastmod>2025-11-11</lastmod>
     </url>
     <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/parallel_propagation.html</loc>
+         <lastmod>2025-11-11</lastmod>
+    </url>
+    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/sgp_propagation.html</loc>
          <lastmod>2025-11-11</lastmod>
     </url>
@@ -490,6 +494,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/propagators/index.html</loc>
+         <lastmod>2025-11-11</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/propagators/functions.html</loc>
          <lastmod>2025-11-11</lastmod>
     </url>
     <url>

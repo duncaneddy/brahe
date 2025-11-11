@@ -4,11 +4,17 @@ on:
   pull_request:
     types: [opened, synchronize, edited, reopened]
 
+permissions:
+  pull-requests: read
+  issues: write
+
 jobs:
   validate:
     if: |
       !contains(github.event.pull_request.labels.*.name, 'changelog') &&
-      !contains(github.event.pull_request.labels.*.name, 'automated')
+      !contains(github.event.pull_request.labels.*.name, 'automated') &&
+      !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
+      github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Check for changelog entries

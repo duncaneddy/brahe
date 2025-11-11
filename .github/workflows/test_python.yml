@@ -59,7 +59,7 @@ jobs:
                     uv run --frozen coverage html
             
             -   name: Upload coverage report
-                uses: actions/upload-artifact@v4
+                uses: actions/upload-artifact@v5
                 with:
                     name: coverage-report-${{ matrix.os }}-py${{ matrix.python-version }}
                     path: htmlcov/

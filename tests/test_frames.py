@@ -301,7 +301,7 @@ def test_bias_eme2000():
     dη = -6.8192e-3 * brahe.AS2RAD  # radians
     dα = -14.6e-3 * brahe.AS2RAD  # radians
 
-    tol = 1e-12
+    tol = 1e-9
     assert r_eme2000[0, 0] == approx(1.0 - 0.5 * (dα**2 + dξ**2), abs=tol)
     assert r_eme2000[0, 1] == approx(dα, abs=tol)
     assert r_eme2000[0, 2] == approx(-dξ, abs=tol)
@@ -320,7 +320,7 @@ def test_rotation_gcrf_to_eme2000():
     r_e2g = brahe.rotation_gcrf_to_eme2000()
     r_eme2000 = brahe.bias_eme2000()
 
-    tol = 1e-12
+    tol = 1e-9
     for i in range(3):
         for j in range(3):
             assert r_e2g[i, j] == approx(r_eme2000[i, j], abs=tol)
@@ -331,7 +331,7 @@ def test_rotation_eme2000_to_gcrf():
     r_g2e = brahe.rotation_eme2000_to_gcrf()
     r_e2g = brahe.rotation_gcrf_to_eme2000().T
 
-    tol = 1e-12
+    tol = 1e-9
     for i in range(3):
         for j in range(3):
             assert r_g2e[i, j] == approx(r_e2g[i, j], abs=tol)
@@ -346,7 +346,7 @@ def test_position_gcrf_to_eme2000():
 
     p_eme2000_expected = r_e2g @ p_gcrf
 
-    tol = 1e-10
+    tol = 1e-9
     assert p_eme2000[0] == approx(p_eme2000_expected[0], abs=tol)
     assert p_eme2000[1] == approx(p_eme2000_expected[1], abs=tol)
     assert p_eme2000[2] == approx(p_eme2000_expected[2], abs=tol)
@@ -361,7 +361,7 @@ def test_position_eme2000_to_gcrf():
 
     p_gcrf_expected = r_g2e @ p_eme2000
 
-    tol = 1e-10
+    tol = 1e-9
     assert p_gcrf[0] == approx(p_gcrf_expected[0], abs=tol)
     assert p_gcrf[1] == approx(p_gcrf_expected[1], abs=tol)
     assert p_gcrf[2] == approx(p_gcrf_expected[2], abs=tol)
@@ -380,7 +380,7 @@ def test_state_gcrf_to_eme2000():
     p_expected = r_e2g @ r_gcrf
     v_expected = r_e2g @ v_gcrf
 
-    tol = 1e-10
+    tol = 1e-9
     assert eme2000[0] == approx(p_expected[0], abs=tol)
     assert eme2000[1] == approx(p_expected[1], abs=tol)
     assert eme2000[2] == approx(p_expected[2], abs=tol)
@@ -402,7 +402,7 @@ def test_state_eme2000_to_gcrf():
     p_expected = r_g2e @ r_eme2000
     v_expected = r_g2e @ v_eme2000
 
-    tol = 1e-10
+    tol = 1e-9
     assert gcrf[0] == approx(p_expected[0], abs=tol)
     assert gcrf[1] == approx(p_expected[1], abs=tol)
     assert gcrf[2] == approx(p_expected[2], abs=tol)

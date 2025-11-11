@@ -92,17 +92,14 @@ passes = bh.location_accesses(
 
 `brahe` allows users to quickly access Two-Line Element (TLE) data from Celestrak [@celestrak] and propagate orbits using the SGP4 dynamics model. This can be used to perform space situational awareness tasks such as predicting the orbits of all Starlink satellites over the next 24 hours.
 
-\newpage
-
 \begin{lstlisting}[language=Python]
 import brahe as bh
 bh.initialize_eop()
 starlink = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
-for sat in starlink:
-    sat.propagate_to(sat.epoch + 86400.0)  # Propagate one orbit (24 hours)
+bh.par_propagate_to(starlink, bh.Epoch.now() + 86400.0) # Predict next 24 hours
 \end{lstlisting}
 
-The above routine can propagate orbits for all ~9000 Starlink satellites in approximately 5 minutes on an M1 Max MacBook Pro with 10 cores and 64 GB RAM. Finally, the package provides direct, easy-to-use functions for low-level astrodynamics routines such as Keplerian to Cartesian state conversions and reference frame transformations.
+The above routine can propagate orbits for all ~9000 Starlink satellites in approximately 1 minute 30 seconds on an M1 Max MacBook Pro with 10 cores and 64 GB RAM. Finally, the package provides direct, easy-to-use functions for low-level astrodynamics routines such as Keplerian to Cartesian state conversions and reference frame transformations.
 
 \begin{lstlisting}[language=Python]
 import brahe as bh
@@ -118,8 +115,6 @@ i = 98.7                          # Inclination in radians
 raan = 15.0                       # Right Ascension of Ascending Node in radians
 arg_periapsis = 30.0              # Argument of Periapsis in radians
 mean_anomaly = 45.0               # Mean Anomaly
-
-# Create a state vector from orbital elements
 state_kep = np.array([a, e, i, raan, arg_periapsis, mean_anomaly])
 
 # Convert Keplerian state to ECI coordinates
@@ -138,11 +133,15 @@ state_eci_2 = bh.state_ecef_to_eci(epoch, state_ecef)
 state_kep_2 = bh.state_cartesian_to_osculating(state_eci_2, bh.AngleFormat.DEGREES)
 \end{lstlisting}
 
+Another example application of `brahe` is visualizing the positions of GPS satellites in Earth orbit. The package provides built-in functions for generating 3D visualizations of satellite constellations using Plotly [@plotly].
+
+![Visualization of all GPS Satellite Orbits](./gps_satellites_cropped.pdf)
+
 # Statement of Need
 
 While the core algorithms for predicting and modeling satellite motion have been known for decades, there is a lack of modern, open-source software that implements these algorithms in a way that is accessible to researchers and engineers. Generally, existing astrodynamics software packages have one or more barriers to entry for individuals and organizations looking to develop astrodynamics applications, and often leads to duplicated and redundant effort as researchers and engineers are forced to re-implement foundational algorithms.
 
-Flagship commercial astrodynamics software like Systems Tool Kit (STK) [@stk] and FreeFlyer [@freeflyer] are individually licensed and closed-source. The licensing costs can be prohibitive for researchers, individuals, small organizations, and start-ups. Even for larger organizations, the per-node licensing cost can make large-scale deployment prohibitive. The closed-source nature of these packages makes it difficult to understand and verify the exact algorithms and model implementations, which is critical for high-stakes applications like space mission operations [@mcoMishap1999]. Major open-source projects like Orekit [@maisonobe2010orekit] and GMAT [@hughes2014gmat] provide extensive functionality, but are large codebases with steep learning curves, making quick-adoption and integration into projects difficult. Furthermore, Orekit is implemented in Java, which can be a barrier to adoption in the current scientific ecosystem with users who are more familiar with Python. GMAT uses a domain-specific scripting language and has limited documentation and examples, making it difficult for new users to get started. Finally, there are academic libraries such as poliastro [@rodriguezPoliastro2022] which are not actively maintained. Other tools like Basilisk [@basilisk2020], provide high-fidelity modeling capabilities for full spacecraft guidance, navigation, and control (GNC) simulations, but are not directly distributed through standard package managers like PyPI and must be compiled from source to be used. Finally, academic work often has limited documentation and usage examples, making it difficult for new users to get started.
+Flagship commercial astrodynamics software like Systems Tool Kit (STK) [@stk] and FreeFlyer [@freeflyer] are individually licensed and closed-source. The licensing costs can be prohibitive for researchers, individuals, small organizations, and start-ups. Even for larger organizations, the per-node licensing cost can make large-scale deployment prohibitive. The closed-source nature of these packages makes it difficult to understand and verify the exact algorithms and model implementations, which is critical for high-stakes applications like space mission operations [@mcoMishap1999]. Major open-source projects like Orekit [@maisonobe2010orekit] and GMAT [@hughes2014gmat] provide extensive functionality, but are large codebases with steep learning curves, making quick-adoption and integration into projects difficult. Furthermore, Orekit is implemented in Java, which can be a barrier to adoption in the current scientific ecosystem with users who are more familiar with Python. GMAT uses a domain-specific scripting language and has limited documentation and examples, making it difficult for new users to get started. Libraries such as poliastro [@rodriguezPoliastro2022] and Open Space Toolkit (OSTk) [@ostk] provides Python interfaces, but their object-oriented architecture adds layers of abstraction that can make it difficult to adapt them to problems that outside their predefined modeling frameworks. Additionally, poliastro is no longer actively maintained and OSTk only supports Linux environments and requires a specialized Docker environment to run. Other academic tools like Basilisk [@basilisk2020], provide high-fidelity modeling capabilities for full spacecraft guidance, navigation, and control (GNC) simulations, but are not directly distributed through standard package managers like PyPI and must be compiled from source to be used. Finally, these works often have limited documentation and usage examples, making it difficult for new users to get started.
 
 `brahe` seeks to address these challenges by providing a modern, open-source astrodynamics library following design principles of the _Zen of Python_ [@peters2004zen]. The core functionality is implemented in Rust for performance and safety, with Python bindings for ease-of-use and integration with the scientific Python ecosystem. `brahe` is provided under an MIT License to encourage adoption and facilitate integration and extensibility. To further promote adoption and aid user learning, the library is extensively documented following the Diátaxis framework [@procida_diataxis]\textemdash every Rust and Python function documented with types and usage examples, there is a user guide that explains the major concepts of the library, and set of longer-form examples demonstrating how to accomplish common tasks. To maintain high code quality, the library has a comprehensive test suite for both Rust and Python. Additionally, all code samples in the documentation are automatically tested to ensure they remain functional, and that the documentation accurately reflects the library's capabilities.
 

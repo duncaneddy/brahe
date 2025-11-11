@@ -9,7 +9,7 @@ jobs:
   update-eop-data:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Update package data
         run: ./scripts/update-data.sh
       - name: Commit and push changes

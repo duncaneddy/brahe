@@ -1,5 +1,6 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
+# FLAGS = ["IGNORE"]
 # ///
 """
 Parallel propagation of multiple satellites

@@ -1,7 +1,6 @@
 //! Get the EME2000 frame bias matrix and verify its relationship to rotation functions
 
 use brahe as bh;
-use nalgebra as na;
 
 fn main() {
     // Get the EME2000 frame bias matrix

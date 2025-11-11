@@ -6,7 +6,11 @@ on:
 
 jobs:
   create-fragments:
-    if: github.event.pull_request.merged == true
+    if: |
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.labels.*.name, 'changelog') &&
+      !contains(github.event.pull_request.labels.*.name, 'automated') &&
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     permissions:
       contents: write

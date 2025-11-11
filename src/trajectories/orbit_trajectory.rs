@@ -1383,15 +1383,11 @@ impl StateProvider for OrbitTrajectory {
                 );
                 state_gcrf_to_eme2000(state_eci_cart)
             }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                let state_eme2000_cart = state_osculating_to_cartesian(
-                    state,
-                    self.angle_format
-                        .expect("Keplerian representation must have angle_format"),
-                );
-                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
-                state_gcrf_to_itrf(epoch, state_gcrf)
-            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
                 let state_gcrf = state_itrf_to_gcrf(epoch, state);
                 state_gcrf_to_eme2000(state_gcrf)

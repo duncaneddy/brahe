@@ -39,7 +39,7 @@ propagators = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
 # This can sometimes cause numerical issues with the propagator for very low orbit
 # when eccentricity becomes negative.
 propagators = [
-    prop for prop in propagators if prop.semi_major_axis >= (bh.EARTH_RADIUS + 350.0e3)
+    prop for prop in propagators if prop.semi_major_axis >= (bh.R_EARTH + 350.0e3)
 ]
 
 # --8<-- [end:download_starlink]

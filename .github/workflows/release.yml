@@ -51,6 +51,9 @@ jobs:
   # Generate release notes using towncrier
   generate-release-notes:
     runs-on: ubuntu-latest
+    env:
+      RUST_TOOLCHAIN: nightly
+      PYTHON_VERSION: 3.12
     needs: [validate-version, test-rust, test-python, test-examples]
     permissions:
       contents: write
@@ -61,16 +64,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      -   name: Set up Rust toolchain with cache
+          uses: actions-rust-lang/setup-rust-toolchain@v1
+          with:
+              toolchain: ${{ env.RUST_TOOLCHAIN }}
+      -   name: Set default Rust toolchain
+          run: |
+              rustup update ${{ env.RUST_TOOLCHAIN }}
+              rustup default ${{ env.RUST_TOOLCHAIN }}
+
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Install Python
-        run: uv python install 3.12
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Create virtual environment
-        run: uv venv
+        run: uv venv -p ${{ env.PYTHON_VERSION }}
 
       - name: Install towncrier
         run: uv pip install towncrier

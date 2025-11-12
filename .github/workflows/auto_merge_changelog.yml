@@ -12,7 +12,7 @@ jobs:
   changelog:
     runs-on: ubuntu-latest
     if: |
-      github.actor == 'github-actions[bot]' &&
+      (github.actor == 'github-actions[bot]' || github.actor == 'duncaneddy') &&
       contains(github.event.pull_request.labels.*.name, 'changelog') &&
       contains(github.event.pull_request.labels.*.name, 'automated')
     steps:

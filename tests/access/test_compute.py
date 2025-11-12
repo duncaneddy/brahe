@@ -312,3 +312,102 @@ def test_elevation_boundary_precision():
         f"\nValidated {len(windows)} access windows - all boundary elevations "
         f"within {tolerance:.3f}° of {constraint_elevation:.1f}° constraint"
     )
+
+
+def test_location_accesses_sequential():
+    """Test access computation using sequential mode (parallel=False)."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)  # lon, lat, alt
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+
+    constraint = bh.ElevationConstraint(5.0)
+
+    # Test with parallel=False to exercise sequential code path
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+        parallel=False,  # Use sequential computation
+        num_threads=None,
+    )
+
+    windows = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        config=config,
+        time_tolerance=0.1,
+    )
+
+    # Should find at least one window
+    assert len(windows) > 0, f"Expected at least 1 window, found {len(windows)}"
+
+    # Verify windows are sorted
+    for i in range(1, len(windows)):
+        assert windows[i - 1].start <= windows[i].start
+
+
+def test_location_accesses_sequential_vs_parallel():
+    """Test that sequential and parallel modes produce the same results."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+
+    constraint = bh.ElevationConstraint(5.0)
+
+    # Sequential computation
+    config_seq = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+        parallel=False,
+        num_threads=None,
+    )
+
+    windows_seq = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        config=config_seq,
+        time_tolerance=0.1,
+    )
+
+    # Parallel computation
+    config_par = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+        parallel=True,
+        num_threads=None,
+    )
+
+    windows_par = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        config=config_par,
+        time_tolerance=0.1,
+    )
+
+    # Should find the same number of windows
+    assert len(windows_seq) == len(windows_par), (
+        f"Sequential found {len(windows_seq)} windows, "
+        f"parallel found {len(windows_par)} windows"
+    )
+
+    # Windows should have the same open/close times (within tolerance)
+    for ws, wp in zip(windows_seq, windows_par):
+        assert abs(ws.window_open - wp.window_open) < 1.0  # Within 1 second
+        assert abs(ws.window_close - wp.window_close) < 1.0

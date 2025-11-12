@@ -115,7 +115,8 @@ jobs:
       - name: Create Pull Request for CHANGELOG update
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          base: main
           commit-message: "Update CHANGELOG for v${{ needs.validate-version.outputs.version }}"
           branch: release-changelog-v${{ needs.validate-version.outputs.version }}
           delete-branch: true

@@ -326,3 +326,312 @@ pub trait IdentifiableStateProvider: StateProvider + Identifiable {}
 
 // Blanket implementation for any type implementing both traits
 impl<T: StateProvider + Identifiable> IdentifiableStateProvider for T {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::orbits;
+    use crate::propagators::KeplerianPropagator;
+    use crate::time::{Epoch, TimeSystem};
+    use crate::utils::testing::setup_global_test_eop;
+    use nalgebra::Vector6;
+
+    fn create_test_propagator() -> KeplerianPropagator {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // LEO orbit: a=6878 km, e=0.01, i=45 deg
+        let state = Vector6::new(
+            6878000.0, // m
+            0.01,
+            45.0_f64.to_radians(),
+            0.0,
+            0.0,
+            0.0,
+        );
+
+        KeplerianPropagator::new(
+            epoch,
+            state,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        )
+    }
+
+    #[test]
+    fn test_orbit_propagator_step() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+        let step_size = prop.step_size();
+
+        // Step forward using default step() method
+        prop.step();
+
+        // Verify epoch advanced by step_size
+        let new_epoch = prop.current_epoch();
+        assert!((new_epoch - initial_epoch - step_size).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_orbit_propagator_step_past() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+        let target = initial_epoch + 250.0; // 250 seconds in the future
+
+        // Use step_past to reach target
+        prop.step_past(target);
+
+        // Verify we've gone past the target
+        assert!(prop.current_epoch() >= target);
+    }
+
+    #[test]
+    fn test_orbit_propagator_step_past_already_past() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+
+        // Step forward first
+        prop.step_by(120.0);
+        let current = prop.current_epoch();
+
+        // Try to step_past to an epoch in the past
+        prop.step_past(initial_epoch);
+
+        // Should not have changed (already past)
+        assert_eq!(prop.current_epoch(), current);
+    }
+
+    #[test]
+    fn test_orbit_propagator_propagate_steps() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+        let step_size = prop.step_size();
+        let num_steps = 5;
+
+        // Propagate for 5 steps
+        prop.propagate_steps(num_steps);
+
+        // Verify epoch advanced by num_steps * step_size
+        let new_epoch = prop.current_epoch();
+        let expected_time = step_size * num_steps as f64;
+        assert!((new_epoch - initial_epoch - expected_time).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_orbit_propagator_propagate_to() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+        let target = initial_epoch + 157.0; // Not a multiple of step_size
+
+        // Propagate to exact target
+        prop.propagate_to(target);
+
+        // Verify we reached the target (within tolerance)
+        let final_epoch = prop.current_epoch();
+        assert!((final_epoch - target).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_orbit_propagator_propagate_to_past_epoch() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+
+        // Try to propagate to a past epoch
+        let past = initial_epoch - 100.0;
+        prop.propagate_to(past);
+
+        // Should not have changed
+        assert_eq!(prop.current_epoch(), initial_epoch);
+    }
+
+    #[test]
+    fn test_orbit_propagator_propagate_trajectory() {
+        let mut prop = create_test_propagator();
+        let initial_epoch = prop.current_epoch();
+
+        // Create array of target epochs
+        let epochs = vec![
+            initial_epoch + 60.0,
+            initial_epoch + 120.0,
+            initial_epoch + 180.0,
+        ];
+
+        // Propagate through all epochs
+        prop.propagate_trajectory(&epochs);
+
+        // Verify final epoch is the last target
+        let final_epoch = prop.current_epoch();
+        assert!((final_epoch - epochs[2]).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_state_provider_states() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Initialize in degrees: a, e, i, raan, argp, M
+        let elements = Vector6::new(6878000.0, 0.01, 45.0, 15.0, 30.0, 60.0);
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            60.0,
+        );
+
+        // Create multiple epochs
+        let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
+
+        // Get states for all epochs (should be in degrees since that's the output format)
+        let states = prop.states(&epochs);
+
+        // Verify we got the right number of states
+        assert_eq!(states.len(), 3);
+
+        // Calculate mean motion using library function
+        let a = elements[0];
+        let mean_motion_deg_per_sec = orbits::mean_motion(a, AngleFormat::Degrees);
+
+        // For each state, verify Keplerian elements behavior
+        for (idx, &state) in states.iter().enumerate() {
+            let time_elapsed = 120.0 * idx as f64; // seconds
+
+            // Orbital elements should remain constant (a, e, i, raan, argp)
+            assert!((state[0] - elements[0]).abs() < 1.0); // a within 1 m
+            assert!((state[1] - elements[1]).abs() < 1e-6); // e constant
+            assert!((state[2] - elements[2]).abs() < 1e-6); // i constant (deg)
+            assert!((state[3] - elements[3]).abs() < 1e-6); // raan constant (deg)
+            assert!((state[4] - elements[4]).abs() < 1e-6); // argp constant (deg)
+
+            // Mean anomaly should advance by mean_motion * time
+            let expected_ma = (elements[5] + mean_motion_deg_per_sec * time_elapsed) % 360.0;
+            let actual_ma = state[5] % 360.0;
+            // Allow for wrapping around 360
+            let ma_diff = (expected_ma - actual_ma).abs();
+            let ma_diff_wrapped = ma_diff.min((360.0 - ma_diff).abs());
+            assert!(ma_diff_wrapped < 0.01); // within 0.01 degrees
+        }
+    }
+
+    #[test]
+    fn test_state_provider_states_eci() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let elements = Vector6::new(6878000.0, 0.01, 45.0, 15.0, 30.0, 60.0);
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            60.0,
+        );
+
+        let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
+        let states = prop.states_eci(&epochs);
+
+        assert_eq!(states.len(), 3);
+
+        // Verify all 6 state elements are different from the first state
+        let first_state = states[0];
+        for state in states.iter().skip(1) {
+            // At least one element must be different
+            let mut all_same = true;
+            for i in 0..6 {
+                if (state[i] - first_state[i]).abs() > 1e-9 {
+                    all_same = false;
+                    break;
+                }
+            }
+            assert!(!all_same, "State should be different from first state");
+        }
+    }
+
+    #[test]
+    fn test_state_provider_states_ecef() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let elements = Vector6::new(6878000.0, 0.01, 45.0, 15.0, 30.0, 60.0);
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            60.0,
+        );
+
+        let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
+        let states = prop.states_ecef(&epochs);
+
+        assert_eq!(states.len(), 3);
+
+        // Verify every state vector is different
+        for i in 0..states.len() {
+            for j in (i + 1)..states.len() {
+                assert!(!states[i].relative_eq(&states[j], 1e-9, 1e-9));
+            }
+        }
+    }
+
+    #[test]
+    fn test_state_provider_states_gcrf() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let elements = Vector6::new(6878000.0, 0.01, 45.0, 15.0, 30.0, 60.0);
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            60.0,
+        );
+
+        let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
+        let states = prop.states_gcrf(&epochs);
+
+        assert_eq!(states.len(), 3);
+
+        // Verify every state vector is different
+        for i in 0..states.len() {
+            for j in (i + 1)..states.len() {
+                assert!(!states[i].relative_eq(&states[j], 1e-9, 1e-9));
+            }
+        }
+    }
+
+    #[test]
+    fn test_state_provider_states_itrf() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let elements = Vector6::new(6878000.0, 0.01, 45.0, 15.0, 30.0, 60.0);
+        let prop = KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+            60.0,
+        );
+
+        let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
+        let states = prop.states_itrf(&epochs);
+
+        assert_eq!(states.len(), 3);
+
+        // Verify every state vector is different
+        for i in 0..states.len() {
+            for j in (i + 1)..states.len() {
+                assert!(!states[i].relative_eq(&states[j], 1e-9, 1e-9));
+            }
+        }
+    }
+}

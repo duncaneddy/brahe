@@ -342,6 +342,34 @@ impl PySGPPropagator {
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 
+    /// Compute states at multiple epochs in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of GCRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.propagator.states_gcrf(&epoch_vec);
+        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+    }
+
+    /// Compute states at multiple epochs in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ITRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.propagator.states_itrf(&epoch_vec);
+        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+    }
+
     /// Step forward by the default step size.
     ///
     /// Example:
@@ -1617,6 +1645,34 @@ impl PyKeplerianPropagator {
     pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = self.propagator.states_ecef(&epoch_vec);
+        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+    }
+
+    /// Compute states at multiple epochs in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of GCRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.propagator.states_gcrf(&epoch_vec);
+        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+    }
+
+    /// Compute states at multiple epochs in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ITRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = self.propagator.states_itrf(&epoch_vec);
         states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
     }
 

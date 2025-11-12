@@ -596,4 +596,51 @@ mod tests {
             assert!(windows[i - 1].window_open <= windows[i].window_open);
         }
     }
+
+    #[test]
+    fn test_location_accesses_sequential() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = create_test_propagator(epoch);
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Test with parallel: false to exercise sequential code path
+        let config = AccessSearchConfig {
+            initial_time_step: 60.0,
+            adaptive_step: false,
+            adaptive_fraction: 0.75,
+            parallel: false, // Use sequential computation
+            num_threads: None,
+        };
+
+        let windows = location_accesses(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config),
+            Some(0.1),
+        )
+        .unwrap();
+
+        // Should find at least one window
+        assert!(
+            !windows.is_empty(),
+            "Expected at least 1 window, found {}",
+            windows.len()
+        );
+
+        // Verify windows are sorted
+        for i in 1..windows.len() {
+            assert!(windows[i - 1].window_open <= windows[i].window_open);
+        }
+    }
 }

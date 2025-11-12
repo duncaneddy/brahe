@@ -1635,4 +1635,76 @@ mod tests {
             _ => panic!("Expected OutOfBoundsError for interpolation after end"),
         }
     }
+
+    #[test]
+    fn test_strajectory_interpolate_empty_trajectory() {
+        // Test that interpolating from an empty trajectory returns an error
+        setup_global_test_eop();
+
+        let traj = STrajectory6::new();
+        let t = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Test with interpolate_linear
+        let result = traj.interpolate_linear(&t);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::Error(msg)) => {
+                assert!(msg.contains("empty trajectory"));
+            }
+            _ => panic!("Expected Error for empty trajectory"),
+        }
+
+        // Test with interpolate
+        let result = traj.interpolate(&t);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_strajectory_interpolate_single_state_exact_match() {
+        // Test that interpolating at exact epoch in single-state trajectory returns the state
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state0 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let mut traj = STrajectory6::new();
+        traj.add(t0, state0);
+
+        // Test interpolation at exact epoch - should return the state
+        let result = traj.interpolate_linear(&t0).unwrap();
+        assert_abs_diff_eq!(result[0], state0[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(result[1], state0[1], epsilon = 1e-6);
+        assert_abs_diff_eq!(result[2], state0[2], epsilon = 1e-6);
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&t0).unwrap();
+        assert_abs_diff_eq!(result[0], state0[0], epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_strajectory_interpolate_single_state_no_match() {
+        // Test that interpolating at different epoch in single-state trajectory returns error
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state0 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let mut traj = STrajectory6::new();
+        traj.add(t0, state0);
+
+        // Test interpolation at different epoch - should error
+        let t_different = t0 + 60.0;
+        let result = traj.interpolate_linear(&t_different);
+        assert!(result.is_err());
+        match result {
+            Err(BraheError::Error(msg)) => {
+                assert!(msg.contains("single state"));
+            }
+            _ => panic!("Expected Error for single state with non-matching epoch"),
+        }
+
+        // Also test with interpolate() method
+        let result = traj.interpolate(&t_different);
+        assert!(result.is_err());
+    }
 }

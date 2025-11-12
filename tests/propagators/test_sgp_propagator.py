@@ -737,3 +737,33 @@ class TestOldBraheTLEFunctions:
 
         # Should return degrees
         assert ma == pytest.approx(325.0288, abs=1e-10)
+
+    def test_sgppropagator_states_gcrf(self, iss_tle):
+        """Test SGPPropagator states_gcrf() batch method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        epoch = prop.current_epoch
+        epochs = [epoch, epoch + 120.0, epoch + 240.0]
+        states = prop.states_gcrf(epochs)
+
+        assert len(states) == 3
+
+        # Verify every state vector is different
+        for i in range(len(states)):
+            for j in range(i + 1, len(states)):
+                assert not np.allclose(states[i], states[j])
+
+    def test_sgppropagator_states_itrf(self, iss_tle):
+        """Test SGPPropagator states_itrf() batch method."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        epoch = prop.current_epoch
+        epochs = [epoch, epoch + 120.0, epoch + 240.0]
+        states = prop.states_itrf(epochs)
+
+        assert len(states) == 3
+
+        # Verify every state vector is different
+        for i in range(len(states)):
+            for j in range(i + 1, len(states)):
+                assert not np.allclose(states[i], states[j])

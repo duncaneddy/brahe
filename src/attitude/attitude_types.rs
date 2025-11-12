@@ -173,3 +173,61 @@ pub struct EulerAngle {
 pub struct RotationMatrix {
     pub(crate) data: crate::coordinates::SMatrix3,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_euler_angle_order_display() {
+        assert_eq!(format!("{}", EulerAngleOrder::XYX), "121");
+        assert_eq!(format!("{}", EulerAngleOrder::XYZ), "123");
+        assert_eq!(format!("{}", EulerAngleOrder::XZX), "131");
+        assert_eq!(format!("{}", EulerAngleOrder::XZY), "132");
+        assert_eq!(format!("{}", EulerAngleOrder::YXY), "212");
+        assert_eq!(format!("{}", EulerAngleOrder::YXZ), "213");
+        assert_eq!(format!("{}", EulerAngleOrder::YZX), "231");
+        assert_eq!(format!("{}", EulerAngleOrder::YZY), "232");
+        assert_eq!(format!("{}", EulerAngleOrder::ZXY), "312");
+        assert_eq!(format!("{}", EulerAngleOrder::ZXZ), "313");
+        assert_eq!(format!("{}", EulerAngleOrder::ZYX), "321");
+        assert_eq!(format!("{}", EulerAngleOrder::ZYZ), "323");
+    }
+
+    #[test]
+    fn test_euler_angle_order_debug() {
+        assert_eq!(format!("{:?}", EulerAngleOrder::XYX), "XYX::121");
+        assert_eq!(format!("{:?}", EulerAngleOrder::XYZ), "XYZ::123");
+        assert_eq!(format!("{:?}", EulerAngleOrder::XZX), "XZX::131");
+        assert_eq!(format!("{:?}", EulerAngleOrder::XZY), "XZY::132");
+        assert_eq!(format!("{:?}", EulerAngleOrder::YXY), "YXY::212");
+        assert_eq!(format!("{:?}", EulerAngleOrder::YXZ), "YXZ::213");
+        assert_eq!(format!("{:?}", EulerAngleOrder::YZX), "YZX::231");
+        assert_eq!(format!("{:?}", EulerAngleOrder::YZY), "YZY::232");
+        assert_eq!(format!("{:?}", EulerAngleOrder::ZXY), "ZXY::312");
+        assert_eq!(format!("{:?}", EulerAngleOrder::ZXZ), "ZXZ::313");
+        assert_eq!(format!("{:?}", EulerAngleOrder::ZYX), "ZYX::321");
+        assert_eq!(format!("{:?}", EulerAngleOrder::ZYZ), "ZYZ::323");
+    }
+
+    #[test]
+    fn test_euler_angle_order_iter() {
+        // Test that EnumIter works correctly
+        let all_orders: Vec<EulerAngleOrder> = EulerAngleOrder::iter().collect();
+        assert_eq!(all_orders.len(), 12);
+
+        // Verify all expected orders are present
+        assert!(all_orders.contains(&EulerAngleOrder::XYX));
+        assert!(all_orders.contains(&EulerAngleOrder::XYZ));
+        assert!(all_orders.contains(&EulerAngleOrder::XZX));
+        assert!(all_orders.contains(&EulerAngleOrder::XZY));
+        assert!(all_orders.contains(&EulerAngleOrder::YXY));
+        assert!(all_orders.contains(&EulerAngleOrder::YXZ));
+        assert!(all_orders.contains(&EulerAngleOrder::YZX));
+        assert!(all_orders.contains(&EulerAngleOrder::YZY));
+        assert!(all_orders.contains(&EulerAngleOrder::ZXY));
+        assert!(all_orders.contains(&EulerAngleOrder::ZXZ));
+        assert!(all_orders.contains(&EulerAngleOrder::ZYX));
+        assert!(all_orders.contains(&EulerAngleOrder::ZYZ));
+    }
+}

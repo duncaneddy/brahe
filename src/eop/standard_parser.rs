@@ -186,4 +186,89 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_parse_standard_line_wrong_length_too_short() {
+        let line = "short line";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Line too short to be a standard line")
+        );
+    }
+
+    #[test]
+    fn test_parse_standard_line_wrong_length_too_long() {
+        let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  EXTRA";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_standard_line_invalid_mjd() {
+        let line = "2311 1 XXXXX.XX I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to parse mjd")
+        );
+    }
+
+    #[test]
+    fn test_parse_standard_line_invalid_pm_x() {
+        let line = "2311 1 60249.00 I  XXXXXXXX 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to parse pm_x")
+        );
+    }
+
+    #[test]
+    fn test_parse_standard_line_invalid_pm_y() {
+        let line = "2311 1 60249.00 I  0.274620 0.000020  XXXXXXXX 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to parse pm_y")
+        );
+    }
+
+    #[test]
+    fn test_parse_standard_line_invalid_ut1_utc() {
+        let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I XXXXXXXXX 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  ";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to parse ut1_utc")
+        );
+    }
+
+    #[test]
+    fn test_parse_standard_line_empty_string() {
+        let line = "";
+        let result = parse_standard_line(line.to_string());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Line too short to be a standard line")
+        );
+    }
 }

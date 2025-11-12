@@ -14,6 +14,7 @@ from brahe import (
     OrbitRepresentation,
     AngleFormat,
     orbital_period,
+    mean_motion,
     state_osculating_to_cartesian,
     state_cartesian_to_osculating,
     state_eci_to_ecef,
@@ -886,3 +887,302 @@ def test_keplerianpropagator_analyticpropagator_states_as_osculating_elements():
             assert abs(state[i] - elements[i]) < 1e-6
         for i in range(2, 6):
             assert abs(np.rad2deg(state[i]) - elements[i]) < 1e-6
+
+
+# OrbitPropagator Trait Default Methods Tests
+
+
+def test_orbit_propagator_step():
+    """Test OrbitPropagator step() default method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+    step_size = prop.step_size
+
+    # Step forward using default step() method
+    prop.step()
+
+    # Verify epoch advanced by step_size
+    new_epoch = prop.current_epoch
+    assert abs(new_epoch - initial_epoch - step_size) < 1e-6
+
+
+def test_orbit_propagator_step_past():
+    """Test OrbitPropagator step_past() default method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+    target = initial_epoch + 250.0  # 250 seconds in the future
+
+    # Use step_past to reach target
+    prop.step_past(target)
+
+    # Verify we've gone past the target
+    assert prop.current_epoch >= target
+
+
+def test_orbit_propagator_step_past_already_past():
+    """Test step_past when already past target epoch"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+
+    # Step forward first
+    prop.step_by(120.0)
+    current = prop.current_epoch
+
+    # Try to step_past to an epoch in the past
+    prop.step_past(initial_epoch)
+
+    # Should not have changed (already past)
+    assert prop.current_epoch == current
+
+
+def test_orbit_propagator_propagate_steps():
+    """Test OrbitPropagator propagate_steps() default method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+    step_size = prop.step_size
+    num_steps = 5
+
+    # Propagate for 5 steps
+    prop.propagate_steps(num_steps)
+
+    # Verify epoch advanced by num_steps * step_size
+    new_epoch = prop.current_epoch
+    expected_time = step_size * num_steps
+    assert abs(new_epoch - initial_epoch - expected_time) < 1e-3
+
+
+def test_orbit_propagator_propagate_to():
+    """Test OrbitPropagator propagate_to() default method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+    target = initial_epoch + 157.0  # Not a multiple of step_size
+
+    # Propagate to exact target
+    prop.propagate_to(target)
+
+    # Verify we reached the target (within tolerance)
+    final_epoch = prop.current_epoch
+    assert abs(final_epoch - target) < 1e-6
+
+
+def test_orbit_propagator_propagate_to_past_epoch():
+    """Test propagate_to with a past epoch (should not move)"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    initial_epoch = prop.current_epoch
+
+    # Try to propagate to a past epoch
+    past = initial_epoch - 100.0
+    prop.propagate_to(past)
+
+    # Should not have changed
+    assert prop.current_epoch == initial_epoch
+
+
+# Note: test_orbit_propagator_propagate_trajectory removed
+# propagate_trajectory() is a Rust trait method not exposed to Python
+
+
+# StateProvider Trait Batch Methods Tests
+
+
+def test_state_provider_states():
+    """Test StateProvider states() batch method with physics validation"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    # Initialize in degrees: a, e, i, raan, argp, M
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    # Create multiple epochs
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+
+    # Get states for all epochs (should be in degrees since that's the output format)
+    states = prop.states(epochs)
+
+    # Verify we got the right number of states
+    assert len(states) == 3
+
+    # Calculate mean motion using library function
+    a = elements[0]
+    mean_motion_deg_per_sec = mean_motion(a, AngleFormat.DEGREES)
+
+    # For each state, verify Keplerian elements behavior
+    for idx, state in enumerate(states):
+        time_elapsed = 120.0 * idx  # seconds
+
+        # Orbital elements should remain constant (a, e, i, raan, argp)
+        assert abs(state[0] - elements[0]) < 1.0  # a within 1 m
+        assert abs(state[1] - elements[1]) < 1e-6  # e constant
+        assert abs(state[2] - elements[2]) < 1e-6  # i constant (deg)
+        assert abs(state[3] - elements[3]) < 1e-6  # raan constant (deg)
+        assert abs(state[4] - elements[4]) < 1e-6  # argp constant (deg)
+
+        # Mean anomaly should advance by mean_motion * time
+        expected_ma = (elements[5] + mean_motion_deg_per_sec * time_elapsed) % 360.0
+        actual_ma = state[5] % 360.0
+        # Allow for wrapping around 360
+        ma_diff = abs(expected_ma - actual_ma)
+        ma_diff_wrapped = min(ma_diff, abs(360.0 - ma_diff))
+        assert ma_diff_wrapped < 0.01  # within 0.01 degrees
+
+
+def test_state_provider_states_eci():
+    """Test StateProvider states_eci() batch method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+    states = prop.states_eci(epochs)
+
+    assert len(states) == 3
+
+    # Verify all 6 state elements are different from the first state
+    first_state = states[0]
+    for state in states[1:]:
+        assert not np.allclose(state, first_state)
+
+
+def test_state_provider_states_ecef():
+    """Test StateProvider states_ecef() batch method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+    states = prop.states_ecef(epochs)
+
+    assert len(states) == 3
+
+    # Verify all 6 state elements are different from the first state
+    first_state = states[0]
+    for state in states[1:]:
+        assert not np.allclose(state, first_state)
+
+
+def test_state_provider_states_gcrf():
+    """Test StateProvider states_gcrf() batch method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+    states = prop.states_gcrf(epochs)
+
+    assert len(states) == 3
+
+    # Verify every state vector is different
+    for i in range(len(states)):
+        for j in range(i + 1, len(states)):
+            assert not np.allclose(states[i], states[j])
+
+
+def test_state_provider_states_itrf():
+    """Test StateProvider states_itrf() batch method"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+    states = prop.states_itrf(epochs)
+
+    assert len(states) == 3
+
+    # Verify every state vector is different
+    for i in range(len(states)):
+        for j in range(i + 1, len(states)):
+            assert not np.allclose(states[i], states[j])

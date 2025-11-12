@@ -163,4 +163,35 @@ mod tests {
         let single_entry_provider = MockEOPProvider { len: 1 };
         assert!(!single_entry_provider.is_empty());
     }
+
+    #[test]
+    fn test_mock_eop_provider_trait_methods() {
+        // Test all EarthOrientationProvider trait methods on MockEOPProvider
+        let provider = MockEOPProvider { len: 5 };
+
+        // Test metadata methods
+        assert_eq!(provider.len(), 5);
+        assert!(!provider.is_empty());
+        assert_eq!(provider.eop_type(), EOPType::C04);
+        assert!(provider.is_initialized());
+        assert_eq!(provider.extrapolation(), EOPExtrapolation::Hold);
+        assert!(provider.interpolation());
+
+        // Test MJD range methods
+        assert_eq!(provider.mjd_min(), 0.0);
+        assert_eq!(provider.mjd_max(), 0.0);
+        assert_eq!(provider.mjd_last_lod(), 0.0);
+        assert_eq!(provider.mjd_last_dxdy(), 0.0);
+
+        // Test EOP data retrieval methods
+        let test_mjd = 60000.0;
+        assert_eq!(provider.get_ut1_utc(test_mjd).unwrap(), 0.0);
+        assert_eq!(provider.get_pm(test_mjd).unwrap(), (0.0, 0.0));
+        assert_eq!(provider.get_dxdy(test_mjd).unwrap(), (0.0, 0.0));
+        assert_eq!(provider.get_lod(test_mjd).unwrap(), 0.0);
+        assert_eq!(
+            provider.get_eop(test_mjd).unwrap(),
+            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+    }
 }

@@ -260,4 +260,79 @@ mod tests {
         assert_eq!(locations.len(), 1);
         assert_eq!(locations[0].lon(), 15.4);
     }
+
+    #[test]
+    fn test_load_from_nonexistent_file() {
+        // Test error when trying to load from a file that doesn't exist
+        let result = load_point_locations_from_geojson("/nonexistent/path/to/file.geojson");
+        assert!(result.is_err());
+
+        // Verify it's an IoError
+        match result {
+            Err(BraheError::IoError(msg)) => {
+                assert!(msg.contains("Failed to read file"));
+            }
+            _ => panic!("Expected IoError"),
+        }
+    }
+
+    #[test]
+    fn test_load_from_invalid_json_file() {
+        // Test error when file contains invalid JSON
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Create a temporary file with invalid JSON
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{{ this is not valid JSON }}").unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_point_locations_from_geojson(temp_path);
+        assert!(result.is_err());
+
+        // Verify it's a ParseError
+        match result {
+            Err(BraheError::ParseError(msg)) => {
+                assert!(msg.contains("Invalid JSON"));
+            }
+            _ => panic!("Expected ParseError for invalid JSON"),
+        }
+    }
+
+    #[test]
+    fn test_load_from_valid_file() {
+        // Test successfully loading from a valid GeoJSON file
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Create a temporary file with valid GeoJSON
+        let geojson_content = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [15.4, 78.2, 0.0]
+                    },
+                    "properties": {
+                        "name": "Test Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson_content).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_point_locations_from_geojson(temp_path);
+        assert!(result.is_ok());
+
+        let locations = result.unwrap();
+        assert_eq!(locations.len(), 1);
+        assert_eq!(locations[0].lon(), 15.4);
+        assert_eq!(locations[0].lat(), 78.2);
+    }
 }

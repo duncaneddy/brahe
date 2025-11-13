@@ -270,7 +270,7 @@ where
 /// Compute the matrix square root of a general square matrix.
 ///
 /// This function computes the square root of a general (possibly non-symmetric) square matrix
-/// using Denman-Beavers iteration.
+/// using Denman-Beavers iteration. See [Denman-Beavers iteration](https://en.wikipedia.org/wiki/Square_root_of_a_matrix#By_Denman%E2%80%93Beavers_iteration) for additional details.
 ///
 /// # Arguments
 ///

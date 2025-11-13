@@ -20,6 +20,10 @@ on:
             - '.github/workflows/unit_tests.yml'
             - '.github/workflows/test_*.yml'
 
+concurrency:
+    group: unit-tests-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
     test-rust:
         uses: ./.github/workflows/test_rust.yml

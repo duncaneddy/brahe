@@ -7,6 +7,10 @@ on:
       - 'news/**'
       - 'CHANGELOG.md'
 
+concurrency:
+  group: pr-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   check-skip:
     runs-on: ubuntu-latest

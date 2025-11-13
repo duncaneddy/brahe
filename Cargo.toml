@@ -56,6 +56,13 @@ version = "0.27.1"
 # "abi3-py38" tells pyo3 (and maturin) to build using the stable ABI with minimum Python version 3.8
 features = ["extension-module"]
 
+[target.'cfg(target_os = "macos")'.dependencies]
+nalgebra-lapack = { version = "0.26", features = ["accelerate"] , default-features = false }
+
+# Linux + Windows: use some other backend (e.g., OpenBLAS)
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+nalgebra-lapack = { version = "0.26", features = ["openblas"] , default-features = false }
+
 [dev-dependencies]
 approx = "0.5.1"
 rstest = "0.26.1"

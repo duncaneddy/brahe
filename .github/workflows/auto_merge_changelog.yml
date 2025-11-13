@@ -2,7 +2,7 @@ name: Auto-merge Changelog PRs
 
 on:
   pull_request:
-    types: [opened, synchronize, labeled]
+    types: [labeled]
 
 permissions:
   contents: write
@@ -16,13 +16,30 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'changelog') &&
       contains(github.event.pull_request.labels.*.name, 'automated')
     steps:
+      - name: Check if already approved
+        id: check-approval
+        run: |
+          APPROVALS=$(gh pr view "$PR_URL" --json reviews --jq '[.reviews[] | select(.state == "APPROVED")] | length')
+          if [ "$APPROVALS" -gt 0 ]; then
+            echo "PR already has $APPROVALS approval(s), skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "No approvals found, proceeding with approval"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Approve PR
+        if: steps.check-approval.outputs.skip == 'false'
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge
+        if: steps.check-approval.outputs.skip == 'false'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

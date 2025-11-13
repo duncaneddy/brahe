@@ -110,29 +110,29 @@ pub use integrators::*;
 pub use orbit_dynamics::*;
 pub use orbits::*;
 pub use propagators::*;
+pub use relative_motion::*;
 pub use time::conversions::*;
 pub use time::*;
 pub use trajectories::*;
 
-#[cfg(feature = "python")]
-mod pymodule;
-
+// Module declarations
 pub mod access;
 pub mod attitude;
 pub mod constants;
 pub mod coordinates;
 pub mod datasets;
 pub mod eop;
-/// Reference frame transformations between Earth-Centered Inertial (ECI) and
-/// Earth-Centered Earth-Fixed (ECEF) coordinate systems.
 pub mod frames;
 pub mod integrators;
 pub mod orbit_dynamics;
 pub mod orbits;
 pub mod propagators;
+pub mod relative_motion;
 pub mod time;
 pub mod trajectories;
 pub mod utils;
-
 // Centralized traits module - re-exports all public traits
 pub mod traits;
+
+#[cfg(feature = "python")]
+mod pymodule;

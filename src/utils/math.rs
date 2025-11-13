@@ -1,4 +1,5 @@
 use nalgebra as na;
+use nalgebra::linalg::SymmetricEigen;
 use num_traits::float::Float;
 
 use crate::constants;
@@ -183,6 +184,188 @@ pub fn wrap_to_2pi(angle: f64) -> f64 {
     angle.rem_euclid(two_pi)
 }
 
+/// Compute the matrix square root of a symmetric positive-definite matrix.
+///
+/// This function computes the square root of a symmetric positive-definite matrix
+/// using eigenvalue decomposition. For a symmetric positive-definite matrix M,
+/// the square root is computed as:
+///
+/// M^(1/2) = V * D^(1/2) * V^T
+///
+/// where M = V * D * V^T is the eigendecomposition with V containing the eigenvectors
+/// as columns and D being a diagonal matrix of eigenvalues.
+///
+/// This function is optimized for symmetric matrices (such as covariance matrices)
+/// and uses `SymmetricEigen` for efficient computation.
+///
+/// # Arguments
+///
+/// * `matrix` - A symmetric positive-definite matrix of size N×N
+///
+/// # Returns
+///
+/// * `Result<SMatrix<f64, N, N>, String>` - The matrix square root, or an error if:
+///   - The matrix has negative eigenvalues (not positive-definite)
+///   - The eigendecomposition fails
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::SMatrix;
+/// use brahe::utils::math::spd_sqrtm;
+///
+/// // Identity matrix
+/// let identity = SMatrix::<f64, 2, 2>::identity();
+/// let sqrt_identity = spd_sqrtm(identity).unwrap();
+/// assert!((sqrt_identity - identity).norm() < 1e-10);
+///
+/// // Diagonal matrix
+/// let diag = SMatrix::<f64, 2, 2>::new(4.0, 0.0, 0.0, 9.0);
+/// let sqrt_diag = spd_sqrtm(diag).unwrap();
+/// let expected = SMatrix::<f64, 2, 2>::new(2.0, 0.0, 0.0, 3.0);
+/// assert!((sqrt_diag - expected).norm() < 1e-10);
+/// ```
+pub fn spd_sqrtm<const N: usize>(
+    matrix: na::SMatrix<f64, N, N>,
+) -> Result<na::SMatrix<f64, N, N>, String>
+where
+    na::Const<N>: na::DimName,
+{
+    // Convert to DMatrix for eigendecomposition
+    let dmatrix = na::DMatrix::from_iterator(N, N, matrix.iter().cloned());
+
+    // Compute symmetric eigendecomposition
+    let eigen = SymmetricEigen::new(dmatrix);
+
+    // Check for negative eigenvalues
+    for &eigenvalue in eigen.eigenvalues.iter() {
+        if eigenvalue < 0.0 {
+            return Err(format!(
+                "Matrix is not positive-definite: found negative eigenvalue {}",
+                eigenvalue
+            ));
+        }
+    }
+
+    // Compute square root of eigenvalues
+    let sqrt_eigenvalues = eigen.eigenvalues.map(|x: f64| x.sqrt());
+
+    // Reconstruct: M^(1/2) = V * sqrt(D) * V^T
+    // where V is the eigenvector matrix and D is the diagonal eigenvalue matrix
+    let v = &eigen.eigenvectors;
+    let sqrt_d = na::DMatrix::<f64>::from_diagonal(&sqrt_eigenvalues);
+    let result_dmatrix = v * sqrt_d * v.transpose();
+
+    // Convert back to SMatrix
+    let mut result = na::SMatrix::<f64, N, N>::zeros();
+    for i in 0..N {
+        for j in 0..N {
+            result[(i, j)] = result_dmatrix[(i, j)];
+        }
+    }
+
+    Ok(result)
+}
+
+/// Compute the matrix square root of a general square matrix.
+///
+/// This function computes the square root of a general (possibly non-symmetric) square matrix
+/// using Denman-Beavers iteration.
+///
+/// # Arguments
+///
+/// * `matrix` - A square matrix of size N×N
+///
+/// # Returns
+///
+/// * `Result<SMatrix<f64, N, N>, String>` - The matrix square root, or an error if:
+///   - The matrix has complex eigenvalues
+///   - The matrix has negative real eigenvalues
+///   - The eigendecomposition fails
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::SMatrix;
+/// use brahe::utils::math::sqrtm;
+///
+/// // Test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
+/// let a = SMatrix::<f64, 2, 2>::new(33.0, 24.0, 48.0, 57.0);
+/// let sqrt_a = sqrtm(a).unwrap();
+/// let expected = SMatrix::<f64, 2, 2>::new(5.0, 2.0, 4.0, 7.0);
+/// assert!((sqrt_a - expected).norm() < 1e-10);
+///
+/// // Verify: sqrtm(A) * sqrtm(A) = A
+/// let reconstructed = sqrt_a * sqrt_a;
+/// assert!((reconstructed - a).norm() < 1e-10);
+/// ```
+pub fn sqrtm<const N: usize>(
+    matrix: na::SMatrix<f64, N, N>,
+) -> Result<na::SMatrix<f64, N, N>, String>
+where
+    na::Const<N>: na::DimName,
+{
+    // Use Denman-Beavers iteration for computing matrix square root
+    // This works for any matrix with eigenvalues in the open right half-plane
+    // Iterations: Y_{k+1} = (Y_k + Z_k^{-1}) / 2
+    //             Z_{k+1} = (Z_k + Y_k^{-1}) / 2
+    // Starting with Y_0 = A, Z_0 = I
+
+    // Convert to DMatrix for computation
+    let a = na::DMatrix::from_iterator(N, N, matrix.iter().cloned());
+
+    let mut y = a.clone();
+    let mut z = na::DMatrix::<f64>::identity(N, N);
+
+    const MAX_ITERATIONS: usize = 50;
+    const TOLERANCE: f64 = 1e-10;
+
+    for _ in 0..MAX_ITERATIONS {
+        // Compute inverses
+        let y_inv = y.clone().try_inverse().ok_or_else(|| {
+            "Matrix became singular during iteration; cannot compute matrix square root".to_string()
+        })?;
+
+        let z_inv = z.clone().try_inverse().ok_or_else(|| {
+            "Iteration matrix became singular; cannot compute matrix square root".to_string()
+        })?;
+
+        // Update Y and Z
+        let y_new = (&y + &z_inv) * 0.5;
+        let z_new = (&z + &y_inv) * 0.5;
+
+        // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
+        let diff = (&y_new - &y).norm();
+        if diff < TOLERANCE {
+            y = y_new;
+            break;
+        }
+
+        y = y_new;
+        z = z_new;
+    }
+
+    // Verify the result: Y * Y should equal A
+    let check = &y * &y;
+    let error = (&check - &a).norm();
+    if error > 1e-8 {
+        return Err(format!(
+            "Matrix square root did not converge to sufficient accuracy (error: {})",
+            error
+        ));
+    }
+
+    // Convert back to SMatrix
+    let mut result = na::SMatrix::<f64, N, N>::zeros();
+    for i in 0..N {
+        for j in 0..N {
+            result[(i, j)] = y[(i, j)];
+        }
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use std::f64::consts::PI;
@@ -271,5 +454,119 @@ mod tests {
 
         assert_eq!(wrap_to_2pi(-PI), PI);
         assert_eq!(wrap_to_2pi(-3.0 / 2.0 * PI), PI / 2.0);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_identity() {
+        // Test identity matrix
+        let identity = na::SMatrix::<f64, 3, 3>::identity();
+        let sqrt_identity = spd_sqrtm(identity).unwrap();
+
+        // sqrt(I) = I
+        assert!((sqrt_identity - identity).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_diagonal() {
+        // Test diagonal matrix
+        let diag = na::SMatrix::<f64, 3, 3>::new(4.0, 0.0, 0.0, 0.0, 9.0, 0.0, 0.0, 0.0, 16.0);
+
+        let sqrt_diag = spd_sqrtm(diag).unwrap();
+        let expected = na::SMatrix::<f64, 3, 3>::new(2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0);
+
+        assert!((sqrt_diag - expected).norm() < 1e-10);
+
+        // Verify: sqrt(D) * sqrt(D) = D
+        let reconstructed = sqrt_diag * sqrt_diag;
+        assert!((reconstructed - diag).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_covariance() {
+        // Test a realistic 6x6 covariance matrix
+        let mut cov = na::SMatrix::<f64, 6, 6>::identity() * 100.0;
+        // Make it slightly non-diagonal but still symmetric positive-definite
+        cov[(0, 1)] = 10.0;
+        cov[(1, 0)] = 10.0;
+        cov[(2, 3)] = 5.0;
+        cov[(3, 2)] = 5.0;
+
+        let sqrt_cov = spd_sqrtm(cov).unwrap();
+
+        // Verify: sqrt(C) * sqrt(C) = C
+        let reconstructed = sqrt_cov * sqrt_cov;
+        assert!((reconstructed - cov).norm() < 1e-8);
+
+        // Verify sqrt is also symmetric
+        let sqrt_cov_t = sqrt_cov.transpose();
+        assert!((sqrt_cov - sqrt_cov_t).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_spd_sqrtm_error_negative_eigenvalue() {
+        // Create a matrix with a negative eigenvalue
+        // This is not positive-definite
+        let mat = na::SMatrix::<f64, 2, 2>::new(1.0, 0.0, 0.0, -1.0);
+
+        let result = spd_sqrtm(mat);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("negative eigenvalue"));
+    }
+
+    #[test]
+    fn test_sqrtm_wiki_test_case() {
+        // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
+        let a = na::SMatrix::<f64, 2, 2>::new(33.0, 24.0, 48.0, 57.0);
+
+        let sqrt_a = sqrtm(a).unwrap();
+        let expected = na::SMatrix::<f64, 2, 2>::new(5.0, 2.0, 4.0, 7.0);
+
+        // Check result matches expected
+        assert!((sqrt_a - expected).norm() < 1e-10);
+
+        // Verify: sqrtm(A) * sqrtm(A) = A
+        let reconstructed = sqrt_a * sqrt_a;
+        assert!((reconstructed - a).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_3x3_general() {
+        // Test a 3x3 non-symmetric matrix with real eigenvalues
+        let mat = na::SMatrix::<f64, 3, 3>::new(5.0, 2.0, 1.0, 0.0, 3.0, 1.0, 0.0, 0.0, 2.0);
+
+        let sqrt_mat = sqrtm(mat).unwrap();
+
+        // Verify: sqrtm(M) * sqrtm(M) = M
+        let reconstructed = sqrt_mat * sqrt_mat;
+        assert!((reconstructed - mat).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_symmetric_matches_spd() {
+        // For a symmetric positive-definite matrix, both functions should give same result
+        let mat = na::SMatrix::<f64, 3, 3>::new(4.0, 2.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 5.0);
+
+        let sqrt_spd = spd_sqrtm(mat).unwrap();
+        let sqrt_gen = sqrtm(mat).unwrap();
+
+        // Results should be very close (within numerical precision)
+        assert!((sqrt_spd - sqrt_gen).norm() < 1e-8);
+    }
+
+    #[test]
+    fn test_sqrtm_error_negative_eigenvalue() {
+        // Matrix with negative eigenvalue
+        // The Denman-Beavers iteration will fail to converge for this matrix
+        let mat = na::SMatrix::<f64, 2, 2>::new(-1.0, 0.0, 0.0, 4.0);
+
+        let result = sqrtm(mat);
+        assert!(result.is_err());
+        // The error could be about singular matrix or convergence failure
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("singular")
+                || err_msg.contains("converge")
+                || err_msg.contains("accuracy")
+        );
     }
 }

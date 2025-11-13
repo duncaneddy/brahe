@@ -2,11 +2,15 @@ name: Auto-merge Changelog PRs
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, labeled]
 
 permissions:
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
 
 jobs:
   changelog:

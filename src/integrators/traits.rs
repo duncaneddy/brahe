@@ -525,7 +525,8 @@ mod tests {
 
         // All offsets should be proportional to state magnitude
         // h_i = sqrt(eps) * max(|x_i|, threshold)
-        const SQRT_EPS: f64 = 1.4901161193847656e-8;
+        #[allow(non_snake_case)]
+        let SQRT_EPS: f64 = f64::EPSILON.sqrt();
         const THRESHOLD: f64 = 1.0;
 
         assert_abs_diff_eq!(offsets[0], SQRT_EPS * 1000.0, epsilon = 1e-10);
@@ -598,7 +599,7 @@ mod tests {
     }
 
     // ========================================================================
-    // Test: Custom offsets (power user function)
+    // Test: Custom offsets
     // ========================================================================
 
     #[test]

@@ -1758,6 +1758,9 @@ impl CovarianceProvider for OrbitTrajectory {
         // Get state in ECI/GCRF frame
         let state_eci = self.state_eci(epoch);
 
+        // Get rotation matrix from ECI to RTN
+        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
+
         // Extract position and velocity
         let r = state_eci.fixed_rows::<3>(0);
         let v = state_eci.fixed_rows::<3>(3);
@@ -1771,8 +1774,7 @@ impl CovarianceProvider for OrbitTrajectory {
             0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
         );
 
-        // Get rotation matrix from ECI to RTN
-        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
+        let j21 = -omega_skew * rot_eci_to_rtn;
 
         // Build full 6x6 Jacobian for ECI to RTN transformation
         let mut jacobian = nalgebra::Matrix6::zeros();
@@ -1788,7 +1790,7 @@ impl CovarianceProvider for OrbitTrajectory {
         // Off-diagonal parts due to angular velocity
         for i in 3..6 {
             for j in 0..3 {
-                jacobian[(i, j)] = omega_skew[(i - 3, j)];
+                jacobian[(i, j)] = j21[(i - 3, j)];
             }
         }
 

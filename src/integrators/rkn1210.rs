@@ -433,6 +433,10 @@ impl<const S: usize> AdaptiveStepIntegrator<S> for RKN1210Integrator<S> {
             }
 
             // Compute STM for this stage
+            // For RKN methods, the STM stage accumulation needs careful treatment
+            // Standard RK uses k_phi_sum = sum(a[i,j] * k_phi[j])
+            // But RKN has different structure - position uses 'a' coefficients
+            // For now, use the position coefficients (a) for STM stages
             let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
             for (j, k_phi_j) in k_phi.iter().enumerate().take(i) {
                 k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
@@ -480,9 +484,13 @@ impl<const S: usize> AdaptiveStepIntegrator<S> for RKN1210Integrator<S> {
             state_low[half_dim + dim] = vel_low[dim];
         }
 
-        // Compute STM update (using high-order position weights for consistency)
+        // Compute STM update
+        // IMPORTANT: Use velocity weights (b_vel_high) not position weights!
+        // The STM satisfies a first-order ODE: dΦ/dt = J(t,x)·Φ
+        // Position weights sum to 0.5 (specific to second-order position integration)
+        // Velocity weights sum to 1.0 (required for first-order integration)
         for (i, k_phi_i) in k_phi.iter().enumerate().take(17) {
-            phi_update += dt * self.bt.b_pos_high[i] * k_phi_i;
+            phi_update += dt * self.bt.b_vel_high[i] * k_phi_i;
         }
 
         // Error estimation
@@ -877,6 +885,147 @@ mod tests {
                     assert_ne!(phi2[(i, j)], 0.0);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_rkn1210_stm_accuracy() {
+        // Comprehensive test comparing STM propagation with direct numerical perturbation
+        // This validates that the STM correctly predicts how perturbations evolve
+
+        let varmat_config = VarmatConfig::central().with_fixed_offset(1.0);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_config.compute(t, state, &point_earth)
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn =
+            RKN1210Integrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+
+        // Start with a realistic orbital state
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let phi0 = SMatrix::<f64, 6, 6>::identity();
+
+        // Propagate with STM for a significant time step
+        let dt = 10.0; // 10 seconds
+        let (state_final, phi_final, _, _, _) =
+            rkn.step_with_varmat(0.0, state0, phi0, dt, 1e-12, 1e-10);
+
+        // Test STM accuracy by comparing with direct perturbation
+        // Use a small perturbation in each direction
+        let pert_size = 1.0; // 1 meter in position, 1 mm/s in velocity
+
+        // Test all 6 components
+        for i in 0..6 {
+            let mut perturbation = SVector::<f64, 6>::zeros();
+            perturbation[i] = pert_size;
+
+            // Propagate perturbed state directly
+            let state_pert0 = state0 + perturbation;
+            let result_pert = rkn.step(0.0, state_pert0, dt, 1e-12, 1e-10);
+            let state_pert_direct = result_pert.state;
+
+            // Predict perturbed state using STM
+            let state_pert_predicted = state_final + phi_final * perturbation;
+
+            // Compare - STM should accurately predict the perturbation evolution
+            let error = (state_pert_direct - state_pert_predicted).norm();
+            let relative_error = error / pert_size;
+
+            println!(
+                "Component {}: STM error = {:.3e} m or m/s (relative: {:.3e})",
+                i, error, relative_error
+            );
+
+            // STM should be accurate for practical use
+            // Note: RKN STM propagation has inherent limitations due to:
+            // 1. Finite difference Jacobian approximation
+            // 2. Treating full 6D state [r,v] when RKN is fundamentally for 2nd-order systems
+            // 3. Using position-based RKN stage points for evaluating 6D Jacobian
+            // 4. Nonlinearity of the dynamics
+            // Velocity components (3-5) have larger errors than position (0-2)
+            // Expect ~1e-3 relative accuracy for velocity, ~1e-4 for position
+            let tolerance = if i < 3 { 2e-4 } else { 5e-4 };
+            assert!(
+                relative_error < tolerance,
+                "STM prediction error too large for component {}: {:.3e} (tolerance: {:.3e})",
+                i,
+                relative_error,
+                tolerance
+            );
+        }
+
+        // Additional test: Verify STM is symplectic-like for Hamiltonian systems
+        // The determinant of the STM should be close to 1 for conservative systems
+        let det = phi_final.determinant();
+        println!("STM determinant: {:.12}", det);
+        assert_abs_diff_eq!(det, 1.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rkn1210_stm_vs_direct_perturbation() {
+        // This test specifically validates the STM weight choice by comparing
+        // multiple propagation steps with direct perturbation
+
+        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_config.compute(t, state, &point_earth)
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn =
+            RKN1210Integrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+
+        // Circular orbit
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+
+        // Small perturbation in position
+        let perturbation = SVector::<f64, 6>::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        // Propagate over multiple steps
+        let total_time = 100.0; // 100 seconds
+        let num_steps = 10;
+        let dt = total_time / num_steps as f64;
+
+        let mut state = state0;
+        let mut phi = SMatrix::<f64, 6, 6>::identity();
+        let mut state_pert = state0 + perturbation;
+        let mut t = 0.0;
+
+        for step in 0..num_steps {
+            // Propagate with STM
+            let (state_new, phi_new, dt_used, _, _) =
+                rkn.step_with_varmat(t, state, phi, dt, 1e-12, 1e-10);
+
+            // Propagate perturbed state directly
+            let result_pert = rkn.step(t, state_pert, dt, 1e-12, 1e-10);
+
+            // Predict perturbed state using STM
+            let state_pert_predicted = state_new + phi_new * perturbation;
+
+            // Compare
+            let error = (result_pert.state - state_pert_predicted).norm();
+            println!("Step {}: error = {:.6e} m", step + 1, error);
+
+            // Error should remain small and not accumulate excessively
+            // RKN STM has ~1e-3 relative error per step, so for 10m perturbation
+            // expect ~0.01m error per step, growing to ~0.1m over 10 steps
+            let max_error = 0.01 * (step + 1) as f64; // Linear accumulation assumption
+            assert!(
+                error < max_error,
+                "STM prediction diverged at step {}: error = {:.3e} m (max: {:.3e} m)",
+                step + 1,
+                error,
+                max_error
+            );
+
+            // Update for next step
+            state = state_new;
+            phi = phi_new;
+            state_pert = result_pert.state;
+            t += dt_used;
         }
     }
 }

@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 
 use nalgebra::Vector3;
 
-use super::SMatrix3;
+use crate::utils::SMatrix3;
 
 use crate::constants;
 use crate::constants::AngleFormat;

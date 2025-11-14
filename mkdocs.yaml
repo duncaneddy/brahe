@@ -194,6 +194,10 @@ nav:
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
                 - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
                 - Parallel Propagation: learn/orbit_propagation/parallel_propagation.md
+            - Relative Motion:
+                - learn/relative_motion/index.md
+                - learn/relative_motion/rtn_transformations.md
+                - learn/relative_motion/roe_transformations.md
             - Access Computation:
                 - learn/access_computation/index.md
                 - Locations: learn/access_computation/locations.md
@@ -285,6 +289,10 @@ nav:
                 - KeplerianPropagator: library_api/propagators/keplerian_propagator.md
                 - SGPPropagator: library_api/propagators/sgp_propagator.md
                 - Functions: library_api/propagators/functions.md
+            - Relative Motion:
+                - library_api/relative_motion/index.md
+                - RTN Transformations: library_api/relative_motion/rtn_transformations.md
+                - ROE Transformations: library_api/relative_motion/roe_transformations.md
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md

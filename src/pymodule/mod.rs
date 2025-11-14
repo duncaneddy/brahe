@@ -472,6 +472,7 @@ include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
+include!("relative_motion.rs");
 include!("utils.rs");
 
 // Define Module
@@ -720,6 +721,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_keplerian_elements_to_tle, module)?)?;
     module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
+
+    //* Relative Motion *//
+    module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
 
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;

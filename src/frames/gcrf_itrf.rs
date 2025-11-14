@@ -3,7 +3,7 @@
  */
 use nalgebra::Vector3;
 
-use crate::coordinates::{SMatrix3, SVector6};
+use crate::utils::{SMatrix3, SVector6};
 #[cfg(test)]
 use serial_test::serial;
 

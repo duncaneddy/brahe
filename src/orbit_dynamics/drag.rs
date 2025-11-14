@@ -5,7 +5,7 @@ Module to provide implementation of drag force and simple atmospheric models.
 use nalgebra::{Vector3, Vector6};
 
 use crate::constants::AngleFormat;
-use crate::coordinates::SMatrix3;
+use crate::utils::SMatrix3;
 
 #[cfg(test)]
 use crate::constants::DEGREES;

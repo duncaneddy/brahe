@@ -554,11 +554,9 @@ mod tests {
     use crate::integrators::butcher_tableau::rkn1210_tableau;
     use crate::integrators::config::IntegratorConfig;
     use crate::integrators::rkn1210::RKN1210Integrator;
-    use crate::integrators::traits::AdaptiveStepIntegrator;
+    use crate::integrators::traits::{AdaptiveStepIntegrator, VarmatConfig};
     use crate::time::{Epoch, TimeSystem};
-    use crate::{
-        GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian, varmat_from_fixed_offset,
-    };
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
     #[test]
     fn test_rkn1210_coefficients() {
@@ -838,9 +836,11 @@ mod tests {
 
     #[test]
     fn test_rkn1210_varmat() {
-        // Define variational matrix computation
-        let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_fixed_offset(t, state, &point_earth, 1.0)
+        // Define variational matrix computation using new VarmatConfig API
+        // Use forward differences to match old test behavior
+        let varmat_config = VarmatConfig::forward().with_fixed_offset(1.0);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_config.compute(t, state, &point_earth)
         };
 
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);

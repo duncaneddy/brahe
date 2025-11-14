@@ -195,12 +195,11 @@ mod tests {
 
     use crate::constants::RADIANS;
     use crate::integrators::rk4::RK4Integrator;
-    use crate::integrators::traits::FixedStepIntegrator;
-    use crate::time::{Epoch, TimeSystem};
-    use crate::{
-        GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian, varmat_from_fixed_offset,
-        varmat_from_offset_vector,
+    use crate::integrators::traits::{
+        DifferenceMethod, FixedStepIntegrator, VarmatConfig, varmat_custom,
     };
+    use crate::time::{Epoch, TimeSystem};
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
     fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
@@ -297,8 +296,10 @@ mod tests {
     #[test]
     fn test_rk4_integrator_varmat() {
         // Define how we want to calculate the variational matrix for the RK4 integrator
-        let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_fixed_offset(t, state, &point_earth, 1.0)
+        // Use new VarmatConfig API with fixed offset
+        let config = VarmatConfig::default().with_fixed_offset(1.0);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            config.compute(t, state, &point_earth)
         };
 
         let rk4 = RK4Integrator::new(Box::new(point_earth), Some(Box::new(varmat)));
@@ -308,7 +309,7 @@ mod tests {
         let state0 = state_osculating_to_cartesian(oe0, RADIANS);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
-        // Take no setp and confirm the variational matrix is the identity matrix
+        // Take no step and confirm the variational matrix is the identity matrix
         let (_, phi1) = rk4.step_with_varmat(0.0, state0, phi0, 0.0);
         for i in 0..6 {
             for j in 0..6 {
@@ -320,7 +321,7 @@ mod tests {
             }
         }
 
-        // Propagate one step and indecently confirm the variational matrix update
+        // Propagate one step and independently confirm the variational matrix update
         let (_, phi2) = rk4.step_with_varmat(0.0, state0, phi0, 1.0);
         for i in 0..6 {
             for j in 0..6 {
@@ -338,11 +339,14 @@ mod tests {
         // Compare updating the state with a perturbation and the result from using the variational matrix
         // Define a simple perturbation to simplify the tests
         let pert = SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        // Use varmat_custom for power user API testing
         let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_from_offset_vector(
+            varmat_custom(
                 t,
                 state,
                 &point_earth,
+                DifferenceMethod::Central,
                 SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             )
         };

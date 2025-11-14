@@ -296,7 +296,8 @@
 <span class=normal><a href=#__codelineno-5-39>39</a></span>
 <span class=normal><a href=#__codelineno-5-40>40</a></span>
 <span class=normal><a href=#__codelineno-5-41>41</a></span>
-<span class=normal><a href=#__codelineno-5-42>42</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-5-42>42</a></span>
+<span class=normal><a href=#__codelineno-5-43>43</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>time</span><span class=p>::</span><span class=n>Epoch</span><span class=p>;</span>
 </span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>trajectories</span><span class=p>::</span><span class=n>OrbitTrajectory</span><span class=p>;</span>
 </span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>trajectories</span><span class=p>::</span><span class=n>traits</span><span class=p>::{</span><span class=n>OrbitFrame</span><span class=p>,</span><span class=w> </span><span class=n>OrbitRepresentation</span><span class=p>,</span><span class=w> </span><span class=n>OrbitalTrajectory</span><span class=p>};</span>
@@ -332,12 +333,13 @@
 </span><span id=__span-5-34><a id=__codelineno-5-34 name=__codelineno-5-34></a><span class=w>        </span><span class=n>states</span><span class=p>,</span>
 </span><span id=__span-5-35><a id=__codelineno-5-35 name=__codelineno-5-35></a><span class=w>        </span><span class=n>OrbitFrame</span><span class=p>::</span><span class=n>ECI</span><span class=p>,</span>
 </span><span id=__span-5-36><a id=__codelineno-5-36 name=__codelineno-5-36></a><span class=w>        </span><span class=n>OrbitRepresentation</span><span class=p>::</span><span class=n>Cartesian</span><span class=p>,</span>
-</span><span id=__span-5-37><a id=__codelineno-5-37 name=__codelineno-5-37></a><span class=w>        </span><span class=nb>None</span>
-</span><span id=__span-5-38><a id=__codelineno-5-38 name=__codelineno-5-38></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-5-39><a id=__codelineno-5-39 name=__codelineno-5-39></a>
-</span><span id=__span-5-40><a id=__codelineno-5-40 name=__codelineno-5-40></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Trajectory length: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>traj</span><span class=p>.</span><span class=n>len</span><span class=p>());</span><span class=w>  </span>
-</span><span id=__span-5-41><a id=__codelineno-5-41 name=__codelineno-5-41></a><span class=w>    </span><span class=c1>// Trajectory length: 3</span>
-</span><span id=__span-5-42><a id=__codelineno-5-42 name=__codelineno-5-42></a><span class=p>}</span>
+</span><span id=__span-5-37><a id=__codelineno-5-37 name=__codelineno-5-37></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-5-38><a id=__codelineno-5-38 name=__codelineno-5-38></a><span class=w>        </span><span class=nb>None</span>
+</span><span id=__span-5-39><a id=__codelineno-5-39 name=__codelineno-5-39></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-5-40><a id=__codelineno-5-40 name=__codelineno-5-40></a>
+</span><span id=__span-5-41><a id=__codelineno-5-41 name=__codelineno-5-41></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Trajectory length: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>traj</span><span class=p>.</span><span class=n>len</span><span class=p>());</span><span class=w>  </span>
+</span><span id=__span-5-42><a id=__codelineno-5-42 name=__codelineno-5-42></a><span class=w>    </span><span class=c1>// Trajectory length: 3</span>
+</span><span id=__span-5-43><a id=__codelineno-5-43 name=__codelineno-5-43></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <h3 id=from-propagator>From Propagator<a class=headerlink href=#from-propagator title="Permanent link">&para;</a></h3> <p>The most common way to get an <code>OrbitTrajectory</code> from a propagator. All orbit propagators in Brahe have a <code>*.trajectory</code> attribute which is an <code>OrbitTrajectory</code>.</p> <p>See the <a href=../orbit_propagation/index.html>Propagators</a> section for more details on propagators.</p> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
 <span class=normal><a href=#__codelineno-6-2> 2</a></span>
 <span class=normal><a href=#__codelineno-6-3> 3</a></span>

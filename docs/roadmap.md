@@ -74,8 +74,8 @@ It also contains many new features, improvements to core functionality, and bett
 - [ ] Improved Interpolation Methods for Trajectories
     - [ ] Lagrange Interpolation
     - [ ] Hermite Interpolation
-- [ ] Package Maintenance
-    - [ ] Add `towncrier` for automated PR-request changelogs
+- [x] Package Maintenance
+    - [x] Add `towncrier` for automated PR-request changelogs
 
 ----
 
@@ -84,8 +84,8 @@ It also contains many new features, improvements to core functionality, and bett
 This release adds support for numerical orbit propagation using common perturbation models. It also introduces additional datasets and improves existing functionality.
 
 - [ ] Add support for numerical integraiton
-    - [ ] Fixed-step Runge-Kutta methods (RK4, RKF45)
-    - [ ] Adaptive-step integrators
+    - [ ] Fixed-step Runge-Kutta methods (RK4)
+    - [ ] Adaptive-step integrators (RKF45, Dormand-Prince 5(4))
 - [ ] Orbital Perturbations
     - [ ] Spherical Harmonic Gravity
     - [ ] Third Body Gravity
@@ -93,6 +93,8 @@ This release adds support for numerical orbit propagation using common perturbat
     - [ ] Solar Radiation Pressure
     - [ ] Relativity
     - [ ] Eclipse Models
+    - [ ] Low-fidelity planetary ephemerides
+    - [ ] High-fidelity planetary ephemerides (JPL DE430)
 - [ ] Numerical Orbit Propagation Module
     - [ ] Control Input Support
         - [ ] Impulsive Maneuvers
@@ -112,9 +114,9 @@ This release adds support for numerical orbit propagation using common perturbat
 - [ ] Mean Orbital Elements Support
     - [ ] Conversion between Mean and Osculating elements
 - [ ] Relative Orbits
-    - [ ] Relative Orbit Representations
-        - [ ] RTN Cartesian States
-        - [ ] Relative Orbital Elements
+    - [x] Relative Orbit Representations
+        - [x] RTN Cartesian States
+        - [x] Relative Orbital Elements
     - [ ] Propagation of relative motion
         - [ ] Hill-Clohessy-Wiltshire (HCW) Equations
         - [ ] Tschauner-Hempel Equations

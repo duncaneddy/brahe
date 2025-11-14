@@ -40,6 +40,72 @@ impl PyInterpolationMethod {
     }
 }
 
+/// Interpolation method for covariance matrix estimation.
+///
+/// Specifies the algorithm used to estimate covariance matrices at epochs between
+/// discrete trajectory points. Covariance matrices are positive semi-definite matrices
+/// living on a manifold, requiring specialized interpolation methods to preserve
+/// mathematical properties.
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CovarianceInterpolationMethod")]
+#[derive(Clone)]
+pub struct PyCovarianceInterpolationMethod {
+    pub(crate) method: trajectories::traits::CovarianceInterpolationMethod,
+}
+
+#[pymethods]
+impl PyCovarianceInterpolationMethod {
+
+    /// Matrix square root covariance interpolation method.
+    ///
+    /// Interpolates covariance matrices using the matrix square root approach.
+    /// This method preserves positive-definiteness by working in the space of
+    /// matrix square roots.
+    ///
+    /// Returns:
+    ///     CovarianceInterpolationMethod: Matrix square root interpolation constant
+    #[classattr]
+    #[pyo3(name = "MATRIX_SQUARE_ROOT")]
+    fn matrix_square_root() -> Self {
+        PyCovarianceInterpolationMethod {
+            method: trajectories::traits::CovarianceInterpolationMethod::MatrixSquareRoot,
+        }
+    }
+
+    /// 2-Wasserstein covariance interpolation method.
+    ///
+    /// Preserves positive-definiteness by interpolating on the manifold of
+    /// positive semi-definite matrices. Uses an entropy-regularized 2-Wasserstein interpolation for interpolation between
+    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wassertein Distance Between Guassian Mesures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+    /// for details.
+    ///
+    /// Returns:
+    ///     CovarianceInterpolationMethod: 2-Wasserstein interpolation constant
+    #[classattr]
+    #[pyo3(name = "TWO_WASSERSTEIN")]
+    fn two_wasserstein() -> Self {
+        PyCovarianceInterpolationMethod {
+            method: trajectories::traits::CovarianceInterpolationMethod::TwoWasserstein,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.method)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CovarianceInterpolationMethod.{:?}", self.method)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.method == other.method),
+            CompareOp::Ne => Ok(self.method != other.method),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
 
 /// Reference frame for orbital trajectory representation.
 ///
@@ -295,11 +361,31 @@ impl PyOrbitalTrajectory {
     ///     representation (OrbitRepresentation): State representation format
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
     ///         must be None for Cartesian representation
+    ///     covariances (numpy.ndarray or None): Optional 3D array of 6x6 covariance matrices
+    ///         with shape (N, 6, 6) where N is the number of epochs. Only supported for
+    ///         ECI and GCRF frames.
     ///
     /// Returns:
     ///     OrbitTrajectory: New trajectory instance populated with data
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epochs = [bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)]
+    ///     states = np.array([[bh.R_EARTH + 500e3, 0, 0, 0, 7500, 0]])
+    ///     # Covariance is optional
+    ///     covs = np.array([np.eye(6) * 100.0])  # 100 m² position variance
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         epochs, states, bh.OrbitFrame.ECI,
+    ///         bh.OrbitRepresentation.CARTESIAN, None,
+    ///         covariances=covs
+    ///     )
+    ///     ```
     #[classmethod]
-    #[pyo3(signature = (epochs, states, frame, representation, angle_format=None), text_signature = "(epochs, states, frame, representation, angle_format=None)")]
+    #[pyo3(signature = (epochs, states, frame, representation, angle_format=None, covariances=None), text_signature = "(epochs, states, frame, representation, angle_format=None, covariances=None)")]
     pub fn from_orbital_data(
         _cls: &Bound<'_, PyType>,
         epochs: Vec<PyRef<PyEpoch>>,
@@ -307,6 +393,7 @@ impl PyOrbitalTrajectory {
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
+        covariances: Option<PyReadonlyArray3<f64>>,
     ) -> PyResult<Self> {
         // Validate: Cartesian must have None, Keplerian must have Some
         match (representation.representation, &angle_format) {
@@ -355,6 +442,37 @@ impl PyOrbitalTrajectory {
             states_vec.push(state_vec);
         }
 
+        // Process covariances if provided
+        let covariances_vec = if let Some(covs) = covariances {
+            let covs_array = covs.as_array();
+
+            // Validate shape: (N, 6, 6)
+            if covs_array.shape()[0] != num_epochs {
+                return Err(exceptions::PyValueError::new_err(
+                    format!("Number of covariances ({}) must match number of epochs ({})",
+                        covs_array.shape()[0], num_epochs)
+                ));
+            }
+            if covs_array.shape()[1] != 6 || covs_array.shape()[2] != 6 {
+                return Err(exceptions::PyValueError::new_err(
+                    format!("Covariance matrices must be 6x6, got ({}, {})",
+                        covs_array.shape()[1], covs_array.shape()[2])
+                ));
+            }
+
+            let mut cov_vec = Vec::new();
+            for i in 0..num_epochs {
+                let cov_slice = covs_array.slice(ndarray::s![i, .., ..]);
+                let cov_matrix = na::SMatrix::<f64, 6, 6>::from_iterator(
+                    cov_slice.iter().copied()
+                );
+                cov_vec.push(cov_matrix);
+            }
+            Some(cov_vec)
+        } else {
+            None
+        };
+
         let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
         let trajectory = trajectories::OrbitTrajectory::from_orbital_data(
@@ -363,6 +481,7 @@ impl PyOrbitalTrajectory {
             frame.frame,
             representation.representation,
             angle_fmt,
+            covariances_vec,
         );
         Ok(PyOrbitalTrajectory { trajectory })
     }
@@ -386,6 +505,72 @@ impl PyOrbitalTrajectory {
     pub fn with_interpolation_method(mut slf: PyRefMut<'_, Self>, method: PyRef<PyInterpolationMethod>) -> Self {
         slf.trajectory = slf.trajectory.clone().with_interpolation_method(method.method);
         Self { trajectory: slf.trajectory.clone() }
+    }
+
+    /// Set covariance interpolation method using builder pattern.
+    ///
+    /// Args:
+    ///     method (CovarianceInterpolationMethod): Covariance interpolation method to use
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Self with updated covariance interpolation method
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWOWASSERSTEIN)
+    ///     ```
+    #[pyo3(text_signature = "(method)")]
+    pub fn with_covariance_interpolation_method(
+        mut slf: PyRefMut<'_, Self>,
+        method: PyRef<PyCovarianceInterpolationMethod>,
+    ) -> Self {
+        use trajectories::traits::CovarianceInterpolatable;
+        slf.trajectory = slf.trajectory.clone().with_covariance_interpolation_method(method.method);
+        Self { trajectory: slf.trajectory.clone() }
+    }
+
+    /// Set the covariance interpolation method.
+    ///
+    /// Args:
+    ///     method (CovarianceInterpolationMethod): Covariance interpolation method to use
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj.set_covariance_interpolation_method(bh.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT)
+    ///     ```
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_covariance_interpolation_method(
+        &mut self,
+        method: PyRef<PyCovarianceInterpolationMethod>,
+    ) {
+        use trajectories::traits::CovarianceInterpolatable;
+        self.trajectory.set_covariance_interpolation_method(method.method);
+    }
+
+    /// Get the current covariance interpolation method.
+    ///
+    /// Returns:
+    ///     CovarianceInterpolationMethod: Current covariance interpolation method
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     method = traj.get_covariance_interpolation_method()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn get_covariance_interpolation_method(&self) -> PyCovarianceInterpolationMethod {
+        use trajectories::traits::CovarianceInterpolatable;
+        PyCovarianceInterpolationMethod {
+            method: self.trajectory.get_covariance_interpolation_method(),
+        }
     }
 
     /// Set eviction policy to keep maximum number of states using builder pattern.
@@ -1763,6 +1948,212 @@ impl PyOrbitalTrajectory {
         let mut traj = slf.trajectory.clone();
         traj = Identifiable::with_new_uuid(traj);
         Py::new(py, PyOrbitalTrajectory { trajectory: traj }).unwrap()
+    }
+
+    /// Add a state vector and associated covariance matrix to the trajectory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time of the state and covariance
+    ///     state (np.ndarray): 6-element state vector [x, y, z, vx, vy, vz] in meters and m/s
+    ///     covariance (np.ndarray): 6x6 covariance matrix in the same units
+    ///
+    /// Raises:
+    ///     RuntimeError: If the trajectory was not initialized with covariances enabled
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     new_epoch = epoch + 60.0
+    ///     new_state = np.array([bh.R_EARTH + 500e3, 100.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     new_cov = np.eye(6) * 1100.0
+    ///     traj.add_state_and_covariance(new_epoch, new_state, new_cov)
+    ///     ```
+    fn add_state_and_covariance(
+        &mut self,
+        epoch: PyRef<PyEpoch>,
+        state: PyReadonlyArray1<f64>,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<()> {
+        // Convert state array to SVector
+        let state_array = state.as_array();
+        if state_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "State vector must have 6 elements, got {}",
+                state_array.len()
+            )));
+        }
+        let state_vec = SVector::<f64, 6>::from_column_slice(state_array.as_slice().unwrap());
+
+        // Convert covariance array to SMatrix
+        let cov_array = covariance.as_array();
+        if cov_array.shape() != [6, 6] {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "Covariance matrix must be 6x6, got {:?}",
+                cov_array.shape()
+            )));
+        }
+        let cov_slice = cov_array.as_slice().unwrap();
+        let cov_mat = SMatrix::<f64, 6, 6>::from_column_slice(cov_slice);
+
+        // Call Rust method
+        self.trajectory.add_state_and_covariance(epoch.obj, state_vec, cov_mat);
+        Ok(())
+    }
+
+    /// Get the covariance matrix at a specific epoch in the trajectory's native frame.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray | None: 6x6 covariance matrix, or None if no covariances are available
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance(epoch)
+    ///     print(result)  # 6x6 numpy array
+    ///     ```
+    fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
+        match CovarianceProvider::covariance(&self.trajectory, epoch.obj) {
+            Some(cov_mat) => {
+                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+                Ok(Some(array.to_owned()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get the covariance matrix at a specific epoch in the ECI frame.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray | None: 6x6 covariance matrix in ECI frame, or None if no covariances are available
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_eci(epoch)
+    ///     print(result)  # 6x6 numpy array
+    ///     ```
+    fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
+        match CovarianceProvider::covariance_eci(&self.trajectory, epoch.obj) {
+            Some(cov_mat) => {
+                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+                Ok(Some(array.to_owned()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get the covariance matrix at a specific epoch in the GCRF frame.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray | None: 6x6 covariance matrix in GCRF frame, or None if no covariances are available
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_gcrf(epoch)
+    ///     print(result)  # 6x6 numpy array
+    ///     ```
+    fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
+        match CovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj) {
+            Some(cov_mat) => {
+                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+                Ok(Some(array.to_owned()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get the covariance matrix at a specific epoch in the RTN (Radial-AlongCross-track-Normal) frame.
+    ///
+    /// The RTN frame is defined as:
+    /// - R (Radial): Along the position vector (away from Earth center)
+    /// - T (Along-track): Completes the right-handed coordinate system
+    /// - N (Normal): Perpendicular to the orbital plane (along angular momentum)
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray | None: 6x6 covariance matrix in RTN frame, or None if no covariances are available
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_rtn(epoch)
+    ///     print(result)  # 6x6 numpy array in RTN frame
+    ///     ```
+    fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
+        match CovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj) {
+            Some(cov_mat) => {
+                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+                Ok(Some(array.to_owned()))
+            }
+            None => Ok(None),
+        }
     }
 }
 

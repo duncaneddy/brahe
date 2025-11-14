@@ -2,7 +2,7 @@
  * Propagator traits with clean interfaces and vector-based operations
  */
 
-use nalgebra::Vector6;
+use nalgebra::{SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
@@ -298,6 +298,113 @@ pub trait StateProvider {
             .map(|&epoch| self.state_as_osculating_elements(epoch, angle_format))
             .collect()
     }
+}
+
+/// Trait for providing state covariance matrices at arbitrary epochs.
+///
+/// This trait provides access to 6x6 covariance matrices representing the uncertainty
+/// in orbital state vectors. Covariances can be provided in various reference frames:
+/// - Native frame (propagator's internal frame)
+/// - ECI (Earth-Centered Inertial, common frame)
+/// - GCRF (Geocentric Celestial Reference Frame, modern standard)
+/// - RTN (Radial, Along-track, Normal frame)
+///
+/// All methods return `Option<SMatrix<f64, 6, 6>>` to handle cases where covariance
+/// data may not be available for the requested epoch.
+///
+/// # Covariance Matrix Structure
+///
+/// The 6x6 covariance matrix represents uncertainty in the state vector [px, py, pz, vx, vy, vz]:
+/// ```text
+/// [ σ_px²    σ_px_py   σ_px_pz   σ_px_vx   σ_px_vy   σ_px_vz ]
+/// [ σ_py_px  σ_py²     σ_py_pz   σ_py_vx   σ_py_vy   σ_py_vz ]
+/// [ σ_pz_px  σ_pz_py   σ_pz²     σ_pz_vx   σ_pz_vy   σ_pz_vz ]
+/// [ σ_vx_px  σ_vx_py   σ_vx_pz   σ_vx²     σ_vx_vy   σ_vx_vz ]
+/// [ σ_vy_px  σ_vy_py   σ_vy_pz   σ_vy_vx   σ_vy²     σ_vy_vz ]
+/// [ σ_vz_px  σ_vz_py   σ_vz_pz   σ_vz_vx   σ_vz_vy   σ_vz²   ]
+/// ```
+///
+/// # Frame Transformations
+///
+/// When transforming covariances between frames, the transformation uses:
+/// ```text
+/// C' = R * C * Rᵀ
+/// ```
+/// where R is the rotation matrix between frames.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::time::Epoch;
+/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::propagators::traits::CovarianceProvider;
+///
+/// # fn example(trajectory: &OrbitTrajectory, epoch: Epoch) {
+/// // Get covariance in native frame
+/// if let Some(cov) = trajectory.covariance(epoch) {
+///     println!("Position uncertainty: {:.3} m", cov[(0, 0)].sqrt());
+/// }
+///
+/// // Get covariance in GCRF frame
+/// if let Some(cov_gcrf) = trajectory.covariance_gcrf(epoch) {
+///     println!("GCRF covariance available");
+/// }
+///
+/// // Get covariance in RTN frame for relative navigation
+/// if let Some(cov_rtn) = trajectory.covariance_rtn(epoch) {
+///     println!("Radial uncertainty: {:.3} m", cov_rtn[(0, 0)].sqrt());
+///     println!("In-track uncertainty: {:.3} m", cov_rtn[(1, 1)].sqrt());
+///     println!("Normal uncertainty: {:.3} m", cov_rtn[(2, 2)].sqrt());
+/// }
+/// # }
+/// ```
+pub trait CovarianceProvider {
+    /// Returns the covariance matrix at the given epoch in the provider's native frame.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve/compute the covariance
+    ///
+    /// # Returns
+    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix if available
+    /// * `None` - If no covariance data is available for this epoch
+    fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+
+    /// Returns the covariance matrix at the given epoch in Earth-Centered Inertial (ECI) frame.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve/compute the covariance
+    ///
+    /// # Returns
+    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in ECI frame if available
+    /// * `None` - If no covariance data is available for this epoch
+    fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+
+    /// Returns the covariance matrix at the given epoch in Geocentric Celestial Reference Frame (GCRF).
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve/compute the covariance
+    ///
+    /// # Returns
+    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in GCRF frame if available
+    /// * `None` - If no covariance data is available for this epoch
+    fn covariance_gcrf(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+
+    /// Returns the covariance matrix at the given epoch in Radial, Along-track, Normal (RTN) frame.
+    ///
+    /// The RTN frame is defined relative to the orbital state:
+    /// - **Radial (R)**: Along position vector (away from Earth center)
+    /// - **Along-track (T)**: Completes right-handed system (N × R)
+    /// - **Normal (N)**: Perpendicular to orbital plane (along angular momentum)
+    ///
+    /// This frame is particularly useful for formation flying and relative navigation.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve/compute the covariance
+    ///
+    /// # Returns
+    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in RTN frame if available
+    /// * `None` - If no covariance data is available for this epoch
+    fn covariance_rtn(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
 }
 
 /// Combined trait for state providers with identity tracking.

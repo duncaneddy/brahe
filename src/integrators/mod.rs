@@ -4,10 +4,14 @@
 
 pub mod butcher_tableau;
 pub mod config;
-pub mod numerical_integrator;
-pub mod runge_kutta;
+pub mod dp54;
+pub mod rk4;
+pub mod rkf45;
+pub mod traits;
 
 pub use butcher_tableau::*;
 pub use config::*;
-pub use numerical_integrator::*;
-pub use runge_kutta::*;
+pub use dp54::*;
+pub use rk4::*;
+pub use rkf45::*;
+pub use traits::*;

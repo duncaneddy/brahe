@@ -7,8 +7,11 @@ use nalgebra::{SMatrix, SVector};
 
 use crate::integrators::config::AdaptiveStepResult;
 
-/// Trait defining interface for numerical integration methods.
-pub trait NumericalIntegrator<const S: usize> {
+/// Trait defining interface for fixed-step numerical integration methods.
+///
+/// Provides basic integration functionality with fixed timesteps.
+/// All numerical integrators must implement this trait.
+pub trait FixedStepIntegrator<const S: usize> {
     /// Advance the state by one timestep using this integration method.
     ///
     /// # Arguments
@@ -39,11 +42,17 @@ pub trait NumericalIntegrator<const S: usize> {
         phi: SMatrix<f64, S, S>,
         dt: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>);
+}
 
-    /// Advance the state with adaptive step control (if supported).
+/// Trait defining interface for adaptive-step numerical integration methods.
+///
+/// Provides automatic step size control based on embedded error estimation.
+/// Typically implemented by embedded Runge-Kutta methods (RKF45, DP54, etc.).
+pub trait AdaptiveStepIntegrator<const S: usize> {
+    /// Advance the state with adaptive step control.
     ///
-    /// For integrators with embedded error estimation, automatically adjusts the timestep
-    /// to meet specified tolerances. Falls back to fixed-step for non-adaptive methods.
+    /// Automatically adjusts the timestep to meet specified tolerances using
+    /// embedded error estimation.
     ///
     /// # Arguments
     /// - `t`: Current time
@@ -53,25 +62,17 @@ pub trait NumericalIntegrator<const S: usize> {
     /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
-    /// AdaptiveStepResult containing new state, actual dt used, and error estimate
-    fn step_adaptive(
+    /// AdaptiveStepResult containing new state, actual dt used, error estimate, and suggested next dt
+    fn step(
         &self,
         t: f64,
         state: SVector<f64, S>,
         dt: f64,
-        _abs_tol: f64,
-        _rel_tol: f64,
-    ) -> AdaptiveStepResult<S> {
-        // Default implementation: fixed-step with zero error estimate
-        AdaptiveStepResult {
-            state: self.step(t, state, dt),
-            dt_used: dt,
-            error_estimate: 0.0,
-            dt_next: dt, // Suggest same step size for non-adaptive methods
-        }
-    }
+        abs_tol: f64,
+        rel_tol: f64,
+    ) -> AdaptiveStepResult<S>;
 
-    /// Advance state and STM with adaptive step control (if supported).
+    /// Advance state and STM with adaptive step control.
     ///
     /// Combines adaptive stepping with variational matrix propagation for uncertainty
     /// quantification with automatic step size control.
@@ -85,20 +86,16 @@ pub trait NumericalIntegrator<const S: usize> {
     /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
-    /// Tuple of (new state, new STM, actual dt used, error estimate)
-    fn step_adaptive_with_varmat(
+    /// Tuple of (new state, new STM, actual dt used, error estimate, suggested next dt)
+    fn step_with_varmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: f64,
-        _abs_tol: f64,
-        _rel_tol: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64) {
-        // Default implementation: fixed-step with zero error estimate
-        let (new_state, new_phi) = self.step_with_varmat(t, state, phi, dt);
-        (new_state, new_phi, dt, 0.0)
-    }
+        abs_tol: f64,
+        rel_tol: f64,
+    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64);
 }
 
 /// Compute state transition matrix (variational matrix) using percentage-based finite differences.

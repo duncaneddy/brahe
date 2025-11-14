@@ -39,7 +39,7 @@ jobs:
       - name: Download Brahe cache directory
         id: download-cache
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: brahe-cache
           path: ~/.cache/brahe/
@@ -48,7 +48,7 @@ jobs:
       - name: Download Rust build artifacts
         id: download-rust
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: rust-build-artifacts
           path: target/debug/
@@ -61,7 +61,7 @@ jobs:
       - name: Download Python extension artifact
         id: download-extension
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-extension
           path: ./cached-extension
@@ -87,7 +87,7 @@ jobs:
         run: uv run python make.py make-plots
 
       - name: Upload figures as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: doc-figures
           path: docs/figures/

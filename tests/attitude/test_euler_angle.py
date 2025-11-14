@@ -272,3 +272,43 @@ def test_to_euler_angle_circular_zyz():
     e = EulerAngle(EulerAngleOrder.ZYZ, 30.0, 45.0, 60.0, AngleFormat.DEGREES)
     e2 = e.to_euler_angle(EulerAngleOrder.ZYZ)
     assert e == e2
+
+
+def test_euler_angle_order_str():
+    """Test EulerAngleOrder string representation - verify all variants are accessible"""
+    # Python enums use their variant names as strings
+    assert str(EulerAngleOrder.XYX) == "XYX"
+    assert str(EulerAngleOrder.XYZ) == "XYZ"
+    assert str(EulerAngleOrder.XZX) == "XZX"
+    assert str(EulerAngleOrder.XZY) == "XZY"
+    assert str(EulerAngleOrder.YXY) == "YXY"
+    assert str(EulerAngleOrder.YXZ) == "YXZ"
+    assert str(EulerAngleOrder.YZX) == "YZX"
+    assert str(EulerAngleOrder.YZY) == "YZY"
+    assert str(EulerAngleOrder.ZXY) == "ZXY"
+    assert str(EulerAngleOrder.ZXZ) == "ZXZ"
+    assert str(EulerAngleOrder.ZYX) == "ZYX"
+    assert str(EulerAngleOrder.ZYZ) == "ZYZ"
+
+
+def test_euler_angle_order_enum_completeness():
+    """Test that all 12 EulerAngleOrder variants are present"""
+    # Verify all expected orders are accessible
+    all_orders = [
+        EulerAngleOrder.XYX,
+        EulerAngleOrder.XYZ,
+        EulerAngleOrder.XZX,
+        EulerAngleOrder.XZY,
+        EulerAngleOrder.YXY,
+        EulerAngleOrder.YXZ,
+        EulerAngleOrder.YZX,
+        EulerAngleOrder.YZY,
+        EulerAngleOrder.ZXY,
+        EulerAngleOrder.ZXZ,
+        EulerAngleOrder.ZYX,
+        EulerAngleOrder.ZYZ,
+    ]
+    assert len(all_orders) == 12
+    # Verify all string representations are distinct
+    order_names = [str(o) for o in all_orders]
+    assert len(set(order_names)) == 12

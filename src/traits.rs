@@ -33,7 +33,9 @@
  */
 
 // Orbit propagator traits
-pub use crate::propagators::traits::{IdentifiableStateProvider, OrbitPropagator, StateProvider};
+pub use crate::propagators::traits::{
+    CovarianceProvider, IdentifiableStateProvider, OrbitPropagator, StateProvider,
+};
 
 // Trajectory traits and types
 pub use crate::trajectories::traits::{

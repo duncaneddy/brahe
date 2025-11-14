@@ -6,10 +6,15 @@ on:
 
 jobs:
   create-fragments:
-    if: github.event.pull_request.merged == true
+    if: |
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.labels.*.name, 'changelog') &&
+      !contains(github.event.pull_request.labels.*.name, 'automated') &&
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -17,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -82,15 +87,18 @@ jobs:
               f.write(f'FRAGMENTS_CREATED={",".join(fragments_created)}\n')
           PYTHON_SCRIPT
 
-      - name: Commit fragments
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add news/
-          if git diff --staged --quiet; then
-            echo "No fragments to commit"
-          else
-            git commit -m "Add changelog fragments for PR #${{ github.event.pull_request.number }} [skip ci]"
-            git push origin main
-            echo "Changelog fragments committed successfully"
-          fi
+      - name: Create Pull Request with fragments
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          commit-message: "Add changelog fragments for PR #${{ github.event.pull_request.number }}"
+          branch: changelog-fragments-${{ github.event.pull_request.number }}
+          delete-branch: true
+          title: "Add changelog fragments for PR #${{ github.event.pull_request.number }}"
+          body: |
+            Auto-generated changelog fragments from PR #${{ github.event.pull_request.number }}
+
+            Created fragments: ${{ env.FRAGMENTS_CREATED }}
+
+            This PR can be auto-merged.
+          labels: changelog,automated

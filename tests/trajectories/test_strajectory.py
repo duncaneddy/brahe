@@ -1009,3 +1009,59 @@ def test_strajectory_interpolate_after_end():
     # Also test with interpolate() method
     with pytest.raises(Exception):
         traj.interpolate(after_end)
+
+
+def test_strajectory_interpolate_empty_trajectory():
+    """Rust test: test_strajectory_interpolate_empty_trajectory"""
+    # Test that interpolating from an empty trajectory returns an error
+    traj = STrajectory6()
+    t = Epoch.from_jd(2451545.0, brahe.UTC)
+
+    # Test with interpolate_linear
+    with pytest.raises(Exception) as exc_info:
+        traj.interpolate_linear(t)
+    assert "empty trajectory" in str(exc_info.value).lower()
+
+    # Test with interpolate
+    with pytest.raises(Exception):
+        traj.interpolate(t)
+
+
+def test_strajectory_interpolate_single_state_exact_match():
+    """Rust test: test_strajectory_interpolate_single_state_exact_match"""
+    # Test that interpolating at exact epoch in single-state trajectory returns the state
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+    state0 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    traj = STrajectory6()
+    traj.add(t0, state0)
+
+    # Test interpolation at exact epoch - should return the state
+    result = traj.interpolate_linear(t0)
+    assert result[0] == pytest.approx(state0[0], abs=1e-6)
+    assert result[1] == pytest.approx(state0[1], abs=1e-6)
+    assert result[2] == pytest.approx(state0[2], abs=1e-6)
+
+    # Also test with interpolate() method
+    result = traj.interpolate(t0)
+    assert result[0] == pytest.approx(state0[0], abs=1e-6)
+
+
+def test_strajectory_interpolate_single_state_no_match():
+    """Rust test: test_strajectory_interpolate_single_state_no_match"""
+    # Test that interpolating at different epoch in single-state trajectory returns error
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+    state0 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    traj = STrajectory6()
+    traj.add(t0, state0)
+
+    # Test interpolation at different epoch - should error
+    t_different = t0 + 60.0
+    with pytest.raises(Exception) as exc_info:
+        traj.interpolate_linear(t_different)
+    assert "single state" in str(exc_info.value).lower()
+
+    # Also test with interpolate() method
+    with pytest.raises(Exception):
+        traj.interpolate(t_different)

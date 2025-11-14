@@ -2550,3 +2550,745 @@ def test_sgp_propagator_tle_no_name():
 
     # Verify consistency
     assert propagator.get_id() == traj.get_id()
+
+
+def test_from_orbital_data_with_covariances(eop):
+    """Test OrbitTrajectory creation with covariances in ECI frame."""
+    # Create test data
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = epoch1 + 60.0
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 100.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 1000.0
+    cov2 = np.eye(6) * 1100.0
+
+    # Create trajectory with covariances
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    )
+
+    # Verify trajectory was created successfully
+    assert len(traj) == 2
+
+    # Verify covariances are retrievable
+    retrieved_cov1 = traj.covariance(epoch1)
+    assert retrieved_cov1 is not None
+    assert np.allclose(retrieved_cov1, cov1, rtol=1e-10)
+
+    retrieved_cov2 = traj.covariance(epoch2)
+    assert retrieved_cov2 is not None
+    assert np.allclose(retrieved_cov2, cov2, rtol=1e-10)
+
+
+def test_from_orbital_data_covariances_length_mismatch(eop):
+    """Test that mismatched covariance length raises error."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = epoch1 + 60.0
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 100.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 1000.0
+    # Only provide one covariance for two states
+
+    with pytest.raises(Exception) as exc_info:
+        brahe.OrbitTrajectory.from_orbital_data(
+            [epoch1, epoch2],
+            np.array([state1, state2]),
+            brahe.OrbitFrame.ECI,
+            brahe.OrbitRepresentation.CARTESIAN,
+            covariances=np.array([cov1]),  # Length mismatch!
+        )
+
+    assert "must match" in str(exc_info.value).lower()
+
+
+def test_from_orbital_data_covariances_invalid_frame_ecef(eop):
+    """Test that covariances with ECEF frame raise error."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov1 = np.eye(6) * 1000.0
+
+    # Rust panics raise PanicException in PyO3
+    with pytest.raises((Exception, brahe.PanicException)) as exc_info:
+        brahe.OrbitTrajectory.from_orbital_data(
+            [epoch1],
+            np.array([state1]),
+            brahe.OrbitFrame.ECEF,  # Invalid frame for covariances!
+            brahe.OrbitRepresentation.CARTESIAN,
+            covariances=np.array([cov1]),
+        )
+
+    # Check error message mentions supported frames
+    assert (
+        "eci" in str(exc_info.value).lower() and "gcrf" in str(exc_info.value).lower()
+    )
+
+
+def test_from_orbital_data_covariances_invalid_frame_itrf(eop):
+    """Test that covariances with ITRF frame raise error."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov1 = np.eye(6) * 1000.0
+
+    # Rust panics raise PanicException in PyO3
+    with pytest.raises((Exception, brahe.PanicException)) as exc_info:
+        brahe.OrbitTrajectory.from_orbital_data(
+            [epoch1],
+            np.array([state1]),
+            brahe.OrbitFrame.ITRF,  # Invalid frame for covariances!
+            brahe.OrbitRepresentation.CARTESIAN,
+            covariances=np.array([cov1]),
+        )
+
+    # Check error message mentions supported frames
+    assert (
+        "eci" in str(exc_info.value).lower() and "gcrf" in str(exc_info.value).lower()
+    )
+
+
+def test_add_state_and_covariance(eop):
+    """Test adding state with covariance to trajectory."""
+    # Create initial trajectory with covariances
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov1 = np.eye(6) * 1000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1],
+        np.array([state1]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1]),
+    )
+
+    # Add new state with covariance
+    epoch2 = epoch1 + 60.0
+    state2 = np.array([brahe.R_EARTH + 500e3, 100.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov2 = np.eye(6) * 1100.0
+
+    traj.add_state_and_covariance(epoch2, state2, cov2)
+
+    # Verify both states and covariances are present
+    assert len(traj) == 2
+
+    retrieved_cov1 = traj.covariance(epoch1)
+    assert retrieved_cov1 is not None
+    assert np.allclose(retrieved_cov1, cov1, rtol=1e-10)
+
+    retrieved_cov2 = traj.covariance(epoch2)
+    assert retrieved_cov2 is not None
+    assert np.allclose(retrieved_cov2, cov2, rtol=1e-10)
+
+
+def test_covariance_provider_basic(eop):
+    """Test basic covariance retrieval at different epochs."""
+    # Create trajectory with covariances
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = epoch1 + 120.0
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 200.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 1000.0
+    cov2 = np.eye(6) * 2000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    )
+
+    # Test covariance retrieval at exact epochs
+    retrieved_cov1 = traj.covariance(epoch1)
+    assert retrieved_cov1 is not None
+    assert np.allclose(retrieved_cov1, cov1, rtol=1e-10)
+
+    retrieved_cov2 = traj.covariance(epoch2)
+    assert retrieved_cov2 is not None
+    assert np.allclose(retrieved_cov2, cov2, rtol=1e-10)
+
+    # Test covariance interpolation at midpoint
+    epoch_mid = epoch1 + 60.0
+    retrieved_cov_mid = traj.covariance(epoch_mid)
+    assert retrieved_cov_mid is not None
+    # Verify interpolated covariance is between the two
+    assert np.all(retrieved_cov_mid >= cov1 - 1e-6)
+    assert np.all(retrieved_cov_mid <= cov2 + 1e-6)
+
+    # Test ECI frame method
+    retrieved_cov_eci = traj.covariance_eci(epoch1)
+    assert retrieved_cov_eci is not None
+    assert np.allclose(retrieved_cov_eci, cov1, rtol=1e-10)
+
+    # Test GCRF frame method (should match ECI for ECI trajectory)
+    retrieved_cov_gcrf = traj.covariance_gcrf(epoch1)
+    assert retrieved_cov_gcrf is not None
+
+
+def test_covariance_rtn(eop):
+    """Test covariance transformation to RTN frame."""
+    # Create trajectory with covariances
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    # Define state in ECI
+    state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 1.0e3])
+
+    # Create diagonal covariance
+    cov_eci = np.eye(6) * 1000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov_eci]),
+    )
+
+    # Get covariance in RTN frame
+    cov_rtn = traj.covariance_rtn(epoch)
+    assert cov_rtn is not None
+
+    # Verify it's a valid 6x6 matrix
+    assert cov_rtn.shape == (6, 6)
+
+    # Verify it's symmetric (covariance matrices should be symmetric)
+    assert np.allclose(cov_rtn, cov_rtn.T, rtol=1e-10)
+
+    # Verify diagonal elements are positive (variances must be positive)
+    assert np.all(np.diag(cov_rtn) > 0)
+
+
+def test_covariance_none_for_trajectory_without_covariances(eop):
+    """Test that covariance methods return None for trajectories without covariances."""
+    # Create trajectory WITHOUT covariances
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        # No covariances parameter
+    )
+
+    # All covariance methods should return None
+    assert traj.covariance(epoch) is None
+    assert traj.covariance_eci(epoch) is None
+    assert traj.covariance_gcrf(epoch) is None
+    assert traj.covariance_rtn(epoch) is None
+
+
+def test_covariance_interpolation_method_linear(eop):
+    """Test linear covariance interpolation method (using TwoWasserstein stub)."""
+    # Create trajectory with covariances
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = epoch1 + 120.0
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 200.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 1000.0
+    cov2 = np.eye(6) * 2000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    )
+
+    # TwoWasserstein is the default and currently uses linear interpolation as a stub
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+
+    # Verify method was set
+    method = traj.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+
+    # Test interpolation at midpoint
+    epoch_mid = epoch1 + 60.0
+    retrieved_cov_mid = traj.covariance(epoch_mid)
+    assert retrieved_cov_mid is not None
+
+    # Verify interpolated value is between endpoints
+    assert np.all(retrieved_cov_mid >= np.minimum(cov1, cov2))
+    assert np.all(retrieved_cov_mid <= np.maximum(cov1, cov2))
+
+
+def test_covariance_interpolation_method_matrix_square_root(eop):
+    """Test matrix square root covariance interpolation method."""
+    # Create trajectory with covariances
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = epoch1 + 120.0
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 200.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 1000.0
+    cov2 = np.eye(6) * 2000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    )
+
+    # Set matrix square root interpolation method
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+
+    # Verify method was set
+    method = traj.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+
+    # Test interpolation at midpoint
+    epoch_mid = epoch1 + 60.0
+    retrieved_cov_mid = traj.covariance(epoch_mid)
+    assert retrieved_cov_mid is not None
+
+    # Verify interpolated value is between endpoints
+    assert np.all(retrieved_cov_mid >= np.minimum(cov1, cov2))
+    assert np.all(retrieved_cov_mid <= np.maximum(cov1, cov2))
+
+
+def test_with_covariance_interpolation_method_builder(eop):
+    """Test builder pattern for setting covariance interpolation method."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov = np.eye(6) * 1000.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    ).with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+
+    # Verify method was set via builder pattern
+    method = traj.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+
+
+def test_covariance_eci(eop):
+    """Test covariance_eci method returns covariance in ECI frame."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    result = traj.covariance_eci(epoch)
+    assert result is not None
+
+    # Verify diagonal elements
+    assert result[0, 0] == pytest.approx(100.0, rel=1e-6)
+    assert result[1, 1] == pytest.approx(100.0, rel=1e-6)
+    assert result[2, 2] == pytest.approx(100.0, rel=1e-6)
+
+
+def test_covariance_gcrf(eop):
+    """Test covariance_gcrf method returns covariance in GCRF frame."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.GCRF,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    result = traj.covariance_gcrf(epoch)
+    assert result is not None
+
+    # Verify diagonal elements
+    assert result[0, 0] == pytest.approx(100.0, rel=1e-6)
+    assert result[1, 1] == pytest.approx(100.0, rel=1e-6)
+    assert result[2, 2] == pytest.approx(100.0, rel=1e-6)
+
+
+def test_covariance_eci_from_eme2000_frame(eop):
+    """Test covariance_eci with trajectory in EME2000 frame."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    # Create diagonal covariance matrix in EME2000 frame
+    cov_eme2000 = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.EME2000,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov_eme2000]),
+    )
+
+    # Get covariance in ECI frame (should be transformed)
+    result = traj.covariance_eci(epoch)
+    assert result is not None
+
+    cov_eci = result
+
+    # Verify covariance is symmetric (should be preserved by transformation)
+    for i in range(6):
+        for j in range(6):
+            assert cov_eci[i, j] == pytest.approx(cov_eci[j, i], abs=1e-10)
+
+    # Verify diagonal elements are positive (positive-definiteness check)
+    for i in range(6):
+        assert cov_eci[i, i] > 0.0
+
+    # Verify diagonal elements are preserved (EME2000-GCRF bias is very small)
+    for i in range(6):
+        assert cov_eci[i, i] == pytest.approx(100.0, abs=1e-3)
+
+
+def test_covariance_gcrf_from_eme2000_frame(eop):
+    """Test covariance_gcrf with trajectory in EME2000 frame."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov_eme2000 = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.EME2000,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov_eme2000]),
+    )
+
+    # covariance_gcrf should delegate to covariance_eci
+    result_gcrf = traj.covariance_gcrf(epoch)
+    result_eci = traj.covariance_eci(epoch)
+
+    assert result_gcrf is not None
+    assert result_eci is not None
+
+    # GCRF and ECI should be identical for EME2000 transformation
+    for i in range(6):
+        for j in range(6):
+            assert result_gcrf[i, j] == pytest.approx(result_eci[i, j], abs=1e-12)
+
+
+def test_covariance_rtn_from_eme2000_frame(eop):
+    """Test covariance_rtn with trajectory in EME2000 frame."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov_eme2000 = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.EME2000,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov_eme2000]),
+    )
+
+    # Get covariance in RTN frame (should go EME2000 -> ECI -> RTN)
+    result = traj.covariance_rtn(epoch)
+    assert result is not None
+
+    cov_rtn = result
+
+    # Verify covariance is symmetric
+    for i in range(6):
+        for j in range(6):
+            assert cov_rtn[i, j] == pytest.approx(cov_rtn[j, i], abs=1e-10)
+
+    # Verify diagonal elements are positive
+    for i in range(6):
+        assert cov_rtn[i, i] > 0.0
+
+    # RTN covariance should be non-trivial (not identity)
+    # Either diagonal differs from 100 or off-diagonal is non-zero
+    is_non_identity = any(abs(cov_rtn[i, i] - 100.0) > 1e-6 for i in range(6)) or any(
+        abs(cov_rtn[i, j]) > 1e-6 for i in range(6) for j in range(6) if i != j
+    )
+    assert is_non_identity, "RTN transformation should produce non-identity matrix"
+
+
+def test_covariance_interpolatable_trait_methods(eop):
+    """Test CovarianceInterpolatable trait methods: getter, setter, and builder pattern."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    # Test getter - default should be TwoWasserstein
+    method = traj.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+
+    # Test setter
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+    method = traj.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+
+    # Test builder pattern
+    traj2 = traj.with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+    method = traj2.get_covariance_interpolation_method()
+    assert method == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+
+
+def test_covariance_interpolation_edge_cases_matrix_square_root(eop):
+    """Test covariance interpolation edge cases with MatrixSquareRoot method."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, brahe.UTC)
+    epoch3 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 20, 0.0, 0.0, brahe.UTC)
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state3 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 100.0
+    cov2 = np.eye(6) * 200.0
+    cov3 = np.eye(6) * 300.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2, epoch3],
+        np.array([state1, state2, state3]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2, cov3]),
+    ).with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+
+    # Test at exact epoch
+    result_exact = traj.covariance(epoch2)
+    assert result_exact is not None
+    assert result_exact[0, 0] == pytest.approx(200.0, rel=1e-6)
+
+    # Test halfway between epoch1 and epoch2 (should be interpolated)
+    epoch_halfway = brahe.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, brahe.UTC)
+    result_halfway = traj.covariance(epoch_halfway)
+    assert result_halfway is not None
+    # Verify interpolation gives value between endpoints
+    assert 100.0 < result_halfway[0, 0] < 200.0
+
+    # Test before data range (should return None)
+    epoch_before = brahe.Epoch.from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, brahe.UTC)
+    result_before = traj.covariance(epoch_before)
+    assert result_before is None
+
+    # Test after data range (should return None)
+    epoch_after = brahe.Epoch.from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, brahe.UTC)
+    result_after = traj.covariance(epoch_after)
+    assert result_after is None
+
+
+def test_covariance_interpolation_edge_cases_two_wasserstein(eop):
+    """Test covariance interpolation edge cases with TwoWasserstein method."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, brahe.UTC)
+    epoch3 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 20, 0.0, 0.0, brahe.UTC)
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state3 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 100.0
+    cov2 = np.eye(6) * 200.0
+    cov3 = np.eye(6) * 300.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2, epoch3],
+        np.array([state1, state2, state3]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2, cov3]),
+    ).with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+
+    # Test at exact epoch
+    result_exact = traj.covariance(epoch2)
+    assert result_exact is not None
+    assert result_exact[0, 0] == pytest.approx(200.0, rel=1e-6)
+
+    # Test halfway between epoch1 and epoch2 (should be interpolated)
+    epoch_halfway = brahe.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, brahe.UTC)
+    result_halfway = traj.covariance(epoch_halfway)
+    assert result_halfway is not None
+    # Verify interpolation gives value between endpoints
+    assert 100.0 < result_halfway[0, 0] < 200.0
+
+    # Test before data range (should return None)
+    epoch_before = brahe.Epoch.from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, brahe.UTC)
+    result_before = traj.covariance(epoch_before)
+    assert result_before is None
+
+    # Test after data range (should return None)
+    epoch_after = brahe.Epoch.from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, brahe.UTC)
+    result_after = traj.covariance(epoch_after)
+    assert result_after is None
+
+
+def test_covariance_interpolation_methods_comparison(eop):
+    """Test both interpolation methods produce valid symmetric PSD matrices."""
+    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    epoch2 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, brahe.UTC)
+
+    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+
+    cov1 = np.eye(6) * 100.0
+    cov2 = np.eye(6) * 200.0
+
+    # Test both interpolation methods
+    traj_wasserstein = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    ).with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+
+    traj_matrix_sqrt = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch1, epoch2],
+        np.array([state1, state2]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov1, cov2]),
+    ).with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+
+    # Query at midpoint
+    epoch_mid = brahe.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, brahe.UTC)
+
+    cov_wasserstein = traj_wasserstein.covariance(epoch_mid)
+    cov_matrix_sqrt = traj_matrix_sqrt.covariance(epoch_mid)
+
+    assert cov_wasserstein is not None
+    assert cov_matrix_sqrt is not None
+
+    # Both should be symmetric and positive-definite
+    for i in range(6):
+        assert cov_wasserstein[i, i] > 0.0
+        assert cov_matrix_sqrt[i, i] > 0.0
+        for j in range(6):
+            assert cov_wasserstein[i, j] == pytest.approx(
+                cov_wasserstein[j, i], abs=1e-10
+            )
+            assert cov_matrix_sqrt[i, j] == pytest.approx(
+                cov_matrix_sqrt[j, i], abs=1e-10
+            )
+
+    # Both methods should give values in reasonable range
+    assert 100.0 < cov_wasserstein[0, 0] < 200.0
+    assert 100.0 < cov_matrix_sqrt[0, 0] < 200.0
+
+    # For diagonal matrices, both methods should give identical results
+    assert cov_wasserstein[0, 0] == pytest.approx(cov_matrix_sqrt[0, 0], rel=1e-6)
+
+
+def test_covariance_single_point_trajectory(eop):
+    """Test covariance with single data point trajectory."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    cov = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    # Exact epoch should return covariance
+    result_exact = traj.covariance(epoch)
+    assert result_exact is not None
+    assert result_exact[0, 0] == pytest.approx(100.0, rel=1e-6)
+
+    # Different epoch should return None (no interpolation possible with single point)
+    epoch_later = epoch + 60.0
+    result_later = traj.covariance(epoch_later)
+    assert result_later is None
+
+
+def test_covariance_rtn_elliptical_orbit(eop):
+    """Test RTN covariance for elliptical inclined orbit."""
+    epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+
+    # Create elliptical inclined orbit state
+    # a = R_EARTH + 600km, e = 0.2, i = 63.4 deg
+    a = brahe.R_EARTH + 600e3
+    e = 0.2
+    i = np.radians(63.4)
+    raan = np.radians(45.0)
+    argp = np.radians(30.0)
+    nu = 0.0  # True anomaly
+
+    oe = np.array([a, e, i, raan, argp, nu])
+    state = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.RADIANS)
+
+    cov = np.eye(6) * 100.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.OrbitFrame.ECI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    # Get covariance in RTN frame
+    result = traj.covariance_rtn(epoch)
+    assert result is not None
+
+    cov_rtn = result
+
+    # Verify RTN covariance is symmetric
+    for i in range(6):
+        for j in range(6):
+            assert cov_rtn[i, j] == pytest.approx(cov_rtn[j, i], abs=1e-10)
+
+    # Verify diagonal elements are positive
+    for i in range(6):
+        assert cov_rtn[i, i] > 0.0
+
+    # RTN transformation should produce different values than identity
+    differs_from_identity = any(
+        abs(cov_rtn[i, i] - 100.0) > 1e-6 for i in range(6)
+    ) or any(abs(cov_rtn[i, j]) > 1e-6 for i in range(6) for j in range(6) if i != j)
+    assert differs_from_identity

@@ -203,7 +203,7 @@ impl PyPropertiesDict {
         // Call the parent's internal _get_properties_dict method
         let parent_obj = self.parent.bind(py);
         let props_obj = parent_obj.call_method0("_get_properties_dict")?;
-        props_obj.downcast::<PyDict>().cloned().map_err(|e| e.into())
+        props_obj.cast::<PyDict>().cloned().map_err(|e| e.into())
     }
 
     /// Set a property on the parent Location.
@@ -2062,7 +2062,7 @@ impl PyPropertyValue {
             PropertyValue::Vector(v)
         } else if let Ok(v) = value.extract::<String>() {
             PropertyValue::String(v)
-        } else if let Ok(dict) = value.downcast::<PyDict>() {
+        } else if let Ok(dict) = value.cast::<PyDict>() {
             // Convert dict to JSON
             let json_module = value.py().import("json")?;
             let dumps = json_module.getattr("dumps")?;
@@ -2788,7 +2788,7 @@ impl PyAccessProperties {
             }
         } else if let Ok(v) = value.extract::<String>() {
             PropertyValue::String(v)
-        } else if let Ok(dict) = value.downcast::<PyDict>() {
+        } else if let Ok(dict) = value.cast::<PyDict>() {
             // Convert dict to JSON
             let json_module = value.py().import("json")?;
             let dumps = json_module.getattr("dumps")?;
@@ -2982,7 +2982,7 @@ impl PyAdditionalPropertiesDict {
         // Call the parent's internal _get_additional_properties_dict method
         let parent_obj = self.parent.bind(py);
         let props_obj = parent_obj.call_method0("_get_additional_properties_dict")?;
-        props_obj.downcast::<PyDict>().cloned().map_err(|e| e.into())
+        props_obj.cast::<PyDict>().cloned().map_err(|e| e.into())
     }
 
     /// Set a property on the parent AccessProperties.
@@ -3592,7 +3592,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
 
             // Convert Python dict to Rust HashMap<String, PropertyValue>
             let dict: &Bound<'_, PyDict> = result_dict
-                .downcast()
+                .cast()
                 .map_err(|e| BraheError::Error(format!("compute() must return a dict: {}", e)))?;
 
             let mut props = HashMap::new();
@@ -3645,7 +3645,7 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
     }
 
     // Try dict (could be TimeSeries or generic JSON)
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         // Check if it's a time series format
         let has_times = dict.contains("times").map_err(|e| {
             BraheError::Error(format!("Failed to check for 'times' key: {}", e))
@@ -4111,23 +4111,23 @@ fn py_location_accesses(
     let search_config = config.map(|c| c.config).unwrap_or_default();
 
     // Extract constraint as trait object
-    let constraint_trait: &dyn AccessConstraint = if let Ok(c) = constraint.downcast::<PyElevationConstraint>() {
+    let constraint_trait: &dyn AccessConstraint = if let Ok(c) = constraint.cast::<PyElevationConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyOffNadirConstraint>() {
+    } else if let Ok(c) = constraint.cast::<PyOffNadirConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyLocalTimeConstraint>() {
+    } else if let Ok(c) = constraint.cast::<PyLocalTimeConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyLookDirectionConstraint>() {
+    } else if let Ok(c) = constraint.cast::<PyLookDirectionConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyAscDscConstraint>() {
+    } else if let Ok(c) = constraint.cast::<PyAscDscConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyElevationMaskConstraint>() {
+    } else if let Ok(c) = constraint.cast::<PyElevationMaskConstraint>() {
         &c.borrow().constraint
-    } else if let Ok(c) = constraint.downcast::<PyConstraintAll>() {
+    } else if let Ok(c) = constraint.cast::<PyConstraintAll>() {
         &c.borrow().composite
-    } else if let Ok(c) = constraint.downcast::<PyConstraintAny>() {
+    } else if let Ok(c) = constraint.cast::<PyConstraintAny>() {
         &c.borrow().composite
-    } else if let Ok(c) = constraint.downcast::<PyConstraintNot>() {
+    } else if let Ok(c) = constraint.cast::<PyConstraintNot>() {
         &c.borrow().composite
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
@@ -4148,15 +4148,15 @@ fn py_location_accesses(
     }
 
     let locations_vec = if loc_is_list {
-        let list = locations.downcast::<PyList>()?;
+        let list = locations.cast::<PyList>()?;
         let mut point_locs = Vec::new();
         let mut polygon_locs = Vec::new();
         let mut is_point = true;
 
         for item in list.iter() {
-            if let Ok(loc) = item.downcast::<PyPointLocation>() {
+            if let Ok(loc) = item.cast::<PyPointLocation>() {
                 point_locs.push(loc.borrow().location.clone());
-            } else if let Ok(loc) = item.downcast::<PyPolygonLocation>() {
+            } else if let Ok(loc) = item.cast::<PyPolygonLocation>() {
                 polygon_locs.push(loc.borrow().location.clone());
                 is_point = false;
             } else {
@@ -4171,9 +4171,9 @@ fn py_location_accesses(
         } else {
             LocationVec::Polygon(polygon_locs)
         }
-    } else if let Ok(loc) = locations.downcast::<PyPointLocation>() {
+    } else if let Ok(loc) = locations.cast::<PyPointLocation>() {
         LocationVec::Point(vec![loc.borrow().location.clone()])
-    } else if let Ok(loc) = locations.downcast::<PyPolygonLocation>() {
+    } else if let Ok(loc) = locations.cast::<PyPolygonLocation>() {
         LocationVec::Polygon(vec![loc.borrow().location.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
@@ -4188,15 +4188,15 @@ fn py_location_accesses(
     }
 
     let propagators_vec = if prop_is_list {
-        let list = propagators.downcast::<PyList>()?;
+        let list = propagators.cast::<PyList>()?;
         let mut sgp_props = Vec::new();
         let mut kep_props = Vec::new();
         let mut is_sgp = true;
 
         for item in list.iter() {
-            if let Ok(prop) = item.downcast::<PySGPPropagator>() {
+            if let Ok(prop) = item.cast::<PySGPPropagator>() {
                 sgp_props.push(prop.borrow().propagator.clone());
-            } else if let Ok(prop) = item.downcast::<PyKeplerianPropagator>() {
+            } else if let Ok(prop) = item.cast::<PyKeplerianPropagator>() {
                 kep_props.push(prop.borrow().propagator.clone());
                 is_sgp = false;
             } else {
@@ -4211,9 +4211,9 @@ fn py_location_accesses(
         } else {
             PropagatorVec::Keplerian(kep_props)
         }
-    } else if let Ok(prop) = propagators.downcast::<PySGPPropagator>() {
+    } else if let Ok(prop) = propagators.cast::<PySGPPropagator>() {
         PropagatorVec::Sgp(vec![prop.borrow().propagator.clone()])
-    } else if let Ok(prop) = propagators.downcast::<PyKeplerianPropagator>() {
+    } else if let Ok(prop) = propagators.cast::<PyKeplerianPropagator>() {
         PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
@@ -4233,11 +4233,11 @@ fn py_location_accesses(
 
                     // Try to extract as built-in property computers
                     // If successful, use the underlying Rust implementation directly
-                    if let Ok(doppler) = obj.downcast::<PyDopplerComputer>() {
+                    if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
                         PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
-                    } else if let Ok(range) = obj.downcast::<PyRangeComputer>() {
+                    } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
                         PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
-                    } else if let Ok(range_rate) = obj.downcast::<PyRangeRateComputer>() {
+                    } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
                         PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
                     } else {
                         // Custom Python property computer - use wrapper

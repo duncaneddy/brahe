@@ -6,9 +6,10 @@
 use std::path::Path;
 
 use nalgebra as na;
+use nalgebra::{SMatrix, SVector};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
-    PyUntypedArrayMethods, ToPyArray,
+    PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
 };
 
 use pyo3::panic::PanicException;
@@ -94,7 +95,7 @@ fn pyany_to_f64_array1(arr: &Bound<'_, PyAny>, expected_len: Option<usize>) -> P
 
     // Downcast to PyArray<f64, Ix1>
     let pyarray = arr_f64
-        .downcast::<PyArray<f64, Ix1>>()
+        .cast::<PyArray<f64, Ix1>>()
         .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
 
     // Convert to vector
@@ -177,7 +178,7 @@ fn pyany_to_f64_array2(
     })?;
 
     // Downcast to PyArray<f64, Ix2>
-    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+    let pyarray = arr_f64.cast::<PyArray<f64, Ix2>>().map_err(|_| {
         exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
     })?;
 
@@ -276,7 +277,7 @@ fn pyany_to_svector<const N: usize>(arr: &Bound<'_, PyAny>) -> PyResult<na::SVec
 
     // Downcast to PyArray<f64, Ix1>
     let pyarray = arr_f64
-        .downcast::<PyArray<f64, Ix1>>()
+        .cast::<PyArray<f64, Ix1>>()
         .map_err(|_| exceptions::PyTypeError::new_err("Expected a 1-D numpy array or list"))?;
 
     // Convert to vector
@@ -372,7 +373,7 @@ fn pyany_to_smatrix<const R: usize, const C: usize>(
     })?;
 
     // Downcast to PyArray<f64, Ix2>
-    let pyarray = arr_f64.downcast::<PyArray<f64, Ix2>>().map_err(|_| {
+    let pyarray = arr_f64.cast::<PyArray<f64, Ix2>>().map_err(|_| {
         exceptions::PyTypeError::new_err("Expected a 2-D numpy array or nested list")
     })?;
 
@@ -472,6 +473,7 @@ include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
+include!("relative_motion.rs");
 include!("utils.rs");
 
 // Define Module
@@ -721,11 +723,20 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
+    //* Relative Motion *//
+    module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
+
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;
     module.add_class::<PyOrbitRepresentation>()?;
     module.add_class::<PyAngleFormat>()?;
     module.add_class::<PyInterpolationMethod>()?;
+    module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
     module.add_class::<PySTrajectory6>()?;

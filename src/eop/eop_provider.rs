@@ -81,3 +81,117 @@ pub trait EarthOrientationProvider {
     /// Returns: (pm_x, pm_y, ut1_utc, lod, dX, dY)
     fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test implementation of EarthOrientationProvider for testing the default is_empty() method
+    struct MockEOPProvider {
+        len: usize,
+    }
+
+    impl EarthOrientationProvider for MockEOPProvider {
+        fn len(&self) -> usize {
+            self.len
+        }
+
+        fn eop_type(&self) -> EOPType {
+            EOPType::C04
+        }
+
+        fn is_initialized(&self) -> bool {
+            true
+        }
+
+        fn extrapolation(&self) -> EOPExtrapolation {
+            EOPExtrapolation::Hold
+        }
+
+        fn interpolation(&self) -> bool {
+            true
+        }
+
+        fn mjd_min(&self) -> f64 {
+            0.0
+        }
+
+        fn mjd_max(&self) -> f64 {
+            0.0
+        }
+
+        fn mjd_last_lod(&self) -> f64 {
+            0.0
+        }
+
+        fn mjd_last_dxdy(&self) -> f64 {
+            0.0
+        }
+
+        fn get_ut1_utc(&self, _mjd: f64) -> Result<f64, BraheError> {
+            Ok(0.0)
+        }
+
+        fn get_pm(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
+            Ok((0.0, 0.0))
+        }
+
+        fn get_dxdy(&self, _mjd: f64) -> Result<(f64, f64), BraheError> {
+            Ok((0.0, 0.0))
+        }
+
+        fn get_lod(&self, _mjd: f64) -> Result<f64, BraheError> {
+            Ok(0.0)
+        }
+
+        fn get_eop(&self, _mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+            Ok((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+        }
+    }
+
+    #[test]
+    fn test_earth_orientation_provider_is_empty_default() {
+        // Test that default is_empty() returns true when len() == 0
+        let empty_provider = MockEOPProvider { len: 0 };
+        assert!(empty_provider.is_empty());
+
+        // Test that default is_empty() returns false when len() > 0
+        let non_empty_provider = MockEOPProvider { len: 10 };
+        assert!(!non_empty_provider.is_empty());
+
+        // Test boundary case with len() == 1
+        let single_entry_provider = MockEOPProvider { len: 1 };
+        assert!(!single_entry_provider.is_empty());
+    }
+
+    #[test]
+    fn test_mock_eop_provider_trait_methods() {
+        // Test all EarthOrientationProvider trait methods on MockEOPProvider
+        let provider = MockEOPProvider { len: 5 };
+
+        // Test metadata methods
+        assert_eq!(provider.len(), 5);
+        assert!(!provider.is_empty());
+        assert_eq!(provider.eop_type(), EOPType::C04);
+        assert!(provider.is_initialized());
+        assert_eq!(provider.extrapolation(), EOPExtrapolation::Hold);
+        assert!(provider.interpolation());
+
+        // Test MJD range methods
+        assert_eq!(provider.mjd_min(), 0.0);
+        assert_eq!(provider.mjd_max(), 0.0);
+        assert_eq!(provider.mjd_last_lod(), 0.0);
+        assert_eq!(provider.mjd_last_dxdy(), 0.0);
+
+        // Test EOP data retrieval methods
+        let test_mjd = 60000.0;
+        assert_eq!(provider.get_ut1_utc(test_mjd).unwrap(), 0.0);
+        assert_eq!(provider.get_pm(test_mjd).unwrap(), (0.0, 0.0));
+        assert_eq!(provider.get_dxdy(test_mjd).unwrap(), (0.0, 0.0));
+        assert_eq!(provider.get_lod(test_mjd).unwrap(), 0.0);
+        assert_eq!(
+            provider.get_eop(test_mjd).unwrap(),
+            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+    }
+}

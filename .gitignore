@@ -5,9 +5,9 @@ digest.txt
 CLAUDE.md
 .claude/*
 
-# Scratch & WIP
-nrlmsis2.1/
-sgp4/
+# Coverage
+lcov.info
+
 
 # Build Artifacts - Rust
 /target

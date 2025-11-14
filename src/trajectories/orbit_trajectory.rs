@@ -37,7 +37,7 @@
  * ```
  */
 
-use nalgebra::{SVector, Vector6};
+use nalgebra::{SMatrix, SVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
@@ -47,16 +47,19 @@ use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{
-    state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
-    state_gcrf_to_itrf, state_itrf_to_gcrf,
+    rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
+    state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
-use crate::propagators::traits::StateProvider;
+use crate::propagators::traits::{CovarianceProvider, StateProvider};
+use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
-use crate::utils::{BraheError, Identifiable};
+use crate::utils::{
+    BraheError, Identifiable, interpolate_covariance_sqrt, interpolate_covariance_two_wasserstein,
+};
 
 use super::traits::{
-    Interpolatable, InterpolationMethod, OrbitFrame, OrbitRepresentation, OrbitalTrajectory,
-    Trajectory, TrajectoryEvictionPolicy,
+    CovarianceInterpolatable, CovarianceInterpolationMethod, Interpolatable, InterpolationMethod,
+    OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory, TrajectoryEvictionPolicy,
 };
 
 /// Specialized orbital trajectory container.
@@ -79,9 +82,19 @@ pub struct OrbitTrajectory {
     /// - Keplerian: [m, dimensionless, rad or deg, rad or deg, rad or deg, rad or deg]
     pub states: Vec<SVector<f64, 6>>,
 
+    /// Optional covariance matrices corresponding to states.
+    /// Each covariance is a 6x6 symmetric matrix representing state uncertainty.
+    /// Units: [m², m²/s, m²/s², etc.] for Cartesian states.
+    /// If present, must have same length as states vector.
+    pub covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
+
     /// Interpolation method for state retrieval at arbitrary epochs.
     /// Default is linear interpolation for optimal performance/accuracy balance.
     pub interpolation_method: InterpolationMethod,
+
+    /// Interpolation method for covariance retrieval at arbitrary epochs.
+    /// Default is linear interpolation for element-wise interpolation.
+    pub covariance_interpolation_method: CovarianceInterpolationMethod,
 
     /// Memory management policy for automatic state eviction.
     /// Controls how states are removed when limits are exceeded.
@@ -179,7 +192,9 @@ impl OrbitTrajectory {
         Self {
             epochs: Vec::new(),
             states: Vec::new(),
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear,
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -284,6 +299,81 @@ impl OrbitTrajectory {
         6
     }
 
+    /// Add a state with its corresponding covariance matrix to the trajectory.
+    ///
+    /// This method adds both the state and its covariance at the specified epoch,
+    /// maintaining chronological order and parallel structure between states and covariances.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch for this state/covariance pair
+    /// * `state` - The 6-element state vector
+    /// * `covariance` - The 6x6 covariance matrix
+    ///
+    /// # Panics
+    /// * If the trajectory doesn't have covariances initialized (is None)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::trajectories::OrbitTrajectory;
+    /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{SMatrix, SVector};
+    ///
+    /// let mut traj = OrbitTrajectory::new(
+    ///     OrbitFrame::ECI,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// );
+    ///
+    /// // Initialize covariances
+    /// traj.covariances = Some(Vec::new());
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = SVector::<f64, 6>::zeros();
+    /// let cov = SMatrix::<f64, 6, 6>::identity();
+    ///
+    /// traj.add_state_and_covariance(epoch, state, cov);
+    /// ```
+    pub fn add_state_and_covariance(
+        &mut self,
+        epoch: Epoch,
+        state: SVector<f64, 6>,
+        covariance: SMatrix<f64, 6, 6>,
+    ) {
+        if self.covariances.is_none() {
+            panic!(
+                "Cannot add state with covariance to trajectory without covariances initialized. Initialize trajectory with covariances or use from_orbital_data with covariances parameter."
+            );
+        }
+
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            } else if epoch == *existing_epoch {
+                // Replace state and covariance if epochs are equal
+                self.states[i] = state;
+                if let Some(ref mut covs) = self.covariances {
+                    covs[i] = covariance;
+                }
+                self.apply_eviction_policy();
+                return;
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, covariance);
+        }
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy();
+    }
+
     /// Convert the trajectory to a matrix representation
     /// Returns a matrix where rows are time points (epochs) and columns are state elements
     /// The matrix has shape (n_epochs, 6) for a 6-element state vector
@@ -320,6 +410,9 @@ impl OrbitTrajectory {
                     let to_remove = self.epochs.len() - max_size;
                     self.epochs.drain(0..to_remove);
                     self.states.drain(0..to_remove);
+                    if let Some(ref mut covs) = self.covariances {
+                        covs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -337,9 +430,14 @@ impl OrbitTrajectory {
                         indices_to_keep.iter().map(|&i| self.epochs[i]).collect();
                     let new_states: Vec<SVector<f64, 6>> =
                         indices_to_keep.iter().map(|&i| self.states[i]).collect();
+                    let new_covariances = self
+                        .covariances
+                        .as_ref()
+                        .map(|covs| indices_to_keep.iter().map(|&i| covs[i]).collect());
 
                     self.epochs = new_epochs;
                     self.states = new_states;
+                    self.covariances = new_covariances;
                 }
             }
         }
@@ -441,7 +539,9 @@ impl Trajectory for OrbitTrajectory {
         Ok(Self {
             epochs: sorted_epochs,
             states: sorted_states,
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -705,6 +805,25 @@ impl Interpolatable for OrbitTrajectory {
     }
 }
 
+// Implementation of CovarianceInterpolatable trait
+impl CovarianceInterpolatable for OrbitTrajectory {
+    fn with_covariance_interpolation_method(
+        mut self,
+        method: CovarianceInterpolationMethod,
+    ) -> Self {
+        self.covariance_interpolation_method = method;
+        self
+    }
+
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod) {
+        self.covariance_interpolation_method = method;
+    }
+
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod {
+        self.covariance_interpolation_method
+    }
+}
+
 // Implementation of OrbitalTrajectory trait
 impl OrbitalTrajectory for OrbitTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
@@ -715,20 +834,47 @@ impl OrbitalTrajectory for OrbitTrajectory {
     /// * `frame` - Reference frame
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
+    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
     ///
     /// # Returns
     /// * `Ok(OrbitTrajectory)` - New orbital trajectory with data
     /// * `Err(BraheError)` - If parameters are invalid or data validation fails
+    ///
+    /// # Panics
+    /// * If covariances are provided but frame is not ECI or GCRF
+    /// * If covariances length does not match states length
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Vector6<f64>>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
+        covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
     ) -> Self {
         // Validate inputs
         if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
             panic!("Keplerian elements should be in ECI frame");
+        }
+
+        // Validate covariances if provided
+        if let Some(ref covs) = covariances {
+            // Check that covariances length matches states length
+            if covs.len() != states.len() {
+                panic!(
+                    "Covariances length ({}) must match states length ({})",
+                    covs.len(),
+                    states.len()
+                );
+            }
+
+            // Check that frame is ECI, GCRF, or EME2000
+            if frame != OrbitFrame::ECI && frame != OrbitFrame::GCRF && frame != OrbitFrame::EME2000
+            {
+                panic!(
+                    "Covariances are only supported for ECI, GCRF, and EME2000 frames. Got: {}",
+                    frame
+                );
+            }
         }
 
         // Note: angle_format is only meaningful for Keplerian representation
@@ -737,7 +883,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs,
             states,
+            covariances,
             interpolation_method: InterpolationMethod::Linear,
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -804,7 +952,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during frame conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -871,7 +1021,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during frame conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -934,7 +1086,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during frame conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -998,7 +1152,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during frame conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -1061,7 +1217,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during frame conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -1161,7 +1319,9 @@ impl OrbitalTrajectory for OrbitTrajectory {
         Self {
             epochs: self.epochs.clone(),
             states: states_converted,
+            covariances: None, // Covariances are dropped during representation conversions
             interpolation_method: self.interpolation_method,
+            covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
             max_size: self.max_size,
             max_age: self.max_age,
@@ -1494,6 +1654,152 @@ impl StateProvider for OrbitTrajectory {
     }
 }
 
+// Implementation of CovarianceProvider trait
+impl CovarianceProvider for OrbitTrajectory {
+    fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+        // Return None if no covariances are stored
+        let covs = self.covariances.as_ref()?;
+
+        if covs.is_empty() {
+            return None;
+        }
+
+        // Check for exact epoch match
+        for (i, &e) in self.epochs.iter().enumerate() {
+            if (e - epoch).abs() < 1e-9 {
+                return Some(covs[i]);
+            }
+        }
+
+        // Find bracketing indices for interpolation
+        let idx_after = match self.index_after_epoch(&epoch) {
+            Ok(idx) => idx,
+            Err(_) => return None,
+        };
+
+        // Handle boundary cases - return None for epochs outside data range
+        if idx_after == 0 {
+            return None; // Epoch is before first data point
+        }
+        if idx_after >= self.epochs.len() {
+            return None; // Epoch is after last data point
+        }
+
+        // Interpolate using matrix square root method
+        let idx_before = idx_after - 1;
+        let t0 = self.epochs[idx_before];
+        let t1 = self.epochs[idx_after];
+        let dt = t1 - t0;
+
+        if dt.abs() < 1e-12 {
+            return Some(covs[idx_before]);
+        }
+
+        // Compute interpolation parameter alpha
+        let t = (epoch - t0) / dt;
+
+        let cov0 = covs[idx_before];
+        let cov1 = covs[idx_after];
+
+        // Dispatch based on interpolation method
+        let cov_interp = match self.covariance_interpolation_method {
+            CovarianceInterpolationMethod::MatrixSquareRoot => {
+                interpolate_covariance_sqrt(cov0, cov1, t)
+            }
+            CovarianceInterpolationMethod::TwoWasserstein => {
+                interpolate_covariance_two_wasserstein(cov0, cov1, t)
+            }
+        };
+
+        Some(cov_interp)
+    }
+
+    fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+        // Get covariance in native frame
+        let cov_native = self.covariance(epoch)?;
+
+        // Transform to ECI if needed
+        match self.frame {
+            OrbitFrame::ECI | OrbitFrame::GCRF => Some(cov_native),
+            OrbitFrame::ECEF | OrbitFrame::ITRF => {
+                panic!("Covariance transformation from ECEF/ITRF to ECI not implemented")
+            }
+            OrbitFrame::EME2000 => {
+                // We just construct a block diagonal rotation matrix using the
+                // EME2000 to GCRF rotation matrix
+                let rot_eme2000_to_gcrf = rotation_eme2000_to_gcrf();
+
+                let mut rot = nalgebra::Matrix6::zeros();
+                // Position part (3x3 upper-left block)
+                for i in 0..3 {
+                    for j in 0..3 {
+                        rot[(i, j)] = rot_eme2000_to_gcrf[(i, j)];
+                        rot[(3 + i, 3 + j)] = rot_eme2000_to_gcrf[(i, j)];
+                    }
+                }
+                // Transform covariance: C_ECI = R * C_EME2000 * R^T
+                let cov_eci = rot * cov_native * rot.transpose();
+                Some(cov_eci)
+            }
+        }
+    }
+
+    fn covariance_gcrf(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+        // GCRF is essentially the same as ECI for our purposes
+        self.covariance_eci(epoch)
+    }
+
+    fn covariance_rtn(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+        // Get covariance in ECI/GCRF frame first
+        // Note: because we go through covariance_eci, this will also handle EME2000 frame conversion
+        // as well as erroring out for ECEF/ITRF frames
+        let cov_eci = self.covariance_eci(epoch)?;
+
+        // Get state in ECI/GCRF frame
+        let state_eci = self.state_eci(epoch);
+
+        // Get rotation matrix from ECI to RTN
+        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
+
+        // Extract position and velocity
+        let r = state_eci.fixed_rows::<3>(0);
+        let v = state_eci.fixed_rows::<3>(3);
+
+        // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
+        let f_dot = (r.cross(&v)).norm() / (r.norm().powi(2));
+        let omega = nalgebra::Vector3::new(0.0, 0.0, f_dot);
+
+        // Build skew-symmetric matrix of omega
+        let omega_skew = SMatrix::<f64, 3, 3>::new(
+            0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
+        );
+
+        let j21 = -omega_skew * rot_eci_to_rtn;
+
+        // Build full 6x6 Jacobian for ECI to RTN transformation
+        let mut jacobian = nalgebra::Matrix6::zeros();
+
+        // Block diagonal rotation parts
+        for i in 0..3 {
+            for j in 0..3 {
+                jacobian[(i, j)] = rot_eci_to_rtn[(i, j)];
+                jacobian[(3 + i, 3 + j)] = rot_eci_to_rtn[(i, j)];
+            }
+        }
+
+        // Off-diagonal parts due to angular velocity
+        for i in 3..6 {
+            for j in 0..3 {
+                jacobian[(i, j)] = j21[(i - 3, j)];
+            }
+        }
+
+        // Transform covariance: C_RTN = J * C_ECI * J^T
+        let cov_rtn = jacobian * cov_eci * jacobian.transpose();
+        Some(cov_rtn)
+    }
+}
+
 impl Identifiable for OrbitTrajectory {
     fn with_name(mut self, name: &str) -> Self {
         self.name = Some(name.to_string());
@@ -1669,6 +1975,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Convert to matrix
@@ -1753,6 +2060,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test valid indices (use Trajectory::state to disambiguate from StateProvider::state)
@@ -1787,6 +2095,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test valid indices
@@ -1820,6 +2129,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -1926,6 +2236,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         let timespan = traj.timespan().unwrap();
@@ -1947,6 +2258,7 @@ mod tests {
             states.clone(),
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -1970,6 +2282,7 @@ mod tests {
             states.clone(),
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2007,6 +2320,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         let removed_state = traj.remove_epoch(&epochs[0]).unwrap();
@@ -2029,6 +2343,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2053,6 +2368,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2079,6 +2395,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2123,6 +2440,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2171,6 +2489,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test that state_before_epoch returns correct (epoch, state) tuples
@@ -2212,6 +2531,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2336,6 +2656,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test indexing returns state vectors
@@ -2359,6 +2680,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2384,6 +2706,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2438,6 +2761,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         let iter = traj.into_iter();
@@ -2463,6 +2787,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2514,6 +2839,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test interpolate_linear at midpoints and exact epochs
@@ -2552,6 +2878,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         let state_single = single_traj.interpolate_linear(&t0).unwrap();
@@ -2577,6 +2904,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2612,6 +2940,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -2652,6 +2981,7 @@ mod tests {
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
+            None,
         );
 
         // Test interpolation after trajectory end
@@ -2690,6 +3020,7 @@ mod tests {
             states,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
+            None,
             None,
         );
 
@@ -3950,5 +4281,625 @@ mod tests {
 
         traj.generate_uuid();
         assert!(traj.get_uuid().is_some());
+    }
+
+    // Covariance functionality tests
+    #[test]
+    fn test_from_orbital_data_with_covariances() {
+        setup_global_test_eop();
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
+
+        let state1 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state2 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        );
+
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariances length (1) must match states length (2)")]
+    fn test_from_orbital_data_covariances_length_mismatch() {
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
+
+        let state1 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state2 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity();
+
+        OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1]),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariances are only supported for ECI, GCRF, and EME2000 frames")]
+    fn test_from_orbital_data_covariances_invalid_frame_itrf() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+
+        OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariances are only supported for ECI, GCRF, and EME2000 frames")]
+    fn test_from_orbital_data_covariances_invalid_frame_ecef() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+
+        OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+    }
+
+    #[test]
+    fn test_add_state_and_covariance() {
+        setup_global_test_eop();
+
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = SVector::<f64, 6>::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 1);
+        assert_abs_diff_eq!(
+            traj.covariances.as_ref().unwrap()[0][(0, 0)],
+            100.0,
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    fn test_covariance_provider_basic() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        let result = traj.covariance(epoch);
+        assert!(result.is_some());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_covariance_rtn() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        let result = traj.covariance_rtn(epoch);
+        assert!(result.is_some());
+
+        let result_cov = result.unwrap();
+        assert!(result_cov[(0, 0)].abs() > 1e-6);
+        assert!(result_cov[(1, 1)].abs() > 1e-6);
+        assert!(result_cov[(2, 2)].abs() > 1e-6);
+    }
+
+    #[test]
+    fn test_orbit_trajectory_covariance_eci() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        let result = traj.covariance_eci(epoch);
+        assert!(result.is_some());
+
+        let result_cov = result.unwrap();
+        assert_abs_diff_eq!(result_cov[(0, 0)], 100.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_cov[(1, 1)], 100.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_cov[(2, 2)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_orbit_trajectory_covariance_gcrf() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        let result = traj.covariance_gcrf(epoch);
+        assert!(result.is_some());
+
+        let result_cov = result.unwrap();
+        assert_abs_diff_eq!(result_cov[(0, 0)], 100.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_cov[(1, 1)], 100.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_cov[(2, 2)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_covariance_eci_from_eme2000_frame() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        // Create a diagonal covariance matrix in EME2000 frame
+        let cov_eme2000 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov_eme2000]),
+        );
+
+        // Get covariance in ECI frame (should be transformed)
+        let result = traj.covariance_eci(epoch);
+        assert!(result.is_some());
+
+        let cov_eci = result.unwrap();
+
+        // Verify covariance is symmetric (should be preserved by transformation)
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_eci[(i, j)], cov_eci[(j, i)], epsilon = 1e-10);
+            }
+        }
+
+        // Verify diagonal elements are positive (positive-definiteness check)
+        for i in 0..6 {
+            assert!(cov_eci[(i, i)] > 0.0);
+        }
+
+        // Verify transformation occurred (ECI covariance should differ from EME2000 due to rotation)
+        // The EME2000-GCRF bias is very small (~10^-8 rad), so transformation may produce
+        // very small off-diagonal elements or nearly preserve the diagonal structure
+        // We verify that the diagonal elements are preserved (within numerical precision)
+        for i in 0..6 {
+            assert_abs_diff_eq!(cov_eci[(i, i)], 100.0, epsilon = 1e-3);
+        }
+    }
+
+    #[test]
+    fn test_covariance_gcrf_from_eme2000_frame() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov_eme2000 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov_eme2000]),
+        );
+
+        // covariance_gcrf should delegate to covariance_eci
+        let result_gcrf = traj.covariance_gcrf(epoch);
+        let result_eci = traj.covariance_eci(epoch);
+
+        assert!(result_gcrf.is_some());
+        assert!(result_eci.is_some());
+
+        let cov_gcrf = result_gcrf.unwrap();
+        let cov_eci = result_eci.unwrap();
+
+        // GCRF and ECI should be identical for EME2000 transformation
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_gcrf[(i, j)], cov_eci[(i, j)], epsilon = 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn test_covariance_rtn_from_eme2000_frame() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov_eme2000 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov_eme2000]),
+        );
+
+        // Get covariance in RTN frame (should go EME2000 -> ECI -> RTN)
+        let result = traj.covariance_rtn(epoch);
+        assert!(result.is_some());
+
+        let cov_rtn = result.unwrap();
+
+        // Verify covariance is symmetric
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_rtn[(i, j)], cov_rtn[(j, i)], epsilon = 1e-10);
+            }
+        }
+
+        // Verify diagonal elements are positive
+        for i in 0..6 {
+            assert!(cov_rtn[(i, i)] > 0.0);
+        }
+
+        // RTN covariance should be non-trivial (not identity)
+        let is_non_identity = (0..6).any(|i| (cov_rtn[(i, i)] - 100.0).abs() > 1e-6)
+            || (0..6).any(|i| (0..6).any(|j| i != j && cov_rtn[(i, j)].abs() > 1e-6));
+        assert!(
+            is_non_identity,
+            "RTN transformation should produce non-identity matrix"
+        );
+    }
+
+    #[test]
+    fn test_covariance_interpolatable_trait_methods() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let mut traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        // Test getter - default should be TwoWasserstein
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+
+        // Test setter
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+
+        // Test builder pattern
+        let traj2 = traj
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        assert_eq!(
+            traj2.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+    }
+
+    #[test]
+    fn test_covariance_interpolation_edge_cases_matrix_square_root() {
+        setup_global_test_eop();
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
+        let epoch3 = Epoch::from_datetime(2024, 1, 1, 0, 20, 0.0, 0.0, TimeSystem::UTC);
+
+        let state1 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state2 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state3 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+        let cov3 = SMatrix::<f64, 6, 6>::identity() * 300.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2, epoch3],
+            vec![state1, state2, state3],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2, cov3]),
+        )
+        .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+
+        // Test at exact epoch
+        let result_exact = traj.covariance(epoch2);
+        assert!(result_exact.is_some());
+        assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 200.0, epsilon = 1e-6);
+
+        // Test halfway between epoch1 and epoch2 (should be interpolated)
+        let epoch_halfway = Epoch::from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result_halfway = traj.covariance(epoch_halfway);
+        assert!(result_halfway.is_some());
+        // Verify interpolation gives value between endpoints
+        let halfway_val = result_halfway.unwrap()[(0, 0)];
+        assert!(halfway_val > 100.0 && halfway_val < 200.0);
+
+        // Test before data range (should return None)
+        let epoch_before = Epoch::from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, TimeSystem::UTC);
+        let result_before = traj.covariance(epoch_before);
+        assert!(result_before.is_none());
+
+        // Test after data range (should return None)
+        let epoch_after = Epoch::from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, TimeSystem::UTC);
+        let result_after = traj.covariance(epoch_after);
+        assert!(result_after.is_none());
+    }
+
+    #[test]
+    fn test_covariance_interpolation_edge_cases_two_wasserstein() {
+        setup_global_test_eop();
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
+        let epoch3 = Epoch::from_datetime(2024, 1, 1, 0, 20, 0.0, 0.0, TimeSystem::UTC);
+
+        let state1 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state2 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state3 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+        let cov3 = SMatrix::<f64, 6, 6>::identity() * 300.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2, epoch3],
+            vec![state1, state2, state3],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2, cov3]),
+        )
+        .with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+
+        // Test at exact epoch
+        let result_exact = traj.covariance(epoch2);
+        assert!(result_exact.is_some());
+        assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 200.0, epsilon = 1e-6);
+
+        // Test halfway between epoch1 and epoch2 (should be interpolated)
+        let epoch_halfway = Epoch::from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result_halfway = traj.covariance(epoch_halfway);
+        assert!(result_halfway.is_some());
+        // Verify interpolation gives value between endpoints
+        let halfway_val = result_halfway.unwrap()[(0, 0)];
+        assert!(halfway_val > 100.0 && halfway_val < 200.0);
+
+        // Test before data range (should return None)
+        let epoch_before = Epoch::from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, TimeSystem::UTC);
+        let result_before = traj.covariance(epoch_before);
+        assert!(result_before.is_none());
+
+        // Test after data range (should return None)
+        let epoch_after = Epoch::from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, TimeSystem::UTC);
+        let result_after = traj.covariance(epoch_after);
+        assert!(result_after.is_none());
+    }
+
+    #[test]
+    fn test_covariance_interpolation_methods_comparison() {
+        setup_global_test_eop();
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 0, 10, 0.0, 0.0, TimeSystem::UTC);
+
+        let state1 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let state2 = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        // Test both interpolation methods
+        let traj_wasserstein = OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        )
+        .with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+
+        let traj_matrix_sqrt = OrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        )
+        .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+
+        // Query at midpoint
+        let epoch_mid = Epoch::from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, TimeSystem::UTC);
+
+        let cov_wasserstein = traj_wasserstein.covariance(epoch_mid).unwrap();
+        let cov_matrix_sqrt = traj_matrix_sqrt.covariance(epoch_mid).unwrap();
+
+        // Both methods should produce positive-definite symmetric matrices
+        for i in 0..6 {
+            assert!(cov_wasserstein[(i, i)] > 0.0);
+            assert!(cov_matrix_sqrt[(i, i)] > 0.0);
+            for j in 0..6 {
+                assert_abs_diff_eq!(
+                    cov_wasserstein[(i, j)],
+                    cov_wasserstein[(j, i)],
+                    epsilon = 1e-10
+                );
+                assert_abs_diff_eq!(
+                    cov_matrix_sqrt[(i, j)],
+                    cov_matrix_sqrt[(j, i)],
+                    epsilon = 1e-10
+                );
+            }
+        }
+
+        // Both methods should produce values in reasonable range (between endpoints)
+        assert!(cov_wasserstein[(0, 0)] > 100.0 && cov_wasserstein[(0, 0)] < 200.0);
+        assert!(cov_matrix_sqrt[(0, 0)] > 100.0 && cov_matrix_sqrt[(0, 0)] < 200.0);
+
+        // For diagonal matrices, both methods should give identical results
+        assert_abs_diff_eq!(
+            cov_wasserstein[(0, 0)],
+            cov_matrix_sqrt[(0, 0)],
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    fn test_covariance_single_point_trajectory() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        // Exact epoch should return covariance
+        let result_exact = traj.covariance(epoch);
+        assert!(result_exact.is_some());
+        assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 100.0, epsilon = 1e-6);
+
+        // Different epoch should return None (no interpolation possible with single point)
+        let epoch_later = epoch + 60.0;
+        let result_later = traj.covariance(epoch_later);
+        assert!(result_later.is_none());
+    }
+
+    #[test]
+    fn test_covariance_rtn_elliptical_orbit() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create elliptical inclined orbit state
+        // a = R_EARTH + 600km, e = 0.2, i = 63.4 deg
+        let a = R_EARTH + 600e3;
+        let e = 0.2;
+        let i = 63.4_f64.to_radians();
+        let raan = 45.0_f64.to_radians();
+        let argp = 30.0_f64.to_radians();
+        let nu = 0.0; // True anomaly
+
+        use crate::coordinates::state_osculating_to_cartesian;
+
+        let oe = Vector6::new(a, e, i, raan, argp, nu);
+        let state = state_osculating_to_cartesian(oe, AngleFormat::Radians);
+
+        let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+
+        let traj = OrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        // Get covariance in RTN frame
+        let result = traj.covariance_rtn(epoch);
+        assert!(result.is_some());
+
+        let cov_rtn = result.unwrap();
+
+        // Verify RTN covariance is symmetric
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_rtn[(i, j)], cov_rtn[(j, i)], epsilon = 1e-10);
+            }
+        }
+
+        // Verify diagonal elements are positive (positive-definiteness check)
+        for i in 0..6 {
+            assert!(cov_rtn[(i, i)] > 0.0);
+        }
+
+        // RTN transformation should produce different values than identity
+        let differs_from_identity = (0..6).any(|i| (cov_rtn[(i, i)] - 100.0).abs() > 1e-6)
+            || (0..6).any(|i| (0..6).any(|j| i != j && cov_rtn[(i, j)].abs() > 1e-6));
+        assert!(differs_from_identity);
     }
 }

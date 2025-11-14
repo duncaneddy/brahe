@@ -9,7 +9,7 @@ When working with multiple satellites (constellations, Monte Carlo simulations, 
     - Batch processing orbital predictions
     - You have multiple CPU cores available
 
-See the [threading documentation](../../learn/threading.md) for more details on configuring threading in Brahe.
+See the [threading documentation](../utilities/threading.md) for more details on configuring threading in Brahe.
 
 ## Basic Example
 

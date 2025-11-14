@@ -6,9 +6,10 @@
 use std::path::Path;
 
 use nalgebra as na;
+use nalgebra::{SMatrix, SVector};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
-    PyUntypedArrayMethods, ToPyArray,
+    PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
 };
 
 use pyo3::panic::PanicException;
@@ -735,6 +736,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOrbitRepresentation>()?;
     module.add_class::<PyAngleFormat>()?;
     module.add_class::<PyInterpolationMethod>()?;
+    module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
     module.add_class::<PySTrajectory6>()?;

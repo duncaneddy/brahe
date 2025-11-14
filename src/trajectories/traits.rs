@@ -8,6 +8,7 @@
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use nalgebra::SMatrix;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -22,6 +23,25 @@ pub enum InterpolationMethod {
     /// Good balance of speed and accuracy for smooth trajectories.
     #[default]
     Linear,
+}
+
+/// Interpolation methods for retrieving covariance matrices at arbitrary epochs.
+///
+/// Covariance matrices live on the manifold of positive semi-definite matrices,
+/// requiring specialized interpolation methods to maintain mathematical properties.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum CovarianceInterpolationMethod {
+    /// Matrix square root interpolation of covariance matrices.
+    /// Preserves positive-definiteness by interpolating on the manifold of
+    /// positive semi-definite matrices.
+    MatrixSquareRoot,
+    /// Linear interpolation of covariance matrices.
+    /// Faster but may not preserve positive-definiteness.
+    /// Entropy-regularized 2-Wasserstein interpolation for interpolation between
+    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wassertein Distance Between Guassian Mesures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+    /// for details.
+    #[default]
+    TwoWasserstein,
 }
 
 /// Enumeration of trajectory eviction policies for memory management
@@ -472,6 +492,51 @@ pub trait Interpolatable: Trajectory {
     }
 }
 
+/// Trait for covariance interpolation functionality.
+///
+/// This trait provides methods for configuring and managing covariance interpolation
+/// in trajectories that store covariance matrices. Since covariance matrices are
+/// positive semi-definite matrices living on a manifold, specialized interpolation
+/// methods may be needed to preserve mathematical properties.
+///
+/// # Examples
+/// ```rust
+/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::trajectories::traits::{CovarianceInterpolatable, CovarianceInterpolationMethod, OrbitFrame, OrbitRepresentation};
+/// use brahe::time::{Epoch, TimeSystem};
+/// use nalgebra::SMatrix;
+///
+/// let mut traj = OrbitTrajectory::new(
+///     OrbitFrame::ECI,
+///     OrbitRepresentation::Cartesian,
+///     None,
+/// ).with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+/// ```
+pub trait CovarianceInterpolatable {
+    /// Set the covariance interpolation method using a builder pattern
+    ///
+    /// # Arguments
+    /// * `method` - The covariance interpolation method to use
+    ///
+    /// # Returns
+    /// Self with the interpolation method set
+    fn with_covariance_interpolation_method(self, method: CovarianceInterpolationMethod) -> Self
+    where
+        Self: Sized;
+
+    /// Set the covariance interpolation method
+    ///
+    /// # Arguments
+    /// * `method` - The covariance interpolation method to use
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod);
+
+    /// Get the current covariance interpolation method
+    ///
+    /// # Returns
+    /// The current covariance interpolation method (defaults to TwoWasserstein if not set)
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod;
+}
+
 /// Trait for orbital-specific functionality on 6-dimensional trajectories.
 ///
 /// This trait provides methods for working with orbital state trajectories, including
@@ -527,18 +592,22 @@ pub trait OrbitalTrajectory: Interpolatable {
     /// * `frame` - Reference frame (ECI or ECEF)
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
+    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
     ///
     /// # Returns
     /// New orbital trajectory with data
     ///
     /// # Panics
     /// Panics if parameters are invalid (e.g., None angle_format with Keplerian, or Keplerian with ECEF)
+    /// Panics if covariances are provided but frame is not ECI or GCRF
+    /// Panics if covariances length does not match states length
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Self::StateVector>,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
+        covariances: Option<Vec<SMatrix<f64, 6, 6>>>,
     ) -> Self
     where
         Self: Sized;

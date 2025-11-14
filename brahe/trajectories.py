@@ -22,6 +22,7 @@ This module provides containers for storing and interpolating spacecraft traject
 - OrbitRepresentation: State representation format
 - AngleFormat: Angle unit specification
 - InterpolationMethod: Interpolation algorithm selection
+- CovarianceInterpolationMethod: Covariance interpolation algorithm selection
 """
 
 from brahe._brahe import (
@@ -34,6 +35,7 @@ from brahe._brahe import (
     OrbitRepresentation,
     AngleFormat,
     InterpolationMethod,
+    CovarianceInterpolationMethod,
 )
 
 __all__ = [
@@ -46,4 +48,5 @@ __all__ = [
     "OrbitRepresentation",
     "AngleFormat",
     "InterpolationMethod",
+    "CovarianceInterpolationMethod",
 ]

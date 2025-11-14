@@ -434,14 +434,15 @@ impl<const S: usize> AdaptiveStepIntegrator<S> for DormandPrince54Integrator<S> 
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use nalgebra::SVector;
+    use nalgebra::{SMatrix, SVector};
 
-    use crate::constants::RADIANS;
+    use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::IntegratorConfig;
     use crate::integrators::dp54::DormandPrince54Integrator;
     use crate::integrators::rkf45::RKF45Integrator;
-    use crate::integrators::traits::AdaptiveStepIntegrator;
+    use crate::integrators::traits::{AdaptiveStepIntegrator, VarmatConfig};
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::testing::setup_global_test_eop;
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
     fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
@@ -685,5 +686,158 @@ mod tests {
         // Both 5th order methods should have small error
         assert!(error_dp54 < 1.0e-5);
         assert!(error_rkf45 < 1.0e-5);
+    }
+
+    #[test]
+    fn test_dp54_stm_accuracy() {
+        setup_global_test_eop();
+
+        // Set up variational matrix computation with central differences
+        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_config.compute(t, state, &point_earth)
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let dp54_nominal = DormandPrince54Integrator::with_config(
+            Box::new(point_earth),
+            Some(Box::new(varmat)),
+            config.clone(),
+        );
+
+        // Circular orbit
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+
+        // Propagate single step
+        let dt = 10.0; // 10 seconds
+        let (state_new, phi, _dt_used, _error, _dt_next) = dp54_nominal.step_with_varmat(
+            0.0,
+            state0,
+            SMatrix::<f64, 6, 6>::identity(),
+            dt,
+            1e-12,
+            1e-10,
+        );
+
+        // Test STM accuracy by comparing with direct perturbation
+        for i in 0..6 {
+            let mut perturbation = SVector::<f64, 6>::zeros();
+            perturbation[i] = 10.0; // 10m or 10mm/s perturbation
+
+            // Create separate integrator for perturbed state to avoid FSAL cache issues
+            let dp54_pert =
+                DormandPrince54Integrator::with_config(Box::new(point_earth), None, config.clone());
+
+            // Propagate perturbed state
+            let state0_pert = state0 + perturbation;
+            let result_pert = dp54_pert.step(0.0, state0_pert, dt, 1e-12, 1e-10);
+
+            // Predict perturbed state using STM
+            let state_pert_predicted = state_new + phi * perturbation;
+
+            // Compare each component
+            for j in 0..6 {
+                let direct = result_pert.state[j];
+                let predicted = state_pert_predicted[j];
+                let error = (direct - predicted).abs();
+                let relative_error = error / perturbation[i].abs();
+
+                println!(
+                    "Component {} perturbation {}: error = {:.6e}, relative = {:.6e}",
+                    j, i, error, relative_error
+                );
+
+                // DP54 is 5th order, expect very good STM accuracy
+                // Position components (0-2): ~1e-6 relative error
+                // Velocity components (3-5): ~1e-5 relative error
+                if j < 3 {
+                    assert!(
+                        relative_error < 1e-5,
+                        "Position component {} failed: relative error = {:.3e}",
+                        j,
+                        relative_error
+                    );
+                } else {
+                    assert!(
+                        relative_error < 1e-4,
+                        "Velocity component {} failed: relative error = {:.3e}",
+                        j,
+                        relative_error
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_dp54_stm_vs_direct_perturbation() {
+        setup_global_test_eop();
+
+        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
+        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
+            varmat_config.compute(t, state, &point_earth)
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+
+        // Create separate integrators for nominal and perturbed trajectories to avoid FSAL cache conflicts
+        let dp54_nominal = DormandPrince54Integrator::with_config(
+            Box::new(point_earth),
+            Some(Box::new(varmat)),
+            config.clone(),
+        );
+        let dp54_pert = DormandPrince54Integrator::with_config(Box::new(point_earth), None, config);
+
+        // Circular orbit
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+
+        // Small perturbation in position
+        let perturbation = SVector::<f64, 6>::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        // Propagate over multiple steps
+        let total_time = 100.0; // 100 seconds
+        let num_steps = 10;
+        let dt = total_time / num_steps as f64;
+
+        let mut state = state0;
+        let mut phi = SMatrix::<f64, 6, 6>::identity();
+        let mut state_pert = state0 + perturbation;
+        let mut t = 0.0;
+
+        for step in 0..num_steps {
+            // Propagate with STM
+            let (state_new, phi_new, dt_used, _, _) =
+                dp54_nominal.step_with_varmat(t, state, phi, dt, 1e-12, 1e-10);
+
+            // Propagate perturbed state directly
+            let result_pert = dp54_pert.step(t, state_pert, dt, 1e-12, 1e-10);
+
+            // Predict perturbed state using STM
+            let state_pert_predicted = state_new + phi_new * perturbation;
+
+            // Compare
+            let error = (result_pert.state - state_pert_predicted).norm();
+            println!("Step {}: error = {:.6e} m", step + 1, error);
+
+            // Error should remain small and not accumulate excessively
+            // DP54 STM has ~1e-5 relative error, so for 10m perturbation
+            // expect ~0.0001m error per step, growing to ~0.001m over 10 steps
+            let max_error = 0.001 * (step + 1) as f64;
+            assert!(
+                error < max_error,
+                "STM prediction diverged at step {}: error = {:.3e} m (max: {:.3e} m)",
+                step + 1,
+                error,
+                max_error
+            );
+
+            // Update for next step
+            state = state_new;
+            phi = phi_new;
+            state_pert = result_pert.state;
+            t += dt_used;
+        }
     }
 }

@@ -2,7 +2,9 @@
  * Earth-Centered Inertial (ECI) to Radial, Along-Track, Cross-Track (RTN) Frame Transformations
  */
 
-use crate::coordinates::{SMatrix3, SVector6};
+use crate::utils::{SMatrix3, SVector6};
+#[allow(unused_imports)]
+use nalgebra::Vector3;
 
 /// Computes the rotation matrix transforming a vector in the radial, along-track, cross-track (RTN)
 /// frame to the Earth-Centered Inertial (ECI) frame at a given epoch.
@@ -22,10 +24,11 @@ use crate::coordinates::{SMatrix3, SVector6};
 ///
 /// # Examples:
 /// ```
+/// use brahe::utils::SVector6;
 /// use brahe::R_EARTH;
 /// use brahe::frames::*;
 /// use brahe::orbits::*;
-/// use brahe::coordinates::SVector6;
+/// use brahe::relative_motion::*;
 ///
 /// // Define satellite position
 /// let sma = R_EARTH + 700e3; // Semi-major axis in meters
@@ -67,10 +70,11 @@ pub fn rotation_rtn_to_eci(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Examples:
 /// ```
+/// use brahe::utils::SVector6;
 /// use brahe::R_EARTH;
 /// use brahe::frames::*;
 /// use brahe::orbits::*;
-/// use brahe::coordinates::SVector6;
+/// use brahe::relative_motion::*;
 ///
 /// // Define satellite position
 /// let sma = R_EARTH + 700e3; // Semi-major axis in meters
@@ -87,7 +91,6 @@ mod tests {
     use super::*;
     use crate::R_EARTH;
     use crate::orbits::perigee_velocity;
-    use nalgebra::{Matrix3, Vector3};
 
     fn get_test_state() -> SVector6 {
         let sma = R_EARTH + 700e3; // Semi-major axis in meters
@@ -116,6 +119,6 @@ mod tests {
 
         // Confirm that the product of the two rotation matrices is the identity matrix
         let identity = r_rtn_to_eci * r_eci_to_rtn;
-        assert!((identity - Matrix3::identity()).norm() < 1e-10);
+        assert!((identity - SMatrix3::identity()).norm() < 1e-10);
     }
 }

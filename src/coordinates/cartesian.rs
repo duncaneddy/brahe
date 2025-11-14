@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use is_close::is_close;
 use nalgebra::Vector3;
 
-use super::SVector6;
+use crate::utils::SVector6;
 
 use crate::constants;
 use crate::constants::{AngleFormat, GM_EARTH};

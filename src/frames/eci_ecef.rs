@@ -4,8 +4,8 @@
 
 use nalgebra::Vector3;
 
-use crate::coordinates::{SMatrix3, SVector6};
 use crate::time::Epoch;
+use crate::utils::{SMatrix3, SVector6};
 
 use super::gcrf_itrf::{
     position_gcrf_to_itrf, position_itrf_to_gcrf, rotation_gcrf_to_itrf, rotation_itrf_to_gcrf,

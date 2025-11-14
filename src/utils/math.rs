@@ -1,8 +1,24 @@
+/*!
+ * Math utility functions and type definitions.
+ */
+
 use nalgebra as na;
 use nalgebra::linalg::SymmetricEigen;
 use num_traits::float::Float;
 
 use crate::constants;
+
+/// 3-dimensional static vector type for Cartesian state vectors
+pub type SVector3 = na::SVector<f64, 3>;
+
+/// 6-dimensional static vector type for Cartesian state vectors
+pub type SVector6 = na::SVector<f64, 6>;
+
+/// 3x3 static matrix type for rotation matrices and transformations
+pub type SMatrix3 = na::SMatrix<f64, 3, 3>;
+
+/// 6x6 static matrix type for rotation matrices and transformations
+pub type SMatrix6 = na::SMatrix<f64, 6, 6>;
 
 /// Convert a number to radians, if `as_degrees` is `true` the number is assumed to be in degrees.
 /// If `false` the number is assumed to be in radians already and is passed through.

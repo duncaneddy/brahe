@@ -4,7 +4,7 @@ The `quaternion` module provides the implementation of the `Quaternion` struct, 
 
 use nalgebra::{Vector3, Vector4};
 
-use crate::coordinates::SMatrix3;
+use crate::utils::SMatrix3;
 use std::{fmt, ops};
 
 use crate::attitude::attitude_types::ATTITUDE_EPSILON;
@@ -528,7 +528,7 @@ impl FromAttitude for Quaternion {
         if ind_max == 0 {
             Quaternion {
                 data: 0.5
-                    * Vector4::new(
+                    * Vector4::<f64>::new(
                         q_max.sqrt(),
                         (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
                         (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
@@ -538,7 +538,7 @@ impl FromAttitude for Quaternion {
         } else if ind_max == 1 {
             Quaternion {
                 data: 0.5
-                    * Vector4::new(
+                    * Vector4::<f64>::new(
                         (rot.data[(1, 2)] - rot.data[(2, 1)]) / q_max.sqrt(),
                         q_max.sqrt(),
                         (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
@@ -548,7 +548,7 @@ impl FromAttitude for Quaternion {
         } else if ind_max == 2 {
             Quaternion {
                 data: 0.5
-                    * Vector4::new(
+                    * Vector4::<f64>::new(
                         (rot.data[(2, 0)] - rot.data[(0, 2)]) / q_max.sqrt(),
                         (rot.data[(0, 1)] + rot.data[(1, 0)]) / q_max.sqrt(),
                         q_max.sqrt(),
@@ -558,7 +558,7 @@ impl FromAttitude for Quaternion {
         } else {
             Quaternion {
                 data: 0.5
-                    * Vector4::new(
+                    * Vector4::<f64>::new(
                         (rot.data[(0, 1)] - rot.data[(1, 0)]) / q_max.sqrt(),
                         (rot.data[(2, 0)] + rot.data[(0, 2)]) / q_max.sqrt(),
                         (rot.data[(1, 2)] + rot.data[(2, 1)]) / q_max.sqrt(),
@@ -660,7 +660,7 @@ impl ToAttitude for Quaternion {
     /// ```
     /// use brahe::attitude::Quaternion;
     /// use brahe::attitude::ToAttitude;
-    /// use brahe::coordinates::SMatrix3;
+    /// use brahe::utils::SMatrix3;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let r = q.to_rotation_matrix();

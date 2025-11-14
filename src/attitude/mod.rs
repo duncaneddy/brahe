@@ -4,8 +4,6 @@ The `attitude` module provides types and traits for representing and converting 
 
 #![allow(unused_imports)]
 
-use crate::coordinates::SMatrix3;
-
 pub mod attitude_types;
 pub mod euler_angle;
 pub mod euler_axis;

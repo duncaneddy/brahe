@@ -5,7 +5,7 @@
 use nalgebra::{Vector3, matrix};
 
 use crate::constants::AS2RAD;
-use crate::coordinates::{SMatrix3, SVector6};
+use crate::utils::{SMatrix3, SVector6};
 
 /// Computes the bias matrix transforming the GCRF to the EME 2000
 /// reference frame.

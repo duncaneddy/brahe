@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::coordinates::SMatrix3;
+use crate::utils::SMatrix3;
 use once_cell::sync::Lazy;
 
 use crate::utils::{BraheError, kronecker_delta};

@@ -7,5 +7,7 @@
  */
 
 pub mod eci_rtn;
+pub mod oe_roe;
 
 pub use eci_rtn::*;
+pub use oe_roe::*;

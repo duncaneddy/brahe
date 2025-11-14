@@ -161,3 +161,98 @@ unsafe fn py_state_rtn_to_eci<'py>(
     );
     Ok(vector_to_numpy!(py, result, 6, f64))
 }
+
+/// Converts chief and deputy satellite orbital elements (OE) to quasi-nonsingular relative orbital elements (ROE).
+///
+/// The ROE formulation provides a mean description of relative motion that is nonsingular for
+/// circular and near-circular orbits. The ROE vector contains:
+/// - da: Relative semi-major axis (dimensionless)
+/// - dλ: Relative mean longitude (degrees or radians)
+/// - dex: x-component of relative eccentricity vector (dimensionless)
+/// - dey: y-component of relative eccentricity vector (dimensionless)
+/// - dix: x-component of relative inclination vector (degrees or radians)
+/// - diy: y-component of relative inclination vector (degrees or radians)
+///
+/// Args:
+///     oe_chief (numpy.ndarray or list): Chief satellite orbital elements [a, e, i, Ω, ω, M] shape (6,)
+///     oe_deputy (numpy.ndarray or list): Deputy satellite orbital elements [a, e, i, Ω, ω, M] shape (6,)
+///     angle_format (AngleFormat): Format of angular elements (DEGREES or RADIANS)
+///
+/// Returns:
+///     numpy.ndarray: Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define chief and deputy orbital elements (degrees)
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+///
+///     # Convert to ROE
+///     roe = bh.state_oe_to_roe(oe_chief, oe_deputy, bh.AngleFormat.DEGREES)
+///     print(f"Relative orbital elements: {roe}")
+///     # Relative orbital elements: [1.413e-4, 9.321e-2, 4.324e-4, 2.511e-4, 5.0e-2, 4.954e-2]
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(oe_chief, oe_deputy, angle_format)")]
+#[pyo3(name = "state_oe_to_roe")]
+unsafe fn py_state_oe_to_roe<'py>(
+    py: Python<'py>,
+    oe_chief: Bound<'py, PyAny>,
+    oe_deputy: Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let result = relative_motion::state_oe_to_roe(
+        pyany_to_svector::<6>(&oe_chief)?,
+        pyany_to_svector::<6>(&oe_deputy)?,
+        angle_format.value,
+    );
+    Ok(vector_to_numpy!(py, result, 6, f64))
+}
+
+/// Converts chief satellite orbital elements (OE) and quasi-nonsingular relative orbital elements (ROE)
+/// to deputy satellite orbital elements.
+///
+/// This is the inverse transformation of `state_oe_to_roe`, converting from ROE representation
+/// back to classical orbital elements for the deputy satellite.
+///
+/// Args:
+///     oe_chief (numpy.ndarray or list): Chief satellite orbital elements [a, e, i, Ω, ω, M] shape (6,)
+///     roe (numpy.ndarray or list): Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,)
+///     angle_format (AngleFormat): Format of angular elements (DEGREES or RADIANS)
+///
+/// Returns:
+///     numpy.ndarray: Deputy satellite orbital elements [a, e, i, Ω, ω, M] shape (6,)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define chief orbital elements and ROE (degrees)
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     roe = np.array([1.413e-4, 9.321e-2, 4.324e-4, 2.511e-4, 5.0e-2, 4.954e-2])
+///
+///     # Convert to deputy OE
+///     oe_deputy = bh.state_roe_to_oe(oe_chief, roe, bh.AngleFormat.DEGREES)
+///     print(f"Deputy orbital elements: {oe_deputy}")
+///     # Deputy orbital elements: [7.079e6, 1.5e-3, 97.85, 15.05, 30.05, 45.05]
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(oe_chief, roe, angle_format)")]
+#[pyo3(name = "state_roe_to_oe")]
+unsafe fn py_state_roe_to_oe<'py>(
+    py: Python<'py>,
+    oe_chief: Bound<'py, PyAny>,
+    roe: Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let result = relative_motion::state_roe_to_oe(
+        pyany_to_svector::<6>(&oe_chief)?,
+        pyany_to_svector::<6>(&roe)?,
+        angle_format.value,
+    );
+    Ok(vector_to_numpy!(py, result, 6, f64))
+}

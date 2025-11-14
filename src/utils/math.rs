@@ -6,7 +6,7 @@ use nalgebra as na;
 use nalgebra::linalg::SymmetricEigen;
 use num_traits::float::Float;
 
-use crate::constants;
+use crate::{AngleFormat, constants};
 
 /// 3-dimensional static vector type for Cartesian state vectors
 pub type SVector3 = na::SVector<f64, 3>;
@@ -69,6 +69,50 @@ pub fn to_degrees(num: f64, as_degrees: bool) -> f64 {
         num * constants::RAD2DEG
     } else {
         num
+    }
+}
+
+/// Convert orbital elements to degrees if `angle_format` is `Degrees`, otherwise pass through.
+///
+/// # Arguments
+/// - `oe`: Orbital elements vector [a, e, i, RAAN, arg_perigee, mean_anomaly]
+/// - `angle_format`: Angle format of the input.
+///
+/// # Returns
+/// - `SVector6`: Orbital elements with angles in degrees if specified.
+pub fn oe_to_degrees(oe: SVector6, angle_format: AngleFormat) -> SVector6 {
+    match angle_format {
+        AngleFormat::Radians => SVector6::new(
+            oe[0],
+            oe[1],
+            oe[2] * constants::RAD2DEG,
+            oe[3] * constants::RAD2DEG,
+            oe[4] * constants::RAD2DEG,
+            oe[5] * constants::RAD2DEG,
+        ),
+        AngleFormat::Degrees => oe,
+    }
+}
+
+/// Convert orbital elements to radians if `angle_format` is `Degrees`, otherwise pass through.
+///
+/// # Arguments
+/// - `oe`: Orbital elements vector [a, e, i, RAAN, arg_perigee, mean_anomaly]
+/// - `angle_format`: Angle format of the input.
+///
+/// # Returns
+/// - `SVector6`: Orbital elements with angles in radians if specified.
+pub fn oe_to_radians(oe: SVector6, angle_format: AngleFormat) -> SVector6 {
+    match angle_format {
+        AngleFormat::Degrees => SVector6::new(
+            oe[0],
+            oe[1],
+            oe[2] * constants::DEG2RAD,
+            oe[3] * constants::DEG2RAD,
+            oe[4] * constants::DEG2RAD,
+            oe[5] * constants::DEG2RAD,
+        ),
+        AngleFormat::Radians => oe,
     }
 }
 
@@ -384,6 +428,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_abs_diff_eq;
     use std::f64::consts::PI;
 
     use super::*;
@@ -584,5 +629,44 @@ mod tests {
                 || err_msg.contains("converge")
                 || err_msg.contains("accuracy")
         );
+    }
+
+    #[test]
+    fn test_oe_to_radians() {
+        let oe_deg = SVector6::new(7000.0, 0.001, 45.0, 120.0, 90.0, 30.0);
+        let oe_rad = oe_to_radians(oe_deg, AngleFormat::Degrees);
+
+        assert_abs_diff_eq!(oe_rad[0], 7000.0);
+        assert_abs_diff_eq!(oe_rad[1], 0.001);
+        assert_abs_diff_eq!(oe_rad[2], 45.0 * constants::DEG2RAD);
+        assert_abs_diff_eq!(oe_rad[3], 120.0 * constants::DEG2RAD);
+        assert_abs_diff_eq!(oe_rad[4], 90.0 * constants::DEG2RAD);
+        assert_abs_diff_eq!(oe_rad[5], 30.0 * constants::DEG2RAD);
+
+        // Test with Radians input
+        let oe_rad_input =
+            SVector6::new(7000.0, 0.001, PI / 4.0, 2.0 * PI / 3.0, PI / 2.0, PI / 6.0);
+        let oe_rad_output = oe_to_radians(oe_rad_input, AngleFormat::Radians);
+
+        assert_eq!(oe_rad_output, oe_rad_input);
+    }
+
+    #[test]
+    fn test_oe_to_degrees() {
+        let oe_rad = SVector6::new(7000.0, 0.001, PI / 4.0, 2.0 * PI / 3.0, PI / 2.0, PI / 6.0);
+        let oe_deg = oe_to_degrees(oe_rad, AngleFormat::Radians);
+
+        assert_abs_diff_eq!(oe_deg[0], 7000.0);
+        assert_abs_diff_eq!(oe_deg[1], 0.001);
+        assert_abs_diff_eq!(oe_deg[2], PI / 4.0 * constants::RAD2DEG);
+        assert_abs_diff_eq!(oe_deg[3], 2.0 * PI / 3.0 * constants::RAD2DEG);
+        assert_abs_diff_eq!(oe_deg[4], PI / 2.0 * constants::RAD2DEG);
+        assert_abs_diff_eq!(oe_deg[5], PI / 6.0 * constants::RAD2DEG);
+
+        // Test with Degrees input
+        let oe_deg_input = SVector6::new(7000.0, 0.001, 45.0, 120.0, 90.0, 30.0);
+        let oe_deg_output = oe_to_degrees(oe_deg_input, AngleFormat::Degrees);
+
+        assert_eq!(oe_deg_output, oe_deg_input);
     }
 }

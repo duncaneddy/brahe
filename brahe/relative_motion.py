@@ -21,6 +21,8 @@ from brahe._brahe import (
     rotation_eci_to_rtn,
     state_rtn_to_eci,
     state_eci_to_rtn,
+    state_oe_to_roe,
+    state_roe_to_oe,
 )
 
 __all__ = [
@@ -28,4 +30,6 @@ __all__ = [
     "rotation_eci_to_rtn",
     "state_rtn_to_eci",
     "state_eci_to_rtn",
+    "state_oe_to_roe",
+    "state_roe_to_oe",
 ]

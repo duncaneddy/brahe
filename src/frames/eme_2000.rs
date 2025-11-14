@@ -41,13 +41,13 @@ pub fn bias_eme2000() -> SMatrix3 {
     // Initialize offset terms
     let dξ = -16.6170e-3 * AS2RAD; // radians
     let dη = -6.8192e-3 * AS2RAD; // radians
-    let dα = -14.6e-3 * AS2RAD; // radians
+    let d_alpha = -14.6e-3 * AS2RAD; // radians
 
     // Use second-order frame bias matrix approximation
     matrix![
-        1.0 - 0.5 * (dξ * dξ + dη * dη), dα, -dξ;
-        -dα - dξ * dη, 1.0 - 0.5 * (dα * dα + dη * dη), -dη;
-        dξ + dα * dη, dη + dα * dξ, 1.0 - 0.5 * (dη * dη + dξ * dξ)
+        1.0 - 0.5 * (dξ * dξ + dη * dη), d_alpha, -dξ;
+        -d_alpha - dξ * dη, 1.0 - 0.5 * (d_alpha * d_alpha + dη * dη), -dη;
+        dξ + d_alpha * dη, dη + d_alpha * dξ, 1.0 - 0.5 * (dη * dη + dξ * dξ)
     ]
 }
 
@@ -250,27 +250,27 @@ mod tests {
         // Independently define expected values
         let dξ = -16.6170e-3 * AS2RAD; // radians
         let dη = -6.8192e-3 * AS2RAD; // radians
-        let dα = -14.6e-3 * AS2RAD; // radians
+        let d_alpha = -14.6e-3 * AS2RAD; // radians
 
         let tol = 1.0e-12;
         assert_abs_diff_eq!(
             r_eme2000[(0, 0)],
-            1.0 - 0.5 * (dα.powi(2) + dξ.powi(2)),
+            1.0 - 0.5 * (d_alpha.powi(2) + dξ.powi(2)),
             epsilon = tol
         );
-        assert_abs_diff_eq!(r_eme2000[(0, 1)], dα, epsilon = tol);
+        assert_abs_diff_eq!(r_eme2000[(0, 1)], d_alpha, epsilon = tol);
         assert_abs_diff_eq!(r_eme2000[(0, 2)], -dξ, epsilon = tol);
 
-        assert_abs_diff_eq!(r_eme2000[(1, 0)], -dα - dη * dξ, epsilon = tol);
+        assert_abs_diff_eq!(r_eme2000[(1, 0)], -d_alpha - dη * dξ, epsilon = tol);
         assert_abs_diff_eq!(
             r_eme2000[(1, 1)],
-            1.0 - 0.5 * (dα.powi(2) + dη.powi(2)),
+            1.0 - 0.5 * (d_alpha.powi(2) + dη.powi(2)),
             epsilon = tol
         );
         assert_abs_diff_eq!(r_eme2000[(1, 2)], -dη, epsilon = tol);
 
-        assert_abs_diff_eq!(r_eme2000[(2, 0)], dξ - dη * dα, epsilon = tol);
-        assert_abs_diff_eq!(r_eme2000[(2, 1)], dη + dξ * dα, epsilon = tol);
+        assert_abs_diff_eq!(r_eme2000[(2, 0)], dξ - dη * d_alpha, epsilon = tol);
+        assert_abs_diff_eq!(r_eme2000[(2, 1)], dη + dξ * d_alpha, epsilon = tol);
         assert_abs_diff_eq!(
             r_eme2000[(2, 2)],
             1.0 - 0.5 * (dη.powi(2) + dξ.powi(2)),

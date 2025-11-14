@@ -43,9 +43,6 @@ pub struct IntegratorConfig {
     /// Maximum allowed step size (if None, no maximum enforced)
     pub max_step: Option<f64>,
 
-    /// Maximum number of integration steps (prevents infinite loops)
-    pub max_steps: usize,
-
     /// Stepping mode: fixed or adaptive
     pub step_mode: StepMode,
 
@@ -72,8 +69,7 @@ impl Default for IntegratorConfig {
     /// - rel_tol: 1e-3
     /// - initial_step: None (auto-determined)
     /// - min_step: Some(1e-12)
-    /// - max_step: Some(1e6)
-    /// - max_steps: 1_000_000
+    /// - max_step: Some(900.0) (15 minutes)
     /// - step_mode: Adaptive
     /// - step_safety_factor: Some(0.9)
     /// - min_step_scale_factor: Some(0.2)
@@ -85,8 +81,7 @@ impl Default for IntegratorConfig {
             rel_tol: 1e-3,
             initial_step: None,
             min_step: Some(1e-12),
-            max_step: Some(1e6),
-            max_steps: 1_000_000,
+            max_step: Some(900.0),
             step_mode: StepMode::Adaptive,
             step_safety_factor: Some(0.9),
             min_step_scale_factor: Some(0.2),
@@ -176,8 +171,7 @@ mod tests {
         assert_eq!(config.rel_tol, 1e-3);
         assert_eq!(config.initial_step, None);
         assert_eq!(config.min_step, Some(1e-12));
-        assert_eq!(config.max_step, Some(1e6));
-        assert_eq!(config.max_steps, 1_000_000);
+        assert_eq!(config.max_step, Some(900.0));
         assert_eq!(config.step_mode, StepMode::Adaptive);
         assert_eq!(config.step_safety_factor, Some(0.9));
         assert_eq!(config.min_step_scale_factor, Some(0.2));

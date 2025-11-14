@@ -256,6 +256,77 @@ pub(crate) const RKF45_TABLEAU: EmbeddedButcherTableau<6> = EmbeddedButcherTable
     order_low: 4,
 };
 
+/// Embedded Butcher tableau for Runge-Kutta-Nyström (RKN) methods.
+///
+/// RKN methods are specialized for second-order ODEs of the form `y'' = f(t, y)`.
+/// They require separate coefficient sets for position and velocity updates,
+/// making them more efficient than standard RK methods for such problems.
+#[derive(Debug)]
+pub struct EmbeddedRKNButcherTableau<const S: usize> {
+    /// Matrix of RKN coefficients (S×S). Used for position updates.
+    pub a: SMatrix<f64, S, S>,
+    /// High-order position weights (e.g., 12th order in RKN1210)
+    pub b_pos_high: SVector<f64, S>,
+    /// Low-order position weights (e.g., 10th order in RKN1210)
+    pub b_pos_low: SVector<f64, S>,
+    /// High-order velocity weights (e.g., 12th order in RKN1210)
+    pub b_vel_high: SVector<f64, S>,
+    /// Low-order velocity weights (e.g., 10th order in RKN1210)
+    pub b_vel_low: SVector<f64, S>,
+    /// Vector of node times (length S)
+    pub c: SVector<f64, S>,
+    /// Order of high-order method
+    pub order_high: usize,
+    /// Order of low-order method
+    pub order_low: usize,
+}
+
+impl<const S: usize> EmbeddedRKNButcherTableau<S> {
+    /// Create a new embedded RKN Butcher tableau.
+    ///
+    /// # Arguments
+    /// - `a`: Coefficient matrix for position
+    /// - `b_pos_high`: High-order position solution weights
+    /// - `b_pos_low`: Low-order position solution weights
+    /// - `b_vel_high`: High-order velocity solution weights
+    /// - `b_vel_low`: Low-order velocity solution weights
+    /// - `c`: Node times
+    /// - `order_high`: Order of high-order method
+    /// - `order_low`: Order of low-order method
+    ///
+    /// # Returns
+    /// Result containing the tableau if valid, or error
+    #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        a: SMatrix<f64, S, S>,
+        b_pos_high: SVector<f64, S>,
+        b_pos_low: SVector<f64, S>,
+        b_vel_high: SVector<f64, S>,
+        b_vel_low: SVector<f64, S>,
+        c: SVector<f64, S>,
+        order_high: usize,
+        order_low: usize,
+    ) -> Result<Self, BraheError> {
+        // Validate all b vectors - both position and velocity must sum to 1.0
+        validate_explicit_butcher_tableau(a, b_pos_high, c)?;
+        validate_explicit_butcher_tableau(a, b_pos_low, c)?;
+        validate_explicit_butcher_tableau(a, b_vel_high, c)?;
+        validate_explicit_butcher_tableau(a, b_vel_low, c)?;
+
+        Ok(Self {
+            a,
+            b_pos_high,
+            b_pos_low,
+            b_vel_high,
+            b_vel_low,
+            c,
+            order_high,
+            order_low,
+        })
+    }
+}
+
 /// Create Dormand-Prince 5(4) tableau.
 ///
 /// Coefficients from Dormand & Prince (1980). This is MATLAB's ode45 method.
@@ -343,6 +414,295 @@ pub(crate) fn dp54_tableau() -> EmbeddedButcherTableau<7> {
         ]),
         order_high: 5,
         order_low: 4,
+    }
+}
+
+/// Create RKN12(10) tableau for Runge-Kutta-Nyström integration.
+///
+/// Coefficients from Dormand, El-Mikkawy, & Prince (1987): "High-Order Embedded
+/// Runge-Kutta-Nyström Formulae". 17 stages, 12th/10th order embedded method.
+///
+/// Based on implementation by Rody Oldenhuis (FEX-RKN1210), used under BSD 2-Clause License.
+/// Coefficients obtained from http://www.tampa.phys.ucl.ac.uk/rmat/test/rknint.f
+///
+/// This is a very high-order method designed for problems with extremely stringent
+/// error tolerances (< 1e-10). Optimal for second-order ODEs like orbital mechanics.
+///
+/// # ⚠️ Experimental
+///
+/// This tableau and the associated RKN1210 integrator are experimental. While coefficient
+/// consistency has been verified, the implementation requires more extensive validation
+/// across diverse problem types before production use.
+#[allow(clippy::excessive_precision)]
+pub(crate) fn rkn1210_tableau() -> EmbeddedRKNButcherTableau<17> {
+    EmbeddedRKNButcherTableau {
+        // Node times (c)
+        c: SVector::<f64, 17>::from_column_slice(&[
+            0.0,
+            2.0e-2,
+            4.0e-2,
+            1.0e-1,
+            1.333333333333333333333e-1,
+            1.6e-1,
+            5.0e-2,
+            2.0e-1,
+            2.5e-1,
+            3.333333333333333333333e-1,
+            5.0e-1,
+            5.555555555555555555556e-1,
+            7.5e-1,
+            8.571428571428571428571e-1,
+            9.452162222720143401300e-1,
+            1.0,
+            1.0,
+        ]),
+
+        // Coefficient matrix A (17x17, stored row-wise then transposed)
+        a: {
+            let mut a = SMatrix::<f64, 17, 17>::zeros();
+
+            // Row 2
+            a[(1, 0)] = 2.0e-4;
+
+            // Row 3
+            a[(2, 0)] = 2.666666666666666666667e-4;
+            a[(2, 1)] = 5.333333333333333333333e-4;
+
+            // Row 4
+            a[(3, 0)] = 2.916666666666666666667e-3;
+            a[(3, 1)] = -4.166666666666666666667e-3;
+            a[(3, 2)] = 6.25e-3;
+
+            // Row 5
+            a[(4, 0)] = 1.646090534979423868313e-3;
+            a[(4, 2)] = 5.486968449931412894376e-3;
+            a[(4, 3)] = 1.755829903978052126200e-3;
+
+            // Row 6
+            a[(5, 0)] = 1.9456e-3;
+            a[(5, 2)] = 7.151746031746031746032e-3;
+            a[(5, 3)] = 2.912711111111111111111e-3;
+            a[(5, 4)] = 7.899428571428571428571e-4;
+
+            // Row 7
+            a[(6, 0)] = 5.6640625e-4;
+            a[(6, 2)] = 8.809730489417989417989e-4;
+            a[(6, 3)] = -4.369212962962962962963e-4;
+            a[(6, 4)] = 3.390066964285714285714e-4;
+            a[(6, 5)] = -9.946469907407407407407e-5;
+
+            // Row 8
+            a[(7, 0)] = 3.083333333333333333333e-3;
+            a[(7, 3)] = 1.777777777777777777778e-3;
+            a[(7, 4)] = 2.7e-3;
+            a[(7, 5)] = 1.578282828282828282828e-3;
+            a[(7, 6)] = 1.086060606060606060606e-2;
+
+            // Row 9
+            a[(8, 0)] = 3.651839374801129713751e-3;
+            a[(8, 2)] = 3.965171714072343066176e-3;
+            a[(8, 3)] = 3.197258262930628223501e-3;
+            a[(8, 4)] = 8.221467306855435369687e-3;
+            a[(8, 5)] = -1.313092695957237983620e-3;
+            a[(8, 6)] = 9.771586968064867815626e-3;
+            a[(8, 7)] = 3.755769069232833794879e-3;
+
+            // Row 10
+            a[(9, 0)] = 3.707241068718500810196e-3;
+            a[(9, 2)] = 5.082045854555285980761e-3;
+            a[(9, 3)] = 1.174708002175412044736e-3;
+            a[(9, 4)] = -2.114762991512699149962e-2;
+            a[(9, 5)] = 6.010463698107880812226e-2;
+            a[(9, 6)] = 2.010573476850618818467e-2;
+            a[(9, 7)] = -2.835075012293358084304e-2;
+            a[(9, 8)] = 1.487956891858193275559e-2;
+
+            // Row 11
+            a[(10, 0)] = 3.512537656073344153113e-2;
+            a[(10, 2)] = -8.615749195138479103406e-3;
+            a[(10, 3)] = -5.791448051007916521676e-3;
+            a[(10, 4)] = 1.945554823782615842394e0;
+            a[(10, 5)] = -3.435123867456513596368e0;
+            a[(10, 6)] = -1.093070110747522175839e-1;
+            a[(10, 7)] = 2.349638311899516639432e0;
+            a[(10, 8)] = -7.560094086870229780272e-1;
+            a[(10, 9)] = 1.095289722215692642465e-1;
+
+            // Row 12
+            a[(11, 0)] = 2.052779253748249665097e-2;
+            a[(11, 2)] = -7.286446764480179917782e-3;
+            a[(11, 3)] = -2.115355607961840240693e-3;
+            a[(11, 4)] = 9.275807968723522242568e-1;
+            a[(11, 5)] = -1.652282484425736679073e0;
+            a[(11, 6)] = -2.107956300568656981919e-2;
+            a[(11, 7)] = 1.206536432620787154477e0;
+            a[(11, 8)] = -4.137144770010661413247e-1;
+            a[(11, 9)] = 9.079873982809653759568e-2;
+            a[(11, 10)] = 5.355552600533985049169e-3;
+
+            // Row 13
+            a[(12, 0)] = -1.432407887554551504589e-1;
+            a[(12, 2)] = 1.252870377309181727785e-2;
+            a[(12, 3)] = 6.826019163969827128681e-3;
+            a[(12, 4)] = -4.799555395574387265502e0;
+            a[(12, 5)] = 5.698625043951941433792e0;
+            a[(12, 6)] = 7.553430369523645222494e-1;
+            a[(12, 7)] = -1.275548785828108371754e-1;
+            a[(12, 8)] = -1.960592605111738432891e0;
+            a[(12, 9)] = 9.185609056635262409762e-1;
+            a[(12, 10)] = -2.388008550528443105348e-1;
+            a[(12, 11)] = 1.591108135723421551387e-1;
+
+            // Row 14
+            a[(13, 0)] = 8.045019205520489486972e-1;
+            a[(13, 2)] = -1.665852706701124517785e-2;
+            a[(13, 3)] = -2.141583404262973481173e-2;
+            a[(13, 4)] = 1.682723592896246587020e1;
+            a[(13, 5)] = -1.117283535717609792679e1;
+            a[(13, 6)] = -3.377159297226323741489e0;
+            a[(13, 7)] = -1.524332665536084564618e1;
+            a[(13, 8)] = 1.717983573821541656202e1;
+            a[(13, 9)] = -5.437719239823994645354e0;
+            a[(13, 10)] = 1.387867161836465575513e0;
+            a[(13, 11)] = -5.925827732652811653477e-1;
+            a[(13, 12)] = 2.960387317129735279616e-2;
+
+            // Row 15
+            a[(14, 0)] = -9.132967666973580820963e-1;
+            a[(14, 2)] = 2.411272575780517839245e-3;
+            a[(14, 3)] = 1.765812269386174198207e-2;
+            a[(14, 4)] = -1.485164977972038382461e1;
+            a[(14, 5)] = 2.158970867004575600308e0;
+            a[(14, 6)] = 3.997915583117879901153e0;
+            a[(14, 7)] = 2.843415180023223189845e1;
+            a[(14, 8)] = -2.525936435494159843788e1;
+            a[(14, 9)] = 7.733878542362237365534e0;
+            a[(14, 10)] = -1.891302894847867461038e0;
+            a[(14, 11)] = 1.001484507022471780367e0;
+            a[(14, 12)] = 4.641199599109051905105e-3;
+            a[(14, 13)] = 1.121875502214895703398e-2;
+
+            // Row 16
+            a[(15, 0)] = -2.751962972055939382061e-1;
+            a[(15, 2)] = 3.661188877915492013423e-2;
+            a[(15, 3)] = 9.789519688231562624651e-3;
+            a[(15, 4)] = -1.229306234588621030421e1;
+            a[(15, 5)] = 1.420722645393790269429e1;
+            a[(15, 6)] = 1.586647690678953683225e0;
+            a[(15, 7)] = 2.457773532759594543903e0;
+            a[(15, 8)] = -8.935193694403271905523e0;
+            a[(15, 9)] = 4.373672731613406948393e0;
+            a[(15, 10)] = -1.834718176544949163043e0;
+            a[(15, 11)] = 1.159208528906149120781e0;
+            a[(15, 12)] = -1.729025316538392215180e-2;
+            a[(15, 13)] = 1.932597790446076667276e-2;
+            a[(15, 14)] = 5.204442937554993111849e-3;
+
+            // Row 17
+            a[(16, 0)] = 1.307639184740405758800e0;
+            a[(16, 2)] = 1.736410918974584186709e-2;
+            a[(16, 3)] = -1.854445645426579502436e-2;
+            a[(16, 4)] = 1.481152203286772689685e1;
+            a[(16, 5)] = 9.383176308482470907879e0;
+            a[(16, 6)] = -5.228426199944542254147e0;
+            a[(16, 7)] = -4.895128052584765080401e1;
+            a[(16, 8)] = 3.829709603433792256258e1;
+            a[(16, 9)] = -1.058738133697597970916e1;
+            a[(16, 10)] = 2.433230437622627635851e0;
+            a[(16, 11)] = -1.045340604257544428487e0;
+            a[(16, 12)] = 7.177320950867259451982e-2;
+            a[(16, 13)] = 2.162210970808278269055e-3;
+            a[(16, 14)] = 7.009595759602514236993e-3;
+
+            a
+        },
+
+        // High-order position weights (Bhat)
+        b_pos_high: SVector::<f64, 17>::from_column_slice(&[
+            1.212786851718541497689e-2,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            8.629746251568874443638e-2,
+            2.525469581187147194323e-1,
+            -1.974186799326823033583e-1,
+            2.031869190789725908093e-1,
+            -2.077580807771491661219e-2,
+            1.096780487450201362501e-1,
+            3.806513252646650573449e-2,
+            1.163406880432422964409e-2,
+            4.658029704024878686936e-3,
+            0.0,
+            0.0,
+        ]),
+
+        // High-order velocity weights (Bphat)
+        b_vel_high: SVector::<f64, 17>::from_column_slice(&[
+            1.212786851718541497689e-2,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            9.083943422704078361724e-2,
+            3.156836976483933992904e-1,
+            -2.632249065769097378111e-1,
+            3.047803786184588862139e-1,
+            -4.155161615542983322439e-2,
+            2.467756096762953065628e-1,
+            1.522605301058660229380e-1,
+            8.143848163026960750865e-2,
+            8.502571193890811280080e-2,
+            -9.155189630077962873141e-3,
+            2.5e-2,
+        ]),
+
+        // Low-order position weights (B)
+        b_pos_low: SVector::<f64, 17>::from_column_slice(&[
+            1.700870190700699175275e-2,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            7.225933593083140694886e-2,
+            3.720261773267530453882e-1,
+            -4.018211450093035214393e-1,
+            3.354550683013516666966e-1,
+            -1.313065010753318084303e-1,
+            1.894319066160486527227e-1,
+            2.684080204002904790537e-2,
+            1.630566560591792389352e-2,
+            3.799988356696594561666e-3,
+            0.0,
+            0.0,
+        ]),
+
+        // Low-order velocity weights (Bp)
+        b_vel_low: SVector::<f64, 17>::from_column_slice(&[
+            1.700870190700699175275e-2,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            7.606245887455937573564e-2,
+            4.650327216584413067353e-1,
+            -5.357615266790713619191e-1,
+            5.031826024520275000449e-1,
+            -2.626130021506636168606e-1,
+            4.262217898861094686260e-1,
+            1.073632081601161916215e-1,
+            1.141396592414254672546e-1,
+            6.936338665004867700906e-2,
+            2.0e-2,
+            0.0,
+        ]),
+
+        order_high: 12,
+        order_low: 10,
     }
 }
 

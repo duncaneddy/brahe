@@ -76,7 +76,7 @@ impl PyCovarianceInterpolationMethod {
     ///
     /// Preserves positive-definiteness by interpolating on the manifold of
     /// positive semi-definite matrices. Uses an entropy-regularized 2-Wasserstein interpolation for interpolation between
-    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wassertein Distance Between Guassian Mesures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
     /// for details.
     ///
     /// Returns:
@@ -520,7 +520,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///
     ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWOWASSERSTEIN)
+    ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWO_WASSERSTEIN)
     ///     ```
     #[pyo3(text_signature = "(method)")]
     pub fn with_covariance_interpolation_method(
@@ -2116,11 +2116,11 @@ impl PyOrbitalTrajectory {
         }
     }
 
-    /// Get the covariance matrix at a specific epoch in the RTN (Radial-AlongCross-track-Normal) frame.
+    /// Get the covariance matrix at a specific epoch in the RTN (Radial, Along-Track, Normal) frame.
     ///
     /// The RTN frame is defined as:
     /// - R (Radial): Along the position vector (away from Earth center)
-    /// - T (Along-track): Completes the right-handed coordinate system
+    /// - T (Along-track): Completes right-handed system (N × R)
     /// - N (Normal): Perpendicular to the orbital plane (along angular momentum)
     ///
     /// Args:

@@ -59,7 +59,7 @@ pub fn interpolate_covariance_sqrt(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SM
 /// ```
 ///
 /// # References
-/// - [Mallasto et al. 2021, "Entropy-Regularized 2-Wassertein Distance Between Guassian Mesures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+/// - [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
 pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SMatrix6 {
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {

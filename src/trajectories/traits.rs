@@ -35,10 +35,8 @@ pub enum CovarianceInterpolationMethod {
     /// Preserves positive-definiteness by interpolating on the manifold of
     /// positive semi-definite matrices.
     MatrixSquareRoot,
-    /// Linear interpolation of covariance matrices.
-    /// Faster but may not preserve positive-definiteness.
     /// Entropy-regularized 2-Wasserstein interpolation for interpolation between
-    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wassertein Distance Between Guassian Mesures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
     /// for details.
     #[default]
     TwoWasserstein,

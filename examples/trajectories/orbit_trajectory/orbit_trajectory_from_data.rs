@@ -37,8 +37,8 @@ fn main() {
         states,
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
-        None,
-        None
+        None, // Angle Format
+        None  // No covariances
     );
 
     println!("Trajectory length: {}", traj.len());  

@@ -127,6 +127,62 @@ fn validate_explicit_butcher_tableau<const S: usize>(
     Ok(())
 }
 
+/// Embedded Butcher tableau for adaptive Runge-Kutta methods.
+///
+/// Contains two sets of b coefficients: one for high-order solution and one for
+/// low-order solution. The difference provides error estimation for adaptive stepping.
+#[derive(Debug)]
+pub struct EmbeddedButcherTableau<const S: usize> {
+    /// Matrix of RK coefficients (S×S). Lower triangular for explicit methods.
+    pub a: SMatrix<f64, S, S>,
+    /// High-order output weights (e.g., 5th order in RKF45)
+    pub b_high: SVector<f64, S>,
+    /// Low-order output weights (e.g., 4th order in RKF45)
+    pub b_low: SVector<f64, S>,
+    /// Vector of node times (length S)
+    pub c: SVector<f64, S>,
+    /// Order of high-order method
+    pub order_high: usize,
+    /// Order of low-order method
+    pub order_low: usize,
+}
+
+impl<const S: usize> EmbeddedButcherTableau<S> {
+    /// Create a new embedded Butcher tableau.
+    ///
+    /// # Arguments
+    /// - `a`: Coefficient matrix
+    /// - `b_high`: High-order solution weights
+    /// - `b_low`: Low-order solution weights
+    /// - `c`: Node times
+    /// - `order_high`: Order of high-order method
+    /// - `order_low`: Order of low-order method
+    ///
+    /// # Returns
+    /// Result containing the tableau if valid, or error
+    pub fn new(
+        a: SMatrix<f64, S, S>,
+        b_high: SVector<f64, S>,
+        b_low: SVector<f64, S>,
+        c: SVector<f64, S>,
+        order_high: usize,
+        order_low: usize,
+    ) -> Result<Self, BraheError> {
+        // Validate both b vectors
+        validate_explicit_butcher_tableau(a, b_high, c)?;
+        validate_explicit_butcher_tableau(a, b_low, c)?;
+
+        Ok(Self {
+            a,
+            b_high,
+            b_low,
+            c,
+            order_high,
+            order_low,
+        })
+    }
+}
+
 /// Standard Runge-Kutta 4th order method
 pub(crate) const RK4_TABLEAU: ButcherTableau<4> = ButcherTableau {
     a: SMatrix::<f64, 4, 4>::new(
@@ -134,6 +190,70 @@ pub(crate) const RK4_TABLEAU: ButcherTableau<4> = ButcherTableau {
     ),
     b: SVector::<f64, 4>::new(1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0),
     c: SVector::<f64, 4>::new(0.0, 0.5, 0.5, 1.0),
+};
+
+/// Runge-Kutta-Fehlberg 4(5) method - 6 stages, 5th/4th order embedded
+///
+/// Coefficients from Fehlberg (1969). Provides 5th order accurate solution with
+/// embedded 4th order solution for error estimation.
+pub(crate) const RKF45_TABLEAU: EmbeddedButcherTableau<6> = EmbeddedButcherTableau {
+    a: SMatrix::<f64, 6, 6>::new(
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0 / 4.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        3.0 / 32.0,
+        9.0 / 32.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1932.0 / 2197.0,
+        -7200.0 / 2197.0,
+        7296.0 / 2197.0,
+        0.0,
+        0.0,
+        0.0,
+        439.0 / 216.0,
+        -8.0,
+        3680.0 / 513.0,
+        -845.0 / 4104.0,
+        0.0,
+        0.0,
+        -8.0 / 27.0,
+        2.0,
+        -3544.0 / 2565.0,
+        1859.0 / 4104.0,
+        -11.0 / 40.0,
+        0.0,
+    ),
+    b_high: SVector::<f64, 6>::new(
+        16.0 / 135.0,
+        0.0,
+        6656.0 / 12825.0,
+        28561.0 / 56430.0,
+        -9.0 / 50.0,
+        2.0 / 55.0,
+    ),
+    b_low: SVector::<f64, 6>::new(
+        25.0 / 216.0,
+        0.0,
+        1408.0 / 2565.0,
+        2197.0 / 4104.0,
+        -1.0 / 5.0,
+        0.0,
+    ),
+    c: SVector::<f64, 6>::new(0.0, 1.0 / 4.0, 3.0 / 8.0, 12.0 / 13.0, 1.0, 1.0 / 2.0),
+    order_high: 5,
+    order_low: 4,
 };
 
 #[cfg(test)]

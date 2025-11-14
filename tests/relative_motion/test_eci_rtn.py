@@ -83,3 +83,49 @@ def test_rotation_eci_to_rtn_is_transpose(eop):
 
     # ECI-to-RTN should be the transpose of RTN-to-ECI
     assert np.linalg.norm(r_eci_to_rtn - r_rtn_to_eci.T) == approx(0.0, abs=1e-15)
+
+
+def test_state_eci_to_rtn(eop):
+    """
+    Test transformation of absolute chief/deputy ECI states to relative RTN state.
+
+    Verifies that:
+    - The radial component is positive when deputy is farther from Earth
+    - The transformation produces expected relative positions
+    """
+    x_chief = get_test_state()
+    # Deputy offset by 100m, 200m, 300m in ECI, with small velocity differences
+    x_deputy = x_chief + np.array([100.0, 200.0, 300.0, 0.1, 0.2, 0.3])
+
+    x_rel_rtn = brahe.state_eci_to_rtn(x_chief, x_deputy)
+
+    # Verify we get a 6D state vector
+    assert x_rel_rtn.shape == (6,)
+
+    # For this simple offset, the radial component should be positive (deputy is farther from Earth)
+    # since the position difference adds to the position magnitude
+    assert x_rel_rtn[0] > 0  # Positive radial component
+
+    # Total relative position magnitude should be approximately the offset magnitude
+    relative_pos_mag = np.linalg.norm(x_rel_rtn[:3])
+    offset_mag = np.linalg.norm(np.array([100.0, 200.0, 300.0]))
+    assert relative_pos_mag == approx(offset_mag, abs=1.0)  # Within 1m
+
+
+def test_state_rtn_to_eci_and_back(eop):
+    """
+    Test round-trip transformation: ECI -> RTN -> ECI.
+
+    Mirrors test_state_eci_to_rtn_and_back in Rust.
+    """
+    x_chief = get_test_state()
+    x_deputy = x_chief + np.array([100.0, 200.0, 300.0, 0.1, 0.2, 0.3])
+
+    # Transform to RTN frame
+    x_rel_rtn = brahe.state_eci_to_rtn(x_chief, x_deputy)
+
+    # Transform back to ECI
+    x_deputy_reconstructed = brahe.state_rtn_to_eci(x_chief, x_rel_rtn)
+
+    # Should recover original deputy state
+    assert np.linalg.norm(x_deputy - x_deputy_reconstructed) == approx(0.0, abs=1e-6)

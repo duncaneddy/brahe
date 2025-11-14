@@ -725,6 +725,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
 
     //* Trajectories *//
     module.add_class::<PyOrbitFrame>()?;

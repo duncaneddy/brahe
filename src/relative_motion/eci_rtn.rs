@@ -3,7 +3,6 @@
  */
 
 use crate::utils::{SMatrix3, SVector6};
-#[allow(unused_imports)]
 use nalgebra::Vector3;
 
 /// Computes the rotation matrix transforming a vector in the radial, along-track, cross-track (RTN)
@@ -86,6 +85,123 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
     rotation_rtn_to_eci(x_eci).transpose()
 }
 
+/// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
+/// frame to the relative state of the deputy with respect to the chief in the rotating
+/// Radial, Along-Track, Cross-Track (RTN) frame.
+///
+/// # Arguments:
+/// - `x_chief`: 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+///
+/// # Returns:
+/// - `x_rel_rtn`: 6D relative state vector of the deputy with respect to the chief in the RTN frame [ρ_R, ρ_T, ρ_N, ρ̇_R, ρ̇_T, ρ̇_N] (m, m/s)
+///
+/// # Examples:
+/// ```
+/// use brahe::utils::SVector6;
+/// use brahe::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_osculating_to_cartesian;
+/// use brahe::relative_motion::*;
+///
+/// // Define chief and deputy satellite positions
+/// let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+/// let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
+///
+/// let x_chief = state_osculating_to_cartesian(oe_chief, AngleFormat::Degrees);
+/// let x_deputy = state_osculating_to_cartesian(oe_deputy, AngleFormat::Degrees);
+///
+/// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
+/// ```
+pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
+    // NOTE: This could potentially be more accurately revised based on equations in section 4.7.1 of Alfriend
+
+    // Extract chief position and velocity
+    let rc = x_chief.fixed_rows::<3>(0);
+    let vc = x_chief.fixed_rows::<3>(3);
+
+    // Get RTN rotation matrix
+    let r_eci_to_rtn = rotation_eci_to_rtn(x_chief);
+
+    // Relative position and velocity in ECI frame
+    let rho_eci = x_deputy.fixed_rows::<3>(0) - x_chief.fixed_rows::<3>(0);
+    let rho_dot_eci = x_deputy.fixed_rows::<3>(3) - x_chief.fixed_rows::<3>(3);
+
+    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
+    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
+    let omega = Vector3::new(0.0, 0.0, f_dot);
+
+    // Transform relative position and velocity to RTN frame
+    let rho_rtn = r_eci_to_rtn * rho_eci;
+    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_eci);
+
+    SVector6::new(
+        rho_rtn[0],
+        rho_rtn[1],
+        rho_rtn[2],
+        rho_dot_rtn[0],
+        rho_dot_rtn[1],
+        rho_dot_rtn[2],
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite
+/// from the rotating Radial, Along-Track, Cross-Track (RTN) frame to the absolute states
+/// of the chief and deputy in the Earth-Centered Inertial (ECI) frame.
+///
+/// # Arguments:
+/// - `x_chief`: 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `x_rel_rtn`: 6D relative state vector of the deputy with respect to the chief in the RTN frame [ρ_R, ρ_T, ρ_N, ρ̇_R, ρ̇_T, ρ̇_N] (m, m/s)
+///
+/// # Returns:
+/// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+///
+/// # Examples:
+/// ```
+/// use brahe::utils::SVector6;
+/// use brahe::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_osculating_to_cartesian;
+/// use brahe::relative_motion::*;
+///
+/// // Define chief and deputy satellite positions
+/// let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+/// let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
+///
+/// let x_chief = state_osculating_to_cartesian(oe_chief, AngleFormat::Degrees);
+/// let x_deputy = state_osculating_to_cartesian(oe_deputy, AngleFormat::Degrees);
+///
+/// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
+/// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
+/// ```
+pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
+    // Extract chief position and velocity
+    let rc = x_chief.fixed_rows::<3>(0);
+    let vc = x_chief.fixed_rows::<3>(3);
+
+    // Get RTN rotation matrix
+    let r_rtn_to_eci = rotation_rtn_to_eci(x_chief);
+
+    // Extract relative position and velocity in RTN frame
+    let rho_rtn = x_rel_rtn.fixed_rows::<3>(0);
+    let rho_dot_rtn = x_rel_rtn.fixed_rows::<3>(3);
+
+    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
+    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
+    let omega = Vector3::new(0.0, 0.0, f_dot);
+
+    // Compute deputy absolute state in ECI frame
+    let r_deputy = rc + r_rtn_to_eci * rho_rtn;
+    let v_deputy = r_rtn_to_eci * (rho_dot_rtn + omega.cross(&rho_rtn)) + vc;
+
+    SVector6::new(
+        r_deputy[0],
+        r_deputy[1],
+        r_deputy[2],
+        v_deputy[0],
+        v_deputy[1],
+        v_deputy[2],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,5 +236,14 @@ mod tests {
         // Confirm that the product of the two rotation matrices is the identity matrix
         let identity = r_rtn_to_eci * r_eci_to_rtn;
         assert!((identity - SMatrix3::identity()).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_state_eci_to_rtn_and_back() {
+        let x_chief = get_test_state();
+        let x_deputy = get_test_state() + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3);
+        let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
+        let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
+        assert!((x_deputy - x_deputy_reconstructed).norm() < 1e-6);
     }
 }

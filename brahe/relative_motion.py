@@ -19,9 +19,13 @@ Functions are provided for:
 from brahe._brahe import (
     rotation_rtn_to_eci,
     rotation_eci_to_rtn,
+    state_rtn_to_eci,
+    state_eci_to_rtn,
 )
 
 __all__ = [
     "rotation_rtn_to_eci",
     "rotation_eci_to_rtn",
+    "state_rtn_to_eci",
+    "state_eci_to_rtn",
 ]

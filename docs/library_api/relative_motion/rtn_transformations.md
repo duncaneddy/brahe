@@ -5,10 +5,18 @@ Rotation matrices between ECI (Earth-Centered Inertial) and RTN (Radial-Tangenti
 !!! note
     For conceptual explanations of the RTN frame, see [Relative Motion](../../learn/relative_motion/index.md).
 
-## RTN to ECI
+## Rotation RTN to ECI
 
 ::: brahe.rotation_rtn_to_eci
 
-## ECI to RTN
+## Rotation ECI to RTN
 
 ::: brahe.rotation_eci_to_rtn
+
+## State RTN to ECI
+
+::: brahe.state_rtn_to_eci
+
+## State ECI to RTN
+
+::: brahe.state_eci_to_rtn

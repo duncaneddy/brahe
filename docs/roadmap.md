@@ -96,6 +96,7 @@ It also contains many new features, improvements to core functionality, and bett
 
 The following features are planned for future releases beyond v1.0.0. These features are prioritized based on user feedback and development resources. We welcome contributions and suggestions from the community to help shape the roadmap, as well as help with implementation.
 
+- [ ] Have separate script output text files that get embedded into the docs and expanded verbatim
 - [ ] Spacetrack Datasets Module
 - [ ] Initialize SGPPropagator from GP Elements
 - [ ] OEM File Support
@@ -119,9 +120,9 @@ The following features are planned for future releases beyond v1.0.0. These feat
     - [x] Relative Orbit Representations
         - [x] RTN Cartesian States
         - [x] Relative Orbital Elements
+    - [ ] Cartesian to ROE Conversions
     - [ ] Propagation of relative motion
         - [ ] Hill-Clohessy-Wiltshire (HCW) Equations
-        - [ ] Tschauner-Hempel Equations
     - [ ] Plotting Relative Orbits
         - [ ] RTN 3-panel plot
         - [ ] RTN 3D plot

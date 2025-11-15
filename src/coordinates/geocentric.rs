@@ -106,6 +106,7 @@ pub fn position_ecef_to_geocentric(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
 

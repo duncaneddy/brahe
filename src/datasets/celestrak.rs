@@ -643,6 +643,7 @@ pub fn get_tle_by_name_as_propagator(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use httpmock::prelude::*;

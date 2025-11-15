@@ -8,6 +8,7 @@ use crate::constants::AngleFormat;
 use crate::utils::SMatrix3;
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 use crate::constants::DEGREES;
 use crate::{OMEGA_EARTH, position_ecef_to_geodetic};
 
@@ -158,6 +159,7 @@ pub fn density_harris_priester(r_tod: Vector3<f64>, r_sun: Vector3<f64>) -> f64 
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(clippy::too_many_arguments)]
 mod tests {
     use approx::assert_abs_diff_eq;

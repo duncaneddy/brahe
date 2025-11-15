@@ -433,6 +433,7 @@ pub fn position_sez_to_azel(x_sez: Vector3<f64>, angle_format: AngleFormat) -> V
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
 

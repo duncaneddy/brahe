@@ -167,6 +167,7 @@ pub fn state_cartesian_to_osculating(x_cart: SVector6, angle_format: AngleFormat
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;

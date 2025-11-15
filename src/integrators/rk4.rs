@@ -399,6 +399,7 @@ impl FixedStepDIntegrator for RK4DIntegrator {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector, SMatrix, SVector};

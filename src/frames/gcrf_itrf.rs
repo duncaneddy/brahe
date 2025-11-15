@@ -5,6 +5,7 @@ use nalgebra::Vector3;
 
 use crate::utils::{SMatrix3, SVector6};
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 use serial_test::serial;
 
 use crate::constants;
@@ -438,6 +439,7 @@ pub fn state_itrf_to_gcrf(epc: Epoch, x_itrf: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[serial]
 mod tests {
     use approx::assert_abs_diff_eq;

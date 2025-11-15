@@ -1860,6 +1860,7 @@ impl Identifiable for OrbitTrajectory {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::{DEGREES, R_EARTH, RADIANS};

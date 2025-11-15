@@ -3,6 +3,7 @@
  */
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 use serial_test::serial;
 
 use once_cell::sync::Lazy;
@@ -537,6 +538,7 @@ pub fn initialize_eop() -> Result<(), BraheError> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[serial]
 mod tests {
     use super::*;

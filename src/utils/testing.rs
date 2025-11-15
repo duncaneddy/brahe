@@ -59,6 +59,7 @@ pub fn setup_global_test_gravity_model() {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

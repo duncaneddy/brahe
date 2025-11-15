@@ -141,6 +141,7 @@ pub fn parse_point_locations_from_geojson(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use serde_json::json;

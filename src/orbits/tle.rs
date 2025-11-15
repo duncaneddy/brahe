@@ -1,5 +1,6 @@
 use crate::constants::GM_EARTH;
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 use crate::constants::RADIANS;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -594,6 +595,7 @@ fn format_exponential(value: f64) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::orbits::keplerian::semimajor_axis;

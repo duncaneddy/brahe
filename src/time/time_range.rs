@@ -90,6 +90,7 @@ impl Iterator for TimeRange {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use crate::time::time_types::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;

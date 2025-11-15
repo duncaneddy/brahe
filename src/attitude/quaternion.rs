@@ -11,6 +11,7 @@ use crate::attitude::attitude_types::ATTITUDE_EPSILON;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::attitude::traits::ToAttitude;
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 use crate::constants::DEGREES;
 use crate::constants::RADIANS;
 use crate::{FromAttitude, Quaternion};
@@ -712,6 +713,7 @@ impl From<RotationMatrix> for Quaternion {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;

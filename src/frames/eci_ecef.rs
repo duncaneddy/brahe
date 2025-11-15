@@ -248,6 +248,7 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;

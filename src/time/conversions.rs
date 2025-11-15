@@ -502,6 +502,7 @@ pub fn time_system_offset_for_datetime(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
 

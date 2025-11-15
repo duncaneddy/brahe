@@ -162,6 +162,7 @@ pub fn state_roe_to_oe(oe_chief: SVector6, roe: SVector6, angle_format: AngleFor
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::R_EARTH;

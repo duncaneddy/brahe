@@ -72,6 +72,7 @@ pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t:
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;

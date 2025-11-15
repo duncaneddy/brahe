@@ -1900,6 +1900,7 @@ impl Ord for Epoch {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::f64::consts::PI;
 

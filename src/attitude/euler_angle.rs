@@ -310,6 +310,7 @@ impl ToAttitude for EulerAngle {
 // without having the order of the EulerAngle specified.
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::{DEGREES, RADIANS};

@@ -98,6 +98,7 @@ pub fn parse_standard_line(line: String) -> EOPParseResult {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

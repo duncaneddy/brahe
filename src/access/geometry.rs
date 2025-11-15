@@ -177,6 +177,7 @@ pub fn compute_asc_dsc(sat_state_ecef: &Vector6<f64>) -> AscDsc {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::coordinates::position_geodetic_to_ecef;

@@ -915,6 +915,7 @@ impl AccessPropertyComputer for RangeRateComputer {
 // ================================
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use nalgebra::{Vector3, Vector6};

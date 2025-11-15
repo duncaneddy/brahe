@@ -234,6 +234,7 @@ pub fn state_eme2000_to_gcrf(x_eme2000: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;

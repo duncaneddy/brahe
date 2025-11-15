@@ -203,6 +203,7 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::R_EARTH;

@@ -707,6 +707,7 @@ pub(crate) fn rkn1210_tableau() -> EmbeddedRKNButcherTableau<17> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

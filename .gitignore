@@ -51,6 +51,9 @@ docs/site/*
 !CODE_OF_CONDUCT.md
 !LICENSE.md
 
+# Allow Claude Config to be tracked
+!CLAUDE.md
+
 # Figures
 docs/figures/*
 

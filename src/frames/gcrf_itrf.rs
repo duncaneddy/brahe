@@ -3,7 +3,7 @@
  */
 use nalgebra::Vector3;
 
-use crate::utils::{SMatrix3, SVector6};
+use crate::math::{SMatrix3, SVector6};
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 use serial_test::serial;
@@ -11,8 +11,8 @@ use serial_test::serial;
 use crate::constants;
 use crate::constants::MJD_ZERO;
 use crate::eop;
+use crate::math::matrix3_from_array;
 use crate::time::{Epoch, TimeSystem};
-use crate::utils::matrix3_from_array;
 
 /// Computes the Bias-Precession-Nutation matrix transforming the GCRS to the
 /// CIRS intermediate reference frame. This transformation corrects for the
@@ -270,7 +270,7 @@ pub fn rotation_itrf_to_gcrf(epc: Epoch) -> SMatrix3 {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
 ///
@@ -308,7 +308,7 @@ pub fn position_gcrf_to_itrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
 ///
@@ -345,7 +345,7 @@ pub fn position_itrf_to_gcrf(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// # Example
 /// ```
 /// use brahe::eop::*;
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::constants::R_EARTH;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -399,7 +399,7 @@ pub fn state_gcrf_to_itrf(epc: Epoch, x_gcrf: SVector6) -> SVector6 {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -450,9 +450,9 @@ mod tests {
     use crate::coordinates::state_osculating_to_cartesian;
     use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use crate::frames::*;
+    use crate::math::vector6_from_array;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
-    use crate::utils::vector6_from_array;
 
     #[allow(non_snake_case)]
     #[serial]

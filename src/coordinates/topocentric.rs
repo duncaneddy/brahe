@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 
 use nalgebra::Vector3;
 
-use crate::utils::SMatrix3;
+use crate::math::SMatrix3;
 
 use crate::constants;
 use crate::constants::AngleFormat;
@@ -28,7 +28,7 @@ use crate::coordinates::geodetic::position_ecef_to_geodetic;
 /// # Examples:
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
@@ -72,7 +72,7 @@ pub fn rotation_ellipsoid_to_enz(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 /// # Examples:
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
@@ -97,7 +97,7 @@ pub fn rotation_enz_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 /// # Examples:
 /// ```
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_station = vector3_from_array([R_EARTH, 0.0, 0.0]);
@@ -145,7 +145,7 @@ pub fn relative_position_ecef_to_enz(
 /// # Examples:
 /// ```
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_station = vector3_from_array([R_EARTH, 0.0, 0.0]);
@@ -192,7 +192,7 @@ pub fn relative_position_enz_to_ecef(
 /// # Examples:
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
@@ -236,7 +236,7 @@ pub fn rotation_ellipsoid_to_sez(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 /// # Examples:
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_geo = vector3_from_array([30.0, 60.0, 0.0]);
@@ -261,7 +261,7 @@ pub fn rotation_sez_to_ellipsoid(x_ellipsoid: Vector3<f64>, angle_format: AngleF
 /// # Examples:
 /// ```
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_station = vector3_from_array([R_EARTH, 0.0, 0.0]);
@@ -309,7 +309,7 @@ pub fn relative_position_ecef_to_sez(
 /// # Examples:
 /// ```
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_station = vector3_from_array([R_EARTH, 0.0, 0.0]);
@@ -356,7 +356,7 @@ pub fn relative_position_sez_to_ecef(
 /// # Examples:
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_enz = vector3_from_array([100.0, 0.0, 0.0]);
@@ -401,7 +401,7 @@ pub fn position_enz_to_azel(x_enz: Vector3<f64>, angle_format: AngleFormat) -> V
 /// # Examples:
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let x_enz = vector3_from_array([0.0, 100.0, 0.0]);

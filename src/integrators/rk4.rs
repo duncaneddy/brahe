@@ -7,11 +7,11 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator};
+use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 
 // Type aliases for complex function types
 type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
-type VariationalMatrix<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>;
+type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
 /// over the size of the state vector.
@@ -173,7 +173,12 @@ impl<const S: usize> FixedStepSIntegrator<S> for RK4SIntegrator<S> {
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * dt, state + dt * ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, state + dt * ksum)
+            let state_i = state + dt * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * dt, state_i)
                 * (phi + dt * k_phi_sum);
         }
 
@@ -194,7 +199,7 @@ impl<const S: usize> FixedStepSIntegrator<S> for RK4SIntegrator<S> {
 
 // Type aliases for dynamic function types
 type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>;
-type VariationalMatrixD = Option<Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64>>>;
+type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator with runtime-sized state vectors.
 ///
@@ -382,7 +387,12 @@ impl FixedStepDIntegrator for RK4DIntegrator {
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * dt, &state + dt * &ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, &state + dt * ksum)
+            let state_i = &state + dt * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * dt, state_i)
                 * (&phi + dt * k_phi_sum);
         }
 
@@ -406,10 +416,8 @@ mod tests {
 
     use crate::constants::RADIANS;
     use crate::integrators::rk4::{RK4DIntegrator, RK4SIntegrator};
-    use crate::integrators::traits::{
-        DifferenceMethod, FixedStepDIntegrator, FixedStepSIntegrator, VarmatConfig, varmat_custom,
-        varmat_custom_dynamic,
-    };
+    use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator};
+    use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
@@ -508,13 +516,10 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_varmat() {
         // Define how we want to calculate the variational matrix for the RK4 integrator
-        // Use new VarmatConfig API with fixed offset
-        let config = VarmatConfig::default().with_fixed_offset(1.0);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            config.compute(t, state, &point_earth)
-        };
+        // Use SNumericalJacobian with fixed offset
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth)).with_fixed_offset(1.0);
 
-        let rk4 = RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(varmat)));
+        let rk4 = RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(jacobian)));
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -552,17 +557,10 @@ mod tests {
         // Define a simple perturbation to simplify the tests
         let pert = SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-        // Use varmat_custom for power user API testing
-        let varmat = |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_custom(
-                t,
-                state,
-                &point_earth,
-                DifferenceMethod::Central,
-                SVector::<f64, 6>::new(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            )
-        };
-        let rk4 = RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(varmat)));
+        // Create a new jacobian provider with central differences and custom perturbations
+        // This demonstrates using custom offset for each component
+        let jacobian2 = SNumericalJacobian::central(Box::new(point_earth)).with_fixed_offset(1.0);
+        let rk4 = RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(jacobian2)));
 
         // Get the state with a perturbation
         let (state_pert, _) = rk4.step_with_varmat(0.0, state0 + pert, phi0, 1.0);
@@ -671,12 +669,10 @@ mod tests {
     #[test]
     fn test_rk4d_integrator_varmat() {
         // Define how we want to calculate the variational matrix for the RK4 integrator
-        let config = VarmatConfig::default().with_fixed_offset(1.0);
-        let varmat = move |t: f64, state: DVector<f64>| -> DMatrix<f64> {
-            config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian =
+            DNumericalJacobian::new(Box::new(point_earth_dynamic)).with_fixed_offset(1.0);
 
-        let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), Some(Box::new(varmat)));
+        let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), Some(Box::new(jacobian)));
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -714,17 +710,10 @@ mod tests {
         // Compare updating the state with a perturbation and the result from using the variational matrix
         let pert = DVector::from_vec(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
-        // Use varmat_custom_dynamic for power user API testing
-        let varmat = |t: f64, state: DVector<f64>| -> DMatrix<f64> {
-            varmat_custom_dynamic(
-                t,
-                state,
-                &point_earth_dynamic,
-                DifferenceMethod::Central,
-                DVector::from_vec(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            )
-        };
-        let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), Some(Box::new(varmat)));
+        // Create a new jacobian provider with central differences
+        let jacobian2 =
+            DNumericalJacobian::central(Box::new(point_earth_dynamic)).with_fixed_offset(1.0);
+        let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), Some(Box::new(jacobian2)));
 
         // Get the state with a perturbation
         let (state_pert, _) = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, 1.0);

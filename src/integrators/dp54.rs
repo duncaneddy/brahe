@@ -10,11 +10,11 @@ use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
 use crate::integrators::traits::{
     AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepSIntegrator,
 };
+use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 
 // Type aliases for complex function types
 type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
-type VariationalMatrix<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>;
+type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 
 /// Dormand-Prince 5(4) adaptive integrator.
 ///
@@ -274,7 +274,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 (self.f)(t, state)
             };
             k.set_column(0, &k0);
-            k_phi[0] = self.varmat.as_ref().unwrap()(t, state) * phi;
+            k_phi[0] = self.varmat.as_ref().unwrap().compute(t, state) * phi;
 
             // Compute stages 1-6
             for i in 1..7 {
@@ -287,7 +287,12 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 }
 
                 k.set_column(i, &(self.f)(t + self.bt.c[i] * h, state + h * ksum));
-                k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, state + h * ksum)
+                let state_i = state + h * ksum;
+                k_phi[i] = self
+                    .varmat
+                    .as_ref()
+                    .unwrap()
+                    .compute(t + self.bt.c[i] * h, state_i)
                     * (phi + h * k_phi_sum);
             }
 
@@ -390,7 +395,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
             (self.f)(t, state)
         };
         k.set_column(0, &k0);
-        k_phi[0] = self.varmat.as_ref().unwrap()(t, state) * phi;
+        k_phi[0] = self.varmat.as_ref().unwrap().compute(t, state) * phi;
 
         for i in 1..7 {
             let mut ksum = SVector::<f64, S>::zeros();
@@ -402,7 +407,12 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * h, state + h * ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, state + h * ksum)
+            let state_i = state + h * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * h, state_i)
                 * (phi + h * k_phi_sum);
         }
 
@@ -439,7 +449,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
 
 // Type aliases for dynamic function types
 type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>;
-type VariationalMatrixD = Option<Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64>>>;
+type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Dormand-Prince 5(4) adaptive integrator with runtime-sized state vectors.
 ///
@@ -691,7 +701,7 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 (self.f)(t, state.clone())
             };
             k.set_column(0, &k0);
-            k_phi[0] = self.varmat.as_ref().unwrap()(t, state.clone()) * &phi;
+            k_phi[0] = self.varmat.as_ref().unwrap().compute(t, state.clone()) * &phi;
 
             for i in 1..7 {
                 let mut ksum = DVector::<f64>::zeros(self.dimension);
@@ -704,7 +714,12 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 }
 
                 k.set_column(i, &(self.f)(t + self.bt.c[i] * h, &state + h * &ksum));
-                k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, &state + h * ksum)
+                let state_i = &state + h * ksum;
+                k_phi[i] = self
+                    .varmat
+                    .as_ref()
+                    .unwrap()
+                    .compute(t + self.bt.c[i] * h, state_i)
                     * (&phi + h * k_phi_sum);
             }
 
@@ -800,7 +815,7 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
             (self.f)(t, state.clone())
         };
         k.set_column(0, &k0);
-        k_phi[0] = self.varmat.as_ref().unwrap()(t, state.clone()) * &phi;
+        k_phi[0] = self.varmat.as_ref().unwrap().compute(t, state.clone()) * &phi;
 
         for i in 1..7 {
             let mut ksum = DVector::<f64>::zeros(self.dimension);
@@ -813,7 +828,12 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * h, &state + h * &ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, &state + h * ksum)
+            let state_i = &state + h * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * h, state_i)
                 * (&phi + h * k_phi_sum);
         }
 
@@ -855,9 +875,8 @@ mod tests {
     use crate::integrators::IntegratorConfig;
     use crate::integrators::dp54::{DormandPrince54DIntegrator, DormandPrince54SIntegrator};
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{
-        AdaptiveStepDIntegrator, AdaptiveStepSIntegrator, VarmatConfig,
-    };
+    use crate::integrators::traits::{AdaptiveStepDIntegrator, AdaptiveStepSIntegrator};
+    use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
@@ -1110,15 +1129,12 @@ mod tests {
         setup_global_test_eop();
 
         // Set up variational matrix computation with central differences
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::central(Box::new(point_earth)).with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54_nominal = DormandPrince54SIntegrator::with_config(
             Box::new(point_earth),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config.clone(),
         );
 
@@ -1194,17 +1210,14 @@ mod tests {
     fn test_dp54_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::central(Box::new(point_earth)).with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
 
         // Create separate integrators for nominal and perturbed trajectories to avoid FSAL cache conflicts
         let dp54_nominal = DormandPrince54SIntegrator::with_config(
             Box::new(point_earth),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config.clone(),
         );
         let dp54_pert =
@@ -1463,15 +1476,13 @@ mod tests {
         setup_global_test_eop();
 
         // Setup integrator with variational matrix
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian =
+            DNumericalJacobian::central(Box::new(point_earth_dynamic)).with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54 = DormandPrince54DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config.clone(),
         );
 
@@ -1529,17 +1540,15 @@ mod tests {
         setup_global_test_eop();
 
         // Setup variational matrix computation
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian =
+            DNumericalJacobian::central(Box::new(point_earth_dynamic)).with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
 
         // Create separate integrators for nominal and perturbed trajectories to avoid FSAL cache conflicts
         let dp54_nominal = DormandPrince54DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config.clone(),
         );
         let dp54_pert =

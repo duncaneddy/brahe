@@ -21,15 +21,15 @@ use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
 use crate::integrators::traits::{
     AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepSIntegrator,
 };
+use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 
 // Type aliases for complex function types
 type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
-type VariationalMatrix<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>;
+type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 
 // Type aliases for dynamic-dimensional integrators
 type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>;
-type VariationalMatrixD = Option<Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64>>>;
+type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Implementation of the RKN12(10) Runge-Kutta-Nyström numerical integrator.
 ///
@@ -448,7 +448,11 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
                 k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
             }
 
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, stage_state)
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * dt, stage_state)
                 * (phi + dt * k_phi_sum);
         }
 
@@ -879,7 +883,11 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
                 k_phi_sum += self.bt.a[(i, j)] * &k_phi[j];
             }
 
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * dt, stage_state)
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * dt, stage_state)
                 * (&phi + dt * k_phi_sum);
         }
 
@@ -980,7 +988,8 @@ mod tests {
     use crate::integrators::butcher_tableau::rkn1210_tableau;
     use crate::integrators::config::IntegratorConfig;
     use crate::integrators::rkn1210::RKN1210SIntegrator;
-    use crate::integrators::traits::{AdaptiveStepSIntegrator, VarmatConfig};
+    use crate::integrators::traits::AdaptiveStepSIntegrator;
+    use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
@@ -1262,16 +1271,18 @@ mod tests {
 
     #[test]
     fn test_rkn1210s_varmat() {
-        // Define variational matrix computation using new VarmatConfig API
+        // Define variational matrix computation using JacobianProvider
         // Use forward differences to match old test behavior
-        let varmat_config = VarmatConfig::forward().with_fixed_offset(1.0);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth))
+            .with_method(DifferenceMethod::Forward)
+            .with_fixed_offset(1.0);
 
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
-        let rkn =
-            RKN1210SIntegrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+        let rkn = RKN1210SIntegrator::with_config(
+            Box::new(point_earth),
+            Some(Box::new(jacobian)),
+            config,
+        );
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -1311,14 +1322,16 @@ mod tests {
         // Comprehensive test comparing STM propagation with direct numerical perturbation
         // This validates that the STM correctly predicts how perturbations evolve
 
-        let varmat_config = VarmatConfig::central().with_fixed_offset(1.0);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(1.0);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn =
-            RKN1210SIntegrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+        let rkn = RKN1210SIntegrator::with_config(
+            Box::new(point_earth),
+            Some(Box::new(jacobian)),
+            config,
+        );
 
         // Start with a realistic orbital state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
@@ -1386,14 +1399,16 @@ mod tests {
         // This test specifically validates the STM weight choice by comparing
         // multiple propagation steps with direct perturbation
 
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn =
-            RKN1210SIntegrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+        let rkn = RKN1210SIntegrator::with_config(
+            Box::new(point_earth),
+            Some(Box::new(jacobian)),
+            config,
+        );
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1623,15 +1638,14 @@ mod tests {
     #[test]
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1651,15 +1665,14 @@ mod tests {
     #[test]
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
-        let varmat_config = VarmatConfig::central().with_fixed_offset(1.0);
-        let varmat = move |t: f64, state: DVector<f64>| {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(1.0);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
@@ -1687,15 +1700,14 @@ mod tests {
     #[test]
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn_nominal = RKN1210DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config.clone(),
         );
         let rkn_pert =

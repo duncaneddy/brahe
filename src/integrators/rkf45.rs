@@ -9,11 +9,11 @@ use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
 use crate::integrators::traits::{
     AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepSIntegrator,
 };
+use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 
 // Type aliases for complex function types
 type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
-type VariationalMatrix<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S>>>;
+type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 
 /// Runge-Kutta-Fehlberg 4(5) adaptive integrator.
 ///
@@ -266,7 +266,12 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 }
 
                 k.set_column(i, &(self.f)(t + self.bt.c[i] * h, state + h * ksum));
-                k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, state + h * ksum)
+                let state_i = state + h * ksum;
+                k_phi[i] = self
+                    .varmat
+                    .as_ref()
+                    .unwrap()
+                    .compute(t + self.bt.c[i] * h, state_i)
                     * (phi + h * k_phi_sum);
             }
 
@@ -367,7 +372,12 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * h, state + h * ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, state + h * ksum)
+            let state_i = state + h * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * h, state_i)
                 * (phi + h * k_phi_sum);
         }
 
@@ -402,7 +412,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
 
 // Type aliases for dynamic function types
 type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>;
-type VariationalMatrixD = Option<Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64>>>;
+type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Runge-Kutta-Fehlberg 4(5) adaptive integrator with runtime-sized state vectors.
 ///
@@ -680,7 +690,12 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                 }
 
                 k.set_column(i, &(self.f)(t + self.bt.c[i] * h, &state + h * &ksum));
-                k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, &state + h * ksum)
+                let state_i = &state + h * ksum;
+                k_phi[i] = self
+                    .varmat
+                    .as_ref()
+                    .unwrap()
+                    .compute(t + self.bt.c[i] * h, state_i)
                     * (&phi + h * k_phi_sum);
             }
 
@@ -783,7 +798,12 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
             }
 
             k.set_column(i, &(self.f)(t + self.bt.c[i] * h, &state + h * &ksum));
-            k_phi[i] = self.varmat.as_ref().unwrap()(t + self.bt.c[i] * h, &state + h * ksum)
+            let state_i = &state + h * ksum;
+            k_phi[i] = self
+                .varmat
+                .as_ref()
+                .unwrap()
+                .compute(t + self.bt.c[i] * h, state_i)
                 * (&phi + h * k_phi_sum);
         }
 
@@ -822,9 +842,8 @@ mod tests {
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::IntegratorConfig;
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{
-        AdaptiveStepDIntegrator, AdaptiveStepSIntegrator, VarmatConfig,
-    };
+    use crate::integrators::traits::{AdaptiveStepDIntegrator, AdaptiveStepSIntegrator};
+    use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
@@ -1042,14 +1061,13 @@ mod tests {
         setup_global_test_eop();
 
         // Set up variational matrix computation with central differences
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45 =
-            RKF45SIntegrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+            RKF45SIntegrator::with_config(Box::new(point_earth), Some(Box::new(jacobian)), config);
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1116,14 +1134,13 @@ mod tests {
     fn test_rkf45s_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: SVector<f64, 6>| -> SMatrix<f64, 6, 6> {
-            varmat_config.compute(t, state, &point_earth)
-        };
+        let jacobian = SNumericalJacobian::new(Box::new(point_earth))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45 =
-            RKF45SIntegrator::with_config(Box::new(point_earth), Some(Box::new(varmat)), config);
+            RKF45SIntegrator::with_config(Box::new(point_earth), Some(Box::new(jacobian)), config);
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1376,15 +1393,14 @@ mod tests {
         setup_global_test_eop();
 
         // Setup integrator with variational matrix
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| -> DMatrix<f64> {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45 = RKF45DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config,
         );
 
@@ -1451,15 +1467,14 @@ mod tests {
         setup_global_test_eop();
 
         // Setup variational matrix computation
-        let varmat_config = VarmatConfig::central().with_fixed_offset(0.1);
-        let varmat = move |t: f64, state: DVector<f64>| -> DMatrix<f64> {
-            varmat_config.compute_dynamic(t, state, &point_earth_dynamic)
-        };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+            .with_method(DifferenceMethod::Central)
+            .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45 = RKF45DIntegrator::with_config(
             6,
             Box::new(point_earth_dynamic),
-            Some(Box::new(varmat)),
+            Some(Box::new(jacobian)),
             config,
         );
 

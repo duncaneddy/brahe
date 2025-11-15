@@ -26,7 +26,7 @@ use crate::constants::AngleFormat;
 /// # Examples
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let geoc = vector3_from_array([0.0, 0.0, 0.0]);
@@ -76,7 +76,7 @@ pub fn position_geocentric_to_ecef(
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let ecef = vector3_from_array([R_EARTH, 0.0, 0.0]);

@@ -8,10 +8,11 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::utils::SMatrix3;
+use crate::math::SMatrix3;
 use once_cell::sync::Lazy;
 
-use crate::utils::{BraheError, kronecker_delta};
+use crate::math::kronecker_delta;
+use crate::utils::BraheError;
 
 /// Packaged EGM2008_360 Data File
 static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");

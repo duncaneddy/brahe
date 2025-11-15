@@ -2,7 +2,7 @@
  * Earth-Centered Inertial (ECI) to Radial, Along-Track, Cross-Track (RTN) Frame Transformations
  */
 
-use crate::utils::{SMatrix3, SVector6};
+use crate::math::{SMatrix3, SVector6};
 use nalgebra::Vector3;
 
 /// Computes the rotation matrix transforming a vector in the radial, along-track, cross-track (RTN)
@@ -23,7 +23,7 @@ use nalgebra::Vector3;
 ///
 /// # Examples:
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::R_EARTH;
 /// use brahe::frames::*;
 /// use brahe::orbits::*;
@@ -69,7 +69,7 @@ pub fn rotation_rtn_to_eci(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Examples:
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::R_EARTH;
 /// use brahe::frames::*;
 /// use brahe::orbits::*;
@@ -98,7 +98,7 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Examples:
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
 /// use brahe::coordinates::state_osculating_to_cartesian;
 /// use brahe::relative_motion::*;
@@ -157,7 +157,7 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 ///
 /// # Examples:
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
 /// use brahe::coordinates::state_osculating_to_cartesian;
 /// use brahe::relative_motion::*;

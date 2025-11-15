@@ -2,7 +2,7 @@
  * Utility functions for interpolation.
  */
 
-use crate::utils::math::{SMatrix6, sqrtm};
+use crate::math::linalg::{SMatrix6, sqrtm};
 
 /// Interpolates between two covariance matrices using square root interpolation.
 ///
@@ -16,8 +16,8 @@ use crate::utils::math::{SMatrix6, sqrtm};
 ///
 /// # Example
 /// ```rust
-/// use brahe::utils::interpolation::interpolate_covariance_sqrt;
-/// use brahe::utils::math::SMatrix6;
+/// use brahe::interpolate_covariance_sqrt;
+/// use brahe::SMatrix6;
 ///
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;
@@ -49,8 +49,8 @@ pub fn interpolate_covariance_sqrt(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SM
 ///
 /// # Example
 /// ```rust
-/// use brahe::utils::interpolation::interpolate_covariance_two_wasserstein;
-/// use brahe::utils::math::SMatrix6;
+/// use brahe::interpolate_covariance_two_wasserstein;
+/// use brahe::SMatrix6;
 ///
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;

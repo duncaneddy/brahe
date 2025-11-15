@@ -14,9 +14,9 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
+use crate::math::linalg::split_float;
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
-use crate::utils::math::split_float;
 
 const NANOSECONDS_PER_SECOND_INT: u64 = 1_000_000_000;
 const NANOSECONDS_PER_SECOND_FLOAT: f64 = 1.0e9;

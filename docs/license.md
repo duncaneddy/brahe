@@ -1,6 +1,7 @@
 # License
 
-Brahe is permissively licensed under the MIT License to enable broad use and adoption in both open source and commercial projects. Additionally, we use [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) to check all dependency licenses to ensure that they are compatible with Brahe's licensing and general commercial use.
+!!! tip "Commercial Use and License Compatibility"
+   Brahe is permissively licensed under the MIT License to enable broad use and adoption in both open source and commercial projects. Additionally, we use [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) to check all dependency licenses to ensure that they are compatible with Brahe's licensing and general commercial use.
 
 ## Brahe License
 

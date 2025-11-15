@@ -45,6 +45,8 @@ from brahe import (
     datasets,
     access,
     relative_motion,
+    math,
+    integrators,
     utils,
     plots,
     logging,
@@ -62,6 +64,8 @@ from brahe.trajectories import *
 from brahe.constants import *
 from brahe.access import *
 from brahe.relative_motion import *
+from brahe.math import *
+from brahe.integrators import *
 from brahe.utils import *
 from brahe.plots import *
 from brahe.datasets import *
@@ -81,6 +85,8 @@ __all__ = [
     "datasets",
     "access",
     "relative_motion",
+    "math",
+    "integrators",
     "utils",
     "plots",
     "logging",
@@ -100,6 +106,8 @@ __all__.extend(trajectories.__all__)
 __all__.extend(constants.__all__)
 __all__.extend(access.__all__)
 __all__.extend(relative_motion.__all__)
+__all__.extend(math.__all__)
+__all__.extend(integrators.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(plots.__all__)
 __all__.extend(datasets.__all__)

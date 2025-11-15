@@ -474,6 +474,8 @@ include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
 include!("relative_motion.rs");
+include!("math.rs");
+include!("integrators.rs");
 include!("utils.rs");
 
 // Define Module
@@ -827,6 +829,21 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Formatting
     module.add_function(wrap_pyfunction!(py_format_time_string, module)?)?;
+
+    //* Jacobian *//
+    module.add_class::<PyDifferenceMethod>()?;
+    module.add_class::<PyPerturbationStrategy>()?;
+    module.add_class::<PyDNumericalJacobian>()?;
+    module.add_class::<PyDAnalyticJacobian>()?;
+
+    //* Integrators *//
+    module.add_class::<PyStepMode>()?;
+    module.add_class::<PyIntegratorConfig>()?;
+    module.add_class::<PyAdaptiveStepDResult>()?;
+    module.add_class::<PyRK4DIntegrator>()?;
+    module.add_class::<PyRKF45DIntegrator>()?;
+    module.add_class::<PyDP54DIntegrator>()?;
+    module.add_class::<PyRKN1210DIntegrator>()?;
 
     Ok(())
 }

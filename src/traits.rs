@@ -61,7 +61,9 @@ pub use crate::attitude::traits::{FromAttitude, ToAttitude};
 pub use crate::eop::EarthOrientationProvider;
 
 // Numerical integration traits
-pub use crate::integrators::traits::{AdaptiveStepIntegrator, FixedStepIntegrator};
+pub use crate::integrators::traits::{
+    AdaptiveStepDIntegrator, AdaptiveStepSIntegrator, FixedStepDIntegrator, FixedStepSIntegrator,
+};
 
 // Identification trait
 pub use crate::utils::identifiable::Identifiable;

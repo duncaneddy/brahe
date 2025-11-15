@@ -144,9 +144,9 @@ impl IntegratorConfig {
 ///
 /// Contains the new state, the timestep actually used, the estimated error,
 /// and a suggested step size for the next iteration.
-/// Used by adaptive integrators to report step information.
+/// Used by adaptive static integrators to report step information.
 #[derive(Debug, Clone, PartialEq)]
-pub struct AdaptiveStepResult<const S: usize> {
+pub struct AdaptiveStepSResult<const S: usize> {
     /// State vector after the integration step
     pub state: nalgebra::SVector<f64, S>,
 

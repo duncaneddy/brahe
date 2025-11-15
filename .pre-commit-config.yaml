@@ -9,6 +9,12 @@ repos:
   #       pass_filenames: false
   #       always_run: false
 
+  - repo: https://github.com/EmbarkStudios/cargo-deny
+    rev: 0.18.5
+    hooks:
+      - id: cargo-deny
+        args: ["check", "licenses"] # optionally modify the arguments for cargo-deny (default arguments shown here)
+
   # Sync CODE_OF_CONDUCT.md, CONTRIBUTING.md, and LICENSE.md to docs/
   - repo: local
     hooks:

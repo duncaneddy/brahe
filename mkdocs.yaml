@@ -208,6 +208,9 @@ nav:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
                 - Groundstations: learn/datasets/groundstations.md
+            - Mathematics:
+                - learn/mathematics/index.md
+                - Jacobian Computation: learn/mathematics/jacobian.md
             - Utilities:
                 - learn/utilities/index.md
                 - Caching: learn/utilities/caching.md
@@ -312,6 +315,9 @@ nav:
                 - 3D Trajectory: library_api/plots/3d_trajectory.md
                 - Access Geometry: library_api/plots/access_geometry.md
                 - Gabbard Diagram: library_api/plots/gabbard.md
+            - Mathematics:
+                - library_api/mathematics/index.md
+                - Jacobian: library_api/mathematics/jacobian.md
             - Utilities:
                 - library_api/utils/index.md
                 - Caching: library_api/utils/caching.md

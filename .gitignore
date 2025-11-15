@@ -2,7 +2,6 @@
 .idea/
 .vscode
 digest.txt
-CLAUDE.md
 .claude/*
 
 # Coverage

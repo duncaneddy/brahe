@@ -41,7 +41,7 @@ const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 /// 1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.83-86.
 ///
 #[allow(non_snake_case)]
-pub fn acceleration_drag(
+pub fn accel_drag(
     x_object: Vector6<f64>,
     density: f64,
     mass: f64,
@@ -80,12 +80,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_acceleration_drag() {
+    fn test_accel_drag() {
         let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0);
 
         let x_object = state_osculating_to_cartesian(oe, DEGREES);
 
-        let a = acceleration_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
+        let a = accel_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
 
         assert_abs_diff_eq!(a.norm(), 5.97601877277239e-8, epsilon = 1.0e-10);
     }
@@ -145,7 +145,7 @@ mod tests {
 
         let rho = density_harris_priester(Vector3::new(r_x, r_y, r_z), r_sun);
 
-        let a = acceleration_drag(x, rho, mass, area, cd, SMatrix3::identity());
+        let a = accel_drag(x, rho, mass, area, cd, SMatrix3::identity());
 
         let tol = 1.0e-12;
         assert_abs_diff_eq!(a[0], a_x_expected, epsilon = tol);

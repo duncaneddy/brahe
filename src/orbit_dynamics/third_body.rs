@@ -5,15 +5,25 @@ ephemerides.
 
 use nalgebra::Vector3;
 
-use crate::ephemerides::{moon_position, sun_position};
-use crate::orbit_dynamics::gravity::acceleration_point_mass_gravity;
+use crate::ephemerides::{
+    jupiter_position_de440s, mars_position_de440s, mercury_position_de440s, moon_position,
+    moon_position_de440s, neptune_position_de440s, saturn_position_de440s, sun_position,
+    sun_position_de440s, uranus_position_de440s, venus_position_de440s,
+};
+use crate::math::traits::IntoPosition;
+use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::time::Epoch;
-use crate::{GM_MOON, GM_SUN};
+use crate::{
+    GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
+};
 
 /// Calculate the acceleration due to the Sun on an object at a given epoch.
 /// The calculation is performed using the point-mass gravity model and the
 /// low-precision analytical ephemerides for the Sun position implemented in
 /// the `ephemerides` module.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
 ///
 /// Should a more accurate calculation be required, you can utilize the
 /// point-mass gravity model and a higher-precision ephemerides for the Sun.
@@ -21,7 +31,7 @@ use crate::{GM_MOON, GM_SUN};
 /// # Arguments
 ///
 /// * `epc` - Epoch at which to calculate the Sun's position
-/// * `r_object` - Position of the object in the GCRF frame. Units: [m]
+/// * `r_object` - Position of the object in the GCRF frame, or state vector (position + velocity). Units: [m]
 ///
 /// # Returns
 ///
@@ -32,7 +42,7 @@ use crate::{GM_MOON, GM_SUN};
 /// ```
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
 /// use brahe::time::Epoch;
-/// use brahe::third_body::acceleration_third_body_sun;
+/// use brahe::third_body::accel_third_body_sun;
 /// use brahe::constants::R_EARTH;
 /// use nalgebra::Vector3;
 ///
@@ -42,10 +52,10 @@ use crate::{GM_MOON, GM_SUN};
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = acceleration_third_body_sun(epc, r_object);
+/// let a = accel_third_body_sun(epc, r_object);
 /// ```
-pub fn acceleration_third_body_sun(epc: Epoch, r_object: Vector3<f64>) -> Vector3<f64> {
-    acceleration_point_mass_gravity(r_object, sun_position(epc), GM_SUN)
+pub fn accel_third_body_sun<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, sun_position(epc), GM_SUN)
 }
 
 /// Calculate the acceleration due to the Moon on an object at a given epoch.
@@ -53,13 +63,16 @@ pub fn acceleration_third_body_sun(epc: Epoch, r_object: Vector3<f64>) -> Vector
 /// low-precision analytical ephemerides for the Moon position implemented in
 /// the `ephemerides` module.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
 /// Should a more accurate calculation be required, you can utilize the
 /// point-mass gravity model and a higher-precision ephemerides for the Moon.
 ///
 /// # Arguments
 ///
 /// - `epc` - Epoch at which to calculate the Moon's position
-/// - `r_object` - Position of the object in the GCRF frame. Units: [m]
+/// - `r_object` - Position of the object in the GCRF frame, or state vector (position + velocity). Units: [m]
 ///
 /// # Returns
 ///
@@ -70,7 +83,7 @@ pub fn acceleration_third_body_sun(epc: Epoch, r_object: Vector3<f64>) -> Vector
 /// ```
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
 /// use brahe::time::Epoch;
-/// use brahe::third_body::acceleration_third_body_moon;
+/// use brahe::third_body::accel_third_body_moon;
 /// use brahe::constants::R_EARTH;
 /// use nalgebra::Vector3;
 ///
@@ -80,10 +93,211 @@ pub fn acceleration_third_body_sun(epc: Epoch, r_object: Vector3<f64>) -> Vector
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = acceleration_third_body_moon(epc, r_object);
+/// let a = accel_third_body_moon(epc, r_object);
 /// ```
-pub fn acceleration_third_body_moon(epc: Epoch, r_object: Vector3<f64>) -> Vector3<f64> {
-    acceleration_point_mass_gravity(r_object, moon_position(epc), GM_MOON)
+pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, moon_position(epc), GM_MOON)
+}
+
+/// Calculate the acceleration due to the Sun on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// This function uses the NAIF SPK kernel DE440s to compute the Sun's position,
+/// providing significantly higher accuracy than the analytical ephemerides used
+/// by `accel_third_body_sun`.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the Sun's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to the Sun. Units: [m/s^2]
+///
+/// # Example
+///
+/// ```
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::accel_third_body_sun_de440s;
+/// use brahe::constants::R_EARTH;
+/// use brahe::ephemerides::initialize_ephemeris;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+/// initialize_ephemeris().unwrap();
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// let a = accel_third_body_sun_de440s(epc, r_object);
+/// ```
+pub fn accel_third_body_sun_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, sun_position_de440s(epc), GM_SUN)
+}
+
+/// Calculate the acceleration due to the Moon on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// This function uses the NAIF SPK kernel DE440s to compute the Moon's position,
+/// providing significantly higher accuracy than the analytical ephemerides used
+/// by `accel_third_body_moon`.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the Moon's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to the Moon. Units: [m/s^2]
+///
+/// # Example
+///
+/// ```
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::accel_third_body_moon_de440s;
+/// use brahe::constants::R_EARTH;
+/// use brahe::ephemerides::initialize_ephemeris;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+/// initialize_ephemeris().unwrap();
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// let a = accel_third_body_moon_de440s(epc, r_object);
+/// ```
+pub fn accel_third_body_moon_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, moon_position_de440s(epc), GM_MOON)
+}
+
+/// Calculate the acceleration due to Mercury on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Mercury's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Mercury. Units: [m/s^2]
+pub fn accel_third_body_mercury_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, mercury_position_de440s(epc), GM_MERCURY)
+}
+
+/// Calculate the acceleration due to Venus on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Venus's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Venus. Units: [m/s^2]
+pub fn accel_third_body_venus_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, venus_position_de440s(epc), GM_VENUS)
+}
+
+/// Calculate the acceleration due to Mars on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Mars's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Mars. Units: [m/s^2]
+pub fn accel_third_body_mars_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, mars_position_de440s(epc), GM_MARS)
+}
+
+/// Calculate the acceleration due to Jupiter on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Jupiter's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Jupiter. Units: [m/s^2]
+pub fn accel_third_body_jupiter_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, jupiter_position_de440s(epc), GM_JUPITER)
+}
+
+/// Calculate the acceleration due to Saturn on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Saturn's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Saturn. Units: [m/s^2]
+pub fn accel_third_body_saturn_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, saturn_position_de440s(epc), GM_SATURN)
+}
+
+/// Calculate the acceleration due to Uranus on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Uranus's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Uranus. Units: [m/s^2]
+pub fn accel_third_body_uranus_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, uranus_position_de440s(epc), GM_URANUS)
+}
+
+/// Calculate the acceleration due to Neptune on an object at a given epoch using
+/// the DE440s high-precision ephemerides.
+///
+/// Accepts either a 3D position vector or a 6D state vector for `r_object`.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate Neptune's position
+/// * `r_object` - Position of the object in the GCRF frame, or state vector. Units: [m]
+///
+/// # Returns
+///
+/// * `a` - Acceleration due to Neptune. Units: [m/s^2]
+pub fn accel_third_body_neptune_de440s<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector3<f64> {
+    accel_point_mass_gravity(r_object, neptune_position_de440s(epc), GM_NEPTUNE)
 }
 
 #[cfg(test)]
@@ -113,7 +327,7 @@ mod tests {
     #[case(60310.0, 6193136.2430559, - 2411369.56203787, - 1669079.86356028, - 1.77151028990413e-07, - 3.3756567861856e-07, - 1.20350830019883e-07)]
     #[case(60310.0, 6790850.71407875, 45505.4274329756, - 727399.838172203, - 2.54224503688731e-07, - 1.580949129909e-07, - 3.73927783617869e-08)]
     #[case(60310.0, 6333183.86841522, 2494761.03873549, 327102.634966258, - 2.91770539678173e-07, 4.58908225325491e-08, 5.13518087266698e-08)]
-    fn test_acceleration_third_body_sun(
+    fn test_accel_third_body_sun(
         #[case] mjd_tt: f64,
         #[case] rx: f64,
         #[case] ry: f64,
@@ -125,7 +339,7 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = acceleration_third_body_sun(epc, r_object);
+        let a = accel_third_body_sun(epc, r_object);
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);
@@ -149,7 +363,7 @@ mod tests {
     #[case(60310.0, 6193136.2430559, - 2411369.56203787, - 1669079.86356028, 9.01868211930885e-07, - 3.48656149518958e-07, - 2.07100394322338e-07)]
     #[case(60310.0, 6790850.71407875, 45505.4274329756, - 727399.838172203, 7.59196602766636e-07, - 4.83281433661868e-07, - 2.49203881536061e-07)]
     #[case(60310.0, 6333183.86841522, 2494761.03873549, 327102.634966258, 5.01475600782815e-07, - 5.47736810287354e-07, - 2.54764046632745e-07)]
-    fn test_acceleration_third_body_moon(
+    fn test_accel_third_body_moon(
         #[case] mjd_tt: f64,
         #[case] rx: f64,
         #[case] ry: f64,
@@ -161,10 +375,138 @@ mod tests {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
         let r_object = Vector3::new(rx, ry, rz);
 
-        let a = acceleration_third_body_moon(epc, r_object);
+        let a = accel_third_body_moon(epc, r_object);
 
         assert_abs_diff_eq!(a[0], ax, epsilon = 1e-9);
         assert_abs_diff_eq!(a[1], ay, epsilon = 1e-9);
         assert_abs_diff_eq!(a[2], az, epsilon = 1e-9);
+    }
+
+    use crate::utils::testing::setup_global_test_almanac;
+
+    #[test]
+    fn test_accel_third_body_sun_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_sun_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-5); // Should be on order of 1e-6 to 1e-7 m/s^2
+    }
+
+    #[test]
+    fn test_accel_third_body_moon_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_moon_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-5); // Should be on order of 1e-6 to 1e-7 m/s^2
+    }
+
+    #[test]
+    fn test_accel_third_body_mercury_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_mercury_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector (very small for Mercury)
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-10); // Mercury effect is very small
+    }
+
+    #[test]
+    fn test_accel_third_body_venus_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_venus_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-9); // Venus effect is small
+    }
+
+    #[test]
+    fn test_accel_third_body_mars_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_mars_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-10); // Mars effect is very small
+    }
+
+    #[test]
+    fn test_accel_third_body_jupiter_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_jupiter_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-9); // Jupiter effect is relatively larger but still small
+    }
+
+    #[test]
+    fn test_accel_third_body_saturn_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_saturn_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-10); // Saturn effect is small
+    }
+
+    #[test]
+    fn test_accel_third_body_uranus_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_uranus_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-11); // Uranus effect is very small
+    }
+
+    #[test]
+    fn test_accel_third_body_neptune_de440s() {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
+        let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
+
+        let a = accel_third_body_neptune_de440s(epc, r_object);
+
+        // Should return a valid acceleration vector
+        assert!(a.norm() > 0.0);
+        assert!(a.norm() < 1e-11); // Neptune effect is very small
     }
 }

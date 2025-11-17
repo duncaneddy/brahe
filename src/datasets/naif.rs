@@ -53,7 +53,10 @@ fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
     let url = format!("{}{}", NAIF_BASE_URL, filename);
 
     let response = ureq::get(&url).call().map_err(|e| {
-        BraheError::Error(format!("Failed to download kernel {} from NAIF: {}", name, e))
+        BraheError::Error(format!(
+            "Failed to download kernel {} from NAIF: {}",
+            name, e
+        ))
     })?;
 
     // Read response body manually to avoid default size limits
@@ -105,10 +108,7 @@ fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
 /// let kernel_path = download_de_kernel("de440s", Some(output.clone())).unwrap();
 /// assert_eq!(kernel_path, output);
 /// ```
-pub fn download_de_kernel(
-    name: &str,
-    output_path: Option<PathBuf>,
-) -> Result<PathBuf, BraheError> {
+pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<PathBuf, BraheError> {
     // Validate kernel name
     validate_kernel_name(name)?;
 
@@ -185,8 +185,7 @@ mod tests {
 
         // Copy test asset to cache if not already there
         if !cache_path.exists() {
-            fs::copy(&test_asset_path, &cache_path)
-                .expect("Failed to copy test asset to cache");
+            fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
         }
     }
 
@@ -275,7 +274,7 @@ mod tests {
         let result2 = download_de_kernel("de440s", None);
         assert!(result2.is_ok());
 
-        // 
+        //
         assert_eq!(kernel_path, result2.unwrap());
 
         // Verify file wasn't re-downloaded (modification time unchanged)

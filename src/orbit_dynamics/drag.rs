@@ -14,8 +14,8 @@ For atmospheric density models, see [`crate::orbit_dynamics::atmospheric_density
 
 use nalgebra::{Vector3, Vector6};
 
-use crate::math::SMatrix3;
 use crate::OMEGA_EARTH;
+use crate::math::SMatrix3;
 
 const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 

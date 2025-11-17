@@ -477,6 +477,7 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("integrators.rs");
 include!("utils.rs");
+include!("orbit_dynamics.rs");
 
 // Define Module
 
@@ -772,6 +773,25 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
     module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+
+    //* Orbit Dynamics - Ephemerides *//
+    module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_position_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Access *//
 

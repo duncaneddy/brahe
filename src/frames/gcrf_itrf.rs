@@ -4,9 +4,6 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-use serial_test::serial;
 
 use crate::constants;
 use crate::constants::MJD_ZERO;
@@ -440,7 +437,6 @@ pub fn state_itrf_to_gcrf(epc: Epoch, x_itrf: SVector6) -> SVector6 {
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
-#[serial]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
@@ -468,6 +464,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_bias_precession_nutation() {
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
@@ -494,6 +491,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_earth_rotation() {
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
@@ -520,6 +518,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_rotation_gcrf_to_itrf() {
         // Test case reproduction of Example 5.5 from SOFA cookbook
         // Testing the explicit GCRF -> ITRF transformation
@@ -547,6 +546,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_rotation_itrf_to_gcrf() {
         // Test case reproduction of Example 5.5 from SOFA cookbook
         // Testing the explicit ITRF -> GCRF transformation
@@ -574,6 +574,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_position_gcrf_to_itrf() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -588,6 +589,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_position_itrf_to_gcrf() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -602,6 +604,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_state_gcrf_to_itrf() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -619,6 +622,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_state_itrf_to_gcrf_circular() {
         setup_global_test_eop();
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);

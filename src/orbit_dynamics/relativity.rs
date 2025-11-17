@@ -5,9 +5,6 @@ relativity.
 
 use nalgebra::{Vector3, Vector6};
 
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-use crate::constants::DEGREES;
 use crate::constants::{C_LIGHT, GM_EARTH};
 
 /// Calculate the acceleration due to special and general relativity for an Earth orbiting object.
@@ -55,6 +52,7 @@ pub fn acceleration_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::DEGREES;
     use crate::constants::R_EARTH;
     use crate::coordinates::*;
 

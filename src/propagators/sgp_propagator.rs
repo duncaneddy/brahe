@@ -30,9 +30,6 @@
  */
 
 use crate::attitude::RotationMatrix;
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-use crate::constants::RADIANS;
 use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
 use crate::coordinates::state_cartesian_to_osculating;
 use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
@@ -891,6 +888,7 @@ impl Identifiable for SGPPropagator {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::RADIANS;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use approx::assert_abs_diff_eq;

@@ -7,9 +7,6 @@ use nalgebra::{Vector3, Vector6};
 use crate::constants::AngleFormat;
 use crate::math::SMatrix3;
 
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-use crate::constants::DEGREES;
 use crate::{OMEGA_EARTH, position_ecef_to_geodetic};
 
 const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
@@ -165,6 +162,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
+    use crate::DEGREES;
     use crate::constants::AngleFormat;
     use crate::constants::R_EARTH;
     use crate::coordinates::*;

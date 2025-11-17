@@ -97,6 +97,7 @@ email me at duncan.eddy (at) gmail.com.
 // TODO: Remove when BTreeCursor is stabilized
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 // Re-export commonly used types
 pub use access::*;

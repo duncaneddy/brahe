@@ -2,10 +2,6 @@
  * Defines crate-wide EOP loading functionality
  */
 
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-use serial_test::serial;
-
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 
@@ -13,6 +9,9 @@ use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
 use crate::eop::static_provider::StaticEOPProvider;
 use crate::utils::BraheError;
+
+#[cfg(test)]
+use serial_test::serial;
 
 static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Send>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(StaticEOPProvider::new()))));
@@ -547,8 +546,6 @@ mod tests {
     use crate::eop::static_provider::StaticEOPProvider;
     use std::env;
     use std::path::Path;
-
-    use serial_test::serial;
 
     use approx::assert_abs_diff_eq;
 

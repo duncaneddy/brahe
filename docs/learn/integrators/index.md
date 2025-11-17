@@ -163,7 +163,6 @@ They can be propagated by integrating the variational equations alongside the st
 - **[Fixed-Step Integrators](fixed_step.md)** - RK4 and fixed-step integration
 - **[Adaptive-Step Integrators](adaptive_step.md)** - RKF45, DP54, and RKN1210
 - **[Variational Equations](variational_equations.md)** - State Transition Matrix propagation and theory
-- **[Generic Functions](generic_functions.md)** - Test functions and integrator validation
 - **[Configuration Guide](configuration.md)** - Choosing tolerances and tuning parameters
 
 ## See Also

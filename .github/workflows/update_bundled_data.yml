@@ -2,19 +2,33 @@ name: Update Bundled Data
 
 on:
   schedule:
-    - cron: '0 6 * * 0'
+    - cron: '0 2 * * 3'  # Wednesday 2 AM UTC (Tuesday 9 PM EST)
   workflow_call:
 
 jobs:
   update-eop-data:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v5
       - name: Update package data
         run: ./scripts/update-data.sh
-      - name: Commit and push changes
-        uses: EndBug/add-and-commit@v9
+      - name: Create Pull Request with updated data
+        uses: peter-evans/create-pull-request@v7
         with:
-          author_name: Github Worker
-          message: 'Commit from GitHub Actions - Daily Update of Bundled Data'
-          add: 'data/*'
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          commit-message: "Update bundled EOP and space weather data"
+          branch: bundled-data-update-${{ github.run_id }}
+          delete-branch: true
+          title: "Update bundled EOP and space weather data"
+          body: |
+            Automated update of bundled data files from IERS and Celestrak.
+
+            Updated files:
+            - IERS EOP data: `finals.all.iau2000.txt`, `EOP_20_C04_one_file_1962-now.txt`
+            - Space Weather: `sw19571001.txt`, `fluxtable.txt`
+
+            This PR can be auto-merged.
+          labels: automated,data-update

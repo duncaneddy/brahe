@@ -26,10 +26,10 @@ use crate::math::jacobian;
 ///     import brahe as bh
 ///
 ///     # Use central differences (most accurate)
-///     jacobian = bh.DNumericalJacobian.central(dynamics_fn)
+///     jacobian = bh.NumericalJacobian.central(dynamics_fn)
 ///
 ///     # Or explicitly set the method
-///     jacobian = bh.DNumericalJacobian.new(dynamics_fn).with_method(bh.DifferenceMethod.CENTRAL)
+///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_method(bh.DifferenceMethod.CENTRAL)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "DifferenceMethod")]
@@ -104,13 +104,13 @@ impl PyDifferenceMethod {
 ///     import brahe as bh
 ///
 ///     # Adaptive perturbation (recommended for most cases)
-///     jacobian = bh.DNumericalJacobian.new(dynamics_fn).with_adaptive(1.0, 1.0)
+///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_adaptive(1.0, 1.0)
 ///
 ///     # Fixed absolute perturbation for all components
-///     jacobian = bh.DNumericalJacobian.new(dynamics_fn).with_fixed_offset(1e-6)
+///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_fixed_offset(1e-6)
 ///
 ///     # Percentage-based perturbation
-///     jacobian = bh.DNumericalJacobian.new(dynamics_fn).with_percentage(1e-6)
+///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_percentage(1e-6)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "PerturbationStrategy")]
@@ -208,17 +208,17 @@ impl PyPerturbationStrategy {
 ///         return np.array([state[1], -state[0]])
 ///
 ///     # Default: central differences with adaptive perturbations
-///     jacobian = bh.DNumericalJacobian.new(dynamics)
+///     jacobian = bh.NumericalJacobian.new(dynamics)
 ///
 ///     # Or with custom settings:
-///     jacobian = bh.DNumericalJacobian.forward(dynamics).with_fixed_offset(1e-6)
+///     jacobian = bh.NumericalJacobian.forward(dynamics).with_fixed_offset(1e-6)
 ///
 ///     state = np.array([1.0, 0.0])
 ///     jac_matrix = jacobian.compute(0.0, state)
 ///     print(jac_matrix)  # [[0, 1], [-1, 0]] approximately
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "DNumericalJacobian")]
+#[pyo3(name = "NumericalJacobian")]
 pub struct PyDNumericalJacobian {
     /// Store the Python callable (dynamics function)
     dynamics_fn: Py<PyAny>,
@@ -236,7 +236,7 @@ impl PyDNumericalJacobian {
     ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
     ///
     /// Returns:
-    ///     DNumericalJacobian: New numerical Jacobian provider
+    ///     NumericalJacobian: New numerical Jacobian provider
     ///
     /// Example:
     ///     ```python
@@ -246,7 +246,7 @@ impl PyDNumericalJacobian {
     ///     def dynamics(t, state):
     ///         return np.array([state[1], -state[0]])
     ///
-    ///     jacobian = bh.DNumericalJacobian.new(dynamics)
+    ///     jacobian = bh.NumericalJacobian.new(dynamics)
     ///     ```
     #[new]
     pub fn new(dynamics_fn: Py<PyAny>) -> Self {
@@ -266,7 +266,7 @@ impl PyDNumericalJacobian {
     ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
     ///
     /// Returns:
-    ///     DNumericalJacobian: Jacobian provider using forward differences
+    ///     NumericalJacobian: Jacobian provider using forward differences
     #[classmethod]
     pub fn forward(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
         Self {
@@ -285,7 +285,7 @@ impl PyDNumericalJacobian {
     ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
     ///
     /// Returns:
-    ///     DNumericalJacobian: Jacobian provider using central differences
+    ///     NumericalJacobian: Jacobian provider using central differences
     #[classmethod]
     pub fn central(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
         Self::new(dynamics_fn)
@@ -297,7 +297,7 @@ impl PyDNumericalJacobian {
     ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
     ///
     /// Returns:
-    ///     DNumericalJacobian: Jacobian provider using backward differences
+    ///     NumericalJacobian: Jacobian provider using backward differences
     #[classmethod]
     pub fn backward(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
         Self {
@@ -316,7 +316,7 @@ impl PyDNumericalJacobian {
     ///     offset (float): Fixed perturbation size
     ///
     /// Returns:
-    ///     DNumericalJacobian: Self for method chaining
+    ///     NumericalJacobian: Self for method chaining
     pub fn with_fixed_offset(mut slf: PyRefMut<'_, Self>, offset: f64) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Fixed(offset);
         slf
@@ -328,7 +328,7 @@ impl PyDNumericalJacobian {
     ///     percentage (float): Percentage of state value (e.g., 1e-6 for 0.0001%)
     ///
     /// Returns:
-    ///     DNumericalJacobian: Self for method chaining
+    ///     NumericalJacobian: Self for method chaining
     pub fn with_percentage(mut slf: PyRefMut<'_, Self>, percentage: f64) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Percentage(percentage);
         slf
@@ -341,7 +341,7 @@ impl PyDNumericalJacobian {
     ///     min_threshold (float): Minimum reference value
     ///
     /// Returns:
-    ///     DNumericalJacobian: Self for method chaining
+    ///     NumericalJacobian: Self for method chaining
     pub fn with_adaptive(
         mut slf: PyRefMut<'_, Self>,
         scale_factor: f64,
@@ -360,7 +360,7 @@ impl PyDNumericalJacobian {
     ///     method (DifferenceMethod): Finite difference method to use
     ///
     /// Returns:
-    ///     DNumericalJacobian: Self for method chaining
+    ///     NumericalJacobian: Self for method chaining
     pub fn with_method(
         mut slf: PyRefMut<'_, Self>,
         method: PyDifferenceMethod,
@@ -386,7 +386,7 @@ impl PyDNumericalJacobian {
     ///     def dynamics(t, state):
     ///         return np.array([state[1], -state[0]])
     ///
-    ///     jacobian = bh.DNumericalJacobian.new(dynamics)
+    ///     jacobian = bh.NumericalJacobian.new(dynamics)
     ///     state = np.array([1.0, 0.5])
     ///     jac = jacobian.compute(0.0, state)
     ///     # Expected: [[0, 1], [-1, 0]] approximately
@@ -483,13 +483,13 @@ impl PyDNumericalJacobian {
 ///     def jacobian_fn(t, state):
 ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
 ///
-///     jacobian = bh.DAnalyticJacobian.new(jacobian_fn)
+///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
 ///     state = np.array([1.0, 0.0])
 ///     jac = jacobian.compute(0.0, state)
 ///     print(jac)  # [[0, 1], [-1, 0]]
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "DAnalyticJacobian")]
+#[pyo3(name = "AnalyticJacobian")]
 pub struct PyDAnalyticJacobian {
     /// Store the Python callable (Jacobian function)
     jacobian_fn: Py<PyAny>,
@@ -504,7 +504,7 @@ impl PyDAnalyticJacobian {
     ///         Must return a 2D array (dimension × dimension)
     ///
     /// Returns:
-    ///     DAnalyticJacobian: New analytical Jacobian provider
+    ///     AnalyticJacobian: New analytical Jacobian provider
     ///
     /// Example:
     ///     ```python
@@ -515,7 +515,7 @@ impl PyDAnalyticJacobian {
     ///         # For harmonic oscillator
     ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
     ///
-    ///     jacobian = bh.DAnalyticJacobian.new(jacobian_fn)
+    ///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
     ///     ```
     #[new]
     pub fn new(jacobian_fn: Py<PyAny>) -> Self {
@@ -539,7 +539,7 @@ impl PyDAnalyticJacobian {
     ///     def jacobian_fn(t, state):
     ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
     ///
-    ///     jacobian = bh.DAnalyticJacobian.new(jacobian_fn)
+    ///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
     ///     state = np.array([1.0, 0.5])
     ///     jac = jacobian.compute(0.0, state)
     ///     ```

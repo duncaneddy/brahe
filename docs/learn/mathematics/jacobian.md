@@ -75,7 +75,7 @@ Numerical Jacobians use finite differences to approximate derivatives automatica
 
 #### Forward Difference
 
-The forward difference method approximates the derivative by perturbing the input state positively along each dimension ($e_j$) and measuring the change in output, as follows:
+The forward difference method approximates the derivative by perturbing the input state positively along each dimension $e_j$ and measuring the change in output, as follows:
 
 $$
 J_{ij} \approx \frac{f_i(\mathbf{x} + h \cdot \mathbf{e}_j) - f_i(\mathbf{x})}{h}
@@ -85,7 +85,7 @@ Forward differences have first-order accuracy with an error on the order of $O(h
 
 #### Central Difference
 
-The central difference method improves accuracy by perturbing the input state both positively and negatively along each dimension, $e_j$:
+The central difference method improves accuracy by perturbing the input state both positively and negatively along each dimension $e_j$:
 
 $$
 J_{ij} \approx \frac{f_i(\mathbf{x} + h \cdot \mathbf{e}_j) - f_i(\mathbf{x} - h \cdot \mathbf{e}_j)}{2h}
@@ -150,7 +150,7 @@ h = \text{constant}
 $$
 
 ```python
-jacobian = bh.DNumericalJacobian.central(dynamics) \\
+jacobian = bh.NumericalJacobian.central(dynamics) \\
     .with_fixed_offset(1e-6)
 ```
 
@@ -163,7 +163,7 @@ h_j = \text{percentage} \times |x_j|
 $$
 
 ```python
-jacobian = bh.DNumericalJacobian.central(dynamics) \\
+jacobian = bh.NumericalJacobian.central(dynamics) \\
     .with_percentage(1e-5)  # 0.001% perturbation
 ```
 
@@ -176,7 +176,7 @@ h_j = s \times \sqrt(\epsilon) \times \max(|x_j|, h_{min})
 $$
 
 ```python
-jacobian = bh.DNumericalJacobian.central(dynamics) \\
+jacobian = bh.NumericalJacobian.central(dynamics) \\
     .with_adaptive(scale_factor=1e-8, min_threshold=1e-6)
 ```
 

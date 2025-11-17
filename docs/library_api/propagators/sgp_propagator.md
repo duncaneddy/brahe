@@ -42,8 +42,6 @@ states = prop.propagate_multiple(epochs)  # Returns array of states
     options:
       show_root_heading: true
       show_root_full_path: false
-      heading_level: 2
-
 
 ---
 

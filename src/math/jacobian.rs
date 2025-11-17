@@ -295,7 +295,7 @@ impl<const S: usize> SNumericalJacobian<S> {
 
     /// Compute perturbation offsets for each state component.
     fn compute_offsets(&self, state: &SVector<f64, S>) -> SVector<f64, S> {
-        match &self.perturbation {
+        match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
                 min_threshold,
@@ -303,11 +303,11 @@ impl<const S: usize> SNumericalJacobian<S> {
                 // Industry standard: h = sqrt(eps) * max(|x|, threshold)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
-                let base_offset = *scale_factor * SQRT_EPS;
+                let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(*min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_threshold))
             }
-            PerturbationStrategy::Fixed(offset) => SVector::from_element(*offset),
+            PerturbationStrategy::Fixed(offset) => SVector::from_element(offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
         }
     }
@@ -501,7 +501,7 @@ impl DNumericalJacobian {
 
     /// Compute perturbation offsets for each state component.
     fn compute_offsets(&self, state: &DVector<f64>) -> DVector<f64> {
-        match &self.perturbation {
+        match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
                 min_threshold,
@@ -509,11 +509,11 @@ impl DNumericalJacobian {
                 // Industry standard: h = sqrt(eps) * max(|x|, threshold)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
-                let base_offset = *scale_factor * SQRT_EPS;
+                let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(*min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_threshold))
             }
-            PerturbationStrategy::Fixed(offset) => DVector::from_element(state.len(), *offset),
+            PerturbationStrategy::Fixed(offset) => DVector::from_element(state.len(), offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
         }
     }

@@ -24,7 +24,7 @@ type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::integrators::{RKF45SIntegrator, FixedStepSIntegrator, AdaptiveStepSIntegrator, IntegratorConfig};
+/// use brahe::integrators::{RKF45SIntegrator, AdaptiveStepSIntegrator, IntegratorConfig};
 ///
 /// let f = |t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
 ///     SVector::<f64, 1>::new(2.0 * t)
@@ -34,7 +34,7 @@ type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 /// let rkf45 = RKF45SIntegrator::with_config(Box::new(f), None, config);
 ///
 /// let state = SVector::<f64, 1>::new(0.0);
-/// let result = rkf45.step(0.0, state, 0.5, 1e-8, 1e-6);
+/// let result = rkf45.step(0.0, state, 0.5);
 /// ```
 pub struct RKF45SIntegrator<const S: usize> {
     f: StateDynamics<S>,
@@ -70,14 +70,7 @@ impl<const S: usize> RKF45SIntegrator<S> {
 }
 
 impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
-    fn step(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepSResult<S> {
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
         let mut h = dt;
         let mut attempts = 0;
 
@@ -116,7 +109,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
 
             // Compute normalized error
             for i in 0..S {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -218,7 +212,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
         let error_vec = state_high - state_low;
         let mut error: f64 = 0.0;
         for i in 0..S {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -236,8 +231,6 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
         // Implementation mirrors step but propagates STM alongside state
         let mut h = dt;
@@ -295,7 +288,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
             let mut error: f64 = 0.0;
 
             for i in 0..S {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -398,7 +392,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
         let error_vec = state_high - state_low;
         let mut error: f64 = 0.0;
         for i in 0..S {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -433,7 +428,7 @@ type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 /// let rkf45 = RKF45DIntegrator::with_config(1, Box::new(f), None, config);
 ///
 /// let state = DVector::from_vec(vec![0.0]);
-/// let result = rkf45.step(0.0, state, 0.5, 1e-8, 1e-6);
+/// let result = rkf45.step(0.0, state, 0.5);
 /// ```
 pub struct RKF45DIntegrator {
     dimension: usize,
@@ -477,14 +472,7 @@ impl RKF45DIntegrator {
 }
 
 impl AdaptiveStepDIntegrator for RKF45DIntegrator {
-    fn step(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepDResult {
+    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
         assert_eq!(
             state.len(),
             self.dimension,
@@ -530,7 +518,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
 
             // Compute normalized error
             for i in 0..self.dimension {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -620,7 +609,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
         let error_vec = &state_high - &state_low;
         let mut error: f64 = 0.0;
         for i in 0..self.dimension {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -638,8 +628,6 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
         state: DVector<f64>,
         phi: DMatrix<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
         assert_eq!(
             state.len(),
@@ -720,7 +708,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
             let mut error: f64 = 0.0;
 
             for i in 0..self.dimension {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -825,7 +814,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
         let error_vec = &state_high - &state_low;
         let mut error: f64 = 0.0;
         for i in 0..self.dimension {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -879,7 +869,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-10, 1e-8);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -902,7 +892,7 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-10, 1e-8);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
 
@@ -932,7 +922,7 @@ mod tests {
 
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = rkf45.step(epc - epc0, state, dt, 1e-8, 1e-6);
+            let result = rkf45.step(epc - epc0, state, dt);
             state = result.state;
             epc += result.dt_used;
         }
@@ -958,7 +948,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-8, 1e-6);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -982,7 +972,7 @@ mod tests {
         let dt_initial = 0.01;
 
         // Take a step with loose tolerance - error should be small
-        let result = rkf45.step(0.0, state, dt_initial, 1e-6, 1e-4);
+        let result = rkf45.step(0.0, state, dt_initial);
 
         // For this simple problem with loose tolerance, suggested step should be larger
         assert!(
@@ -1011,7 +1001,7 @@ mod tests {
         let dt_initial = 0.1; // Too large for this stiff problem
 
         // This should trigger step rejection and reduction
-        let result = rkf45.step(0.0, state, dt_initial, 1e-10, 1e-8);
+        let result = rkf45.step(0.0, state, dt_initial);
 
         // Step should have been reduced from initial
         assert!(result.dt_used <= dt_initial);
@@ -1029,7 +1019,7 @@ mod tests {
         let rkf45 = RKF45SIntegrator::with_config(Box::new(f), None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = rkf45.step(0.0, state, 0.01, 1e-8, 1e-6);
+        let result = rkf45.step(0.0, state, 0.01);
 
         // With safety factor 0.5, growth should be limited
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1049,7 +1039,7 @@ mod tests {
         let rkf45 = RKF45SIntegrator::with_config(Box::new(f), None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = rkf45.step(0.0, state, 0.001, 1e-8, 1e-6);
+        let result = rkf45.step(0.0, state, 0.001);
 
         // With no max_step_scale_factor, step can grow beyond typical 10x limit
         // (though actual growth depends on error)
@@ -1075,14 +1065,8 @@ mod tests {
 
         // Propagate single step
         let dt = 10.0; // 10 seconds
-        let (state_new, phi, _dt_used, _error, _dt_next) = rkf45.step_with_varmat(
-            0.0,
-            state0,
-            SMatrix::<f64, 6, 6>::identity(),
-            dt,
-            1e-12,
-            1e-10,
-        );
+        let (state_new, phi, _dt_used, _error, _dt_next) =
+            rkf45.step_with_varmat(0.0, state0, SMatrix::<f64, 6, 6>::identity(), dt);
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1091,7 +1075,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = state0 + perturbation;
-            let result_pert = rkf45.step(0.0, state0_pert, dt, 1e-12, 1e-10);
+            let result_pert = rkf45.step(0.0, state0_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi * perturbation;
@@ -1161,11 +1145,10 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let (state_new, phi_new, dt_used, _, _) =
-                rkf45.step_with_varmat(t, state, phi, dt, 1e-12, 1e-10);
+            let (state_new, phi_new, dt_used, _, _) = rkf45.step_with_varmat(t, state, phi, dt);
 
             // Propagate perturbed state directly
-            let result_pert = rkf45.step(t, state_pert, dt, 1e-12, 1e-10);
+            let result_pert = rkf45.step(t, state_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi_new * perturbation;
@@ -1226,7 +1209,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-10, 1e-8);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -1247,7 +1230,7 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-10, 1e-8);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
 
@@ -1276,7 +1259,7 @@ mod tests {
 
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = rkf45.step(epc - epc0, state, dt, 1e-8, 1e-6);
+            let result = rkf45.step(epc - epc0, state, dt);
             state = result.state;
             epc += result.dt_used;
         }
@@ -1300,7 +1283,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt, 1e-8, 1e-6);
+            let result = rkf45.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -1321,7 +1304,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
         let dt_initial = 0.01;
 
-        let result = rkf45.step(0.0, state, dt_initial, 1e-6, 1e-4);
+        let result = rkf45.step(0.0, state, dt_initial);
 
         assert!(
             result.dt_next > dt_initial,
@@ -1345,7 +1328,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let dt_initial = 0.1;
 
-        let result = rkf45.step(0.0, state, dt_initial, 1e-10, 1e-8);
+        let result = rkf45.step(0.0, state, dt_initial);
 
         assert!(result.dt_used <= dt_initial);
     }
@@ -1362,7 +1345,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = rkf45.step(0.0, state, 0.01, 1e-8, 1e-6);
+        let result = rkf45.step(0.0, state, 0.01);
 
         // Verify config parameters limit step size growth
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1382,7 +1365,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = rkf45.step(0.0, state, 0.001, 1e-8, 1e-6);
+        let result = rkf45.step(0.0, state, 0.001);
 
         // Verify step succeeds without limits
         assert!(result.dt_next > 0.0);
@@ -1411,14 +1394,8 @@ mod tests {
 
         // Propagate with STM
         let dt = 10.0;
-        let (state_new, phi, _dt_used, _error, _dt_next) = rkf45.step_with_varmat(
-            0.0,
-            state0.clone(),
-            DMatrix::<f64>::identity(6, 6),
-            dt,
-            1e-12,
-            1e-10,
-        );
+        let (state_new, phi, _dt_used, _error, _dt_next) =
+            rkf45.step_with_varmat(0.0, state0.clone(), DMatrix::<f64>::identity(6, 6), dt);
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1427,7 +1404,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = &state0 + &perturbation;
-            let result_pert = rkf45.step(0.0, state0_pert, dt, 1e-12, 1e-10);
+            let result_pert = rkf45.step(0.0, state0_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi * &perturbation;
@@ -1498,10 +1475,10 @@ mod tests {
         for step in 0..num_steps {
             // Propagate nominal state with STM
             let (state_new, phi_new, dt_used, _, _) =
-                rkf45.step_with_varmat(t, state.clone(), phi.clone(), dt, 1e-12, 1e-10);
+                rkf45.step_with_varmat(t, state.clone(), phi.clone(), dt);
 
             // Propagate perturbed state directly
-            let result_pert = rkf45.step(t, state_pert.clone(), dt, 1e-12, 1e-10);
+            let result_pert = rkf45.step(t, state_pert.clone(), dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
@@ -1544,8 +1521,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = rkf45_s.step(0.0, state_s, dt, 1e-10, 1e-8);
-        let result_d = rkf45_d.step(0.0, state_d, dt, 1e-10, 1e-8);
+        let result_s = rkf45_s.step(0.0, state_s, dt);
+        let result_d = rkf45_d.step(0.0, state_d, dt);
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);

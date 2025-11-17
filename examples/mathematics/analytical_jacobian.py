@@ -26,7 +26,7 @@ def jacobian_func(t, state):
 
 
 # Create analytical Jacobian provider
-jacobian = bh.DAnalyticJacobian(jacobian_func)
+jacobian = bh.AnalyticJacobian(jacobian_func)
 
 # Compute Jacobian at a specific state
 t = 0.0

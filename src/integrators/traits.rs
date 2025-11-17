@@ -5,7 +5,47 @@ for numerical integration routines.
 
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
-use crate::integrators::config::AdaptiveStepSResult;
+use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
+
+/// Determines the step size to use for fixed-step integration.
+///
+/// # Arguments
+/// - `dt`: Optional explicitly provided step size
+/// - `config`: Integrator configuration that may contain a fixed step size
+///
+/// # Returns
+/// The step size to use for integration
+///
+/// # Panics
+/// Panics if both `dt` and `config.fixed_step_size` are `None`. Fixed-step integrators
+/// require an explicit step size either through the `dt` parameter or via configuration.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::integrators::{IntegratorConfig, get_step_size};
+///
+/// let config = IntegratorConfig::fixed_step(1.0);
+///
+/// // Use config's step size
+/// let dt = get_step_size(None, &config);
+/// assert_eq!(dt, 1.0);
+///
+/// // Override with explicit dt
+/// let dt = get_step_size(Some(0.5), &config);
+/// assert_eq!(dt, 0.5);
+/// ```
+pub fn get_step_size(dt: Option<f64>, config: &IntegratorConfig) -> f64 {
+    match dt {
+        Some(step) => step,
+        None => config.fixed_step_size.unwrap_or_else(|| {
+            panic!(
+                "Fixed-step integrator requires a step size. \
+                Either provide dt to step() or set fixed_step_size in IntegratorConfig."
+            )
+        }),
+    }
+}
 
 /// Trait defining interface for fixed-step numerical integration methods (static-sized).
 ///
@@ -17,11 +57,15 @@ pub trait FixedStepSIntegrator<const S: usize> {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
-    /// - `dt`: Integration timestep (can be negative for backward integration)
+    /// - `dt`: Optional integration timestep (can be negative for backward integration).
+    ///   If None, uses the step size from the integrator's configuration.
     ///
     /// # Returns
     /// State vector at time t + dt
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> SVector<f64, S>;
+    ///
+    /// # Panics
+    /// Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SVector<f64, S>;
 
     /// Advance both state and state transition matrix by one timestep.
     ///
@@ -31,16 +75,19 @@ pub trait FixedStepSIntegrator<const S: usize> {
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `phi`: State transition matrix at time t
-    /// - `dt`: Integration timestep
+    /// - `dt`: Optional integration timestep. If None, uses the step size from the integrator's configuration.
     ///
     /// # Returns
     /// Tuple of (state at t+dt, state transition matrix at t+dt)
+    ///
+    /// # Panics
+    /// Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
     fn step_with_varmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>);
 }
 
@@ -52,38 +99,29 @@ pub trait AdaptiveStepSIntegrator<const S: usize> {
     /// Advance the state with adaptive step control.
     ///
     /// Automatically adjusts the timestep to meet specified tolerances using
-    /// embedded error estimation.
+    /// embedded error estimation. Tolerances are read from the integrator's
+    /// configuration.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `dt`: Requested integration timestep
-    /// - `abs_tol`: Absolute error tolerance
-    /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
     /// AdaptiveStepSResult containing new state, actual dt used, error estimate, and suggested next dt
-    fn step(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepSResult<S>;
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S>;
 
     /// Advance state and STM with adaptive step control.
     ///
     /// Combines adaptive stepping with variational matrix propagation for uncertainty
-    /// quantification with automatic step size control.
+    /// quantification with automatic step size control. Tolerances are read from the
+    /// integrator's configuration.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `phi`: State transition matrix at time t
     /// - `dt`: Requested integration timestep
-    /// - `abs_tol`: Absolute error tolerance
-    /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
     /// Tuple of (new state, new STM, actual dt used, error estimate, suggested next dt)
@@ -93,8 +131,6 @@ pub trait AdaptiveStepSIntegrator<const S: usize> {
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64);
 }
 
@@ -141,7 +177,7 @@ pub struct AdaptiveStepDResult {
 ///
 /// let integrator = RK4DIntegrator::new(2, Box::new(dynamics), None);
 /// let state = DVector::from_vec(vec![1.0, 2.0]);
-/// let new_state = integrator.step(0.0, state, 0.1);
+/// let new_state = integrator.step(0.0, state, Some(0.1));
 /// ```
 pub trait FixedStepDIntegrator {
     /// Advance the state by one timestep using this integration method.
@@ -149,14 +185,16 @@ pub trait FixedStepDIntegrator {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t (dimension must match integrator)
-    /// - `dt`: Integration timestep (can be negative for backward integration)
+    /// - `dt`: Optional integration timestep (can be negative for backward integration).
+    ///   If None, uses the step size from the integrator's configuration.
     ///
     /// # Returns
     /// State vector at time t + dt
     ///
     /// # Panics
-    /// May panic if `state` dimension doesn't match the integrator's expected dimension.
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> DVector<f64>;
+    /// - May panic if `state` dimension doesn't match the integrator's expected dimension.
+    /// - Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
+    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DVector<f64>;
 
     /// Advance both state and state transition matrix by one timestep.
     ///
@@ -166,19 +204,20 @@ pub trait FixedStepDIntegrator {
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `phi`: State transition matrix at time t (must be dimension × dimension)
-    /// - `dt`: Integration timestep
+    /// - `dt`: Optional integration timestep. If None, uses the step size from the integrator's configuration.
     ///
     /// # Returns
     /// Tuple of (state at t+dt, state transition matrix at t+dt)
     ///
     /// # Panics
-    /// May panic if dimensions don't match the integrator's expected dimension.
+    /// - May panic if dimensions don't match the integrator's expected dimension.
+    /// - Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
     fn step_with_varmat(
         &self,
         t: f64,
         state: DVector<f64>,
         phi: DMatrix<f64>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> (DVector<f64>, DMatrix<f64>);
 }
 
@@ -191,16 +230,17 @@ pub trait FixedStepDIntegrator {
 /// # Examples
 ///
 /// ```rust
-/// use brahe::integrators::{AdaptiveStepDIntegrator, RKF45DIntegrator};
+/// use brahe::integrators::{AdaptiveStepDIntegrator, RKF45DIntegrator, IntegratorConfig};
 /// use nalgebra::DVector;
 ///
 /// let dynamics = |t: f64, state: DVector<f64>| -> DVector<f64> {
 ///     state.map(|y| -y)  // Exponential decay
 /// };
 ///
-/// let integrator = RKF45DIntegrator::new(2, Box::new(dynamics), None);
+/// let config = IntegratorConfig::adaptive(1e-9, 1e-6);
+/// let integrator = RKF45DIntegrator::with_config(2, Box::new(dynamics), None, config);
 /// let state = DVector::from_vec(vec![1.0, 2.0]);
-/// let result = integrator.step(0.0, state, 0.1, 1e-9, 1e-6);
+/// let result = integrator.step(0.0, state, 0.1);
 ///
 /// println!("New state: {:?}", result.state);
 /// println!("Used dt: {}, Suggested next: {}", result.dt_used, result.dt_next);
@@ -209,41 +249,32 @@ pub trait AdaptiveStepDIntegrator {
     /// Advance the state with adaptive step control.
     ///
     /// Automatically adjusts the timestep to meet specified tolerances using
-    /// embedded error estimation.
+    /// embedded error estimation. Tolerances are read from the integrator's
+    /// configuration.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `dt`: Requested integration timestep
-    /// - `abs_tol`: Absolute error tolerance
-    /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
     /// `AdaptiveStepDResult` containing new state, actual dt used, error estimate, and suggested next dt
     ///
     /// # Panics
     /// May panic if `state` dimension doesn't match the integrator's expected dimension.
-    fn step(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepDResult;
+    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult;
 
     /// Advance state and STM with adaptive step control.
     ///
     /// Combines adaptive stepping with variational matrix propagation for uncertainty
-    /// quantification with automatic step size control.
+    /// quantification with automatic step size control. Tolerances are read from the
+    /// integrator's configuration.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
     /// - `phi`: State transition matrix at time t
     /// - `dt`: Requested integration timestep
-    /// - `abs_tol`: Absolute error tolerance
-    /// - `rel_tol`: Relative error tolerance
     ///
     /// # Returns
     /// Tuple of (new state, new STM, actual dt used, error estimate, suggested next dt)
@@ -256,7 +287,5 @@ pub trait AdaptiveStepDIntegrator {
         state: DVector<f64>,
         phi: DMatrix<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64);
 }

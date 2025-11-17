@@ -18,7 +18,7 @@ def dynamics(t, state):
 
 
 # Create numerical Jacobian with default settings (central differences)
-jacobian = bh.DNumericalJacobian(dynamics)
+jacobian = bh.NumericalJacobian(dynamics)
 
 # Compute Jacobian at a specific state
 t = 0.0

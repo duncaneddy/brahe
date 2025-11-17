@@ -837,7 +837,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyDAnalyticJacobian>()?;
 
     //* Integrators *//
-    module.add_class::<PyStepMode>()?;
     module.add_class::<PyIntegratorConfig>()?;
     module.add_class::<PyAdaptiveStepDResult>()?;
     module.add_class::<PyRK4DIntegrator>()?;

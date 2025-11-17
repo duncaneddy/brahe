@@ -6,7 +6,7 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::config::IntegratorConfig;
-use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator};
+use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator, get_step_size};
 use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 
 // Type aliases for complex function types
@@ -40,7 +40,7 @@ type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 ///
 /// // Integrate the system forward in time to t = 1.0 (analytic solution is x = 1.0)
 /// for i in 0..100{
-///    state = rk4.step(t, state, dt);
+///    state = rk4.step(t, state, Some(dt));
 ///    t += dt;
 /// }
 ///
@@ -48,7 +48,7 @@ type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
 ///
 /// // Now integrate the system forward in time to t = 10.0 (analytic solution is x = 100.0)
 /// for i in 100..1000{
-///     state = rk4.step(t, state, dt);
+///     state = rk4.step(t, state, Some(dt));
 ///     t += dt;
 /// }
 ///
@@ -124,7 +124,10 @@ impl<const S: usize> RK4SIntegrator<S> {
 }
 
 impl<const S: usize> FixedStepSIntegrator<S> for RK4SIntegrator<S> {
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> SVector<f64, S> {
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SVector<f64, S> {
+        // Determine the actual step size to use
+        let dt = get_step_size(dt, &self.config);
+
         let mut k = SMatrix::<f64, S, 4>::zeros();
         let mut state_update = SVector::<f64, S>::zeros();
 
@@ -152,8 +155,11 @@ impl<const S: usize> FixedStepSIntegrator<S> for RK4SIntegrator<S> {
         t: f64,
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
+        // Determine the actual step size to use
+        let dt = get_step_size(dt, &self.config);
+
         // Define working variables to hold internal step state
         let mut k = SMatrix::<f64, S, 4>::zeros();
         let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 4];
@@ -228,7 +234,7 @@ type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 ///
 /// // Integrate forward in time
 /// for _ in 0..10 {
-///     state = rk4.step(t, state, dt);
+///     state = rk4.step(t, state, Some(dt));
 ///     t += dt;
 /// }
 /// ```
@@ -307,7 +313,10 @@ impl RK4DIntegrator {
 }
 
 impl FixedStepDIntegrator for RK4DIntegrator {
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> DVector<f64> {
+    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DVector<f64> {
+        // Determine the actual step size to use
+        let dt = get_step_size(dt, &self.config);
+
         assert_eq!(
             state.len(),
             self.dimension,
@@ -343,8 +352,11 @@ impl FixedStepDIntegrator for RK4DIntegrator {
         t: f64,
         state: DVector<f64>,
         phi: DMatrix<f64>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> (DVector<f64>, DMatrix<f64>) {
+        // Determine the actual step size to use
+        let dt = get_step_size(dt, &self.config);
+
         assert_eq!(
             state.len(),
             self.dimension,
@@ -454,7 +466,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, dt);
+            state = rk4.step(i as f64, state, Some(dt));
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -476,7 +488,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, dt);
+            state = rk4.step(t, state, Some(dt));
             t += dt;
         }
 
@@ -500,7 +512,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, dt);
+            state = rk4.step(epc - epc0, state, Some(dt));
             epc += dt;
         }
 
@@ -527,7 +539,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let (_, phi1) = rk4.step_with_varmat(0.0, state0, phi0, 0.0);
+        let (_, phi1) = rk4.step_with_varmat(0.0, state0, phi0, Some(0.0));
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -539,7 +551,7 @@ mod tests {
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let (_, phi2) = rk4.step_with_varmat(0.0, state0, phi0, 1.0);
+        let (_, phi2) = rk4.step_with_varmat(0.0, state0, phi0, Some(1.0));
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -563,10 +575,10 @@ mod tests {
         let rk4 = RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(jacobian2)));
 
         // Get the state with a perturbation
-        let (state_pert, _) = rk4.step_with_varmat(0.0, state0 + pert, phi0, 1.0);
+        let (state_pert, _) = rk4.step_with_varmat(0.0, state0 + pert, phi0, Some(1.0));
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0, 1.0) + phi2 * pert;
+        let state_stm = rk4.step(0.0, state0, Some(1.0)) + phi2 * pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -610,7 +622,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, dt);
+            state = rk4.step(i as f64, state, Some(dt));
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -628,7 +640,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, dt);
+            state = rk4.step(t, state, Some(dt));
             t += dt;
         }
 
@@ -653,7 +665,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, dt);
+            state = rk4.step(epc - epc0, state, Some(dt));
             epc += dt;
         }
 
@@ -681,7 +693,7 @@ mod tests {
         let phi0 = DMatrix::<f64>::identity(6, 6);
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let (_, phi1) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), 0.0);
+        let (_, phi1) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(0.0));
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -693,7 +705,7 @@ mod tests {
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let (_, phi2) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), 1.0);
+        let (_, phi2) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(1.0));
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -716,10 +728,10 @@ mod tests {
         let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), Some(Box::new(jacobian2)));
 
         // Get the state with a perturbation
-        let (state_pert, _) = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, 1.0);
+        let (state_pert, _) = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, Some(1.0));
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0.clone(), 1.0) + &phi2 * &pert;
+        let state_stm = rk4.step(0.0, state0.clone(), Some(1.0)) + &phi2 * &pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -747,8 +759,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let dt = 0.1;
 
-        let result_s = rk4_s.step(0.0, state_s, dt);
-        let result_d = rk4_d.step(0.0, state_d, dt);
+        let result_s = rk4_s.step(0.0, state_s, Some(dt));
+        let result_d = rk4_d.step(0.0, state_d, Some(dt));
 
         // Results should be identical to machine precision
         assert_abs_diff_eq!(result_s[0], result_d[0], epsilon = 1.0e-15);

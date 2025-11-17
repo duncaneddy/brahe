@@ -12,81 +12,13 @@ use std::sync::Arc;
 
 use crate::integrators::{
     AdaptiveStepDIntegrator, AdaptiveStepDResult, DormandPrince54DIntegrator, FixedStepDIntegrator,
-    IntegratorConfig, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator, StepMode,
+    IntegratorConfig, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
 };
 use crate::math::jacobian::DJacobianProvider;
 
 // ============================================================================
 // Configuration Types
 // ============================================================================
-
-/// Stepping mode for numerical integrators.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     # Fixed-step mode with 1.0 second steps
-///     fixed_mode = bh.StepMode.fixed(1.0)
-///
-///     # Adaptive stepping (automatic step size control)
-///     adaptive_mode = bh.StepMode.adaptive()
-///     ```
-#[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "StepMode")]
-#[derive(Clone)]
-pub struct PyStepMode {
-    pub(crate) value: StepMode,
-}
-
-#[pymethods]
-impl PyStepMode {
-    /// Create a fixed-step mode with the given step size.
-    ///
-    /// Args:
-    ///     step_size (float): Fixed timestep in seconds
-    ///
-    /// Returns:
-    ///     StepMode: Fixed-step mode
-    #[classmethod]
-    fn fixed(_cls: &Bound<'_, PyType>, step_size: f64) -> Self {
-        PyStepMode {
-            value: StepMode::Fixed(step_size),
-        }
-    }
-
-    /// Create an adaptive-step mode.
-    ///
-    /// Returns:
-    ///     StepMode: Adaptive-step mode
-    #[classmethod]
-    fn adaptive(_cls: &Bound<'_, PyType>) -> Self {
-        PyStepMode {
-            value: StepMode::Adaptive,
-        }
-    }
-
-    fn __str__(&self) -> String {
-        match self.value {
-            StepMode::Fixed(dt) => format!("Fixed({})", dt),
-            StepMode::Adaptive => "Adaptive".to_string(),
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!("StepMode.{}", self.__str__())
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.value == other.value),
-            CompareOp::Ne => Ok(self.value != other.value),
-            _ => Err(exceptions::PyNotImplementedError::new_err(
-                "Only == and != are supported for StepMode",
-            )),
-        }
-    }
-}
 
 /// Configuration for numerical integrators.
 ///
@@ -134,6 +66,7 @@ impl PyIntegratorConfig {
     ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
     ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
     ///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 10.
+    ///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
     ///
     /// Returns:
     ///     IntegratorConfig: New configuration
@@ -147,7 +80,8 @@ impl PyIntegratorConfig {
         step_safety_factor=Some(0.9),
         min_step_scale_factor=Some(0.2),
         max_step_scale_factor=Some(10.0),
-        max_step_attempts=10
+        max_step_attempts=10,
+        fixed_step_size=None
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -160,6 +94,7 @@ impl PyIntegratorConfig {
         min_step_scale_factor: Option<f64>,
         max_step_scale_factor: Option<f64>,
         max_step_attempts: usize,
+        fixed_step_size: Option<f64>,
     ) -> Self {
         PyIntegratorConfig {
             inner: IntegratorConfig {
@@ -168,11 +103,11 @@ impl PyIntegratorConfig {
                 initial_step,
                 min_step,
                 max_step,
-                step_mode: StepMode::Adaptive,
                 step_safety_factor,
                 min_step_scale_factor,
                 max_step_scale_factor,
                 max_step_attempts,
+                fixed_step_size,
             },
         }
     }
@@ -295,7 +230,7 @@ impl PyIntegratorConfig {
 ///     integrator = bh.RKF45Integrator(2, dynamics)
 ///     state = np.array([1.0, 0.0])
 ///
-///     result = integrator.step(0.0, state, 0.1, abs_tol=1e-6, rel_tol=1e-3)
+///     result = integrator.step(0.0, state, 0.1)
 ///     print(f"New state: {result.state}")
 ///     print(f"Step used: {result.dt_used}")
 ///     print(f"Error: {result.error_estimate}")
@@ -533,21 +468,28 @@ impl PyRK4DIntegrator {
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
-    ///     dt (float): Timestep
+    ///     dt (float, optional): Timestep. If None, uses the step size from configuration.
     ///
     /// Returns:
     ///     ndarray: State vector at time t + dt
     ///
     /// Example:
     ///     ```python
+    ///     # Using explicit dt
     ///     new_state = integrator.step(0.0, state, 0.01)
+    ///
+    ///     # Using config-based dt
+    ///     config = bh.IntegratorConfig.fixed_step(0.01)
+    ///     integrator = bh.RK4Integrator(2, dynamics, config=config)
+    ///     new_state = integrator.step(0.0, state)
     ///     ```
+    #[pyo3(signature = (t, state, dt=None))]
     pub fn step<'py>(
         &self,
         py: Python<'py>,
         t: f64,
         state: &Bound<'py, PyAny>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
         let state_vec = pyany_to_f64_array1(state, Some(self.dimension))?;
         let state_dvec = na::DVector::from_vec(state_vec);
@@ -563,7 +505,7 @@ impl PyRK4DIntegrator {
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     phi (ndarray): State transition matrix at time t (dimension × dimension)
-    ///     dt (float): Timestep
+    ///     dt (float, optional): Timestep. If None, uses the step size from configuration.
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi) - State vector and STM at time t + dt
@@ -571,8 +513,13 @@ impl PyRK4DIntegrator {
     /// Example:
     ///     ```python
     ///     phi = np.eye(2)
+    ///     # Using explicit dt
     ///     new_state, new_phi = integrator.step_with_varmat(0.0, state, phi, 0.01)
+    ///
+    ///     # Using config-based dt
+    ///     new_state, new_phi = integrator.step_with_varmat(0.0, state, phi)
     ///     ```
+    #[pyo3(signature = (t, state, phi, dt=None))]
     #[allow(clippy::type_complexity)]
     pub fn step_with_varmat<'py>(
         &self,
@@ -580,7 +527,7 @@ impl PyRK4DIntegrator {
         t: f64,
         state: &Bound<'py, PyAny>,
         phi: &Bound<'py, PyAny>,
-        dt: f64,
+        dt: Option<f64>,
     ) -> PyResult<(Bound<'py, PyArray<f64, numpy::Ix1>>, Bound<'py, PyArray<f64, numpy::Ix2>>)> {
         let state_vec = pyany_to_f64_array1(state, Some(self.dimension))?;
         let state_dvec = na::DVector::from_vec(state_vec);
@@ -640,10 +587,11 @@ impl PyRK4DIntegrator {
 ///         # dy/dt = -y
 ///         return -state
 ///
-///     integrator = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics)
+///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+///     integrator = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics, config=config)
 ///
-///     # Adaptive step
-///     result = integrator.step(0.0, np.array([1.0]), 0.1, 1e-9, 1e-6)
+///     # Adaptive step (tolerances from config)
+///     result = integrator.step(0.0, np.array([1.0]), 0.1)
 ///     print(f"New state: {result.state}")
 ///     print(f"Step used: {result.dt_used}")
 ///     print(f"Next step suggestion: {result.dt_next}")
@@ -788,12 +736,12 @@ impl PyRKF45DIntegrator {
 
     /// Perform one adaptive integration step.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     AdaptiveStepResult: Result containing new state, actual dt used, error estimate, and suggested next dt
@@ -803,32 +751,30 @@ impl PyRKF45DIntegrator {
         t: f64,
         state: PyReadonlyArray1<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<PyAdaptiveStepDResult> {
         // Convert state to DVector
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
         // Perform step
-        let result = self.inner.step(t, state_dvec, dt, abs_tol, rel_tol);
+        let result = self.inner.step(t, state_dvec, dt);
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
 
     /// Perform one adaptive integration step with variational matrix.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     phi (ndarray): State transition matrix (dimension x dimension)
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi, dt_used, error_estimate, dt_next)
-    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     pub fn step_with_varmat<'py>(
         &self,
         py: Python<'py>,
@@ -836,8 +782,6 @@ impl PyRKF45DIntegrator {
         state: PyReadonlyArray1<f64>,
         phi: PyReadonlyArray2<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<(
         Bound<'py, PyArray<f64, Ix1>>,
         Bound<'py, PyArray<f64, Ix2>>,
@@ -860,7 +804,7 @@ impl PyRKF45DIntegrator {
         // Perform step
         let (new_state, new_phi, dt_used, error_est, dt_next) =
             self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt, abs_tol, rel_tol);
+                .step_with_varmat(t, state_dvec, phi_dmat, dt);
 
         // Convert results to NumPy
         let state_np = new_state.as_slice().to_pyarray(py);
@@ -902,10 +846,11 @@ impl PyRKF45DIntegrator {
 ///     def dynamics(t, state):
 ///         return -state
 ///
-///     integrator = bh.DP54Integrator(dimension=1, dynamics_fn=dynamics)
+///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+///     integrator = bh.DP54Integrator(dimension=1, dynamics_fn=dynamics, config=config)
 ///
-///     # Adaptive step
-///     result = integrator.step(0.0, np.array([1.0]), 0.1, 1e-9, 1e-6)
+///     # Adaptive step (tolerances from config)
+///     result = integrator.step(0.0, np.array([1.0]), 0.1)
 ///     ```
 #[pyclass(module = "brahe._brahe", unsendable)]
 #[pyo3(name = "DP54Integrator")]
@@ -1047,12 +992,12 @@ impl PyDP54DIntegrator {
 
     /// Perform one adaptive integration step.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     AdaptiveStepResult: Result containing new state, actual dt used, error estimate, and suggested next dt
@@ -1062,30 +1007,28 @@ impl PyDP54DIntegrator {
         t: f64,
         state: PyReadonlyArray1<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<PyAdaptiveStepDResult> {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, dt, abs_tol, rel_tol);
+        let result = self.inner.step(t, state_dvec, dt);
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
 
     /// Perform one adaptive integration step with variational matrix.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     phi (ndarray): State transition matrix (dimension x dimension)
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi, dt_used, error_estimate, dt_next)
-    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     pub fn step_with_varmat<'py>(
         &self,
         py: Python<'py>,
@@ -1093,8 +1036,6 @@ impl PyDP54DIntegrator {
         state: PyReadonlyArray1<f64>,
         phi: PyReadonlyArray2<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<(
         Bound<'py, PyArray<f64, Ix1>>,
         Bound<'py, PyArray<f64, Ix2>>,
@@ -1115,7 +1056,7 @@ impl PyDP54DIntegrator {
 
         let (new_state, new_phi, dt_used, error_est, dt_next) =
             self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt, abs_tol, rel_tol);
+                .step_with_varmat(t, state_dvec, phi_dmat, dt);
 
         let state_np = new_state.as_slice().to_pyarray(py);
 
@@ -1162,10 +1103,11 @@ impl PyDP54DIntegrator {
 ///         a = -bh.GM_EARTH / (r_norm**3) * r
 ///         return np.concatenate([v, a])
 ///
-///     integrator = bh.RKN1210Integrator(dimension=6, dynamics_fn=dynamics)
+///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+///     integrator = bh.RKN1210Integrator(dimension=6, dynamics_fn=dynamics, config=config)
 ///
-///     # Adaptive step
-///     result = integrator.step(0.0, state, 1.0, 1e-9, 1e-6)
+///     # Adaptive step (tolerances from config)
+///     result = integrator.step(0.0, state, 1.0)
 ///     ```
 #[pyclass(module = "brahe._brahe", unsendable)]
 #[pyo3(name = "RKN1210Integrator")]
@@ -1317,12 +1259,12 @@ impl PyRKN1210DIntegrator {
 
     /// Perform one adaptive integration step.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t [position, velocity]
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     AdaptiveStepResult: Result containing new state, actual dt used, error estimate, and suggested next dt
@@ -1332,30 +1274,28 @@ impl PyRKN1210DIntegrator {
         t: f64,
         state: PyReadonlyArray1<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<PyAdaptiveStepDResult> {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, dt, abs_tol, rel_tol);
+        let result = self.inner.step(t, state_dvec, dt);
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
 
     /// Perform one adaptive integration step with variational matrix.
     ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     phi (ndarray): State transition matrix (dimension x dimension)
     ///     dt (float): Requested timestep
-    ///     abs_tol (float): Absolute error tolerance
-    ///     rel_tol (float): Relative error tolerance
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi, dt_used, error_estimate, dt_next)
-    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     pub fn step_with_varmat<'py>(
         &self,
         py: Python<'py>,
@@ -1363,8 +1303,6 @@ impl PyRKN1210DIntegrator {
         state: PyReadonlyArray1<f64>,
         phi: PyReadonlyArray2<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> PyResult<(
         Bound<'py, PyArray<f64, Ix1>>,
         Bound<'py, PyArray<f64, Ix2>>,
@@ -1385,7 +1323,7 @@ impl PyRKN1210DIntegrator {
 
         let (new_state, new_phi, dt_used, error_est, dt_next) =
             self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt, abs_tol, rel_tol);
+                .step_with_varmat(t, state_dvec, phi_dmat, dt);
 
         let state_np = new_state.as_slice().to_pyarray(py);
 

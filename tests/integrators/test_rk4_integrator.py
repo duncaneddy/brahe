@@ -6,20 +6,6 @@ import numpy as np
 import brahe as bh
 
 
-class TestStepMode:
-    """Tests for StepMode enum."""
-
-    def test_fixed_mode(self):
-        """Test creating fixed-step mode."""
-        mode = bh.StepMode.fixed(1.0)
-        assert mode is not None
-
-    def test_adaptive_mode(self):
-        """Test creating adaptive-step mode."""
-        mode = bh.StepMode.adaptive()
-        assert mode is not None
-
-
 class TestIntegratorConfig:
     """Tests for IntegratorConfig class."""
 
@@ -167,7 +153,7 @@ class TestRK4Integrator:
             return np.concatenate([v, a])
 
         # Create numerical Jacobian provider
-        jacobian = bh.DNumericalJacobian(point_earth).with_fixed_offset(1.0)
+        jacobian = bh.NumericalJacobian(point_earth).with_fixed_offset(1.0)
 
         integrator = bh.RK4Integrator(
             dimension=6, dynamics_fn=point_earth, jacobian=jacobian

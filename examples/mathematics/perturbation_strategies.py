@@ -36,21 +36,21 @@ print(f"State: position={state[0]} km, velocity={state[1]} km/s\n")
 
 # Strategy 1: Fixed perturbation
 print("1. Fixed Perturbation (h = 1e-6)")
-jacobian_fixed = bh.DNumericalJacobian.central(dynamics).with_fixed_offset(1e-6)
+jacobian_fixed = bh.NumericalJacobian.central(dynamics).with_fixed_offset(1e-6)
 J_fixed = jacobian_fixed.compute(t, state)
 error_fixed = np.linalg.norm(J_fixed - J_analytical)
 print(f"   Error: {error_fixed:.2e}\n")
 
 # Strategy 2: Percentage perturbation
 print("2. Percentage Perturbation (0.001%)")
-jacobian_pct = bh.DNumericalJacobian.central(dynamics).with_percentage(1e-5)
+jacobian_pct = bh.NumericalJacobian.central(dynamics).with_percentage(1e-5)
 J_pct = jacobian_pct.compute(t, state)
 error_pct = np.linalg.norm(J_pct - J_analytical)
 print(f"   Error: {error_pct:.2e}\n")
 
 # Strategy 3: Adaptive perturbation (recommended)
 print("3. Adaptive Perturbation (scale=1.0, min=1.0)")
-jacobian_adaptive = bh.DNumericalJacobian.central(dynamics).with_adaptive(
+jacobian_adaptive = bh.NumericalJacobian.central(dynamics).with_adaptive(
     scale_factor=1.0, min_threshold=1.0
 )
 J_adaptive = jacobian_adaptive.compute(t, state)

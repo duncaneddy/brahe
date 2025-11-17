@@ -8,7 +8,6 @@ where x is the state vector and f is the dynamics function.
 """
 
 from brahe._brahe import (
-    StepMode,
     IntegratorConfig,
     AdaptiveStepResult,
     RK4Integrator,
@@ -18,7 +17,6 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    "StepMode",
     "IntegratorConfig",
     "AdaptiveStepResult",
     "RK4Integrator",

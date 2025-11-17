@@ -23,8 +23,8 @@ from brahe._brahe import (
     DifferenceMethod,
     PerturbationStrategy,
     # Jacobian providers
-    DNumericalJacobian,
-    DAnalyticJacobian,
+    NumericalJacobian,
+    AnalyticJacobian,
 )
 
 __all__ = [
@@ -32,6 +32,6 @@ __all__ = [
     "DifferenceMethod",
     "PerturbationStrategy",
     # Jacobian providers
-    "DNumericalJacobian",
-    "DAnalyticJacobian",
+    "NumericalJacobian",
+    "AnalyticJacobian",
 ]

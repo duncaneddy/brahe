@@ -93,7 +93,7 @@ type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 /// let t = 0.0;
 /// let state = SVector::<f64, 6>::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
 /// let dt = 10.0;
-/// let result = rkn.step(t, state, dt, 1e-12, 1e-10);
+/// let result = rkn.step(t, state, dt);
 ///
 /// println!("New state: {:?}", result.state);
 /// println!("Suggested next dt: {}", result.dt_next);
@@ -180,14 +180,7 @@ impl<const S: usize> RKN1210SIntegrator<S> {
 }
 
 impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
-    fn step(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepSResult<S> {
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
         // State vector format: [position, velocity] where each is S/2 dimensional
         // For 6D orbital state: [x, y, z, vx, vy, vz]
         assert!(
@@ -293,7 +286,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
             let error_vec = state_high - state_low;
             let mut error = 0.0;
             for i in 0..S {
-                let tol = abs_tol + rel_tol * f64::max(state_high[i].abs(), state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
                 let normalized_error = (error_vec[i] / tol).abs();
                 error = f64::max(error, normalized_error);
             }
@@ -384,8 +378,6 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
         assert!(
             S.is_multiple_of(2),
@@ -507,7 +499,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
         let error_vec = state_high - state_low;
         let mut error = 0.0;
         for i in 0..S {
-            let tol = abs_tol + rel_tol * f64::max(state_high[i].abs(), state[i].abs());
+            let tol = self.config.abs_tol
+                + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
             error = f64::max(error, (error_vec[i] / tol).abs());
         }
 
@@ -603,7 +596,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
 /// let rkn = RKN1210DIntegrator::with_config(6, Box::new(f), None, config);
 ///
 /// let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-/// let result = rkn.step(0.0, state, 10.0, 1e-12, 1e-10);
+/// let result = rkn.step(0.0, state, 10.0);
 /// ```
 pub struct RKN1210DIntegrator {
     dimension: usize,
@@ -660,14 +653,7 @@ impl RKN1210DIntegrator {
 }
 
 impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
-    fn step(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepDResult {
+    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
         assert_eq!(state.len(), self.dimension);
 
         let half_dim = self.dimension / 2;
@@ -752,7 +738,8 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
             let error_vec = &state_high - &state_low;
             let mut error = 0.0;
             for i in 0..self.dimension {
-                let tol = abs_tol + rel_tol * f64::max(state_high[i].abs(), state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
                 let normalized_error = (error_vec[i] / tol).abs();
                 error = f64::max(error, normalized_error);
             }
@@ -826,8 +813,6 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
         state: DVector<f64>,
         phi: DMatrix<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
         assert_eq!(state.len(), self.dimension);
         assert_eq!(phi.nrows(), self.dimension);
@@ -934,7 +919,8 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
         let error_vec = &state_high - &state_low;
         let mut error = 0.0;
         for i in 0..self.dimension {
-            let tol = abs_tol + rel_tol * f64::max(state_high[i].abs(), state[i].abs());
+            let tol = self.config.abs_tol
+                + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
             error = f64::max(error, (error_vec[i] / tol).abs());
         }
 
@@ -1057,7 +1043,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0); // [x, v] = [0, 0]
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, dt, 1e-10, 1e-8);
+        let result = rkn.step(0.0, state, dt);
 
         println!("After one step:");
         println!("  state: [{}, {}]", result.state[0], result.state[1]);
@@ -1095,7 +1081,7 @@ mod tests {
         while t < t_final {
             // Clip dt to not overshoot target time
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, dt_actual, 1e-10, 1e-8);
+            let result = rkn.step(t, state, dt_actual);
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1135,7 +1121,7 @@ mod tests {
 
         while epc < epcf {
             let dt_actual = f64::min(dt, epcf - epc);
-            let result = rkn.step(epc - epc0, state, dt_actual, 1e-9, 1e-6);
+            let result = rkn.step(epc - epc0, state, dt_actual);
             state = result.state;
             dt = result.dt_next;
             epc += result.dt_used;
@@ -1163,7 +1149,7 @@ mod tests {
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, dt_actual, 1e-12, 1e-10);
+            let result = rkn.step(t, state, dt_actual);
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1185,7 +1171,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0);
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, dt, 1e-6, 1e-3);
+        let result = rkn.step(0.0, state, dt);
 
         // With loose tolerances on smooth problem, should suggest larger step
         assert!(result.dt_next > dt);
@@ -1210,7 +1196,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(1.0, 0.0);
         let dt = 1.0;
 
-        let result = rkn.step(0.0, state, dt, 1e-14, 1e-12);
+        let result = rkn.step(0.0, state, dt);
 
         // Verify adaptive mechanism produces valid output
         assert!(result.dt_used > 0.0);
@@ -1259,7 +1245,7 @@ mod tests {
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, dt_actual, 1e-13, 1e-11);
+            let result = rkn.step(t, state, dt_actual);
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1290,7 +1276,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let (_, phi1, _, _, _) = rkn.step_with_varmat(0.0, state0, phi0, 0.0, 1e-9, 1e-6);
+        let (_, phi1, _, _, _) = rkn.step_with_varmat(0.0, state0, phi0, 0.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -1302,7 +1288,7 @@ mod tests {
         }
 
         // Propagate one step and verify STM updated
-        let (_, phi2, _, _, _) = rkn.step_with_varmat(0.0, state0, phi0, 1.0, 1e-9, 1e-6);
+        let (_, phi2, _, _, _) = rkn.step_with_varmat(0.0, state0, phi0, 1.0);
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -1340,8 +1326,7 @@ mod tests {
 
         // Propagate with STM for a significant time step
         let dt = 10.0; // 10 seconds
-        let (state_final, phi_final, _, _, _) =
-            rkn.step_with_varmat(0.0, state0, phi0, dt, 1e-12, 1e-10);
+        let (state_final, phi_final, _, _, _) = rkn.step_with_varmat(0.0, state0, phi0, dt);
 
         // Test STM accuracy by comparing with direct perturbation
         // Use a small perturbation in each direction
@@ -1354,7 +1339,7 @@ mod tests {
 
             // Propagate perturbed state directly
             let state_pert0 = state0 + perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, dt, 1e-12, 1e-10);
+            let result_pert = rkn.step(0.0, state_pert0, dt);
             let state_pert_direct = result_pert.state;
 
             // Predict perturbed state using STM
@@ -1429,11 +1414,10 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let (state_new, phi_new, dt_used, _, _) =
-                rkn.step_with_varmat(t, state, phi, dt, 1e-12, 1e-10);
+            let (state_new, phi_new, dt_used, _, _) = rkn.step_with_varmat(t, state, phi, dt);
 
             // Propagate perturbed state directly
-            let result_pert = rkn.step(t, state_pert, dt, 1e-12, 1e-10);
+            let result_pert = rkn.step(t, state_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi_new * perturbation;
@@ -1510,7 +1494,7 @@ mod tests {
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
-        let result = rkn.step(0.0, state0, dt, 1e-12, 1e-10);
+        let result = rkn.step(0.0, state0, dt);
         assert!(result.state.len() == 6);
         assert!(result.dt_used > 0.0);
         assert!(result.error_estimate >= 0.0);
@@ -1529,7 +1513,7 @@ mod tests {
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
         let state = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 1.0;
-        let result = rkn.step(0.0, state, dt, 1e-12, 1e-10);
+        let result = rkn.step(0.0, state, dt);
         let expected_pos = 0.5 * 2.0 * dt * dt;
         let expected_vel = 2.0 * dt;
         assert_abs_diff_eq!(result.state[0], expected_pos, epsilon = 1e-10);
@@ -1549,7 +1533,7 @@ mod tests {
         let mut state = state0.clone();
         let mut t = 0.0;
         for _ in 0..100 {
-            let result = rkn.step(t, state.clone(), dt, 1e-12, 1e-10);
+            let result = rkn.step(t, state.clone(), dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -1566,7 +1550,7 @@ mod tests {
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 60.0;
-        let result = rkn.step(0.0, state0, dt, 1e-13, 1e-11);
+        let result = rkn.step(0.0, state0, dt);
         assert!(result.error_estimate < 1.0);
     }
 
@@ -1581,7 +1565,7 @@ mod tests {
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result = rkn.step(0.0, state, 0.1, 1e-8, 1e-6);
+        let result = rkn.step(0.0, state, 0.1);
         assert!(result.dt_next > 0.1);
     }
 
@@ -1596,8 +1580,8 @@ mod tests {
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result1 = rkn.step(0.0, state.clone(), 0.1, 1e-8, 1e-6);
-        let result2 = rkn.step(result1.dt_used, result1.state, 0.1, 1e-8, 1e-6);
+        let result1 = rkn.step(0.0, state.clone(), 0.1);
+        let result2 = rkn.step(result1.dt_used, result1.state, 0.1);
         assert!(result2.dt_used > 0.0);
     }
 
@@ -1631,7 +1615,7 @@ mod tests {
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
-        let result = rkn.step(0.0, state0, 10.0, 1e-14, 1e-12);
+        let result = rkn.step(0.0, state0, 10.0);
         assert!(result.error_estimate < 1.0);
     }
 
@@ -1653,7 +1637,7 @@ mod tests {
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
         let (state_new, phi_new, dt_used, error, dt_next) =
-            rkn.step_with_varmat(0.0, state0, DMatrix::identity(6, 6), dt, 1e-12, 1e-10);
+            rkn.step_with_varmat(0.0, state0, DMatrix::identity(6, 6), dt);
         assert_eq!(state_new.len(), 6);
         assert_eq!(phi_new.nrows(), 6);
         assert_eq!(phi_new.ncols(), 6);
@@ -1680,14 +1664,13 @@ mod tests {
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let phi0 = DMatrix::identity(6, 6);
         let dt = 10.0;
-        let (state_final, phi_final, _, _, _) =
-            rkn.step_with_varmat(0.0, state0.clone(), phi0, dt, 1e-12, 1e-10);
+        let (state_final, phi_final, _, _, _) = rkn.step_with_varmat(0.0, state0.clone(), phi0, dt);
         let pert_size = 1.0;
         for i in 0..6 {
             let mut perturbation = DVector::zeros(6);
             perturbation[i] = pert_size;
             let state_pert0 = &state0 + &perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, dt, 1e-12, 1e-10);
+            let result_pert = rkn.step(0.0, state_pert0, dt);
             let state_pert_direct = result_pert.state;
             let state_pert_predicted = &state_final + &phi_final * &perturbation;
             let error = (&state_pert_direct - &state_pert_predicted).norm();
@@ -1725,8 +1708,8 @@ mod tests {
         let mut t = 0.0;
         for step in 0..num_steps {
             let (state_new, phi_new, dt_used, _, _) =
-                rkn_nominal.step_with_varmat(t, state.clone(), phi.clone(), dt, 1e-12, 1e-10);
-            let result_pert = rkn_pert.step(t, state_pert.clone(), dt, 1e-12, 1e-10);
+                rkn_nominal.step_with_varmat(t, state.clone(), phi.clone(), dt);
+            let result_pert = rkn_pert.step(t, state_pert.clone(), dt);
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
             let error = (&result_pert.state - &state_pert_predicted).norm();
             let max_error = 0.001 * (step + 1) as f64;
@@ -1754,8 +1737,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = rkn_s.step(0.0, state_s, dt, 1e-10, 1e-8);
-        let result_d = rkn_d.step(0.0, state_d, dt, 1e-10, 1e-8);
+        let result_s = rkn_s.step(0.0, state_s, dt);
+        let result_d = rkn_d.step(0.0, state_d, dt);
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);

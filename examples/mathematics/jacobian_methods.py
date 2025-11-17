@@ -45,9 +45,9 @@ def analytical_jacobian(state):
 
 
 # Create numerical Jacobians with different methods
-jacobian_forward = bh.DNumericalJacobian.forward(gravity_dynamics)
-jacobian_central = bh.DNumericalJacobian.central(gravity_dynamics)
-jacobian_backward = bh.DNumericalJacobian.backward(gravity_dynamics)
+jacobian_forward = bh.NumericalJacobian.forward(gravity_dynamics)
+jacobian_central = bh.NumericalJacobian.central(gravity_dynamics)
+jacobian_backward = bh.NumericalJacobian.backward(gravity_dynamics)
 
 # Test state: Low Earth Orbit position and velocity
 t = 0.0

@@ -8,7 +8,6 @@ Enumerations for specifying coordinate transformation types.
     options:
       show_root_heading: true
       show_root_full_path: false
-      heading_level: 3
 
 Specifies the type of ellipsoidal conversion used in topocentric coordinate transformations.
 
@@ -24,7 +23,6 @@ Specifies the type of ellipsoidal conversion used in topocentric coordinate tran
     options:
       show_root_heading: true
       show_root_full_path: false
-      heading_level: 3
 
 Specifies whether angles are in radians or degrees.
 

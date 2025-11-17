@@ -60,14 +60,7 @@ impl<const S: usize> DormandPrince54SIntegrator<S> {
 }
 
 impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S> {
-    fn step(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepSResult<S> {
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
         let mut h = dt;
         let mut attempts = 0;
 
@@ -115,7 +108,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
 
             // Compute normalized error
             for i in 0..S {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -229,7 +223,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
         let error_vec = state_high - state_low;
         let mut error: f64 = 0.0;
         for i in 0..S {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -247,8 +242,6 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
         // Implementation mirrors step but propagates STM and uses FSAL
         let mut h = dt;
@@ -319,7 +312,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
             let mut error: f64 = 0.0;
 
             for i in 0..S {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -435,7 +429,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
         let error_vec = state_high - state_low;
         let mut error: f64 = 0.0;
         for i in 0..S {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -500,14 +495,7 @@ impl DormandPrince54DIntegrator {
 }
 
 impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
-    fn step(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
-    ) -> AdaptiveStepDResult {
+    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
         assert_eq!(state.len(), self.dimension);
 
         let mut h = dt;
@@ -554,7 +542,8 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
             let mut error: f64 = 0.0;
 
             for i in 0..self.dimension {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -654,7 +643,8 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
         let error_vec = &state_high - &state_low;
         let mut error: f64 = 0.0;
         for i in 0..self.dimension {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -672,8 +662,6 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
         state: DVector<f64>,
         phi: DMatrix<f64>,
         dt: f64,
-        abs_tol: f64,
-        rel_tol: f64,
     ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
         assert_eq!(state.len(), self.dimension);
         assert_eq!(phi.nrows(), self.dimension);
@@ -744,7 +732,8 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
             let mut error: f64 = 0.0;
 
             for i in 0..self.dimension {
-                let tol = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+                let tol = self.config.abs_tol
+                    + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
                 error = error.max((error_vec[i] / tol).abs());
             }
 
@@ -857,7 +846,8 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
         let error_vec = &state_high - &state_low;
         let mut error: f64 = 0.0;
         for i in 0..self.dimension {
-            let scale = abs_tol + rel_tol * state_high[i].abs().max(state[i].abs());
+            let scale =
+                self.config.abs_tol + self.config.rel_tol * state_high[i].abs().max(state[i].abs());
             error = error.max((error_vec[i] / scale).abs());
         }
 
@@ -912,7 +902,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            let result = dp54.step(t, state, dt, 1e-10, 1e-8);
+            let result = dp54.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -935,7 +925,7 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = dp54.step(t, state, dt, 1e-10, 1e-8);
+            let result = dp54.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
 
@@ -966,7 +956,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(10.0);
-            let result = dp54.step(epc - epc0, state, dt, 1e-9, 1e-6);
+            let result = dp54.step(epc - epc0, state, dt);
             state = result.state;
             epc += result.dt_used;
         }
@@ -993,7 +983,7 @@ mod tests {
 
         for i in 0..100 {
             let t = i as f64 * dt;
-            let result = dp54.step(t, state, dt, 1e-10, 1e-8);
+            let result = dp54.step(t, state, dt);
             state = result.state;
         }
 
@@ -1016,7 +1006,7 @@ mod tests {
         let dt_initial = 0.01;
 
         // Take a step with loose tolerance - error should be small
-        let result = dp54.step(0.0, state, dt_initial, 1e-6, 1e-4);
+        let result = dp54.step(0.0, state, dt_initial);
 
         // For this simple problem with loose tolerance, suggested step should be larger
         assert!(
@@ -1045,7 +1035,7 @@ mod tests {
         let dt_initial = 0.1; // Too large for this stiff problem
 
         // This should trigger step rejection and reduction
-        let result = dp54.step(0.0, state, dt_initial, 1e-10, 1e-8);
+        let result = dp54.step(0.0, state, dt_initial);
 
         // Step should have been reduced from initial
         assert!(result.dt_used <= dt_initial);
@@ -1063,7 +1053,7 @@ mod tests {
         let dp54 = DormandPrince54SIntegrator::with_config(Box::new(f), None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = dp54.step(0.0, state, 0.01, 1e-8, 1e-6);
+        let result = dp54.step(0.0, state, 0.01);
 
         // With safety factor 0.5, growth should be limited
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1080,11 +1070,11 @@ mod tests {
         let state0 = SVector::<f64, 1>::new(0.0);
 
         // First step - no cached value
-        let result1 = dp54.step(0.0, state0, 0.1, 1e-10, 1e-8);
+        let result1 = dp54.step(0.0, state0, 0.1);
         let state1 = result1.state;
 
         // Second step - should use cached f value from first step
-        let result2 = dp54.step(result1.dt_used, state1, 0.1, 1e-10, 1e-8);
+        let result2 = dp54.step(result1.dt_used, state1, 0.1);
         let state2 = result2.state;
 
         // Verify we get correct result (integral of 2t from 0 to ~0.2 is ~0.04)
@@ -1107,8 +1097,8 @@ mod tests {
 
         for i in 0..100 {
             let t = i as f64 * dt;
-            let result_dp54 = dp54.step(t, state_dp54, dt, 1e-10, 1e-8);
-            let result_rkf45 = rkf45.step(t, state_rkf45, dt, 1e-10, 1e-8);
+            let result_dp54 = dp54.step(t, state_dp54, dt);
+            let result_rkf45 = rkf45.step(t, state_rkf45, dt);
             state_dp54 = result_dp54.state;
             state_rkf45 = result_rkf45.state;
         }
@@ -1144,14 +1134,8 @@ mod tests {
 
         // Propagate single step
         let dt = 10.0; // 10 seconds
-        let (state_new, phi, _dt_used, _error, _dt_next) = dp54_nominal.step_with_varmat(
-            0.0,
-            state0,
-            SMatrix::<f64, 6, 6>::identity(),
-            dt,
-            1e-12,
-            1e-10,
-        );
+        let (state_new, phi, _dt_used, _error, _dt_next) =
+            dp54_nominal.step_with_varmat(0.0, state0, SMatrix::<f64, 6, 6>::identity(), dt);
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1167,7 +1151,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = state0 + perturbation;
-            let result_pert = dp54_pert.step(0.0, state0_pert, dt, 1e-12, 1e-10);
+            let result_pert = dp54_pert.step(0.0, state0_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi * perturbation;
@@ -1243,10 +1227,10 @@ mod tests {
         for step in 0..num_steps {
             // Propagate with STM
             let (state_new, phi_new, dt_used, _, _) =
-                dp54_nominal.step_with_varmat(t, state, phi, dt, 1e-12, 1e-10);
+                dp54_nominal.step_with_varmat(t, state, phi, dt);
 
             // Propagate perturbed state directly
-            let result_pert = dp54_pert.step(t, state_pert, dt, 1e-12, 1e-10);
+            let result_pert = dp54_pert.step(t, state_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi_new * perturbation;
@@ -1306,7 +1290,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = dp54.step(t, state, dt, 1e-10, 1e-8);
+            let result = dp54.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -1326,7 +1310,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = dp54.step(t, state, dt, 1e-10, 1e-8);
+            let result = dp54.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
             assert!(result.error_estimate >= 0.0);
@@ -1355,7 +1339,7 @@ mod tests {
         let mut epc = epc0;
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = dp54.step(epc - epc0, state, dt, 1e-8, 1e-6);
+            let result = dp54.step(epc - epc0, state, dt);
             state = result.state;
             epc += result.dt_used;
         }
@@ -1379,7 +1363,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = dp54.step(t, state, dt, 1e-8, 1e-6);
+            let result = dp54.step(t, state, dt);
             state = result.state;
             t += result.dt_used;
         }
@@ -1399,7 +1383,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
         let dt_initial = 0.01;
 
-        let result = dp54.step(0.0, state, dt_initial, 1e-6, 1e-4);
+        let result = dp54.step(0.0, state, dt_initial);
 
         assert!(result.dt_next > dt_initial);
         assert!(result.error_estimate < 0.1);
@@ -1415,7 +1399,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let dt_initial = 0.1;
 
-        let result = dp54.step(0.0, state, dt_initial, 1e-10, 1e-8);
+        let result = dp54.step(0.0, state, dt_initial);
 
         assert!(result.dt_used <= dt_initial);
     }
@@ -1432,7 +1416,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = dp54.step(0.0, state, 0.01, 1e-8, 1e-6);
+        let result = dp54.step(0.0, state, 0.01);
 
         // Verify config parameters limit step size growth
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1447,8 +1431,8 @@ mod tests {
 
         // Take two consecutive steps to verify FSAL cache works
         let state = DVector::from_vec(vec![0.0]);
-        let result1 = dp54.step(0.0, state, 0.1, 1e-8, 1e-6);
-        let result2 = dp54.step(result1.dt_used, result1.state, 0.1, 1e-8, 1e-6);
+        let result1 = dp54.step(0.0, state, 0.1);
+        let result2 = dp54.step(result1.dt_used, result1.state, 0.1);
 
         // Second step should succeed (verifying FSAL cache doesn't cause errors)
         assert!(result2.dt_used > 0.0);
@@ -1464,8 +1448,8 @@ mod tests {
 
         // Take same step with both
         let state = DVector::from_vec(vec![0.0]);
-        let result_dp54 = dp54.step(0.0, state.clone(), 0.1, 1e-8, 1e-6);
-        let result_rkf45 = rkf45.step(0.0, state, 0.1, 1e-8, 1e-6);
+        let result_dp54 = dp54.step(0.0, state.clone(), 0.1);
+        let result_rkf45 = rkf45.step(0.0, state, 0.1);
 
         // Both should produce similar results
         assert!((result_dp54.state[0] - result_rkf45.state[0]).abs() < 1.0e-10);
@@ -1493,14 +1477,8 @@ mod tests {
 
         // Propagate with STM
         let dt = 10.0;
-        let (state_new, phi, _, _, _) = dp54.step_with_varmat(
-            0.0,
-            state0.clone(),
-            DMatrix::identity(6, 6),
-            dt,
-            1e-12,
-            1e-10,
-        );
+        let (state_new, phi, _, _, _) =
+            dp54.step_with_varmat(0.0, state0.clone(), DMatrix::identity(6, 6), dt);
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1517,7 +1495,7 @@ mod tests {
             );
 
             // Propagate perturbed state
-            let result_pert = dp54_pert.step(0.0, state0_pert, dt, 1e-12, 1e-10);
+            let result_pert = dp54_pert.step(0.0, state0_pert, dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi * &perturbation;
@@ -1574,10 +1552,10 @@ mod tests {
         for step in 0..num_steps {
             // Propagate nominal state with STM
             let (state_new, phi_new, dt_used, _, _) =
-                dp54_nominal.step_with_varmat(t, state.clone(), phi.clone(), dt, 1e-12, 1e-10);
+                dp54_nominal.step_with_varmat(t, state.clone(), phi.clone(), dt);
 
             // Propagate perturbed state directly
-            let result_pert = dp54_pert.step(t, state_pert.clone(), dt, 1e-12, 1e-10);
+            let result_pert = dp54_pert.step(t, state_pert.clone(), dt);
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
@@ -1613,8 +1591,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = dp54_s.step(0.0, state_s, dt, 1e-10, 1e-8);
-        let result_d = dp54_d.step(0.0, state_d, dt, 1e-10, 1e-8);
+        let result_s = dp54_s.step(0.0, state_s, dt);
+        let result_d = dp54_d.step(0.0, state_d, dt);
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);

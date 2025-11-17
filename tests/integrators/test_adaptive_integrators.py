@@ -38,7 +38,7 @@ class TestRKF45Integrator:
 
         while t < 1.0:
             dt = min(1.0 - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -62,7 +62,7 @@ class TestRKF45Integrator:
 
         while t < t_end:
             dt = min(t_end - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -93,7 +93,7 @@ class TestRKF45Integrator:
 
         while epc < epcf:
             dt = min((epcf - epc), 10.0)
-            result = integrator.step(epc - epc0, state, dt, 1e-8, 1e-6)
+            result = integrator.step(epc - epc0, state, dt)
             state = result.state
             epc = epc + result.dt_used
 
@@ -119,7 +119,7 @@ class TestRKF45Integrator:
 
         while t < 10.0:
             dt = min(10.0 - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-8, 1e-6)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -144,7 +144,7 @@ class TestRKF45Integrator:
         dt_initial = 0.01
 
         # Take a step with loose tolerance - error should be small
-        result = integrator.step(0.0, state, dt_initial, 1e-6, 1e-4)
+        result = integrator.step(0.0, state, dt_initial)
 
         # For this simple problem with loose tolerance, suggested step should be larger
         assert result.dt_next > dt_initial, (
@@ -162,7 +162,7 @@ class TestRKF45Integrator:
 
         integrator = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics)
 
-        result = integrator.step(0.0, np.array([0.0]), 0.1, 1e-9, 1e-6)
+        result = integrator.step(0.0, np.array([0.0]), 0.1)
 
         # Check that result has expected attributes
         assert hasattr(result, "state")
@@ -188,7 +188,7 @@ class TestRKF45Integrator:
         def dynamics(t, state):
             return -state  # dy/dt = -y
 
-        jacobian = bh.DNumericalJacobian(dynamics).with_fixed_offset(1.0)
+        jacobian = bh.NumericalJacobian(dynamics).with_fixed_offset(1.0)
         integrator = bh.RKF45Integrator(
             dimension=1, dynamics_fn=dynamics, jacobian=jacobian
         )
@@ -197,7 +197,7 @@ class TestRKF45Integrator:
         phi = np.eye(1)
 
         state_new, phi_new, dt_used, error_est, dt_next = integrator.step_with_varmat(
-            0.0, state, phi, 0.1, 1e-9, 1e-6
+            0.0, state, phi, 0.1
         )
 
         # Check types and shapes
@@ -232,7 +232,7 @@ class TestDP54Integrator:
         dt = 0.01
 
         for _ in range(100):
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -254,7 +254,7 @@ class TestDP54Integrator:
 
         while t < t_end:
             dt = min(t_end - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -281,7 +281,7 @@ class TestDP54Integrator:
 
         while epc < epcf:
             dt = min((epcf - epc), 10.0)
-            result = integrator.step(epc - epc0, state, dt, 1e-8, 1e-6)
+            result = integrator.step(epc - epc0, state, dt)
             state = result.state
             epc = epc + result.dt_used
 
@@ -305,7 +305,7 @@ class TestDP54Integrator:
 
         while t < 10.0:
             dt = min(10.0 - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-8, 1e-6)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -327,7 +327,7 @@ class TestDP54Integrator:
         state = np.array([0.0])
         dt_initial = 0.01
 
-        result = integrator.step(0.0, state, dt_initial, 1e-6, 1e-4)
+        result = integrator.step(0.0, state, dt_initial)
 
         assert result.dt_next > dt_initial
         assert result.error_estimate < 0.1
@@ -338,7 +338,7 @@ class TestDP54Integrator:
         def dynamics(t, state):
             return -state
 
-        jacobian = bh.DNumericalJacobian(dynamics).with_fixed_offset(1.0)
+        jacobian = bh.NumericalJacobian(dynamics).with_fixed_offset(1.0)
         integrator = bh.DP54Integrator(
             dimension=1, dynamics_fn=dynamics, jacobian=jacobian
         )
@@ -347,7 +347,7 @@ class TestDP54Integrator:
         phi = np.eye(1)
 
         state_new, phi_new, dt_used, error_est, dt_next = integrator.step_with_varmat(
-            0.0, state, phi, 0.1, 1e-9, 1e-6
+            0.0, state, phi, 0.1
         )
 
         assert isinstance(state_new, np.ndarray)
@@ -398,7 +398,7 @@ class TestRKN1210Integrator:
 
         while t < 1.0:
             dt = min(1.0 - t, 0.1)
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -425,7 +425,7 @@ class TestRKN1210Integrator:
 
         while epc < epcf:
             dt = min((epcf - epc), 10.0)
-            result = integrator.step(epc - epc0, state, dt, 1e-8, 1e-6)
+            result = integrator.step(epc - epc0, state, dt)
             state = result.state
             epc = epc + result.dt_used
 
@@ -453,7 +453,7 @@ class TestRKN1210Integrator:
 
         while t < 1.0:
             dt = min(1.0 - t, 0.01)
-            result = integrator.step(t, state, dt, 1e-10, 1e-8)
+            result = integrator.step(t, state, dt)
             state = result.state
             t += result.dt_used
 
@@ -480,7 +480,7 @@ class TestRKN1210Integrator:
         state = np.array([1.0, 0.0])
         dt_initial = 0.01
 
-        result = integrator.step(0.0, state, dt_initial, 1e-6, 1e-4)
+        result = integrator.step(0.0, state, dt_initial)
 
         # For smooth problem with loose tolerance, step should increase
         assert result.dt_next > dt_initial
@@ -494,7 +494,7 @@ class TestRKN1210Integrator:
             x, v = state
             return np.array([v, -x])
 
-        jacobian = bh.DNumericalJacobian(dynamics).with_fixed_offset(1.0)
+        jacobian = bh.NumericalJacobian(dynamics).with_fixed_offset(1.0)
         integrator = bh.RKN1210Integrator(
             dimension=2, dynamics_fn=dynamics, jacobian=jacobian
         )
@@ -503,7 +503,7 @@ class TestRKN1210Integrator:
         phi = np.eye(2)
 
         state_new, phi_new, dt_used, error_est, dt_next = integrator.step_with_varmat(
-            0.0, state, phi, 0.1, 1e-9, 1e-6
+            0.0, state, phi, 0.1
         )
 
         assert isinstance(state_new, np.ndarray)
@@ -541,14 +541,14 @@ class TestAdaptiveIntegratorComparison:
         # RKF45
         t, state = 0.0, np.array([0.0])
         while t < t_end:
-            result = rkf45.step(t, state, min(t_end - t, 0.1), 1e-12, 1e-10)
+            result = rkf45.step(t, state, min(t_end - t, 0.1))
             state, t = result.state, t + result.dt_used
         rkf45_result = state[0]
 
         # DP54
         t, state = 0.0, np.array([0.0])
         while t < t_end:
-            result = dp54.step(t, state, min(t_end - t, 0.1), 1e-12, 1e-10)
+            result = dp54.step(t, state, min(t_end - t, 0.1))
             state, t = result.state, t + result.dt_used
         dp54_result = state[0]
 
@@ -581,7 +581,7 @@ class TestAdaptiveIntegratorComparison:
         for integrator in [rkf45, dp54, rkn1210]:
             t, state = 0.0, state0.copy()
             while t < t_end:
-                result = integrator.step(t, state, min(t_end - t, 10.0), 1e-9, 1e-7)
+                result = integrator.step(t, state, min(t_end - t, 10.0))
                 state, t = result.state, t + result.dt_used
             results.append(state)
 

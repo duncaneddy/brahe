@@ -2,15 +2,6 @@
 Configuration structures for numerical integrators.
 */
 
-/// Stepping mode for numerical integrators.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum StepMode {
-    /// Fixed timestep integration - use provided dt for all steps
-    Fixed(f64),
-    /// Adaptive timestep integration - automatically adjust dt based on error estimate
-    Adaptive,
-}
-
 /// Configuration options for numerical integrators.
 ///
 /// # Example
@@ -43,9 +34,6 @@ pub struct IntegratorConfig {
     /// Maximum allowed step size (if None, no maximum enforced)
     pub max_step: Option<f64>,
 
-    /// Stepping mode: fixed or adaptive
-    pub step_mode: StepMode,
-
     /// Safety factor for adaptive step size control (typically 0.8-0.9)
     /// If None, no safety factor applied (uses raw error-based scaling)
     pub step_safety_factor: Option<f64>,
@@ -60,6 +48,10 @@ pub struct IntegratorConfig {
 
     /// Maximum attempts to find acceptable step size
     pub max_step_attempts: usize,
+
+    /// Fixed step size for fixed-step integrators
+    /// When set, fixed-step integrators will use this value if no dt is provided to step()
+    pub fixed_step_size: Option<f64>,
 }
 
 impl Default for IntegratorConfig {
@@ -70,11 +62,11 @@ impl Default for IntegratorConfig {
     /// - initial_step: None (auto-determined)
     /// - min_step: Some(1e-12)
     /// - max_step: Some(900.0) (15 minutes)
-    /// - step_mode: Adaptive
     /// - step_safety_factor: Some(0.9)
     /// - min_step_scale_factor: Some(0.2)
     /// - max_step_scale_factor: Some(10.0)
     /// - max_step_attempts: 10
+    /// - fixed_step_size: None
     fn default() -> Self {
         Self {
             abs_tol: 1e-6,
@@ -82,11 +74,11 @@ impl Default for IntegratorConfig {
             initial_step: None,
             min_step: Some(1e-12),
             max_step: Some(900.0),
-            step_mode: StepMode::Adaptive,
             step_safety_factor: Some(0.9),
             min_step_scale_factor: Some(0.2),
             max_step_scale_factor: Some(10.0),
             max_step_attempts: 10,
+            fixed_step_size: None,
         }
     }
 }
@@ -94,22 +86,28 @@ impl Default for IntegratorConfig {
 impl IntegratorConfig {
     /// Create a new configuration for fixed-step integration.
     ///
+    /// Sets the fixed step size that will be used by fixed-step integrators when no
+    /// explicit `dt` is provided to the `step()` method. The step size can still be
+    /// overridden on a per-step basis by providing a `dt` value.
+    ///
     /// # Arguments
-    /// - `step_size`: Fixed timestep to use for all integration steps
+    /// - `step_size`: The step size to use for fixed-step integration (seconds)
     ///
     /// # Returns
-    /// IntegratorConfig configured for fixed-step mode
+    /// IntegratorConfig with fixed_step_size set
     ///
     /// # Example
     ///
     /// ```
     /// use brahe::integrators::IntegratorConfig;
     ///
+    /// // Create config with 1.0 second step size
     /// let config = IntegratorConfig::fixed_step(1.0);
+    /// assert_eq!(config.fixed_step_size, Some(1.0));
     /// ```
     pub fn fixed_step(step_size: f64) -> Self {
         Self {
-            step_mode: StepMode::Fixed(step_size),
+            fixed_step_size: Some(step_size),
             ..Default::default()
         }
     }
@@ -134,7 +132,7 @@ impl IntegratorConfig {
         Self {
             abs_tol,
             rel_tol,
-            step_mode: StepMode::Adaptive,
+            fixed_step_size: None,
             ..Default::default()
         }
     }
@@ -173,17 +171,19 @@ mod tests {
         assert_eq!(config.initial_step, None);
         assert_eq!(config.min_step, Some(1e-12));
         assert_eq!(config.max_step, Some(900.0));
-        assert_eq!(config.step_mode, StepMode::Adaptive);
         assert_eq!(config.step_safety_factor, Some(0.9));
         assert_eq!(config.min_step_scale_factor, Some(0.2));
         assert_eq!(config.max_step_scale_factor, Some(10.0));
         assert_eq!(config.max_step_attempts, 10);
+        assert_eq!(config.fixed_step_size, None);
     }
 
     #[test]
     fn test_fixed_step_config() {
         let config = IntegratorConfig::fixed_step(0.1);
-        assert_eq!(config.step_mode, StepMode::Fixed(0.1));
+        assert_eq!(config.fixed_step_size, Some(0.1));
+        assert_eq!(config.abs_tol, 1e-6);
+        assert_eq!(config.rel_tol, 1e-3);
     }
 
     #[test]
@@ -191,6 +191,5 @@ mod tests {
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
         assert_eq!(config.abs_tol, 1e-9);
         assert_eq!(config.rel_tol, 1e-6);
-        assert_eq!(config.step_mode, StepMode::Adaptive);
     }
 }

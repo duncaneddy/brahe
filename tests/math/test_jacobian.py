@@ -46,7 +46,7 @@ def analytical_jacobian(t, state):
 
 def test_danalytic_jacobian():
     """Test DAnalyticJacobian provider."""
-    provider = bh.DAnalyticJacobian(analytical_jacobian)
+    provider = bh.AnalyticJacobian(analytical_jacobian)
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
 
@@ -58,7 +58,7 @@ def test_danalytic_jacobian():
 
 def test_danalytic_jacobian_with_list():
     """Test DAnalyticJacobian with Python list input."""
-    provider = bh.DAnalyticJacobian(analytical_jacobian)
+    provider = bh.AnalyticJacobian(analytical_jacobian)
     state = [1.0, 0.5]  # Python list instead of numpy array
     jacobian = provider.compute(0.0, state)
 
@@ -70,7 +70,7 @@ def test_danalytic_jacobian_with_list():
 
 def test_dnumerical_jacobian_central():
     """Test DNumericalJacobian with central differences."""
-    provider = bh.DNumericalJacobian.central(linear_dynamics).with_fixed_offset(1e-6)
+    provider = bh.NumericalJacobian.central(linear_dynamics).with_fixed_offset(1e-6)
 
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
@@ -83,7 +83,7 @@ def test_dnumerical_jacobian_central():
 
 def test_dnumerical_jacobian_forward():
     """Test DNumericalJacobian with forward differences."""
-    provider = bh.DNumericalJacobian.forward(linear_dynamics).with_fixed_offset(1e-6)
+    provider = bh.NumericalJacobian.forward(linear_dynamics).with_fixed_offset(1e-6)
 
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
@@ -97,7 +97,7 @@ def test_dnumerical_jacobian_forward():
 
 def test_dnumerical_jacobian_backward():
     """Test DNumericalJacobian with backward differences."""
-    provider = bh.DNumericalJacobian.backward(linear_dynamics).with_fixed_offset(1e-6)
+    provider = bh.NumericalJacobian.backward(linear_dynamics).with_fixed_offset(1e-6)
 
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
@@ -111,7 +111,7 @@ def test_dnumerical_jacobian_backward():
 
 def test_dnumerical_jacobian_default():
     """Test DNumericalJacobian with default settings (central, adaptive)."""
-    provider = bh.DNumericalJacobian(linear_dynamics)
+    provider = bh.NumericalJacobian(linear_dynamics)
 
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
@@ -125,7 +125,7 @@ def test_dnumerical_jacobian_default():
 def test_dnumerical_jacobian_with_method():
     """Test DNumericalJacobian with method chaining."""
     provider = (
-        bh.DNumericalJacobian(linear_dynamics)
+        bh.NumericalJacobian(linear_dynamics)
         .with_method(bh.DifferenceMethod.FORWARD)
         .with_fixed_offset(1e-6)
     )
@@ -142,7 +142,7 @@ def test_dnumerical_jacobian_with_method():
 def test_perturbation_strategies():
     """Test different perturbation strategies."""
     # Test adaptive perturbation
-    provider = bh.DNumericalJacobian.central(linear_dynamics).with_adaptive(1.0, 1.0)
+    provider = bh.NumericalJacobian.central(linear_dynamics).with_adaptive(1.0, 1.0)
 
     state = np.array([1.0, 0.5])
     jacobian = provider.compute(0.0, state)
@@ -151,7 +151,7 @@ def test_perturbation_strategies():
     np.testing.assert_allclose(jacobian, expected, atol=1e-6)
 
     # Test percentage perturbation
-    provider = bh.DNumericalJacobian.central(linear_dynamics).with_percentage(1e-6)
+    provider = bh.NumericalJacobian.central(linear_dynamics).with_percentage(1e-6)
 
     jacobian = provider.compute(0.0, state)
     np.testing.assert_allclose(jacobian, expected, atol=1e-5)
@@ -173,14 +173,14 @@ def test_nonlinear_system():
     state = np.array([2.0, 3.0])
 
     # Test analytical
-    analytical_provider = bh.DAnalyticJacobian(nonlinear_jacobian)
+    analytical_provider = bh.AnalyticJacobian(nonlinear_jacobian)
     jac_analytical = analytical_provider.compute(0.0, state)
 
     expected = np.array([[4.0, 1.0], [-1.0, 6.0]])
     np.testing.assert_allclose(jac_analytical, expected, atol=1e-10)
 
     # Test numerical
-    numerical_provider = bh.DNumericalJacobian.central(
+    numerical_provider = bh.NumericalJacobian.central(
         nonlinear_dynamics
     ).with_fixed_offset(1e-6)
     jac_numerical = numerical_provider.compute(0.0, state)
@@ -213,7 +213,7 @@ def test_higher_dimensional_system():
     state = np.array([1.0, 0.0, 0.5, 0.0])
 
     # Test analytical
-    analytical_provider = bh.DAnalyticJacobian(coupled_jacobian)
+    analytical_provider = bh.AnalyticJacobian(coupled_jacobian)
     jac_analytical = analytical_provider.compute(0.0, state)
 
     expected = np.array(
@@ -229,7 +229,7 @@ def test_higher_dimensional_system():
     np.testing.assert_allclose(jac_analytical, expected, atol=1e-10)
 
     # Test numerical
-    numerical_provider = bh.DNumericalJacobian.central(
+    numerical_provider = bh.NumericalJacobian.central(
         coupled_oscillators
     ).with_fixed_offset(1e-6)
     jac_numerical = numerical_provider.compute(0.0, state)
@@ -240,7 +240,7 @@ def test_higher_dimensional_system():
 
 def test_dnumerical_jacobian_with_lambda():
     """Test that lambda functions work as dynamics."""
-    provider = bh.DNumericalJacobian(
+    provider = bh.NumericalJacobian(
         lambda t, s: np.array([s[1], -s[0]])
     ).with_fixed_offset(1e-6)
 
@@ -267,14 +267,14 @@ def test_jacobian_time_dependence():
     t = 0.5
 
     # Test analytical
-    analytical_provider = bh.DAnalyticJacobian(time_dependent_jacobian)
+    analytical_provider = bh.AnalyticJacobian(time_dependent_jacobian)
     jac_analytical = analytical_provider.compute(t, state)
 
     expected = np.array([[0.5, 1.0], [-1.0, 0.5]])
     np.testing.assert_allclose(jac_analytical, expected, atol=1e-10)
 
     # Test numerical
-    numerical_provider = bh.DNumericalJacobian.central(
+    numerical_provider = bh.NumericalJacobian.central(
         time_dependent_dynamics
     ).with_fixed_offset(1e-6)
     jac_numerical = numerical_provider.compute(t, state)

@@ -24,6 +24,18 @@ use crate::math::jacobian::DJacobianProvider;
 ///
 /// Controls error tolerances, step size limits, and other integration parameters.
 ///
+/// Args:
+///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-6.
+///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-3.
+///     initial_step (float, optional): Initial step size. Defaults to None (auto).
+///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
+///     max_step (float, optional): Maximum step size. Defaults to 900.0.
+///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
+///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
+///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
+///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 10.
+///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -54,22 +66,7 @@ pub struct PyIntegratorConfig {
 
 #[pymethods]
 impl PyIntegratorConfig {
-    /// Create a new integrator configuration.
-    ///
-    /// Args:
-    ///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-6.
-    ///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-3.
-    ///     initial_step (float, optional): Initial step size. Defaults to None (auto).
-    ///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
-    ///     max_step (float, optional): Maximum step size. Defaults to 900.0.
-    ///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
-    ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
-    ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
-    ///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 10.
-    ///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
-    ///
-    /// Returns:
-    ///     IntegratorConfig: New configuration
+    /// Create a new integrator configuration with custom parameters.
     #[new]
     #[pyo3(signature = (
         abs_tol=1e-6,
@@ -297,6 +294,12 @@ impl PyAdaptiveStepDResult {
 /// Classical RK4 method with fixed timesteps. Provides good accuracy for most problems
 /// with 4th-order error convergence.
 ///
+/// Args:
+///     dimension (int): State vector dimension
+///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
+///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     config (IntegratorConfig, optional): Integration configuration
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -333,15 +336,6 @@ pub struct PyRK4DIntegrator {
 #[pymethods]
 impl PyRK4DIntegrator {
     /// Create a new RK4 integrator.
-    ///
-    /// Args:
-    ///     dimension (int): State vector dimension
-    ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-    ///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
-    ///     config (IntegratorConfig, optional): Integration configuration
-    ///
-    /// Returns:
-    ///     RK4Integrator: New RK4 integrator
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, config=None))]
@@ -578,6 +572,12 @@ impl PyRK4DIntegrator {
 /// uses error estimation from the embedded solution to adapt the timestep for
 /// efficiency and accuracy.
 ///
+/// Args:
+///     dimension (int): State vector dimension
+///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
+///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     config (IntegratorConfig, optional): Integration configuration
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -606,15 +606,6 @@ pub struct PyRKF45DIntegrator {
 #[pymethods]
 impl PyRKF45DIntegrator {
     /// Create a new RKF45 integrator.
-    ///
-    /// Args:
-    ///     dimension (int): State vector dimension
-    ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-    ///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
-    ///     config (IntegratorConfig, optional): Integration configuration
-    ///
-    /// Returns:
-    ///     RKF45Integrator: New RKF45 integrator
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, config=None))]
@@ -838,6 +829,12 @@ impl PyRKF45DIntegrator {
 /// More efficient than RKF45 due to FSAL (First Same As Last) property. This is
 /// the industry-standard general-purpose adaptive integrator.
 ///
+/// Args:
+///     dimension (int): State vector dimension
+///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
+///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     config (IntegratorConfig, optional): Integration configuration
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -862,15 +859,6 @@ pub struct PyDP54DIntegrator {
 #[pymethods]
 impl PyDP54DIntegrator {
     /// Create a new DP54 integrator.
-    ///
-    /// Args:
-    ///     dimension (int): State vector dimension
-    ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-    ///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
-    ///     config (IntegratorConfig, optional): Integration configuration
-    ///
-    /// Returns:
-    ///     DP54Integrator: New DP54 integrator
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, config=None))]
@@ -1090,6 +1078,15 @@ impl PyDP54DIntegrator {
 ///
 /// WARNING: This integrator is experimental and may have stability issues.
 ///
+/// Args:
+///     dimension (int): State vector dimension (must be even: position + velocity)
+///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
+///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     config (IntegratorConfig, optional): Integration configuration
+///
+/// Raises:
+///     ValueError: If dimension is not even
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1119,18 +1116,6 @@ pub struct PyRKN1210DIntegrator {
 #[pymethods]
 impl PyRKN1210DIntegrator {
     /// Create a new RKN1210 integrator.
-    ///
-    /// Args:
-    ///     dimension (int): State vector dimension (must be even: position + velocity)
-    ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-    ///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
-    ///     config (IntegratorConfig, optional): Integration configuration
-    ///
-    /// Returns:
-    ///     RKN1210Integrator: New RKN1210 integrator
-    ///
-    /// Raises:
-    ///     ValueError: If dimension is not even
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, config=None))]

@@ -195,7 +195,6 @@ nav:
                 - Adaptive-Step Integrators: learn/integrators/adaptive_step.md
                 - Variational Equations: learn/integrators/variational_equations.md
                 - Configuration: learn/integrators/configuration.md
-                - Integrating Generic Functions: learn/integrators/generic_functions.md
             - Orbit Propagation:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md

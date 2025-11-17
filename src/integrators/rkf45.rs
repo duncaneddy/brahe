@@ -114,8 +114,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check if step should be accepted
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check if step should be accepted (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Step accepted - calculate optimal next step size
@@ -127,16 +127,18 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     // Apply min scale factor if configured
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
 
                     // Apply max scale factor if configured
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
 
                     // Apply absolute step limits if configured
@@ -147,17 +149,20 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
                     // Error is zero - use maximum increase
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h // Default max growth if unconfigured
+                        10.0 * h_abs // Default max growth if unconfigured
                     };
 
                     // Respect absolute max if configured
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return AdaptiveStepSResult {
@@ -175,11 +180,13 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             // Apply min scale factor if configured
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
 
             // Respect absolute minimum if configured
@@ -187,7 +194,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -293,8 +300,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check acceptance
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check acceptance (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Calculate next step size
@@ -305,13 +312,15 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -320,14 +329,17 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return (state_high, phi_new, h, error, dt_next);
@@ -340,16 +352,18 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKF45SIntegrator<S> {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -523,8 +537,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check if step should be accepted
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check if step should be accepted (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Step accepted - calculate optimal next step size
@@ -535,13 +549,15 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -550,14 +566,17 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return AdaptiveStepDResult {
@@ -575,16 +594,18 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -713,8 +734,8 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check acceptance
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check acceptance (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Calculate next step size
@@ -725,13 +746,15 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -740,14 +763,17 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return (state_high, phi_new, h, error, dt_next);
@@ -760,16 +786,18 @@ impl AdaptiveStepDIntegrator for RKF45DIntegrator {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -1536,5 +1564,86 @@ mod tests {
         );
         assert_abs_diff_eq!(result_s.dt_used, result_d.dt_used, epsilon = 1.0e-15);
         assert_abs_diff_eq!(result_s.dt_next, result_d.dt_next, epsilon = 1.0e-15);
+    }
+
+    #[test]
+    fn test_rkf45s_backward_integration() {
+        // Test backward propagation with orbital mechanics
+        let config = IntegratorConfig::adaptive(1e-10, 1e-8);
+        let rkf45 = RKF45SIntegrator::with_config(Box::new(point_earth), None, config);
+
+        // Setup initial state
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+
+        // Propagate forward for 100 seconds
+        let dt_forward = 10.0;
+        let mut state_fwd = state0;
+        let mut t = 0.0;
+        while t < 100.0 {
+            let result = rkf45.step(t, state_fwd, dt_forward);
+            state_fwd = result.state;
+            t += result.dt_used;
+        }
+        let t_max = t;
+
+        // Now propagate backward from the final state
+        let mut state_back = state_fwd;
+        let mut t = t_max;
+        let mut dt_back: f64 = -10.0; // Initial negative timestep for backward integration
+        while t > 0.0 {
+            // Ensure we don't step past t=0
+            dt_back = dt_back.max(-t);
+            let result = rkf45.step(t, state_back, dt_back);
+            state_back = result.state;
+            t += result.dt_used;
+            dt_back = result.dt_next; // Use adaptive timestep suggestion
+        }
+
+        // Should return close to initial state
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_back[i], state0[i], epsilon = 1.0e-3);
+        }
+    }
+
+    #[test]
+    fn test_rkf45d_backward_integration() {
+        // Test backward propagation with orbital mechanics (dynamic variant)
+        let config = IntegratorConfig::adaptive(1e-10, 1e-8);
+        let rkf45 = RKF45DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+
+        // Setup initial state
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
+        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
+
+        // Propagate forward for 100 seconds
+        let dt_forward = 10.0;
+        let mut state_fwd = state0.clone();
+        let mut t = 0.0;
+        while t < 100.0 {
+            let result = rkf45.step(t, state_fwd, dt_forward);
+            state_fwd = result.state;
+            t += result.dt_used;
+        }
+        let t_max = t;
+
+        // Now propagate backward from the final state
+        let mut state_back = state_fwd;
+        let mut t = t_max;
+        let mut dt_back: f64 = -10.0; // Initial negative timestep for backward integration
+        while t > 0.0 {
+            // Ensure we don't step past t=0
+            dt_back = dt_back.max(-t);
+            let result = rkf45.step(t, state_back, dt_back);
+            state_back = result.state;
+            t += result.dt_used;
+            dt_back = result.dt_next; // Use adaptive timestep suggestion
+        }
+
+        // Should return close to initial state
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_back[i], state0[i], epsilon = 1.0e-3);
+        }
     }
 }

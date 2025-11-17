@@ -426,7 +426,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
-    use crate::constants::RADIANS;
+    use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::rk4::{RK4DIntegrator, RK4SIntegrator};
     use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
@@ -766,5 +766,64 @@ mod tests {
         assert_abs_diff_eq!(result_s[0], result_d[0], epsilon = 1.0e-15);
         assert_abs_diff_eq!(result_s[1], result_d[1], epsilon = 1.0e-15);
         assert_abs_diff_eq!(result_s[2], result_d[2], epsilon = 1.0e-15);
+    }
+
+    #[test]
+    fn test_rk4s_backward_integration() {
+        // Test backward propagation with orbital mechanics
+        let rk4 = RK4SIntegrator::new(Box::new(point_earth), None);
+
+        // Setup initial state
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
+        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+
+        // Propagate forward for 100 seconds with timestep 1 second
+        let dt_forward = 1.0;
+        let mut state_fwd = state0;
+        for _ in 0..100 {
+            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward));
+        }
+
+        // Now propagate backward from the final state
+        let dt_back = -1.0; // Negative timestep for backward integration
+        let mut state_back = state_fwd;
+        for _ in 0..100 {
+            state_back = rk4.step(0.0, state_back, Some(dt_back));
+        }
+
+        // Should return close to initial state
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_back[i], state0[i], epsilon = 1.0e-9);
+        }
+    }
+
+    #[test]
+    fn test_rk4d_backward_integration() {
+        // Test backward propagation with orbital mechanics (dynamic variant)
+        let rk4 = RK4DIntegrator::new(6, Box::new(point_earth_dynamic), None);
+
+        // Setup initial state
+        let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
+        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
+
+        // Propagate forward for 100 seconds with timestep 1 second
+        let dt_forward = 1.0;
+        let mut state_fwd = state0.clone();
+        for _ in 0..100 {
+            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward));
+        }
+
+        // Now propagate backward from the final state
+        let dt_back = -1.0; // Negative timestep for backward integration
+        let mut state_back = state_fwd;
+        for _ in 0..100 {
+            state_back = rk4.step(0.0, state_back, Some(dt_back));
+        }
+
+        // Should return close to initial state
+        for i in 0..6 {
+            assert_abs_diff_eq!(state_back[i], state0[i], epsilon = 1.0e-9);
+        }
     }
 }

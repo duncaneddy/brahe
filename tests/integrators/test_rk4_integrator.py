@@ -187,3 +187,39 @@ class TestRK4Integrator:
         assert off_diag_populated, (
             "Variational matrix should have off-diagonal elements"
         )
+
+    def test_backward_integration(self):
+        """Test backward propagation with orbital mechanics (mirrors test_rk4d_backward_integration)."""
+
+        def point_earth(t, state):
+            """Two-body point mass Earth dynamics."""
+            r = state[:3]
+            v = state[3:]
+
+            r_norm = np.linalg.norm(r)
+            a_mag = -bh.GM_EARTH / (r_norm**3)
+            a = a_mag * r
+
+            return np.concatenate([v, a])
+
+        integrator = bh.RK4Integrator(dimension=6, dynamics_fn=point_earth)
+
+        # Setup initial state
+        oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
+        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.DEGREES)
+
+        # Propagate forward for 100 seconds with timestep 1 second
+        dt_forward = 1.0
+        state_fwd = state0.copy()
+        for _ in range(100):
+            state_fwd = integrator.step(0.0, state_fwd, dt_forward)
+
+        # Now propagate backward from the final state
+        dt_back = -1.0  # Negative timestep for backward integration
+        state_back = state_fwd.copy()
+        for _ in range(100):
+            state_back = integrator.step(0.0, state_back, dt_back)
+
+        # Should return close to initial state
+        for i in range(6):
+            assert abs(state_back[i] - state0[i]) < 1e-9

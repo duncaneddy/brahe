@@ -214,6 +214,44 @@ class TestRKF45Integrator:
         # For dy/dt = -y, STM should be exp(-t)
         assert abs(phi_new[0, 0] - np.exp(-dt_used)) < 1e-6
 
+    def test_backward_integration(self):
+        """Test backward propagation with orbital mechanics (mirrors test_rkf45d_backward_integration)."""
+
+        config = bh.IntegratorConfig.adaptive(1e-10, 1e-8)
+        integrator = bh.RKF45Integrator(
+            dimension=6, dynamics_fn=point_earth, config=config
+        )
+
+        # Setup initial state
+        oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
+        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+
+        # Propagate forward for 100 seconds
+        dt_forward = 10.0
+        state_fwd = state0.copy()
+        t = 0.0
+        while t < 100.0:
+            result = integrator.step(t, state_fwd, dt_forward)
+            state_fwd = result.state
+            t += result.dt_used
+        t_max = t
+
+        # Now propagate backward from the final state
+        state_back = state_fwd.copy()
+        t = t_max
+        dt_back = -10.0  # Initial negative timestep for backward integration
+        while t > 0.0:
+            # Ensure we don't step past t=0
+            dt_back = max(dt_back, -t)
+            result = integrator.step(t, state_back, dt_back)
+            state_back = result.state
+            t += result.dt_used
+            dt_back = result.dt_next  # Use adaptive timestep suggestion
+
+        # Should return close to initial state
+        for i in range(6):
+            assert abs(state_back[i] - state0[i]) < 1e-3
+
 
 class TestDP54Integrator:
     """Tests for DP54 (Dormand-Prince 5(4)) integrator."""
@@ -361,6 +399,44 @@ class TestDP54Integrator:
 
         # For dy/dt = -y, STM should be exp(-t)
         assert abs(phi_new[0, 0] - np.exp(-dt_used)) < 1e-6
+
+    def test_backward_integration(self):
+        """Test backward propagation with orbital mechanics."""
+
+        config = bh.IntegratorConfig.adaptive(1e-10, 1e-8)
+        integrator = bh.DP54Integrator(
+            dimension=6, dynamics_fn=point_earth, config=config
+        )
+
+        # Setup initial state
+        oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
+        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+
+        # Propagate forward for 100 seconds
+        dt_forward = 10.0
+        state_fwd = state0.copy()
+        t = 0.0
+        while t < 100.0:
+            result = integrator.step(t, state_fwd, dt_forward)
+            state_fwd = result.state
+            t += result.dt_used
+        t_max = t
+
+        # Now propagate backward from the final state
+        state_back = state_fwd.copy()
+        t = t_max
+        dt_back = -10.0  # Initial negative timestep for backward integration
+        while t > 0.0:
+            # Ensure we don't step past t=0
+            dt_back = max(dt_back, -t)
+            result = integrator.step(t, state_back, dt_back)
+            state_back = result.state
+            t += result.dt_used
+            dt_back = result.dt_next  # Use adaptive timestep suggestion
+
+        # Should return close to initial state
+        for i in range(6):
+            assert abs(state_back[i] - state0[i]) < 1e-3
 
 
 class TestRKN1210Integrator:
@@ -517,6 +593,44 @@ class TestRKN1210Integrator:
 
         # STM should not be identity after propagation
         assert not np.allclose(phi_new, np.eye(2))
+
+    def test_backward_integration(self):
+        """Test backward propagation with orbital mechanics."""
+
+        config = bh.IntegratorConfig.adaptive(1e-10, 1e-8)
+        integrator = bh.RKN1210Integrator(
+            dimension=6, dynamics_fn=point_earth, config=config
+        )
+
+        # Setup initial state
+        oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
+        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+
+        # Propagate forward for 100 seconds
+        dt_forward = 10.0
+        state_fwd = state0.copy()
+        t = 0.0
+        while t < 100.0:
+            result = integrator.step(t, state_fwd, dt_forward)
+            state_fwd = result.state
+            t += result.dt_used
+        t_max = t
+
+        # Now propagate backward from the final state
+        state_back = state_fwd.copy()
+        t = t_max
+        dt_back = -10.0  # Initial negative timestep for backward integration
+        while t > 0.0:
+            # Ensure we don't step past t=0
+            dt_back = max(dt_back, -t)
+            result = integrator.step(t, state_back, dt_back)
+            state_back = result.state
+            t += result.dt_used
+            dt_back = result.dt_next  # Use adaptive timestep suggestion
+
+        # Should return close to initial state
+        for i in range(6):
+            assert abs(state_back[i] - state0[i]) < 1e-3
 
 
 class TestAdaptiveIntegratorComparison:

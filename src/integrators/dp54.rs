@@ -113,8 +113,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check if step should be accepted
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check if step should be accepted (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Step accepted - calculate optimal next step size
@@ -126,16 +126,18 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     // Apply min scale factor if configured
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
 
                     // Apply max scale factor if configured
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
 
                     // Apply absolute step limits if configured
@@ -146,17 +148,20 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
                     // Error is zero - use maximum increase
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h // Default max growth if unconfigured
+                        10.0 * h_abs // Default max growth if unconfigured
                     };
 
                     // Respect absolute max if configured
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return AdaptiveStepSResult {
@@ -177,11 +182,13 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             // Apply min scale factor if configured
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
 
             // Respect absolute minimum if configured
@@ -189,7 +196,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -317,8 +324,8 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            // Check acceptance
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            // Check acceptance (compare absolute values)
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 // Calculate next step size
@@ -329,13 +336,15 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -344,14 +353,17 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return (state_high, phi_new, h, error, dt_next);
@@ -367,16 +379,18 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for DormandPrince54SIntegrator<S
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -547,7 +561,7 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 let dt_next = if error > 0.0 {
@@ -557,13 +571,15 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -572,14 +588,17 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return AdaptiveStepDResult {
@@ -600,16 +619,18 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback: use minimum step
@@ -737,7 +758,7 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 error = error.max((error_vec[i] / tol).abs());
             }
 
-            let min_step_reached = self.config.min_step.is_some_and(|min| h <= min);
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
                 let dt_next = if error > 0.0 {
@@ -747,13 +768,15 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                         .step_safety_factor
                         .map_or(raw_scale, |safety| safety * raw_scale);
 
-                    let mut h_next = h * scale;
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
+                    let mut h_next = h_abs * scale;
 
                     if let Some(min_scale) = self.config.min_step_scale_factor {
-                        h_next = h_next.max(min_scale * h);
+                        h_next = h_next.max(min_scale * h_abs);
                     }
                     if let Some(max_scale) = self.config.max_step_scale_factor {
-                        h_next = h_next.min(max_scale * h);
+                        h_next = h_next.min(max_scale * h_abs);
                     }
                     if let Some(max_step) = self.config.max_step {
                         h_next = h_next.min(max_step);
@@ -762,14 +785,17 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                         h_next = h_next.max(min_step);
                     }
 
-                    h_next
+                    h_sign * h_next
                 } else {
+                    let h_sign = h.signum();
+                    let h_abs = h.abs();
                     let h_next = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h
+                        max_scale * h_abs
                     } else {
-                        10.0 * h
+                        10.0 * h_abs
                     };
-                    self.config.max_step.map_or(h_next, |max| h_next.min(max))
+                    let h_next = self.config.max_step.map_or(h_next, |max| h_next.min(max));
+                    h_sign * h_next
                 };
 
                 return (state_high, phi_new, h, error, dt_next);
@@ -782,16 +808,18 @@ impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
                 .step_safety_factor
                 .map_or(raw_scale, |safety| safety * raw_scale);
 
-            let mut h_new = h * scale;
+            let h_sign = h.signum();
+            let h_abs = h.abs();
+            let mut h_new = h_abs * scale;
 
             if let Some(min_scale) = self.config.min_step_scale_factor {
-                h_new = h_new.max(min_scale * h);
+                h_new = h_new.max(min_scale * h_abs);
             }
             if let Some(min_step) = self.config.min_step {
                 h_new = h_new.max(min_step);
             }
 
-            h = h_new;
+            h = h_sign * h_new;
         }
 
         // Fallback

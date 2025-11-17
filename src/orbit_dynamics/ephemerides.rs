@@ -140,6 +140,7 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;

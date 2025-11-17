@@ -5,7 +5,7 @@
 use nalgebra::{Vector3, matrix};
 
 use crate::constants::AS2RAD;
-use crate::utils::{SMatrix3, SVector6};
+use crate::math::{SMatrix3, SVector6};
 
 /// Computes the bias matrix transforming the GCRF to the EME 2000
 /// reference frame.
@@ -234,6 +234,7 @@ pub fn state_eme2000_to_gcrf(x_eme2000: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
@@ -241,7 +242,7 @@ mod tests {
     use crate::constants::{AS2RAD, DEGREES, R_EARTH};
     use crate::coordinates::state_osculating_to_cartesian;
     use crate::frames::*;
-    use crate::utils::vector6_from_array;
+    use crate::math::vector6_from_array;
 
     #[test]
     fn test_bias_eme2000() {

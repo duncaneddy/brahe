@@ -5,10 +5,8 @@ Module to provide implementation of drag force and simple atmospheric models.
 use nalgebra::{Vector3, Vector6};
 
 use crate::constants::AngleFormat;
-use crate::utils::SMatrix3;
+use crate::math::SMatrix3;
 
-#[cfg(test)]
-use crate::constants::DEGREES;
 use crate::{OMEGA_EARTH, position_ecef_to_geodetic};
 
 const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
@@ -158,11 +156,13 @@ pub fn density_harris_priester(r_tod: Vector3<f64>, r_sun: Vector3<f64>) -> f64 
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(clippy::too_many_arguments)]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
+    use crate::DEGREES;
     use crate::constants::AngleFormat;
     use crate::constants::R_EARTH;
     use crate::coordinates::*;

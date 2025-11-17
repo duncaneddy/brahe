@@ -1403,6 +1403,7 @@ impl EarthOrientationProvider for FileEOPProvider {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::env;
 

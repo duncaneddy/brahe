@@ -50,12 +50,11 @@ use crate::frames::{
     rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
     state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
+use crate::math::{interpolate_covariance_sqrt, interpolate_covariance_two_wasserstein};
 use crate::propagators::traits::{CovarianceProvider, StateProvider};
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
-use crate::utils::{
-    BraheError, Identifiable, interpolate_covariance_sqrt, interpolate_covariance_two_wasserstein,
-};
+use crate::utils::{BraheError, Identifiable};
 
 use super::traits::{
     CovarianceInterpolatable, CovarianceInterpolationMethod, Interpolatable, InterpolationMethod,
@@ -1860,6 +1859,7 @@ impl Identifiable for OrbitTrajectory {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::{DEGREES, R_EARTH, RADIANS};

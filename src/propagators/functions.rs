@@ -74,6 +74,7 @@ pub fn par_propagate_to<P: OrbitPropagator + Send>(propagators: &mut [P], target
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::AngleFormat;

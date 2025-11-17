@@ -147,6 +147,7 @@ pub fn eclipse_cylindrical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(clippy::too_many_arguments)]
 mod tests {
     use approx::assert_abs_diff_eq;

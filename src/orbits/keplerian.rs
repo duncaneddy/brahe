@@ -766,6 +766,7 @@ pub fn anomaly_mean_to_true(
 //
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use crate::constants::{DEGREES, GM_EARTH, R_EARTH, R_MOON, RADIANS};
     use crate::{GM_SUN, R_SUN, constants, orbits::*};

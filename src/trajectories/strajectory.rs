@@ -634,6 +634,7 @@ impl<const R: usize> Interpolatable for STrajectory<R> {
 // Iterator implementation will be added later once trait bounds are resolved
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};

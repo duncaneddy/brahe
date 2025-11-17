@@ -7,8 +7,6 @@ use nalgebra::Vector6;
 use std::f64::consts::PI;
 
 use crate::constants::AngleFormat;
-#[cfg(test)]
-use crate::constants::DEGREES;
 use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{
@@ -643,8 +641,10 @@ impl Identifiable for KeplerianPropagator {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::DEGREES;
     use crate::coordinates::state_cartesian_to_osculating;
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};

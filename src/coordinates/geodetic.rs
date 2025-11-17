@@ -23,7 +23,7 @@ const ECC2: f64 = constants::WGS84_F * (2.0 - constants::WGS84_F);
 /// # Examples
 /// ```
 /// use brahe::constants::DEGREES;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let geod = vector3_from_array([0.0, 0.0, 0.0]);
@@ -74,7 +74,7 @@ pub fn position_geodetic_to_ecef(
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let ecef = vector3_from_array([R_EARTH, 0.0, 0.0]);
@@ -130,6 +130,7 @@ pub fn position_ecef_to_geodetic(x_ecef: Vector3<f64>, angle_format: AngleFormat
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
 

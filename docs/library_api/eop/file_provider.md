@@ -6,7 +6,6 @@ Load Earth Orientation Parameters from IERS data files.
     options:
       show_root_heading: true
       show_root_full_path: false
-      heading_level: 2
 
 ## Overview
 

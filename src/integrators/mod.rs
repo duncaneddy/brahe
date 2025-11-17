@@ -3,9 +3,17 @@
 */
 
 pub mod butcher_tableau;
-pub mod numerical_integrator;
-pub mod runge_kutta;
+pub mod config;
+pub mod dp54;
+pub mod rk4;
+pub mod rkf45;
+pub mod rkn1210;
+pub mod traits;
 
 pub use butcher_tableau::*;
-pub use numerical_integrator::*;
-pub use runge_kutta::*;
+pub use config::*;
+pub use dp54::*;
+pub use rk4::*;
+pub use rkf45::*;
+pub use rkn1210::*;
+pub use traits::*;

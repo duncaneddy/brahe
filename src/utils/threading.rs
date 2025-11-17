@@ -146,6 +146,7 @@ pub fn get_max_threads() -> usize {
 // ================================
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use serial_test::serial;

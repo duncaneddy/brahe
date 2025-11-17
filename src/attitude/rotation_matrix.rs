@@ -5,7 +5,7 @@ The `rotation_matrix` module provides the `RotationMatrix` struct, which represe
 
 use nalgebra::Vector3;
 
-use crate::utils::SMatrix3;
+use crate::math::SMatrix3;
 use std::{fmt, ops};
 
 use crate::FromAttitude;
@@ -608,6 +608,7 @@ impl ToAttitude for RotationMatrix {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::{DEGREES, RADIANS};

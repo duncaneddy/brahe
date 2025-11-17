@@ -89,6 +89,7 @@ impl From<BraheError> for PyErr {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

@@ -123,6 +123,7 @@ pub fn get_celestrak_cache_dir() -> Result<String, BraheError> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

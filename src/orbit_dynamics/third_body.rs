@@ -87,6 +87,7 @@ pub fn acceleration_third_body_moon(epc: Epoch, r_object: Vector3<f64>) -> Vecto
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;

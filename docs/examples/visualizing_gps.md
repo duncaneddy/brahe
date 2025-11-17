@@ -2,7 +2,7 @@
 
 In this example we'll show how to visualize the orbits of GPS satellites using Brahe. We'll download the latest TLE data for the GPS constellation from CelesTrak, propagate each satellite for one orbit, and create an interactive 3D plot showing their trajectories around Earth.
 
-This example is similar to the [Downloading & Visualizing TLE Data For Starlink Satellites](visualizing_starlink.md) example, but but adds in propagation for one full orbit before visualization.
+This example is similar to the [Downloading & Visualizing TLE Data For GPS Satellites](visualizing_starlink.md) example, but but adds in propagation for one full orbit before visualization.
 
 ---
 
@@ -40,13 +40,13 @@ It then propagates the satellite to one full orbit past its epoch using the `pro
 
 ## Visualize in 3D
 
-We'll create an interactive 3D visualization of the entire Starlink constellation using Plotly. We'll use the Natural Earth 50m texture for a realistic Earth representation:
+We'll create an interactive 3D visualization of the entire GPS constellation using Plotly. We'll use the Natural Earth 50m texture for a realistic Earth representation:
 
 ``` python
 --8<-- "./examples/examples/visualizing_gps.py:orbit_visualization"
 ```
 
-The resulting plot shows the complete Starlink constellation orbiting Earth. The interactive visualization allows you to rotate, zoom, and pan to explore the satellite positions from different angles.
+The resulting plot shows the complete GPS constellation orbiting Earth. The interactive visualization allows you to rotate, zoom, and pan to explore the satellite positions from different angles.
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/visualizing_gps_light.html" loading="lazy"></iframe>

@@ -171,10 +171,11 @@ pub struct EulerAngle {
 /// other attitude representations. Specifically, `Quaternion`, `EulerAxis`, and `EulerAngle`.
 #[derive(Clone, Copy)]
 pub struct RotationMatrix {
-    pub(crate) data: crate::utils::SMatrix3,
+    pub(crate) data: crate::math::SMatrix3,
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

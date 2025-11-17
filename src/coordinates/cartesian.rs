@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use is_close::is_close;
 use nalgebra::Vector3;
 
-use crate::utils::SVector6;
+use crate::math::SVector6;
 
 use crate::constants;
 use crate::constants::{AngleFormat, GM_EARTH};
@@ -34,7 +34,7 @@ use crate::orbits;
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, RADIANS};
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::coordinates::*;
 ///
 /// let osc = vector6_from_array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
@@ -102,7 +102,7 @@ pub fn state_osculating_to_cartesian(x_oe: SVector6, angle_format: AngleFormat) 
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, DEGREES};
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::coordinates::*;
 ///
@@ -167,14 +167,15 @@ pub fn state_cartesian_to_osculating(x_cart: SVector6, angle_format: AngleFormat
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
     use crate::constants::{DEG2RAD, DEGREES, R_EARTH, RADIANS};
     use crate::coordinates::*;
+    use crate::math::*;
     use crate::orbits::*;
-    use crate::utils::math::*;
     use crate::utils::testing::setup_global_test_eop;
 
     #[test]

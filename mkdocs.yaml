@@ -213,6 +213,7 @@ nav:
             - Datasets:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
+                - NAIF: learn/datasets/naif.md
                 - Groundstations: learn/datasets/groundstations.md
             - Mathematics:
                 - learn/mathematics/index.md
@@ -314,6 +315,7 @@ nav:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md
                 - Groundstations: library_api/datasets/groundstations.md
+                - NAIF: library_api/datasets/naif.md
             - Access:
                 - library_api/access/index.md
                 - Locations: library_api/access/locations.md

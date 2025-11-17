@@ -4,6 +4,9 @@ Provide low-accuracy ephemerides for various celestial bodies.
 
 use nalgebra::Vector3;
 
+// use anise::prelude as anise_prelude;
+// use anise::constants::frames as anise_frames;
+
 use crate::DEG2RAD;
 use crate::attitude::RotationMatrix;
 use crate::constants::{AS2RAD, MJD2000, RADIANS};
@@ -138,6 +141,23 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
     RotationMatrix::Rx(-epsilon, RADIANS)
         * Vector3::new(r * L.cos() * B.cos(), r * L.sin() * B.cos(), r * B.sin())
 }
+
+// pub fn sun_position_de440(epc: Epoch) -> Vector3<f64> {
+//     let spk = SPK::load("../data/de440s.bsp").unwrap();
+//     let ctx = Almanac::from_spk(spk);
+
+//     // Define an Epoch in the dynamical barycentric time scale
+//     let epoch = Epoch::from_str("2020-11-15 12:34:56.789 TDB").unwrap();
+
+//     let state = ctx
+//         .translate(
+//             VENUS_J2000, // Target
+//             EARTH_MOON_BARYCENTER_J2000, // Observer
+//             epoch,
+//             None,
+//         )
+//         .unwrap();
+// }
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]

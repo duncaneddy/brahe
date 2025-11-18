@@ -98,3 +98,4 @@ fn main() {
 
     // Orbital velocity: 7632.770 m/s (7.633 km/s)
     // Theoretical drag magnitude: 0.000001282 m/s²
+}

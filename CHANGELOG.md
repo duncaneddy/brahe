@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.3.0] - 2025-11-18
+### Added
+
+- - Added `Integrators` submodule with complete rust implementation, python bindings, documentation, and examples
+  - Support for `RK4`, `RKF45`, `DP54`, and `RKN1210` numerical integration methods
+  - License validation and compliance checks. Package is now automatically checked to ensure all dependencies have permissive, commercially-adoptable licenses [#63](https://github.com/duncaneddy/brahe/pull/63)
+- - NAIF Development Ephemeride dataset download and caching
+  - High-accuracy DE440s-based ephemeris prediction
+  - High-accuracy DE440s-based third-body acceleration prediction
+  - Python bindings for orbit dynamics functions [#68](https://github.com/duncaneddy/brahe/pull/68)
+- - Added `geo_sma` function to directly return the semi-major axis needed for a geostationary orbit. [#69](https://github.com/duncaneddy/brahe/pull/69)
+
+### Changed
+
+- - Moved mathematics capabilities from `utils` submodule to dedicated `math` submodule.
+  - Bumped version to `0.2.0` for release
+  - Removed Rust test sections from coverage reporting [#63](https://github.com/duncaneddy/brahe/pull/63)
+- - Orbit dynamics functions which previously required a position-only vector can now accept either a position-only or a state vector. Conversion will be handled by the `IntoPosition` trait. [#68](https://github.com/duncaneddy/brahe/pull/68)
+
+### Fixed
+
+- - Fix inconsistencies in Python API reference header levels
+  - Missing Ground station
+  - Miscellaneous documentation improvements and fixes [#63](https://github.com/duncaneddy/brahe/pull/63)
+
 ## [0.2.0] - 2025-11-17
 ### Added
 

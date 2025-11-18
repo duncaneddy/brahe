@@ -790,10 +790,10 @@ fn py_sun_synchronous_inclination(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, an
 /// 
 /// Example:
 ///    ```python
-///   import brahe as bh
-///   a_geo = bh.geo_sma()
-///   print(f"Geostationary semi-major axis: {a_geo/1000:.2f} km")
-///   ```
+///    import brahe as bh
+///    a_geo = bh.geo_sma()
+///    print(f"Geostationary semi-major axis: {a_geo/1000:.2f} km")
+///    ```
 #[pyfunction]
 #[pyo3(signature = (), text_signature = "()")]
 #[pyo3(name = "geo_sma")]

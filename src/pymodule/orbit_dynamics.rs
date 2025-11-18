@@ -1461,6 +1461,45 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 }
 
 // ============================================================================
+// Atmospheric Density Models Python Bindings
+// ============================================================================
+
+/// Computes atmospheric density using the Harris-Priester model.
+///
+/// The Harris-Priester model accounts for diurnal density variations caused by solar heating.
+/// Valid for altitudes between 100 km and 1000 km. Returns 0.0 outside this range.
+///
+/// Args:
+///     r_tod (np.ndarray): Satellite position in true-of-date frame. Units: (m)
+///     r_sun (np.ndarray): Sun position in true-of-date frame. Units: (m)
+///
+/// Returns:
+///     float: Atmospheric density at the satellite position. Units: (kg/m³)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+///     r_sat = np.array([bh.R_EARTH + 400e3, 0.0, 0.0])
+///     r_sun = bh.sun_position(epc)
+///
+///     density = bh.density_harris_priester(r_sat, r_sun)
+///     print(f"Density: {density:.2e} kg/m³")
+///     ```
+#[pyfunction]
+#[pyo3(name = "density_harris_priester")]
+fn py_density_harris_priester(
+    r_tod: PyReadonlyArray1<f64>,
+    r_sun: PyReadonlyArray1<f64>,
+) -> PyResult<f64> {
+    let r = numpy_to_vector3!(r_tod);
+    let r_s = numpy_to_vector3!(r_sun);
+    Ok(orbit_dynamics::atmospheric_density_models::density_harris_priester(r, r_s))
+}
+
+// ============================================================================
 // Drag Acceleration Python Bindings
 // ============================================================================
 
@@ -1558,6 +1597,109 @@ fn py_accel_solar_radiation_pressure<'py>(
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Calculate the fraction of the object illuminated by the sun using a conical (penumbral) shadow model.
+///
+/// The conical shadow model accounts for the finite size of both the Sun and Earth, modeling
+/// the penumbra region where the satellite receives partial sunlight. This is more accurate
+/// than the cylindrical model but computationally more expensive.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in ECI frame. Units: (m)
+///     r_sun (np.ndarray): Position vector of the sun in ECI frame. Units: (m)
+///
+/// Returns:
+///     float: Illumination fraction between 0.0 and 1.0. Values: 0.0 (full shadow/umbra),
+///            0.0-1.0 (partial shadow/penumbra), 1.0 (full sunlight)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+///     r_sat = np.array([bh.R_EARTH + 400e3, 0.0, 0.0])
+///     r_sun = bh.sun_position(epc)
+///
+///     nu = bh.eclipse_conical(r_sat, r_sun)
+///     print(f"Illumination fraction: {nu}")
+///     ```
+#[pyfunction]
+#[pyo3(name = "eclipse_conical")]
+fn py_eclipse_conical(
+    r_object: PyReadonlyArray1<f64>,
+    r_sun: PyReadonlyArray1<f64>,
+) -> PyResult<f64> {
+    let len = r_object.len();
+    let r_s = numpy_to_vector3!(r_sun);
+    let nu = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::eclipse_conical(r_obj, r_s)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::eclipse_conical(x_obj, r_s)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    };
+    Ok(nu)
+}
+
+/// Calculate the fraction of the object illuminated by the sun using a cylindrical shadow model.
+///
+/// The cylindrical shadow model is a simplified approach that assumes Earth casts a cylindrical
+/// shadow parallel to the Sun-Earth line. This model is computationally efficient and provides
+/// binary shadow determination (fully lit or fully shadowed, no penumbra).
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in ECI frame. Units: (m)
+///     r_sun (np.ndarray): Position vector of the sun in ECI frame. Units: (m)
+///
+/// Returns:
+///     float: Illumination fraction, either 0.0 (full shadow) or 1.0 (full sunlight).
+///            No partial illumination is returned by this model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+///     r_sat = np.array([bh.R_EARTH + 400e3, 0.0, 0.0])
+///     r_sun = bh.sun_position(epc)
+///
+///     nu = bh.eclipse_cylindrical(r_sat, r_sun)
+///     if nu == 0.0:
+///         print("Satellite is in Earth's shadow")
+///     else:
+///         print("Satellite is in sunlight")
+///     ```
+#[pyfunction]
+#[pyo3(name = "eclipse_cylindrical")]
+fn py_eclipse_cylindrical(
+    r_object: PyReadonlyArray1<f64>,
+    r_sun: PyReadonlyArray1<f64>,
+) -> PyResult<f64> {
+    let len = r_object.len();
+    let r_s = numpy_to_vector3!(r_sun);
+    let nu = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::eclipse_cylindrical(r_obj, r_s)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::eclipse_cylindrical(x_obj, r_s)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    };
+    Ok(nu)
 }
 
 // ============================================================================

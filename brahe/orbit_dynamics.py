@@ -48,6 +48,8 @@ Gravity:
 Drag and SRP:
 - accel_drag: Atmospheric drag acceleration
 - accel_solar_radiation_pressure: Solar radiation pressure acceleration
+- eclipse_conical: Conical (penumbral) shadow model for eclipse detection
+- eclipse_cylindrical: Cylindrical shadow model for eclipse detection
 
 Relativity:
 - accel_relativity: Relativistic acceleration effects
@@ -92,9 +94,13 @@ from brahe._brahe import (
     GravityModelNormalization,
     GravityModel,
     accel_gravity_spherical_harmonics,
+    # Atmospheric Density Models
+    density_harris_priester,
     # Drag, SRP, and Relativity
     accel_drag,
     accel_solar_radiation_pressure,
+    eclipse_conical,
+    eclipse_cylindrical,
     accel_relativity,
 )
 
@@ -134,8 +140,12 @@ __all__ = [
     "GravityModelNormalization",
     "GravityModel",
     "accel_gravity_spherical_harmonics",
+    # Atmospheric Density Models
+    "density_harris_priester",
     # Drag, SRP, and Relativity
     "accel_drag",
     "accel_solar_radiation_pressure",
+    "eclipse_conical",
+    "eclipse_cylindrical",
     "accel_relativity",
 ]

@@ -876,9 +876,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
 
+    // Atmospheric Density Models
+    module.add_function(wrap_pyfunction!(py_density_harris_priester, module)?)?;
+
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_conical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_cylindrical, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_relativity, module)?)?;
 
     //* Access *//

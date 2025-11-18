@@ -195,6 +195,13 @@ nav:
                 - Adaptive-Step Integrators: learn/integrators/adaptive_step.md
                 - Variational Equations: learn/integrators/variational_equations.md
                 - Configuration: learn/integrators/configuration.md
+            - Orbital Dynamics:
+                - learn/orbital_dynamics/index.md
+                - Gravity Models: learn/orbital_dynamics/gravity.md
+                - Third-Body Perturbations: learn/orbital_dynamics/third_body.md
+                - Atmospheric Drag: learn/orbital_dynamics/drag.md
+                - Solar Radiation Pressure: learn/orbital_dynamics/solar_radiation_pressure.md
+                - Relativistic Effects: learn/orbital_dynamics/relativity.md
             - Orbit Propagation:
                 - learn/orbit_propagation/index.md
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
@@ -302,6 +309,15 @@ nav:
                 - RKF45 Integrator: library_api/integrators/rkf45.md
                 - DP54 Integrator: library_api/integrators/dp54.md
                 - RKN1210 Integrator: library_api/integrators/rkn1210.md
+            - Orbital Dynamics:
+                - library_api/orbit_dynamics/index.md
+                - Gravity Models: library_api/orbit_dynamics/gravity.md
+                - Third-Body: library_api/orbit_dynamics/third_body.md
+                - Atmospheric Drag: library_api/orbit_dynamics/drag.md
+                - Atmospheric Density: library_api/orbit_dynamics/atmospheric_density_models.md
+                - Solar Radiation Pressure: library_api/orbit_dynamics/solar_radiation_pressure.md
+                - Relativistic Effects: library_api/orbit_dynamics/relativity.md
+                - Ephemerides: library_api/orbit_dynamics/ephemerides.md
             - Propagators:
                 - library_api/propagators/index.md
                 - KeplerianPropagator: library_api/propagators/keplerian_propagator.md

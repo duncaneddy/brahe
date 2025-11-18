@@ -1,3 +1,6 @@
+# Miscellaneous
+SatelliteDynamics.jl
+
 # IDE
 .idea/
 .vscode
@@ -7,7 +10,6 @@ CLAUDE.md
 
 # Coverage
 lcov.info
-
 
 # Build Artifacts - Rust
 /target

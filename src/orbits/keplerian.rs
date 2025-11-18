@@ -2,7 +2,7 @@
  * The `keplerian` module contains types and functions for working with Keplerian orbital elements.
  */
 
-use crate::constants::{AngleFormat, DEG2RAD, GM_EARTH, J2_EARTH, R_EARTH, RAD2DEG};
+use crate::constants::{AngleFormat, DEG2RAD, GM_EARTH, OMEGA_EARTH, J2_EARTH, R_EARTH, RAD2DEG};
 use std::f64::consts::PI;
 
 /// Computes the orbital period of an object around Earth.
@@ -492,6 +492,21 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, angle_format: AngleFormat) ->
     }
 }
 
+/// Computes the semi-major axis for a geostationary orbit around Earth.
+/// 
+/// # Returns
+/// - `geo_sma`: The semi-major axis for a geostationary orbit. Units: (_m_)
+/// 
+/// # Examples
+/// 
+/// ```
+/// use brahe::orbits::geo_sma;
+/// let a_geo = geo_sma(); // approx 42164 km
+/// ```
+pub fn geo_sma() -> f64 {
+    semimajor_axis_from_orbital_period(2.0 * PI / OMEGA_EARTH)
+}
+
 /// Converts eccentric anomaly into mean anomaly.
 ///
 /// # Arguments
@@ -960,6 +975,12 @@ mod tests {
     fn test_sun_synchronous_inclination() {
         let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, DEGREES);
         assert_abs_diff_eq!(inc, 97.40172901366881, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_geo_sma() {
+        let a_geo = geo_sma();
+        assert_abs_diff_eq!(a_geo, 42164172.0, epsilon = 1.0);
     }
 
     #[test]

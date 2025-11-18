@@ -699,6 +699,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_apoapsis_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_apogee_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_sun_synchronous_inclination, module)?)?;
+    module.add_function(wrap_pyfunction!(py_geo_sma, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_eccentric, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_eccentric, module)?)?;

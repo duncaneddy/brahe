@@ -34,6 +34,8 @@ Functions for working with Keplerian orbital elements and computing orbital prop
 
 ::: brahe.orbits.sun_synchronous_inclination
 
+::: brahe.orbits.geo_sma
+
 ## Anomaly Conversions
 
 ::: brahe.orbits.anomaly_eccentric_to_mean

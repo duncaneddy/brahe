@@ -48,6 +48,7 @@ from brahe._brahe import (
     apoapsis_altitude,
     # Special orbits
     sun_synchronous_inclination,
+    geo_sma,
     # Anomaly conversions
     anomaly_eccentric_to_mean,
     anomaly_mean_to_eccentric,
@@ -94,6 +95,7 @@ __all__ = [
     "apoapsis_altitude",
     # Special orbits
     "sun_synchronous_inclination",
+    "geo_sma",
     # Anomaly conversions
     "anomaly_eccentric_to_mean",
     "anomaly_mean_to_eccentric",

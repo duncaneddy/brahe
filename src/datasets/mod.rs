@@ -9,6 +9,7 @@
 pub mod celestrak;
 pub mod groundstations;
 pub mod loaders;
+pub mod naif;
 pub mod parsers;
 pub mod serializers;
 
@@ -22,3 +23,6 @@ pub use celestrak::{
 pub use groundstations::{
     list_providers, load_all_groundstations, load_groundstations, load_groundstations_from_file,
 };
+
+// Re-export commonly used functions from naif
+pub use naif::download_de_kernel;

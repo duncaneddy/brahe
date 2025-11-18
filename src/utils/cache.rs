@@ -122,6 +122,25 @@ pub fn get_celestrak_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("celestrak"))
 }
 
+/// Get the NAIF cache directory path.
+///
+/// Returns `~/.cache/brahe/naif` (or `$BRAHE_CACHE/naif` if environment variable is set).
+/// The directory is created if it doesn't exist.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the NAIF cache directory as a String
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_naif_cache_dir;
+/// let naif_cache_dir = get_naif_cache_dir().unwrap();
+/// println!("NAIF cache directory: {}", naif_cache_dir);
+/// ```
+pub fn get_naif_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("naif"))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -205,6 +224,32 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn test_get_naif_cache_dir() {
+        // Save current env var state
+        let original_brahe_cache = env::var("BRAHE_CACHE").ok();
+
+        // Clear BRAHE_CACHE to ensure we use default path
+        unsafe {
+            env::remove_var("BRAHE_CACHE");
+        }
+
+        let naif_cache_dir = get_naif_cache_dir().unwrap();
+        assert!(!naif_cache_dir.is_empty());
+        assert!(std::path::Path::new(&naif_cache_dir).exists());
+        // Check that path contains both brahe and naif directories
+        assert!(naif_cache_dir.contains("brahe"));
+        assert!(naif_cache_dir.contains("naif"));
+
+        // Restore original state
+        unsafe {
+            if let Some(original) = original_brahe_cache {
+                env::set_var("BRAHE_CACHE", original);
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn test_cache_dir_from_env() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -236,6 +281,15 @@ mod tests {
             test_dir.to_str().unwrap()
         );
         assert!(celestrak_cache_dir.contains("celestrak"));
+
+        let naif_cache_dir = get_naif_cache_dir().unwrap();
+        assert!(
+            naif_cache_dir.starts_with(test_dir.to_str().unwrap()),
+            "Expected naif_cache_dir '{}' to start with '{}'",
+            naif_cache_dir,
+            test_dir.to_str().unwrap()
+        );
+        assert!(naif_cache_dir.contains("naif"));
 
         // Cleanup - restore original state
         unsafe {

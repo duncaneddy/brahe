@@ -30,6 +30,43 @@ def brahe_original_eop_filepath():
     yield str(filepath)
 
 
+@pytest.fixture(scope="session")
+def de440s_kernel_filepath():
+    """Path to de440s.bsp NAIF kernel test asset."""
+    filepath = TEST_ASSETS / "de440s.bsp"
+    yield str(filepath)
+
+
+@pytest.fixture(scope="session")
+def naif_cache_setup(de440s_kernel_filepath):
+    """Copy de440s.bsp from test_assets to NAIF cache directory for testing.
+
+    This avoids hitting NAIF servers during tests by pre-populating the cache
+    with the test asset.
+    """
+    import shutil
+    import os
+
+    # Construct NAIF cache directory path
+    # (mirrors brahe::utils::cache::get_naif_cache_dir())
+    brahe_cache = os.environ.get("BRAHE_CACHE")
+    if brahe_cache:
+        cache_dir = pathlib.Path(brahe_cache) / "naif"
+    else:
+        cache_dir = pathlib.Path.home() / ".cache" / "brahe" / "naif"
+
+    # Create directory if it doesn't exist
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_kernel_path = cache_dir / "de440s.bsp"
+
+    # Copy test asset to cache if not already there
+    if not cache_kernel_path.exists():
+        shutil.copy2(de440s_kernel_filepath, cache_kernel_path)
+
+    yield str(cache_kernel_path)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def eop(iau2000_standard_filepath):
     eop = brahe.FileEOPProvider.from_standard_file(

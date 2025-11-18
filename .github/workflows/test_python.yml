@@ -46,7 +46,6 @@ jobs:
                     name: brahe-cache-${{ runner.os }}
                     path: ~\.cache\brahe\
 
-
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
                 

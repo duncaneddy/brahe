@@ -103,6 +103,25 @@ pub fn get_eop_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("eop"))
 }
 
+/// Get the space weather cache directory path.
+///
+/// Returns `~/.cache/brahe/space_weather` (or `$BRAHE_CACHE/space_weather` if environment variable is set).
+/// The directory is created if it doesn't exist.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the space weather cache directory as a String
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_space_weather_cache_dir;
+/// let sw_cache_dir = get_space_weather_cache_dir().unwrap();
+/// println!("Space weather cache directory: {}", sw_cache_dir);
+/// ```
+pub fn get_space_weather_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("space_weather"))
+}
+
 /// Get the CelesTrak cache directory path.
 ///
 /// Returns `~/.cache/brahe/celestrak` (or `$BRAHE_CACHE/celestrak` if environment variable is set).
@@ -198,6 +217,32 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn test_get_space_weather_cache_dir() {
+        // Save current env var state
+        let original_brahe_cache = env::var("BRAHE_CACHE").ok();
+
+        // Clear BRAHE_CACHE to ensure we use default path
+        unsafe {
+            env::remove_var("BRAHE_CACHE");
+        }
+
+        let sw_cache_dir = get_space_weather_cache_dir().unwrap();
+        assert!(!sw_cache_dir.is_empty());
+        assert!(std::path::Path::new(&sw_cache_dir).exists());
+        // Check that path contains both brahe and space_weather directories
+        assert!(sw_cache_dir.contains("brahe"));
+        assert!(sw_cache_dir.contains("space_weather"));
+
+        // Restore original state
+        unsafe {
+            if let Some(original) = original_brahe_cache {
+                env::set_var("BRAHE_CACHE", original);
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn test_get_celestrak_cache_dir() {
         // Save current env var state
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
@@ -272,6 +317,15 @@ mod tests {
             test_dir.to_str().unwrap()
         );
         assert!(eop_cache_dir.contains("eop"));
+
+        let sw_cache_dir = get_space_weather_cache_dir().unwrap();
+        assert!(
+            sw_cache_dir.starts_with(test_dir.to_str().unwrap()),
+            "Expected sw_cache_dir '{}' to start with '{}'",
+            sw_cache_dir,
+            test_dir.to_str().unwrap()
+        );
+        assert!(sw_cache_dir.contains("space_weather"));
 
         let celestrak_cache_dir = get_celestrak_cache_dir().unwrap();
         assert!(

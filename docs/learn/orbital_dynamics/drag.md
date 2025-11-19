@@ -5,7 +5,7 @@ Atmospheric drag is one of the most significant perturbations for satellites in 
 Drag is a non-conservative force that dissipates orbital energy. It is also highly dependent on atmospheric density, which varies with altitude, solar activity, geomagnetic conditions, and other factors. This variability makes drag one of the most challenging perturbations to model accurately and is often the largest source of uncertainty in LEO orbit prediction.
 
 !!! note
-    Currently Brahe only implements the simple Harris-Priester atmospheric density model for drag calculations. More advanced models like NRLMSISE-00, NRLMSISE 2.1, DTM-2020, etc are high-priority features for future releases.
+    Brahe implements both the simple Harris-Priester model and the more advanced NRLMSISE-00 empirical atmospheric model for drag calculations.
 
 ## Physical Model
 
@@ -52,6 +52,24 @@ The Harris-Priester model is a simple, semi-empirical static atmospheric density
 
 The model divides the atmosphere into altitude bins and provides density values for minimum and maximum solar activity conditions. Interpolation between these values allows modeling of different solar cycle phases.
 
+### NRLMSISE-00 Atmospheric Model
+
+The NRLMSISE-00 (Naval Research Laboratory Mass Spectrometer and Incoherent Scatter Radar Exosphere) model is an empirical atmospheric model that provides temperature and density profiles from ground to thermospheric heights.
+
+Key features:
+
+- Uses space weather data (F10.7 solar flux, Ap geomagnetic indices)
+- Accounts for temporal variations (diurnal, seasonal, solar cycle)
+- Includes atmospheric composition ($He$, $O$, $N_2$, $O_2$, $Ar$, $H$, $N$)
+- Valid for altitudes from ground to ~1000+ km
+
+The model requires initialization of both Earth orientation data and space weather data:
+
+- Earth orientation data: `bh.initialize_eop()`
+- Space weather data: `bh.initialize_sw()`
+
+For full API details, see the [NRLMSISE-00 API Reference](../../library_api/earth_models/nrlmsise00.md).
+
 ## Usage Examples
 
 ### Computing Drag Acceleration
@@ -73,7 +91,7 @@ Calculate the atmospheric drag acceleration on a satellite using the Harris-Prie
 ## See Also
 
 - [Library API Reference: Drag](../../library_api/orbit_dynamics/drag.md)
-- [Library API Reference: Atmospheric Density Models](../../library_api/orbit_dynamics/atmospheric_density_models.md)
+- [Library API Reference: Earth Models](../../library_api/earth_models/index.md)
 - [Orbital Dynamics Overview](index.md)
 
 ## References

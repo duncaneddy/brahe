@@ -44,7 +44,7 @@ fn py_density_harris_priester(
 /// The ECEF position is converted to geodetic coordinates internally.
 ///
 /// Args:
-///     epoch (Epoch): Epoch of computation (used to lookup space weather data)
+///     epc (Epoch): Epoch of computation (used to lookup space weather data)
 ///     x_ecef (np.ndarray): Position in ECEF frame. Units: (m)
 ///
 /// Returns:
@@ -88,7 +88,7 @@ fn py_density_nrlmsise00(epc: &PyEpoch, x_ecef: PyReadonlyArray1<f64>) -> PyResu
 /// Takes geodetic coordinates directly.
 ///
 /// Args:
-///     epoch (Epoch): Epoch of computation (used to lookup space weather data)
+///     epc (Epoch): Epoch of computation (used to lookup space weather data)
 ///     geod (np.ndarray): Geodetic position as [longitude, latitude, altitude] where
 ///         longitude and latitude are in degrees, and altitude is in meters
 ///

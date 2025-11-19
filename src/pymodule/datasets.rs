@@ -2,6 +2,8 @@
 
 use crate::datasets::celestrak;
 use crate::datasets::groundstations;
+use crate::datasets::naif;
+use std::path::PathBuf;
 
 /// Get satellite ephemeris data from CelesTrak
 ///
@@ -441,6 +443,59 @@ fn py_celestrak_get_tle_by_name_as_propagator(
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     Ok(PySGPPropagator { propagator })
+}
+
+/// Download a DE kernel from NAIF with caching support
+///
+/// Downloads the specified DE (Development Ephemeris) kernel file from NASA JPL's NAIF
+/// archive and caches it locally. If the kernel is already cached, returns the cached
+/// path without re-downloading. Optionally copies the kernel to a user-specified location.
+///
+/// Args:
+///     name (str): Kernel name. Supported kernels: "de430", "de432s", "de435", "de438",
+///         "de440", "de440s", "de442", "de442s".
+///     output_path (str, optional): Optional path to copy the kernel to after download/cache retrieval.
+///         If not specified, returns the cache location.
+///
+/// Returns:
+///     str: Path to the kernel file (cache location or output_path if specified).
+///
+/// Raises:
+///     RuntimeError: If kernel name is unsupported, download fails, or file operations fail.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Download and cache de440s kernel
+///     kernel_path = bh.datasets.naif.download_de_kernel("de440s")
+///     print(f"Kernel cached at: {kernel_path}")
+///
+///     # Download and copy to specific location
+///     kernel_path = bh.datasets.naif.download_de_kernel("de440s", "/path/to/my_kernel.bsp")
+///     print(f"Kernel saved to: {kernel_path}")
+///     ```
+///
+/// Note:
+///     - DE kernels are long-term stable products and are not refreshed once cached
+///     - Files are cached to ~/.cache/brahe/naif/ (or $BRAHE_CACHE/naif/ if set)
+///     - Kernel files are large (de440s: ~17MB, de440: ~114MB)
+///     - Available at: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/
+#[pyfunction]
+#[pyo3(name = "naif_download_de_kernel", signature = (name, output_path=None))]
+fn py_naif_download_de_kernel(name: &str, output_path: Option<&str>) -> PyResult<String> {
+    let output_pathbuf = output_path.map(PathBuf::from);
+    let result_path = naif::download_de_kernel(name, output_pathbuf)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    result_path
+        .to_str()
+        .ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Path contains invalid UTF-8 characters",
+            )
+        })
+        .map(|s| s.to_string())
 }
 
 // Functions are registered in mod.rs via add_function() calls

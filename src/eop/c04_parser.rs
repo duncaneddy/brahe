@@ -134,6 +134,7 @@ pub fn parse_c04_line(line: String) -> EOPParseResult {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

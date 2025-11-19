@@ -2788,8 +2788,8 @@ def test_covariance_none_for_trajectory_without_covariances(eop):
     assert traj.covariance_rtn(epoch) is None
 
 
-def test_covariance_interpolation_method_linear(eop):
-    """Test linear covariance interpolation method (using TwoWasserstein stub)."""
+def test_covariance_interpolation_method_two_wasserstein(eop):
+    """Test TwoWasserstein covariance interpolation method."""
     # Create trajectory with covariances
     epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     epoch2 = epoch1 + 120.0

@@ -783,6 +783,24 @@ fn py_sun_synchronous_inclination(a_or_oe: &Bound<'_, PyAny>, e: Option<f64>, an
     Ok(orbits::sun_synchronous_inclination(oe[0], oe[1], angle_format.value))
 }
 
+/// Returns the geostationary orbit semi-major axis around Earth.
+/// 
+/// Returns:
+///    float: The semi-major axis in meters.
+/// 
+/// Example:
+///    ```python
+///    import brahe as bh
+///    a_geo = bh.geo_sma()
+///    print(f"Geostationary semi-major axis: {a_geo/1000:.2f} km")
+///    ```
+#[pyfunction]
+#[pyo3(signature = (), text_signature = "()")]
+#[pyo3(name = "geo_sma")]
+fn py_geo_sma() -> PyResult<f64> {
+    Ok(orbits::geo_sma())
+}
+
 /// Converts eccentric anomaly into mean anomaly.
 ///
 /// Args:

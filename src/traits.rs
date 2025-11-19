@@ -28,6 +28,10 @@
  * ## Earth Orientation Parameters
  * - `EarthOrientationProvider` - Trait for EOP data providers
  *
+ * ## Numerical Integration
+ * - `FixedStepIntegrator` - Trait for fixed-step numerical integrators
+ * - `AdaptiveStepIntegrator` - Trait for adaptive-step numerical integrators
+ *
  * ## Identification
  * - `Identifiable` - Trait for objects that can be identified by name, ID, and/or UUID
  */
@@ -57,7 +61,9 @@ pub use crate::attitude::traits::{FromAttitude, ToAttitude};
 pub use crate::eop::EarthOrientationProvider;
 
 // Numerical integration traits
-pub use crate::integrators::numerical_integrator::NumericalIntegrator;
+pub use crate::integrators::traits::{
+    AdaptiveStepDIntegrator, AdaptiveStepSIntegrator, FixedStepDIntegrator, FixedStepSIntegrator,
+};
 
 // Identification trait
 pub use crate::utils::identifiable::Identifiable;

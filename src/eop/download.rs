@@ -71,6 +71,7 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::env;
 

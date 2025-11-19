@@ -6,6 +6,7 @@ Provides access to satellite ephemeris and groundstation location data from vari
 This module provides a source-specific API organized by data provider:
 - celestrak: CelesTrak satellite ephemeris data
 - groundstations: Curated groundstation location datasets
+- naif: NASA JPL NAIF ephemeris kernels (DE series)
 
 Example:
     ```python
@@ -23,6 +24,9 @@ Example:
     # Load groundstations
     ksat_stations = datasets.groundstations.load("ksat")
     all_stations = datasets.groundstations.load_all()
+
+    # Download NAIF DE kernel
+    kernel_path = datasets.naif.download_de_kernel("de440s")
     ```
 """
 
@@ -40,6 +44,8 @@ from brahe._brahe import (
     groundstations_load_from_file,
     groundstations_load_all,
     groundstations_list_providers,
+    # NAIF functions
+    naif_download_de_kernel,
 )
 
 
@@ -75,7 +81,19 @@ class _GroundstationsNamespace:
 # Create groundstations namespace instance
 groundstations = _GroundstationsNamespace()
 
+
+# Create a NAIF namespace object
+class _NAIFNamespace:
+    """NAIF data source namespace"""
+
+    download_de_kernel = staticmethod(naif_download_de_kernel)
+
+
+# Create NAIF namespace instance
+naif = _NAIFNamespace()
+
 __all__ = [
     "celestrak",
     "groundstations",
+    "naif",
 ]

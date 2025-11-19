@@ -8,11 +8,13 @@ The module is organized by data source, with each source providing a consistent 
 
 - **`brahe.datasets.celestrak`**: CelesTrak satellite ephemeris data
 - **`brahe.datasets.groundstations`**: Curated groundstation location datasets
+- **`brahe.datasets.naif`**: NASA JPL NAIF planetary ephemeris kernels
 
 ## Submodules
 
 - [CelesTrak Functions](celestrak.md) - Satellite ephemeris from CelesTrak
 - [Groundstation Functions](groundstations.md) - Groundstation location datasets
+- [NAIF Functions](naif.md) - Planetary ephemeris kernels from NASA JPL
 
 ---
 

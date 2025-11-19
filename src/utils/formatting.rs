@@ -98,6 +98,7 @@ fn format_time_string_long(seconds: f64) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

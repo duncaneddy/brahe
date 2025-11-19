@@ -435,6 +435,7 @@ pub trait IdentifiableStateProvider: StateProvider + Identifiable {}
 impl<T: StateProvider + Identifiable> IdentifiableStateProvider for T {}
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::orbits;

@@ -28,14 +28,18 @@ Use groundstation datasets when you need to:
 
 Brahe includes groundstation data from six major commercial providers:
 
+<div class="center-table" markdown="1">
 | Provider | Description |
 |----------|-------------|
 | **Atlas** | Atlas Space Operations |
 | **AWS** | Amazon Web Services Ground Station |
 | **KSAT** | Kongsberg Satellite Services |
 | **Leaf** | Leaf Space |
+| **NASA DSN** | NASA Deep Space Network |
+| **NASA NEN** | NASA Near Earth Network |
 | **SSC** | Swedish Space Corporation |
 | **Viasat** | Viasat |
+</div>
 
 ## Usage
 

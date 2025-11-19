@@ -102,6 +102,7 @@ pub fn convert_3le_to_2le(data: &[(String, String, String)]) -> Vec<(String, Str
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 

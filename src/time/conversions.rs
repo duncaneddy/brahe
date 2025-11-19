@@ -7,8 +7,8 @@ use std::os::raw::{c_char, c_int};
 
 use crate::constants::{GPS_TAI, MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI};
 use crate::eop::get_global_ut1_utc;
+use crate::math::split_float;
 use crate::time::time_types::TimeSystem;
-use crate::utils::split_float;
 
 /// Convert a Gregorian calendar date representation to the equivalent Julian Date
 /// representation of that same instant in time.
@@ -502,6 +502,7 @@ pub fn time_system_offset_for_datetime(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
 

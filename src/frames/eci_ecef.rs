@@ -4,8 +4,8 @@
 
 use nalgebra::Vector3;
 
+use crate::math::{SMatrix3, SVector6};
 use crate::time::Epoch;
-use crate::utils::{SMatrix3, SVector6};
 
 use super::gcrf_itrf::{
     position_gcrf_to_itrf, position_itrf_to_gcrf, rotation_gcrf_to_itrf, rotation_itrf_to_gcrf,
@@ -103,7 +103,7 @@ pub fn rotation_ecef_to_eci(epc: Epoch) -> SMatrix3 {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -143,7 +143,7 @@ pub fn position_eci_to_ecef(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector3_from_array;
+/// use brahe::vector3_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -182,7 +182,7 @@ pub fn position_ecef_to_eci(epc: Epoch, x: Vector3<f64>) -> Vector3<f64> {
 /// # Example
 /// ```
 /// use brahe::eop::*;
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::constants::R_EARTH;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -223,7 +223,7 @@ pub fn state_eci_to_ecef(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// ```
 /// use brahe::eop::*;
 /// use brahe::constants::R_EARTH;
-/// use brahe::utils::vector6_from_array;
+/// use brahe::vector6_from_array;
 /// use brahe::orbits::perigee_velocity;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::frames::*;
@@ -248,6 +248,7 @@ pub fn state_ecef_to_eci(epc: Epoch, x_ecef: SVector6) -> SVector6 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
@@ -256,9 +257,9 @@ mod tests {
     use crate::constants::{DEGREES, R_EARTH};
     use crate::coordinates::state_osculating_to_cartesian;
     use crate::frames::*;
+    use crate::math::vector6_from_array;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
-    use crate::utils::vector6_from_array;
 
     #[test]
     #[serial]

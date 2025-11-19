@@ -2,7 +2,7 @@
  * Orbital elements to Quasi-Nonsingular Relative Orbital Elements (ROE) conversion functions
  */
 
-use crate::utils::{SVector6, oe_to_radians, wrap_to_2pi};
+use crate::math::{SVector6, oe_to_radians, wrap_to_2pi};
 use crate::{AngleFormat, DEG2RAD, RAD2DEG};
 
 /// Compute the Relative Orbital Elements (ROE) from the Chief and Deputy Orbital Elements (OE).
@@ -17,7 +17,7 @@ use crate::{AngleFormat, DEG2RAD, RAD2DEG};
 ///
 /// # Examples
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
 /// use brahe::relative_motion::state_oe_to_roe;
 ///
@@ -97,7 +97,7 @@ pub fn state_oe_to_roe(
 ///
 /// # Examples
 /// ```
-/// use brahe::utils::SVector6;
+/// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
 /// use brahe::relative_motion::state_roe_to_oe;
 /// // Define chief satellite orbital elements and relative orbital elements
@@ -162,6 +162,7 @@ pub fn state_roe_to_oe(oe_chief: SVector6, roe: SVector6, angle_format: AngleFor
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::R_EARTH;

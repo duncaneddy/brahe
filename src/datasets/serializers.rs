@@ -146,6 +146,7 @@ fn escape_csv_field(field: &str) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use rstest::rstest;

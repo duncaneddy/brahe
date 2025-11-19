@@ -1186,6 +1186,7 @@ fn format_constraint(constraint: &dyn AccessConstraint) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::{AngleFormat, R_EARTH};

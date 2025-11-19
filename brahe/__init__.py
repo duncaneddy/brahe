@@ -39,15 +39,19 @@ from brahe import (
     coordinates,
     frames,
     eop,
+    space_weather,
     attitude,
     trajectories,
     constants,
     datasets,
     access,
     relative_motion,
+    math,
+    integrators,
     utils,
     plots,
     logging,
+    orbit_dynamics,
 )
 
 # Re-export everything from submodules
@@ -57,14 +61,18 @@ from brahe.propagators import *
 from brahe.coordinates import *
 from brahe.frames import *
 from brahe.eop import *
+from brahe.space_weather import *
 from brahe.attitude import *
 from brahe.trajectories import *
 from brahe.constants import *
 from brahe.access import *
 from brahe.relative_motion import *
+from brahe.math import *
+from brahe.integrators import *
 from brahe.utils import *
 from brahe.plots import *
 from brahe.datasets import *
+from brahe.orbit_dynamics import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -75,15 +83,19 @@ __all__ = [
     "coordinates",
     "frames",
     "eop",
+    "space_weather",
     "attitude",
     "trajectories",
     "constants",
     "datasets",
     "access",
     "relative_motion",
+    "math",
+    "integrators",
     "utils",
     "plots",
     "logging",
+    "orbit_dynamics",
     # Testing
     "PanicException",
 ]
@@ -95,14 +107,18 @@ __all__.extend(propagators.__all__)
 __all__.extend(coordinates.__all__)
 __all__.extend(frames.__all__)
 __all__.extend(eop.__all__)
+__all__.extend(space_weather.__all__)
 __all__.extend(attitude.__all__)
 __all__.extend(trajectories.__all__)
 __all__.extend(constants.__all__)
 __all__.extend(access.__all__)
 __all__.extend(relative_motion.__all__)
+__all__.extend(math.__all__)
+__all__.extend(integrators.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(plots.__all__)
 __all__.extend(datasets.__all__)
+__all__.extend(orbit_dynamics.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

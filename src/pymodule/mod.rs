@@ -46,6 +46,53 @@ macro_rules! vector_to_numpy {
     }};
 }
 
+macro_rules! numpy_to_vector3 {
+    ($arr:expr) => {{
+        let vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to vector")
+        })?;
+        if vec.len() != 3 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected array of length 3, got {}",
+                vec.len()
+            )));
+        }
+        nalgebra::Vector3::new(vec[0], vec[1], vec[2])
+    }};
+}
+
+macro_rules! numpy_to_vector6 {
+    ($arr:expr) => {{
+        let vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to vector")
+        })?;
+        if vec.len() != 6 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected array of length 6, got {}",
+                vec.len()
+            )));
+        }
+        nalgebra::Vector6::new(vec[0], vec[1], vec[2], vec[3], vec[4], vec[5])
+    }};
+}
+
+macro_rules! numpy_to_smatrix3 {
+    ($arr:expr) => {{
+        let shape = $arr.shape();
+        if shape[0] != 3 || shape[1] != 3 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected 3x3 matrix, got {}x{}",
+                shape[0], shape[1]
+            )));
+        }
+        let mat_vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to matrix")
+        })?;
+        // numpy is row-major, nalgebra is column-major
+        nalgebra::SMatrix::<f64, 3, 3>::from_row_slice(&mat_vec)
+    }};
+}
+
 /// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
 ///
 /// This function accepts any numpy array-like object and converts it to Vec<f64>,
@@ -465,6 +512,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("eop.rs");
+include!("space_weather.rs");
 include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
@@ -474,7 +522,10 @@ include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
 include!("relative_motion.rs");
+include!("math.rs");
+include!("integrators.rs");
 include!("utils.rs");
+include!("orbit_dynamics.rs");
 
 // Define Module
 
@@ -568,6 +619,60 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_lod, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_dxdy, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_eop, module)?)?;
+
+    //* Space Weather *//
+
+    // Static Provider
+    module.add_class::<PyStaticSpaceWeatherProvider>()?;
+
+    // File Provider
+    module.add_class::<PyFileSpaceWeatherProvider>()?;
+
+    // Caching Provider
+    module.add_class::<PyCachingSpaceWeatherProvider>()?;
+
+    // Global
+    module.add_function(wrap_pyfunction!(
+        py_set_global_space_weather_provider,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp_all, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp_daily, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap_all, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap_daily, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_observed, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_adjusted, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_obs_avg81, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_adj_avg81, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sunspot_number, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_f107, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_kpap_epochs, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_epochs, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_initialization, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_len, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_type, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_extrapolation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_mjd_min, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_mjd_max, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_observed,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_daily_predicted,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_monthly_predicted,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_initialize_sw, module)?)?;
 
     //* Time *//
 
@@ -697,6 +802,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_apoapsis_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_apogee_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_sun_synchronous_inclination, module)?)?;
+    module.add_function(wrap_pyfunction!(py_geo_sma, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_eccentric, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_eccentric, module)?)?;
@@ -769,6 +875,72 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
+    module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+
+    //* Orbit Dynamics - Ephemerides *//
+    module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_position_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
+
+    //* Orbit Dynamics - Acceleration Models *//
+
+    // Third-Body Accelerations
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_mercury_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_jupiter_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_neptune_de440s,
+        module
+    )?)?;
+
+    // Gravity Accelerations
+    module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
+    module.add_class::<PyDefaultGravityModel>()?;
+    module.add_class::<PyGravityModelTideSystem>()?;
+    module.add_class::<PyGravityModelErrors>()?;
+    module.add_class::<PyGravityModelNormalization>()?;
+    module.add_class::<PyGravityModel>()?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_gravity_spherical_harmonics,
+        module
+    )?)?;
+
+    // Atmospheric Density Models
+    module.add_function(wrap_pyfunction!(py_density_harris_priester, module)?)?;
+
+    // Drag, SRP, and Relativity
+    module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_conical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_cylindrical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_relativity, module)?)?;
 
     //* Access *//
 
@@ -827,6 +999,24 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Formatting
     module.add_function(wrap_pyfunction!(py_format_time_string, module)?)?;
+
+    //* Jacobian *//
+    module.add_class::<PyDifferenceMethod>()?;
+    module.add_class::<PyPerturbationStrategy>()?;
+    module.add_class::<PyDNumericalJacobian>()?;
+    module.add_class::<PyDAnalyticJacobian>()?;
+
+    //* Sensitivity *//
+    module.add_class::<PyDNumericalSensitivity>()?;
+    module.add_class::<PyDAnalyticSensitivity>()?;
+
+    //* Integrators *//
+    module.add_class::<PyIntegratorConfig>()?;
+    module.add_class::<PyAdaptiveStepDResult>()?;
+    module.add_class::<PyRK4DIntegrator>()?;
+    module.add_class::<PyRKF45DIntegrator>()?;
+    module.add_class::<PyDP54DIntegrator>()?;
+    module.add_class::<PyRKN1210DIntegrator>()?;
 
     Ok(())
 }

@@ -170,6 +170,11 @@ def test_sun_synchronous_inclination():
     assert vp == pytest.approx(97.40172901366881, abs=1e-12)
 
 
+def test_geo_sma():
+    a_geo = brahe.geo_sma()
+    assert a_geo == pytest.approx(42164172.0, abs=1.0)
+
+
 def test_anomaly_eccentric_to_mean():
     # 0
     M = brahe.anomaly_eccentric_to_mean(0.0, 0.0, angle_format=AngleFormat.RADIANS)

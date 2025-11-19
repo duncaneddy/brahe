@@ -4,13 +4,12 @@ The `quaternion` module provides the implementation of the `Quaternion` struct, 
 
 use nalgebra::{Vector3, Vector4};
 
-use crate::utils::SMatrix3;
+use crate::math::SMatrix3;
 use std::{fmt, ops};
 
 use crate::attitude::attitude_types::ATTITUDE_EPSILON;
 use crate::attitude::attitude_types::{EulerAngle, EulerAngleOrder, EulerAxis, RotationMatrix};
 use crate::attitude::traits::ToAttitude;
-#[cfg(test)]
 use crate::constants::DEGREES;
 use crate::constants::RADIANS;
 use crate::{FromAttitude, Quaternion};
@@ -522,7 +521,7 @@ impl FromAttitude for Quaternion {
         // Find the maximum value of the vector, select the index of the maximum value
         // This is a slight modification on eqn 145 to select the rotation, but still
         // follows the same idea of guaranteeing using a rotation with all-real values.
-        let (ind_max, q_max) = qvec.argmax();
+        let (ind_max, q_max): (usize, f64) = qvec.argmax();
 
         // Create the quaternion based on the index of the maximum value
         if ind_max == 0 {
@@ -660,7 +659,7 @@ impl ToAttitude for Quaternion {
     /// ```
     /// use brahe::attitude::Quaternion;
     /// use brahe::attitude::ToAttitude;
-    /// use brahe::utils::SMatrix3;
+    /// use brahe::SMatrix3;
     ///
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// let r = q.to_rotation_matrix();
@@ -712,6 +711,7 @@ impl From<RotationMatrix> for Quaternion {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;

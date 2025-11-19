@@ -9,6 +9,12 @@ repos:
   #       pass_filenames: false
   #       always_run: false
 
+  - repo: https://github.com/EmbarkStudios/cargo-deny
+    rev: 0.18.5
+    hooks:
+      - id: cargo-deny
+        args: ["check", "licenses"] # optionally modify the arguments for cargo-deny (default arguments shown here)
+
   # Sync CODE_OF_CONDUCT.md, CONTRIBUTING.md, and LICENSE.md to docs/
   - repo: local
     hooks:
@@ -28,6 +34,12 @@ repos:
         name: Sync LICENSE.md to docs/
         language: system
         entry: bash -c 'if git diff --cached --name-only | grep -q "^LICENSE.md$"; then cp LICENSE.md docs/license.md && git add docs/license.md; fi'
+        pass_filenames: false
+        always_run: false
+      - id: sync-changelog
+        name: Sync CHANGELOG.md to docs/
+        language: system
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^CHANGELOG.md$"; then cp CHANGELOG.md docs/changelog.md && git add docs/changelog.md; fi'
         pass_filenames: false
         always_run: false
 

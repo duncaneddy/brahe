@@ -44,6 +44,15 @@ jobs:
           name: brahe-cache
           path: ~/.cache/brahe/
 
+      # Copy test assets to cache for examples that might use them
+      - name: Setup test assets in cache
+        run: |
+          mkdir -p ~/.cache/brahe/naif/
+          if [ -f test_assets/de440s.bsp ]; then
+            cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+            echo "Copied de440s.bsp test asset to cache"
+          fi
+
       # Try to download pre-built Rust artifacts
       - name: Download Rust build artifacts
         id: download-rust

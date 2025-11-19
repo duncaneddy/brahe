@@ -97,6 +97,7 @@ email me at duncan.eddy (at) gmail.com.
 // TODO: Remove when BTreeCursor is stabilized
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 // Re-export commonly used types
 pub use access::*;
@@ -107,6 +108,7 @@ pub use datasets::*;
 pub use eop::*;
 pub use frames::*;
 pub use integrators::*;
+pub use math::*;
 pub use orbit_dynamics::*;
 pub use orbits::*;
 pub use propagators::*;
@@ -124,10 +126,12 @@ pub mod datasets;
 pub mod eop;
 pub mod frames;
 pub mod integrators;
+pub mod math;
 pub mod orbit_dynamics;
 pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
+pub mod space_weather;
 pub mod time;
 pub mod trajectories;
 pub mod utils;

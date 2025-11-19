@@ -62,7 +62,8 @@ When adding new functionality to Brahe, follow this sequence:
 - Follow existing patterns and naming conventions
 
 **2. Rust Tests**
-- Write comprehensive unit tests in the same file (in `#[cfg(test)] mod tests`)
+- Write comprehensive unit tests in the same file (in `#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))] mod tests`)
 - Test edge cases and typical use cases
 - Run: `cargo test`
 - Ensure all tests pass before proceeding

@@ -1,6 +1,4 @@
 use crate::constants::GM_EARTH;
-#[cfg(test)]
-use crate::constants::RADIANS;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 use nalgebra::Vector6;
@@ -594,8 +592,10 @@ fn format_exponential(value: f64) -> String {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::RADIANS;
     use crate::orbits::keplerian::semimajor_axis;
     use approx::assert_abs_diff_eq;
     use rstest::rstest;

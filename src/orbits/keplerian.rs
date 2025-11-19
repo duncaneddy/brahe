@@ -2,7 +2,7 @@
  * The `keplerian` module contains types and functions for working with Keplerian orbital elements.
  */
 
-use crate::constants::{AngleFormat, DEG2RAD, GM_EARTH, OMEGA_EARTH, J2_EARTH, R_EARTH, RAD2DEG};
+use crate::constants::{AngleFormat, DEG2RAD, GM_EARTH, J2_EARTH, OMEGA_EARTH, R_EARTH, RAD2DEG};
 use std::f64::consts::PI;
 
 /// Computes the orbital period of an object around Earth.
@@ -493,12 +493,12 @@ pub fn sun_synchronous_inclination(a: f64, e: f64, angle_format: AngleFormat) ->
 }
 
 /// Computes the semi-major axis for a geostationary orbit around Earth.
-/// 
+///
 /// # Returns
 /// - `geo_sma`: The semi-major axis for a geostationary orbit. Units: (_m_)
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use brahe::orbits::geo_sma;
 /// let a_geo = geo_sma(); // approx 42164 km

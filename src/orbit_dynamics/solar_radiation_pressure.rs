@@ -5,12 +5,16 @@ Models of solar radiation pressure.
 use nalgebra::Vector3;
 
 use crate::constants::{AU, R_EARTH, R_SUN};
+use crate::math::traits::IntoPosition;
 
 /// Calculate the acceleration due to solar radiation pressure.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object.
+/// - `r_object`: Position vector of the object, or state vector (position + velocity).
 /// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
 /// - `mass`: Mass of the object.
 /// - `cr`: Coefficient of reflectivity.
@@ -24,29 +28,30 @@ use crate::constants::{AU, R_EARTH, R_SUN};
 /// # Examples
 ///
 /// ```
-/// use brahe::orbit_dynamics::acceleration_solar_radiation_pressure;
+/// use brahe::orbit_dynamics::accel_solar_radiation_pressure;
 /// use nalgebra::Vector3;
 /// use brahe::constants::AU;
 ///
 /// let r_object = Vector3::new(AU, 0.0, 0.0);
 /// let r_sun = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
+/// let a_srp = accel_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 ///
 /// // Acceleration should be in the positive x-direction and magnitude should be 4.5e-6
 /// assert!((a_srp[0] - 4.5e-6).abs() < 1e-12);
 /// assert!((a_srp[1] - 0.0).abs() < 1e-12);
 /// assert!((a_srp[2] - 0.0).abs() < 1e-12);
 /// ```
-pub fn acceleration_solar_radiation_pressure(
-    r_object: Vector3<f64>,
+pub fn accel_solar_radiation_pressure<P: IntoPosition>(
+    r_object: P,
     r_sun: Vector3<f64>,
     mass: f64,
     cr: f64,
     area: f64,
     p0: f64,
 ) -> Vector3<f64> {
-    let d = r_object - r_sun;
+    let r = r_object.position();
+    let d = r - r_sun;
 
     d * cr * (area / mass) * p0 * AU.powi(2) / d.norm().powi(3)
 }
@@ -54,9 +59,12 @@ pub fn acceleration_solar_radiation_pressure(
 /// Calculate the fraction of the object that is illuminated by the sun using a conical model
 /// for Earth shadowing.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object in the ECI frame.
+/// - `r_object`: Position vector of the object in the ECI frame, or state vector (position + velocity).
 /// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
 ///
 /// # Returns
@@ -79,12 +87,13 @@ pub fn acceleration_solar_radiation_pressure(
 /// assert_eq!(nu, 0.0);
 /// ```
 #[allow(non_snake_case)] // To better comply with the literature
-pub fn eclipse_conical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
+pub fn eclipse_conical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64 {
+    let r = r_object.position();
+
     // Occultation Geometry
-    let a = (R_SUN / (r_sun - r_object).norm()).asin();
-    let b = (R_EARTH / r_object.norm()).asin();
-    let c =
-        (-r_object.dot(&(r_sun - r_object)) / (r_object.norm() * (r_sun - r_object).norm())).acos();
+    let a = (R_SUN / (r_sun - r).norm()).asin();
+    let b = (R_EARTH / r.norm()).asin();
+    let c = (-r.dot(&(r_sun - r)) / (r.norm() * (r_sun - r).norm())).acos();
 
     // Test Occulation Conditions and return illumination fraction
     if (a - b).abs() < c && c < (a + b) {
@@ -107,9 +116,12 @@ pub fn eclipse_conical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
 /// Calculate the fraction of the object that is illuminated by the sun using a cylindrical model
 /// for Earth shadowing.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object in the ECI frame.
+/// - `r_object`: Position vector of the object in the ECI frame, or state vector (position + velocity).
 /// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector..
 ///
 /// # Returns
@@ -131,15 +143,17 @@ pub fn eclipse_conical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
 /// // The object is shadowed, so the illumination fraction should be 0.0
 /// assert_eq!(nu, 0.0);
 /// ```
-pub fn eclipse_cylindrical(r_object: Vector3<f64>, r_sun: Vector3<f64>) -> f64 {
+pub fn eclipse_cylindrical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64 {
+    let r = r_object.position();
+
     // Unit vector in the direction of the sun
     let e_sun = r_sun / r_sun.norm();
 
     // Projection of spacecraft position vector onto the sun vector
-    let r_proj = r_object.dot(&e_sun);
+    let r_proj = r.dot(&e_sun);
 
     // Compute illumination fraction
-    if r_proj >= 1.0 || (r_object - r_proj * e_sun).norm() > R_EARTH {
+    if r_proj >= 1.0 || (r - r_proj * e_sun).norm() > R_EARTH {
         1.0
     } else {
         0.0
@@ -158,11 +172,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_acceleration_solar_radiation_pressure() {
+    fn test_accel_solar_radiation_pressure() {
         let r_object = Vector3::new(AU, 0.0, 0.0);
         let r_sun = Vector3::new(0.0, 0.0, 0.0);
 
-        let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
+        let a_srp = accel_solar_radiation_pressure(r_object, r_sun, 1.0, 1.0, 1.0, 4.5e-6);
 
         // Acceleration should be in the negative x-direction and magnitude should be 4.5e-6 AU^2
         assert_abs_diff_eq!(a_srp[0], 4.5e-6, epsilon = 1e-12);
@@ -224,7 +238,7 @@ mod tests {
 
         let r_sun = sun_position(epc);
 
-        let a_srp = acceleration_solar_radiation_pressure(r_object, r_sun, mass, cr, area, p0);
+        let a_srp = accel_solar_radiation_pressure(r_object, r_sun, mass, cr, area, p0);
         let nu = eclipse_cylindrical(r_object, r_sun);
 
         let tol = 1.0e-9;

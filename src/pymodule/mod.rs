@@ -46,6 +46,53 @@ macro_rules! vector_to_numpy {
     }};
 }
 
+macro_rules! numpy_to_vector3 {
+    ($arr:expr) => {{
+        let vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to vector")
+        })?;
+        if vec.len() != 3 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected array of length 3, got {}",
+                vec.len()
+            )));
+        }
+        nalgebra::Vector3::new(vec[0], vec[1], vec[2])
+    }};
+}
+
+macro_rules! numpy_to_vector6 {
+    ($arr:expr) => {{
+        let vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to vector")
+        })?;
+        if vec.len() != 6 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected array of length 6, got {}",
+                vec.len()
+            )));
+        }
+        nalgebra::Vector6::new(vec[0], vec[1], vec[2], vec[3], vec[4], vec[5])
+    }};
+}
+
+macro_rules! numpy_to_smatrix3 {
+    ($arr:expr) => {{
+        let shape = $arr.shape();
+        if shape[0] != 3 || shape[1] != 3 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected 3x3 matrix, got {}x{}",
+                shape[0], shape[1]
+            )));
+        }
+        let mat_vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to matrix")
+        })?;
+        // numpy is row-major, nalgebra is column-major
+        nalgebra::SMatrix::<f64, 3, 3>::from_row_slice(&mat_vec)
+    }};
+}
+
 /// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
 ///
 /// This function accepts any numpy array-like object and converts it to Vec<f64>,
@@ -477,6 +524,7 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("integrators.rs");
 include!("utils.rs");
+include!("orbit_dynamics.rs");
 
 // Define Module
 
@@ -699,6 +747,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_apoapsis_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_apogee_altitude, module)?)?;
     module.add_function(wrap_pyfunction!(py_sun_synchronous_inclination, module)?)?;
+    module.add_function(wrap_pyfunction!(py_geo_sma, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_eccentric_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_mean_to_eccentric, module)?)?;
     module.add_function(wrap_pyfunction!(py_anomaly_true_to_eccentric, module)?)?;
@@ -771,6 +820,72 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
+    module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+
+    //* Orbit Dynamics - Ephemerides *//
+    module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_position_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
+
+    //* Orbit Dynamics - Acceleration Models *//
+
+    // Third-Body Accelerations
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_mercury_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_jupiter_de440s,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_third_body_neptune_de440s,
+        module
+    )?)?;
+
+    // Gravity Accelerations
+    module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
+    module.add_class::<PyDefaultGravityModel>()?;
+    module.add_class::<PyGravityModelTideSystem>()?;
+    module.add_class::<PyGravityModelErrors>()?;
+    module.add_class::<PyGravityModelNormalization>()?;
+    module.add_class::<PyGravityModel>()?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_gravity_spherical_harmonics,
+        module
+    )?)?;
+
+    // Atmospheric Density Models
+    module.add_function(wrap_pyfunction!(py_density_harris_priester, module)?)?;
+
+    // Drag, SRP, and Relativity
+    module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_conical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_cylindrical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_relativity, module)?)?;
 
     //* Access *//
 
@@ -835,6 +950,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPerturbationStrategy>()?;
     module.add_class::<PyDNumericalJacobian>()?;
     module.add_class::<PyDAnalyticJacobian>()?;
+
+    //* Sensitivity *//
+    module.add_class::<PyDNumericalSensitivity>()?;
+    module.add_class::<PyDAnalyticSensitivity>()?;
 
     //* Integrators *//
     module.add_class::<PyIntegratorConfig>()?;

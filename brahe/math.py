@@ -25,6 +25,9 @@ from brahe._brahe import (
     # Jacobian providers
     NumericalJacobian,
     AnalyticJacobian,
+    # Sensitivity providers
+    NumericalSensitivity,
+    AnalyticSensitivity,
 )
 
 __all__ = [
@@ -34,4 +37,7 @@ __all__ = [
     # Jacobian providers
     "NumericalJacobian",
     "AnalyticJacobian",
+    # Sensitivity providers
+    "NumericalSensitivity",
+    "AnalyticSensitivity",
 ]

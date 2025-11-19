@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::math::SMatrix3;
+use crate::math::{SMatrix3, traits::IntoPosition};
 use once_cell::sync::Lazy;
 
 use crate::math::kronecker_delta;
@@ -84,9 +84,12 @@ fn factorial_product(n: usize, m: usize) -> f64 {
 
 /// Compute the acceleration due to point-mass gravity.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object.
+/// - `r_object`: Position vector of the object, or state vector (position + velocity).
 /// - `r_central_body`: Position vector of the central body. If the central body is at the origin, this is the zero vector.
 /// - `gm`: Product of the gravitational parameter and the mass of the central body.
 ///
@@ -96,30 +99,47 @@ fn factorial_product(n: usize, m: usize) -> f64 {
 ///
 /// # Examples
 ///
+/// Using a position vector:
 /// ```
 /// use brahe::constants::{R_EARTH, GM_EARTH};
-/// use brahe::orbit_dynamics::acceleration_point_mass_gravity;
+/// use brahe::orbit_dynamics::accel_point_mass_gravity;
 /// use nalgebra::Vector3;
 ///
 /// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
 /// let r_central_body = Vector3::new(0.0, 0.0, 0.0);
 ///
-/// let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
+/// let a_grav = accel_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 ///
 /// // Acceleration should be in the negative x-direction and magnitude should be GM_EARTH / R_EARTH^2
 /// // Roughly -9.81 m/s^2
 /// assert!((a_grav - Vector3::new(-GM_EARTH / R_EARTH.powi(2), 0.0, 0.0)).norm() < 1e-12);
 /// ```
 ///
+/// Using a state vector:
+/// ```
+/// use brahe::constants::{R_EARTH, GM_EARTH};
+/// use brahe::orbit_dynamics::accel_point_mass_gravity;
+/// use nalgebra::{SVector, Vector3};
+///
+/// let x_object = SVector::<f64, 6>::new(R_EARTH, 0.0, 0.0, 0.0, 7500.0, 0.0);
+/// let r_central_body = Vector3::new(0.0, 0.0, 0.0);
+///
+/// let a_grav = accel_point_mass_gravity(x_object, r_central_body, GM_EARTH);
+///
+/// // Acceleration should be in the negative x-direction
+/// assert!((a_grav - Vector3::new(-GM_EARTH / R_EARTH.powi(2), 0.0, 0.0)).norm() < 1e-12);
+/// ```
+///
 /// # References
 ///
 /// - TODO: Add references
-pub fn acceleration_point_mass_gravity(
-    r_object: Vector3<f64>,
+pub fn accel_point_mass_gravity<P: IntoPosition>(
+    r_object: P,
     r_central_body: Vector3<f64>,
     gm: f64,
 ) -> Vector3<f64> {
-    let d = r_object - r_central_body;
+    let r_obj = r_object.position();
+    let d = r_obj - r_central_body;
 
     let d_norm = d.norm();
     let r_central_body_norm = r_central_body.norm();
@@ -132,7 +152,7 @@ pub fn acceleration_point_mass_gravity(
 }
 
 /// Enumeration of the tide system used in a gravity model.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum GravityModelTideSystem {
     /// Zero-tide system: includes permanent tidal deformation from Sun and Moon.
     /// C₂₀ coefficient includes indirect effect of Earth's centrifugal potential.
@@ -148,7 +168,7 @@ pub enum GravityModelTideSystem {
 }
 
 /// Enumeration of the error handling used in a gravity model.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum GravityModelErrors {
     /// No error estimates provided with gravity coefficients. Model provides only
     /// nominal C and S coefficient values without uncertainty information.
@@ -165,7 +185,7 @@ pub enum GravityModelErrors {
 }
 
 /// Enumeration of the normalization used in a gravity model.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum GravityModelNormalization {
     /// Fully normalized spherical harmonics (4π normalization). Standard in modern
     /// gravity models (EGM2008, GRACE, etc.). Coefficients have similar magnitudes.
@@ -176,7 +196,7 @@ pub enum GravityModelNormalization {
 }
 
 /// Enumeration of the default gravity models available in Brahe.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DefaultGravityModel {
     /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
     /// global model developed by NGA. Best for precision orbit determination.
@@ -604,9 +624,12 @@ impl std::fmt::Debug for GravityModel {
 /// model is defined by the `GravityModel` struct. The acceleration is computed in the body-fixed
 /// frame of the central body, and returned in the inertial frame.
 ///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_eci`.
+/// When a state vector is provided, only the position component is used.
+///
 /// # Arguments
 ///
-/// - `r_eci` : Position vector of the object in the ECI frame.
+/// - `r_eci` : Position vector of the object in the ECI frame, or state vector (position + velocity).
 /// - `R_i2b` : Transformation matrix from the ECI frame to the body-fixed frame of the central body.
 /// - `gravity_model` : Gravity model to use for the computation.
 /// - `n_max` : Maximum degree of the gravity model to evaluate.
@@ -618,6 +641,7 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// # Examples
 ///
+/// Using a position vector:
 /// ```
 /// use nalgebra::{Vector3, Vector6};
 /// use brahe::gravity::{GravityModel, DefaultGravityModel};
@@ -642,18 +666,46 @@ impl std::fmt::Debug for GravityModel {
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::acceleration_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20);
+/// ```
+///
+/// Using a state vector:
+/// ```
+/// use nalgebra::Vector6;
+/// use brahe::gravity::{GravityModel, DefaultGravityModel};
+/// use brahe::frames::rotation_eci_to_ecef;
+/// use brahe::time::Epoch;
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Compute the rotation matrix from ECI to ECEF
+/// let epoch = Epoch::from_datetime(2024, 2, 25, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let R_i2b = rotation_eci_to_ecef(epoch);
+///
+/// // Create a gravity model
+/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+///
+/// // Compute the acceleration due to gravity using state vector directly
+/// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
+/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+///
+/// // Pass state vector directly - no need to extract position
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20);
 /// ```
 #[allow(non_snake_case)]
-pub fn acceleration_gravity_spherical_harmonics(
-    r_eci: Vector3<f64>,
+pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
+    r_eci: P,
     R_i2b: SMatrix3,
     gravity_model: &GravityModel,
     n_max: usize,
     m_max: usize,
 ) -> Vector3<f64> {
-    // Body-fixed position
-    let r_bf = R_i2b * r_eci;
+    // Extract position and compute body-fixed position
+    let r = r_eci.position();
+    let r_bf = R_i2b * r;
 
     // Compute spherical harmonic acceleration
     let a_ecef = gravity_model
@@ -765,11 +817,11 @@ mod tests {
     }
 
     #[test]
-    fn test_acceleration_point_mass_gravity() {
+    fn test_accel_point_mass_gravity() {
         let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
         let r_central_body = Vector3::new(0.0, 0.0, 0.0);
 
-        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
+        let a_grav = accel_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative x-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -779,7 +831,7 @@ mod tests {
         assert_abs_diff_eq!(a_grav.norm(), 9.798, epsilon = 1e-3);
 
         let r_object = Vector3::new(0.0, R_EARTH, 0.0);
-        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
+        let a_grav = accel_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative y-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -789,7 +841,7 @@ mod tests {
         assert_abs_diff_eq!(a_grav.norm(), 9.798, epsilon = 1e-3);
 
         let r_object = Vector3::new(0.0, 0.0, R_EARTH);
-        let a_grav = acceleration_point_mass_gravity(r_object, r_central_body, GM_EARTH);
+        let a_grav = accel_point_mass_gravity(r_object, r_central_body, GM_EARTH);
 
         // Acceleration should be in the negative z-direction and magnitude should be GM_EARTH / R_EARTH^2
         // Roughly -9.8 m/s^2
@@ -844,7 +896,7 @@ mod tests {
     #[case(18, 18, - 6.97926208121, - 1.829284918, - 2.6899952379)]
     #[case(19, 19, - 6.97926229494, - 1.82928369323, - 2.68999256236)]
     #[case(20, 20, - 6.979261862, - 1.82928315091, - 2.68999053339)]
-    fn test_acceleration_gravity_jgm3_validation(
+    fn test_accel_gravity_jgm3_validation(
         #[case] n: usize,
         #[case] m: usize,
         #[case] ax: f64,
@@ -856,7 +908,7 @@ mod tests {
         let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = acceleration_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);
+        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal

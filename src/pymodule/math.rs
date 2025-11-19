@@ -566,3 +566,339 @@ impl PyDAnalyticJacobian {
         flat_vec.into_pyarray(py).reshape([dimension, dimension])
     }
 }
+
+// ============================================================================
+// Sensitivity Providers
+// ============================================================================
+
+use crate::math::sensitivity;
+
+/// Numerical sensitivity provider for dynamic-sized systems using finite differences.
+///
+/// Computes the sensitivity matrix ∂f/∂p numerically by perturbing the parameters
+/// and evaluating the dynamics function.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Dynamics with consider parameters
+///     def dynamics(t, state, params):
+///         cd_area_m = params[0]
+///         # ... compute derivatives using cd_area_m
+///         return np.array([...])
+///
+///     sensitivity = bh.NumericalSensitivity(dynamics)
+///     state = np.array([7000e3, 0, 0, 0, 7.5e3, 0])
+///     params = np.array([0.044])  # cd*A/m
+///     sens_matrix = sensitivity.compute(0.0, state, params)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalSensitivity")]
+pub struct PyDNumericalSensitivity {
+    dynamics_fn: Py<PyAny>,
+    method: jacobian::DifferenceMethod,
+    perturbation: jacobian::PerturbationStrategy,
+}
+
+#[pymethods]
+impl PyDNumericalSensitivity {
+    /// Create a numerical sensitivity provider with default settings.
+    ///
+    /// Uses central differences with adaptive perturbation strategy.
+    ///
+    /// Args:
+    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: New numerical sensitivity provider
+    #[new]
+    pub fn new(dynamics_fn: Py<PyAny>) -> Self {
+        Self {
+            dynamics_fn,
+            method: jacobian::DifferenceMethod::Central,
+            perturbation: jacobian::PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_threshold: 1.0,
+            },
+        }
+    }
+
+    /// Create with forward finite differences.
+    ///
+    /// Args:
+    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Sensitivity provider using forward differences
+    #[classmethod]
+    pub fn forward(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
+        Self {
+            dynamics_fn,
+            method: jacobian::DifferenceMethod::Forward,
+            perturbation: jacobian::PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_threshold: 1.0,
+            },
+        }
+    }
+
+    /// Create with central finite differences.
+    ///
+    /// Args:
+    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Sensitivity provider using central differences
+    #[classmethod]
+    pub fn central(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
+        Self::new(dynamics_fn)
+    }
+
+    /// Create with backward finite differences.
+    ///
+    /// Args:
+    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Sensitivity provider using backward differences
+    #[classmethod]
+    pub fn backward(_cls: &Bound<'_, pyo3::types::PyType>, dynamics_fn: Py<PyAny>) -> Self {
+        Self {
+            dynamics_fn,
+            method: jacobian::DifferenceMethod::Backward,
+            perturbation: jacobian::PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_threshold: 1.0,
+            },
+        }
+    }
+
+    /// Set fixed absolute perturbation for all parameters.
+    ///
+    /// Args:
+    ///     offset (float): Fixed perturbation size
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Self for method chaining
+    pub fn with_fixed_offset(mut slf: PyRefMut<'_, Self>, offset: f64) -> PyRefMut<'_, Self> {
+        slf.perturbation = jacobian::PerturbationStrategy::Fixed(offset);
+        slf
+    }
+
+    /// Set percentage-based perturbation.
+    ///
+    /// Args:
+    ///     percentage (float): Percentage of parameter value (e.g., 1e-6 for 0.0001%)
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Self for method chaining
+    pub fn with_percentage(mut slf: PyRefMut<'_, Self>, percentage: f64) -> PyRefMut<'_, Self> {
+        slf.perturbation = jacobian::PerturbationStrategy::Percentage(percentage);
+        slf
+    }
+
+    /// Set adaptive perturbation with custom parameters.
+    ///
+    /// Args:
+    ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
+    ///     min_threshold (float): Minimum reference value
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Self for method chaining
+    pub fn with_adaptive(
+        mut slf: PyRefMut<'_, Self>,
+        scale_factor: f64,
+        min_threshold: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.perturbation = jacobian::PerturbationStrategy::Adaptive {
+            scale_factor,
+            min_threshold,
+        };
+        slf
+    }
+
+    /// Set the difference method.
+    ///
+    /// Args:
+    ///     method (DifferenceMethod): Finite difference method to use
+    ///
+    /// Returns:
+    ///     NumericalSensitivity: Self for method chaining
+    pub fn with_method(
+        mut slf: PyRefMut<'_, Self>,
+        method: PyDifferenceMethod,
+    ) -> PyRefMut<'_, Self> {
+        slf.method = method.value;
+        slf
+    }
+
+    /// Compute the sensitivity matrix at the given time, state, and parameters.
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (ndarray): State vector at time t
+    ///     params (ndarray): Consider parameters
+    ///
+    /// Returns:
+    ///     ndarray: Sensitivity matrix ∂f/∂p (state_dim × param_dim)
+    #[allow(deprecated)]
+    pub fn compute<'py>(
+        &self,
+        py: Python<'py>,
+        t: f64,
+        state: &Bound<'py, PyAny>,
+        params: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
+        // Convert Python arrays to vectors
+        let state_vec = pyany_to_f64_array1(state, None)?;
+        let params_vec = pyany_to_f64_array1(params, None)?;
+        let state_dim = state_vec.len();
+        let param_dim = params_vec.len();
+        let state_dvec = DVector::from_vec(state_vec);
+        let params_dvec = DVector::from_vec(params_vec);
+
+        // Create a Rust closure that calls the Python function
+        let dynamics_closure = {
+            let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
+            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+                Python::with_gil(|py| {
+                    let state_py = state.as_slice().to_pyarray(py);
+                    let params_py = params.as_slice().to_pyarray(py);
+
+                    let result = dynamics_fn_clone
+                        .call1(py, (t, state_py, params_py))
+                        .expect("Failed to call dynamics function");
+
+                    let result_vec = pyany_to_f64_array1(result.bind(py), Some(state.len()))
+                        .expect("Dynamics function returned invalid array");
+                    DVector::from_vec(result_vec)
+                })
+            }
+        };
+
+        // Create Rust numerical sensitivity provider
+        let mut provider = match self.method {
+            jacobian::DifferenceMethod::Forward => {
+                sensitivity::DNumericalSensitivity::forward(Box::new(dynamics_closure))
+            }
+            jacobian::DifferenceMethod::Central => {
+                sensitivity::DNumericalSensitivity::central(Box::new(dynamics_closure))
+            }
+            jacobian::DifferenceMethod::Backward => {
+                sensitivity::DNumericalSensitivity::backward(Box::new(dynamics_closure))
+            }
+        };
+
+        // Apply perturbation strategy
+        provider = match self.perturbation {
+            jacobian::PerturbationStrategy::Adaptive {
+                scale_factor,
+                min_threshold,
+            } => provider.with_strategy(jacobian::PerturbationStrategy::Adaptive {
+                scale_factor,
+                min_threshold,
+            }),
+            jacobian::PerturbationStrategy::Fixed(offset) => {
+                provider.with_strategy(jacobian::PerturbationStrategy::Fixed(offset))
+            }
+            jacobian::PerturbationStrategy::Percentage(pct) => {
+                provider.with_strategy(jacobian::PerturbationStrategy::Percentage(pct))
+            }
+        };
+
+        // Compute sensitivity
+        let sens_matrix = provider.compute(t, &state_dvec, &params_dvec);
+
+        // Convert DMatrix to NumPy 2D array
+        let rows = sens_matrix.nrows();
+        let cols = sens_matrix.ncols();
+        let mut flat_vec = Vec::with_capacity(rows * cols);
+        for i in 0..rows {
+            for j in 0..cols {
+                flat_vec.push(sens_matrix[(i, j)]);
+            }
+        }
+
+        flat_vec.into_pyarray(py).reshape([state_dim, param_dim])
+    }
+}
+
+/// Analytical sensitivity provider for dynamic-sized systems.
+///
+/// Uses a user-provided function that directly computes the analytical sensitivity matrix.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     def sensitivity_fn(t, state, params):
+///         # Return ∂f/∂p matrix
+///         sens = np.zeros((6, 1))
+///         # ... compute analytical sensitivity
+///         return sens
+///
+///     sensitivity = bh.AnalyticSensitivity(sensitivity_fn)
+///     state = np.array([7000e3, 0, 0, 0, 7.5e3, 0])
+///     params = np.array([0.044])
+///     sens_matrix = sensitivity.compute(0.0, state, params)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AnalyticSensitivity")]
+pub struct PyDAnalyticSensitivity {
+    sensitivity_fn: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyDAnalyticSensitivity {
+    /// Create a new analytical sensitivity provider.
+    ///
+    /// Args:
+    ///     sensitivity_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+    ///         Must return a 2D array (state_dim × param_dim)
+    ///
+    /// Returns:
+    ///     AnalyticSensitivity: New analytical sensitivity provider
+    #[new]
+    pub fn new(sensitivity_fn: Py<PyAny>) -> Self {
+        Self { sensitivity_fn }
+    }
+
+    /// Compute the sensitivity matrix at the given time, state, and parameters.
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (ndarray): State vector at time t
+    ///     params (ndarray): Consider parameters
+    ///
+    /// Returns:
+    ///     ndarray: Sensitivity matrix ∂f/∂p (state_dim × param_dim)
+    pub fn compute<'py>(
+        &self,
+        py: Python<'py>,
+        t: f64,
+        state: &Bound<'py, PyAny>,
+        params: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
+        // Convert Python arrays
+        let state_vec = pyany_to_f64_array1(state, None)?;
+        let params_vec = pyany_to_f64_array1(params, None)?;
+        let state_dim = state_vec.len();
+        let param_dim = params_vec.len();
+        let state_py = state_vec.into_pyarray(py);
+        let params_py = params_vec.into_pyarray(py);
+
+        // Call Python function
+        let result = self.sensitivity_fn.call1(py, (t, state_py, params_py))?;
+
+        // Convert result to 2D array
+        let sens_matrix_vec = pyany_to_f64_array2(result.bind(py), Some((state_dim, param_dim)))?;
+
+        // Convert to NumPy 2D array
+        let flat_vec: Vec<f64> = sens_matrix_vec.into_iter().flatten().collect();
+
+        flat_vec.into_pyarray(py).reshape([state_dim, param_dim])
+    }
+}

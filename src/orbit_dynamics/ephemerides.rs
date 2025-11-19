@@ -3,14 +3,150 @@ Provide low-accuracy ephemerides for various celestial bodies.
  */
 
 use nalgebra::Vector3;
+use once_cell::sync::Lazy;
+use std::str::FromStr;
+use std::sync::{Arc, RwLock};
+
+use anise::constants::frames as anise_frames;
+use anise::prelude as anise_prelude;
 
 use crate::DEG2RAD;
 use crate::attitude::RotationMatrix;
 use crate::constants::{AS2RAD, MJD2000, RADIANS};
+use crate::datasets::naif::download_de_kernel;
+use crate::frames::rotation_eme2000_to_gcrf;
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::BraheError;
 
-/// Calculate the position of the Sun in the EME2000 inertial frame using low-precision analytical
-/// methods. For most purposes the EME2000 inertial frame is equivalent to the GCRF frame.
+// ============================================================================
+// Global Almanac Management
+// ============================================================================
+
+/// Global ANISE Almanac instance for high-precision ephemeris computations.
+///
+/// This static provides thread-safe, shared access to a single ANISE Almanac
+/// context loaded with the DE440s ephemeris kernel. The Almanac is lazily
+/// initialized on first use or can be pre-initialized via `initialize_ephemeris()`.
+static GLOBAL_ALMANAC: Lazy<Arc<RwLock<Option<Arc<anise_prelude::Almanac>>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(None)));
+
+/// Set a custom ANISE Almanac as the global ephemeris provider.
+///
+/// This function allows users to configure a custom Almanac (e.g., with different
+/// kernels or settings) for use by all DE440s ephemeris functions.
+///
+/// # Arguments
+///
+/// * `almanac` - The ANISE Almanac instance to set as the global provider
+///
+/// # Example
+///
+/// ```no_run
+/// use brahe::ephemerides::set_global_almanac;
+/// use anise::prelude::{SPK, Almanac};
+///
+/// // Load custom kernel
+/// let spk = SPK::load("path/to/custom.bsp").unwrap();
+/// let almanac = Almanac::from_spk(spk);
+///
+/// // Set as global
+/// set_global_almanac(almanac);
+/// ```
+pub fn set_global_almanac(almanac: anise_prelude::Almanac) {
+    *GLOBAL_ALMANAC.write().unwrap() = Some(Arc::new(almanac));
+}
+
+/// Initialize the global ephemeris provider with the default DE440s kernel.
+///
+/// This function downloads (or uses a cached copy of) the NAIF DE440s ephemeris
+/// kernel and sets it as the global Almanac provider. This initialization is
+/// optional - if not called, the Almanac will be lazily initialized on the first
+/// call to `sun_position_de440s()` or `moon_position_de440s()`.
+///
+/// Calling this function explicitly is recommended when you want to:
+/// - Control when the kernel download/loading occurs (avoid latency on first use)
+/// - Handle initialization errors explicitly
+/// - Pre-load the kernel during application startup
+///
+/// # Returns
+///
+/// * `Ok(())` if the Almanac was successfully initialized
+/// * `Err(BraheError)` if kernel download or loading failed
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::initialize_ephemeris;
+///
+/// // Initialize at application startup
+/// initialize_ephemeris().expect("Failed to initialize ephemeris");
+/// ```
+pub fn initialize_ephemeris() -> Result<(), BraheError> {
+    // Download or get cached DE440s kernel
+    let de440s_path = download_de_kernel("de440s", None)?;
+    let de440s_path_str = de440s_path.to_str().ok_or_else(|| {
+        BraheError::IoError("Failed to convert DE440s path to string".to_string())
+    })?;
+
+    // Load SPK and create Almanac context
+    let spk = anise_prelude::SPK::load(de440s_path_str)
+        .map_err(|e| BraheError::IoError(format!("Failed to load DE440s kernel: {}", e)))?;
+    let almanac = anise_prelude::Almanac::from_spk(spk);
+
+    // Set as global
+    set_global_almanac(almanac);
+    Ok(())
+}
+
+/// Internal helper to get the global Almanac, initializing it if necessary.
+///
+/// This function implements the lazy initialization pattern: if the Almanac
+/// has not been explicitly initialized via `initialize_ephemeris()`, it will
+/// be automatically loaded on first access.
+///
+/// # Returns
+///
+/// * `Ok(Arc<Almanac>)` - Shared reference to the global Almanac
+/// * `Err(BraheError)` - If initialization failed
+fn get_almanac() -> Result<Arc<anise_prelude::Almanac>, BraheError> {
+    // Try to get existing almanac
+    {
+        let reader = GLOBAL_ALMANAC.read().unwrap();
+        if let Some(ref almanac) = *reader {
+            return Ok(Arc::clone(almanac));
+        }
+    }
+
+    // Need to initialize - acquire write lock
+    let mut writer = GLOBAL_ALMANAC.write().unwrap();
+
+    // Double-check pattern: another thread might have initialized while we waited
+    if let Some(ref almanac) = *writer {
+        return Ok(Arc::clone(almanac));
+    }
+
+    // Initialize with default DE440s kernel
+    let de440s_path = download_de_kernel("de440s", None)?;
+    let de440s_path_str = de440s_path.to_str().ok_or_else(|| {
+        BraheError::IoError("Failed to convert DE440s path to string".to_string())
+    })?;
+
+    let spk = anise_prelude::SPK::load(de440s_path_str)
+        .map_err(|e| BraheError::IoError(format!("Failed to load DE440s kernel: {}", e)))?;
+    let almanac = anise_prelude::Almanac::from_spk(spk);
+
+    let almanac_arc = Arc::new(almanac);
+    *writer = Some(Arc::clone(&almanac_arc));
+
+    Ok(almanac_arc)
+}
+
+// ============================================================================
+// Ephemeris Functions
+// ============================================================================
+
+/// Calculate the position of the Sun in the GCRF inertial frame using low-precision analytical
+/// methods.
 ///
 /// # Arguments
 ///
@@ -18,7 +154,7 @@ use crate::time::{Epoch, TimeSystem};
 ///
 /// # Returns
 ///
-/// - `r`: Position of the Sun in the J2000 ecliptic frame. Units: [m]
+/// - `r`: Position of the Sun in the GCRF frame. Units: [m]
 ///
 /// # References
 ///
@@ -34,7 +170,8 @@ use crate::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
 ///
-/// let r = sun_position(epc);
+/// // Get Sun position in GCRF frame
+/// let r_sun = sun_position(epc);
 /// ```
 #[allow(non_snake_case)]
 pub fn sun_position(epc: Epoch) -> Vector3<f64> {
@@ -53,11 +190,15 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
     let r = 149.619e9 - 2.499e9 * M.cos() - 0.021e9 * (2.0 * M).cos(); // [m]
 
     // Equatorial position vector
-    RotationMatrix::Rx(-epsilon, RADIANS) * Vector3::new(r * L.cos(), r * L.sin(), 0.0)
+    let r_run_eme_2000 =
+        RotationMatrix::Rx(-epsilon, RADIANS) * Vector3::new(r * L.cos(), r * L.sin(), 0.0);
+
+    // Convert to GCRF frame
+    rotation_eme2000_to_gcrf() * r_run_eme_2000
 }
 
-/// Calculate the position of the Moon in the EME2000 inertial frame using low-precision analytical
-/// methods. For most purposes the EME2000 inertial frame is equivalent to the GCRF frame.
+/// Calculate the position of the Moon in the GCRF inertial frame using low-precision analytical
+/// methods.
 ///
 /// # Arguments
 ///
@@ -65,7 +206,7 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// # Returns
 ///
-/// - `r`: Position of the Moon in the J2000 ecliptic frame. Units: [m]
+/// - `r`: Position of the Moon in the GCRF ecliptic frame. Units: [m]
 ///
 /// # References
 ///
@@ -80,7 +221,8 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
 ///
-/// let r = moon_position(epc);
+/// // Moon position in GCRF frame
+/// let r_moon = moon_position(epc);
 /// ```
 #[allow(non_snake_case)]
 pub fn moon_position(epc: Epoch) -> Vector3<f64> {
@@ -135,8 +277,627 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
         - 152e3 * (l + lp - 2.0 * D).cos();
 
     // Equatorial coordinates
-    RotationMatrix::Rx(-epsilon, RADIANS)
-        * Vector3::new(r * L.cos() * B.cos(), r * L.sin() * B.cos(), r * B.sin())
+    let r_moon_eme2000 = RotationMatrix::Rx(-epsilon, RADIANS)
+        * Vector3::new(r * L.cos() * B.cos(), r * L.sin() * B.cos(), r * B.sin());
+
+    // Convert to GCRF frame
+    rotation_eme2000_to_gcrf() * r_moon_eme2000
+}
+
+/// Calculate the position of the Sun in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for solar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate the Sun's position
+///
+/// # Returns
+///
+/// - `r`: Position of the Sun in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::sun_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Sun position in GCRF frame using DE440s
+/// let r_sun = sun_position_de440s(epc);
+/// ```
+pub fn sun_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Sun position from ephemeris
+    let r_sun_eme2000 = ctx
+        .translate(
+            anise_frames::SUN_J2000, // Target
+            anise_frames::EME2000,   // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Sun position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_sun_eme2000_m = Vector3::new(
+        r_sun_eme2000.radius_km[0] * 1.0e3,
+        r_sun_eme2000.radius_km[1] * 1.0e3,
+        r_sun_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_sun_eme2000_m
+}
+
+/// Calculate the position of the Moon in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate the Moon's position
+///
+/// # Returns
+///
+/// - `r`: Position of the Moon in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::moon_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Moon position in GCRF frame using DE440s
+/// let r_moon = moon_position_de440s(epc);
+/// ```
+pub fn moon_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Moon position from ephemeris
+    let r_moon_eme2000 = ctx
+        .translate(
+            anise_frames::IAU_MOON_FRAME, // Target
+            anise_frames::EME2000,        // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Moon position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_moon_eme2000_m = Vector3::new(
+        r_moon_eme2000.radius_km[0] * 1.0e3,
+        r_moon_eme2000.radius_km[1] * 1.0e3,
+        r_moon_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_moon_eme2000_m
+}
+
+/// Calculate the position of Jupiter in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Jupiters's position
+///
+/// # Returns
+///
+/// - `r`: Position of Jupiter in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::jupiter_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Jupiter's position in GCRF frame using DE440s
+/// let r_jupiter = jupiter_position_de440s(epc);
+/// ```
+pub fn jupiter_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Jupiter's position from ephemeris
+    let r_jupiter_eme2000 = ctx
+        .translate(
+            anise_frames::JUPITER_BARYCENTER_J2000, // Target
+            anise_frames::EME2000,                  // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Jupiter's position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_jupiter_eme2000_m = Vector3::new(
+        r_jupiter_eme2000.radius_km[0] * 1.0e3,
+        r_jupiter_eme2000.radius_km[1] * 1.0e3,
+        r_jupiter_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_jupiter_eme2000_m
+}
+
+/// Calculate the position of Mars in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Mars' position
+///
+/// # Returns
+///
+/// - `r`: Position of Mars in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::mars_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Mars's position in GCRF frame using DE440s
+/// let r_mars = mars_position_de440s(epc);
+/// ```
+pub fn mars_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Mars's position from ephemeris
+    let r_mars_eme2000 = ctx
+        .translate(
+            anise_frames::MARS_BARYCENTER_J2000, // Target
+            anise_frames::EME2000,               // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Mars' position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_mars_eme2000_m = Vector3::new(
+        r_mars_eme2000.radius_km[0] * 1.0e3,
+        r_mars_eme2000.radius_km[1] * 1.0e3,
+        r_mars_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_mars_eme2000_m
+}
+
+/// Calculate the position of Mercury in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Mercury's position
+///
+/// # Returns
+///
+/// - `r`: Position of Mercury in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::mercury_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Mercury's position in GCRF frame using DE440s
+/// let r_mercury = mercury_position_de440s(epc);
+/// ```
+pub fn mercury_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Mercury's position from ephemeris
+    let r_mercury_eme2000 = ctx
+        .translate(
+            anise_frames::MERCURY_J2000, // Target
+            anise_frames::EME2000,       // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Mercury's position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_mercury_eme2000_m = Vector3::new(
+        r_mercury_eme2000.radius_km[0] * 1.0e3,
+        r_mercury_eme2000.radius_km[1] * 1.0e3,
+        r_mercury_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_mercury_eme2000_m
+}
+
+/// Calculate the position of Neptune in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Neptune's position
+///
+/// # Returns
+///
+/// - `r`: Position of Neptune in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::neptune_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Neptune's position in GCRF frame using DE440s
+/// let r_neptune = neptune_position_de440s(epc);
+/// ```
+pub fn neptune_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Neptune's position from ephemeris
+    let r_neptune_eme2000 = ctx
+        .translate(
+            anise_frames::NEPTUNE_BARYCENTER_J2000, // Target
+            anise_frames::EME2000,                  // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Neptune's position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_neptune_eme2000_m = Vector3::new(
+        r_neptune_eme2000.radius_km[0] * 1.0e3,
+        r_neptune_eme2000.radius_km[1] * 1.0e3,
+        r_neptune_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_neptune_eme2000_m
+}
+
+/// Calculate the position of Saturn in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Saturn's position
+///
+/// # Returns
+///
+/// - `r`: Position of Saturn in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::saturn_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Saturn's position in GCRF frame using DE440s
+/// let r_saturn = saturn_position_de440s(epc);
+/// ```
+pub fn saturn_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Saturn's position from ephemeris
+    let r_saturn_eme2000 = ctx
+        .translate(
+            anise_frames::SATURN_BARYCENTER_J2000, // Target
+            anise_frames::EME2000,                 // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Saturn's position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_saturn_eme2000_m = Vector3::new(
+        r_saturn_eme2000.radius_km[0] * 1.0e3,
+        r_saturn_eme2000.radius_km[1] * 1.0e3,
+        r_saturn_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_saturn_eme2000_m
+}
+
+/// Calculate the position of Uranus in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Uranus' position
+///
+/// # Returns
+///
+/// - `r`: Position of Uranus in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::uranus_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Uranus' position in GCRF frame using DE440s
+/// let r_uranus = uranus_position_de440s(epc);
+/// ```
+pub fn uranus_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Uranus' position from ephemeris
+    let r_uranus_eme2000 = ctx
+        .translate(
+            anise_frames::URANUS_BARYCENTER_J2000, // Target
+            anise_frames::EME2000,                 // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Uranus' position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_uranus_eme2000_m = Vector3::new(
+        r_uranus_eme2000.radius_km[0] * 1.0e3,
+        r_uranus_eme2000.radius_km[1] * 1.0e3,
+        r_uranus_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_uranus_eme2000_m
+}
+
+/// Calculate the position of Venus in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate Venus' position
+///
+/// # Returns
+///
+/// - `r`: Position of Venus in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::venus_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get Venus' position in GCRF frame using DE440s
+/// let r_venus = venus_position_de440s(epc);
+/// ```
+pub fn venus_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get Venus' position from ephemeris
+    let r_venus_eme2000 = ctx
+        .translate(
+            anise_frames::VENUS_J2000, // Target
+            anise_frames::EME2000,     // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query Venus' position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_venus_eme2000_m = Vector3::new(
+        r_venus_eme2000.radius_km[0] * 1.0e3,
+        r_venus_eme2000.radius_km[1] * 1.0e3,
+        r_venus_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_venus_eme2000_m
+}
+
+/// Calculate the position of the solar system barycenter in the GCRF inertial frame using NAIF DE440s ephemeris.
+///
+/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// computation. The kernel is loaded once and cached in a global thread-safe context,
+/// making subsequent calls very efficient.
+///
+/// # Arguments
+///
+/// - `epc`: Epoch at which to calculate the solar system barycenter's position
+///
+/// # Returns
+///
+/// - `r`: Position of the solar system barycenter in the GCRF frame. Units: [m]
+///
+/// # Panics
+///
+/// Panics if the DE440s kernel cannot be loaded or if the ephemeris query fails.
+/// For error handling, use `initialize_ephemeris()` explicitly before calling this function.
+///
+/// # Example
+///
+/// ```
+/// use brahe::ephemerides::solar_system_barycenter_position_de440s;
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+///
+/// // Get the solar system barycenter's position in GCRF frame using DE440s
+/// let r_solar_system_barycenter = solar_system_barycenter_position_de440s(epc);
+/// ```
+pub fn solar_system_barycenter_position_de440s(epc: Epoch) -> Vector3<f64> {
+    // Get global Almanac (initializes lazily if needed)
+    let ctx = get_almanac().expect("Failed to initialize ephemeris almanac");
+
+    // Convert Brahe Epoch to Anise Epoch
+    let anise_epoch = anise_prelude::Epoch::from_str(&epc.isostring())
+        .expect("Failed to convert Brahe Epoch to ANISE Epoch");
+
+    // Get the solar system barycenter's position from ephemeris
+    let r_solar_system_barycenter_eme2000 = ctx
+        .translate(
+            anise_frames::SSB_J2000, // Target
+            anise_frames::EME2000,   // Observer
+            anise_epoch,
+            None,
+        )
+        .expect("Failed to query the solar system barycenter's position from DE440s ephemeris");
+
+    // Convert from km to meters
+    let r_solar_system_barycenter_eme2000_m = Vector3::new(
+        r_solar_system_barycenter_eme2000.radius_km[0] * 1.0e3,
+        r_solar_system_barycenter_eme2000.radius_km[1] * 1.0e3,
+        r_solar_system_barycenter_eme2000.radius_km[2] * 1.0e3,
+    );
+
+    // Transform to GCRF frame
+    rotation_eme2000_to_gcrf() * r_solar_system_barycenter_eme2000_m
+}
+
+/// Convenience alias for `solar_system_barycenter_position_de440s`.
+///
+/// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using
+/// NAIF DE440s ephemeris.
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the Solar System Barycenter position
+///
+/// # Returns
+///
+/// * Position of the Solar System Barycenter in the GCRF frame. Units: (m)
+pub fn ssb_position_de440s(epc: Epoch) -> Vector3<f64> {
+    solar_system_barycenter_position_de440s(epc)
 }
 
 #[cfg(test)]
@@ -146,6 +907,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::frames::rotation_gcrf_to_eme2000;
+    use crate::utils::testing::setup_global_test_almanac;
 
     #[rstest]
     #[case(60310.0, 24622331959.5803, - 133060326832.922, - 57688711921.8327)]
@@ -175,7 +938,8 @@ mod tests {
     #[case(60311.0, 27197674033.8982, - 132635566579.098, - 57504555813.8335)]
     fn test_sun_position(#[case] mjd_tt: f64, #[case] px: f64, #[case] py: f64, #[case] pz: f64) {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
-        let p = sun_position(epc);
+        // Need to convert from GCRF to EME2000 for comparison with reference data
+        let p = rotation_gcrf_to_eme2000() * sun_position(epc);
 
         assert_abs_diff_eq!(
             epc.mjd_as_time_system(TimeSystem::TT),
@@ -217,7 +981,8 @@ mod tests {
     #[case(60311.0, - 394746662.3846, 72542978.2908859, 52734738.1846248)]
     fn test_moon_position(#[case] mjd_tt: f64, #[case] px: f64, #[case] py: f64, #[case] pz: f64) {
         let epc = Epoch::from_mjd(mjd_tt, TimeSystem::TT);
-        let p = moon_position(epc);
+        // Need to convert from GCRF to EME2000 for comparison with reference data
+        let p = rotation_gcrf_to_eme2000() * moon_position(epc);
 
         assert_abs_diff_eq!(
             epc.mjd_as_time_system(TimeSystem::TT),
@@ -229,5 +994,203 @@ mod tests {
         assert_abs_diff_eq!(p[0], px, epsilon = 1.0);
         assert_abs_diff_eq!(p[1], py, epsilon = 1.0);
         assert_abs_diff_eq!(p[2], pz, epsilon = 1.0);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_sun_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        let r_sun_analytical = sun_position(epc);
+        let r_sun_de440s = sun_position_de440s(epc);
+
+        // Compute the dot product and confirm the angle is less than 1 degree
+        let dot_product =
+            r_sun_analytical.dot(&r_sun_de440s) / (r_sun_analytical.norm() * r_sun_de440s.norm());
+        let angle = dot_product.acos() * (180.0 / std::f64::consts::PI);
+
+        assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-1);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_moon_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        let r_moon_analytical = moon_position(epc);
+        let r_moon_de440s = moon_position_de440s(epc);
+
+        // Compute the dot product and confirm the angle is less than 1 degree
+        let dot_product = r_moon_analytical.dot(&r_moon_de440s)
+            / (r_moon_analytical.norm() * r_moon_de440s.norm());
+        let angle = dot_product.acos() * (180.0 / std::f64::consts::PI);
+
+        assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-1);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_jupiter_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_jupiter_de440s = jupiter_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_mars_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_mars_de440s = mars_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_mercury_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_mercury_de440s = mercury_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_neptune_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_neptune_de440s = neptune_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_saturn_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_saturn_de440s = saturn_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_uranus_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_uranus_de440s = uranus_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_venus_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_venus_de440s = venus_position_de440s(epc);
+    }
+
+    #[rstest]
+    #[case(2025, 1, 1)]
+    #[case(2025, 2, 15)]
+    #[case(2025, 3, 30)]
+    #[case(2025, 5, 15)]
+    #[case(2025, 7, 1)]
+    #[case(2025, 8, 15)]
+    #[case(2025, 10, 1)]
+    #[case(2025, 11, 15)]
+    #[case(2025, 12, 31)]
+    fn test_solar_system_barycenter_position_de440s(
+        #[case] year: u32,
+        #[case] month: u8,
+        #[case] day: u8,
+    ) {
+        setup_global_test_almanac();
+
+        let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
+        // Just call and ensure no panic occurs
+        let _r_ssb_de440s = solar_system_barycenter_position_de440s(epc);
     }
 }

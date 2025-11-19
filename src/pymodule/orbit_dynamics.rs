@@ -1461,45 +1461,6 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 }
 
 // ============================================================================
-// Atmospheric Density Models Python Bindings
-// ============================================================================
-
-/// Computes atmospheric density using the Harris-Priester model.
-///
-/// The Harris-Priester model accounts for diurnal density variations caused by solar heating.
-/// Valid for altitudes between 100 km and 1000 km. Returns 0.0 outside this range.
-///
-/// Args:
-///     r_tod (np.ndarray): Satellite position in true-of-date frame. Units: (m)
-///     r_sun (np.ndarray): Sun position in true-of-date frame. Units: (m)
-///
-/// Returns:
-///     float: Atmospheric density at the satellite position. Units: (kg/m³)
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///     import numpy as np
-///
-///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
-///     r_sat = np.array([bh.R_EARTH + 400e3, 0.0, 0.0])
-///     r_sun = bh.sun_position(epc)
-///
-///     density = bh.density_harris_priester(r_sat, r_sun)
-///     print(f"Density: {density:.2e} kg/m³")
-///     ```
-#[pyfunction]
-#[pyo3(name = "density_harris_priester")]
-fn py_density_harris_priester(
-    r_tod: PyReadonlyArray1<f64>,
-    r_sun: PyReadonlyArray1<f64>,
-) -> PyResult<f64> {
-    let r = numpy_to_vector3!(r_tod);
-    let r_s = numpy_to_vector3!(r_sun);
-    Ok(orbit_dynamics::atmospheric_density_models::density_harris_priester(r, r_s))
-}
-
-// ============================================================================
 // Drag Acceleration Python Bindings
 // ============================================================================
 

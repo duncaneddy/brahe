@@ -143,14 +143,15 @@ nav:
     -   Brahe:
             - index.md
             - installation.md
-            - development_guidelines.md
-            - design.md
-            - Code of Conduct: code_of_conduct.md
-            - Contributing: contributing.md
-            - License: license.md
+            - license.md
             - roadmap.md
+            - versioning.md
             - changelog.md
-            - glossary.md
+            - Development Guidelines:
+                - design.md
+                - Contributing: contributing.md
+                - development_guidelines.md
+                - Code of Conduct: code_of_conduct.md
     -   User Guide:
             - learn/index.md
             - Constants: learn/constants.md
@@ -349,6 +350,10 @@ nav:
                 - CachingSpaceWeatherProvider: library_api/space_weather/caching_provider.md
                 - FileSpaceWeatherProvider: library_api/space_weather/file_provider.md
                 - StaticSpaceWeatherProvider: library_api/space_weather/static_provider.md
+            - Earth Models:
+                - library_api/earth_models/index.md
+                - Harris-Priester: library_api/earth_models/harris_priester.md
+                - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md

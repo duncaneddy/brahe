@@ -46,6 +46,7 @@ RUST_DEPS = """//! ```cargo
 //! nalgebra = { version = "0.34.0", features = ["serde-serialize"] }
 //! approx = "^0.5.0"
 //! serde_json = "1"
+//! rayon = "1.10"
 //! ```
 """
 

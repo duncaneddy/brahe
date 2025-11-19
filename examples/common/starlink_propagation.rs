@@ -1,24 +1,17 @@
-#!/usr/bin/env cargo-eval
-//! ```cargo
-//! [dependencies]
-//! brahe = "0.1.2"
-//! rayon = "1.10"
-//! ```
 //! 
 //! Parallel propagation of the Starlink constellation.
 //!
 //! This example demonstrates fetching all Starlink satellite TLEs from CelesTrak
 //! and propagating them in parallel using Rayon with 100% of available CPU cores.
 //! 
-//! Run this with cargo eval and the following command:
-//! `cargo eval --example starlink_propagation --release`
 //!
-//! FLAGS = ["IGNORE"]
+// FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::traits::OrbitPropagator;
 use rayon::prelude::*;
+use rayon::iter::IntoParallelRefMutIterator;
 use std::time::Instant;
 
 fn main() {

@@ -2010,7 +2010,7 @@ impl PyCachingSpaceWeatherProvider {
 /// This function accepts any of the three space weather provider types.
 ///
 /// Args:
-///     provider: Space weather provider to set globally
+///     provider (StaticSpaceWeatherProvider | FileSpaceWeatherProvider | CachingSpaceWeatherProvider): Space weather provider to set globally
 ///
 /// Example:
 ///     ```python

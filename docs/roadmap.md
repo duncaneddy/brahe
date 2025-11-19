@@ -2,18 +2,6 @@
 
 Here you can find an overview of planned features and improvements for Brahe aligned to releases. This roadmap is subject to change based on user feedback, development priorities, and other factors.
 
-
-----
-
-## Experimental Features
-
-Some features in Brahe are currently marked as experimental. These features are functional but may undergo changes even in minor releases as we refine their design and implementation. Experimental features are indicated in the documentation with a warning box.
-
-Current experimental features include:
-
-1. Numerical Integration Module
-2. Space Weather Module
-
 ----
 
 ## v0.1.0 - Overhaul & Rust Migration
@@ -76,30 +64,38 @@ It also contains many new features, improvements to core functionality, and bett
 
 ## v0.3.0 - Orbital Perturbations
 
-- [ ] Orbital Perturbations
-    - [ ] Spherical Harmonic Gravity
-    - [ ] Third Body Gravity
-    - [ ] Atmospheric Drag
-    - [ ] Solar Radiation Pressure
-    - [ ] Relativity
-    - [ ] Eclipse Models
-    - [ ] Low-fidelity planetary ephemerides
-    - [ ] High-fidelity planetary ephemerides (JPL DE430)
-- [ ] Numerical Orbit Propagation Module
-    - [ ] Control Input Support
-        - [ ] Impulsive Maneuvers
-        - [ ] Continuous Thrust
-    - [ ] Event Detection during Propagation
-- [ ] Numerical Propagators
-    - [ ] User-defined Force Models
-    - [ ] Configurable Numerical propagator with default force models
-- [ ] Documentation for Orbital Perturbations and Numerical Propagation
+- [x] Orbital Perturbations
+    - [x] Spherical Harmonic Gravity
+    - [x] Third Body Gravity
+    - [x] Atmospheric Drag
+    - [x] Solar Radiation Pressure
+    - [x] Relativity
+    - [x] Eclipse Models
+    - [x] Low-fidelity planetary ephemerides
+    - [x] High-fidelity planetary ephemerides (JPL DE430)
+
+## v0.4.0 - Numerical Orbit Propagation
+
+- [x] Numerical Orbit Propagation Module
+    - [x] Control Input Support
+        - [x] Impulsive Maneuvers
+        - [x] Continuous Thrust
+    - [x] Event Detection during Propagation
+- [x] Documentation for Orbital Perturbations and Numerical Propagation
+- [x] Space Weather Data Management
+    - [x] Data provider classes
+        - [x] Static provider
+        - [x] File provider
+        - [x] Caching provider
+- [x] NRLMSISE-00 Atmospheric Model Integration
 
 ----
 
 ## v1.0.0 - Stable Release with Foundational Features
 
-- [ ] Stable release with foundational features
+- [ ] Numerical Propagators
+    - [ ] User-defined Force Models
+    - [ ] Configurable Numerical propagator with default force models
 - [ ] Align with JOSS paper required release
 
 ----
@@ -108,19 +104,8 @@ It also contains many new features, improvements to core functionality, and bett
 
 The following features are planned for future releases beyond v1.0.0. These features are prioritized based on user feedback and development resources. We welcome contributions and suggestions from the community to help shape the roadmap, as well as help with implementation.
 
-- [ ] Have separate script output text files that get embedded into the docs and expanded verbatim
 - [ ] Spacetrack Datasets Module
 - [ ] Initialize SGPPropagator from GP Elements
-- [ ] OEM File Support
-    - [ ] Initialize Trajectory from OEM File
-    - [ ] Export Trajectory to OEM File
-- [ ] SP3 File Support
-    - [ ] Initialize Trajectory from SP3 File
-    - [ ] Export Trajectory to SP3 File
-    - [ ] Export Trajectory to OEM File
-- [ ] OMM File Support
-    - [ ] Initialize Trajectory from OMM File
-    - [ ] Export Trajectory to OMM File
 - [ ] Plotting Improvements
     - [ ] Access timeline plots
 - [ ] Improved Interpolation Methods for Trajectories
@@ -143,11 +128,6 @@ The following features are planned for future releases beyond v1.0.0. These feat
     - [ ] Extended Kalman Filter
     - [ ] Unscented Kalman Filter
     - [ ] Particle Filter
-- [x] Space Weather Data Management
-    - [x] Data provider classes
-        - [x] Static provider
-        - [x] File provider
-        - [x] Caching provider
 - [ ] Improved Atmospheric Models
     - [ ] NRLMSISE 2.0 Atmospheric Model Integration
     - [ ] NRLMSISE 2.1 Atmospheric Model Integration
@@ -155,6 +135,11 @@ The following features are planned for future releases beyond v1.0.0. These feat
 - [ ] TLE Estimation 
     - [ ] From GPS Observations
     - [ ] From Initial OPM State
+- [ ] QoL Improvements
+    - [ ] Improved error messages and handling
+    - [ ] Enhanced logging capabilities
+    - [ ] More comprehensive unit tests and coverage
+    - [ ] Automatically append script outputs to documentation examples & remove fixed outputs
 
 ----
 
@@ -162,6 +147,15 @@ The following features are planned for future releases beyond v1.0.0. These feat
 
 The following features have been considered for future releases but are not currently planned. They may be revisited based on user demand and development priorities.
 
+- [ ] OEM File Support
+    - [ ] Initialize Trajectory from OEM File
+    - [ ] Export Trajectory to OEM File
+- [ ] OMM File Support
+    - [ ] Initialize Trajectory from OMM File
+    - [ ] Export Trajectory to OMM File
+- [ ] OPM File Support
+    - [ ] Initialize Trajectory from OPM File
+    - [ ] Export Trajectory to OPM File
 - [ ] Tidal Force Models
     - [ ] Solid Earth Tides
     - [ ] Ocean Tides

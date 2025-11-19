@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly"]
-# FLAGS = ["CI-ONLY"]
+# FLAGS = ["IGNORE"]
 # ///
 
 import time

@@ -8,7 +8,8 @@ magnetic field models.
 ## Atmospheric Density Models
 
 - [`harris_priester`]: Modified Harris-Priester atmospheric density model
-- `nrlmsise00`: NRLMSISE-00 atmospheric model (planned)
+- [`nrlmsise00`]: NRLMSISE-00 empirical atmospheric density model
+
 
 ## Usage
 

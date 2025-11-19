@@ -1305,4 +1305,15 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_get_f107_adj_avg81() {
+        let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
+        let mjd = 60000.0;
+        let f107_adj_avg = sw.get_f107_adj_avg81(mjd).unwrap();
+        // Should be positive
+        assert!(f107_adj_avg > 0.0);
+        // Should be within typical solar flux range
+        assert!(f107_adj_avg > 50.0 && f107_adj_avg < 400.0);
+    }
 }

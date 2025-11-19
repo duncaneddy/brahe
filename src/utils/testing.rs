@@ -9,6 +9,9 @@ use std::path::Path;
 use crate::eop::*;
 use crate::orbit_dynamics::ephemerides::set_global_almanac;
 use crate::orbit_dynamics::gravity::{DefaultGravityModel, GravityModel, set_global_gravity_model};
+use crate::space_weather::{
+    FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
+};
 use crate::utils::get_naif_cache_dir;
 use anise::prelude::{Almanac, SPK};
 
@@ -104,6 +107,40 @@ pub fn setup_global_test_almanac() {
     set_global_almanac(almanac);
 }
 
+/// Initialize global space weather provider with test data for unit testing.
+///
+/// Loads `test_assets/sw19571001.txt` and configures with Hold extrapolation.
+/// Use at the start of tests requiring space weather data for atmospheric
+/// density calculations or other space environment models.
+///
+/// # Panics
+/// Panics if test asset file cannot be found or loaded.
+pub fn setup_global_test_space_weather() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let filepath = Path::new(&manifest_dir)
+        .join("test_assets")
+        .join("sw19571001.txt");
+
+    let sw =
+        FileSpaceWeatherProvider::from_file(&filepath, SpaceWeatherExtrapolation::Hold).unwrap();
+    set_global_space_weather_provider(sw);
+}
+
+/// Get the path to the space weather test file for unit testing.
+///
+/// Returns the path to `test_assets/sw19571001.txt`. Use when tests need to
+/// work with the file directly (e.g., caching provider tests that need to
+/// copy data to a temp directory).
+///
+/// # Panics
+/// Panics if CARGO_MANIFEST_DIR is not set.
+pub fn get_test_space_weather_filepath() -> std::path::PathBuf {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    Path::new(&manifest_dir)
+        .join("test_assets")
+        .join("sw19571001.txt")
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -136,5 +173,26 @@ mod tests {
 
         // This function has side effects but doesn't return anything to verify
         // The fact that it doesn't panic is the test
+    }
+
+    #[test]
+    fn test_setup_global_test_space_weather() {
+        use crate::space_weather::get_global_kp;
+
+        // Test that setup_global_test_space_weather runs without panicking
+        setup_global_test_space_weather();
+
+        // Verify space weather is initialized by checking we can get values
+        let result = get_global_kp(60000.0);
+        assert!(result.is_ok());
+        let kp = result.unwrap();
+        assert!((0.0..=9.0).contains(&kp));
+    }
+
+    #[test]
+    fn test_get_test_space_weather_filepath() {
+        let filepath = get_test_space_weather_filepath();
+        assert!(filepath.exists());
+        assert!(filepath.ends_with("sw19571001.txt"));
     }
 }

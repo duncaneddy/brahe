@@ -533,4 +533,92 @@ mod tests {
             sw2.get_ap_daily(60000.0).unwrap()
         );
     }
+
+    #[test]
+    fn test_mjd_last_daily_predicted() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        // Static provider returns max float for all MJD boundaries
+        assert_eq!(sw.mjd_last_daily_predicted(), f64::MAX);
+    }
+
+    #[test]
+    fn test_mjd_last_monthly_predicted() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        // Static provider returns max float for all MJD boundaries
+        assert_eq!(sw.mjd_last_monthly_predicted(), f64::MAX);
+    }
+
+    #[test]
+    fn test_get_last_kp() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let kp_values = sw.get_last_kp(60000.0, 5).unwrap();
+        assert_eq!(kp_values.len(), 5);
+        for kp in kp_values {
+            assert_eq!(kp, 3.0);
+        }
+    }
+
+    #[test]
+    fn test_get_last_ap() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let ap_values = sw.get_last_ap(60000.0, 5).unwrap();
+        assert_eq!(ap_values.len(), 5);
+        for ap in ap_values {
+            assert_eq!(ap, 15.0);
+        }
+    }
+
+    #[test]
+    fn test_get_last_daily_kp() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let daily_kp = sw.get_last_daily_kp(60000.0, 3).unwrap();
+        assert_eq!(daily_kp.len(), 3);
+        for kp in daily_kp {
+            assert_eq!(kp, 3.0);
+        }
+    }
+
+    #[test]
+    fn test_get_last_daily_ap() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let daily_ap = sw.get_last_daily_ap(60000.0, 3).unwrap();
+        assert_eq!(daily_ap.len(), 3);
+        for ap in daily_ap {
+            assert_eq!(ap, 15.0);
+        }
+    }
+
+    #[test]
+    fn test_get_last_f107() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let f107_values = sw.get_last_f107(60000.0, 3).unwrap();
+        assert_eq!(f107_values.len(), 3);
+        for f107 in f107_values {
+            assert_eq!(f107, 150.0);
+        }
+    }
+
+    #[test]
+    fn test_get_last_kpap_epochs() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let epochs = sw.get_last_kpap_epochs(60000.0, 5).unwrap();
+        assert_eq!(epochs.len(), 5);
+
+        // Verify epochs are in ascending order (oldest first)
+        for i in 0..epochs.len() - 1 {
+            assert!(epochs[i].mjd() < epochs[i + 1].mjd());
+        }
+    }
+
+    #[test]
+    fn test_get_last_daily_epochs() {
+        let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+        let epochs = sw.get_last_daily_epochs(60000.0, 3).unwrap();
+        assert_eq!(epochs.len(), 3);
+
+        // Verify epochs are in ascending order (oldest first)
+        for i in 0..epochs.len() - 1 {
+            assert!(epochs[i].mjd() < epochs[i + 1].mjd());
+        }
+    }
 }

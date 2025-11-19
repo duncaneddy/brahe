@@ -1391,6 +1391,51 @@ impl PyCachingSpaceWeatherProvider {
         })
     }
 
+    /// Create a caching provider with a custom URL for downloading space weather data.
+    ///
+    /// Args:
+    ///     url (str): URL to download space weather data from
+    ///     max_age_seconds (int): Maximum age of file in seconds before triggering a refresh
+    ///     auto_refresh (bool): If True, automatically checks file age and refreshes on every access
+    ///     extrapolate (str): Behavior for dates outside data range: "Hold", "Zero", or "Error"
+    ///     cache_dir (str, optional): Custom cache directory. If None, uses ~/.cache/brahe/
+    ///
+    /// Returns:
+    ///     CachingSpaceWeatherProvider: Provider with automatic cache management from custom URL
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     provider = bh.CachingSpaceWeatherProvider.with_url(
+    ///         url="https://example.com/sw19571001.txt",
+    ///         max_age_seconds=7 * 86400,  # 7 days
+    ///         auto_refresh=False,
+    ///         extrapolate="Hold"
+    ///     )
+    ///     bh.set_global_space_weather_provider(provider)
+    ///     ```
+    #[classmethod]
+    #[pyo3(signature = (url, max_age_seconds, auto_refresh, extrapolate, cache_dir=None))]
+    pub fn with_url(
+        _cls: &Bound<'_, PyType>,
+        url: &str,
+        max_age_seconds: u64,
+        auto_refresh: bool,
+        extrapolate: &str,
+        cache_dir: Option<&str>,
+    ) -> Result<Self, BraheError> {
+        Ok(PyCachingSpaceWeatherProvider {
+            obj: space_weather::CachingSpaceWeatherProvider::with_url(
+                url,
+                cache_dir.map(PathBuf::from),
+                max_age_seconds,
+                auto_refresh,
+                string_to_sw_extrapolation(extrapolate)?,
+            )?,
+        })
+    }
+
     /// Manually refresh the cached space weather data.
     ///
     /// Checks if the file needs updating and downloads a new version if necessary.

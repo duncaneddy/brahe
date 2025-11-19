@@ -2,6 +2,9 @@
 
 Space weather data provides geomagnetic indices and solar flux measurements that are essential for atmospheric density models used in satellite drag calculations. These parameters capture solar activity and geomagnetic disturbances that directly affect upper atmosphere density and satellite orbital decay.
 
+!!! warning "Experimental API"
+    The space weather module is currently experimental. While the core functionality should be stable, the API may change in future **MINOR** releases as we refine the design and add features.
+
 ## Overview
 
 The primary space weather parameters used in astrodynamics are:

@@ -395,3 +395,27 @@ def test_get_global_epoch_kp_alignment():
     for epoch, expected_kp in zip(epochs, kp_values):
         retrieved_kp = brahe.get_global_kp(epoch.mjd())
         assert pytest.approx(retrieved_kp, abs=1e-10) == expected_kp
+
+
+def test_get_global_sw_mjd_last_daily_predicted():
+    """Test getting last MJD with daily predicted data from global provider"""
+    sw = brahe.FileSpaceWeatherProvider.from_default_file()
+    brahe.set_global_space_weather_provider(sw)
+
+    mjd_last_daily_predicted = brahe.get_global_sw_mjd_last_daily_predicted()
+    # Should be greater than last observed (predicted extends beyond observed)
+    assert mjd_last_daily_predicted >= brahe.get_global_sw_mjd_last_observed()
+    # Should be reasonable value (after 2020)
+    assert mjd_last_daily_predicted > 58849.0
+
+
+def test_get_global_sw_mjd_last_monthly_predicted():
+    """Test getting last MJD with monthly predicted data from global provider"""
+    sw = brahe.FileSpaceWeatherProvider.from_default_file()
+    brahe.set_global_space_weather_provider(sw)
+
+    mjd_last_monthly_predicted = brahe.get_global_sw_mjd_last_monthly_predicted()
+    # Should be greater than daily predicted (monthly extends further)
+    assert mjd_last_monthly_predicted >= brahe.get_global_sw_mjd_last_daily_predicted()
+    # Should be reasonable value (after 2020)
+    assert mjd_last_monthly_predicted > 58849.0

@@ -309,12 +309,7 @@ pub fn initialize_sw() -> Result<(), BraheError> {
 #[serial]
 mod tests {
     use super::*;
-    use crate::space_weather::file_provider::FileSpaceWeatherProvider;
-
-    fn setup_test_global_sw() {
-        let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
-        set_global_space_weather_provider(sw);
-    }
+    use crate::utils::testing::setup_global_test_space_weather;
 
     fn clear_test_global_sw() {
         set_global_space_weather_provider(StaticSpaceWeatherProvider::new());
@@ -340,7 +335,7 @@ mod tests {
         clear_test_global_sw();
         assert!(!get_global_sw_initialization());
 
-        setup_test_global_sw();
+        setup_global_test_space_weather();
 
         assert!(get_global_sw_initialization());
         assert!(get_global_sw_len() > 0);
@@ -350,7 +345,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_kp() {
-        setup_test_global_sw();
+        setup_global_test_space_weather();
         let kp = get_global_kp(36114.0).unwrap();
         assert!((0.0..=9.0).contains(&kp));
     }
@@ -358,7 +353,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_ap() {
-        setup_test_global_sw();
+        setup_global_test_space_weather();
         let ap = get_global_ap_daily(36114.0).unwrap();
         assert!((0.0..=400.0).contains(&ap));
     }
@@ -366,7 +361,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_f107() {
-        setup_test_global_sw();
+        setup_global_test_space_weather();
         let f107 = get_global_f107_observed(36114.0).unwrap();
         assert!(f107 > 0.0);
     }
@@ -374,8 +369,220 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_sunspot() {
-        setup_test_global_sw();
+        setup_global_test_space_weather();
         let isn = get_global_sunspot_number(36114.0).unwrap();
         assert!(isn < 500);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_mjd_last_daily_predicted() {
+        setup_global_test_space_weather();
+        let mjd_last_daily = get_global_sw_mjd_last_daily_predicted();
+        // Should be at least as far as last observed
+        assert!(mjd_last_daily >= get_global_sw_mjd_last_observed());
+        // Should be a reasonable value (after 2020)
+        assert!(mjd_last_daily > 58849.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_mjd_last_monthly_predicted() {
+        setup_global_test_space_weather();
+        let mjd_last_monthly = get_global_sw_mjd_last_monthly_predicted();
+        // Should be at least as far as daily predicted
+        assert!(mjd_last_monthly >= get_global_sw_mjd_last_daily_predicted());
+        // Should be a reasonable value (after 2020)
+        assert!(mjd_last_monthly > 58849.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_kp_all() {
+        setup_global_test_space_weather();
+        let kp_all = get_global_kp_all(36114.0).unwrap();
+        assert_eq!(kp_all.len(), 8);
+        for kp in kp_all.iter() {
+            assert!((0.0..=9.0).contains(kp));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_kp_daily() {
+        setup_global_test_space_weather();
+        let kp_daily = get_global_kp_daily(36114.0).unwrap();
+        assert!((0.0..=9.0).contains(&kp_daily));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_ap_3hourly() {
+        setup_global_test_space_weather();
+        let ap = get_global_ap(36114.0).unwrap();
+        assert!(ap >= 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_ap_all() {
+        setup_global_test_space_weather();
+        let ap_all = get_global_ap_all(36114.0).unwrap();
+        assert_eq!(ap_all.len(), 8);
+        for ap in ap_all.iter() {
+            assert!(*ap >= 0.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_f107_adjusted() {
+        setup_global_test_space_weather();
+        let f107_adj = get_global_f107_adjusted(36114.0).unwrap();
+        assert!(f107_adj >= 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_f107_obs_avg81() {
+        setup_global_test_space_weather();
+        let f107_avg = get_global_f107_obs_avg81(60000.0).unwrap();
+        assert!(f107_avg > 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_f107_adj_avg81() {
+        setup_global_test_space_weather();
+        let f107_avg = get_global_f107_adj_avg81(60000.0).unwrap();
+        assert!(f107_avg > 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_extrapolation() {
+        setup_global_test_space_weather();
+        let extrapolation = get_global_sw_extrapolation();
+        assert_eq!(extrapolation, SpaceWeatherExtrapolation::Hold);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_mjd_min() {
+        setup_global_test_space_weather();
+        let mjd_min = get_global_sw_mjd_min();
+        // First data point is 1957-10-01 (MJD 36112)
+        assert_eq!(mjd_min, 36112.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_mjd_max() {
+        setup_global_test_space_weather();
+        let mjd_max = get_global_sw_mjd_max();
+        // Should have data through recent dates
+        assert!(mjd_max > 60000.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_sw_mjd_last_observed() {
+        setup_global_test_space_weather();
+        let mjd_last_obs = get_global_sw_mjd_last_observed();
+        // Should have recent observed data
+        assert!(mjd_last_obs > 60000.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_kp() {
+        setup_global_test_space_weather();
+        let kp_values = get_global_last_kp(60000.0, 5).unwrap();
+        assert_eq!(kp_values.len(), 5);
+        for kp in &kp_values {
+            assert!((0.0..=9.0).contains(kp));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_ap() {
+        setup_global_test_space_weather();
+        let ap_values = get_global_last_ap(60000.0, 5).unwrap();
+        assert_eq!(ap_values.len(), 5);
+        for ap in &ap_values {
+            assert!(*ap >= 0.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_daily_kp() {
+        setup_global_test_space_weather();
+        let daily_kp = get_global_last_daily_kp(60000.0, 3).unwrap();
+        assert_eq!(daily_kp.len(), 3);
+        for kp in &daily_kp {
+            assert!((0.0..=9.0).contains(kp));
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_daily_ap() {
+        setup_global_test_space_weather();
+        let daily_ap = get_global_last_daily_ap(60000.0, 3).unwrap();
+        assert_eq!(daily_ap.len(), 3);
+        for ap in &daily_ap {
+            assert!(*ap >= 0.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_f107() {
+        setup_global_test_space_weather();
+        let f107_values = get_global_last_f107(60000.0, 3).unwrap();
+        assert_eq!(f107_values.len(), 3);
+        for f107 in &f107_values {
+            assert!(*f107 > 0.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_kpap_epochs() {
+        setup_global_test_space_weather();
+        let epochs = get_global_last_kpap_epochs(60000.0, 5).unwrap();
+        assert_eq!(epochs.len(), 5);
+        // Verify epochs are in ascending order
+        for i in 0..epochs.len() - 1 {
+            assert!(epochs[i].mjd() < epochs[i + 1].mjd());
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_global_last_daily_epochs() {
+        setup_global_test_space_weather();
+        let epochs = get_global_last_daily_epochs(60000.0, 3).unwrap();
+        assert_eq!(epochs.len(), 3);
+        // Verify epochs are in ascending order
+        for i in 0..epochs.len() - 1 {
+            assert!(epochs[i].mjd() < epochs[i + 1].mjd());
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_initialize_sw() {
+        clear_test_global_sw();
+        assert!(!get_global_sw_initialization());
+
+        // Initialize with default settings
+        initialize_sw().unwrap();
+
+        assert!(get_global_sw_initialization());
+        assert_eq!(get_global_sw_type(), SpaceWeatherType::CssiSpaceWeather);
+        assert!(get_global_sw_len() > 0);
     }
 }

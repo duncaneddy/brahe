@@ -542,10 +542,20 @@ fn download_from_url(url: &str, output_path: &Path) -> Result<(), BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::get_test_space_weather_filepath;
     use std::fs::File;
+    use std::path::PathBuf;
     use std::thread;
     use std::time::Duration;
     use tempfile::TempDir;
+
+    /// Helper to set up a cache directory with test space weather data.
+    fn setup_test_cache(cache_dir: &PathBuf) {
+        let test_file = get_test_space_weather_filepath();
+        let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
+        fs::create_dir_all(cache_dir).unwrap();
+        fs::copy(&test_file, &cache_path).unwrap();
+    }
 
     #[test]
     fn test_check_file_age_nonexistent() {
@@ -612,11 +622,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
 
-        // Copy packaged data to temp location to avoid network
-        let sw_data = include_bytes!("../../data/space_weather/sw19571001.txt");
-        let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
-        fs::create_dir_all(&cache_dir).unwrap();
-        fs::write(&cache_path, sw_data).unwrap();
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
 
         let provider = CachingSpaceWeatherProvider::new(
             Some(cache_dir),
@@ -652,11 +659,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
 
-        // Copy packaged data to temp location
-        let sw_data = include_bytes!("../../data/space_weather/sw19571001.txt");
-        let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
-        fs::create_dir_all(&cache_dir).unwrap();
-        fs::write(&cache_path, sw_data).unwrap();
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
 
         let provider = CachingSpaceWeatherProvider::new(
             Some(cache_dir),
@@ -681,11 +685,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().to_path_buf();
 
-        // Copy packaged data to temp location
-        let sw_data = include_bytes!("../../data/space_weather/sw19571001.txt");
-        let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
-        fs::create_dir_all(&cache_dir).unwrap();
-        fs::write(&cache_path, sw_data).unwrap();
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
 
         let provider = CachingSpaceWeatherProvider::new(
             Some(cache_dir),
@@ -715,5 +716,298 @@ mod tests {
 
         let isn = provider.get_sunspot_number(test_mjd).unwrap();
         assert!(isn < 500);
+    }
+
+    #[test]
+    fn test_mjd_boundaries() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // Test mjd_min
+        assert_eq!(provider.mjd_min(), 36112.0);
+
+        // Test mjd_max
+        assert!(provider.mjd_max() > 60000.0);
+
+        // Test mjd_last_observed
+        assert!(provider.mjd_last_observed() > 60000.0);
+
+        // Test mjd_last_daily_predicted
+        assert!(provider.mjd_last_daily_predicted() >= provider.mjd_last_observed());
+        assert!(provider.mjd_last_daily_predicted() > 58849.0);
+
+        // Test mjd_last_monthly_predicted
+        assert!(provider.mjd_last_monthly_predicted() >= provider.mjd_last_daily_predicted());
+        assert!(provider.mjd_last_monthly_predicted() > 58849.0);
+    }
+
+    #[test]
+    fn test_get_f107_adj_avg81() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let f107_adj_avg = provider.get_f107_adj_avg81(mjd).unwrap();
+        assert!(f107_adj_avg > 0.0);
+        assert!(f107_adj_avg > 50.0 && f107_adj_avg < 400.0);
+    }
+
+    #[test]
+    fn test_get_last_methods() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+
+        // Test get_last_kp
+        let kp_values = provider.get_last_kp(mjd, 5).unwrap();
+        assert_eq!(kp_values.len(), 5);
+        for kp in &kp_values {
+            assert!((0.0..=9.0).contains(kp));
+        }
+
+        // Test get_last_ap
+        let ap_values = provider.get_last_ap(mjd, 5).unwrap();
+        assert_eq!(ap_values.len(), 5);
+        for ap in &ap_values {
+            assert!(*ap >= 0.0);
+        }
+
+        // Test get_last_daily_kp
+        let daily_kp = provider.get_last_daily_kp(mjd, 3).unwrap();
+        assert_eq!(daily_kp.len(), 3);
+        for kp in &daily_kp {
+            assert!(*kp >= 0.0 && *kp <= 9.0);
+        }
+
+        // Test get_last_daily_ap
+        let daily_ap = provider.get_last_daily_ap(mjd, 3).unwrap();
+        assert_eq!(daily_ap.len(), 3);
+        for ap in &daily_ap {
+            assert!(*ap >= 0.0);
+        }
+
+        // Test get_last_f107
+        let f107_values = provider.get_last_f107(mjd, 3).unwrap();
+        assert_eq!(f107_values.len(), 3);
+        for f107 in &f107_values {
+            assert!(*f107 > 0.0);
+        }
+
+        // Test get_last_kpap_epochs
+        let epochs = provider.get_last_kpap_epochs(mjd, 5).unwrap();
+        assert_eq!(epochs.len(), 5);
+        for i in 0..epochs.len() - 1 {
+            assert!(epochs[i].mjd() < epochs[i + 1].mjd());
+        }
+
+        // Test get_last_daily_epochs
+        let daily_epochs = provider.get_last_daily_epochs(mjd, 3).unwrap();
+        assert_eq!(daily_epochs.len(), 3);
+        for i in 0..daily_epochs.len() - 1 {
+            assert!(daily_epochs[i].mjd() < daily_epochs[i + 1].mjd());
+        }
+    }
+
+    #[test]
+    fn test_with_url_from_cached_file() {
+        // Test with_url when file already exists in cache (no network call needed)
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory as if it was downloaded
+        setup_test_cache(&cache_dir);
+
+        // Create provider with a dummy URL - since file exists and is fresh, no download occurs
+        let provider = CachingSpaceWeatherProvider::with_url(
+            "https://example.com/sw19571001.txt",
+            Some(cache_dir),
+            365 * 86400, // 1 year max age
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // Verify provider was created successfully
+        assert!(provider.is_initialized());
+        assert!(provider.len() > 0);
+        assert_eq!(provider.sw_type(), SpaceWeatherType::CssiSpaceWeather);
+        assert_eq!(provider.extrapolation(), SpaceWeatherExtrapolation::Hold);
+
+        // Verify data can be retrieved
+        let test_mjd = 60000.0;
+        let kp = provider.get_kp(test_mjd).unwrap();
+        assert!((0.0..=9.0).contains(&kp));
+
+        let ap = provider.get_ap_daily(test_mjd).unwrap();
+        assert!(ap >= 0.0);
+
+        let f107 = provider.get_f107_observed(test_mjd).unwrap();
+        assert!(f107 > 0.0);
+    }
+
+    #[test]
+    fn test_get_kp_all() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let kp_all = provider.get_kp_all(mjd).unwrap();
+        assert_eq!(kp_all.len(), 8);
+        for kp in kp_all.iter() {
+            assert!((0.0..=9.0).contains(kp));
+        }
+    }
+
+    #[test]
+    fn test_get_kp_daily() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let kp_daily = provider.get_kp_daily(mjd).unwrap();
+        assert!((0.0..=9.0).contains(&kp_daily));
+    }
+
+    #[test]
+    fn test_get_ap() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let ap = provider.get_ap(mjd).unwrap();
+        assert!(ap >= 0.0);
+    }
+
+    #[test]
+    fn test_get_ap_all() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let ap_all = provider.get_ap_all(mjd).unwrap();
+        assert_eq!(ap_all.len(), 8);
+        for ap in ap_all.iter() {
+            assert!(*ap >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_get_f107_adjusted() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let f107_adj = provider.get_f107_adjusted(mjd).unwrap();
+        assert!(f107_adj >= 0.0);
+    }
+
+    #[test]
+    fn test_get_f107_obs_avg81() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+
+        // Copy test data to cache directory
+        setup_test_cache(&cache_dir);
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            365 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd = 60000.0;
+        let f107_obs_avg = provider.get_f107_obs_avg81(mjd).unwrap();
+        assert!(f107_obs_avg > 0.0);
     }
 }

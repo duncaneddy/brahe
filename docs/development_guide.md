@@ -1,4 +1,4 @@
-# Development Guidelines
+# Development Guide
 
 ## Development Workflow
 

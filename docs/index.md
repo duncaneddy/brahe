@@ -59,7 +59,7 @@ If you want to learn more about how to use the package the documentation is stru
 
 ## License
 
-The project is licensed under the MIT License - see the [LICENSE](license.md) for details.
+The project is licensed under the MIT License - see the [LICENSE](./about/license.md) for details.
 
 We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
 

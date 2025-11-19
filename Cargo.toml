@@ -64,9 +64,11 @@ serial_test = "3.1.1"
 httpmock = "0.8.2"
 tempfile = "3.13.0"
 cargo-deny = "0.18.5"
+mockall = "0.13.1"
 
 [features]
 ci = []
+manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
 python = []
 
 # Build Profiles
@@ -81,4 +83,4 @@ lto = "fat"
 
 [lints.rust]
 missing_docs = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)', 'cfg(feature, values("manual"))'] }

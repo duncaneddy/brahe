@@ -12,5 +12,8 @@ pub mod cache;
 pub mod errors;
 pub mod formatting;
 pub mod identifiable;
-pub mod testing;
 pub mod threading;
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub mod testing;

@@ -143,15 +143,18 @@ nav:
     -   Brahe:
             - index.md
             - installation.md
-            - license.md
-            - roadmap.md
-            - versioning.md
             - changelog.md
-            - Development Guidelines:
-                - design.md
-                - Contributing: contributing.md
-                - development_guidelines.md
-                - Code of Conduct: code_of_conduct.md
+            - About:
+                - about/index.md
+                - about/license.md
+                - about/roadmap.md
+                - about/design.md
+                - about/versioning.md
+                - about/alternatives.md
+            - Contributing To Brahe:
+                - contributing.md
+                - development_guide.md
+                - code_of_conduct.md
     -   User Guide:
             - learn/index.md
             - Constants: learn/constants.md
@@ -215,12 +218,13 @@ nav:
             - Mathematics:
                 - learn/mathematics/index.md
                 - Jacobian Computation: learn/mathematics/jacobian.md
-                - Sensitivity Matrices: learn/mathematics/sensitivity.md
             - Numerical Integration:
                 - learn/integrators/index.md
                 - Fixed-Step Integrators: learn/integrators/fixed_step.md
                 - Adaptive-Step Integrators: learn/integrators/adaptive_step.md
                 - Variational Equations: learn/integrators/variational_equations.md
+                - Control Inputs: learn/integrators/control_inputs.md
+                - Sensitivity Matrices: learn/integrators/sensitivity_matrix.md
                 - Configuration: learn/integrators/configuration.md
             - Space Weather Data:
                 - learn/space_weather/index.md

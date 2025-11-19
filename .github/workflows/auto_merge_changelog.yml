@@ -16,7 +16,7 @@ jobs:
   changelog:
     runs-on: ubuntu-latest
     if: |
-      (github.actor == 'github-actions[bot]' || github.actor == 'duncaneddy') &&
+      (github.event.pull_request.user.login == 'github-actions[bot]' || github.event.pull_request.user.login == 'duncaneddy') &&
       contains(github.event.pull_request.labels.*.name, 'changelog') &&
       contains(github.event.pull_request.labels.*.name, 'automated')
     steps:

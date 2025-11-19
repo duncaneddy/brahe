@@ -1,15 +1,15 @@
-# History, Inspiration, and Alternatives
+# History, Inspiration, and Alternatives, Inspiration and Comparisons
 
 ## Intro
 
-There have been many astrodynamcis libraries developed over the years, each with its own strengths and weaknesses. Brahe draws inspiration from several of these projects while aiming to provide a unique combination of features, performance, and usability.
+There have been many astrodynamics libraries developed over the years, each with its own strengths and weaknesses. Brahe draws inspiration from several of these projects while aiming to provide a unique combination of features, performance, and usability.
 
 
 ## History
 
-The origins of Brahe starated in 2014 when I first started graduate school at Stanford. At the time, I was working on a project that required high-fidelity orbit propagation and I found that high-fidelity tools were either inaccessible (proprietary, expensive, or both) or difficult to use (poor documentation, complex APIs). I wanted to create a tool that was both powerful and easy to use to make it easy for researchers and engineers to ask and answer questions they really cared about without needing to become experts in astrodynamics or software engineering themselves.
+The origins of Brahe started in 2014 when I first started graduate school at Stanford. At the time, I was working on a project that required high-fidelity orbit propagation and I found that high-fidelity tools were either inaccessible (proprietary, expensive, or both) or difficult to use (poor documentation, complex APIs). I wanted to create a tool that was both powerful and easy to use to make it easy for researchers and engineers to ask and answer questions they really cared about without needing to become experts in astrodynamics or software engineering themselves.
 
-As I changed organizations and projects over the years, I kept running into the same problem of a lack of open, permissively license, astrodynamics software. So when I joined a new organization I'd write a new astrodynamics library using the core algorithms and data structures in new languages to make astrodynamics accesible to those organizations. Though this process, I kept refinding my approach to the software design --- learning and improving with each iteration. 
+As I changed organizations and projects over the years, I kept running into the same problem of a lack of open, permissively license, astrodynamics software. So when I joined a new organization I'd write a new astrodynamics library using the core algorithms and data structures in new languages to make astrodynamics accessible to those organizations. Through this process, I kept refinding my approach to the software design --- learning and improving with each iteration. 
 
 When I returned to finish my PhD in 2019, I decided to take the best parts of these previous implementations and create a new library from scratch that would be open and accessible to all so that others wouldn't have to go through the same process of reinventing the wheel. In 2023 I began rewriting the library in Rust to take advantage of its performance, safety, and modern language features. The result is Brahe as it exists today.
 
@@ -64,7 +64,7 @@ It primarily focuses on ephemeris calculations and star tracking for astronomy, 
 
 Nyx Space is a modern astrodynamics library written in Rust with python bindings. It focuses on validation and verification of its algorithms and provides high-performance implementations of common astrodynamics tasks. It's general focus in on trajectory design and orbit determination for interplanetary missions, though it also supports Earth-orbiting missions as well.
 
-OnNyx Space is licensed under an AGPLv3 license which requires derivative works to also be open-sourced under the same license, which can limit its use in commercial applications. Commercial licenses are available from Nyx Space for those who want to use it in closed-source applications.
+Nyx Space is licensed under an AGPLv3 license which requires derivative works to also be open-sourced under the same license, which can limit its use in commercial applications. Commercial licenses are available from Nyx Space for those who want to use it in closed-source applications.
 
 !!! tip "Inspiration"
     Brahe's Rust implementation was inspired in part by Nyx Space's approach to using Rust for astrodynamics.
@@ -75,4 +75,4 @@ OnNyx Space is licensed under an AGPLv3 license which requires derivative works 
 
 Basilisk is an open-source astrodynamics and spacecraft simulation framework developed by the [Autonomous Vehicle Systems (AVS) Lab](https://hanspeterschaub.info/AVSlab.html) at the University of Colorado Boulder. It provides a modular architecture for simulating spacecraft dynamics, control systems, and mission scenarios though a component-based approach.
 
-Basilisk is primarily focused on spacecraft simulation and control system design, making it well-suited for simluating complex spacecraft missions with multiple interacting subsystems. However it is not distributed through common package managers which can make it difficult to integrate into new software projects.
+Basilisk is primarily focused on spacecraft simulation and control system design, making it well-suited for simulating complex spacecraft missions with multiple interacting subsystems. However it is not distributed through common package managers which can make it difficult to integrate into new software projects.

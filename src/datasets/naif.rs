@@ -165,6 +165,7 @@ pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<Pa
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     /// Setup helper: Copy de440s.bsp from test_assets to cache for CI tests.
     ///
@@ -209,6 +210,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
     fn test_download_de440s_network() {
         setup_test_kernel();
 
@@ -227,6 +229,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
     fn test_download_with_output_path_network() {
         setup_test_kernel();
 
@@ -255,6 +258,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
     fn test_caching_behavior_network() {
         setup_test_kernel();
 

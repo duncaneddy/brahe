@@ -1009,6 +1009,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyDNumericalJacobian>()?;
     module.add_class::<PyDAnalyticJacobian>()?;
 
+    //* Sensitivity *//
+    module.add_class::<PyDNumericalSensitivity>()?;
+    module.add_class::<PyDAnalyticSensitivity>()?;
+
     //* Integrators *//
     module.add_class::<PyIntegratorConfig>()?;
     module.add_class::<PyAdaptiveStepDResult>()?;

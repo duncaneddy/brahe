@@ -7,7 +7,7 @@ use nalgebra::DVector;
 fn main() {
     // Define dynamics: Van der Pol oscillator (stiff for large mu)
     let mu = 1.0;
-    let dynamics = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let x = state[0];
         let v = state[1];
         DVector::from_vec(vec![v, mu * (1.0 - x.powi(2)) * v - x])
@@ -22,7 +22,7 @@ fn main() {
     let abs_tol = 1e-8;
     let rel_tol = 1e-7;
     let config = IntegratorConfig::adaptive(abs_tol, rel_tol);
-    let integrator = DormandPrince54DIntegrator::with_config(2, Box::new(dynamics), None, config);
+    let integrator = DormandPrince54DIntegrator::with_config(2, Box::new(dynamics), None, None, None, config);
 
     println!("Adaptive integration of Van der Pol oscillator (μ={})", mu);
     println!("Tolerances: abs_tol={}, rel_tol={}", abs_tol, rel_tol);

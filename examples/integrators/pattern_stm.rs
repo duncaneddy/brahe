@@ -1,3 +1,9 @@
+//! ```cargo
+//! [dependencies]
+//! brahe = { path = "../.." }
+//! nalgebra = "0.34"
+//! ```
+
 //! State Transition Matrix propagation pattern example.
 //!
 //! Demonstrates the basic pattern for propagating a state transition matrix
@@ -10,12 +16,16 @@ use nalgebra::{DMatrix, DVector};
 fn main() {
     // Dynamics function: Exponential decay dx/dt = -k*x
     let k = 0.1;
-    let dynamics = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        DVector::from_vec(vec![-k * state[0]])
+    };
+    // Clone for Jacobian computation
+    let dynamics_for_jac = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
         DVector::from_vec(vec![-k * state[0]])
     };
 
     // Create Jacobian for variational equations
-    let jacobian = DNumericalJacobian::central(Box::new(dynamics))
+    let jacobian = DNumericalJacobian::central(Box::new(dynamics_for_jac))
         .with_adaptive(1e-8, 1e-6);
 
     // Create integrator with Jacobian
@@ -24,6 +34,8 @@ fn main() {
         1,
         Box::new(dynamics),
         Some(Box::new(jacobian)),
+        None,
+        None,
         config
     );
 

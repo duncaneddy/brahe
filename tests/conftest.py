@@ -1,5 +1,6 @@
 import pathlib
 import pytest
+import numpy as np
 import brahe
 
 # Configure matplotlib to use non-GUI backend for testing
@@ -88,3 +89,23 @@ def eop_original_brahe(brahe_original_eop_filepath):
     eop = brahe.FileEOPProvider.from_file(brahe_original_eop_filepath, True, "Hold")
     brahe.set_global_eop_provider(eop)
     yield eop
+
+
+@pytest.fixture(scope="module")
+def point_earth():
+    """Two-body point mass Earth dynamics for 6D state [r, v].
+
+    Returns a dynamics function suitable for orbital integration tests.
+    """
+
+    def dynamics(t, state):
+        r = state[:3]
+        v = state[3:]
+
+        r_norm = np.linalg.norm(r)
+        a_mag = -brahe.GM_EARTH / (r_norm**3)
+        a = a_mag * r
+
+        return np.concatenate([v, a])
+
+    return dynamics

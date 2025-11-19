@@ -223,3 +223,226 @@ class TestRK4Integrator:
         # Should return close to initial state
         for i in range(6):
             assert abs(state_back[i] - state0[i]) < 1e-9
+
+    def test_control_input_basic(self):
+        """Test basic control input functionality (mirrors test_rk4d_integrator_with_control_input)."""
+
+        def dynamics(t, state):
+            """x' = 0 (constant state without control)"""
+            return np.zeros_like(state)
+
+        def control(t, state):
+            """Constant control: u = [1.0, 2.0]"""
+            return np.array([1.0, 2.0])
+
+        # Without control: state stays constant
+        integrator_no_ctrl = bh.RK4Integrator(dimension=2, dynamics_fn=dynamics)
+        state0 = np.array([0.0, 0.0])
+        state_no_ctrl = integrator_no_ctrl.step(0.0, state0, 1.0)
+        assert abs(state_no_ctrl[0]) < 1e-12
+        assert abs(state_no_ctrl[1]) < 1e-12
+
+        # With control: x' = [1, 2], so x = [t, 2t] after integration
+        integrator_ctrl = bh.RK4Integrator(
+            dimension=2, dynamics_fn=dynamics, control_fn=control
+        )
+        state_ctrl = integrator_ctrl.step(0.0, state0.copy(), 1.0)
+        assert abs(state_ctrl[0] - 1.0) < 1e-12
+        assert abs(state_ctrl[1] - 2.0) < 1e-12
+
+    def test_control_with_dynamics(self):
+        """Test control input combined with dynamics (mirrors test_rk4s_integrator_control_with_dynamics)."""
+
+        def dynamics(t, state):
+            """x' = -x (exponential decay)"""
+            return -state
+
+        def control(t, state):
+            """Constant forcing: u = 1"""
+            return np.array([1.0])
+
+        # With control: x' = -x + 1, equilibrium at x = 1
+        integrator = bh.RK4Integrator(
+            dimension=1, dynamics_fn=dynamics, control_fn=control
+        )
+
+        state = np.array([0.0])
+        dt = 0.1
+
+        # Integrate for many steps - should approach equilibrium at x = 1
+        for _ in range(100):
+            state = integrator.step(0.0, state, dt)
+
+        # State should approach equilibrium value of 1.0
+        assert abs(state[0] - 1.0) < 1e-3
+
+    def test_state_dependent_control(self):
+        """Test state-dependent control input (mirrors test_rk4s_integrator_state_dependent_control)."""
+
+        def dynamics(t, state):
+            """x' = 0"""
+            return np.zeros_like(state)
+
+        def control(t, state):
+            """Proportional feedback: u = -x"""
+            return -state
+
+        # With this control: x' = -x, so exponential decay
+        integrator = bh.RK4Integrator(
+            dimension=1, dynamics_fn=dynamics, control_fn=control
+        )
+
+        state = np.array([1.0])
+        dt = 0.1
+
+        # Integrate and check decay
+        for _ in range(50):
+            state = integrator.step(0.0, state, dt)
+
+        # State should decay toward 0
+        assert state[0] < 0.1
+
+    def test_control_with_varmat(self):
+        """Test control input combined with variational matrix propagation."""
+
+        def dynamics(t, state):
+            """x' = -x (exponential decay)"""
+            return -state
+
+        def control(t, state):
+            """Constant forcing: u = 1"""
+            return np.array([1.0])
+
+        # Create Jacobian for variational matrix
+        jacobian = bh.NumericalJacobian(dynamics).with_fixed_offset(1e-6)
+
+        integrator = bh.RK4Integrator(
+            dimension=1, dynamics_fn=dynamics, jacobian=jacobian, control_fn=control
+        )
+
+        state = np.array([0.0])
+        phi = np.eye(1)
+        dt = 0.1
+
+        # Propagate with varmat
+        new_state, new_phi = integrator.step_with_varmat(0.0, state, phi, dt)
+
+        # State should have moved from 0 toward 1
+        assert new_state[0] > 0.0
+        # Variational matrix should have evolved
+        assert new_phi[0, 0] != 1.0
+
+    def test_sensmat_propagation(self):
+        """Test RK4Integrator sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            """Exponential decay: dx/dt = -k*x where k = params[0]"""
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            """Analytical sensitivity: d/dp(-k*x) = -x"""
+            return np.array([[-state[0]]])
+
+        # Create Jacobian provider (df/dx)
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+
+        # Create analytical sensitivity provider
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        # Create integrator with both jacobian and sensitivity
+        integrator = bh.RK4Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        # Initial conditions
+        state = np.array([1.0])
+        sens = np.zeros((1, 1))  # 1 state dim, 1 param
+        params = np.array([1.0])
+
+        # Take a step
+        new_state, new_sens = integrator.step_with_sensmat(
+            0.0, state, sens, params, 0.1
+        )
+
+        # Verify dimensions
+        assert len(new_state) == 1
+        assert new_sens.shape == (1, 1)
+
+        # Verify no NaN
+        assert not np.isnan(new_state).any()
+        assert not np.isnan(new_sens).any()
+
+        # State should have decayed
+        assert new_state[0] < 1.0
+        assert new_state[0] > 0.0
+
+        # Sensitivity should have evolved (not zero anymore)
+        assert new_sens[0, 0] != 0.0
+
+    def test_varmat_sensmat_propagation(self):
+        """Test RK4Integrator combined STM and sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            """Exponential decay: dx/dt = -k*x where k = params[0]"""
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            """Analytical sensitivity: d/dp(-k*x) = -x"""
+            return np.array([[-state[0]]])
+
+        # Create Jacobian provider (df/dx)
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+
+        # Create analytical sensitivity provider
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        # Create integrator with both jacobian and sensitivity
+        integrator = bh.RK4Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        # Initial conditions
+        state = np.array([1.0])
+        phi = np.eye(1)  # Identity STM
+        sens = np.zeros((1, 1))  # 1 state dim, 1 param
+        params = np.array([1.0])
+
+        # Take a step
+        new_state, new_phi, new_sens = integrator.step_with_varmat_sensmat(
+            0.0, state, phi, sens, params, 0.1
+        )
+
+        # Verify dimensions
+        assert len(new_state) == 1
+        assert new_phi.shape == (1, 1)
+        assert new_sens.shape == (1, 1)
+
+        # Verify no NaN
+        assert not np.isnan(new_state).any()
+        assert not np.isnan(new_phi).any()
+        assert not np.isnan(new_sens).any()
+
+        # For dy/dt = -y, STM should be exp(-t)
+        assert abs(new_phi[0, 0] - np.exp(-0.1)) < 1e-6
+
+        # State should have decayed
+        assert new_state[0] < 1.0
+        assert new_state[0] > 0.0
+
+        # Test zero step returns identity STM
+        new_state2, new_phi2, new_sens2 = integrator.step_with_varmat_sensmat(
+            0.0, state, np.eye(1), np.zeros((1, 1)), params, 0.0
+        )
+        np.testing.assert_allclose(new_phi2, np.eye(1), atol=1e-12)

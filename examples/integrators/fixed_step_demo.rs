@@ -7,7 +7,7 @@ use nalgebra::DVector;
 fn main() {
     // Define simple harmonic oscillator
     let omega: f64 = 1.0;
-    let dynamics = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let x = state[0];
         let v = state[1];
         DVector::from_vec(vec![v, -omega.powi(2) * x])
@@ -33,7 +33,7 @@ fn main() {
 
     for &dt in &step_sizes {
         let config = IntegratorConfig::fixed_step(dt);
-        let integrator = RK4DIntegrator::with_config(2, Box::new(dynamics), None, config);
+        let integrator = RK4DIntegrator::with_config(2, Box::new(dynamics), None, None, None, config);
 
         let mut t = 0.0;
         let mut state = state0.clone();

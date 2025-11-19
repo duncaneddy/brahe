@@ -31,7 +31,7 @@ type SDynamicsWithParams<const S: usize, const P: usize> =
 type DDynamicsWithParams = Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send>;
 
 /// Trait for static-sized sensitivity providers.
-///x
+///
 /// Computes the sensitivity matrix ∂f/∂p where f is the dynamics function
 /// and p are the consider parameters.
 pub trait SSensitivityProvider<const S: usize, const P: usize>: Send {
@@ -461,5 +461,226 @@ mod tests {
         // Central should be more accurate
         assert_abs_diff_eq!(sens_central[(0, 0)], 4.0, epsilon = 1e-8);
         assert_abs_diff_eq!(sens_forward[(0, 0)], 4.0, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_static_numerical_sensitivity_forward() {
+        // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
+        let dynamics =
+            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
+                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
+            };
+
+        let provider = SNumericalSensitivity::forward(Box::new(dynamics));
+
+        let state = SVector::<f64, 2>::new(1.0, 2.0);
+        let params = SVector::<f64, 2>::new(3.0, 4.0);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = [[x[0], 0], [0, x[1]]]
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(0, 1)], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(1, 0)], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(1, 1)], 2.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_static_numerical_sensitivity_backward() {
+        // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
+        let dynamics =
+            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
+                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
+            };
+
+        let provider = SNumericalSensitivity::backward(Box::new(dynamics));
+
+        let state = SVector::<f64, 2>::new(1.0, 2.0);
+        let params = SVector::<f64, 2>::new(3.0, 4.0);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = [[x[0], 0], [0, x[1]]]
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(0, 1)], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(1, 0)], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(1, 1)], 2.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_static_numerical_sensitivity_with_strategy_fixed() {
+        // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
+        let dynamics =
+            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
+                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
+            };
+
+        let provider = SNumericalSensitivity::new(Box::new(dynamics))
+            .with_strategy(PerturbationStrategy::Fixed(1e-6));
+
+        let state = SVector::<f64, 2>::new(1.0, 2.0);
+        let params = SVector::<f64, 2>::new(3.0, 4.0);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = [[x[0], 0], [0, x[1]]]
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(0, 1)], 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(1, 0)], 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(1, 1)], 2.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_static_numerical_sensitivity_with_strategy_percentage() {
+        // Dynamics: f(t, x, p) = [p[0] * x[0], p[1] * x[1]]
+        let dynamics =
+            |_t: f64, state: &SVector<f64, 2>, params: &SVector<f64, 2>| -> SVector<f64, 2> {
+                SVector::<f64, 2>::new(params[0] * state[0], params[1] * state[1])
+            };
+
+        let provider = SNumericalSensitivity::new(Box::new(dynamics))
+            .with_strategy(PerturbationStrategy::Percentage(1e-6));
+
+        let state = SVector::<f64, 2>::new(1.0, 2.0);
+        let params = SVector::<f64, 2>::new(3.0, 4.0);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = [[x[0], 0], [0, x[1]]]
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(0, 1)], 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(1, 0)], 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(1, 1)], 2.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_dynamic_numerical_sensitivity_backward() {
+        // Dynamics: f(t, x, p) = p[0] * x
+        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            params[0] * state
+        };
+
+        let provider = DNumericalSensitivity::backward(Box::new(dynamics));
+
+        let state = DVector::from_vec(vec![1.0, 2.0]);
+        let params = DVector::from_vec(vec![3.0]);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = x, so sensitivity should be [[1], [2]]
+        assert_eq!(sens.nrows(), 2);
+        assert_eq!(sens.ncols(), 1);
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(sens[(1, 0)], 2.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_dynamic_numerical_sensitivity_with_strategy() {
+        // Dynamics: f(t, x, p) = p[0] * x
+        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            params[0] * state
+        };
+
+        let provider = DNumericalSensitivity::new(Box::new(dynamics))
+            .with_strategy(PerturbationStrategy::Fixed(1e-6));
+
+        let state = DVector::from_vec(vec![1.0, 2.0]);
+        let params = DVector::from_vec(vec![3.0]);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = x, so sensitivity should be [[1], [2]]
+        assert_eq!(sens.nrows(), 2);
+        assert_eq!(sens.ncols(), 1);
+        assert_abs_diff_eq!(sens[(0, 0)], 1.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(sens[(1, 0)], 2.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_dynamic_numerical_sensitivity_fixed_perturbation() {
+        // Test that Fixed perturbation strategy is used correctly
+        // Dynamics: f(t, x, p) = p[0]^2 * x
+        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            params[0] * params[0] * state
+        };
+
+        let provider = DNumericalSensitivity::central(Box::new(dynamics))
+            .with_strategy(PerturbationStrategy::Fixed(1e-5));
+
+        let state = DVector::from_vec(vec![1.0]);
+        let params = DVector::from_vec(vec![2.0]);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = 2*p*x = 4
+        assert_abs_diff_eq!(sens[(0, 0)], 4.0, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_dynamic_numerical_sensitivity_percentage_perturbation() {
+        // Test that Percentage perturbation strategy is used correctly
+        // Dynamics: f(t, x, p) = p[0]^2 * x
+        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            params[0] * params[0] * state
+        };
+
+        let provider = DNumericalSensitivity::central(Box::new(dynamics))
+            .with_strategy(PerturbationStrategy::Percentage(1e-6));
+
+        let state = DVector::from_vec(vec![1.0]);
+        let params = DVector::from_vec(vec![2.0]);
+
+        let sens = provider.compute(0.0, &state, &params);
+
+        // ∂f/∂p = 2*p*x = 4
+        assert_abs_diff_eq!(sens[(0, 0)], 4.0, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_static_forward_vs_central_vs_backward() {
+        // Quadratic dynamics to compare difference methods
+        let dynamics =
+            |_t: f64, state: &SVector<f64, 1>, params: &SVector<f64, 1>| -> SVector<f64, 1> {
+                SVector::<f64, 1>::new(params[0] * params[0] * state[0])
+            };
+
+        let state = SVector::<f64, 1>::new(1.0);
+        let params = SVector::<f64, 1>::new(2.0);
+
+        let forward = SNumericalSensitivity::forward(Box::new(dynamics));
+        let central = SNumericalSensitivity::central(Box::new(dynamics));
+        let backward = SNumericalSensitivity::backward(Box::new(dynamics));
+
+        let sens_forward = forward.compute(0.0, &state, &params);
+        let sens_central = central.compute(0.0, &state, &params);
+        let sens_backward = backward.compute(0.0, &state, &params);
+
+        // Analytical: ∂f/∂p = 2*p*x = 4
+        // Central should be most accurate
+        assert_abs_diff_eq!(sens_central[(0, 0)], 4.0, epsilon = 1e-8);
+        assert_abs_diff_eq!(sens_forward[(0, 0)], 4.0, epsilon = 1e-4);
+        assert_abs_diff_eq!(sens_backward[(0, 0)], 4.0, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_dynamic_backward_vs_central() {
+        // Quadratic dynamics to compare backward and central
+        let dynamics = |_t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+            DVector::from_vec(vec![params[0] * params[0] * state[0]])
+        };
+
+        let state = DVector::from_vec(vec![1.0]);
+        let params = DVector::from_vec(vec![2.0]);
+
+        let backward = DNumericalSensitivity::backward(Box::new(dynamics));
+        let central = DNumericalSensitivity::central(Box::new(dynamics));
+
+        let sens_backward = backward.compute(0.0, &state, &params);
+        let sens_central = central.compute(0.0, &state, &params);
+
+        // Analytical: ∂f/∂p = 2*p*x = 4
+        // Central should be more accurate
+        assert_abs_diff_eq!(sens_central[(0, 0)], 4.0, epsilon = 1e-8);
+        assert_abs_diff_eq!(sens_backward[(0, 0)], 4.0, epsilon = 1e-4);
     }
 }

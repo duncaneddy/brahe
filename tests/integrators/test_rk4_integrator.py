@@ -3,7 +3,6 @@ Tests for RK4 (4th order Runge-Kutta) integrator Python bindings.
 """
 
 import numpy as np
-import pytest
 import brahe as bh
 
 

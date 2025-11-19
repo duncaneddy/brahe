@@ -27,19 +27,6 @@ jobs:
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
 
-            # This could be re-enabled in the future if needed but right now
-            # Rust and python tests run in parllel so caching brahe between them
-            # is not effective and just creates erroroneous workflow errors
-            # # Try to download Brahe cache to avoid external API calls
-            # -   name: Download Brahe cache directory (Unix)
-            #     if: runner.os != 'Windows'
-            #     id: download-cache-unix
-            #     continue-on-error: true
-            #     uses: actions/download-artifact@v6
-            #     with:
-            #         name: brahe-cache-${{ runner.os }}
-            #         path: ~/.cache/brahe/
-
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
                 

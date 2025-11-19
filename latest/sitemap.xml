@@ -25,10 +25,6 @@
          <lastmod>2025-11-19</lastmod>
     </url>
     <url>
-         <loc>https://duncaneddy.github.io/brahe/latest/glossary.html</loc>
-         <lastmod>2025-11-19</lastmod>
-    </url>
-    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/installation.html</loc>
          <lastmod>2025-11-19</lastmod>
     </url>
@@ -38,6 +34,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/roadmap.html</loc>
+         <lastmod>2025-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/versioning.html</loc>
          <lastmod>2025-11-19</lastmod>
     </url>
     <url>
@@ -502,6 +502,18 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/datasets/naif.html</loc>
+         <lastmod>2025-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/earth_models/index.html</loc>
+         <lastmod>2025-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/earth_models/harris_priester.html</loc>
+         <lastmod>2025-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/earth_models/nrlmsise00.html</loc>
          <lastmod>2025-11-19</lastmod>
     </url>
     <url>

@@ -3,7 +3,7 @@
 Numerical integration is fundamental to spacecraft trajectory propagation, orbit determination, and mission planning. Brahe provides multiple integration methods optimized for different accuracy and performance requirements.
 
 !!! warning "Experimental API"
-    The integrators module is currently experimental. While the core functionality should be stable, the API may change in future releases as we refine the design and add features.
+    The integrators module is currently experimental. While the core functionality should be stable, the API may change in future **MINOR** releases as we refine the design and add features.
 
 ## What is Numerical Integration?
 
@@ -28,12 +28,6 @@ Brahe provides four integration methods with different accuracy and performance 
 | **RKN1210** | 12(10) | Adaptive | 17 |
 </div>
 
-**Key Properties:**
-
-- **Order**: Higher order methods achieve better accuracy for a given step size
-- **Type**: Fixed-step uses constant time step; Adaptive automatically adjusts step size based on error estimates
-- **Stages**: Number of function evaluations per step (more stages = higher computational cost)
-
 ## Common Interfaces
 
 All integrators implement a consistent interface, making it easy to switch between methods.
@@ -52,6 +46,42 @@ All integrators implement a consistent interface, making it easy to switch betwe
 - `dt_used`: Actual time step taken (may differ from requested)
 - `error_estimate`: Estimated error in the step
 - `dt_next`: Recommended step size for next integration
+
+### Dynamics Function Signature
+
+## Control Input Function Signature
+
+The control input function must follow specific signatures depending on the language:
+
+=== "Python"
+
+    ```python
+    def dynamics_fn(t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
+        """
+        Args:
+            t: Current time
+            state: Current state vector
+            params: Fixed auxiliary parameters
+            
+        Returns:
+            d_state: Derivative of state vector
+        """
+        pass
+    ```
+
+=== "Rust"
+
+    Must be a closure or function with the signature, that either uses dynamic or static sized vectors:
+
+    ```rust
+    Fn(f64, DVector<f64>, DVector<f64>) -> DVector<f64>
+    ```
+
+    or
+
+    ```rust
+    Fn(f64, SVector<f64, S>, SVector<f64, P>) -> SVector<f64, S>
+    ```
 
 ### Integration Methods
 

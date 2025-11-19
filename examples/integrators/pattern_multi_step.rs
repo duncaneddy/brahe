@@ -1,3 +1,9 @@
+//! ```cargo
+//! [dependencies]
+//! brahe = { path = "../.." }
+//! nalgebra = "0.34"
+//! ```
+
 //! Multi-step propagation pattern example.
 //!
 //! Demonstrates the pattern for propagating over an extended time period
@@ -10,7 +16,7 @@ use nalgebra::DVector;
 fn main() {
     // Dynamics function: Exponential decay dx/dt = -k*x
     let k = 0.1;
-    let dynamics = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         DVector::from_vec(vec![-k * state[0]])
     };
 
@@ -19,6 +25,8 @@ fn main() {
     let integrator = DormandPrince54DIntegrator::with_config(
         1,
         Box::new(dynamics),
+        None,
+        None,
         None,
         config
     );

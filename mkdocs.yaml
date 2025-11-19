@@ -189,14 +189,6 @@ nav:
                 - learn/trajectories/dtrajectory.md
                 - learn/trajectories/strajectory6.md
                 - learn/trajectories/orbit_trajectory.md
-            - Numerical Integration:
-                - learn/integrators/index.md
-                - Fixed-Step Integrators: learn/integrators/fixed_step.md
-                - Adaptive-Step Integrators: learn/integrators/adaptive_step.md
-                - Variational Equations: learn/integrators/variational_equations.md
-                - Control Inputs: learn/integrators/control_inputs.md
-                - Sensitivity Matrix: learn/integrators/sensitivity_matrix.md
-                - Configuration: learn/integrators/configuration.md
             - Orbital Dynamics:
                 - learn/orbital_dynamics/index.md
                 - Gravity Models: learn/orbital_dynamics/gravity.md
@@ -219,6 +211,9 @@ nav:
                 - Constraints: learn/access_computation/constraints.md
                 - Properties: learn/access_computation/properties.md
                 - Computation: learn/access_computation/computation.md
+            - Space Weather Data:
+                - learn/space_weather/index.md
+                - learn/space_weather/managing_space_weather_data.md
             - Datasets:
                 - learn/datasets/index.md
                 - CelesTrak: learn/datasets/celestrak.md
@@ -227,6 +222,14 @@ nav:
             - Mathematics:
                 - learn/mathematics/index.md
                 - Jacobian Computation: learn/mathematics/jacobian.md
+            - Numerical Integration:
+                - learn/integrators/index.md
+                - Fixed-Step Integrators: learn/integrators/fixed_step.md
+                - Adaptive-Step Integrators: learn/integrators/adaptive_step.md
+                - Variational Equations: learn/integrators/variational_equations.md
+                - Control Inputs: learn/integrators/control_inputs.md
+                - Sensitivity Matrix: learn/integrators/sensitivity_matrix.md
+                - Configuration: learn/integrators/configuration.md
             - Utilities:
                 - learn/utilities/index.md
                 - Caching: learn/utilities/caching.md
@@ -304,13 +307,6 @@ nav:
                 - DTrajectory: library_api/trajectories/dtrajectory.md
                 - STrajectory6: library_api/trajectories/strajectory6.md
                 - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
-            - Integrators:
-                - library_api/integrators/index.md
-                - Configuration: library_api/integrators/config.md
-                - RK4 Integrator: library_api/integrators/rk4.md
-                - RKF45 Integrator: library_api/integrators/rkf45.md
-                - DP54 Integrator: library_api/integrators/dp54.md
-                - RKN1210 Integrator: library_api/integrators/rkn1210.md
             - Orbital Dynamics:
                 - library_api/orbit_dynamics/index.md
                 - Gravity Models: library_api/orbit_dynamics/gravity.md
@@ -329,6 +325,12 @@ nav:
                 - library_api/relative_motion/index.md
                 - RTN Transformations: library_api/relative_motion/rtn_transformations.md
                 - ROE Transformations: library_api/relative_motion/roe_transformations.md
+            - Space Weather:
+                - library_api/space_weather/index.md
+                - Functions: library_api/space_weather/functions.md
+                - CachingSpaceWeatherProvider: library_api/space_weather/caching_provider.md
+                - FileSpaceWeatherProvider: library_api/space_weather/file_provider.md
+                - StaticSpaceWeatherProvider: library_api/space_weather/static_provider.md
             - Datasets:
                 - library_api/datasets/index.md
                 - CelesTrak: library_api/datasets/celestrak.md
@@ -346,6 +348,13 @@ nav:
                 - library_api/mathematics/index.md
                 - Jacobian: library_api/mathematics/jacobian.md
                 - Sensitivity: library_api/mathematics/sensitivity.md
+            - Integrators:
+                - library_api/integrators/index.md
+                - Configuration: library_api/integrators/config.md
+                - RK4 Integrator: library_api/integrators/rk4.md
+                - RKF45 Integrator: library_api/integrators/rkf45.md
+                - DP54 Integrator: library_api/integrators/dp54.md
+                - RKN1210 Integrator: library_api/integrators/rkn1210.md
             - Utilities:
                 - library_api/utils/index.md
                 - Caching: library_api/utils/caching.md

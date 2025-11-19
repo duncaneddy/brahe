@@ -14,8 +14,21 @@
 use brahe::*;
 use nalgebra::{DMatrix, DVector, SVector};
 
-/// Two-body point-mass dynamics with Earth gravity
-fn dynamics(_t: f64, state: DVector<f64>) -> DVector<f64> {
+/// Two-body point-mass dynamics with Earth gravity (for integrator)
+fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+    let r = state.rows(0, 3);
+    let v = state.rows(3, 3);
+    let r_norm = r.norm();
+    let a = -GM_EARTH / (r_norm * r_norm * r_norm) * r;
+
+    let mut state_dot = DVector::zeros(6);
+    state_dot.rows_mut(0, 3).copy_from(&v);
+    state_dot.rows_mut(3, 3).copy_from(&a);
+    state_dot
+}
+
+/// Two-body dynamics (for Jacobian computation - no params)
+fn dynamics_for_jac(_t: f64, state: DVector<f64>) -> DVector<f64> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();
@@ -32,7 +45,7 @@ fn main() {
     initialize_eop().unwrap();
 
     // Create numerical Jacobian for variational equations
-    let jacobian = DNumericalJacobian::central(Box::new(dynamics))
+    let jacobian = DNumericalJacobian::central(Box::new(dynamics_for_jac))
         .with_fixed_offset(0.1);
 
     // Configuration for high accuracy
@@ -44,6 +57,8 @@ fn main() {
         6,
         Box::new(dynamics),
         Some(Box::new(jacobian)),
+        None,
+        None,
         config.clone(),
     );
 
@@ -51,6 +66,8 @@ fn main() {
     let integrator_pert = RKN1210DIntegrator::with_config(
         6,
         Box::new(dynamics),
+        None,
+        None,
         None,
         config,
     );

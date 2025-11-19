@@ -214,6 +214,90 @@ class TestRKF45Integrator:
         # For dy/dt = -y, STM should be exp(-t)
         assert abs(phi_new[0, 0] - np.exp(-dt_used)) < 1e-6
 
+    def test_with_sensmat(self):
+        """Test sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            """Exponential decay: dx/dt = -k*x where k = params[0]"""
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            """Analytical sensitivity: d/dp(-k*x) = -x"""
+            return np.array([[-state[0]]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.RKF45Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0])
+        sens = np.zeros((1, 1))
+        params = np.array([1.0])
+
+        new_state, new_sens, dt_used, error_est, dt_next = integrator.step_with_sensmat(
+            0.0, state, sens, params, 0.1
+        )
+
+        assert isinstance(new_state, np.ndarray)
+        assert isinstance(new_sens, np.ndarray)
+        assert new_state.shape == (1,)
+        assert new_sens.shape == (1, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
+
+        # State should have decayed
+        assert new_state[0] < 1.0
+        assert new_state[0] > 0.0
+
+        # Sensitivity should have evolved
+        assert new_sens[0, 0] != 0.0
+
+    def test_with_varmat_sensmat(self):
+        """Test combined STM and sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            return np.array([[-state[0]]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.RKF45Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0])
+        phi = np.eye(1)
+        sens = np.zeros((1, 1))
+        params = np.array([1.0])
+
+        result = integrator.step_with_varmat_sensmat(0.0, state, phi, sens, params, 0.1)
+        new_state, new_phi, new_sens, dt_used, error_est, dt_next = result
+
+        assert new_state.shape == (1,)
+        assert new_phi.shape == (1, 1)
+        assert new_sens.shape == (1, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
+
     def test_backward_integration(self):
         """Test backward propagation with orbital mechanics (mirrors test_rkf45d_backward_integration)."""
 
@@ -399,6 +483,81 @@ class TestDP54Integrator:
 
         # For dy/dt = -y, STM should be exp(-t)
         assert abs(phi_new[0, 0] - np.exp(-dt_used)) < 1e-6
+
+    def test_with_sensmat(self):
+        """Test sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            return np.array([[-state[0]]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.DP54Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0])
+        sens = np.zeros((1, 1))
+        params = np.array([1.0])
+
+        new_state, new_sens, dt_used, error_est, dt_next = integrator.step_with_sensmat(
+            0.0, state, sens, params, 0.1
+        )
+
+        assert new_state.shape == (1,)
+        assert new_sens.shape == (1, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
+        assert new_state[0] < 1.0
+        assert new_sens[0, 0] != 0.0
+
+    def test_with_varmat_sensmat(self):
+        """Test combined STM and sensitivity matrix propagation."""
+
+        def dynamics_with_params(t, state, params):
+            k = params[0]
+            return np.array([-k * state[0]])
+
+        def analytical_sensitivity(t, state, params):
+            return np.array([[-state[0]]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.DP54Integrator(
+            dimension=1,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0])
+        phi = np.eye(1)
+        sens = np.zeros((1, 1))
+        params = np.array([1.0])
+
+        result = integrator.step_with_varmat_sensmat(0.0, state, phi, sens, params, 0.1)
+        new_state, new_phi, new_sens, dt_used, error_est, dt_next = result
+
+        assert new_state.shape == (1,)
+        assert new_phi.shape == (1, 1)
+        assert new_sens.shape == (1, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
 
     def test_backward_integration(self):
         """Test backward propagation with orbital mechanics."""
@@ -593,6 +752,85 @@ class TestRKN1210Integrator:
 
         # STM should not be identity after propagation
         assert not np.allclose(phi_new, np.eye(2))
+
+    def test_with_sensmat(self):
+        """Test sensitivity matrix propagation with RKN1210."""
+
+        def dynamics_with_params(t, state, params):
+            """Harmonic oscillator with parameter k: x' = v, v' = -k*x"""
+            x, v = state
+            k = params[0]
+            return np.array([v, -k * x])
+
+        def analytical_sensitivity(t, state, params):
+            """Sensitivity: d/dk(-k*x) = -x for the acceleration component"""
+            x, v = state
+            return np.array([[0.0], [-x]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.RKN1210Integrator(
+            dimension=2,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0, 0.0])
+        sens = np.zeros((2, 1))
+        params = np.array([1.0])
+
+        new_state, new_sens, dt_used, error_est, dt_next = integrator.step_with_sensmat(
+            0.0, state, sens, params, 0.1
+        )
+
+        assert new_state.shape == (2,)
+        assert new_sens.shape == (2, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
+
+    def test_with_varmat_sensmat(self):
+        """Test combined STM and sensitivity matrix propagation with RKN1210."""
+
+        def dynamics_with_params(t, state, params):
+            x, v = state
+            k = params[0]
+            return np.array([v, -k * x])
+
+        def analytical_sensitivity(t, state, params):
+            x, v = state
+            return np.array([[0.0], [-x]])
+
+        jacobian = bh.NumericalJacobian(
+            lambda t, s: dynamics_with_params(t, s, np.array([1.0]))
+        ).with_fixed_offset(1e-6)
+        sensitivity = bh.AnalyticSensitivity(analytical_sensitivity)
+
+        integrator = bh.RKN1210Integrator(
+            dimension=2,
+            dynamics_fn=lambda t, s: dynamics_with_params(t, s, np.array([1.0])),
+            jacobian=jacobian,
+            sensitivity=sensitivity,
+        )
+
+        state = np.array([1.0, 0.0])
+        phi = np.eye(2)
+        sens = np.zeros((2, 1))
+        params = np.array([1.0])
+
+        result = integrator.step_with_varmat_sensmat(0.0, state, phi, sens, params, 0.1)
+        new_state, new_phi, new_sens, dt_used, error_est, dt_next = result
+
+        assert new_state.shape == (2,)
+        assert new_phi.shape == (2, 2)
+        assert new_sens.shape == (2, 1)
+        assert dt_used > 0
+        assert error_est >= 0
+        assert dt_next > 0
 
     def test_backward_integration(self):
         """Test backward propagation with orbital mechanics."""

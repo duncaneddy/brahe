@@ -19,17 +19,12 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{EmbeddedRKNButcherTableau, rkn1210_tableau};
 use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
 use crate::integrators::traits::{
-    AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepSIntegrator,
+    AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepInternalResultD,
+    AdaptiveStepInternalResultS, AdaptiveStepSIntegrator, ControlInput, ControlInputD, DIntegrator,
+    SensitivityD, SensitivityS, StateDynamics, StateDynamicsD, VariationalMatrix,
+    VariationalMatrixD, compute_next_step_size, compute_normalized_error,
+    compute_normalized_error_s, compute_reduced_step_size,
 };
-use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
-
-// Type aliases for complex function types
-type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
-type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
-
-// Type aliases for dynamic-dimensional integrators
-type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>;
-type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Implementation of the RKN12(10) Runge-Kutta-Nyström numerical integrator.
 ///
@@ -87,7 +82,7 @@ type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 ///
 /// // Create integrator with tight tolerances
 /// let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-/// let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+/// let rkn: RKN1210SIntegrator<6, 0> = RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 ///
 /// // Integrate one step
 /// let t = 0.0;
@@ -98,14 +93,20 @@ type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 /// println!("New state: {:?}", result.state);
 /// println!("Suggested next dt: {}", result.dt_next);
 /// ```
-pub struct RKN1210SIntegrator<const S: usize> {
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension (for sensitivity matrix propagation)
+pub struct RKN1210SIntegrator<const S: usize, const P: usize> {
     f: StateDynamics<S>,
     varmat: VariationalMatrix<S>,
+    sensmat: SensitivityS<S, P>,
+    control: ControlInput<S>,
     bt: EmbeddedRKNButcherTableau<17>,
     config: IntegratorConfig,
 }
 
-impl<const S: usize> RKN1210SIntegrator<S> {
+impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
     /// Create a new RKN12(10) integrator.
     ///
     /// Initializes RKN1210 integrator with the Dormand-El-Mikkawy-Prince tableau.
@@ -120,6 +121,8 @@ impl<const S: usize> RKN1210SIntegrator<S> {
     /// # Arguments
     /// - `f`: State derivative function defining the dynamics
     /// - `varmat`: Variational matrix computation function for STM propagation
+    /// - `sensmat`: Sensitivity matrix computation function for parameter uncertainty propagation
+    /// - `control`: Control input function
     ///
     /// # Returns
     /// RKN1210SIntegrator instance ready for numerical integration
@@ -127,8 +130,13 @@ impl<const S: usize> RKN1210SIntegrator<S> {
     /// # Note
     /// This constructor provides backward compatibility. Uses default configuration.
     /// For custom configuration, use `with_config()`.
-    pub fn new(f: StateDynamics<S>, varmat: VariationalMatrix<S>) -> Self {
-        Self::with_config(f, varmat, IntegratorConfig::default())
+    pub fn new(
+        f: StateDynamics<S>,
+        varmat: VariationalMatrix<S>,
+        sensmat: SensitivityS<S, P>,
+        control: ControlInput<S>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
     }
 
     /// Create a new RKN12(10) integrator with custom configuration.
@@ -141,6 +149,8 @@ impl<const S: usize> RKN1210SIntegrator<S> {
     /// # Arguments
     /// - `f`: State derivative function defining the dynamics
     /// - `varmat`: Variational matrix computation function for STM propagation
+    /// - `sensmat`: Sensitivity matrix computation function for parameter uncertainty propagation
+    /// - `control`: Control input function
     /// - `config`: Integration configuration (tolerances, step sizes, etc.)
     ///
     /// # Returns
@@ -158,16 +168,20 @@ impl<const S: usize> RKN1210SIntegrator<S> {
     /// };
     ///
     /// let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-    /// let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+    /// let rkn: RKN1210SIntegrator<6, 0> = RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
     /// ```
     pub fn with_config(
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
+        sensmat: SensitivityS<S, P>,
+        control: ControlInput<S>,
         config: IntegratorConfig,
     ) -> Self {
         Self {
             f,
             varmat,
+            sensmat,
+            control,
             bt: rkn1210_tableau(),
             config,
         }
@@ -177,12 +191,213 @@ impl<const S: usize> RKN1210SIntegrator<S> {
     pub fn config(&self) -> &IntegratorConfig {
         &self.config
     }
+
+    /// Internal consolidated step function that handles all variants.
+    ///
+    /// This method is called by all public step functions to avoid code duplication.
+    fn step_internal(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        phi: Option<SMatrix<f64, S, S>>,
+        dt: f64,
+    ) -> AdaptiveStepInternalResultS<S, P> {
+        assert!(
+            S.is_multiple_of(2),
+            "RKN integrator requires even-dimensional state (position + velocity)"
+        );
+
+        let half_dim = S / 2;
+        let has_phi = phi.is_some();
+        let current_phi = phi.unwrap_or_else(SMatrix::<f64, S, S>::zeros);
+        let mut h = dt;
+        let mut attempts = 0;
+
+        loop {
+            attempts += 1;
+            if attempts > self.config.max_step_attempts {
+                break;
+            }
+
+            // Extract position and velocity from state
+            let mut pos = SVector::<f64, S>::zeros();
+            let mut vel = SVector::<f64, S>::zeros();
+            for i in 0..half_dim {
+                pos[i] = state[i];
+                vel[i] = state[half_dim + i];
+            }
+
+            // Preallocate stage matrix for accelerations
+            let mut k = SMatrix::<f64, S, 17>::zeros();
+
+            // Preallocate STM stages if needed
+            let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 17];
+
+            // Compute RKN stages
+            for i in 0..17 {
+                // Compute position perturbation: h²*sum(a[i,j]*k[j])
+                let mut pos_pert = SVector::<f64, S>::zeros();
+                for j in 0..i {
+                    for dim in 0..half_dim {
+                        pos_pert[dim] += self.bt.a[(i, j)] * k[(dim, j)];
+                    }
+                }
+
+                // Stage position: y + c*h*v + h²*pos_pert
+                let mut stage_pos = SVector::<f64, S>::zeros();
+                for dim in 0..half_dim {
+                    stage_pos[dim] = pos[dim] + self.bt.c[i] * h * vel[dim] + h * h * pos_pert[dim];
+                }
+
+                // Reconstruct full state
+                let mut stage_state = SVector::<f64, S>::zeros();
+                for dim in 0..half_dim {
+                    stage_state[dim] = stage_pos[dim];
+                    stage_state[half_dim + dim] = vel[dim];
+                }
+
+                // Evaluate dynamics and extract acceleration
+                let t_i = t + self.bt.c[i] * h;
+                let mut state_dot = (self.f)(t_i, stage_state);
+
+                // Apply control input if present
+                if let Some(ref ctrl) = self.control {
+                    state_dot += ctrl(t_i, stage_state);
+                }
+
+                for dim in 0..half_dim {
+                    k[(dim, i)] = state_dot[half_dim + dim];
+                }
+
+                // Compute STM stages if needed
+                if has_phi {
+                    let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
+                    for (j, k_phi_j) in k_phi.iter().enumerate().take(i) {
+                        k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
+                    }
+
+                    k_phi[i] = self
+                        .varmat
+                        .as_ref()
+                        .expect("varmat required for step_with_varmat")
+                        .compute(t_i, stage_state)
+                        * (current_phi + h * k_phi_sum);
+                }
+            }
+
+            // Compute high-order and low-order solutions
+            let mut pos_high = SVector::<f64, S>::zeros();
+            let mut vel_high = SVector::<f64, S>::zeros();
+            let mut pos_low = SVector::<f64, S>::zeros();
+            let mut vel_low = SVector::<f64, S>::zeros();
+
+            for dim in 0..half_dim {
+                let mut pos_update_high = 0.0;
+                let mut vel_update_high = 0.0;
+                let mut pos_update_low = 0.0;
+                let mut vel_update_low = 0.0;
+
+                for i in 0..17 {
+                    pos_update_high += h * h * self.bt.b_pos_high[i] * k[(dim, i)];
+                    vel_update_high += h * self.bt.b_vel_high[i] * k[(dim, i)];
+                    pos_update_low += h * h * self.bt.b_pos_low[i] * k[(dim, i)];
+                    vel_update_low += h * self.bt.b_vel_low[i] * k[(dim, i)];
+                }
+
+                pos_high[dim] = pos[dim] + h * vel[dim] + pos_update_high;
+                vel_high[dim] = vel[dim] + vel_update_high;
+                pos_low[dim] = pos[dim] + h * vel[dim] + pos_update_low;
+                vel_low[dim] = vel[dim] + vel_update_low;
+            }
+
+            // Reconstruct full state vectors
+            let mut state_high = SVector::<f64, S>::zeros();
+            let mut state_low = SVector::<f64, S>::zeros();
+            for dim in 0..half_dim {
+                state_high[dim] = pos_high[dim];
+                state_high[half_dim + dim] = vel_high[dim];
+                state_low[dim] = pos_low[dim];
+                state_low[half_dim + dim] = vel_low[dim];
+            }
+
+            // Compute STM update using velocity weights
+            let phi_new = if has_phi {
+                let mut phi_update = SMatrix::<f64, S, S>::zeros();
+                for (i, k_phi_i) in k_phi.iter().enumerate().take(17) {
+                    phi_update += h * self.bt.b_vel_high[i] * k_phi_i;
+                }
+                Some(current_phi + phi_update)
+            } else {
+                None
+            };
+
+            // Compute error estimate
+            let error_vec = state_high - state_low;
+            let error = compute_normalized_error_s(&error_vec, &state_high, &state, &self.config);
+
+            // Check if step should be accepted
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
+
+            if error <= 1.0 || min_step_reached {
+                // Step accepted - compute next step size
+                // RKN12(10) uses 12th order for accept
+                let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
+
+                return AdaptiveStepInternalResultS {
+                    state: state_high,
+                    phi: phi_new,
+                    sens: None,
+                    dt_used: h,
+                    error_estimate: error,
+                    dt_next,
+                };
+            }
+
+            // Step rejected - reduce step size
+            // RKN12(10) uses 10th order for reject
+            h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
+        }
+
+        panic!("RKN1210S integrator exceeded maximum step attempts");
+    }
 }
 
-impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
+impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKN1210SIntegrator<S, P> {
     fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
-        // State vector format: [position, velocity] where each is S/2 dimensional
-        // For 6D orbital state: [x, y, z, vx, vy, vz]
+        let result = self.step_internal(t, state, None, dt);
+        AdaptiveStepSResult {
+            state: result.state,
+            dt_used: result.dt_used,
+            error_estimate: result.error_estimate,
+            dt_next: result.dt_next,
+        }
+    }
+
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        phi: SMatrix<f64, S, S>,
+        dt: f64,
+    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
+        let result = self.step_internal(t, state, Some(phi), dt);
+        (
+            result.state,
+            result.phi.unwrap(),
+            result.dt_used,
+            result.error_estimate,
+            result.dt_next,
+        )
+    }
+
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        sens: SMatrix<f64, S, P>,
+        params: &SVector<f64, P>,
+        dt: f64,
+    ) -> (SVector<f64, S>, SMatrix<f64, S, P>, f64, f64, f64) {
         assert!(
             S.is_multiple_of(2),
             "RKN integrator requires even-dimensional state (position + velocity)"
@@ -198,7 +413,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
                 break;
             }
 
-            // Extract position and velocity from state (using runtime indexing)
+            // Extract position and velocity from state
             let mut pos = SVector::<f64, S>::zeros();
             let mut vel = SVector::<f64, S>::zeros();
             for i in 0..half_dim {
@@ -206,14 +421,13 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
                 vel[i] = state[half_dim + i];
             }
 
-            // Preallocate stage matrix for accelerations (k[i] = f(t_i, y_i))
-            // Note: RKN evaluates acceleration, not full state derivative
+            // Preallocate stage matrix for accelerations
             let mut k = SMatrix::<f64, S, 17>::zeros();
+            let mut k_sens = [SMatrix::<f64, S, P>::zeros(); 17];
 
             // Compute RKN stages
-            // Stage formula: k[i] = accel(t + c[i]*h, pos + c[i]*h*vel + h²*sum(a[i,j]*k[j]))
             for i in 0..17 {
-                // Compute position perturbation: h²*sum(a[i,j]*k[j])
+                // Compute position perturbation: h^2 * sum(a[i,j]*k[j])
                 let mut pos_pert = SVector::<f64, S>::zeros();
                 for j in 0..i {
                     for dim in 0..half_dim {
@@ -221,53 +435,72 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
                     }
                 }
 
-                // Stage position: y + c[i]*h*v + h²*sum(a[i,j]*k[j])
+                // Stage position: y + c*h*v + h^2*pos_pert
                 let mut stage_pos = SVector::<f64, S>::zeros();
                 for dim in 0..half_dim {
                     stage_pos[dim] = pos[dim] + self.bt.c[i] * h * vel[dim] + h * h * pos_pert[dim];
                 }
 
-                // Reconstruct full state for dynamics evaluation
+                // Reconstruct full state
                 let mut stage_state = SVector::<f64, S>::zeros();
                 for dim in 0..half_dim {
                     stage_state[dim] = stage_pos[dim];
                     stage_state[half_dim + dim] = vel[dim];
                 }
 
-                // Evaluate dynamics and extract acceleration (second half of state_dot)
-                let state_dot = (self.f)(t + self.bt.c[i] * h, stage_state);
+                // Evaluate dynamics and extract acceleration
+                let t_i = t + self.bt.c[i] * h;
+                let mut state_dot = (self.f)(t_i, stage_state);
+
+                // Apply control input if present
+                if let Some(ref ctrl) = self.control {
+                    state_dot += ctrl(t_i, stage_state);
+                }
+
                 for dim in 0..half_dim {
                     k[(dim, i)] = state_dot[half_dim + dim];
                 }
+
+                // Compute sensitivity stages: dS/dt = A*S + B
+                let mut k_sens_sum = SMatrix::<f64, S, P>::zeros();
+                for (j, k_sens_j) in k_sens.iter().enumerate().take(i) {
+                    k_sens_sum += self.bt.a[(i, j)] * k_sens_j;
+                }
+
+                let a_i = self
+                    .varmat
+                    .as_ref()
+                    .expect("varmat required for step_with_sensmat")
+                    .compute(t_i, stage_state);
+                let b_i = self
+                    .sensmat
+                    .as_ref()
+                    .expect("sensmat required for step_with_sensmat")
+                    .compute(t_i, &stage_state, params);
+                k_sens[i] = a_i * (sens + h * k_sens_sum) + b_i;
             }
 
             // Compute high-order and low-order solutions
-            // Position: y_new = y + h*v + h²*sum(b_pos*k)
-            // Velocity: v_new = v + h*sum(b_vel*k)
-
             let mut pos_high = SVector::<f64, S>::zeros();
             let mut vel_high = SVector::<f64, S>::zeros();
             let mut pos_low = SVector::<f64, S>::zeros();
             let mut vel_low = SVector::<f64, S>::zeros();
 
             for dim in 0..half_dim {
-                // High-order solution
                 let mut pos_update_high = 0.0;
                 let mut vel_update_high = 0.0;
+                let mut pos_update_low = 0.0;
+                let mut vel_update_low = 0.0;
+
                 for i in 0..17 {
                     pos_update_high += h * h * self.bt.b_pos_high[i] * k[(dim, i)];
                     vel_update_high += h * self.bt.b_vel_high[i] * k[(dim, i)];
-                }
-                pos_high[dim] = pos[dim] + h * vel[dim] + pos_update_high;
-                vel_high[dim] = vel[dim] + vel_update_high;
-
-                // Low-order solution
-                let mut pos_update_low = 0.0;
-                let mut vel_update_low = 0.0;
-                for i in 0..17 {
                     pos_update_low += h * h * self.bt.b_pos_low[i] * k[(dim, i)];
                     vel_update_low += h * self.bt.b_vel_low[i] * k[(dim, i)];
                 }
+
+                pos_high[dim] = pos[dim] + h * vel[dim] + pos_update_high;
+                vel_high[dim] = vel[dim] + vel_update_high;
                 pos_low[dim] = pos[dim] + h * vel[dim] + pos_update_low;
                 vel_low[dim] = vel[dim] + vel_update_low;
             }
@@ -282,288 +515,205 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
                 state_low[half_dim + dim] = vel_low[dim];
             }
 
-            // Compute error estimate (element-wise maximum of position and velocity errors)
-            let error_vec = state_high - state_low;
-            let mut error = 0.0;
-            for i in 0..S {
-                let tol = self.config.abs_tol
-                    + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
-                let normalized_error = (error_vec[i] / tol).abs();
-                error = f64::max(error, normalized_error);
+            // Compute sensitivity update using velocity weights
+            let mut sens_update = SMatrix::<f64, S, P>::zeros();
+            for (i, k_sens_i) in k_sens.iter().enumerate().take(17) {
+                sens_update += h * self.bt.b_vel_high[i] * k_sens_i;
             }
+            let sens_new = sens + sens_update;
 
-            // Check if step should be accepted (compare absolute values)
+            // Compute error estimate
+            let error_vec = state_high - state_low;
+            let error = compute_normalized_error_s(&error_vec, &state_high, &state, &self.config);
+
+            // Check if step should be accepted
             let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
-                // Step accepted - calculate optimal next step size
-                let dt_next = if error > 0.0 {
-                    // Use high order (12) for step size calculation
-                    let raw_scale = (1.0 / error).powf(1.0 / 12.0);
-                    let scale = self
-                        .config
-                        .step_safety_factor
-                        .map_or(raw_scale, |safety| safety * raw_scale);
+                // Step accepted - compute next step size
+                let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
 
-                    let h_sign = h.signum();
-                    let h_abs = h.abs();
-                    let mut next_h = h_abs * scale;
-
-                    // Apply min scale factor if configured
-                    if let Some(min_scale) = self.config.min_step_scale_factor {
-                        next_h = next_h.max(min_scale * h_abs);
-                    }
-
-                    // Apply max scale factor if configured
-                    if let Some(max_scale) = self.config.max_step_scale_factor {
-                        next_h = next_h.min(max_scale * h_abs);
-                    }
-
-                    // Apply absolute step size limits
-                    if let Some(max_step) = self.config.max_step {
-                        next_h = next_h.min(max_step);
-                    }
-                    if let Some(min_step) = self.config.min_step {
-                        next_h = next_h.max(min_step);
-                    }
-
-                    h_sign * next_h
-                } else {
-                    // Error is zero - use maximum increase
-                    let h_sign = h.signum();
-                    let h_abs = h.abs();
-                    let next_h = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h_abs
-                    } else {
-                        10.0 * h_abs // Default max growth if unconfigured
-                    };
-
-                    // Respect absolute max if configured
-                    let next_h = self.config.max_step.map_or(next_h, |max| next_h.min(max));
-                    h_sign * next_h
-                };
-
-                return AdaptiveStepSResult {
-                    state: state_high,
-                    dt_used: h,
-                    error_estimate: error,
-                    dt_next,
-                };
-            } else {
-                // Step rejected - reduce step size and retry
-                let raw_scale = (1.0 / error).powf(1.0 / 10.0);
-                let scale = self
-                    .config
-                    .step_safety_factor
-                    .map_or(raw_scale, |safety| safety * raw_scale);
-
-                let h_sign = h.signum();
-                let h_abs = h.abs();
-                let mut h_new = h_abs * scale;
-
-                // Apply min scale factor if configured
-                if let Some(min_scale) = self.config.min_step_scale_factor {
-                    h_new = h_new.max(min_scale * h_abs);
-                }
-
-                // Respect absolute minimum if configured
-                if let Some(min_step) = self.config.min_step {
-                    h_new = h_new.max(min_step);
-                }
-
-                h = h_sign * h_new;
+                return (state_high, sens_new, h, error, dt_next);
             }
+
+            // Step rejected - reduce step size
+            h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
         }
 
-        // If we get here, we've exceeded max attempts - Things are not going well
-        panic!("RKN1210 integrator exceeded maximum step attempts");
+        panic!("RKN1210S integrator exceeded maximum step attempts");
     }
 
-    fn step_with_varmat(
+    fn step_with_varmat_sensmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
+        sens: SMatrix<f64, S, P>,
+        params: &SVector<f64, P>,
         dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
+    ) -> (
+        SVector<f64, S>,
+        SMatrix<f64, S, S>,
+        SMatrix<f64, S, P>,
+        f64,
+        f64,
+        f64,
+    ) {
         assert!(
             S.is_multiple_of(2),
             "RKN integrator requires even-dimensional state (position + velocity)"
         );
 
         let half_dim = S / 2;
+        let mut h = dt;
+        let mut attempts = 0;
 
-        // Extract position and velocity from state
-        let mut pos = SVector::<f64, S>::zeros();
-        let mut vel = SVector::<f64, S>::zeros();
-        for i in 0..half_dim {
-            pos[i] = state[i];
-            vel[i] = state[half_dim + i];
-        }
+        loop {
+            attempts += 1;
+            if attempts > self.config.max_step_attempts {
+                break;
+            }
 
-        // Preallocate stage matrices
-        let mut k = SMatrix::<f64, S, 17>::zeros();
-        let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 17];
+            // Extract position and velocity from state
+            let mut pos = SVector::<f64, S>::zeros();
+            let mut vel = SVector::<f64, S>::zeros();
+            for i in 0..half_dim {
+                pos[i] = state[i];
+                vel[i] = state[half_dim + i];
+            }
 
-        // Define working variables for STM updates
-        let mut phi_update = SMatrix::<f64, S, S>::zeros();
+            // Preallocate stage matrices
+            let mut k = SMatrix::<f64, S, 17>::zeros();
+            let mut k_phi = [SMatrix::<f64, S, S>::zeros(); 17];
+            let mut k_sens = [SMatrix::<f64, S, P>::zeros(); 17];
 
-        // Compute RKN stages with STM
-        for i in 0..17 {
-            // Position perturbation
-            let mut pos_pert = SVector::<f64, S>::zeros();
-            for j in 0..i {
-                for dim in 0..half_dim {
-                    pos_pert[dim] += self.bt.a[(i, j)] * k[(dim, j)];
+            // Compute RKN stages
+            for i in 0..17 {
+                // Compute position perturbation: h^2 * sum(a[i,j]*k[j])
+                let mut pos_pert = SVector::<f64, S>::zeros();
+                for j in 0..i {
+                    for dim in 0..half_dim {
+                        pos_pert[dim] += self.bt.a[(i, j)] * k[(dim, j)];
+                    }
                 }
+
+                // Stage position: y + c*h*v + h^2*pos_pert
+                let mut stage_pos = SVector::<f64, S>::zeros();
+                for dim in 0..half_dim {
+                    stage_pos[dim] = pos[dim] + self.bt.c[i] * h * vel[dim] + h * h * pos_pert[dim];
+                }
+
+                // Reconstruct full state
+                let mut stage_state = SVector::<f64, S>::zeros();
+                for dim in 0..half_dim {
+                    stage_state[dim] = stage_pos[dim];
+                    stage_state[half_dim + dim] = vel[dim];
+                }
+
+                // Evaluate dynamics and extract acceleration
+                let t_i = t + self.bt.c[i] * h;
+                let mut state_dot = (self.f)(t_i, stage_state);
+
+                // Apply control input if present
+                if let Some(ref ctrl) = self.control {
+                    state_dot += ctrl(t_i, stage_state);
+                }
+
+                for dim in 0..half_dim {
+                    k[(dim, i)] = state_dot[half_dim + dim];
+                }
+
+                // Compute Jacobian for both phi and sens
+                let a_i = self
+                    .varmat
+                    .as_ref()
+                    .expect("varmat required for step_with_varmat_sensmat")
+                    .compute(t_i, stage_state);
+
+                // STM stages: dPhi/dt = A*Phi
+                let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
+                for (j, k_phi_j) in k_phi.iter().enumerate().take(i) {
+                    k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
+                }
+                k_phi[i] = a_i * (phi + h * k_phi_sum);
+
+                // Sensitivity stages: dS/dt = A*S + B
+                let mut k_sens_sum = SMatrix::<f64, S, P>::zeros();
+                for (j, k_sens_j) in k_sens.iter().enumerate().take(i) {
+                    k_sens_sum += self.bt.a[(i, j)] * k_sens_j;
+                }
+                let b_i = self
+                    .sensmat
+                    .as_ref()
+                    .expect("sensmat required for step_with_varmat_sensmat")
+                    .compute(t_i, &stage_state, params);
+                k_sens[i] = a_i * (sens + h * k_sens_sum) + b_i;
             }
 
-            // Stage position
-            let mut stage_pos = SVector::<f64, S>::zeros();
+            // Compute high-order and low-order solutions
+            let mut pos_high = SVector::<f64, S>::zeros();
+            let mut vel_high = SVector::<f64, S>::zeros();
+            let mut pos_low = SVector::<f64, S>::zeros();
+            let mut vel_low = SVector::<f64, S>::zeros();
+
             for dim in 0..half_dim {
-                stage_pos[dim] = pos[dim] + self.bt.c[i] * dt * vel[dim] + dt * dt * pos_pert[dim];
+                let mut pos_update_high = 0.0;
+                let mut vel_update_high = 0.0;
+                let mut pos_update_low = 0.0;
+                let mut vel_update_low = 0.0;
+
+                for i in 0..17 {
+                    pos_update_high += h * h * self.bt.b_pos_high[i] * k[(dim, i)];
+                    vel_update_high += h * self.bt.b_vel_high[i] * k[(dim, i)];
+                    pos_update_low += h * h * self.bt.b_pos_low[i] * k[(dim, i)];
+                    vel_update_low += h * self.bt.b_vel_low[i] * k[(dim, i)];
+                }
+
+                pos_high[dim] = pos[dim] + h * vel[dim] + pos_update_high;
+                vel_high[dim] = vel[dim] + vel_update_high;
+                pos_low[dim] = pos[dim] + h * vel[dim] + pos_update_low;
+                vel_low[dim] = vel[dim] + vel_update_low;
             }
 
-            // Reconstruct full state
-            let mut stage_state = SVector::<f64, S>::zeros();
+            // Reconstruct full state vectors
+            let mut state_high = SVector::<f64, S>::zeros();
+            let mut state_low = SVector::<f64, S>::zeros();
             for dim in 0..half_dim {
-                stage_state[dim] = stage_pos[dim];
-                stage_state[half_dim + dim] = vel[dim];
+                state_high[dim] = pos_high[dim];
+                state_high[half_dim + dim] = vel_high[dim];
+                state_low[dim] = pos_low[dim];
+                state_low[half_dim + dim] = vel_low[dim];
             }
 
-            // Evaluate dynamics and extract acceleration
-            let state_dot = (self.f)(t + self.bt.c[i] * dt, stage_state);
-            for dim in 0..half_dim {
-                k[(dim, i)] = state_dot[half_dim + dim];
-            }
-
-            // Compute STM for this stage
-            // For RKN methods, the STM stage accumulation needs careful treatment
-            // Standard RK uses k_phi_sum = sum(a[i,j] * k_phi[j])
-            // But RKN has different structure - position uses 'a' coefficients
-            // For now, use the position coefficients (a) for STM stages
-            let mut k_phi_sum = SMatrix::<f64, S, S>::zeros();
-            for (j, k_phi_j) in k_phi.iter().enumerate().take(i) {
-                k_phi_sum += self.bt.a[(i, j)] * k_phi_j;
-            }
-
-            k_phi[i] = self
-                .varmat
-                .as_ref()
-                .unwrap()
-                .compute(t + self.bt.c[i] * dt, stage_state)
-                * (phi + dt * k_phi_sum);
-        }
-
-        // Compute high-order and low-order solutions
-        let mut pos_high = SVector::<f64, S>::zeros();
-        let mut vel_high = SVector::<f64, S>::zeros();
-        let mut pos_low = SVector::<f64, S>::zeros();
-        let mut vel_low = SVector::<f64, S>::zeros();
-
-        for dim in 0..half_dim {
-            // High-order solution
-            let mut pos_update_high = 0.0;
-            let mut vel_update_high = 0.0;
+            // Compute STM and sensitivity updates using velocity weights
+            let mut phi_update = SMatrix::<f64, S, S>::zeros();
+            let mut sens_update = SMatrix::<f64, S, P>::zeros();
             for i in 0..17 {
-                pos_update_high += dt * dt * self.bt.b_pos_high[i] * k[(dim, i)];
-                vel_update_high += dt * self.bt.b_vel_high[i] * k[(dim, i)];
+                phi_update += h * self.bt.b_vel_high[i] * k_phi[i];
+                sens_update += h * self.bt.b_vel_high[i] * k_sens[i];
             }
-            pos_high[dim] = pos[dim] + dt * vel[dim] + pos_update_high;
-            vel_high[dim] = vel[dim] + vel_update_high;
+            let phi_new = phi + phi_update;
+            let sens_new = sens + sens_update;
 
-            // Low-order solution
-            let mut pos_update_low = 0.0;
-            let mut vel_update_low = 0.0;
-            for i in 0..17 {
-                pos_update_low += dt * dt * self.bt.b_pos_low[i] * k[(dim, i)];
-                vel_update_low += dt * self.bt.b_vel_low[i] * k[(dim, i)];
+            // Compute error estimate
+            let error_vec = state_high - state_low;
+            let error = compute_normalized_error_s(&error_vec, &state_high, &state, &self.config);
+
+            // Check if step should be accepted
+            let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
+
+            if error <= 1.0 || min_step_reached {
+                // Step accepted - compute next step size
+                let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
+
+                return (state_high, phi_new, sens_new, h, error, dt_next);
             }
-            pos_low[dim] = pos[dim] + dt * vel[dim] + pos_update_low;
-            vel_low[dim] = vel[dim] + vel_update_low;
+
+            // Step rejected - reduce step size
+            h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
         }
 
-        // Reconstruct full state vectors
-        let mut state_high = SVector::<f64, S>::zeros();
-        let mut state_low = SVector::<f64, S>::zeros();
-        for dim in 0..half_dim {
-            state_high[dim] = pos_high[dim];
-            state_high[half_dim + dim] = vel_high[dim];
-            state_low[dim] = pos_low[dim];
-            state_low[half_dim + dim] = vel_low[dim];
-        }
-
-        // Compute STM update
-        // IMPORTANT: Use velocity weights (b_vel_high) not position weights!
-        // The STM satisfies a first-order ODE: dΦ/dt = J(t,x)·Φ
-        // Position weights sum to 0.5 (specific to second-order position integration)
-        // Velocity weights sum to 1.0 (required for first-order integration)
-        for (i, k_phi_i) in k_phi.iter().enumerate().take(17) {
-            phi_update += dt * self.bt.b_vel_high[i] * k_phi_i;
-        }
-
-        // Error estimation
-        let error_vec = state_high - state_low;
-        let mut error = 0.0;
-        for i in 0..S {
-            let tol = self.config.abs_tol
-                + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
-            error = f64::max(error, (error_vec[i] / tol).abs());
-        }
-
-        // Compute suggested next step size
-        let dt_next = if error <= 1.0 {
-            // Step accepted - use 12th order for step size calculation
-            let raw_scale = (1.0 / f64::max(error, 1e-10)).powf(1.0 / 12.0);
-            let scale = self
-                .config
-                .step_safety_factor
-                .map_or(raw_scale, |safety| safety * raw_scale);
-
-            let dt_sign = dt.signum();
-            let dt_abs = dt.abs();
-            let mut next_dt = dt_abs * scale;
-
-            // Apply min scale factor if configured
-            if let Some(min_scale) = self.config.min_step_scale_factor {
-                next_dt = next_dt.max(min_scale * dt_abs);
-            }
-
-            // Apply max scale factor if configured
-            if let Some(max_scale) = self.config.max_step_scale_factor {
-                next_dt = next_dt.min(max_scale * dt_abs);
-            }
-
-            // Apply absolute step size limits
-            if let Some(max_step) = self.config.max_step {
-                next_dt = next_dt.min(max_step);
-            }
-            if let Some(min_step) = self.config.min_step {
-                next_dt = next_dt.max(min_step);
-            }
-
-            dt_sign * next_dt
-        } else {
-            // Step rejected - use 10th order for more conservative estimate
-            let raw_scale = (1.0 / error).powf(1.0 / 10.0);
-            let scale = self
-                .config
-                .step_safety_factor
-                .map_or(raw_scale, |safety| safety * raw_scale);
-
-            let dt_sign = dt.signum();
-            let dt_abs = dt.abs();
-            let mut next_dt = dt_abs * scale;
-
-            // Apply min scale factor if configured
-            if let Some(min_scale) = self.config.min_step_scale_factor {
-                next_dt = next_dt.max(min_scale * dt_abs);
-            }
-
-            dt_sign * next_dt
-        };
-
-        (state_high, phi + phi_update, dt, error, dt_next)
+        panic!("RKN1210S integrator exceeded maximum step attempts");
     }
 }
 
@@ -591,7 +741,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem
-/// let f = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+/// let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
 ///     let r = state.rows(0, 3);
 ///     let v = state.rows(3, 3);
 ///     let r_norm = r.norm();
@@ -604,7 +754,7 @@ impl<const S: usize> AdaptiveStepSIntegrator<S> for RKN1210SIntegrator<S> {
 /// };
 ///
 /// let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-/// let rkn = RKN1210DIntegrator::with_config(6, Box::new(f), None, config);
+/// let rkn = RKN1210DIntegrator::with_config(6, Box::new(f), None, None, None, config);
 ///
 /// let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 /// let result = rkn.step(0.0, state, 10.0);
@@ -613,6 +763,8 @@ pub struct RKN1210DIntegrator {
     dimension: usize,
     f: StateDynamicsD,
     varmat: VariationalMatrixD,
+    sensmat: SensitivityD,
+    control: ControlInputD,
     bt: EmbeddedRKNButcherTableau<17>,
     config: IntegratorConfig,
 }
@@ -624,11 +776,19 @@ impl RKN1210DIntegrator {
     /// - `dimension`: State vector dimension (must be even)
     /// - `f`: State derivative function
     /// - `varmat`: Optional variational matrix computation function
+    /// - `sensmat`: Optional sensitivity matrix computation function
+    /// - `control`: Optional control input function
     ///
     /// # Panics
     /// Panics if dimension is not even (RKN requires position + velocity).
-    pub fn new(dimension: usize, f: StateDynamicsD, varmat: VariationalMatrixD) -> Self {
-        Self::with_config(dimension, f, varmat, IntegratorConfig::default())
+    pub fn new(
+        dimension: usize,
+        f: StateDynamicsD,
+        varmat: VariationalMatrixD,
+        sensmat: SensitivityD,
+        control: ControlInputD,
+    ) -> Self {
+        <Self as DIntegrator>::new(dimension, f, varmat, sensmat, control)
     }
 
     /// Create a new RKN12(10) dynamic integrator with custom configuration.
@@ -637,11 +797,55 @@ impl RKN1210DIntegrator {
     /// - `dimension`: State vector dimension (must be even)
     /// - `f`: State derivative function
     /// - `varmat`: Optional variational matrix computation function
+    /// - `sensmat`: Optional sensitivity matrix computation function
+    /// - `control`: Optional control input function
     /// - `config`: Integration configuration
     pub fn with_config(
         dimension: usize,
         f: StateDynamicsD,
         varmat: VariationalMatrixD,
+        sensmat: SensitivityD,
+        control: ControlInputD,
+        config: IntegratorConfig,
+    ) -> Self {
+        <Self as DIntegrator>::with_config(dimension, f, varmat, sensmat, control, config)
+    }
+
+    /// Get the state vector dimension for this integrator.
+    pub fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    /// Get a reference to the integrator configuration.
+    pub fn config(&self) -> &IntegratorConfig {
+        &self.config
+    }
+}
+
+impl DIntegrator for RKN1210DIntegrator {
+    fn new(
+        dimension: usize,
+        f: StateDynamicsD,
+        varmat: VariationalMatrixD,
+        sensmat: SensitivityD,
+        control: ControlInputD,
+    ) -> Self {
+        Self::with_config(
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            IntegratorConfig::default(),
+        )
+    }
+
+    fn with_config(
+        dimension: usize,
+        f: StateDynamicsD,
+        varmat: VariationalMatrixD,
+        sensmat: SensitivityD,
+        control: ControlInputD,
         config: IntegratorConfig,
     ) -> Self {
         assert!(
@@ -652,22 +856,41 @@ impl RKN1210DIntegrator {
             dimension,
             f,
             varmat,
+            sensmat,
+            control,
             bt: rkn1210_tableau(),
             config,
         }
     }
 
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    fn config(&self) -> &IntegratorConfig {
         &self.config
     }
 }
 
-impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
-        assert_eq!(state.len(), self.dimension);
-
+impl RKN1210DIntegrator {
+    /// Internal consolidated step function that handles all variants.
+    ///
+    /// This method is called by all public step functions to avoid code duplication.
+    fn step_internal(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: Option<DMatrix<f64>>,
+        sens: Option<DMatrix<f64>>,
+        params: Option<&DVector<f64>>,
+        dt: f64,
+    ) -> AdaptiveStepInternalResultD {
         let half_dim = self.dimension / 2;
+        let has_phi = phi.is_some();
+        let has_sens = sens.is_some();
+        let current_phi = phi.unwrap_or_else(|| DMatrix::zeros(0, 0));
+        let current_sens = sens.unwrap_or_else(|| DMatrix::zeros(0, 0));
+        let num_params = if has_sens { current_sens.ncols() } else { 0 };
         let mut h = dt;
         let mut attempts = 0;
 
@@ -684,6 +907,28 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
             // Preallocate stage matrix for accelerations
             let mut k = DMatrix::<f64>::zeros(half_dim, 17);
 
+            // Preallocate STM stages if needed
+            let mut k_phi = if has_phi {
+                let mut v = Vec::with_capacity(17);
+                for _ in 0..17 {
+                    v.push(DMatrix::<f64>::zeros(self.dimension, self.dimension));
+                }
+                v
+            } else {
+                Vec::new()
+            };
+
+            // Preallocate sensitivity stages if needed
+            let mut k_sens = if has_sens {
+                let mut v = Vec::with_capacity(17);
+                for _ in 0..17 {
+                    v.push(DMatrix::<f64>::zeros(self.dimension, num_params));
+                }
+                v
+            } else {
+                Vec::new()
+            };
+
             // Compute RKN stages
             for i in 0..17 {
                 // Compute position perturbation: h²*sum(a[i,j]*k[j])
@@ -694,7 +939,7 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
                     }
                 }
 
-                // Stage position: y + c[i]*h*v + h²*sum(a[i,j]*k[j])
+                // Stage position: y + c*h*v + h²*pos_pert
                 let mut stage_pos = DVector::<f64>::zeros(half_dim);
                 for dim in 0..half_dim {
                     stage_pos[dim] = pos[dim] + self.bt.c[i] * h * vel[dim] + h * h * pos_pert[dim];
@@ -706,9 +951,54 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
                 stage_state.rows_mut(half_dim, half_dim).copy_from(&vel);
 
                 // Evaluate dynamics and extract acceleration
-                let state_dot = (self.f)(t + self.bt.c[i] * h, stage_state);
+                let t_i = t + self.bt.c[i] * h;
+                let mut state_dot = if has_sens {
+                    (self.f)(t_i, stage_state.clone(), params)
+                } else {
+                    (self.f)(t_i, stage_state.clone(), None)
+                };
+
+                // Apply control input if present
+                if let Some(ref ctrl) = self.control {
+                    state_dot += ctrl(t_i, stage_state.clone());
+                }
+
                 for dim in 0..half_dim {
                     k[(dim, i)] = state_dot[half_dim + dim];
+                }
+
+                // Compute Jacobian if needed for phi or sens
+                if has_phi || has_sens {
+                    let a_i = self
+                        .varmat
+                        .as_ref()
+                        .expect("varmat required for step_with_varmat or step_with_sensmat")
+                        .compute(t_i, stage_state.clone());
+
+                    // Variational: dΦ/dt = A*Φ
+                    if has_phi {
+                        let mut k_phi_sum = DMatrix::<f64>::zeros(self.dimension, self.dimension);
+                        #[allow(clippy::needless_range_loop)]
+                        for j in 0..i {
+                            k_phi_sum += self.bt.a[(i, j)] * &k_phi[j];
+                        }
+                        k_phi[i] = &a_i * (&current_phi + h * k_phi_sum);
+                    }
+
+                    // Sensitivity: dS/dt = A*S + B
+                    if has_sens {
+                        let mut k_sens_sum = DMatrix::<f64>::zeros(self.dimension, num_params);
+                        #[allow(clippy::needless_range_loop)]
+                        for j in 0..i {
+                            k_sens_sum += self.bt.a[(i, j)] * &k_sens[j];
+                        }
+                        let b_i = self
+                            .sensmat
+                            .as_ref()
+                            .expect("sensmat required for step_with_sensmat")
+                            .compute(t_i, &stage_state, params.unwrap());
+                        k_sens[i] = &a_i * (&current_sens + h * k_sens_sum) + b_i;
+                    }
                 }
             }
 
@@ -745,86 +1035,71 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
             state_low.rows_mut(0, half_dim).copy_from(&pos_low);
             state_low.rows_mut(half_dim, half_dim).copy_from(&vel_low);
 
+            // Compute STM update using velocity weights
+            let phi_new = if has_phi {
+                let mut phi_update = DMatrix::<f64>::zeros(self.dimension, self.dimension);
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..17 {
+                    phi_update += h * self.bt.b_vel_high[i] * &k_phi[i];
+                }
+                Some(&current_phi + phi_update)
+            } else {
+                None
+            };
+
+            // Compute sensitivity matrix update using velocity weights
+            let sens_new = if has_sens {
+                let mut sens_update = DMatrix::<f64>::zeros(self.dimension, num_params);
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..17 {
+                    sens_update += h * self.bt.b_vel_high[i] * &k_sens[i];
+                }
+                Some(&current_sens + sens_update)
+            } else {
+                None
+            };
+
             // Compute error estimate
             let error_vec = &state_high - &state_low;
-            let mut error = 0.0;
-            for i in 0..self.dimension {
-                let tol = self.config.abs_tol
-                    + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
-                let normalized_error = (error_vec[i] / tol).abs();
-                error = f64::max(error, normalized_error);
-            }
+            let error = compute_normalized_error(&error_vec, &state_high, &state, &self.config);
 
-            // Check if step should be accepted (compare absolute values)
+            // Check if step should be accepted
             let min_step_reached = self.config.min_step.is_some_and(|min| h.abs() <= min);
 
             if error <= 1.0 || min_step_reached {
-                // Step accepted
-                let dt_next = if error > 0.0 {
-                    let raw_scale = (1.0 / error).powf(1.0 / 12.0);
-                    let scale = self
-                        .config
-                        .step_safety_factor
-                        .map_or(raw_scale, |safety| safety * raw_scale);
+                // Step accepted - compute next step size
+                // RKN12(10) uses 12th order for accept
+                let dt_next = compute_next_step_size(error, h, 1.0 / 12.0, &self.config);
 
-                    let h_sign = h.signum();
-                    let h_abs = h.abs();
-                    let mut next_h = h_abs * scale;
-
-                    if let Some(min_scale) = self.config.min_step_scale_factor {
-                        next_h = next_h.max(min_scale * h_abs);
-                    }
-                    if let Some(max_scale) = self.config.max_step_scale_factor {
-                        next_h = next_h.min(max_scale * h_abs);
-                    }
-                    if let Some(max_step) = self.config.max_step {
-                        next_h = next_h.min(max_step);
-                    }
-                    if let Some(min_step) = self.config.min_step {
-                        next_h = next_h.max(min_step);
-                    }
-                    h_sign * next_h
-                } else {
-                    let h_sign = h.signum();
-                    let h_abs = h.abs();
-                    let next_h = if let Some(max_scale) = self.config.max_step_scale_factor {
-                        max_scale * h_abs
-                    } else {
-                        10.0 * h_abs
-                    };
-                    let next_h = self.config.max_step.map_or(next_h, |max| next_h.min(max));
-                    h_sign * next_h
-                };
-
-                return AdaptiveStepDResult {
+                return AdaptiveStepInternalResultD {
                     state: state_high,
+                    phi: phi_new,
+                    sens: sens_new,
                     dt_used: h,
                     error_estimate: error,
                     dt_next,
                 };
-            } else {
-                // Step rejected
-                let raw_scale = (1.0 / error).powf(1.0 / 10.0);
-                let scale = self
-                    .config
-                    .step_safety_factor
-                    .map_or(raw_scale, |safety| safety * raw_scale);
-
-                let h_sign = h.signum();
-                let h_abs = h.abs();
-                let mut h_new = h_abs * scale;
-
-                if let Some(min_scale) = self.config.min_step_scale_factor {
-                    h_new = h_new.max(min_scale * h_abs);
-                }
-                if let Some(min_step) = self.config.min_step {
-                    h_new = h_new.max(min_step);
-                }
-                h = h_sign * h_new;
             }
+
+            // Step rejected - reduce step size
+            // RKN12(10) uses 10th order for reject
+            h = compute_reduced_step_size(error, h, 1.0 / 10.0, &self.config);
         }
 
         panic!("RKN1210D integrator exceeded maximum step attempts");
+    }
+}
+
+impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
+    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
+        assert_eq!(state.len(), self.dimension);
+        let result = self.step_internal(t, state, None, None, None, dt);
+        AdaptiveStepDResult {
+            state: result.state,
+            dt_used: result.dt_used,
+            error_estimate: result.error_estimate,
+            dt_next: result.dt_next,
+        }
     }
 
     fn step_with_varmat(
@@ -837,156 +1112,58 @@ impl AdaptiveStepDIntegrator for RKN1210DIntegrator {
         assert_eq!(state.len(), self.dimension);
         assert_eq!(phi.nrows(), self.dimension);
         assert_eq!(phi.ncols(), self.dimension);
+        let result = self.step_internal(t, state, Some(phi), None, None, dt);
+        (
+            result.state,
+            result.phi.unwrap(),
+            result.dt_used,
+            result.error_estimate,
+            result.dt_next,
+        )
+    }
 
-        let half_dim = self.dimension / 2;
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: f64,
+    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
+        assert_eq!(state.len(), self.dimension);
+        assert_eq!(sens.nrows(), self.dimension);
+        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
+        (
+            result.state,
+            result.sens.unwrap(),
+            result.dt_used,
+            result.error_estimate,
+            result.dt_next,
+        )
+    }
 
-        // Extract position and velocity
-        let pos = state.rows(0, half_dim).clone_owned();
-        let vel = state.rows(half_dim, half_dim).clone_owned();
-
-        // Preallocate stage matrices
-        let mut k = DMatrix::<f64>::zeros(half_dim, 17);
-        let mut k_phi = Vec::with_capacity(17);
-        for _ in 0..17 {
-            k_phi.push(DMatrix::<f64>::zeros(self.dimension, self.dimension));
-        }
-
-        // Define working variable for STM updates
-        let mut phi_update = DMatrix::<f64>::zeros(self.dimension, self.dimension);
-
-        // Compute RKN stages with STM
-        for i in 0..17 {
-            // Position perturbation
-            let mut pos_pert = DVector::<f64>::zeros(half_dim);
-            for j in 0..i {
-                for dim in 0..half_dim {
-                    pos_pert[dim] += self.bt.a[(i, j)] * k[(dim, j)];
-                }
-            }
-
-            // Stage position
-            let mut stage_pos = DVector::<f64>::zeros(half_dim);
-            for dim in 0..half_dim {
-                stage_pos[dim] = pos[dim] + self.bt.c[i] * dt * vel[dim] + dt * dt * pos_pert[dim];
-            }
-
-            // Reconstruct full state
-            let mut stage_state = DVector::<f64>::zeros(self.dimension);
-            stage_state.rows_mut(0, half_dim).copy_from(&stage_pos);
-            stage_state.rows_mut(half_dim, half_dim).copy_from(&vel);
-
-            // Evaluate dynamics and extract acceleration
-            let state_dot = (self.f)(t + self.bt.c[i] * dt, stage_state.clone());
-            for dim in 0..half_dim {
-                k[(dim, i)] = state_dot[half_dim + dim];
-            }
-
-            // Compute STM for this stage
-            let mut k_phi_sum = DMatrix::<f64>::zeros(self.dimension, self.dimension);
-            #[allow(clippy::needless_range_loop)]
-            for j in 0..i {
-                k_phi_sum += self.bt.a[(i, j)] * &k_phi[j];
-            }
-
-            k_phi[i] = self
-                .varmat
-                .as_ref()
-                .unwrap()
-                .compute(t + self.bt.c[i] * dt, stage_state)
-                * (&phi + dt * k_phi_sum);
-        }
-
-        // Compute high-order and low-order solutions
-        let mut pos_high = DVector::<f64>::zeros(half_dim);
-        let mut vel_high = DVector::<f64>::zeros(half_dim);
-        let mut pos_low = DVector::<f64>::zeros(half_dim);
-        let mut vel_low = DVector::<f64>::zeros(half_dim);
-
-        for dim in 0..half_dim {
-            let mut pos_update_high = 0.0;
-            let mut vel_update_high = 0.0;
-            let mut pos_update_low = 0.0;
-            let mut vel_update_low = 0.0;
-
-            for i in 0..17 {
-                pos_update_high += dt * dt * self.bt.b_pos_high[i] * k[(dim, i)];
-                vel_update_high += dt * self.bt.b_vel_high[i] * k[(dim, i)];
-                pos_update_low += dt * dt * self.bt.b_pos_low[i] * k[(dim, i)];
-                vel_update_low += dt * self.bt.b_vel_low[i] * k[(dim, i)];
-            }
-
-            pos_high[dim] = pos[dim] + dt * vel[dim] + pos_update_high;
-            vel_high[dim] = vel[dim] + vel_update_high;
-            pos_low[dim] = pos[dim] + dt * vel[dim] + pos_update_low;
-            vel_low[dim] = vel[dim] + vel_update_low;
-        }
-
-        // Reconstruct full state vectors
-        let mut state_high = DVector::<f64>::zeros(self.dimension);
-        let mut state_low = DVector::<f64>::zeros(self.dimension);
-        state_high.rows_mut(0, half_dim).copy_from(&pos_high);
-        state_high.rows_mut(half_dim, half_dim).copy_from(&vel_high);
-        state_low.rows_mut(0, half_dim).copy_from(&pos_low);
-        state_low.rows_mut(half_dim, half_dim).copy_from(&vel_low);
-
-        // Compute STM update using velocity weights
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..17 {
-            phi_update += dt * self.bt.b_vel_high[i] * &k_phi[i];
-        }
-
-        // Error estimation
-        let error_vec = &state_high - &state_low;
-        let mut error = 0.0;
-        for i in 0..self.dimension {
-            let tol = self.config.abs_tol
-                + self.config.rel_tol * f64::max(state_high[i].abs(), state[i].abs());
-            error = f64::max(error, (error_vec[i] / tol).abs());
-        }
-
-        // Compute suggested next step size
-        let dt_next = if error <= 1.0 {
-            let raw_scale = (1.0 / f64::max(error, 1e-10)).powf(1.0 / 12.0);
-            let scale = self
-                .config
-                .step_safety_factor
-                .map_or(raw_scale, |safety| safety * raw_scale);
-
-            let dt_sign = dt.signum();
-            let dt_abs = dt.abs();
-            let mut next_dt = dt_abs * scale;
-
-            if let Some(min_scale) = self.config.min_step_scale_factor {
-                next_dt = next_dt.max(min_scale * dt_abs);
-            }
-            if let Some(max_scale) = self.config.max_step_scale_factor {
-                next_dt = next_dt.min(max_scale * dt_abs);
-            }
-            if let Some(max_step) = self.config.max_step {
-                next_dt = next_dt.min(max_step);
-            }
-            if let Some(min_step) = self.config.min_step {
-                next_dt = next_dt.max(min_step);
-            }
-            dt_sign * next_dt
-        } else {
-            let raw_scale = (1.0 / error).powf(1.0 / 10.0);
-            let scale = self
-                .config
-                .step_safety_factor
-                .map_or(raw_scale, |safety| safety * raw_scale);
-
-            let dt_sign = dt.signum();
-            let dt_abs = dt.abs();
-            let mut next_dt = dt_abs * scale;
-
-            if let Some(min_scale) = self.config.min_step_scale_factor {
-                next_dt = next_dt.max(min_scale * dt_abs);
-            }
-            dt_sign * next_dt
-        };
-
-        (state_high, phi + phi_update, dt, error, dt_next)
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: f64,
+    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>, f64, f64, f64) {
+        assert_eq!(state.len(), self.dimension);
+        assert_eq!(phi.nrows(), self.dimension);
+        assert_eq!(phi.ncols(), self.dimension);
+        assert_eq!(sens.nrows(), self.dimension);
+        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
+        (
+            result.state,
+            result.phi.unwrap(),
+            result.sens.unwrap(),
+            result.dt_used,
+            result.error_estimate,
+            result.dt_next,
+        )
     }
 }
 
@@ -1064,7 +1241,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 2>::new(0.0, 0.0); // [x, v] = [0, 0]
         let dt = 0.01;
@@ -1095,7 +1273,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 2>::new(0.0, 0.0); // [position, velocity]
@@ -1132,7 +1311,8 @@ mod tests {
     #[test]
     fn test_rkn1210s_integrator_orbit() {
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(point_earth), None, config);
+        let rkn: RKN1210SIntegrator<6, 0> =
+            RKN1210SIntegrator::with_config(Box::new(point_earth), None, None, None, config);
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
@@ -1166,7 +1346,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 2>::new(0.0, 0.0);
@@ -1192,7 +1373,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-3);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 2>::new(0.0, 0.0);
         let dt = 0.01;
@@ -1217,7 +1399,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-14, 1e-12);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 2>::new(1.0, 0.0);
         let dt = 1.0;
@@ -1247,7 +1430,8 @@ mod tests {
             ..Default::default()
         };
 
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         assert_eq!(rkn.config().step_safety_factor, Some(0.8));
         assert_eq!(rkn.config().min_step_scale_factor, Some(0.5));
@@ -1262,7 +1446,8 @@ mod tests {
         };
 
         let config = IntegratorConfig::adaptive(1e-13, 1e-11);
-        let rkn = RKN1210SIntegrator::with_config(Box::new(f), None, config);
+        let rkn: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 2>::new(0.0, 0.0);
@@ -1290,9 +1475,11 @@ mod tests {
             .with_fixed_offset(1.0);
 
         let config = IntegratorConfig::adaptive(1e-9, 1e-6);
-        let rkn = RKN1210SIntegrator::with_config(
+        let rkn: RKN1210SIntegrator<6, 0> = RKN1210SIntegrator::with_config(
             Box::new(point_earth),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config,
         );
 
@@ -1339,9 +1526,11 @@ mod tests {
             .with_fixed_offset(1.0);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210SIntegrator::with_config(
+        let rkn: RKN1210SIntegrator<6, 0> = RKN1210SIntegrator::with_config(
             Box::new(point_earth),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config,
         );
 
@@ -1415,9 +1604,11 @@ mod tests {
             .with_fixed_offset(0.1);
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210SIntegrator::with_config(
+        let rkn: RKN1210SIntegrator<6, 0> = RKN1210SIntegrator::with_config(
             Box::new(point_earth),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config,
         );
 
@@ -1487,7 +1678,11 @@ mod tests {
         set_global_eop_provider(eop);
     }
 
-    fn point_earth_dynamic(_t: f64, state: DVector<f64>) -> DVector<f64> {
+    fn point_earth_dynamic(
+        _t: f64,
+        state: DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> DVector<f64> {
         let r = state.rows(0, 3);
         let v = state.rows(3, 3);
         let r_norm = r.norm();
@@ -1515,7 +1710,14 @@ mod tests {
     fn test_rkn1210d_single_step() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+        let rkn = RKN1210DIntegrator::with_config(
+            6,
+            Box::new(point_earth_dynamic),
+            None,
+            None,
+            None,
+            config,
+        );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
@@ -1529,14 +1731,14 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_integrator_parabola() {
-        let f = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 2.0;
             state_dot
         };
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
+        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 1.0;
         let result = rkn.step(0.0, state, dt);
@@ -1550,7 +1752,14 @@ mod tests {
     fn test_rkn1210d_integrator_orbit() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
-        let rkn = RKN1210DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+        let rkn = RKN1210DIntegrator::with_config(
+            6,
+            Box::new(point_earth_dynamic),
+            None,
+            None,
+            None,
+            config,
+        );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
@@ -1571,7 +1780,14 @@ mod tests {
     fn test_rkn1210d_accuracy() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-13, 1e-11);
-        let rkn = RKN1210DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+        let rkn = RKN1210DIntegrator::with_config(
+            6,
+            Box::new(point_earth_dynamic),
+            None,
+            None,
+            None,
+            config,
+        );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
@@ -1582,14 +1798,14 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_step_size_increases() {
-        let f = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
             state_dot
         };
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
-        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
+        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
         let result = rkn.step(0.0, state, 0.1);
         assert!(result.dt_next > 0.1);
@@ -1597,14 +1813,14 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_adaptive_mechanism() {
-        let f = |t: f64, state: DVector<f64>| -> DVector<f64> {
+        let f = |t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = -t.sin();
             state_dot
         };
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
-        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
+        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
         let result1 = rkn.step(0.0, state.clone(), 0.1);
         let result2 = rkn.step(result1.dt_used, result1.state, 0.1);
@@ -1613,7 +1829,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_config_parameters() {
-        let f = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
@@ -1627,7 +1843,7 @@ mod tests {
             max_step_scale_factor: Some(5.0),
             ..Default::default()
         };
-        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, config);
+        let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         assert_eq!(rkn.config().step_safety_factor, Some(0.8));
         assert_eq!(rkn.config().min_step_scale_factor, Some(0.5));
         assert_eq!(rkn.config().max_step_scale_factor, Some(5.0));
@@ -1637,7 +1853,14 @@ mod tests {
     fn test_rkn1210d_high_precision() {
         setup_global_test_eop();
         let config = IntegratorConfig::adaptive(1e-14, 1e-12);
-        let rkn = RKN1210DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+        let rkn = RKN1210DIntegrator::with_config(
+            6,
+            Box::new(point_earth_dynamic),
+            None,
+            None,
+            None,
+            config,
+        );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
@@ -1648,7 +1871,9 @@ mod tests {
     #[test]
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
-        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+        let point_earth_for_jacobian =
+            |t: f64, x: DVector<f64>| -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1656,6 +1881,8 @@ mod tests {
             6,
             Box::new(point_earth_dynamic),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1675,7 +1902,9 @@ mod tests {
     #[test]
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
-        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+        let point_earth_for_jacobian =
+            |t: f64, x: DVector<f64>| -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(1.0);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1683,6 +1912,8 @@ mod tests {
             6,
             Box::new(point_earth_dynamic),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
@@ -1709,7 +1940,9 @@ mod tests {
     #[test]
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
-        let jacobian = DNumericalJacobian::new(Box::new(point_earth_dynamic))
+        let point_earth_for_jacobian =
+            |t: f64, x: DVector<f64>| -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
             .with_method(DifferenceMethod::Central)
             .with_fixed_offset(0.1);
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
@@ -1717,10 +1950,18 @@ mod tests {
             6,
             Box::new(point_earth_dynamic),
             Some(Box::new(jacobian)),
+            None,
+            None,
             config.clone(),
         );
-        let rkn_pert =
-            RKN1210DIntegrator::with_config(6, Box::new(point_earth_dynamic), None, config);
+        let rkn_pert = RKN1210DIntegrator::with_config(
+            6,
+            Box::new(point_earth_dynamic),
+            None,
+            None,
+            None,
+            config,
+        );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
@@ -1752,12 +1993,16 @@ mod tests {
         // Verify RKN1210SIntegrator and RKN1210DIntegrator produce identical results
         let f_static =
             |_t: f64, x: SVector<f64, 2>| -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], 2.0) };
-        let f_dynamic =
-            |_t: f64, x: DVector<f64>| -> DVector<f64> { DVector::from_vec(vec![x[1], 2.0]) };
+        let f_dynamic = |_t: f64,
+                         x: DVector<f64>,
+                         _params: Option<&DVector<f64>>|
+         -> DVector<f64> { DVector::from_vec(vec![x[1], 2.0]) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
-        let rkn_s = RKN1210SIntegrator::with_config(Box::new(f_static), None, config.clone());
-        let rkn_d = RKN1210DIntegrator::with_config(2, Box::new(f_dynamic), None, config);
+        let rkn_s: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(f_static), None, None, None, config.clone());
+        let rkn_d =
+            RKN1210DIntegrator::with_config(2, Box::new(f_dynamic), None, None, None, config);
 
         let state_s = SVector::<f64, 2>::new(0.0, 0.0);
         let state_d = DVector::from_vec(vec![0.0, 0.0]);
@@ -1778,5 +2023,514 @@ mod tests {
         );
         assert_abs_diff_eq!(result_s.dt_used, result_d.dt_used, epsilon = 1.0e-15);
         assert_abs_diff_eq!(result_s.dt_next, result_d.dt_next, epsilon = 1.0e-15);
+    }
+
+    // ========================================================================
+    // Sensitivity Matrix Tests
+    // ========================================================================
+
+    #[test]
+    fn test_rkn1210s_sensmat() {
+        // Test sensitivity matrix propagation using harmonic oscillator: dx/dt = v, dv/dt = -k*x
+        // RKN requires even-dimensional state (position + velocity)
+
+        use crate::math::jacobian::SJacobianProvider;
+        use crate::math::sensitivity::SSensitivityProvider;
+
+        // Jacobian: ∂f/∂x = [[0, 1], [-k, 0]] where k = 1.0
+        struct HarmonicJacobian;
+        impl SJacobianProvider<2> for HarmonicJacobian {
+            fn compute(&self, _t: f64, _state: SVector<f64, 2>) -> SMatrix<f64, 2, 2> {
+                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
+            }
+        }
+
+        // Sensitivity: ∂f/∂k = [[0], [-x]]
+        struct HarmonicSensitivity;
+        impl SSensitivityProvider<2, 1> for HarmonicSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                state: &SVector<f64, 2>,
+                _params: &SVector<f64, 1>,
+            ) -> SMatrix<f64, 2, 1> {
+                SMatrix::<f64, 2, 1>::new(0.0, -state[0])
+            }
+        }
+
+        // Harmonic oscillator: dx/dt = v, dv/dt = -k*x
+        let f = |_t: f64, x: SVector<f64, 2>| -> SVector<f64, 2> {
+            SVector::<f64, 2>::new(x[1], -x[0])
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::with_config(
+            Box::new(f),
+            Some(Box::new(HarmonicJacobian)),
+            Some(Box::new(HarmonicSensitivity)),
+            None,
+            config,
+        );
+
+        let x0 = 1.0;
+        let v0 = 0.0;
+        let state0 = SVector::<f64, 2>::new(x0, v0);
+        let sens0 = SMatrix::<f64, 2, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        let mut state = state0;
+        let mut sens = sens0;
+        let mut t = 0.0_f64;
+
+        while t < 1.0 {
+            let dt = (1.0_f64 - t).min(0.1);
+            let (new_state, new_sens, dt_used, _, _) =
+                rkn.step_with_sensmat(t, state, sens, &params, dt);
+            state = new_state;
+            sens = new_sens;
+            t += dt_used;
+        }
+
+        // Analytical: x(t) = x0*cos(t), v(t) = -x0*sin(t)
+        let x_analytical = x0 * t.cos();
+        let v_analytical = -x0 * t.sin();
+
+        assert_abs_diff_eq!(state[0], x_analytical, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], v_analytical, epsilon = 1e-6);
+
+        // Sensitivity should be non-zero (exact analytical solution is complex)
+        assert!(sens[(0, 0)].abs() > 1e-10 || sens[(1, 0)].abs() > 1e-10);
+    }
+
+    #[test]
+    fn test_rkn1210d_sensmat() {
+        // Test sensitivity matrix propagation (dynamic version)
+
+        use crate::math::sensitivity::DSensitivityProvider;
+
+        struct HarmonicJacobian;
+        impl crate::math::jacobian::DJacobianProvider for HarmonicJacobian {
+            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
+            }
+        }
+
+        struct HarmonicSensitivity;
+        impl DSensitivityProvider for HarmonicSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                state: &DVector<f64>,
+                _params: &DVector<f64>,
+            ) -> DMatrix<f64> {
+                DMatrix::from_column_slice(2, 1, &[0.0, -state[0]])
+            }
+        }
+
+        let dynamics = |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+            DVector::from_vec(vec![x[1], -x[0]])
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn = RKN1210DIntegrator::with_config(
+            2,
+            Box::new(dynamics),
+            Some(Box::new(HarmonicJacobian)),
+            Some(Box::new(HarmonicSensitivity)),
+            None,
+            config,
+        );
+
+        let x0 = 1.0;
+        let state0 = DVector::from_vec(vec![x0, 0.0]);
+        let sens0 = DMatrix::zeros(2, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let mut state = state0;
+        let mut sens = sens0;
+        let mut t = 0.0_f64;
+
+        while t < 1.0 {
+            let dt = (1.0_f64 - t).min(0.1);
+            let (new_state, new_sens, dt_used, _, _) =
+                rkn.step_with_sensmat(t, state, sens, &params, dt);
+            state = new_state;
+            sens = new_sens;
+            t += dt_used;
+        }
+
+        let x_analytical = x0 * t.cos();
+        let v_analytical = -x0 * t.sin();
+
+        assert_abs_diff_eq!(state[0], x_analytical, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], v_analytical, epsilon = 1e-6);
+        assert!(sens[(0, 0)].abs() > 1e-10 || sens[(1, 0)].abs() > 1e-10);
+    }
+
+    #[test]
+    fn test_rkn1210s_varmat_sensmat() {
+        // Test combined STM and sensitivity matrix propagation (static version)
+
+        use crate::math::jacobian::SJacobianProvider;
+        use crate::math::sensitivity::SSensitivityProvider;
+
+        struct HarmonicJacobian;
+        impl SJacobianProvider<2> for HarmonicJacobian {
+            fn compute(&self, _t: f64, _state: SVector<f64, 2>) -> SMatrix<f64, 2, 2> {
+                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
+            }
+        }
+
+        struct HarmonicSensitivity;
+        impl SSensitivityProvider<2, 1> for HarmonicSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                state: &SVector<f64, 2>,
+                _params: &SVector<f64, 1>,
+            ) -> SMatrix<f64, 2, 1> {
+                SMatrix::<f64, 2, 1>::new(0.0, -state[0])
+            }
+        }
+
+        let f = |_t: f64, x: SVector<f64, 2>| -> SVector<f64, 2> {
+            SVector::<f64, 2>::new(x[1], -x[0])
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::with_config(
+            Box::new(f),
+            Some(Box::new(HarmonicJacobian)),
+            Some(Box::new(HarmonicSensitivity)),
+            None,
+            config,
+        );
+
+        let x0 = 1.0;
+        let state0 = SVector::<f64, 2>::new(x0, 0.0);
+        let phi0 = SMatrix::<f64, 2, 2>::identity();
+        let sens0 = SMatrix::<f64, 2, 1>::zeros();
+        let params = SVector::<f64, 1>::new(1.0);
+
+        let mut state = state0;
+        let mut phi = phi0;
+        let mut sens = sens0;
+        let mut t = 0.0_f64;
+
+        while t < 1.0 {
+            let dt = (1.0_f64 - t).min(0.1);
+            let (new_state, new_phi, new_sens, dt_used, _, _) =
+                rkn.step_with_varmat_sensmat(t, state, phi, sens, &params, dt);
+            state = new_state;
+            phi = new_phi;
+            sens = new_sens;
+            t += dt_used;
+        }
+
+        let x_analytical = x0 * t.cos();
+        let v_analytical = -x0 * t.sin();
+
+        assert_abs_diff_eq!(state[0], x_analytical, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], v_analytical, epsilon = 1e-6);
+
+        // STM for harmonic oscillator: [[cos(t), sin(t)], [-sin(t), cos(t)]]
+        // Note: RKN integrator STM may differ slightly due to position/velocity structure
+        assert_abs_diff_eq!(phi[(0, 0)], t.cos(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(0, 1)], t.sin(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(1, 0)], -t.sin(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(1, 1)], t.cos(), epsilon = 0.05);
+    }
+
+    #[test]
+    fn test_rkn1210d_varmat_sensmat() {
+        // Test combined STM and sensitivity matrix propagation (dynamic version)
+
+        use crate::math::sensitivity::DSensitivityProvider;
+
+        struct HarmonicJacobian;
+        impl crate::math::jacobian::DJacobianProvider for HarmonicJacobian {
+            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
+            }
+        }
+
+        struct HarmonicSensitivity;
+        impl DSensitivityProvider for HarmonicSensitivity {
+            fn compute(
+                &self,
+                _t: f64,
+                state: &DVector<f64>,
+                _params: &DVector<f64>,
+            ) -> DMatrix<f64> {
+                DMatrix::from_column_slice(2, 1, &[0.0, -state[0]])
+            }
+        }
+
+        let dynamics = |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+            DVector::from_vec(vec![x[1], -x[0]])
+        };
+
+        let config = IntegratorConfig::adaptive(1e-12, 1e-10);
+        let rkn = RKN1210DIntegrator::with_config(
+            2,
+            Box::new(dynamics),
+            Some(Box::new(HarmonicJacobian)),
+            Some(Box::new(HarmonicSensitivity)),
+            None,
+            config,
+        );
+
+        let x0 = 1.0;
+        let state0 = DVector::from_vec(vec![x0, 0.0]);
+        let phi0 = DMatrix::identity(2, 2);
+        let sens0 = DMatrix::zeros(2, 1);
+        let params = DVector::from_vec(vec![1.0]);
+
+        let mut state = state0;
+        let mut phi = phi0;
+        let mut sens = sens0;
+        let mut t = 0.0_f64;
+
+        while t < 1.0 {
+            let dt = (1.0_f64 - t).min(0.1);
+            let (new_state, new_phi, new_sens, dt_used, _, _) =
+                rkn.step_with_varmat_sensmat(t, state, phi, sens, &params, dt);
+            state = new_state;
+            phi = new_phi;
+            sens = new_sens;
+            t += dt_used;
+        }
+
+        let x_analytical = x0 * t.cos();
+        let v_analytical = -x0 * t.sin();
+
+        assert_abs_diff_eq!(state[0], x_analytical, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], v_analytical, epsilon = 1e-6);
+
+        // STM for harmonic oscillator
+        // Note: RKN integrator STM may differ slightly due to position/velocity structure
+        assert_abs_diff_eq!(phi[(0, 0)], t.cos(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(0, 1)], t.sin(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(1, 0)], -t.sin(), epsilon = 0.05);
+        assert_abs_diff_eq!(phi[(1, 1)], t.cos(), epsilon = 0.05);
+    }
+
+    // =============================================================================
+    // Constructor and Config Tests
+    // =============================================================================
+
+    #[test]
+    fn test_rkn1210s_new_uses_default_config() {
+        fn dynamics(_t: f64, state: SVector<f64, 2>) -> SVector<f64, 2> {
+            SVector::<f64, 2>::new(state[1], -state[0])
+        }
+
+        let integrator: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::new(Box::new(dynamics), None, None, None);
+        let config = integrator.config();
+
+        let default_config = IntegratorConfig::default();
+        assert_eq!(config.abs_tol, default_config.abs_tol);
+        assert_eq!(config.rel_tol, default_config.rel_tol);
+        assert_eq!(config.max_step_attempts, default_config.max_step_attempts);
+        assert_eq!(config.min_step, default_config.min_step);
+        assert_eq!(config.max_step, default_config.max_step);
+    }
+
+    #[test]
+    fn test_rkn1210s_with_config_stores_config() {
+        fn dynamics(_t: f64, state: SVector<f64, 2>) -> SVector<f64, 2> {
+            SVector::<f64, 2>::new(state[1], -state[0])
+        }
+
+        let custom_config = IntegratorConfig {
+            abs_tol: 1e-10,
+            rel_tol: 1e-8,
+            initial_step: None,
+            max_step_attempts: 20,
+            min_step: Some(1e-15),
+            max_step: Some(100.0),
+            step_safety_factor: Some(0.9),
+            max_step_scale_factor: Some(5.0),
+            min_step_scale_factor: Some(0.1),
+            fixed_step_size: None,
+        };
+
+        let integrator: RKN1210SIntegrator<2, 0> = RKN1210SIntegrator::with_config(
+            Box::new(dynamics),
+            None,
+            None,
+            None,
+            custom_config.clone(),
+        );
+        let config = integrator.config();
+
+        assert_eq!(config.abs_tol, 1e-10);
+        assert_eq!(config.rel_tol, 1e-8);
+        assert_eq!(config.max_step_attempts, 20);
+        assert_eq!(config.min_step, Some(1e-15));
+        assert_eq!(config.max_step, Some(100.0));
+    }
+
+    #[test]
+    fn test_rkn1210s_config_returns_reference() {
+        fn dynamics(_t: f64, state: SVector<f64, 2>) -> SVector<f64, 2> {
+            SVector::<f64, 2>::new(state[1], -state[0])
+        }
+
+        let integrator: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::new(Box::new(dynamics), None, None, None);
+
+        let config1 = integrator.config();
+        let config2 = integrator.config();
+
+        assert_eq!(config1.abs_tol, config2.abs_tol);
+        assert_eq!(config1.rel_tol, config2.rel_tol);
+        assert_eq!(config1.max_step_attempts, config2.max_step_attempts);
+    }
+
+    #[test]
+    fn test_rkn1210d_new_uses_default_config() {
+        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            DVector::from_vec(vec![state[1], -state[0]])
+        }
+
+        let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
+        let config = integrator.config();
+
+        let default_config = IntegratorConfig::default();
+        assert_eq!(config.abs_tol, default_config.abs_tol);
+        assert_eq!(config.rel_tol, default_config.rel_tol);
+        assert_eq!(config.max_step_attempts, default_config.max_step_attempts);
+        assert_eq!(config.min_step, default_config.min_step);
+        assert_eq!(config.max_step, default_config.max_step);
+    }
+
+    #[test]
+    fn test_rkn1210d_with_config_stores_config() {
+        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            DVector::from_vec(vec![state[1], -state[0]])
+        }
+
+        let custom_config = IntegratorConfig {
+            abs_tol: 1e-10,
+            rel_tol: 1e-8,
+            initial_step: None,
+            max_step_attempts: 20,
+            min_step: Some(1e-15),
+            max_step: Some(100.0),
+            step_safety_factor: Some(0.9),
+            max_step_scale_factor: Some(5.0),
+            min_step_scale_factor: Some(0.1),
+            fixed_step_size: None,
+        };
+
+        let integrator = RKN1210DIntegrator::with_config(
+            2,
+            Box::new(dynamics),
+            None,
+            None,
+            None,
+            custom_config.clone(),
+        );
+        let config = integrator.config();
+
+        assert_eq!(config.abs_tol, 1e-10);
+        assert_eq!(config.rel_tol, 1e-8);
+        assert_eq!(config.max_step_attempts, 20);
+        assert_eq!(config.min_step, Some(1e-15));
+        assert_eq!(config.max_step, Some(100.0));
+    }
+
+    #[test]
+    fn test_rkn1210d_config_returns_reference() {
+        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            DVector::from_vec(vec![state[1], -state[0]])
+        }
+
+        let integrator = RKN1210DIntegrator::new(2, Box::new(dynamics), None, None, None);
+
+        let config1 = integrator.config();
+        let config2 = integrator.config();
+
+        assert_eq!(config1.abs_tol, config2.abs_tol);
+        assert_eq!(config1.rel_tol, config2.rel_tol);
+        assert_eq!(config1.max_step_attempts, config2.max_step_attempts);
+    }
+
+    #[test]
+    fn test_rkn1210d_dimension_method() {
+        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            DVector::from_vec(vec![state[1], -state[0]])
+        }
+
+        let integrator = RKN1210DIntegrator::new(6, Box::new(dynamics), None, None, None);
+        assert_eq!(integrator.dimension(), 6);
+
+        let integrator2 = RKN1210DIntegrator::new(12, Box::new(dynamics), None, None, None);
+        assert_eq!(integrator2.dimension(), 12);
+    }
+
+    // =============================================================================
+    // Panic Tests - Max Step Attempts Exceeded
+    // =============================================================================
+
+    #[test]
+    #[should_panic(expected = "exceeded maximum step attempts")]
+    fn test_rkn1210s_panics_on_max_attempts_exceeded() {
+        fn stiff_dynamics(_t: f64, state: SVector<f64, 2>) -> SVector<f64, 2> {
+            // Rapidly varying dynamics
+            SVector::<f64, 2>::new(1e10 * state[1], 1e10 * state[0])
+        }
+
+        let config = IntegratorConfig {
+            abs_tol: 1e-15,
+            rel_tol: 1e-15,
+            initial_step: None,
+            max_step_attempts: 1,
+            min_step: None,
+            max_step: None,
+            step_safety_factor: None,
+            max_step_scale_factor: None,
+            min_step_scale_factor: None,
+            fixed_step_size: None,
+        };
+
+        let integrator: RKN1210SIntegrator<2, 0> =
+            RKN1210SIntegrator::with_config(Box::new(stiff_dynamics), None, None, None, config);
+
+        let state = SVector::<f64, 2>::new(1.0, 0.0);
+        let _ = integrator.step(0.0, state, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "exceeded maximum step attempts")]
+    fn test_rkn1210d_panics_on_max_attempts_exceeded() {
+        fn stiff_dynamics(
+            _t: f64,
+            state: DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> DVector<f64> {
+            DVector::from_vec(vec![1e10 * state[1], 1e10 * state[0]])
+        }
+
+        let config = IntegratorConfig {
+            abs_tol: 1e-15,
+            rel_tol: 1e-15,
+            initial_step: None,
+            max_step_attempts: 1,
+            min_step: None,
+            max_step: None,
+            step_safety_factor: None,
+            max_step_scale_factor: None,
+            min_step_scale_factor: None,
+            fixed_step_size: None,
+        };
+
+        let integrator =
+            RKN1210DIntegrator::with_config(2, Box::new(stiff_dynamics), None, None, None, config);
+
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let _ = integrator.step(0.0, state, 1.0);
     }
 }

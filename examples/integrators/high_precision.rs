@@ -23,7 +23,7 @@ fn main() {
     let period = bh::orbital_period(a);
 
     // Two-body dynamics
-    let dynamics = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
@@ -40,7 +40,7 @@ fn main() {
     let abs_tol = 1e-14;
     let rel_tol = 1e-13;
     let config = IntegratorConfig::adaptive(abs_tol, rel_tol);
-    let integrator = RKN1210DIntegrator::with_config(6, Box::new(dynamics), None, config);
+    let integrator = RKN1210DIntegrator::with_config(6, Box::new(dynamics), None, None, None, config);
 
     println!("Using RKN1210 with tol={:.0e}", abs_tol);
     println!("Propagating for one orbital period...\n");

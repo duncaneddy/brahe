@@ -214,6 +214,7 @@ nav:
             - Mathematics:
                 - learn/mathematics/index.md
                 - Jacobian Computation: learn/mathematics/jacobian.md
+                - Sensitivity Matrices: learn/mathematics/sensitivity.md
             - Numerical Integration:
                 - learn/integrators/index.md
                 - Fixed-Step Integrators: learn/integrators/fixed_step.md
@@ -334,6 +335,7 @@ nav:
             - Mathematics:
                 - library_api/mathematics/index.md
                 - Jacobian: library_api/mathematics/jacobian.md
+                - Sensitivity Matrices: library_api/mathematics/sensitivity.md
             - Integrators:
                 - library_api/integrators/index.md
                 - Configuration: library_api/integrators/config.md

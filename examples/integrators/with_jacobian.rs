@@ -8,8 +8,17 @@ fn main() {
     // Initialize EOP
     initialize_eop().unwrap();
 
-    // Define two-body dynamics
-    let dynamics = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    // Define two-body dynamics (for integrator - takes optional params)
+    let dynamics = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
+        let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
+        let r_norm = r.norm();
+        let a = -GM_EARTH / r_norm.powi(3) * r;
+        DVector::from_vec(vec![v[0], v[1], v[2], a[0], a[1], a[2]])
+    };
+
+    // Same dynamics for Jacobian (without params argument)
+    let dynamics_for_jac = |_t: f64, state: DVector<f64>| -> DVector<f64> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
@@ -18,7 +27,7 @@ fn main() {
     };
 
     // Create numerical Jacobian for variational equations
-    let jacobian = DNumericalJacobian::central(Box::new(dynamics))
+    let jacobian = DNumericalJacobian::central(Box::new(dynamics_for_jac))
         .with_adaptive(1.0, 1e-6);
 
     // Initial orbit (LEO)
@@ -34,7 +43,7 @@ fn main() {
 
     // Create integrator with Jacobian
     let config = IntegratorConfig::adaptive(1e-12, 1e-11);
-    let integrator = DormandPrince54DIntegrator::with_config(6, Box::new(dynamics), Some(Box::new(jacobian)), config);
+    let integrator = DormandPrince54DIntegrator::with_config(6, Box::new(dynamics), Some(Box::new(jacobian)), None, None, config);
 
     // Propagate for one orbit period
     let mut t = 0.0;

@@ -7,8 +7,10 @@ The mathematics module provides mathematical utilities for numerical computation
 ## Module Contents
 
 - [Jacobian Computation](jacobian.md) - Analytical and numerical Jacobian matrix computation
+- [Sensitivity Computation](sensitivity.md) - Analytical and numerical sensitivity matrix computation
 
 ## See Also
 
 - [Mathematics User Guide](../../learn/mathematics/index.md) - Conceptual introduction and usage examples
 - [Jacobian Computation Guide](../../learn/mathematics/jacobian.md) - Detailed guide on Jacobian usage
+- [Sensitivity Matrix Guide](../../learn/integrators/sensitivity_matrix.md) - Detailed guide on sensitivity computation

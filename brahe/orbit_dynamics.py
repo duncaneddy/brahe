@@ -96,6 +96,8 @@ from brahe._brahe import (
     accel_gravity_spherical_harmonics,
     # Atmospheric Density Models
     density_harris_priester,
+    density_nrlmsise00,
+    density_nrlmsise00_geod,
     # Drag, SRP, and Relativity
     accel_drag,
     accel_solar_radiation_pressure,
@@ -142,6 +144,8 @@ __all__ = [
     "accel_gravity_spherical_harmonics",
     # Atmospheric Density Models
     "density_harris_priester",
+    "density_nrlmsise00",
+    "density_nrlmsise00_geod",
     # Drag, SRP, and Relativity
     "accel_drag",
     "accel_solar_radiation_pressure",

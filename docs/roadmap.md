@@ -2,18 +2,6 @@
 
 Here you can find an overview of planned features and improvements for Brahe aligned to releases. This roadmap is subject to change based on user feedback, development priorities, and other factors.
 
-
-----
-
-## Experimental Features
-
-Some features in Brahe are currently marked as experimental. These features are functional but may undergo changes even in minor releases as we refine their design and implementation. Experimental features are indicated in the documentation with a warning box.
-
-Current experimental features include:
-
-1. Numerical Integration Module
-2. Space Weather Module
-
 ----
 
 ## v0.1.0 - Overhaul & Rust Migration

@@ -526,6 +526,7 @@ include!("math.rs");
 include!("integrators.rs");
 include!("utils.rs");
 include!("orbit_dynamics.rs");
+include!("earth_models.rs");
 
 // Define Module
 
@@ -934,6 +935,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Atmospheric Density Models
     module.add_function(wrap_pyfunction!(py_density_harris_priester, module)?)?;
+    module.add_function(wrap_pyfunction!(py_density_nrlmsise00, module)?)?;
+    module.add_function(wrap_pyfunction!(py_density_nrlmsise00_geod, module)?)?;
 
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;

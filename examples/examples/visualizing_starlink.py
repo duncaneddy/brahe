@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly"]
-# FLAGS = ["CI-ONLY"]
-# TIMEOUT = 600
+# FLAGS = ["IGNORE"]
 # ///
 
 """

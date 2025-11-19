@@ -39,6 +39,7 @@ from brahe import (
     coordinates,
     frames,
     eop,
+    space_weather,
     attitude,
     trajectories,
     constants,
@@ -60,6 +61,7 @@ from brahe.propagators import *
 from brahe.coordinates import *
 from brahe.frames import *
 from brahe.eop import *
+from brahe.space_weather import *
 from brahe.attitude import *
 from brahe.trajectories import *
 from brahe.constants import *
@@ -81,6 +83,7 @@ __all__ = [
     "coordinates",
     "frames",
     "eop",
+    "space_weather",
     "attitude",
     "trajectories",
     "constants",
@@ -104,6 +107,7 @@ __all__.extend(propagators.__all__)
 __all__.extend(coordinates.__all__)
 __all__.extend(frames.__all__)
 __all__.extend(eop.__all__)
+__all__.extend(space_weather.__all__)
 __all__.extend(attitude.__all__)
 __all__.extend(trajectories.__all__)
 __all__.extend(constants.__all__)

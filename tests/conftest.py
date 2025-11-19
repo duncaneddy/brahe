@@ -38,6 +38,13 @@ def de440s_kernel_filepath():
 
 
 @pytest.fixture(scope="session")
+def sw_test_filepath():
+    """Path to space weather test data file."""
+    filepath = TEST_ASSETS / "sw19571001.txt"
+    yield str(filepath)
+
+
+@pytest.fixture(scope="session")
 def naif_cache_setup(de440s_kernel_filepath):
     """Copy de440s.bsp from test_assets to NAIF cache directory for testing.
 

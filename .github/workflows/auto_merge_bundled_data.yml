@@ -16,7 +16,7 @@ jobs:
   bundled-data:
     runs-on: ubuntu-latest
     if: |
-      github.actor == 'github-actions[bot]' &&
+      (github.event.pull_request.user.login == 'github-actions[bot]' || github.event.pull_request.user.login == 'duncaneddy') &&
       contains(github.event.pull_request.labels.*.name, 'data-update') &&
       contains(github.event.pull_request.labels.*.name, 'automated')
     steps:

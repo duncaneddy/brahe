@@ -2,6 +2,18 @@
 
 Here you can find an overview of planned features and improvements for Brahe aligned to releases. This roadmap is subject to change based on user feedback, development priorities, and other factors.
 
+
+----
+
+## Experimental Features
+
+Some features in Brahe are currently marked as experimental. These features are functional but may undergo changes even in minor releases as we refine their design and implementation. Experimental features are indicated in the documentation with a warning box.
+
+Current experimental features include:
+
+1. Numerical Integration Module
+2. Space Weather Module
+
 ----
 
 ## v0.1.0 - Overhaul & Rust Migration
@@ -131,11 +143,11 @@ The following features are planned for future releases beyond v1.0.0. These feat
     - [ ] Extended Kalman Filter
     - [ ] Unscented Kalman Filter
     - [ ] Particle Filter
-- [ ] Space Weather Data Management
-    - [ ] Data provider classes
-        - [ ] Static provider
-        - [ ] File provider
-        - [ ] Caching provider
+- [x] Space Weather Data Management
+    - [x] Data provider classes
+        - [x] Static provider
+        - [x] File provider
+        - [x] Caching provider
 - [ ] Improved Atmospheric Models
     - [ ] NRLMSISE 2.0 Atmospheric Model Integration
     - [ ] NRLMSISE 2.1 Atmospheric Model Integration

@@ -38,6 +38,9 @@ pub enum BraheError {
     /// Numerical error from mathematical operations. Includes matrix singularities,
     /// convergence failures in iterative algorithms, or numerical instability.
     NumericalError(String),
+    /// Space weather data errors. Includes space weather provider initialization failures,
+    /// data file parsing errors, out-of-range date requests, or missing space weather data.
+    SpaceWeatherError(String),
 }
 
 impl fmt::Display for BraheError {
@@ -51,6 +54,7 @@ impl fmt::Display for BraheError {
             BraheError::InitializationError(e) => write!(f, "{}", e),
             BraheError::PropagatorError(e) => write!(f, "{}", e),
             BraheError::NumericalError(e) => write!(f, "{}", e),
+            BraheError::SpaceWeatherError(e) => write!(f, "{}", e),
         }
     }
 }
@@ -138,6 +142,12 @@ mod tests {
     #[test]
     fn test_numerical_error() {
         let e = BraheError::NumericalError("Test error".to_string());
+        assert_eq!(e.to_string(), "Test error");
+    }
+
+    #[test]
+    fn test_space_weather_error() {
+        let e = BraheError::SpaceWeatherError("Test error".to_string());
         assert_eq!(e.to_string(), "Test error");
     }
 

@@ -512,6 +512,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("eop.rs");
+include!("space_weather.rs");
 include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
@@ -618,6 +619,60 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_lod, module)?)?;
     module.add_function(wrap_pyfunction!(py_get_global_eop_mjd_last_dxdy, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_eop, module)?)?;
+
+    //* Space Weather *//
+
+    // Static Provider
+    module.add_class::<PyStaticSpaceWeatherProvider>()?;
+
+    // File Provider
+    module.add_class::<PyFileSpaceWeatherProvider>()?;
+
+    // Caching Provider
+    module.add_class::<PyCachingSpaceWeatherProvider>()?;
+
+    // Global
+    module.add_function(wrap_pyfunction!(
+        py_set_global_space_weather_provider,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp_all, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_kp_daily, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap_all, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_ap_daily, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_observed, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_adjusted, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_obs_avg81, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_f107_adj_avg81, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sunspot_number, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_kp, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_ap, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_f107, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_kpap_epochs, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_last_daily_epochs, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_initialization, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_len, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_type, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_extrapolation, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_mjd_min, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_sw_mjd_max, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_observed,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_daily_predicted,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_get_global_sw_mjd_last_monthly_predicted,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_initialize_sw, module)?)?;
 
     //* Time *//
 

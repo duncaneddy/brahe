@@ -131,6 +131,7 @@ pub mod orbit_dynamics;
 pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
+pub mod space_weather;
 pub mod time;
 pub mod trajectories;
 pub mod utils;

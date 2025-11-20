@@ -297,3 +297,61 @@ def test_caching_provider_interpolation(iau2000_standard_filepath):
         # Known values: 59569.0 = -0.1079939, 59570.0 = -0.1075984
         expected = (-0.1079939 + -0.1075984) / 2.0
         assert ut1_utc == pytest.approx(expected, abs=1e-10)
+
+
+def test_caching_provider_unknown_type_error():
+    """Test that creating provider with Unknown EOPType raises error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest_path = os.path.join(tmpdir, "test_eop_unknown.txt")
+
+        with pytest.raises(Exception):
+            brahe.CachingEOPProvider(
+                eop_type="Unknown",
+                max_age_seconds=365 * 86400,
+                auto_refresh=False,
+                interpolate=True,
+                extrapolate="Hold",
+                filepath=dest_path,
+            )
+
+
+def test_caching_provider_mjd_last_lod(iau2000_standard_filepath):
+    """Test mjd_last_lod() method delegation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        import shutil
+
+        dest_path = os.path.join(tmpdir, "test_eop_last_lod.txt")
+        shutil.copy(iau2000_standard_filepath, dest_path)
+
+        provider = brahe.CachingEOPProvider(
+            eop_type="StandardBulletinA",
+            max_age_seconds=365 * 86400,
+            auto_refresh=False,
+            interpolate=True,
+            extrapolate="Hold",
+            filepath=dest_path,
+        )
+
+        mjd_last_lod = provider.mjd_last_lod()
+        assert mjd_last_lod == 60298.0
+
+
+def test_caching_provider_mjd_last_dxdy(iau2000_standard_filepath):
+    """Test mjd_last_dxdy() method delegation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        import shutil
+
+        dest_path = os.path.join(tmpdir, "test_eop_last_dxdy.txt")
+        shutil.copy(iau2000_standard_filepath, dest_path)
+
+        provider = brahe.CachingEOPProvider(
+            eop_type="StandardBulletinA",
+            max_age_seconds=365 * 86400,
+            auto_refresh=False,
+            interpolate=True,
+            extrapolate="Hold",
+            filepath=dest_path,
+        )
+
+        mjd_last_dxdy = provider.mjd_last_dxdy()
+        assert mjd_last_dxdy == 60373.0

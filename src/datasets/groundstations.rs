@@ -128,6 +128,11 @@ pub fn load_groundstations_from_file(filepath: &str) -> Result<Vec<PointLocation
 pub fn load_all_groundstations() -> Result<Vec<PointLocation>, BraheError> {
     let mut all_stations = Vec::new();
 
+    debug_assert!(
+        !AVAILABLE_PROVIDERS.is_empty(),
+        "No available groundstation providers"
+    );
+
     for provider in AVAILABLE_PROVIDERS {
         match load_groundstations(provider) {
             Ok(mut stations) => all_stations.append(&mut stations),
@@ -135,12 +140,6 @@ pub fn load_all_groundstations() -> Result<Vec<PointLocation>, BraheError> {
                 eprintln!("Warning: Failed to load {} groundstations: {}", provider, e);
             }
         }
-    }
-
-    if all_stations.is_empty() {
-        return Err(BraheError::Error(
-            "Failed to load any groundstations".to_string(),
-        ));
     }
 
     Ok(all_stations)
@@ -362,5 +361,322 @@ mod tests {
                 assert!(freq_bands.is_array(), "Frequency bands should be an array");
             }
         }
+    }
+
+    // load_groundstations_from_file tests
+
+    #[test]
+    fn test_load_groundstations_from_file_valid() {
+        use std::fs;
+
+        // Create a temporary file with valid GeoJSON
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-118.15, 35.05]
+                    },
+                    "properties": {
+                        "name": "Test Station 1",
+                        "provider": "Test Provider",
+                        "frequency_bands": ["S", "X"]
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [144.82, 13.51]
+                    },
+                    "properties": {
+                        "name": "Test Station 2",
+                        "provider": "Test Provider",
+                        "frequency_bands": ["S"]
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_valid.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        // Test loading from file
+        let stations = load_groundstations_from_file(temp_file).unwrap();
+
+        // Verify we got 2 stations
+        assert_eq!(stations.len(), 2);
+
+        // Verify first station
+        assert_eq!(stations[0].get_name().unwrap(), "Test Station 1");
+        assert_eq!(stations[0].lon(), -118.15);
+        assert_eq!(stations[0].lat(), 35.05);
+
+        // Verify second station
+        assert_eq!(stations[1].get_name().unwrap(), "Test Station 2");
+        assert_eq!(stations[1].lon(), 144.82);
+        assert_eq!(stations[1].lat(), 13.51);
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_single_station() {
+        use std::fs;
+
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [10.5, 52.3]
+                    },
+                    "properties": {
+                        "name": "Single Station",
+                        "provider": "Test",
+                        "frequency_bands": ["UHF"]
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_single.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        let stations = load_groundstations_from_file(temp_file).unwrap();
+
+        assert_eq!(stations.len(), 1);
+        assert_eq!(stations[0].get_name().unwrap(), "Single Station");
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_with_properties() {
+        use std::fs;
+
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [139.69, 35.68]
+                    },
+                    "properties": {
+                        "name": "Tokyo Station",
+                        "provider": "Custom Provider",
+                        "frequency_bands": ["S", "X", "Ka"],
+                        "elevation": 40,
+                        "antenna_size": 11
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_props.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        let stations = load_groundstations_from_file(temp_file).unwrap();
+
+        assert_eq!(stations.len(), 1);
+
+        // Check properties are preserved
+        let props = stations[0].properties();
+        assert_eq!(props["provider"].as_str().unwrap(), "Custom Provider");
+        assert_eq!(props["elevation"].as_i64().unwrap(), 40);
+        assert_eq!(props["antenna_size"].as_i64().unwrap(), 11);
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_nonexistent() {
+        let result = load_groundstations_from_file("/nonexistent/path/file.json");
+        assert!(result.is_err(), "Should error when file does not exist");
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_invalid_json() {
+        use std::fs;
+
+        let invalid_json = "{ this is not valid JSON }";
+        let temp_file = "/tmp/test_groundstations_invalid.json";
+        fs::write(temp_file, invalid_json).unwrap();
+
+        let result = load_groundstations_from_file(temp_file);
+        assert!(result.is_err(), "Should error on invalid JSON");
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_invalid_geojson() {
+        use std::fs;
+
+        // Valid JSON but not valid GeoJSON FeatureCollection
+        let invalid_geojson = r#"{
+            "type": "NotAFeatureCollection",
+            "data": []
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_invalid_geojson.json";
+        fs::write(temp_file, invalid_geojson).unwrap();
+
+        let result = load_groundstations_from_file(temp_file);
+        assert!(result.is_err(), "Should error on invalid GeoJSON structure");
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_empty_features() {
+        use std::fs;
+
+        let empty_geojson = r#"{
+            "type": "FeatureCollection",
+            "features": []
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_empty.json";
+        fs::write(temp_file, empty_geojson).unwrap();
+
+        let result = load_groundstations_from_file(temp_file);
+        assert!(
+            result.is_err(),
+            "Should error when FeatureCollection is empty"
+        );
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_missing_coordinates() {
+        use std::fs;
+
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point"
+                    },
+                    "properties": {
+                        "name": "Bad Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_no_coords.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        let result = load_groundstations_from_file(temp_file);
+        assert!(result.is_err(), "Should error when coordinates are missing");
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid geodetic coordinates")]
+    fn test_load_groundstations_from_file_invalid_coordinates() {
+        use std::fs;
+
+        // Coordinates outside valid range - latitude > 90
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [200.0, 100.0]
+                    },
+                    "properties": {
+                        "name": "Invalid Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_invalid_coords.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        // PointLocation validates coordinates and panics on out-of-range values
+        let _ = load_groundstations_from_file(temp_file);
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_mixed_valid_invalid() {
+        use std::fs;
+
+        // Mix of valid and potentially problematic features
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [0.0, 0.0]
+                    },
+                    "properties": {
+                        "name": "Origin Station"
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-180.0, -90.0]
+                    },
+                    "properties": {
+                        "name": "South Pole Station"
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [180.0, 90.0]
+                    },
+                    "properties": {
+                        "name": "North Pole Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let temp_file = "/tmp/test_groundstations_mixed.json";
+        fs::write(temp_file, geojson).unwrap();
+
+        let stations = load_groundstations_from_file(temp_file).unwrap();
+
+        assert_eq!(stations.len(), 3);
+        assert_eq!(stations[0].lon(), 0.0);
+        assert_eq!(stations[0].lat(), 0.0);
+        assert_eq!(stations[1].lon(), -180.0);
+        assert_eq!(stations[1].lat(), -90.0);
+        assert_eq!(stations[2].lon(), 180.0);
+        assert_eq!(stations[2].lat(), 90.0);
+
+        // Clean up
+        fs::remove_file(temp_file).ok();
     }
 }

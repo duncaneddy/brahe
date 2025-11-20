@@ -39,18 +39,19 @@ fn validate_kernel_name(name: &str) -> Result<(), BraheError> {
     }
 }
 
-/// Download a DE kernel file from NAIF
+/// Download a DE kernel file from NAIF with configurable base URL
 ///
-/// This is an internal function. Use `download_de_kernel()` for the public API.
+/// This is an internal function for testing. Use `fetch_de_kernel()` or `download_de_kernel()` for the public API.
 ///
 /// # Arguments
 /// * `name` - Kernel name (e.g., "de440", "de440s")
+/// * `base_url` - Base URL for the NAIF repository
 ///
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
+fn fetch_de_kernel_with_url(name: &str, base_url: &str) -> Result<Vec<u8>, BraheError> {
     let filename = format!("{}.bsp", name);
-    let url = format!("{}{}", NAIF_BASE_URL, filename);
+    let url = format!("{}{}", base_url, filename);
 
     let response = ureq::get(&url).call().map_err(|e| {
         BraheError::Error(format!(
@@ -79,6 +80,19 @@ fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
     }
 
     Ok(buffer)
+}
+
+/// Download a DE kernel file from NAIF
+///
+/// This is an internal function. Use `download_de_kernel()` for the public API.
+///
+/// # Arguments
+/// * `name` - Kernel name (e.g., "de440", "de440s")
+///
+/// # Returns
+/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
+fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
+    fetch_de_kernel_with_url(name, NAIF_BASE_URL)
 }
 
 /// Download a DE kernel from NAIF with caching support
@@ -165,7 +179,9 @@ pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<Pa
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use httpmock::prelude::*;
     use serial_test::serial;
+    use tempfile::tempdir;
 
     /// Setup helper: Copy de440s.bsp from test_assets to cache for CI tests.
     ///
@@ -314,5 +330,201 @@ mod tests {
         assert!(SUPPORTED_KERNELS.contains(&"de440s"));
         assert!(SUPPORTED_KERNELS.contains(&"de442"));
         assert!(SUPPORTED_KERNELS.contains(&"de442s"));
+    }
+
+    // ========== HTTP Error Tests ==========
+
+    #[test]
+    fn test_fetch_de_kernel_http_404() {
+        // Setup mock server that returns 404 Not Found
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/de440s.bsp");
+            then.status(404);
+        });
+
+        // Attempt to fetch kernel from mock server
+        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+
+        // Should fail with appropriate error
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to download kernel"));
+                assert!(msg.contains("de440s"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    fn test_fetch_de_kernel_http_500() {
+        // Setup mock server that returns 500 Server Error
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/de440s.bsp");
+            then.status(500);
+        });
+
+        // Attempt to fetch kernel from mock server
+        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+
+        // Should fail with appropriate error
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to download kernel"));
+                assert!(msg.contains("de440s"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    fn test_fetch_de_kernel_empty_response() {
+        // Setup mock server that returns 200 OK with empty body
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/de440s.bsp");
+            then.status(200).body("");
+        });
+
+        // Attempt to fetch kernel from mock server
+        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+
+        // Should fail with "No data returned" error
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("No data returned"));
+                assert!(msg.contains("de440s"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    // ========== File I/O Error Tests ==========
+
+    #[test]
+    fn test_download_output_is_directory() {
+        // Create a temporary directory
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("some_directory");
+        fs::create_dir_all(&output_path).unwrap();
+
+        // Setup test kernel in cache first
+        setup_test_kernel();
+
+        // Attempt to download with output path pointing to a directory (not a file)
+        let result = download_de_kernel("de440s", Some(output_path.clone()));
+
+        // Should fail because output path is a directory
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to copy kernel"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_download_invalid_cache_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Create a temporary directory to use as cache
+        let temp_dir = tempdir().unwrap();
+        let cache_file = temp_dir.path().join("de440s.bsp");
+
+        // Create the cache file and make it read-only
+        fs::write(&cache_file, b"test").unwrap();
+        let mut perms = fs::metadata(&cache_file).unwrap().permissions();
+        perms.set_mode(0o444); // Read-only
+        fs::set_permissions(&cache_file, perms).unwrap();
+
+        // Make the parent directory read-only as well to prevent new file creation
+        let mut dir_perms = fs::metadata(temp_dir.path()).unwrap().permissions();
+        dir_perms.set_mode(0o555); // Read and execute only, no write
+        fs::set_permissions(temp_dir.path(), dir_perms).unwrap();
+
+        // Create output path pointing to the read-only directory
+        let output_path = temp_dir.path().join("new_file.bsp");
+
+        // Setup test kernel in actual cache
+        setup_test_kernel();
+
+        // Attempt to copy to the read-only directory
+        let result = download_de_kernel("de440s", Some(output_path));
+
+        // Restore permissions for cleanup
+        let mut dir_perms = fs::metadata(temp_dir.path()).unwrap().permissions();
+        dir_perms.set_mode(0o755);
+        fs::set_permissions(temp_dir.path(), dir_perms).unwrap();
+
+        // Should fail due to permission denied
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_download_output_copy_failure() {
+        // Create a temporary file, then try to create a directory with the same name
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("conflict");
+
+        // Create a directory where the output file should be
+        fs::create_dir_all(&output_path).unwrap();
+
+        // Setup test kernel in cache
+        setup_test_kernel();
+
+        // Attempt to download with output path that exists as a directory
+        let result = download_de_kernel("de440s", Some(output_path));
+
+        // Should fail because we can't overwrite a directory with a file
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to copy kernel"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    // ========== Edge Case Tests ==========
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
+    fn test_output_path_creates_directories() {
+        // Setup test kernel in cache
+        setup_test_kernel();
+
+        // Create temporary directory with nested path
+        let temp_dir = tempdir().unwrap();
+        let nested_path = temp_dir
+            .path()
+            .join("level1")
+            .join("level2")
+            .join("level3")
+            .join("de440s.bsp");
+
+        // Parent directories don't exist yet
+        assert!(!nested_path.parent().unwrap().exists());
+
+        // Download should create all parent directories
+        let result = download_de_kernel("de440s", Some(nested_path.clone()));
+        assert!(result.is_ok());
+        assert!(nested_path.exists());
+        assert!(nested_path.parent().unwrap().exists());
+
+        // Verify file is valid
+        let metadata = fs::metadata(&nested_path).unwrap();
+        assert!(metadata.len() > 0);
     }
 }

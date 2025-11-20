@@ -1745,4 +1745,143 @@ mod tests {
         assert_eq!(eop_default.len(), eop_new.len());
         assert_eq!(eop_default.len(), 0);
     }
+
+    #[test]
+    fn test_display_format() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+        let display_string = format!("{}", eop);
+
+        // Verify key information is present in the display string
+        assert!(display_string.contains("FileEOPProvider"));
+        assert!(display_string.contains("18989"));
+        assert!(display_string.contains("entries"));
+        assert!(display_string.contains("41684"));
+        assert!(display_string.contains("60672"));
+        assert!(display_string.contains("EOPExtrapolation::Hold"));
+        assert!(display_string.contains("true"));
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+        let debug_string = format!("{:?}", eop);
+
+        // Verify key information is present in the debug string
+        assert!(debug_string.contains("FileEOPProvider"));
+        assert!(debug_string.contains("18989"));
+        assert!(debug_string.contains("41684"));
+        assert!(debug_string.contains("60672"));
+        assert!(debug_string.contains("EOPExtrapolation::Hold"));
+        assert!(debug_string.contains("true"));
+    }
+
+    #[test]
+    fn test_eopkey_partial_cmp() {
+        // Test that EOPKey implements PartialOrd correctly
+        let key1 = EOPKey(100.0);
+        let key2 = EOPKey(200.0);
+        let key3 = EOPKey(100.0);
+
+        assert!(key1 < key2);
+        assert!(key2 > key1);
+        assert!(key1 == key3);
+        assert!(key1 <= key3);
+        assert!(key1 >= key3);
+    }
+
+    #[test]
+    fn test_extrapolate_before_min_zero() {
+        // Test extrapolation with Zero mode for mjd < mjd_min
+        let eop = setup_test_eop(true, EOPExtrapolation::Zero);
+        let mjd_before_min = 40000.0; // Before mjd_min = 41684.0
+
+        // Test get_ut1_utc
+        let ut1_utc = eop.get_ut1_utc(mjd_before_min).unwrap();
+        assert_eq!(ut1_utc, 0.0);
+
+        // Test get_pm
+        let (pm_x, pm_y) = eop.get_pm(mjd_before_min).unwrap();
+        assert_eq!(pm_x, 0.0);
+        assert_eq!(pm_y, 0.0);
+
+        // Test get_dxdy
+        let (dx, dy) = eop.get_dxdy(mjd_before_min).unwrap();
+        assert_eq!(dx, 0.0);
+        assert_eq!(dy, 0.0);
+
+        // Test get_lod
+        let lod = eop.get_lod(mjd_before_min).unwrap();
+        assert_eq!(lod, 0.0);
+
+        // Test get_eop
+        let eop_data = eop.get_eop(mjd_before_min).unwrap();
+        assert_eq!(eop_data.0, 0.0); // pm_x
+        assert_eq!(eop_data.1, 0.0); // pm_y
+        assert_eq!(eop_data.2, 0.0); // ut1_utc
+        assert_eq!(eop_data.3, 0.0); // dx
+        assert_eq!(eop_data.4, 0.0); // dy
+        assert_eq!(eop_data.5, 0.0); // lod
+    }
+
+    #[test]
+    fn test_extrapolate_before_min_hold() {
+        // Test extrapolation with Hold mode for mjd < mjd_min
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+        let mjd_before_min = 40000.0; // Before mjd_min = 41684.0
+
+        // Get the first values in the table for comparison
+        let ut1_utc_first = eop.get_ut1_utc(41684.0).unwrap();
+        let (pm_x_first, pm_y_first) = eop.get_pm(41684.0).unwrap();
+        let (dx_first, dy_first) = eop.get_dxdy(41684.0).unwrap();
+        let lod_first = eop.get_lod(41684.0).unwrap();
+
+        // Test get_ut1_utc holds first value
+        let ut1_utc = eop.get_ut1_utc(mjd_before_min).unwrap();
+        assert_eq!(ut1_utc, ut1_utc_first);
+
+        // Test get_pm holds first value
+        let (pm_x, pm_y) = eop.get_pm(mjd_before_min).unwrap();
+        assert_eq!(pm_x, pm_x_first);
+        assert_eq!(pm_y, pm_y_first);
+
+        // Test get_dxdy holds first value
+        let (dx, dy) = eop.get_dxdy(mjd_before_min).unwrap();
+        assert_eq!(dx, dx_first);
+        assert_eq!(dy, dy_first);
+
+        // Test get_lod holds first value
+        let lod = eop.get_lod(mjd_before_min).unwrap();
+        assert_eq!(lod, lod_first);
+
+        // Test get_eop holds first values
+        let eop_data = eop.get_eop(mjd_before_min).unwrap();
+        assert_eq!(eop_data.0, pm_x_first); // pm_x
+        assert_eq!(eop_data.1, pm_y_first); // pm_y
+        assert_eq!(eop_data.2, ut1_utc_first); // ut1_utc
+        assert_eq!(eop_data.3, dx_first); // dx
+        assert_eq!(eop_data.4, dy_first); // dy
+        assert_eq!(eop_data.5, lod_first); // lod
+    }
+
+    #[test]
+    fn test_extrapolate_before_min_error() {
+        // Test extrapolation with Error mode for mjd < mjd_min
+        let eop = setup_test_eop(true, EOPExtrapolation::Error);
+        let mjd_before_min = 40000.0; // Before mjd_min = 41684.0
+
+        // Test get_ut1_utc returns error
+        assert!(eop.get_ut1_utc(mjd_before_min).is_err());
+
+        // Test get_pm returns error
+        assert!(eop.get_pm(mjd_before_min).is_err());
+
+        // Test get_dxdy returns error
+        assert!(eop.get_dxdy(mjd_before_min).is_err());
+
+        // Test get_lod returns error
+        assert!(eop.get_lod(mjd_before_min).is_err());
+
+        // Test get_eop returns error
+        assert!(eop.get_eop(mjd_before_min).is_err());
+    }
 }

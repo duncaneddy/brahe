@@ -676,3 +676,164 @@ pub trait OrbitalTrajectory: Interpolatable {
     where
         Self: Sized;
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // InterpolationMethod Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_interpolation_method_debug_linear() {
+        let method = InterpolationMethod::Linear;
+        assert_eq!(format!("{:?}", method), "Linear");
+    }
+
+    // =========================================================================
+    // CovarianceInterpolationMethod Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_covariance_interpolation_method_debug_matrix_square_root() {
+        let method = CovarianceInterpolationMethod::MatrixSquareRoot;
+        assert_eq!(format!("{:?}", method), "MatrixSquareRoot");
+    }
+
+    #[test]
+    fn test_covariance_interpolation_method_debug_two_wasserstein() {
+        let method = CovarianceInterpolationMethod::TwoWasserstein;
+        assert_eq!(format!("{:?}", method), "TwoWasserstein");
+    }
+
+    // =========================================================================
+    // TrajectoryEvictionPolicy Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_trajectory_eviction_policy_debug_none() {
+        let policy = TrajectoryEvictionPolicy::None;
+        assert_eq!(format!("{:?}", policy), "None");
+    }
+
+    #[test]
+    fn test_trajectory_eviction_policy_debug_keep_count() {
+        let policy = TrajectoryEvictionPolicy::KeepCount;
+        assert_eq!(format!("{:?}", policy), "KeepCount");
+    }
+
+    #[test]
+    fn test_trajectory_eviction_policy_debug_keep_within_duration() {
+        let policy = TrajectoryEvictionPolicy::KeepWithinDuration;
+        assert_eq!(format!("{:?}", policy), "KeepWithinDuration");
+    }
+
+    // =========================================================================
+    // OrbitFrame Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_orbit_frame_display_eci() {
+        let frame = OrbitFrame::ECI;
+        assert_eq!(format!("{}", frame), "ECI");
+    }
+
+    #[test]
+    fn test_orbit_frame_display_ecef() {
+        let frame = OrbitFrame::ECEF;
+        assert_eq!(format!("{}", frame), "ECEF");
+    }
+
+    #[test]
+    fn test_orbit_frame_display_gcrf() {
+        let frame = OrbitFrame::GCRF;
+        assert_eq!(format!("{}", frame), "GCRF");
+    }
+
+    #[test]
+    fn test_orbit_frame_display_itrf() {
+        let frame = OrbitFrame::ITRF;
+        assert_eq!(format!("{}", frame), "ITRF");
+    }
+
+    #[test]
+    fn test_orbit_frame_display_eme2000() {
+        let frame = OrbitFrame::EME2000;
+        assert_eq!(format!("{}", frame), "EME2000");
+    }
+
+    #[test]
+    fn test_orbit_frame_debug_eci() {
+        let frame = OrbitFrame::ECI;
+        assert_eq!(
+            format!("{:?}", frame),
+            "OrbitFrame(Earth-Centered Inertial)"
+        );
+    }
+
+    #[test]
+    fn test_orbit_frame_debug_ecef() {
+        let frame = OrbitFrame::ECEF;
+        assert_eq!(
+            format!("{:?}", frame),
+            "OrbitFrame(Earth-Centered Earth-Fixed)"
+        );
+    }
+
+    #[test]
+    fn test_orbit_frame_debug_gcrf() {
+        let frame = OrbitFrame::GCRF;
+        assert_eq!(
+            format!("{:?}", frame),
+            "OrbitFrame(Geocentric Celestial Reference Frame)"
+        );
+    }
+
+    #[test]
+    fn test_orbit_frame_debug_itrf() {
+        let frame = OrbitFrame::ITRF;
+        assert_eq!(
+            format!("{:?}", frame),
+            "OrbitFrame(International Terrestrial Reference Frame)"
+        );
+    }
+
+    #[test]
+    fn test_orbit_frame_debug_eme2000() {
+        let frame = OrbitFrame::EME2000;
+        assert_eq!(
+            format!("{:?}", frame),
+            "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)"
+        );
+    }
+
+    // =========================================================================
+    // OrbitRepresentation Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_orbit_representation_display_cartesian() {
+        let rep = OrbitRepresentation::Cartesian;
+        assert_eq!(format!("{}", rep), "Cartesian");
+    }
+
+    #[test]
+    fn test_orbit_representation_display_keplerian() {
+        let rep = OrbitRepresentation::Keplerian;
+        assert_eq!(format!("{}", rep), "Keplerian");
+    }
+
+    #[test]
+    fn test_orbit_representation_debug_cartesian() {
+        let rep = OrbitRepresentation::Cartesian;
+        assert_eq!(format!("{:?}", rep), "OrbitRepresentation(Cartesian)");
+    }
+
+    #[test]
+    fn test_orbit_representation_debug_keplerian() {
+        let rep = OrbitRepresentation::Keplerian;
+        assert_eq!(format!("{:?}", rep), "OrbitRepresentation(Keplerian)");
+    }
+}

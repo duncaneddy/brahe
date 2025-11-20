@@ -681,4 +681,53 @@ mod tests {
         assert_eq!(eop_default.len(), eop_new.len());
         assert_eq!(eop_default.len(), 1);
     }
+
+    #[test]
+    fn test_display_format() {
+        let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
+        let display_string = format!("{}", eop);
+
+        // Verify key information is present in the display string
+        assert!(display_string.contains("StaticEOPProvider"));
+        assert!(display_string.contains("Static"));
+        assert!(display_string.contains("1"));
+        assert!(display_string.contains("entries"));
+        assert!(display_string.contains("EOPExtrapolation::Hold"));
+        assert!(display_string.contains("false"));
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let eop = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
+        let debug_string = format!("{:?}", eop);
+
+        // Verify key information is present in the debug string
+        assert!(debug_string.contains("StaticEOPProvider"));
+        assert!(debug_string.contains("Static"));
+        assert!(debug_string.contains("Length"));
+        assert!(debug_string.contains("EOPExtrapolation::Hold"));
+        assert!(debug_string.contains("false"));
+    }
+
+    #[test]
+    fn test_mjd_last_lod() {
+        // Test that static provider returns f64::MAX for mjd_last_lod
+        let eop = StaticEOPProvider::from_zero();
+        assert_eq!(eop.mjd_last_lod(), f64::MAX);
+
+        // Also test with custom values
+        let eop2 = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
+        assert_eq!(eop2.mjd_last_lod(), f64::MAX);
+    }
+
+    #[test]
+    fn test_mjd_last_dxdy() {
+        // Test that static provider returns f64::MAX for mjd_last_dxdy
+        let eop = StaticEOPProvider::from_zero();
+        assert_eq!(eop.mjd_last_dxdy(), f64::MAX);
+
+        // Also test with custom values
+        let eop2 = StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
+        assert_eq!(eop2.mjd_last_dxdy(), f64::MAX);
+    }
 }

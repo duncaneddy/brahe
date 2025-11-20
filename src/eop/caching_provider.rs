@@ -518,7 +518,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_new_with_existing_file() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -592,7 +591,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_refresh() {
         // Copy test EOP file to temporary location
         let dir = tempdir().unwrap();
@@ -624,7 +622,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_eop_provider_delegation() {
         // Test that EarthOrientationProvider methods are properly delegated
         let dir = tempdir().unwrap();
@@ -667,5 +664,190 @@ mod tests {
 
         let lod = provider.get_lod(59569.0).unwrap();
         assert!(lod != 0.0);
+    }
+
+    #[test]
+    fn test_new_with_c04_type() {
+        // Test creating provider with C04 type
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("EOP_20_C04_one_file_1962-now.txt");
+        let dest_path = dir.path().join("test_eop_c04.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::C04,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        assert!(provider.is_initialized());
+        assert_eq!(provider.eop_type(), EOPType::C04);
+        assert!(provider.len() > 0);
+    }
+
+    #[test]
+    fn test_new_with_unknown_type_error() {
+        // Test that creating provider with Unknown type returns error
+        let dir = tempdir().unwrap();
+        let dest_path = dir.path().join("test_eop_unknown.txt");
+
+        let result = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::Unknown,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_file_epoch() {
+        // Test file_epoch returns correct timestamp
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+        let dest_path = dir.path().join("test_eop_epoch.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::StandardBulletinA,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let epoch = provider.file_epoch();
+        assert_eq!(epoch.time_system, TimeSystem::UTC);
+
+        // The epoch should be recent (within the last year for this test)
+        // Use abs() to handle potential clock skew
+        let now = Epoch::now();
+        let diff_seconds = (now.mjd() - epoch.mjd()) * 86400.0;
+        assert!(diff_seconds.abs() < 365.0 * 86400.0);
+    }
+
+    #[test]
+    fn test_file_age() {
+        // Test file_age returns correct age
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+        let dest_path = dir.path().join("test_eop_age.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::StandardBulletinA,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // Age should be very small (just created)
+        let age = provider.file_age();
+        assert!(age < 10.0); // Less than 10 seconds
+
+        // Sleep briefly and check age increased
+        thread::sleep(Duration::from_secs(1));
+        let age2 = provider.file_age();
+        assert!(age2 >= 1.0);
+        assert!(age2 > age);
+    }
+
+    #[test]
+    fn test_mjd_last_lod_delegation() {
+        // Test that mjd_last_lod delegates to FileEOPProvider
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+        let dest_path = dir.path().join("test_eop_last_lod.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::StandardBulletinA,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd_last_lod = provider.mjd_last_lod();
+        assert_eq!(mjd_last_lod, 60991.0);
+    }
+
+    #[test]
+    fn test_mjd_last_dxdy_delegation() {
+        // Test that mjd_last_dxdy delegates to FileEOPProvider
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+        let dest_path = dir.path().join("test_eop_last_dxdy.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::StandardBulletinA,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        let mjd_last_dxdy = provider.mjd_last_dxdy();
+        assert_eq!(mjd_last_dxdy, 61062.0);
+    }
+
+    #[test]
+    fn test_get_eop_method() {
+        // Test that get_eop works correctly with auto_refresh
+        let dir = tempdir().unwrap();
+        let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("test_assets")
+            .join("finals.all.iau2000.txt");
+        let dest_path = dir.path().join("test_get_eop.txt");
+
+        fs::copy(&src_path, &dest_path).unwrap();
+
+        let provider = CachingEOPProvider::new(
+            Some(&dest_path),
+            EOPType::StandardBulletinA,
+            365 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // Test get_eop returns correct data
+        let eop_data = provider.get_eop(59569.0).unwrap();
+        assert_eq!(eop_data.2, -0.1079939); // ut1_utc
+        assert!(eop_data.0 > 0.0); // pm_x
+        assert!(eop_data.1 > 0.0); // pm_y
     }
 }

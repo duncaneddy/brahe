@@ -1651,4 +1651,315 @@ mod tests {
         assert_abs_diff_eq!(state[4], 7840.6666131931, epsilon = 1.5e-1);
         assert_abs_diff_eq!(state[5], -586.3938863063, epsilon = 1.5e-1);
     }
+
+    // with_output_format Method Tests
+
+    #[test]
+    fn test_sgppropagator_with_output_format_eci_cartesian() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.angle_format, None);
+        assert_eq!(prop.trajectory.len(), 1); // Only initial state
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_ecef_cartesian() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+
+        assert_eq!(prop.frame, OrbitFrame::ECEF);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.angle_format, None);
+
+        // Initial state should be in ECEF frame
+        let state = prop.current_state();
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_gcrf_cartesian() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+
+        assert_eq!(prop.frame, OrbitFrame::GCRF);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.angle_format, None);
+
+        // Initial state should be in GCRF frame
+        let state = prop.current_state();
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_eme2000_cartesian() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+
+        assert_eq!(prop.frame, OrbitFrame::EME2000);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.angle_format, None);
+
+        // Initial state should be in EME2000 frame
+        let state = prop.current_state();
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_itrf_cartesian() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+
+        assert_eq!(prop.frame, OrbitFrame::ITRF);
+        assert_eq!(prop.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(prop.angle_format, None);
+
+        // Initial state should be in ITRF frame
+        let state = prop.current_state();
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_eci_keplerian_degrees() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                OrbitFrame::ECI,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees),
+            );
+
+        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(prop.angle_format, Some(AngleFormat::Degrees));
+
+        // Initial state should be Keplerian elements
+        let state = prop.current_state();
+        assert!(state[0] > 0.0); // Semi-major axis positive
+        assert!(state[1] >= 0.0 && state[1] < 1.0); // Eccentricity in valid range
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_eci_keplerian_radians() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                OrbitFrame::ECI,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Radians),
+            );
+
+        assert_eq!(prop.frame, OrbitFrame::ECI);
+        assert_eq!(prop.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(prop.angle_format, Some(AngleFormat::Radians));
+
+        // Initial state should be Keplerian elements
+        let state = prop.current_state();
+        assert!(state[0] > 0.0); // Semi-major axis positive
+        assert!(state[1] >= 0.0 && state[1] < 1.0); // Eccentricity in valid range
+        // Inclination should be in radians (less than pi)
+        assert!(state[2] < std::f64::consts::PI);
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_resets_trajectory() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        // Propagate to add states
+        prop.propagate_steps(5);
+        assert_eq!(prop.trajectory.len(), 6);
+
+        // Change output format - should reset trajectory
+        let prop = prop.with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        assert_eq!(prop.trajectory.len(), 1); // Only initial state in new format
+    }
+
+    #[test]
+    fn test_sgppropagator_with_output_format_propagate_in_new_format() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+
+        // Propagate in new format
+        prop.propagate_steps(3);
+        assert_eq!(prop.trajectory.len(), 4);
+
+        // All states should be valid
+        let state = prop.current_state();
+        assert!(state.norm() > 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Angle format must be specified for Keplerian elements")]
+    fn test_sgppropagator_with_output_format_keplerian_without_angle_format() {
+        setup_global_test_eop();
+        let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Keplerian elements must be in ECI frame")]
+    fn test_sgppropagator_with_output_format_keplerian_non_eci_frame() {
+        setup_global_test_eop();
+        let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                OrbitFrame::ECEF,
+                OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Degrees),
+            );
+    }
+
+    #[test]
+    #[should_panic(expected = "Angle format should be None for Cartesian representation")]
+    fn test_sgppropagator_with_output_format_cartesian_with_angle_format() {
+        setup_global_test_eop();
+        let _prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
+            .unwrap()
+            .with_output_format(
+                OrbitFrame::ECI,
+                OrbitRepresentation::Cartesian,
+                Some(AngleFormat::Degrees),
+            );
+    }
+
+    // state_gcrf and state_eme2000 Tests (non-ignored basic tests)
+
+    #[test]
+    fn test_sgppropagator_state_gcrf() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let state = prop.state_gcrf(epoch);
+
+        // State should be a valid 6D vector
+        assert_eq!(state.len(), 6);
+        assert!(state.norm() > 0.0);
+
+        // Position magnitude should be reasonable for LEO (6000-7000 km from Earth center)
+        let r = (state[0].powi(2) + state[1].powi(2) + state[2].powi(2)).sqrt();
+        assert!(r > 6_000_000.0 && r < 7_000_000.0);
+
+        // Velocity magnitude should be reasonable for LEO (~7-8 km/s)
+        let v = (state[3].powi(2) + state[4].powi(2) + state[5].powi(2)).sqrt();
+        assert!(v > 7_000.0 && v < 8_000.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_state_gcrf_at_different_epochs() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let state1 = prop.state_gcrf(initial_epoch);
+        let state2 = prop.state_gcrf(initial_epoch + 60.0);
+
+        // States should be different after propagation
+        assert_ne!(state1, state2);
+
+        // But magnitudes should be similar (same orbit)
+        let r1 = (state1[0].powi(2) + state1[1].powi(2) + state1[2].powi(2)).sqrt();
+        let r2 = (state2[0].powi(2) + state2[1].powi(2) + state2[2].powi(2)).sqrt();
+        assert_abs_diff_eq!(r1, r2, epsilon = 10_000.0); // Within 10 km
+    }
+
+    #[test]
+    fn test_sgppropagator_state_eme2000() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let state = prop.state_eme2000(epoch);
+
+        // State should be a valid 6D vector
+        assert_eq!(state.len(), 6);
+        assert!(state.norm() > 0.0);
+
+        // Position magnitude should be reasonable for LEO (6000-7000 km from Earth center)
+        let r = (state[0].powi(2) + state[1].powi(2) + state[2].powi(2)).sqrt();
+        assert!(r > 6_000_000.0 && r < 7_000_000.0);
+
+        // Velocity magnitude should be reasonable for LEO (~7-8 km/s)
+        let v = (state[3].powi(2) + state[4].powi(2) + state[5].powi(2)).sqrt();
+        assert!(v > 7_000.0 && v < 8_000.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_state_eme2000_at_different_epochs() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let initial_epoch = prop.initial_epoch();
+
+        let state1 = prop.state_eme2000(initial_epoch);
+        let state2 = prop.state_eme2000(initial_epoch + 60.0);
+
+        // States should be different after propagation
+        assert_ne!(state1, state2);
+
+        // But magnitudes should be similar (same orbit)
+        let r1 = (state1[0].powi(2) + state1[1].powi(2) + state1[2].powi(2)).sqrt();
+        let r2 = (state2[0].powi(2) + state2[1].powi(2) + state2[2].powi(2)).sqrt();
+        assert_abs_diff_eq!(r1, r2, epsilon = 10_000.0); // Within 10 km
+    }
+
+    #[test]
+    fn test_sgppropagator_state_gcrf_vs_eme2000() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let gcrf_state = prop.state_gcrf(epoch);
+        let eme2000_state = prop.state_eme2000(epoch);
+
+        // GCRF and EME2000 should be very close (frame bias is small)
+        // Difference should be less than 100 meters in position
+        let dr = ((gcrf_state[0] - eme2000_state[0]).powi(2)
+            + (gcrf_state[1] - eme2000_state[1]).powi(2)
+            + (gcrf_state[2] - eme2000_state[2]).powi(2))
+        .sqrt();
+        assert!(dr < 100.0, "Position difference {} m > 100 m", dr);
+
+        // Velocity difference should be very small (less than 0.1 m/s)
+        let dv = ((gcrf_state[3] - eme2000_state[3]).powi(2)
+            + (gcrf_state[4] - eme2000_state[4]).powi(2)
+            + (gcrf_state[5] - eme2000_state[5]).powi(2))
+        .sqrt();
+        assert!(dv < 0.1, "Velocity difference {} m/s > 0.1 m/s", dv);
+    }
+
+    #[test]
+    fn test_sgppropagator_state_gcrf_consistency_with_eci() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let gcrf_state = prop.state_gcrf(epoch);
+        let eci_state = prop.state_eci(epoch);
+
+        // GCRF and ECI should be identical (ECI is implemented as GCRF)
+        assert_abs_diff_eq!(gcrf_state[0], eci_state[0], epsilon = 1.0);
+        assert_abs_diff_eq!(gcrf_state[1], eci_state[1], epsilon = 1.0);
+        assert_abs_diff_eq!(gcrf_state[2], eci_state[2], epsilon = 1.0);
+        assert_abs_diff_eq!(gcrf_state[3], eci_state[3], epsilon = 1e-6);
+        assert_abs_diff_eq!(gcrf_state[4], eci_state[4], epsilon = 1e-6);
+        assert_abs_diff_eq!(gcrf_state[5], eci_state[5], epsilon = 1e-6);
+    }
 }

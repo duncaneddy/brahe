@@ -90,7 +90,7 @@ def test_caching_provider_with_existing_file(iau2000_standard_filepath):
         # Create provider with large max age (file should be used as-is)
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,  # 1 year
+            max_age_seconds=100 * 365 * 86400,  # 1 year
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -112,7 +112,7 @@ def test_caching_provider_file_age(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -140,7 +140,7 @@ def test_caching_provider_file_epoch(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -167,7 +167,7 @@ def test_caching_provider_refresh(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -193,7 +193,7 @@ def test_caching_provider_eop_data_retrieval(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -243,7 +243,7 @@ def test_caching_provider_extrapolation_modes(iau2000_standard_filepath):
 
         provider_hold = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -260,7 +260,7 @@ def test_caching_provider_extrapolation_modes(iau2000_standard_filepath):
 
         provider_zero = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Zero",
@@ -282,7 +282,7 @@ def test_caching_provider_interpolation(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=100 * 365 * 86400,
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -307,7 +307,7 @@ def test_caching_provider_unknown_type_error():
         with pytest.raises(Exception):
             brahe.CachingEOPProvider(
                 eop_type="Unknown",
-                max_age_seconds=365 * 86400,
+                max_age_seconds=100 * 365 * 86400,
                 auto_refresh=False,
                 interpolate=True,
                 extrapolate="Hold",

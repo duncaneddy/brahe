@@ -472,6 +472,74 @@ mod tests {
     }
 
     #[test]
+    fn test_fixture_orbit_polar_elements() {
+        // Verify polar orbit fixture values in radians
+        let polar = fixture_orbit_polar(AngleFormat::Radians);
+        assert_abs_diff_eq!(polar[0], R_EARTH + 800e3, epsilon = 1.0);
+        assert_abs_diff_eq!(polar[1], 0.001, epsilon = 1e-6);
+        assert_abs_diff_eq!(polar[2], 90.0 * DEG2RAD, epsilon = 1e-6); // Polar inclination
+
+        // Verify degrees output
+        let polar_deg = fixture_orbit_polar(AngleFormat::Degrees);
+        assert_abs_diff_eq!(polar_deg[0], R_EARTH + 800e3, epsilon = 1.0);
+        assert_abs_diff_eq!(polar_deg[2], 90.0, epsilon = 1e-6); // Polar inclination
+        assert_abs_diff_eq!(polar_deg[3], 0.0, epsilon = 1e-6); // RAAN
+        assert_abs_diff_eq!(polar_deg[4], 0.0, epsilon = 1e-6); // Arg perigee
+        assert_abs_diff_eq!(polar_deg[5], 0.0, epsilon = 1e-6); // Mean anomaly
+    }
+
+    #[test]
+    fn test_fixture_orbit_elliptical_elements() {
+        // Verify elliptical orbit fixture values in radians
+        let elliptical = fixture_orbit_elliptical(AngleFormat::Radians);
+        assert_abs_diff_eq!(elliptical[0], R_EARTH + 1000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(elliptical[1], 0.3, epsilon = 1e-6); // Medium eccentricity
+        assert_abs_diff_eq!(elliptical[2], 45.0 * DEG2RAD, epsilon = 1e-6);
+
+        // Verify degrees output
+        let elliptical_deg = fixture_orbit_elliptical(AngleFormat::Degrees);
+        assert_abs_diff_eq!(elliptical_deg[0], R_EARTH + 1000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(elliptical_deg[2], 45.0, epsilon = 1e-6); // Inclination
+        assert_abs_diff_eq!(elliptical_deg[3], 60.0, epsilon = 1e-6); // RAAN
+        assert_abs_diff_eq!(elliptical_deg[4], 120.0, epsilon = 1e-6); // Arg perigee
+        assert_abs_diff_eq!(elliptical_deg[5], 0.0, epsilon = 1e-6); // Mean anomaly
+    }
+
+    #[test]
+    fn test_fixture_orbit_retrograde_elements() {
+        // Verify retrograde orbit fixture values in radians
+        let retrograde = fixture_orbit_retrograde(AngleFormat::Radians);
+        assert_abs_diff_eq!(retrograde[0], R_EARTH + 600e3, epsilon = 1.0);
+        assert_abs_diff_eq!(retrograde[1], 0.01, epsilon = 1e-6);
+        assert_abs_diff_eq!(retrograde[2], 150.0 * DEG2RAD, epsilon = 1e-6); // Retrograde inclination
+
+        // Verify degrees output
+        let retrograde_deg = fixture_orbit_retrograde(AngleFormat::Degrees);
+        assert_abs_diff_eq!(retrograde_deg[0], R_EARTH + 600e3, epsilon = 1.0);
+        assert_abs_diff_eq!(retrograde_deg[2], 150.0, epsilon = 1e-6); // Retrograde inclination
+        assert_abs_diff_eq!(retrograde_deg[3], 30.0, epsilon = 1e-6); // RAAN
+        assert_abs_diff_eq!(retrograde_deg[4], 45.0, epsilon = 1e-6); // Arg perigee
+        assert_abs_diff_eq!(retrograde_deg[5], 0.0, epsilon = 1e-6); // Mean anomaly
+    }
+
+    #[test]
+    fn test_fixture_orbit_equatorial_elements() {
+        // Verify equatorial orbit fixture values in radians
+        let equatorial = fixture_orbit_equatorial(AngleFormat::Radians);
+        assert_abs_diff_eq!(equatorial[0], R_EARTH + 550e3, epsilon = 1.0);
+        assert_abs_diff_eq!(equatorial[1], 0.005, epsilon = 1e-6);
+        assert_abs_diff_eq!(equatorial[2], 5.0 * DEG2RAD, epsilon = 1e-6); // Near-equatorial
+
+        // Verify degrees output
+        let equatorial_deg = fixture_orbit_equatorial(AngleFormat::Degrees);
+        assert_abs_diff_eq!(equatorial_deg[0], R_EARTH + 550e3, epsilon = 1.0);
+        assert_abs_diff_eq!(equatorial_deg[2], 5.0, epsilon = 1e-6); // Near-equatorial
+        assert_abs_diff_eq!(equatorial_deg[3], 0.0, epsilon = 1e-6); // RAAN
+        assert_abs_diff_eq!(equatorial_deg[4], 0.0, epsilon = 1e-6); // Arg perigee
+        assert_abs_diff_eq!(equatorial_deg[5], 0.0, epsilon = 1e-6); // Mean anomaly
+    }
+
+    #[test]
     fn test_fixture_circular_velocity_calculation() {
         // Verify circular velocity is reasonable (should be ~7.5 km/s at LEO)
         let v = fixture_circular_velocity();

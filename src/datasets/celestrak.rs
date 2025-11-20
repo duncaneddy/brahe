@@ -783,6 +783,487 @@ mod tests {
     }
 
     // =========================================================================
+    // Additional Coverage Tests - UreqHttpClient and with_config
+    // =========================================================================
+
+    #[test]
+    #[cfg_attr(not(feature = "manual"), ignore)]
+    fn test_ureq_http_client_get_string() {
+        let client = UreqHttpClient;
+        let result = client.get_string("https://httpbin.org/get");
+        assert!(result.is_ok());
+        let body = result.unwrap();
+        assert!(body.contains("httpbin"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_with_config_custom_settings() {
+        let mut mock_client = MockHttpClient::new();
+
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("custom.example.com"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data()));
+
+        let client = CelestrakClient::with_config(
+            mock_client,
+            "https://custom.example.com/gp.php".to_string(),
+            7200.0, // 2 hours
+        );
+
+        // Clear cache to force fresh download
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let cache_path = PathBuf::from(&cache_dir).join("config-test_gp.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = client.get_tles("config-test");
+        assert!(result.is_ok());
+
+        // Cleanup
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    // =========================================================================
+    // Additional Coverage Tests - get_tles_as_propagators
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn test_get_tles_as_propagators_success_mocked() {
+        use crate::utils::testing::setup_global_test_eop;
+        setup_global_test_eop();
+
+        let mut mock_client = MockHttpClient::new();
+
+        // Use valid TLE data that will create working propagators
+        let valid_tles = "ISS (ZARYA)\n\
+            1 25544U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
+            2 25544  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+            .to_string();
+
+        mock_client
+            .expect_get_string()
+            .times(1)
+            .returning(move |_| Ok(valid_tles.clone()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear cache
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let cache_path = PathBuf::from(&cache_dir).join("prop-test_gp.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = client.get_tles_as_propagators("prop-test", 60.0);
+        assert!(result.is_ok());
+
+        let propagators = result.unwrap();
+        assert!(!propagators.is_empty());
+        assert!(propagators[0].satellite_name.is_some());
+
+        // Cleanup
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tles_as_propagators_all_invalid_mocked() {
+        use crate::utils::testing::setup_global_test_eop;
+        setup_global_test_eop();
+
+        let mut mock_client = MockHttpClient::new();
+
+        // Return TLE data that parses but fails propagator creation
+        // These TLEs have correct format but invalid checksums (last digit wrong)
+        let invalid_tles = "INVALID SAT 1\n\
+            1 99901U 21001A   21001.50000000  .00001764  00000-0  40967-4 0  9990\n\
+            2 99901  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000000\n\
+            INVALID SAT 2\n\
+            1 99902U 21001B   21001.50000000  .00001764  00000-0  40967-4 0  9990\n\
+            2 99902  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000000"
+            .to_string();
+
+        mock_client
+            .expect_get_string()
+            .times(1)
+            .returning(move |_| Ok(invalid_tles.clone()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear cache
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let cache_path = PathBuf::from(&cache_dir).join("invalid-prop_gp.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = client.get_tles_as_propagators("invalid-prop", 60.0);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("No valid propagators"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+
+        // Cleanup
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    // =========================================================================
+    // Additional Coverage Tests - get_tle_by_id error paths
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_id_http_error_with_fallback_also_fails_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // First call (CATNR) returns HTTP error
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("CATNR=99999"))
+            .times(1)
+            .returning(|_| Err(BraheError::Error("Network error".to_string())));
+
+        // Second call (GROUP) returns empty data (not found)
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=stations"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data())); // Contains ISS (25544), not 99999
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("tle_99999.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("stations_gp.txt"));
+
+        let result = client.get_tle_by_id(99999, Some("stations"));
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("not found in group"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_id_http_error_no_group_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // HTTP error without group fallback
+        mock_client
+            .expect_get_string()
+            .times(1)
+            .returning(|_| Err(BraheError::Error("Connection refused".to_string())));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear cache
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("tle_88888.txt"));
+
+        let result = client.get_tle_by_id(88888, None);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to download TLE for NORAD ID"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_id_empty_after_parse_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Return data that parses but results in empty TLE list
+        // Using incomplete 3LE (missing line2)
+        let incomplete_tle = "INCOMPLETE SAT\n\
+            1 12345U 98067A   21001.50000000  .00001764  00000-0  40967-4 0  9997"
+            .to_string();
+
+        mock_client
+            .expect_get_string()
+            .times(1)
+            .returning(move |_| Ok(incomplete_tle.clone()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear cache
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let cache_path = PathBuf::from(&cache_dir).join("tle_12345.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = client.get_tle_by_id(12345, None);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(
+                    msg.contains("No TLE found in response")
+                        || msg.contains("No valid 3LE entries")
+                );
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+
+        // Cleanup
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_id_from_group_not_found_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // CATNR returns empty, triggers fallback
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("CATNR=77777"))
+            .times(1)
+            .returning(|_| Ok(String::new()));
+
+        // Group search returns data but NORAD ID not in it
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=test-group"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data())); // Contains 25544 and 44713
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("tle_77777.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("test-group_gp.txt"));
+
+        let result = client.get_tle_by_id(77777, Some("test-group"));
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("not found in group"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    // =========================================================================
+    // Additional Coverage Tests - get_tle_by_name error paths
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_not_in_specified_group_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Search in specified group - not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=test-group"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data())); // Contains ISS and STARLINK-1007
+
+        // Search in "active" - also not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=active"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data()));
+
+        // NAME API - not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("NAME=NONEXISTENT"))
+            .times(1)
+            .returning(|_| Ok(String::new()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("test-group_gp.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("active_gp.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("name_NONEXISTENT.txt"));
+
+        let result = client.get_tle_by_name("NONEXISTENT", Some("test-group"));
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("No TLE data found for satellite name"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_found_in_specified_group_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Search in specified group - found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=stations"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear cache
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let cache_path = PathBuf::from(&cache_dir).join("stations_gp.txt");
+        let _ = fs::remove_file(&cache_path);
+
+        let result = client.get_tle_by_name("ISS", Some("stations"));
+        assert!(result.is_ok());
+
+        let (name, _, _) = result.unwrap();
+        assert!(name.contains("ISS"));
+
+        // Cleanup
+        let _ = fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_via_name_api_success_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Search in "active" group - not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=active"))
+            .times(1)
+            .returning(|_| {
+                Ok("OTHER SAT\n\
+                    1 99999U 99001A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
+                    2 99999  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+                    .to_string())
+            });
+
+        // NAME API returns the target satellite
+        let target_tle = "TARGET SAT\n\
+            1 11111U 11001A   21001.50000000  .00001764  00000-0  40967-4 0  9997\n\
+            2 11111  51.6461 306.0234 0003417  88.1267  25.5695 15.48919103000003"
+            .to_string();
+
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("NAME=TARGET"))
+            .times(1)
+            .returning(move |_| Ok(target_tle.clone()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("active_gp.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("name_TARGET.txt"));
+
+        let result = client.get_tle_by_name("TARGET", None);
+        assert!(result.is_ok());
+
+        let (name, line1, _) = result.unwrap();
+        assert!(name.contains("TARGET"));
+        assert!(line1.contains("11111"));
+
+        // Cleanup
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("name_TARGET.txt"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_name_api_empty_response_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Search in "active" group - not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=active"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data()));
+
+        // NAME API returns empty
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("NAME=UNKNOWN"))
+            .times(1)
+            .returning(|_| Ok(String::new()));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("active_gp.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("name_UNKNOWN.txt"));
+
+        let result = client.get_tle_by_name("UNKNOWN", None);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("No TLE data found for satellite name"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_name_api_http_error_mocked() {
+        let mut mock_client = MockHttpClient::new();
+
+        // Search in "active" group - not found
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("GROUP=active"))
+            .times(1)
+            .returning(|_| Ok(get_test_3le_data()));
+
+        // NAME API returns HTTP error
+        mock_client
+            .expect_get_string()
+            .withf(|url: &str| url.contains("NAME=ERRORSAT"))
+            .times(1)
+            .returning(|_| Err(BraheError::Error("Connection timeout".to_string())));
+
+        let client = CelestrakClient::new(mock_client);
+
+        // Clear caches
+        let cache_dir = get_celestrak_cache_dir().unwrap();
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("active_gp.txt"));
+        let _ = fs::remove_file(PathBuf::from(&cache_dir).join("name_ERRORSAT.txt"));
+
+        let result = client.get_tle_by_name("ERRORSAT", None);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            BraheError::Error(msg) => {
+                assert!(msg.contains("Failed to download TLE for satellite name"));
+            }
+            _ => panic!("Expected BraheError::Error"),
+        }
+    }
+
+    // =========================================================================
     // Validation and Serialization Tests
     // =========================================================================
 

@@ -325,7 +325,7 @@ def test_caching_provider_mjd_last_lod(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=10 * 365 * 86400,  # 10 years - prevent download
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",
@@ -346,7 +346,7 @@ def test_caching_provider_mjd_last_dxdy(iau2000_standard_filepath):
 
         provider = brahe.CachingEOPProvider(
             eop_type="StandardBulletinA",
-            max_age_seconds=365 * 86400,
+            max_age_seconds=10 * 365 * 86400,  # 10 years - prevent download
             auto_refresh=False,
             interpolate=True,
             extrapolate="Hold",

@@ -635,7 +635,7 @@ mod tests {
         let provider = CachingEOPProvider::new(
             Some(&dest_path),
             EOPType::StandardBulletinA,
-            365 * 86400,
+            100 * 365 * 86400, // 100 years - prevent download
             false,
             true,
             EOPExtrapolation::Hold,
@@ -787,7 +787,7 @@ mod tests {
         let provider = CachingEOPProvider::new(
             Some(&dest_path),
             EOPType::StandardBulletinA,
-            365 * 86400,
+            100 * 365 * 86400, // 100 years - prevent download
             false,
             true,
             EOPExtrapolation::Hold,
@@ -795,7 +795,7 @@ mod tests {
         .unwrap();
 
         let mjd_last_lod = provider.mjd_last_lod();
-        assert_eq!(mjd_last_lod, 60991.0);
+        assert_eq!(mjd_last_lod, 60298.0);
     }
 
     #[test]
@@ -812,7 +812,7 @@ mod tests {
         let provider = CachingEOPProvider::new(
             Some(&dest_path),
             EOPType::StandardBulletinA,
-            365 * 86400,
+            100 * 365 * 86400, // 100 years - prevent download
             false,
             true,
             EOPExtrapolation::Hold,
@@ -820,7 +820,7 @@ mod tests {
         .unwrap();
 
         let mjd_last_dxdy = provider.mjd_last_dxdy();
-        assert_eq!(mjd_last_dxdy, 61062.0);
+        assert_eq!(mjd_last_dxdy, 60373.0);
     }
 
     #[test]

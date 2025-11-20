@@ -61,6 +61,7 @@ def test_unsupported_kernel():
         bh.datasets.naif.download_de_kernel("de999")
 
 
+@pytest.mark.ci
 def test_supported_kernels():
     """Test that all documented supported kernels are valid."""
     # Test a subset of supported kernels (not all to save bandwidth)

@@ -185,6 +185,62 @@ def test_caching_behavior():
     assert line2_1 == line2_2
 
 
+@pytest.mark.ci
+def test_get_tle_by_name():
+    """Test get_tle_by_name for ISS."""
+    name, line1, line2 = bh.datasets.celestrak.get_tle_by_name("ISS")
+
+    assert isinstance(name, str)
+    assert "ISS" in name.upper()
+    assert line1.startswith("1 ")
+    assert line2.startswith("2 ")
+    assert len(line1) == 69
+    assert len(line2) == 69
+
+
+@pytest.mark.ci
+def test_get_tle_by_name_with_group():
+    """Test get_tle_by_name with group hint for ISS."""
+    name, line1, line2 = bh.datasets.celestrak.get_tle_by_name("ISS", group="stations")
+
+    assert isinstance(name, str)
+    assert "ISS" in name.upper()
+    assert line1.startswith("1 25544")  # ISS NORAD ID
+    assert line2.startswith("2 25544")
+
+
+@pytest.mark.ci
+def test_get_tle_by_name_as_propagator():
+    """Test get_tle_by_name_as_propagator for ISS."""
+    propagator = bh.datasets.celestrak.get_tle_by_name_as_propagator("ISS", 60.0)
+
+    assert hasattr(propagator, "propagate_to")
+    assert hasattr(propagator, "current_state")
+
+    # Try propagating to a recent epoch
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    propagator.propagate_to(epoch)
+    state = propagator.current_state()
+
+    assert len(state) == 6
+    # Basic sanity check - ISS orbit is roughly 400km altitude
+    import numpy as np
+
+    r = np.sqrt(state[0] ** 2 + state[1] ** 2 + state[2] ** 2)
+    assert bh.R_EARTH + 300e3 < r < bh.R_EARTH + 500e3
+
+
+@pytest.mark.ci
+def test_get_tle_by_name_as_propagator_with_group():
+    """Test get_tle_by_name_as_propagator with group hint."""
+    propagator = bh.datasets.celestrak.get_tle_by_name_as_propagator(
+        "ISS", 60.0, group="stations"
+    )
+
+    assert hasattr(propagator, "propagate_to")
+    assert hasattr(propagator, "current_state")
+
+
 def test_download_tles_invalid_content_format():
     """Test download_tles with invalid content format."""
     with tempfile.TemporaryDirectory() as tmpdir:

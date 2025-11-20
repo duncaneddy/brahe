@@ -2799,6 +2799,582 @@ mod tests {
     }
 
     #[test]
+    fn test_epoch_add_assign_f32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1.0_f32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_u8() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_u8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_u16() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_u16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_u32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_u32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_u64() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_u64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_i8() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_i8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_i16() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_i16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_i32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_i32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_assign_i64() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc += 1_i64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_f32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1.0_f32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_u8() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_u8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_u16() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_u16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_u32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_u32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_u64() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_u64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_i8() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_i8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_i16() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_i16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_i32() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_i32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_assign_i64() {
+        setup_global_test_eop();
+
+        let mut epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        epc -= 1_i64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_f32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1.0_f32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_u8() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_u8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_u16() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_u16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_u32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_u32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_u64() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_u64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_i8() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_i8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_i16() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_i16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_i32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_i32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_add_i64() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc + 1_i64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 31);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 1.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_f32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1.0_f32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_u8() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_u8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_u16() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_u16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_u32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_u32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_u64() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_u64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_i8() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_i8;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_i16() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_i16;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_i32() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_i32;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
+    fn test_epoch_sub_i64() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_date(2022, 1, 31, TimeSystem::TAI);
+        let epc_2: Epoch = epc - 1_i64;
+        let (year, month, day, hour, minute, second, nanosecond) = epc_2.to_datetime();
+        assert_eq!(year, 2022);
+        assert_eq!(month, 1);
+        assert_eq!(day, 30);
+        assert_eq!(hour, 23);
+        assert_eq!(minute, 59);
+        assert_eq!(second, 59.0);
+        assert_eq!(nanosecond, 0.0);
+    }
+
+    #[test]
     fn test_eq_epoch() {
         setup_global_test_eop();
 

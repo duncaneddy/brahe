@@ -1,4 +1,8 @@
-# Contributor Covenant 3.0 Code of Conduct
+# Code of Conduct
+
+!!! note
+    This Code of Conduct is adapted from the [Contributor Covenant, version 3.0](https://www.contributor-covenant.org/version/3/0/).
+
 
 ## Our Pledge
 

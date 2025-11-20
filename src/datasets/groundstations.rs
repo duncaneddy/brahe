@@ -128,6 +128,11 @@ pub fn load_groundstations_from_file(filepath: &str) -> Result<Vec<PointLocation
 pub fn load_all_groundstations() -> Result<Vec<PointLocation>, BraheError> {
     let mut all_stations = Vec::new();
 
+    debug_assert!(
+        !AVAILABLE_PROVIDERS.is_empty(),
+        "No available groundstation providers"
+    );
+
     for provider in AVAILABLE_PROVIDERS {
         match load_groundstations(provider) {
             Ok(mut stations) => all_stations.append(&mut stations),
@@ -135,12 +140,6 @@ pub fn load_all_groundstations() -> Result<Vec<PointLocation>, BraheError> {
                 eprintln!("Warning: Failed to load {} groundstations: {}", provider, e);
             }
         }
-    }
-
-    if all_stations.is_empty() {
-        return Err(BraheError::Error(
-            "Failed to load any groundstations".to_string(),
-        ));
     }
 
     Ok(all_stations)
@@ -168,6 +167,8 @@ mod tests {
     use super::*;
     use crate::access::location::AccessibleLocation;
     use crate::utils::identifiable::Identifiable;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_load_ksat_groundstations() {
@@ -362,5 +363,296 @@ mod tests {
                 assert!(freq_bands.is_array(), "Frequency bands should be an array");
             }
         }
+    }
+
+    // load_groundstations_from_file tests
+
+    #[test]
+    fn test_load_groundstations_from_file_valid() {
+        // Create a temporary file with valid GeoJSON
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-118.15, 35.05]
+                    },
+                    "properties": {
+                        "name": "Test Station 1",
+                        "provider": "Test Provider",
+                        "frequency_bands": ["S", "X"]
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [144.82, 13.51]
+                    },
+                    "properties": {
+                        "name": "Test Station 2",
+                        "provider": "Test Provider",
+                        "frequency_bands": ["S"]
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        // Test loading from file
+        let stations = load_groundstations_from_file(temp_path).unwrap();
+
+        // Verify we got 2 stations
+        assert_eq!(stations.len(), 2);
+
+        // Verify first station
+        assert_eq!(stations[0].get_name().unwrap(), "Test Station 1");
+        assert_eq!(stations[0].lon(), -118.15);
+        assert_eq!(stations[0].lat(), 35.05);
+
+        // Verify second station
+        assert_eq!(stations[1].get_name().unwrap(), "Test Station 2");
+        assert_eq!(stations[1].lon(), 144.82);
+        assert_eq!(stations[1].lat(), 13.51);
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_single_station() {
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [10.5, 52.3]
+                    },
+                    "properties": {
+                        "name": "Single Station",
+                        "provider": "Test",
+                        "frequency_bands": ["UHF"]
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let stations = load_groundstations_from_file(temp_path).unwrap();
+
+        assert_eq!(stations.len(), 1);
+        assert_eq!(stations[0].get_name().unwrap(), "Single Station");
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_with_properties() {
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [139.69, 35.68]
+                    },
+                    "properties": {
+                        "name": "Tokyo Station",
+                        "provider": "Custom Provider",
+                        "frequency_bands": ["S", "X", "Ka"],
+                        "elevation": 40,
+                        "antenna_size": 11
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let stations = load_groundstations_from_file(temp_path).unwrap();
+
+        assert_eq!(stations.len(), 1);
+
+        // Check properties are preserved
+        let props = stations[0].properties();
+        assert_eq!(props["provider"].as_str().unwrap(), "Custom Provider");
+        assert_eq!(props["elevation"].as_i64().unwrap(), 40);
+        assert_eq!(props["antenna_size"].as_i64().unwrap(), 11);
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_nonexistent() {
+        let result = load_groundstations_from_file("/nonexistent/path/file.json");
+        assert!(result.is_err(), "Should error when file does not exist");
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_invalid_json() {
+        let invalid_json = "{ this is not valid JSON }";
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", invalid_json).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_groundstations_from_file(temp_path);
+        assert!(result.is_err(), "Should error on invalid JSON");
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_invalid_geojson() {
+        // Valid JSON but not valid GeoJSON FeatureCollection
+        let invalid_geojson = r#"{
+            "type": "NotAFeatureCollection",
+            "data": []
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", invalid_geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_groundstations_from_file(temp_path);
+        assert!(result.is_err(), "Should error on invalid GeoJSON structure");
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_empty_features() {
+        let empty_geojson = r#"{
+            "type": "FeatureCollection",
+            "features": []
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", empty_geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_groundstations_from_file(temp_path);
+        assert!(
+            result.is_err(),
+            "Should error when FeatureCollection is empty"
+        );
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_missing_coordinates() {
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point"
+                    },
+                    "properties": {
+                        "name": "Bad Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let result = load_groundstations_from_file(temp_path);
+        assert!(result.is_err(), "Should error when coordinates are missing");
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid geodetic coordinates")]
+    fn test_load_groundstations_from_file_invalid_coordinates() {
+        // Coordinates outside valid range - latitude > 90
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [200.0, 100.0]
+                    },
+                    "properties": {
+                        "name": "Invalid Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        // PointLocation validates coordinates and panics on out-of-range values
+        let _ = load_groundstations_from_file(temp_path);
+    }
+
+    #[test]
+    fn test_load_groundstations_from_file_mixed_valid_invalid() {
+        // Mix of valid and potentially problematic features
+        let geojson = r#"{
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [0.0, 0.0]
+                    },
+                    "properties": {
+                        "name": "Origin Station"
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-180.0, -90.0]
+                    },
+                    "properties": {
+                        "name": "South Pole Station"
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [180.0, 90.0]
+                    },
+                    "properties": {
+                        "name": "North Pole Station"
+                    }
+                }
+            ]
+        }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", geojson).unwrap();
+        temp_file.flush().unwrap();
+        let temp_path = temp_file.path().to_str().unwrap();
+
+        let stations = load_groundstations_from_file(temp_path).unwrap();
+
+        assert_eq!(stations.len(), 3);
+        assert_eq!(stations[0].lon(), 0.0);
+        assert_eq!(stations[0].lat(), 0.0);
+        assert_eq!(stations[1].lon(), -180.0);
+        assert_eq!(stations[1].lat(), -90.0);
+        assert_eq!(stations[2].lon(), 180.0);
+        assert_eq!(stations[2].lat(), 90.0);
     }
 }

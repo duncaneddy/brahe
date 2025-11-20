@@ -4902,4 +4902,327 @@ mod tests {
             || (0..6).any(|i| (0..6).any(|j| i != j && cov_rtn[(i, j)].abs() > 1e-6));
         assert!(differs_from_identity);
     }
+
+    // =========================================================================
+    // Additional Coverage Tests
+    // =========================================================================
+
+    #[test]
+    fn test_orbittrajectory_display() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let display = format!("{}", traj);
+        assert_eq!(
+            display,
+            "OrbitTrajectory(frame=ECI, representation=Cartesian, states=0)"
+        );
+
+        // Add some states and check display changes
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = traj;
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t0 + 60.0, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let display = format!("{}", traj);
+        assert_eq!(
+            display,
+            "OrbitTrajectory(frame=ECI, representation=Cartesian, states=2)"
+        );
+    }
+
+    #[test]
+    fn test_orbittrajectory_with_interpolation_method() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_interpolation_method(InterpolationMethod::Linear);
+
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_orbittrajectory_with_eviction_policy_max_size() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_size(10);
+
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepCount
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum size must be >= 1")]
+    fn test_orbittrajectory_with_eviction_policy_max_size_zero_panics() {
+        let _ = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_size(0);
+    }
+
+    #[test]
+    fn test_orbittrajectory_with_eviction_policy_max_age() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(3600.0);
+
+        assert_eq!(
+            traj.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum age must be > 0.0")]
+    fn test_orbittrajectory_with_eviction_policy_max_age_zero_panics() {
+        let _ = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum age must be > 0.0")]
+    fn test_orbittrajectory_with_eviction_policy_max_age_negative_panics() {
+        let _ = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(-100.0);
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_state_and_covariance_insert_before() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 120.0; // Second epoch at +120s
+        let t_middle = t0 + 60.0; // Middle epoch at +60s
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7200e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state_middle = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+        let cov_middle = SMatrix::<f64, 6, 6>::identity() * 150.0;
+
+        let mut traj = OrbitTrajectory::from_orbital_data(
+            vec![t0, t1],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        );
+
+        // Insert state in the middle (before t1)
+        traj.add_state_and_covariance(t_middle, state_middle, cov_middle);
+
+        assert_eq!(traj.len(), 3);
+
+        // Verify order is correct
+        let (epoch0, _) = traj.get(0).unwrap();
+        let (epoch1, state1_ret) = traj.get(1).unwrap();
+        let (epoch2, _) = traj.get(2).unwrap();
+
+        assert_eq!(epoch0, t0);
+        assert_eq!(epoch1, t_middle);
+        assert_eq!(epoch2, t1);
+
+        // Verify middle state is correct
+        assert_abs_diff_eq!(state1_ret[0], 7100e3, epsilon = 1.0);
+
+        // Verify middle covariance is correct
+        let cov_ret = traj.covariance(t_middle).unwrap();
+        assert_abs_diff_eq!(cov_ret[(0, 0)], 150.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_state_and_covariance_replace_equal_epoch() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let cov1 = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        let mut traj = OrbitTrajectory::from_orbital_data(
+            vec![t0, t1],
+            vec![state1, state2],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        );
+
+        // Replace state at t0 with new values
+        let new_state = Vector6::new(8000e3, 0.0, 0.0, 0.0, 8.0e3, 0.0);
+        let new_cov = SMatrix::<f64, 6, 6>::identity() * 500.0;
+        traj.add_state_and_covariance(t0, new_state, new_cov);
+
+        // Length should remain the same
+        assert_eq!(traj.len(), 2);
+
+        // Verify state was replaced
+        let (_, state_ret) = traj.get(0).unwrap();
+        assert_abs_diff_eq!(state_ret[0], 8000e3, epsilon = 1.0);
+
+        // Verify covariance was replaced
+        let cov_ret = traj.covariance(t0).unwrap();
+        assert_abs_diff_eq!(cov_ret[(0, 0)], 500.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_orbittrajectory_from_data_trait() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let epochs = vec![t0, t1];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+        ];
+
+        let traj = <OrbitTrajectory as Trajectory>::from_data(epochs, states).unwrap();
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_orbittrajectory_from_data_length_mismatch() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epochs = vec![t0];
+        let states = vec![
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+        ];
+
+        let result = <OrbitTrajectory as Trajectory>::from_data(epochs, states);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_from_data_empty() {
+        let epochs: Vec<Epoch> = vec![];
+        let states: Vec<Vector6<f64>> = vec![];
+
+        let result = <OrbitTrajectory as Trajectory>::from_data(epochs, states);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_nearest_state_empty_trajectory() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let result = traj.nearest_state(&t0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_with_uuid() {
+        let uuid = Uuid::new_v4();
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_uuid(uuid);
+
+        assert_eq!(traj.get_uuid(), Some(uuid));
+    }
+
+    #[test]
+    fn test_orbittrajectory_get_eviction_policy_default() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+    }
+
+    #[test]
+    fn test_orbittrajectory_timespan_empty() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.timespan().is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_timespan_single_state() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        assert!(traj.timespan().is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_first_empty() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.first().is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_last_empty() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.last().is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_remove_epoch_not_found() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t_not_in = t0 + 30.0;
+
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let result = traj.remove_epoch(&t_not_in);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_remove_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let result = traj.remove(10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_get_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let result = traj.get(10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_index_before_epoch_empty() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let result = traj.index_before_epoch(&t0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_index_before_epoch_before_all_states() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t_before = t0 - 60.0;
+
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let result = traj.index_before_epoch(&t_before);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_index_after_epoch_empty() {
+        let traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let result = traj.index_after_epoch(&t0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_index_after_epoch_after_all_states() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t_after = t0 + 60.0;
+
+        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let result = traj.index_after_epoch(&t_after);
+        assert!(result.is_err());
+    }
 }

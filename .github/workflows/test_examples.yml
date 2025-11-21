@@ -9,7 +9,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: nightly
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Rust toolchain with cache
         uses: actions-rust-lang/setup-rust-toolchain@v1

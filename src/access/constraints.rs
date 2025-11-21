@@ -1886,4 +1886,389 @@ mod tests {
         assert!(display_or.contains("&&"));
         assert!(display_or.contains("(")); // Parens around AND when nested in OR
     }
+
+    #[test]
+    fn test_elevation_constraint_display() {
+        // Min-only constraint
+        let constraint_min = ElevationConstraint::new(Some(10.0), None).unwrap();
+        let display_min = format!("{}", constraint_min);
+        assert_eq!(display_min, "ElevationConstraint(>= 10.00°)");
+
+        // Max-only constraint
+        let constraint_max = ElevationConstraint::new(None, Some(80.0)).unwrap();
+        let display_max = format!("{}", constraint_max);
+        assert_eq!(display_max, "ElevationConstraint(<= 80.00°)");
+
+        // Both min and max
+        let constraint_both = ElevationConstraint::new(Some(5.0), Some(75.5)).unwrap();
+        let display_both = format!("{}", constraint_both);
+        assert_eq!(display_both, "ElevationConstraint(5.00° - 75.50°)");
+    }
+
+    #[test]
+    fn test_elevation_mask_constraint_display() {
+        let mask = vec![(0.0, 10.0), (90.0, 5.0), (180.0, 15.0), (270.0, 8.0)];
+        let constraint = ElevationMaskConstraint::new(mask);
+        let display = format!("{}", constraint);
+
+        // Should show the range from min to max elevation in the mask
+        assert!(display.starts_with("ElevationMaskConstraint"));
+        assert!(display.contains("5.00°")); // Min elevation in mask
+        assert!(display.contains("15.00°")); // Max elevation in mask
+    }
+
+    #[test]
+    fn test_off_nadir_constraint_display() {
+        // Min-only constraint
+        let constraint_min = OffNadirConstraint::new(Some(10.0), None).unwrap();
+        let display_min = format!("{}", constraint_min);
+        assert_eq!(display_min, "OffNadirConstraint(>= 10.0°)");
+
+        // Max-only constraint
+        let constraint_max = OffNadirConstraint::new(None, Some(30.0)).unwrap();
+        let display_max = format!("{}", constraint_max);
+        assert_eq!(display_max, "OffNadirConstraint(<= 30.0°)");
+
+        // Both min and max
+        let constraint_both = OffNadirConstraint::new(Some(5.0), Some(45.0)).unwrap();
+        let display_both = format!("{}", constraint_both);
+        assert_eq!(display_both, "OffNadirConstraint(5.0° - 45.0°)");
+    }
+
+    #[test]
+    fn test_local_time_constraint_display() {
+        // Single window
+        let constraint_single = LocalTimeConstraint::new(vec![(800, 1800)]).unwrap();
+        let display_single = format!("{}", constraint_single);
+        assert_eq!(display_single, "LocalTimeConstraint(08:00-18:00)");
+
+        // Multiple windows
+        let constraint_multi = LocalTimeConstraint::new(vec![(600, 900), (1700, 2000)]).unwrap();
+        let display_multi = format!("{}", constraint_multi);
+        assert_eq!(
+            display_multi,
+            "LocalTimeConstraint(06:00-09:00, 17:00-20:00)"
+        );
+
+        // Wrap-around window (splits into two windows: 22:00-24:00 and 00:00-02:00)
+        let constraint_wrap = LocalTimeConstraint::new(vec![(2200, 200)]).unwrap();
+        let display_wrap = format!("{}", constraint_wrap);
+        assert_eq!(
+            display_wrap,
+            "LocalTimeConstraint(22:00-24:00, 00:00-02:00)"
+        );
+    }
+
+    #[test]
+    fn test_look_direction_constraint_display() {
+        let constraint_left = LookDirectionConstraint::new(LookDirection::Left);
+        assert_eq!(
+            format!("{}", constraint_left),
+            "LookDirectionConstraint(Left)"
+        );
+
+        let constraint_right = LookDirectionConstraint::new(LookDirection::Right);
+        assert_eq!(
+            format!("{}", constraint_right),
+            "LookDirectionConstraint(Right)"
+        );
+
+        let constraint_either = LookDirectionConstraint::new(LookDirection::Either);
+        assert_eq!(
+            format!("{}", constraint_either),
+            "LookDirectionConstraint(Either)"
+        );
+    }
+
+    #[test]
+    fn test_asc_dsc_constraint_display() {
+        let constraint_asc = AscDscConstraint::new(AscDsc::Ascending);
+        assert_eq!(format!("{}", constraint_asc), "AscDscConstraint(Ascending)");
+
+        let constraint_dsc = AscDscConstraint::new(AscDsc::Descending);
+        assert_eq!(
+            format!("{}", constraint_dsc),
+            "AscDscConstraint(Descending)"
+        );
+
+        let constraint_either = AscDscConstraint::new(AscDsc::Either);
+        assert_eq!(format!("{}", constraint_either), "AscDscConstraint(Either)");
+    }
+
+    #[test]
+    fn test_look_direction_enum_display() {
+        assert_eq!(format!("{}", LookDirection::Left), "Left");
+        assert_eq!(format!("{}", LookDirection::Right), "Right");
+        assert_eq!(format!("{}", LookDirection::Either), "Either");
+    }
+
+    #[test]
+    fn test_asc_dsc_enum_display() {
+        assert_eq!(format!("{}", AscDsc::Ascending), "Ascending");
+        assert_eq!(format!("{}", AscDsc::Descending), "Descending");
+        assert_eq!(format!("{}", AscDsc::Either), "Either");
+    }
+
+    #[test]
+    fn test_local_time_constraint_wrap_around_evaluation() {
+        setup_global_test_eop();
+
+        // Wrap-around window: 22:00 to 02:00 (night time)
+        let constraint = LocalTimeConstraint::new(vec![(2200, 200)]).unwrap();
+
+        let location = Vector3::new(0.0, 0.0, 0.0); // 0° longitude
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+        let sat_state = Vector6::zeros();
+
+        // 23:00 UTC = 23:00 local (inside window)
+        let epoch_2300 = Epoch::from_datetime(2024, 1, 1, 23, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(
+            constraint.evaluate(&epoch_2300, &sat_state, &location_ecef),
+            "23:00 should be inside 22:00-02:00 window"
+        );
+
+        // 01:00 UTC = 01:00 local (inside window)
+        let epoch_0100 = Epoch::from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(
+            constraint.evaluate(&epoch_0100, &sat_state, &location_ecef),
+            "01:00 should be inside 22:00-02:00 window"
+        );
+
+        // 12:00 UTC = 12:00 local (outside window)
+        let epoch_1200 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(
+            !constraint.evaluate(&epoch_1200, &sat_state, &location_ecef),
+            "12:00 should be outside 22:00-02:00 window"
+        );
+
+        // 03:00 UTC = 03:00 local (outside window - just after wrap)
+        let epoch_0300 = Epoch::from_datetime(2024, 1, 1, 3, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(
+            !constraint.evaluate(&epoch_0300, &sat_state, &location_ecef),
+            "03:00 should be outside 22:00-02:00 window"
+        );
+    }
+
+    #[test]
+    fn test_local_time_constraint_multiple_windows_evaluation() {
+        setup_global_test_eop();
+
+        // Multiple windows: 06:00-09:00 and 17:00-20:00
+        let constraint = LocalTimeConstraint::new(vec![(600, 900), (1700, 2000)]).unwrap();
+
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+        let sat_state = Vector6::zeros();
+
+        // 07:00 UTC = 07:00 local (inside first window)
+        let epoch_0700 = Epoch::from_datetime(2024, 1, 1, 7, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(constraint.evaluate(&epoch_0700, &sat_state, &location_ecef));
+
+        // 18:00 UTC = 18:00 local (inside second window)
+        let epoch_1800 = Epoch::from_datetime(2024, 1, 1, 18, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(constraint.evaluate(&epoch_1800, &sat_state, &location_ecef));
+
+        // 12:00 UTC = 12:00 local (between windows - outside)
+        let epoch_1200 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(!constraint.evaluate(&epoch_1200, &sat_state, &location_ecef));
+
+        // 21:00 UTC = 21:00 local (after both windows - outside)
+        let epoch_2100 = Epoch::from_datetime(2024, 1, 1, 21, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(!constraint.evaluate(&epoch_2100, &sat_state, &location_ecef));
+    }
+
+    #[test]
+    fn test_local_time_constraint_boundary_cases() {
+        setup_global_test_eop();
+
+        // Test at exact boundaries
+        let constraint = LocalTimeConstraint::new(vec![(600, 1800)]).unwrap();
+
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+        let sat_state = Vector6::zeros();
+
+        // 06:00 UTC = 06:00 local (start boundary - should be inside)
+        let epoch_0600 = Epoch::from_datetime(2024, 1, 1, 6, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(constraint.evaluate(&epoch_0600, &sat_state, &location_ecef));
+
+        // 18:00 UTC = 18:00 local (end boundary - should be inside)
+        let epoch_1800 = Epoch::from_datetime(2024, 1, 1, 18, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(constraint.evaluate(&epoch_1800, &sat_state, &location_ecef));
+
+        // 05:59 UTC = just before start (outside)
+        let epoch_0559 = Epoch::from_datetime(2024, 1, 1, 5, 59, 0.0, 0.0, TimeSystem::UTC);
+        assert!(!constraint.evaluate(&epoch_0559, &sat_state, &location_ecef));
+    }
+
+    #[test]
+    fn test_off_nadir_constraint_evaluate_min_only() {
+        setup_global_test_eop();
+
+        // Min-only constraint: off-nadir >= 20°
+        let constraint = OffNadirConstraint::new(Some(20.0), None).unwrap();
+
+        // Create test geometry
+        let location = Vector3::new(0.0, 0.0, 0.0); // lat, lon, alt in degrees/meters
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+
+        // Test various satellite positions
+        // Satellite at 500 km, equatorial orbit
+        let sat_oe = Vector6::new(
+            R_EARTH + 500e3, // a
+            0.0,             // e
+            0.0,             // i
+            0.0,             // RAAN
+            0.0,             // argp
+            0.0,             // M
+        );
+        let sat_state = test_sat_ecef_from_oe(sat_oe);
+
+        // Evaluate constraint - should not panic
+        // (exact result depends on geometry, but evaluation should work)
+        let _result = constraint.evaluate(&test_epoch(), &sat_state, &location_ecef);
+
+        // Test with different geometry
+        let sat_oe_angled = Vector6::new(
+            R_EARTH + 500e3, // a
+            0.0,             // e
+            45.0,            // i (inclined orbit)
+            45.0,            // RAAN
+            0.0,             // argp
+            0.0,             // M
+        );
+        let sat_state_angled = test_sat_ecef_from_oe(sat_oe_angled);
+        let _result_angled = constraint.evaluate(&test_epoch(), &sat_state_angled, &location_ecef);
+
+        // Both evaluations should complete without panicking
+    }
+
+    #[test]
+    fn test_off_nadir_constraint_evaluate_both_bounds() {
+        setup_global_test_eop();
+
+        // Both bounds: 10° <= off-nadir <= 30°
+        let constraint = OffNadirConstraint::new(Some(10.0), Some(30.0)).unwrap();
+
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+
+        // Test with various satellite positions
+        let sat_oe = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let sat_state = test_sat_ecef_from_oe(sat_oe);
+
+        // Evaluate constraint - should not panic
+        let _result = constraint.evaluate(&test_epoch(), &sat_state, &location_ecef);
+
+        // Test with another position
+        let sat_oe2 = Vector6::new(R_EARTH + 500e3, 0.0, 45.0, 90.0, 0.0, 45.0);
+        let sat_state2 = test_sat_ecef_from_oe(sat_oe2);
+        let _result2 = constraint.evaluate(&test_epoch(), &sat_state2, &location_ecef);
+    }
+
+    #[test]
+    fn test_elevation_mask_constraint_evaluate_interpolation() {
+        setup_global_test_eop();
+
+        // Create mask with varying elevations by azimuth
+        // North (0°): 15°, East (90°): 5°, South (180°): 10°, West (270°): 5°
+        let mask = vec![(0.0, 15.0), (90.0, 5.0), (180.0, 10.0), (270.0, 5.0)];
+        let constraint = ElevationMaskConstraint::new(mask);
+
+        let location = Vector3::new(0.0, 45.0, 0.0); // lon, lat, alt
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+
+        // Create satellite at different look angles to test interpolation
+        // This is a simplified test - in practice, we'd need precise geometry
+
+        // Test with a satellite that should satisfy the constraint
+        let sat_oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0);
+        let sat_state = test_sat_ecef_from_oe(sat_oe);
+
+        // Evaluate constraint (exact result depends on geometry, but should not panic)
+        let _result = constraint.evaluate(&test_epoch(), &sat_state, &location_ecef);
+        // Can't assert specific result without precise az/el calculation
+    }
+
+    #[test]
+    fn test_elevation_mask_constraint_evaluate_azimuth_wrap() {
+        setup_global_test_eop();
+
+        // Create mask that wraps around 0°/360°
+        // Test interpolation near the wrap point
+        let mask = vec![
+            (0.0, 10.0),
+            (90.0, 5.0),
+            (180.0, 5.0),
+            (270.0, 5.0),
+            (350.0, 12.0), // Close to 360° wrap
+        ];
+        let constraint = ElevationMaskConstraint::new(mask);
+
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+
+        // Test with satellite geometry
+        let sat_oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0);
+        let sat_state = test_sat_ecef_from_oe(sat_oe);
+
+        // Evaluate - should handle wrap-around correctly
+        let _result = constraint.evaluate(&test_epoch(), &sat_state, &location_ecef);
+        // Should not panic due to wrap-around
+    }
+
+    #[test]
+    fn test_access_constraint_computer_wrapper_new_and_evaluate() {
+        setup_global_test_eop();
+
+        // Create a simple test constraint computer
+        struct TestConstraintComputer {
+            threshold: f64,
+        }
+
+        impl AccessConstraintComputer for TestConstraintComputer {
+            fn evaluate(
+                &self,
+                _epoch: &Epoch,
+                sat_state_ecef: &Vector6<f64>,
+                _location_ecef: &Vector3<f64>,
+            ) -> bool {
+                // Simple test: check if satellite altitude is above threshold
+                let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
+                let altitude = sat_pos.norm() - R_EARTH;
+                altitude > self.threshold
+            }
+
+            fn name(&self) -> &str {
+                "TestConstraintComputer"
+            }
+        }
+
+        // Create wrapper using new()
+        let computer = TestConstraintComputer { threshold: 400e3 }; // 400 km threshold
+        let wrapper = AccessConstraintComputerWrapper::new(computer);
+
+        // Test evaluate method
+        let location = Vector3::new(0.0, 0.0, 0.0);
+        let location_ecef = position_geodetic_to_ecef(location, AngleFormat::Degrees).unwrap();
+
+        // Satellite at 500 km (should satisfy: 500 km > 400 km)
+        let sat_oe_high = Vector6::new(R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0);
+        let sat_state_high = test_sat_ecef_from_oe(sat_oe_high);
+        assert!(
+            wrapper.evaluate(&test_epoch(), &sat_state_high, &location_ecef),
+            "Satellite at 500 km should satisfy altitude > 400 km constraint"
+        );
+
+        // Satellite at 300 km (should not satisfy: 300 km < 400 km)
+        let sat_oe_low = Vector6::new(R_EARTH + 300e3, 0.0, 45.0, 0.0, 0.0, 0.0);
+        let sat_state_low = test_sat_ecef_from_oe(sat_oe_low);
+        assert!(
+            !wrapper.evaluate(&test_epoch(), &sat_state_low, &location_ecef),
+            "Satellite at 300 km should not satisfy altitude > 400 km constraint"
+        );
+
+        // Test name() method
+        assert_eq!(wrapper.name(), "TestConstraintComputer");
+    }
 }

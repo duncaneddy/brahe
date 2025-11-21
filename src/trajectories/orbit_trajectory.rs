@@ -346,20 +346,15 @@ impl OrbitTrajectory {
         }
 
         // Find the correct position to insert based on epoch
+        // Insert after any existing states at the same epoch to support
+        // impulsive maneuvers where we want both pre- and post-maneuver states
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
                 insert_idx = i;
                 break;
-            } else if epoch == *existing_epoch {
-                // Replace state and covariance if epochs are equal
-                self.states[i] = state;
-                if let Some(ref mut covs) = self.covariances {
-                    covs[i] = covariance;
-                }
-                self.apply_eviction_policy();
-                return;
             }
+            // If epochs are equal, continue to find the position after all equal epochs
         }
 
         // Insert at the correct position
@@ -556,17 +551,15 @@ impl Trajectory for OrbitTrajectory {
 
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
         // Find the correct position to insert based on epoch
+        // Insert after any existing states at the same epoch to support
+        // impulsive maneuvers where we want both pre- and post-maneuver states
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
                 insert_idx = i;
                 break;
-            } else if epoch == *existing_epoch {
-                // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy();
-                return;
             }
+            // If epochs are equal, continue to find the position after all equal epochs
         }
 
         // Insert at the correct position
@@ -5026,7 +5019,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_add_state_and_covariance_replace_equal_epoch() {
+    fn test_orbittrajectory_add_state_and_covariance_append_equal_epoch() {
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let t1 = t0 + 60.0;
 
@@ -5045,21 +5038,26 @@ mod tests {
             Some(vec![cov1, cov2]),
         );
 
-        // Replace state at t0 with new values
+        // Append new state at t0 (after existing state)
         let new_state = Vector6::new(8000e3, 0.0, 0.0, 0.0, 8.0e3, 0.0);
         let new_cov = SMatrix::<f64, 6, 6>::identity() * 500.0;
         traj.add_state_and_covariance(t0, new_state, new_cov);
 
-        // Length should remain the same
-        assert_eq!(traj.len(), 2);
+        // Length should now be 3 (original 2 + 1 appended)
+        assert_eq!(traj.len(), 3);
 
-        // Verify state was replaced
+        // Verify original state at index 0 is unchanged
         let (_, state_ret) = traj.get(0).unwrap();
-        assert_abs_diff_eq!(state_ret[0], 8000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(state_ret[0], 7000e3, epsilon = 1.0);
 
-        // Verify covariance was replaced
-        let cov_ret = traj.covariance(t0).unwrap();
-        assert_abs_diff_eq!(cov_ret[(0, 0)], 500.0, epsilon = 1e-6);
+        // Verify new state was appended at index 1
+        let (_, new_state_ret) = traj.get(1).unwrap();
+        assert_abs_diff_eq!(new_state_ret[0], 8000e3, epsilon = 1.0);
+
+        // Verify covariances are correct
+        let covs = traj.covariances.as_ref().unwrap();
+        assert_abs_diff_eq!(covs[0][(0, 0)], 100.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(covs[1][(0, 0)], 500.0, epsilon = 1e-6);
     }
 
     #[test]

@@ -369,7 +369,7 @@ impl PyRK4DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -940,7 +940,7 @@ impl PyRKF45DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -1504,7 +1504,7 @@ impl PyDP54DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc

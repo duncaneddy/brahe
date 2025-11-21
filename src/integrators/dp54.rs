@@ -30,7 +30,7 @@ pub struct DormandPrince54SIntegrator<const S: usize, const P: usize> {
     f: StateDynamics<S>,
     varmat: VariationalMatrix<S>,
     sensmat: SensitivityS<S, P>,
-    control: ControlInput<S>,
+    control: ControlInput<S, P>,
     bt: EmbeddedButcherTableau<7>,
     config: IntegratorConfig,
     /// Cached last stage evaluation for FSAL optimization
@@ -43,7 +43,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
     ) -> Self {
         Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
     }
@@ -53,7 +53,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -109,7 +109,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
                 (self.f)(t, state)
             };
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state);
+                k0 += ctrl(t, state, params);
             }
             k.set_column(0, &k0);
 
@@ -148,7 +148,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
                 let t_i = t + self.bt.c[i] * h;
                 let mut k_i = (self.f)(t_i, state_i);
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i);
+                    k_i += ctrl(t_i, state_i, params);
                 }
                 k.set_column(i, &k_i);
 
@@ -443,7 +443,7 @@ impl DormandPrince54DIntegrator {
             };
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state.clone());
+                k0 += ctrl(t, state.clone(), params);
             }
             k.set_column(0, &k0);
 
@@ -492,7 +492,7 @@ impl DormandPrince54DIntegrator {
                 let mut k_i = (self.f)(t_i, state_i.clone(), params);
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i.clone());
+                    k_i += ctrl(t_i, state_i.clone(), params);
                 }
                 k.set_column(i, &k_i);
 

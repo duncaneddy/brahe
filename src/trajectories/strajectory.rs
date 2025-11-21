@@ -383,17 +383,15 @@ impl<const R: usize> Trajectory for STrajectory<R> {
 
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
         // Find the correct position to insert based on epoch
+        // Insert after any existing states at the same epoch to support
+        // impulsive maneuvers where we want both pre- and post-maneuver states
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
                 insert_idx = i;
                 break;
-            } else if epoch == *existing_epoch {
-                // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy();
-                return;
             }
+            // If epochs are equal, continue to find the position after all equal epochs
         }
 
         // Insert at the correct position
@@ -912,6 +910,23 @@ mod tests {
         assert_eq!(trajectory.epochs[0].jd(), 2451545.0);
         assert_eq!(trajectory.epochs[1].jd(), 2451545.1);
         assert_eq!(trajectory.epochs[2].jd(), 2451545.2);
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_add_append() {
+        let mut trajectory = STrajectory6::new();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        trajectory.add(epoch, state1);
+        assert_eq!(trajectory.len(), 1);
+        assert_eq!(trajectory.states[0][0], 7000e3);
+
+        let state2 = Vector6::new(7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0);
+        trajectory.add(epoch, state2);
+        assert_eq!(trajectory.len(), 2); // Length should increase (append, not replace)
+        assert_eq!(trajectory.states[0][0], 7000e3); // First state unchanged
+        assert_eq!(trajectory.states[1][0], 7100e3); // Second state appended
     }
 
     #[test]

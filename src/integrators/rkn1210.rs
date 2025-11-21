@@ -101,7 +101,7 @@ pub struct RKN1210SIntegrator<const S: usize, const P: usize> {
     f: StateDynamics<S>,
     varmat: VariationalMatrix<S>,
     sensmat: SensitivityS<S, P>,
-    control: ControlInput<S>,
+    control: ControlInput<S, P>,
     bt: EmbeddedRKNButcherTableau<17>,
     config: IntegratorConfig,
 }
@@ -134,7 +134,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
     ) -> Self {
         Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
     }
@@ -174,7 +174,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -200,6 +200,8 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
         t: f64,
         state: SVector<f64, S>,
         phi: Option<SMatrix<f64, S, S>>,
+        _sens: Option<SMatrix<f64, S, P>>,
+        params: Option<&SVector<f64, P>>,
         dt: f64,
     ) -> AdaptiveStepInternalResultS<S, P> {
         assert!(
@@ -262,7 +264,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state);
+                    state_dot += ctrl(t_i, stage_state, params);
                 }
 
                 for dim in 0..half_dim {
@@ -364,7 +366,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
 
 impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKN1210SIntegrator<S, P> {
     fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
-        let result = self.step_internal(t, state, None, dt);
+        let result = self.step_internal(t, state, None, None, None, dt);
         AdaptiveStepSResult {
             state: result.state,
             dt_used: result.dt_used,
@@ -380,7 +382,7 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKN1210SI
         phi: SMatrix<f64, S, S>,
         dt: f64,
     ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
-        let result = self.step_internal(t, state, Some(phi), dt);
+        let result = self.step_internal(t, state, Some(phi), None, None, dt);
         (
             result.state,
             result.phi.unwrap(),
@@ -454,7 +456,7 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKN1210SI
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state);
+                    state_dot += ctrl(t_i, stage_state, Some(params));
                 }
 
                 for dim in 0..half_dim {
@@ -616,7 +618,7 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKN1210SI
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state);
+                    state_dot += ctrl(t_i, stage_state, Some(params));
                 }
 
                 for dim in 0..half_dim {
@@ -960,7 +962,7 @@ impl RKN1210DIntegrator {
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state.clone());
+                    state_dot += ctrl(t_i, stage_state.clone(), params);
                 }
 
                 for dim in 0..half_dim {

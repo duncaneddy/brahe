@@ -32,7 +32,7 @@ fn main() {
         };
 
     // Control input: constant low thrust in velocity direction
-    let control_input = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let control_input = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let v = state.fixed_rows::<3>(3);
         let v_norm = v.norm();
 

@@ -61,7 +61,7 @@ pub struct RK4SIntegrator<const S: usize, const P: usize> {
     f: StateDynamics<S>,
     varmat: VariationalMatrix<S>,
     sensmat: SensitivityS<S, P>,
-    control: ControlInput<S>,
+    control: ControlInput<S, P>,
     bt: ButcherTableau<4>,
     config: IntegratorConfig,
 }
@@ -88,7 +88,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
     ) -> Self {
         Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
     }
@@ -122,7 +122,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -192,7 +192,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k_i += ctrl(t_i, state_i);
+                k_i += ctrl(t_i, state_i, params);
             }
 
             k.set_column(i, &k_i);
@@ -568,7 +568,7 @@ impl RK4DIntegrator {
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k_i += ctrl(t_i, state_i.clone());
+                k_i += ctrl(t_i, state_i.clone(), params);
             }
 
             k.set_column(i, &k_i);
@@ -1123,8 +1123,10 @@ mod tests {
         let f = |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::zeros() };
 
         // Control input adds constant rate: u = 1.0
-        let control =
-            |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
+        let control = |_t: f64,
+                       _x: SVector<f64, 1>,
+                       _p: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
 
         // Without control: state stays at 0
         let rk4_no_ctrl: RK4SIntegrator<1, 0> = RK4SIntegrator::new(Box::new(f), None, None, None);
@@ -1147,8 +1149,9 @@ mod tests {
         };
 
         // Control input adds constant rate: u = [1.0, 2.0]
-        let control =
-            |_t: f64, _x: DVector<f64>| -> DVector<f64> { DVector::from_vec(vec![1.0, 2.0]) };
+        let control = |_t: f64, _x: DVector<f64>, _p: Option<&DVector<f64>>| -> DVector<f64> {
+            DVector::from_vec(vec![1.0, 2.0])
+        };
 
         // Without control: state stays constant
         let rk4_no_ctrl = RK4DIntegrator::new(2, Box::new(f), None, None, None);
@@ -1170,8 +1173,10 @@ mod tests {
         let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
 
         // Control input: u = 1 (constant forcing)
-        let control =
-            |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
+        let control = |_t: f64,
+                       _x: SVector<f64, 1>,
+                       _p: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
 
         // With control: x' = -x + 1, equilibrium at x = 1
         let rk4: RK4SIntegrator<1, 0> =
@@ -1195,7 +1200,8 @@ mod tests {
         let f = |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::zeros() };
 
         // State-dependent control: u = -x (proportional feedback)
-        let control = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let control =
+            |_t: f64, x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> { -x };
 
         // With this control: x' = -x, so exponential decay
         let rk4: RK4SIntegrator<1, 0> =

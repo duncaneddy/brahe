@@ -21,8 +21,11 @@ pub type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>
 
 /// Control input function type for static-sized state vectors.
 /// Returns perturbation to be added to dynamics output.
-pub type ControlInput<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>>;
+///
+/// The third parameter is an optional parameter vector that the control law may depend on.
+/// This enables control laws that vary based on physical parameters (e.g., mass, area).
+pub type ControlInput<const S: usize, const P: usize> =
+    Option<Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>>>;
 
 // ============================================================================
 // Type Aliases for Dynamic-Sized Integrators
@@ -39,7 +42,11 @@ pub type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
 
 /// Control input function type for dynamic-sized state vectors.
 /// Returns perturbation to be added to dynamics output.
-pub type ControlInputD = Option<Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>>;
+///
+/// The third parameter is an optional parameter vector that the control law may depend on.
+/// This enables control laws that vary based on physical parameters (e.g., mass, area).
+pub type ControlInputD =
+    Option<Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>>>;
 
 // ============================================================================
 // Sensitivity Matrix Support
@@ -126,7 +133,7 @@ pub trait SIntegrator<const S: usize, const P: usize>: Sized {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
     ) -> Self;
 
     /// Create a new integrator with custom configuration.
@@ -141,7 +148,7 @@ pub trait SIntegrator<const S: usize, const P: usize>: Sized {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self;
 

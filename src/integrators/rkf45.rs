@@ -39,7 +39,7 @@ pub struct RKF45SIntegrator<const S: usize, const P: usize> {
     f: StateDynamics<S>,
     varmat: VariationalMatrix<S>,
     sensmat: SensitivityS<S, P>,
-    control: ControlInput<S>,
+    control: ControlInput<S, P>,
     bt: EmbeddedButcherTableau<6>,
     config: IntegratorConfig,
 }
@@ -50,7 +50,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
     ) -> Self {
         Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
     }
@@ -60,7 +60,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
         f: StateDynamics<S>,
         varmat: VariationalMatrix<S>,
         sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        control: ControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -128,7 +128,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
                 let mut k_i = (self.f)(t_i, state_i);
 
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i);
+                    k_i += ctrl(t_i, state_i, params);
                 }
 
                 k.set_column(i, &k_i);
@@ -483,7 +483,7 @@ impl RKF45DIntegrator {
                 };
 
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i.clone());
+                    k_i += ctrl(t_i, state_i.clone(), params);
                 }
 
                 k.set_column(i, &k_i);

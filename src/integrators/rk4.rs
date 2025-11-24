@@ -7,9 +7,9 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    ControlInput, ControlInputD, DIntegrator, FixedStepDIntegrator, FixedStepInternalResultD,
-    FixedStepInternalResultS, FixedStepSIntegrator, SensitivityD, SensitivityS, StateDynamics,
-    StateDynamicsD, VariationalMatrix, VariationalMatrixD, get_step_size,
+    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
+    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
+    SStateDynamics, SVariationalMatrix, get_step_size,
 };
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
@@ -23,10 +23,10 @@ use crate::integrators::traits::{
 ///
 /// ```
 /// use nalgebra::{SVector, SMatrix};
-/// use brahe::integrators::{RK4SIntegrator, FixedStepSIntegrator};
+/// use brahe::integrators::{RK4SIntegrator, SIntegrator};
 ///
 /// // Define a simple function for testing x' = 2x,
-/// let f = |t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
+/// let f = |t: f64, state: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
 ///    let mut state_new = SVector::<f64, 1>::zeros();
 ///     state_new[0] = 2.0*t;
 ///     state_new
@@ -42,26 +42,26 @@ use crate::integrators::traits::{
 /// let dt = 0.01;
 ///
 /// // Integrate the system forward in time to t = 1.0 (analytic solution is x = 1.0)
-/// for i in 0..100{
-///    state = rk4.step(t, state, Some(dt));
+/// for _i in 0..100{
+///    state = rk4.step(t, state, Some(dt)).state;
 ///    t += dt;
 /// }
 ///
 /// assert!(state[0] - 1.0 < 1.0e-12);
 ///
 /// // Now integrate the system forward in time to t = 10.0 (analytic solution is x = 100.0)
-/// for i in 100..1000{
-///     state = rk4.step(t, state, Some(dt));
+/// for _i in 100..1000{
+///     state = rk4.step(t, state, Some(dt)).state;
 ///     t += dt;
 /// }
 ///
 /// assert!(state[0] - 100.0 < 1.0e-12);
 /// ```
 pub struct RK4SIntegrator<const S: usize, const P: usize> {
-    f: StateDynamics<S>,
-    varmat: VariationalMatrix<S>,
-    sensmat: SensitivityS<S, P>,
-    control: ControlInput<S, P>,
+    f: SStateDynamics<S, P>,
+    varmat: SVariationalMatrix<S, P>,
+    sensmat: SSensitivity<S, P>,
+    control: SControlInput<S, P>,
     bt: ButcherTableau<4>,
     config: IntegratorConfig,
 }
@@ -84,62 +84,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
     /// # Note
     /// This constructor provides backward compatibility. Uses default configuration.
     /// For custom configuration, use `with_config()`.
-    pub fn new(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    /// Create a new 4th-order Runge-Kutta integrator with custom configuration.
     ///
-    /// # Arguments
-    /// - `f`: State derivative function defining the dynamics
-    /// - `varmat`: Variational matrix computation function for STM propagation
-    /// - `sensmat`: Sensitivity matrix computation function for parameter uncertainty propagation
-    /// - `control`: Control input function
-    /// - `config`: Integration configuration (tolerances, step sizes, etc.)
-    ///
-    /// # Returns
-    /// RK4SIntegrator instance with specified configuration
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use nalgebra::SVector;
-    /// use brahe::integrators::{RK4SIntegrator, IntegratorConfig};
-    ///
-    /// let f = |t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
-    ///     SVector::<f64, 1>::new(2.0 * t)
-    /// };
-    ///
-    /// let config = IntegratorConfig::fixed_step(0.01);
-    /// let rk4: RK4SIntegrator<1, 0> = RK4SIntegrator::with_config(Box::new(f), None, None, None, config);
-    /// ```
-    pub fn with_config(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: RK4_TABLEAU,
-            config,
-        }
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
-
     /// Consolidated internal step method that handles all step variants.
     ///
     /// This method performs the core RK4 integration and optionally propagates
@@ -160,7 +105,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
         sens: Option<SMatrix<f64, S, P>>,
         params: Option<&SVector<f64, P>>,
         dt: f64,
-    ) -> FixedStepInternalResultS<S, P> {
+    ) -> SIntegratorStepResult<S, P> {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
 
@@ -188,7 +133,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
 
             let state_i = state + dt * ksum;
             let t_i = t + self.bt.c[i] * dt;
-            let mut k_i = (self.f)(t_i, state_i);
+            let mut k_i = (self.f)(t_i, state_i, params);
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
@@ -203,7 +148,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
                     .varmat
                     .as_ref()
                     .expect("varmat required for step_with_varmat or step_with_sensmat")
-                    .compute(t_i, state_i);
+                    .compute(t_i, state_i, params);
 
                 // Variational: dΦ/dt = A*Φ
                 if compute_phi {
@@ -238,18 +183,51 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
         }
 
         // Build result
-        FixedStepInternalResultS {
+        SIntegratorStepResult {
             state: state + state_update,
             phi: phi.map(|p| p + phi_update),
             sens: sens.map(|s| s + sens_update),
+            dt_used: dt,
+            error_estimate: None,
+            dt_next: dt,
         }
     }
 }
 
-impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrator<S, P> {
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SVector<f64, S> {
+impl<const S: usize, const P: usize> SIntegrator<S, P> for RK4SIntegrator<S, P> {
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RK4_TABLEAU,
+            config,
+        }
+    }
+
+    fn config(&self) -> &IntegratorConfig {
+        &self.config
+    }
+
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, None, None, None, dt).state
+        self.step_internal(t, state, None, None, None, dt)
     }
 
     fn step_with_varmat(
@@ -258,10 +236,9 @@ impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrat
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
         dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>) {
+    ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (result.state, result.phi.unwrap())
+        self.step_internal(t, state, Some(phi), None, None, dt)
     }
 
     fn step_with_sensmat(
@@ -271,10 +248,9 @@ impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrat
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
         dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, P>) {
+    ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (result.state, result.sens.unwrap())
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
     }
 
     fn step_with_varmat_sensmat(
@@ -285,10 +261,9 @@ impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrat
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
         dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, SMatrix<f64, S, P>) {
+    ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (result.state, result.phi.unwrap(), result.sens.unwrap())
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
 
@@ -306,7 +281,7 @@ impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrat
 ///
 /// ```
 /// use nalgebra::DVector;
-/// use brahe::integrators::{RK4DIntegrator, FixedStepDIntegrator};
+/// use brahe::integrators::{RK4DIntegrator, DIntegrator};
 ///
 /// // Define a simple exponential decay: x' = -x
 /// let f = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
@@ -323,16 +298,16 @@ impl<const S: usize, const P: usize> FixedStepSIntegrator<S, P> for RK4SIntegrat
 ///
 /// // Integrate forward in time
 /// for _ in 0..10 {
-///     state = rk4.step(t, state, Some(dt));
+///     state = rk4.step(t, state, Some(dt)).state;
 ///     t += dt;
 /// }
 /// ```
 pub struct RK4DIntegrator {
     dimension: usize,
-    f: StateDynamicsD,
-    varmat: VariationalMatrixD,
-    sensmat: SensitivityD,
-    control: ControlInputD,
+    f: DStateDynamics,
+    varmat: DVariationalMatrix,
+    sensmat: DSensitivity,
+    control: DControlInput,
     bt: ButcherTableau<4>,
     config: IntegratorConfig,
 }
@@ -365,10 +340,10 @@ impl RK4DIntegrator {
     /// ```
     pub fn new(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
     ) -> Self {
         <Self as DIntegrator>::new(dimension, f, varmat, sensmat, control)
     }
@@ -387,10 +362,10 @@ impl RK4DIntegrator {
     /// RK4DIntegrator instance with specified configuration
     pub fn with_config(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
         config: IntegratorConfig,
     ) -> Self {
         <Self as DIntegrator>::with_config(dimension, f, varmat, sensmat, control, config)
@@ -410,10 +385,10 @@ impl RK4DIntegrator {
 impl DIntegrator for RK4DIntegrator {
     fn new(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
     ) -> Self {
         Self::with_config(
             dimension,
@@ -427,10 +402,10 @@ impl DIntegrator for RK4DIntegrator {
 
     fn with_config(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -450,6 +425,47 @@ impl DIntegrator for RK4DIntegrator {
 
     fn config(&self) -> &IntegratorConfig {
         &self.config
+    }
+
+    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DIntegratorStepResult {
+        let dt = get_step_size(dt, &self.config);
+        self.step_internal(t, state, None, None, None, dt)
+    }
+
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = get_step_size(dt, &self.config);
+        self.step_internal(t, state, Some(phi), None, None, dt)
+    }
+
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = get_step_size(dt, &self.config);
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
+    }
+
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = get_step_size(dt, &self.config);
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
 
@@ -474,7 +490,7 @@ impl RK4DIntegrator {
         sens: Option<DMatrix<f64>>,
         params: Option<&DVector<f64>>,
         dt: f64,
-    ) -> FixedStepInternalResultD {
+    ) -> DIntegratorStepResult {
         // Validate dimensions
         assert_eq!(
             state.len(),
@@ -579,7 +595,7 @@ impl RK4DIntegrator {
                     .varmat
                     .as_ref()
                     .expect("varmat required for step_with_varmat or step_with_sensmat")
-                    .compute(t_i, state_i.clone());
+                    .compute(t_i, state_i.clone(), params);
 
                 // Variational: dΦ/dt = A*Φ
                 if compute_phi {
@@ -622,57 +638,14 @@ impl RK4DIntegrator {
         }
 
         // Build result
-        FixedStepInternalResultD {
+        DIntegratorStepResult {
             state: state + state_update,
             phi: phi.map(|p| p + phi_update),
             sens: sens.map(|s| s + sens_update),
+            dt_used: dt,
+            error_estimate: None,
+            dt_next: dt,
         }
-    }
-}
-
-impl FixedStepDIntegrator for RK4DIntegrator {
-    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DVector<f64> {
-        let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, None, None, None, dt).state
-    }
-
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>) {
-        let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (result.state, result.phi.unwrap())
-    }
-
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>) {
-        let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (result.state, result.sens.unwrap())
-    }
-
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>) {
-        let dt = get_step_size(dt, &self.config);
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (result.state, result.phi.unwrap(), result.sens.unwrap())
     }
 }
 
@@ -684,12 +657,16 @@ mod tests {
 
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::rk4::{RK4DIntegrator, RK4SIntegrator};
-    use crate::integrators::traits::{FixedStepDIntegrator, FixedStepSIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
-    fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
+    fn point_earth(
+        _: f64,
+        x: SVector<f64, 6>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -710,11 +687,12 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_cubic() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> {
-            let mut state_new = SVector::<f64, 1>::zeros();
-            state_new[0] = 3.0 * t * t;
-            state_new
-        };
+        let f =
+            |t: f64, _: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+                let mut state_new = SVector::<f64, 1>::zeros();
+                state_new[0] = 3.0 * t * t;
+                state_new
+            };
 
         let rk4: RK4SIntegrator<1, 0> = RK4SIntegrator::new(Box::new(f), None, None, None);
 
@@ -722,7 +700,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, Some(dt));
+            state = rk4.step(i as f64, state, Some(dt)).state;
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -731,11 +709,12 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_parabola() {
         // Define a simple function for testing x' = 2x,
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> {
-            let mut state_new = SVector::<f64, 1>::zeros();
-            state_new[0] = 2.0 * t;
-            state_new
-        };
+        let f =
+            |t: f64, _: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+                let mut state_new = SVector::<f64, 1>::zeros();
+                state_new[0] = 2.0 * t;
+                state_new
+            };
 
         let rk4: RK4SIntegrator<1, 0> = RK4SIntegrator::new(Box::new(f), None, None, None);
 
@@ -744,7 +723,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, Some(dt));
+            state = rk4.step(t, state, Some(dt)).state;
             t += dt;
         }
 
@@ -769,7 +748,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, Some(dt));
+            state = rk4.step(epc - epc0, state, Some(dt)).state;
             epc += dt;
         }
 
@@ -797,28 +776,30 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let (_, phi1) = rk4.step_with_varmat(0.0, state0, phi0, Some(0.0));
+        let result = rk4.step_with_varmat(0.0, state0, phi0, Some(0.0));
+        let phi1 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
-                    assert_abs_diff_eq!(phi1[(i, j)], 1.0, epsilon = 1.0e-12);
+                    assert_abs_diff_eq!(phi1.unwrap()[(i, j)], 1.0, epsilon = 1.0e-12);
                 } else {
-                    assert_abs_diff_eq!(phi1[(i, j)], 0.0, epsilon = 1.0e-12);
+                    assert_abs_diff_eq!(phi1.unwrap()[(i, j)], 0.0, epsilon = 1.0e-12);
                 }
             }
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let (_, phi2) = rk4.step_with_varmat(0.0, state0, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0, phi0, Some(1.0));
+        let phi2 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
-                    assert_ne!(phi2[(i, i)], 1.0);
-                    assert_ne!(phi2[(i, i)], 0.0);
-                    assert_abs_diff_eq!(phi2[(i, i)], 1.0, epsilon = 1.0e-5);
+                    assert_ne!(phi2.unwrap()[(i, i)], 1.0);
+                    assert_ne!(phi2.unwrap()[(i, i)], 0.0);
+                    assert_abs_diff_eq!(phi2.unwrap()[(i, i)], 1.0, epsilon = 1.0e-5);
                 } else {
                     // Ensure there are off-diagonal elements are now populated
-                    assert_ne!(phi2[(i, j)], 0.0);
+                    assert_ne!(phi2.unwrap()[(i, j)], 0.0);
                 }
             }
         }
@@ -834,10 +815,11 @@ mod tests {
             RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(jacobian2)), None, None);
 
         // Get the state with a perturbation
-        let (state_pert, _) = rk4.step_with_varmat(0.0, state0 + pert, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0 + pert, phi0, Some(1.0));
+        let state_pert = result.state;
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0, Some(1.0)) + phi2 * pert;
+        let state_stm = rk4.step(0.0, state0, Some(1.0)).state + phi2.unwrap() * pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -887,7 +869,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, Some(dt));
+            state = rk4.step(i as f64, state, Some(dt)).state;
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -907,7 +889,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, Some(dt));
+            state = rk4.step(t, state, Some(dt)).state;
             t += dt;
         }
 
@@ -932,7 +914,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, Some(dt));
+            state = rk4.step(epc - epc0, state, Some(dt)).state;
             epc += dt;
         }
 
@@ -948,8 +930,10 @@ mod tests {
     #[test]
     fn test_rk4d_integrator_varmat() {
         // Define a 2-argument wrapper for the jacobian (it doesn't need params)
-        let point_earth_for_jacobian =
-            |t: f64, x: DVector<f64>| -> DVector<f64> { point_earth_dynamic(t, x, None) };
+        let point_earth_for_jacobian = |t: f64,
+                                        x: DVector<f64>,
+                                        _params: Option<&DVector<f64>>|
+         -> DVector<f64> { point_earth_dynamic(t, x, None) };
 
         // Define how we want to calculate the variational matrix for the RK4 integrator
         let jacobian =
@@ -970,7 +954,8 @@ mod tests {
         let phi0 = DMatrix::<f64>::identity(6, 6);
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let (_, phi1) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(0.0));
+        let result = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(0.0));
+        let phi1 = result.phi.unwrap();
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -982,7 +967,8 @@ mod tests {
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let (_, phi2) = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(1.0));
+        let phi2 = result.phi.unwrap();
         for i in 0..6 {
             for j in 0..6 {
                 if i == j {
@@ -1001,7 +987,9 @@ mod tests {
 
         // Create a new jacobian provider with central differences
         let point_earth_for_jacobian2 =
-            |t: f64, x: DVector<f64>| -> DVector<f64> { point_earth_dynamic(t, x, None) };
+            |t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+                point_earth_dynamic(t, x, None)
+            };
         let jacobian2 =
             DNumericalJacobian::central(Box::new(point_earth_for_jacobian2)).with_fixed_offset(1.0);
         let rk4 = RK4DIntegrator::new(
@@ -1013,10 +1001,11 @@ mod tests {
         );
 
         // Get the state with a perturbation
-        let (state_pert, _) = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, Some(1.0));
+        let state_pert = result.state;
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0.clone(), Some(1.0)) + &phi2 * &pert;
+        let state_stm = rk4.step(0.0, state0.clone(), Some(1.0)).state + &phi2 * &pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -1030,9 +1019,10 @@ mod tests {
     #[test]
     fn test_rk4_s_vs_d_consistency() {
         // Verify RK4SIntegrator and RK4DIntegrator produce identical results
-        let f_static = |_t: f64, x: SVector<f64, 3>| -> SVector<f64, 3> {
-            SVector::<f64, 3>::new(-x[0], -x[1], -x[2])
-        };
+        let f_static = |_t: f64,
+                        x: SVector<f64, 3>,
+                        _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 3> { SVector::<f64, 3>::new(-x[0], -x[1], -x[2]) };
         let f_dynamic = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![-x[0], -x[1], -x[2]])
         };
@@ -1048,9 +1038,9 @@ mod tests {
         let result_d = rk4_d.step(0.0, state_d, Some(dt));
 
         // Results should be identical to machine precision
-        assert_abs_diff_eq!(result_s[0], result_d[0], epsilon = 1.0e-15);
-        assert_abs_diff_eq!(result_s[1], result_d[1], epsilon = 1.0e-15);
-        assert_abs_diff_eq!(result_s[2], result_d[2], epsilon = 1.0e-15);
+        assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
+        assert_abs_diff_eq!(result_s.state[1], result_d.state[1], epsilon = 1.0e-15);
+        assert_abs_diff_eq!(result_s.state[2], result_d.state[2], epsilon = 1.0e-15);
     }
 
     #[test]
@@ -1067,14 +1057,14 @@ mod tests {
         let dt_forward = 1.0;
         let mut state_fwd = state0;
         for _ in 0..100 {
-            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward));
+            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward)).state;
         }
 
         // Now propagate backward from the final state
         let dt_back = -1.0; // Negative timestep for backward integration
         let mut state_back = state_fwd;
         for _ in 0..100 {
-            state_back = rk4.step(0.0, state_back, Some(dt_back));
+            state_back = rk4.step(0.0, state_back, Some(dt_back)).state;
         }
 
         // Should return close to initial state
@@ -1097,14 +1087,14 @@ mod tests {
         let dt_forward = 1.0;
         let mut state_fwd = state0.clone();
         for _ in 0..100 {
-            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward));
+            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward)).state;
         }
 
         // Now propagate backward from the final state
         let dt_back = -1.0; // Negative timestep for backward integration
         let mut state_back = state_fwd;
         for _ in 0..100 {
-            state_back = rk4.step(0.0, state_back, Some(dt_back));
+            state_back = rk4.step(0.0, state_back, Some(dt_back)).state;
         }
 
         // Should return close to initial state
@@ -1120,7 +1110,9 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_with_control_input() {
         // Simple dynamics: x' = 0 (constant state without control)
-        let f = |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::zeros() };
+        let f = |_t: f64, _x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+            SVector::<f64, 1>::zeros()
+        };
 
         // Control input adds constant rate: u = 1.0
         let control = |_t: f64,
@@ -1132,13 +1124,13 @@ mod tests {
         let rk4_no_ctrl: RK4SIntegrator<1, 0> = RK4SIntegrator::new(Box::new(f), None, None, None);
         let state0 = SVector::<f64, 1>::new(0.0);
         let state_no_ctrl = rk4_no_ctrl.step(0.0, state0, Some(1.0));
-        assert_abs_diff_eq!(state_no_ctrl[0], 0.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_no_ctrl.state[0], 0.0, epsilon = 1.0e-12);
 
         // With control: x' = 1, so x = t after integration
         let rk4_ctrl: RK4SIntegrator<1, 0> =
             RK4SIntegrator::new(Box::new(f), None, None, Some(Box::new(control)));
         let state_ctrl = rk4_ctrl.step(0.0, state0, Some(1.0));
-        assert_abs_diff_eq!(state_ctrl[0], 1.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_ctrl.state[0], 1.0, epsilon = 1.0e-12);
     }
 
     #[test]
@@ -1157,20 +1149,23 @@ mod tests {
         let rk4_no_ctrl = RK4DIntegrator::new(2, Box::new(f), None, None, None);
         let state0 = DVector::from_vec(vec![0.0, 0.0]);
         let state_no_ctrl = rk4_no_ctrl.step(0.0, state0.clone(), Some(1.0));
-        assert_abs_diff_eq!(state_no_ctrl[0], 0.0, epsilon = 1.0e-12);
-        assert_abs_diff_eq!(state_no_ctrl[1], 0.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_no_ctrl.state[0], 0.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_no_ctrl.state[1], 0.0, epsilon = 1.0e-12);
 
         // With control: x' = [1, 2], so x = [t, 2t] after integration
         let rk4_ctrl = RK4DIntegrator::new(2, Box::new(f), None, None, Some(Box::new(control)));
         let state_ctrl = rk4_ctrl.step(0.0, state0, Some(1.0));
-        assert_abs_diff_eq!(state_ctrl[0], 1.0, epsilon = 1.0e-12);
-        assert_abs_diff_eq!(state_ctrl[1], 2.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_ctrl.state[0], 1.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(state_ctrl.state[1], 2.0, epsilon = 1.0e-12);
     }
 
     #[test]
     fn test_rk4s_integrator_control_with_dynamics() {
         // Dynamics: x' = -x (exponential decay)
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { -x };
 
         // Control input: u = 1 (constant forcing)
         let control = |_t: f64,
@@ -1187,7 +1182,7 @@ mod tests {
 
         // Integrate for many steps - should approach equilibrium at x = 1
         for _ in 0..100 {
-            state = rk4.step(0.0, state, Some(dt));
+            state = rk4.step(0.0, state, Some(dt)).state;
         }
 
         // State should approach equilibrium value of 1.0
@@ -1197,7 +1192,9 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_state_dependent_control() {
         // Dynamics: x' = 0
-        let f = |_t: f64, _x: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::zeros() };
+        let f = |_t: f64, _x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+            SVector::<f64, 1>::zeros()
+        };
 
         // State-dependent control: u = -x (proportional feedback)
         let control =
@@ -1212,7 +1209,7 @@ mod tests {
 
         // Integrate and check decay
         for _ in 0..50 {
-            state = rk4.step(0.0, state, Some(dt));
+            state = rk4.step(0.0, state, Some(dt)).state;
         }
 
         // State should decay toward 0
@@ -1235,8 +1232,13 @@ mod tests {
 
         // Jacobian provider: ∂f/∂x = -k (using k=1.0)
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1255,7 +1257,10 @@ mod tests {
         }
 
         // Dynamics: dx/dt = -k*x where k = params[0]
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let rk4: RK4SIntegrator<1, 1> = RK4SIntegrator::new(
             Box::new(f),
@@ -1277,9 +1282,11 @@ mod tests {
         let mut t = 0.0;
 
         for _ in 0..100 {
-            let (new_state, new_sens) = rk4.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let result = rk4.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt;
         }
 
@@ -1307,7 +1314,12 @@ mod tests {
         // Jacobian provider: ∂f/∂x = -k (using k=1.0)
         struct DecayJacobian;
         impl DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
             }
         }
@@ -1349,9 +1361,11 @@ mod tests {
         let mut t = 0.0;
 
         for _ in 0..100 {
-            let (new_state, new_sens) = rk4.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let result = rk4.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt;
         }
 
@@ -1372,8 +1386,13 @@ mod tests {
         use crate::math::sensitivity::SSensitivityProvider;
 
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1390,7 +1409,10 @@ mod tests {
             }
         }
 
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let rk4: RK4SIntegrator<1, 1> = RK4SIntegrator::new(
             Box::new(f),
@@ -1414,11 +1436,13 @@ mod tests {
         let mut t = 0.0;
 
         for _ in 0..100 {
-            let (new_state, new_phi, new_sens) =
-                rk4.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let result = rk4.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt;
         }
 
@@ -1437,7 +1461,7 @@ mod tests {
         let state0_pert = SVector::<f64, 1>::new(x0 + delta);
         let mut state_pert = state0_pert;
         for _ in 0..100 {
-            state_pert = rk4.step(0.0, state_pert, Some(dt));
+            state_pert = rk4.step(0.0, state_pert, Some(dt)).state;
         }
 
         // STM should predict the perturbed state
@@ -1459,7 +1483,12 @@ mod tests {
 
         struct DecayJacobian;
         impl DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
             }
         }
@@ -1501,11 +1530,13 @@ mod tests {
         let mut t = 0.0;
 
         for _ in 0..100 {
-            let (new_state, new_phi, new_sens) =
-                rk4.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let result = rk4.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt;
         }
 
@@ -1524,7 +1555,7 @@ mod tests {
         let state0_pert = DVector::from_vec(vec![x0 + delta]);
         let mut state_pert = state0_pert;
         for _ in 0..100 {
-            state_pert = rk4.step(0.0, state_pert, Some(dt));
+            state_pert = rk4.step(0.0, state_pert, Some(dt)).state;
         }
 
         let state_pert_predicted = state[0] + phi[(0, 0)] * delta;
@@ -1543,7 +1574,11 @@ mod tests {
     #[test]
     fn test_rk4s_new_uses_default_config() {
         // Simple linear ODE: dx/dt = x
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 
@@ -1562,7 +1597,11 @@ mod tests {
 
     #[test]
     fn test_rk4s_with_config_stores_config() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 
@@ -1600,7 +1639,11 @@ mod tests {
 
     #[test]
     fn test_rk4s_config_returns_reference() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 

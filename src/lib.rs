@@ -97,6 +97,8 @@ email me at duncan.eddy (at) gmail.com.
 // TODO: Remove when BTreeCursor is stabilized
 // See: https://github.com/rust-lang/rust/issues/107540
 #![feature(btree_cursors)]
+// This enables the use of the coverage attribute which turns
+// off erroneous coverage miss reporting in test blocks
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 // Re-export commonly used types
@@ -127,6 +129,7 @@ pub mod coordinates;
 pub mod datasets;
 pub mod earth_models;
 pub mod eop;
+pub mod events;
 pub mod frames;
 pub mod integrators;
 pub mod math;

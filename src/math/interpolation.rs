@@ -3,6 +3,81 @@
  */
 
 use crate::math::linalg::{SMatrix6, sqrtm};
+use nalgebra::{DVector, SVector};
+
+/// Linearly interpolates between two static-sized vectors.
+///
+/// # Arguments
+/// * `v1` - The first vector.
+/// * `v2` - The second vector.
+/// * `t` - Interpolation factor (0.0 to 1.0).
+///
+/// # Returns
+/// The interpolated vector: `(1 - t) * v1 + t * v2`
+///
+/// # Example
+/// ```rust
+/// use brahe::interpolate_linear_svector;
+/// use nalgebra::SVector;
+///
+/// let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
+/// let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
+/// let t = 0.5;
+/// let interpolated = interpolate_linear_svector(v1, v2, t);
+/// ```
+pub fn interpolate_linear_svector<const S: usize>(
+    v1: SVector<f64, S>,
+    v2: SVector<f64, S>,
+    t: f64,
+) -> SVector<f64, S> {
+    // Confirm that t is within [0, 1]
+    if !(0.0..=1.0).contains(&t) {
+        panic!("Interpolation factor t must be in the range [0, 1]");
+    }
+
+    v1 + t * (v2 - v1)
+}
+
+/// Linearly interpolates between two dynamic-sized vectors.
+///
+/// # Arguments
+/// * `v1` - The first vector.
+/// * `v2` - The second vector.
+/// * `t` - Interpolation factor (0.0 to 1.0).
+///
+/// # Returns
+/// The interpolated vector: `(1 - t) * v1 + t * v2`
+///
+/// # Panics
+/// Panics if the vectors have different dimensions or if t is not in [0, 1].
+///
+/// # Example
+/// ```rust
+/// use brahe::interpolate_linear_dvector;
+/// use nalgebra::DVector;
+///
+/// let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0]);
+/// let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
+/// let t = 0.5;
+/// let interpolated = interpolate_linear_dvector(&v1, &v2, t);
+/// ```
+pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) -> DVector<f64> {
+    // Confirm that t is within [0, 1]
+    if !(0.0..=1.0).contains(&t) {
+        panic!("Interpolation factor t must be in the range [0, 1]");
+    }
+
+    // Confirm that vectors have the same dimension
+    if v1.len() != v2.len() {
+        panic!(
+            "Vectors must have the same dimension for interpolation: got {} and {}",
+            v1.len(),
+            v2.len()
+        );
+    }
+
+    v1 + t * (v2 - v1)
+}
 
 /// Interpolates between two covariance matrices using square root interpolation.
 ///
@@ -76,6 +151,62 @@ pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t:
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+
+    #[test]
+    fn test_interpolate_linear_svector() {
+        let v1 = SVector::<f64, 3>::new(0.0, 0.0, 0.0);
+        let v2 = SVector::<f64, 3>::new(1.0, 2.0, 3.0);
+
+        // Test at t = 0.0 (should return v1)
+        let result = interpolate_linear_svector(v1, v2, 0.0);
+        assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);
+
+        // Test at t = 1.0 (should return v2)
+        let result = interpolate_linear_svector(v1, v2, 1.0);
+        assert_abs_diff_eq!(result[0], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 3.0, epsilon = 1e-10);
+
+        // Test at t = 0.5 (should return midpoint)
+        let result = interpolate_linear_svector(v1, v2, 0.5);
+        assert_abs_diff_eq!(result[0], 0.5, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 1.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_interpolate_linear_dvector() {
+        let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0]);
+        let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
+
+        // Test at t = 0.0 (should return v1)
+        let result = interpolate_linear_dvector(&v1, &v2, 0.0);
+        assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);
+
+        // Test at t = 1.0 (should return v2)
+        let result = interpolate_linear_dvector(&v1, &v2, 1.0);
+        assert_abs_diff_eq!(result[0], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 3.0, epsilon = 1e-10);
+
+        // Test at t = 0.5 (should return midpoint)
+        let result = interpolate_linear_dvector(&v1, &v2, 0.5);
+        assert_abs_diff_eq!(result[0], 0.5, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[1], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[2], 1.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "Vectors must have the same dimension")]
+    fn test_interpolate_linear_dvector_dimension_mismatch() {
+        let v1 = DVector::<f64>::from_vec(vec![0.0, 0.0]);
+        let v2 = DVector::<f64>::from_vec(vec![1.0, 2.0, 3.0]);
+        let _ = interpolate_linear_dvector(&v1, &v2, 0.5);
+    }
 
     #[test]
     fn test_interpolate_covariance_sqrt() {

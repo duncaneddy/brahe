@@ -2,16 +2,28 @@
  * Propagator traits with clean interfaces and vector-based operations
  */
 
-use nalgebra::{SMatrix, Vector6};
+use nalgebra::{DVector, Vector6};
 
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 use crate::utils::BraheError;
-use crate::utils::identifiable::Identifiable;
 
-/// Core trait for orbit propagators with clean interface
-pub trait OrbitPropagator {
+// Re-export state provider traits for convenience
+pub use crate::utils::state_providers::{
+    DCovarianceProvider, DIdentifiableStateProvider, DOrbitCovarianceProvider, DOrbitStateProvider,
+    DStateProvider, SCovarianceProvider, SIdentifiableStateProvider, SOrbitCovarianceProvider,
+    SOrbitStateProvider, SStateProvider,
+};
+
+/// Core trait for state propagators with static-sized (6D) state vectors
+///
+/// This trait provides a clean interface for state propagators that work with
+/// compile-time sized 6-element state vectors (typically position and velocity).
+/// It focuses purely on state propagation without orbit-specific initialization.
+///
+/// See also: [`DStatePropagator`] for dynamic-sized version, [`SOrbitPropagator`] for orbit-specific initialization
+pub trait SStatePropagator {
     /// Step forward by the default step size
     /// Returns Result indicating success/failure, use getters to access state
     fn step(&mut self) {
@@ -88,25 +100,111 @@ pub trait OrbitPropagator {
     /// Reset propagator to initial conditions
     fn reset(&mut self);
 
-    /// Set initial conditions from components
+    /// Propagate and populate trajectory at multiple epochs
     ///
     /// # Arguments
-    /// * `epoch` - Initial epoch
-    /// * `state` - 6-element state vector
-    /// * `frame` - Reference frame
-    /// * `representation` - Type of orbital representation
-    /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
+    /// * `epochs` - Epochs to propagate to and add to trajectory
+    fn propagate_trajectory(&mut self, epochs: &[Epoch]) {
+        for &epoch in epochs {
+            self.propagate_to(epoch);
+        }
+    }
+
+    // Memory management for trajectory
+    /// Set eviction policy to keep a maximum number of states
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError>;
+
+    /// Set eviction policy to keep states within a maximum age
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
+}
+
+/// Core trait for state propagators with dynamic-sized state vectors
+///
+/// This trait provides a clean interface for state propagators that work with
+/// runtime-sized state vectors (DVector). Useful for propagators with non-standard
+/// state dimensions (e.g., including STM, variational equations, etc.).
+/// It focuses purely on state propagation without orbit-specific initialization.
+///
+/// See also: [`SStatePropagator`] for static-sized (6D) version, [`DOrbitPropagator`] for orbit-specific initialization
+pub trait DStatePropagator {
+    /// Step forward by the default step size
+    /// Returns Result indicating success/failure, use getters to access state
+    fn step(&mut self) {
+        self.step_by(self.step_size());
+    }
+
+    /// Step forward by a specified time duration
     ///
-    /// # Panics
-    /// May panic if the combination of frame, representation, and angle_format is incompatible
-    fn set_initial_conditions(
-        &mut self,
-        epoch: Epoch,
-        state: Vector6<f64>,
-        frame: OrbitFrame,
-        representation: OrbitRepresentation,
-        angle_format: Option<AngleFormat>,
-    );
+    /// # Arguments
+    /// * `step_size` - Time step in seconds
+    fn step_by(&mut self, step_size: f64);
+
+    /// Step past a specified target epoch
+    /// If the target epoch is before or equal to the current epoch, no action is taken
+    fn step_past(&mut self, target_epoch: Epoch) {
+        while self.current_epoch() < target_epoch {
+            self.step();
+        }
+    }
+
+    /// Step forward by default step size for a specified number of steps
+    ///
+    /// # Arguments
+    /// * `num_steps` - Number of steps to take
+    fn propagate_steps(&mut self, num_steps: usize) {
+        for _ in 0..num_steps {
+            self.step();
+        }
+    }
+
+    /// Propagate to a specific target epoch
+    ///
+    /// # Arguments
+    /// * `target_epoch` - The epoch to propagate to
+    fn propagate_to(&mut self, target_epoch: Epoch) {
+        let mut current_epoch = self.current_epoch();
+
+        while current_epoch < target_epoch {
+            // Calculate step size to not overshoot
+            let remaining_time = target_epoch - current_epoch;
+            let step_size = remaining_time.min(self.step_size());
+
+            // Guard against very small steps to avoid infinite loops
+            if step_size <= 1e-9 {
+                break;
+            }
+
+            self.step_by(step_size);
+            current_epoch = self.current_epoch();
+        }
+    }
+
+    // Getter methods for accessing state
+
+    /// Get current epoch
+    fn current_epoch(&self) -> Epoch;
+
+    /// Get current state as a dynamic vector
+    fn current_state(&self) -> DVector<f64>;
+
+    /// Get initial epoch
+    fn initial_epoch(&self) -> Epoch;
+
+    /// Get initial state as a dynamic vector
+    fn initial_state(&self) -> DVector<f64>;
+
+    /// Get state dimension
+    fn state_dim(&self) -> usize;
+
+    // Configuration methods
+    /// Get step size in seconds
+    fn step_size(&self) -> f64;
+
+    /// Set step size in seconds
+    fn set_step_size(&mut self, step_size: f64);
+
+    /// Reset propagator to initial conditions
+    fn reset(&mut self);
 
     /// Propagate and populate trajectory at multiple epochs
     ///
@@ -126,313 +224,69 @@ pub trait OrbitPropagator {
     fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
 }
 
-/// Trait for analytic orbital propagators that can compute states directly at any epoch
-/// without requiring numerical integration. This trait is designed for propagators like
-/// SGP4/TLE that have closed-form solutions.
-pub trait StateProvider {
-    /// Returns the state at the given epoch as a 6-element vector in the propagator's
-    /// native coordinate frame and representation.
+/// Orbit-specific propagator trait that extends [`SStatePropagator`] with orbital initialization
+///
+/// This trait adds orbit-specific initialization capabilities to the base state propagator.
+/// Types implementing this trait can accept initial conditions in various orbital frames
+/// and representations (Cartesian, Keplerian, etc.).
+///
+/// Not all propagators support changing initial conditions (e.g., SGP4/TLE-based propagators
+/// derive their state from TLE data). Such propagators should only implement [`SStatePropagator`].
+///
+/// See also: [`DOrbitPropagator`] for dynamic-sized version
+pub trait SOrbitPropagator: SStatePropagator {
+    /// Set initial conditions from components
     ///
     /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
+    /// * `epoch` - Initial epoch
+    /// * `state` - 6-element state vector
+    /// * `frame` - Reference frame
+    /// * `representation` - Type of orbital representation
+    /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Returns
-    /// A 6-element vector containing the state in the propagator's native output format
-    fn state(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch in Earth-Centered Inertial (ECI)
-    /// Cartesian coordinates.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// A 6-element vector containing position (km) and velocity (km/s) components
-    /// in the ECI frame.
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch in Earth-Centered Earth-Fixed (ECEF)
-    /// Cartesian coordinates.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// A 6-element vector containing position (km) and velocity (km/s) components
-    /// in the ECEF frame.
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch in Geocentric Celestial Reference Frame (GCRF)
-    /// Cartesian coordinates.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the GCRF frame.
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch in International Terrestrial Reference Frame (ITRF)
-    /// Cartesian coordinates.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ITRF frame.
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch in Earth Mean Equator and Equinox of J2000.0 (EME2000)
-    /// Cartesian coordinates.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the EME2000 frame.
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64>;
-
-    /// Returns the state at the given epoch as osculating orbital elements.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
-    ///
-    /// # Returns
-    /// A 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
-    /// where angles are in the specified format
-    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat)
-    -> Vector6<f64>;
-
-    /// Returns states at multiple epochs in the propagator's native coordinate frame
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing states in the propagator's native output format
-    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state(epoch)).collect()
-    }
-
-    /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
-    /// Cartesian coordinates as a STrajectory6.
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
-    }
-
-    /// Returns states at multiple epochs in Earth-Centered Earth-Fixed (ECEF)
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
-    }
-
-    /// Returns states at multiple epochs in Geocentric Celestial Reference Frame (GCRF)
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the GCRF frame.
-    fn states_gcrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_gcrf(epoch)).collect()
-    }
-
-    /// Returns states at multiple epochs in International Terrestrial Reference Frame (ITRF)
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the ITRF frame.
-    fn states_itrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs.iter().map(|&epoch| self.state_itrf(epoch)).collect()
-    }
-
-    /// Returns states at multiple epochs in Earth Mean Equator and Equinox of J2000.0 (EME2000)
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the EME2000 frame.
-    fn states_eme2000(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
-        epochs
-            .iter()
-            .map(|&epoch| self.state_eme2000(epoch))
-            .collect()
-    }
-
-    /// Returns states at multiple epochs as osculating orbital elements.
-    ///
-    /// # Arguments
-    /// * `epochs` - Slice of epochs at which to compute states
-    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
-    ///
-    /// # Returns
-    /// * Vector of 6-element vectors containing osculating Keplerian elements
-    fn states_as_osculating_elements(
-        &self,
-        epochs: &[Epoch],
-        angle_format: AngleFormat,
-    ) -> Vec<Vector6<f64>> {
-        epochs
-            .iter()
-            .map(|&epoch| self.state_as_osculating_elements(epoch, angle_format))
-            .collect()
-    }
+    /// # Panics
+    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    fn set_initial_conditions(
+        &mut self,
+        epoch: Epoch,
+        state: Vector6<f64>,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    );
 }
 
-/// Trait for providing state covariance matrices at arbitrary epochs.
+/// Orbit-specific propagator trait that extends [`DStatePropagator`] with orbital initialization
 ///
-/// This trait provides access to 6x6 covariance matrices representing the uncertainty
-/// in orbital state vectors. Covariances can be provided in various reference frames:
-/// - Native frame (propagator's internal frame)
-/// - ECI (Earth-Centered Inertial, common frame)
-/// - GCRF (Geocentric Celestial Reference Frame, modern standard)
-/// - RTN (Radial, Along-track, Normal frame)
+/// This trait adds orbit-specific initialization capabilities to the base state propagator.
+/// Types implementing this trait can accept initial conditions in various orbital frames
+/// and representations (Cartesian, Keplerian, etc.).
 ///
-/// All methods return `Option<SMatrix<f64, 6, 6>>` to handle cases where covariance
-/// data may not be available for the requested epoch.
+/// Not all propagators support changing initial conditions (e.g., SGP4/TLE-based propagators
+/// derive their state from TLE data). Such propagators should only implement [`DStatePropagator`].
 ///
-/// # Covariance Matrix Structure
-///
-/// The 6x6 covariance matrix represents uncertainty in the state vector [px, py, pz, vx, vy, vz]:
-/// ```text
-/// [ σ_px²    σ_px_py   σ_px_pz   σ_px_vx   σ_px_vy   σ_px_vz ]
-/// [ σ_py_px  σ_py²     σ_py_pz   σ_py_vx   σ_py_vy   σ_py_vz ]
-/// [ σ_pz_px  σ_pz_py   σ_pz²     σ_pz_vx   σ_pz_vy   σ_pz_vz ]
-/// [ σ_vx_px  σ_vx_py   σ_vx_pz   σ_vx²     σ_vx_vy   σ_vx_vz ]
-/// [ σ_vy_px  σ_vy_py   σ_vy_pz   σ_vy_vx   σ_vy²     σ_vy_vz ]
-/// [ σ_vz_px  σ_vz_py   σ_vz_pz   σ_vz_vx   σ_vz_vy   σ_vz²   ]
-/// ```
-///
-/// # Frame Transformations
-///
-/// When transforming covariances between frames, the transformation uses:
-/// ```text
-/// C' = R * C * Rᵀ
-/// ```
-/// where R is the rotation matrix between frames.
-///
-/// # Examples
-///
-/// ```
-/// use brahe::time::Epoch;
-/// use brahe::trajectories::OrbitTrajectory;
-/// use brahe::propagators::traits::CovarianceProvider;
-///
-/// # fn example(trajectory: &OrbitTrajectory, epoch: Epoch) {
-/// // Get covariance in native frame
-/// if let Some(cov) = trajectory.covariance(epoch) {
-///     println!("Position uncertainty: {:.3} m", cov[(0, 0)].sqrt());
-/// }
-///
-/// // Get covariance in GCRF frame
-/// if let Some(cov_gcrf) = trajectory.covariance_gcrf(epoch) {
-///     println!("GCRF covariance available");
-/// }
-///
-/// // Get covariance in RTN frame for relative navigation
-/// if let Some(cov_rtn) = trajectory.covariance_rtn(epoch) {
-///     println!("Radial uncertainty: {:.3} m", cov_rtn[(0, 0)].sqrt());
-///     println!("In-track uncertainty: {:.3} m", cov_rtn[(1, 1)].sqrt());
-///     println!("Normal uncertainty: {:.3} m", cov_rtn[(2, 2)].sqrt());
-/// }
-/// # }
-/// ```
-pub trait CovarianceProvider {
-    /// Returns the covariance matrix at the given epoch in the provider's native frame.
+/// See also: [`SOrbitPropagator`] for static-sized (6D) version
+pub trait DOrbitPropagator: DStatePropagator {
+    /// Set initial conditions from components
     ///
     /// # Arguments
-    /// * `epoch` - The epoch at which to retrieve/compute the covariance
+    /// * `epoch` - Initial epoch
+    /// * `state` - State vector
+    /// * `frame` - Reference frame
+    /// * `representation` - Type of orbital representation
+    /// * `angle_format` - Format for angular elements (None for Cartesian, Some(format) for Keplerian)
     ///
-    /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
-
-    /// Returns the covariance matrix at the given epoch in Earth-Centered Inertial (ECI) frame.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to retrieve/compute the covariance
-    ///
-    /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in ECI frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
-
-    /// Returns the covariance matrix at the given epoch in Geocentric Celestial Reference Frame (GCRF).
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to retrieve/compute the covariance
-    ///
-    /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in GCRF frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
-
-    /// Returns the covariance matrix at the given epoch in Radial, Along-track, Normal (RTN) frame.
-    ///
-    /// The RTN frame is defined relative to the orbital state:
-    /// - **Radial (R)**: Along position vector (away from Earth center)
-    /// - **Along-track (T)**: Completes right-handed system (N × R)
-    /// - **Normal (N)**: Perpendicular to orbital plane (along angular momentum)
-    ///
-    /// This frame is particularly useful for formation flying and relative navigation.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to retrieve/compute the covariance
-    ///
-    /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in RTN frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+    /// # Panics
+    /// May panic if the combination of frame, representation, and angle_format is incompatible
+    fn set_initial_conditions(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        frame: OrbitFrame,
+        representation: OrbitRepresentation,
+        angle_format: Option<AngleFormat>,
+    );
 }
-
-/// Combined trait for state providers with identity tracking.
-///
-/// This supertrait combines `StateProvider` and `Identifiable`, used primarily
-/// in access computation where satellite identity needs to be tracked alongside
-/// orbital state computation.
-///
-/// # Automatic Implementation
-///
-/// This trait is automatically implemented for any type that implements both
-/// `StateProvider` and `Identifiable` via a blanket implementation.
-///
-/// # Examples
-///
-/// ```
-/// use brahe::propagators::{KeplerianPropagator, SGPPropagator};
-/// use brahe::traits::IdentifiableStateProvider;
-///
-/// // Both propagators implement IdentifiableStateProvider automatically
-/// fn accepts_identified_provider<P: IdentifiableStateProvider>(provider: &P) {
-///     // Can use both StateProvider and Identifiable methods
-/// }
-/// ```
-pub trait IdentifiableStateProvider: StateProvider + Identifiable {}
-
-// Blanket implementation for any type implementing both traits
-impl<T: StateProvider + Identifiable> IdentifiableStateProvider for T {}
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -469,7 +323,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_step() {
+    fn test_sorbit_propagator_step() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
         let step_size = prop.step_size();
@@ -483,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_step_past() {
+    fn test_sorbit_propagator_step_past() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
         let target = initial_epoch + 250.0; // 250 seconds in the future
@@ -496,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_step_past_already_past() {
+    fn test_sorbit_propagator_step_past_already_past() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
 
@@ -512,7 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_propagate_steps() {
+    fn test_sorbit_propagator_propagate_steps() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
         let step_size = prop.step_size();
@@ -528,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_propagate_to() {
+    fn test_sorbit_propagator_propagate_to() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
         let target = initial_epoch + 157.0; // Not a multiple of step_size
@@ -542,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_propagate_to_past_epoch() {
+    fn test_sorbit_propagator_propagate_to_past_epoch() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
 
@@ -555,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orbit_propagator_propagate_trajectory() {
+    fn test_sorbit_propagator_propagate_trajectory() {
         let mut prop = create_test_propagator();
         let initial_epoch = prop.current_epoch();
 
@@ -575,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_provider_states() {
+    fn test_sorbit_state_provider_states() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -625,7 +479,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_provider_states_eci() {
+    fn test_sorbit_state_provider_states_eci() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -660,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_provider_states_ecef() {
+    fn test_sorbit_state_provider_states_ecef() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -688,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_provider_states_gcrf() {
+    fn test_sorbit_state_provider_states_gcrf() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -716,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_provider_states_itrf() {
+    fn test_sorbit_state_provider_states_itrf() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

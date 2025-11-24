@@ -5,12 +5,11 @@ Implementation of the Runge-Kutta-Fehlberg 4(5) adaptive integration method.
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 use crate::integrators::butcher_tableau::{EmbeddedButcherTableau, RKF45_TABLEAU};
-use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
+use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepInternalResultD,
-    AdaptiveStepInternalResultS, AdaptiveStepSIntegrator, ControlInput, ControlInputD, DIntegrator,
-    SensitivityD, SensitivityS, StateDynamics, StateDynamicsD, VariationalMatrix,
-    VariationalMatrixD, compute_next_step_size, compute_normalized_error,
+    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
+    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
+    SStateDynamics, SVariationalMatrix, compute_next_step_size, compute_normalized_error,
     compute_normalized_error_s, compute_reduced_step_size,
 };
 
@@ -23,9 +22,9 @@ use crate::integrators::traits::{
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::integrators::{RKF45SIntegrator, AdaptiveStepSIntegrator, IntegratorConfig};
+/// use brahe::integrators::{RKF45SIntegrator, SIntegrator, IntegratorConfig};
 ///
-/// let f = |t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
+/// let f = |t: f64, state: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
 ///     SVector::<f64, 1>::new(2.0 * t)
 /// };
 ///
@@ -33,51 +32,18 @@ use crate::integrators::traits::{
 /// let rkf45: RKF45SIntegrator<1, 0> = RKF45SIntegrator::with_config(Box::new(f), None, None, None, config);
 ///
 /// let state = SVector::<f64, 1>::new(0.0);
-/// let result = rkf45.step(0.0, state, 0.5);
+/// let result = rkf45.step(0.0, state, Some(0.5));
 /// ```
 pub struct RKF45SIntegrator<const S: usize, const P: usize> {
-    f: StateDynamics<S>,
-    varmat: VariationalMatrix<S>,
-    sensmat: SensitivityS<S, P>,
-    control: ControlInput<S, P>,
+    f: SStateDynamics<S, P>,
+    varmat: SVariationalMatrix<S, P>,
+    sensmat: SSensitivity<S, P>,
+    control: SControlInput<S, P>,
     bt: EmbeddedButcherTableau<6>,
     config: IntegratorConfig,
 }
 
 impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
-    /// Create a new RKF45 integrator with default configuration.
-    pub fn new(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    /// Create a new RKF45 integrator with custom configuration.
-    pub fn with_config(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: RKF45_TABLEAU,
-            config,
-        }
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
-
     /// Consolidated internal step method that handles all step variants.
     ///
     /// This method performs the core RKF45 integration with adaptive step control,
@@ -90,7 +56,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
         sens: Option<SMatrix<f64, S, P>>,
         params: Option<&SVector<f64, P>>,
         dt: f64,
-    ) -> AdaptiveStepInternalResultS<S, P> {
+    ) -> SIntegratorStepResult<S, P> {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
 
@@ -125,7 +91,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
 
                 let state_i = state + h * ksum;
                 let t_i = t + self.bt.c[i] * h;
-                let mut k_i = (self.f)(t_i, state_i);
+                let mut k_i = (self.f)(t_i, state_i, params);
 
                 if let Some(ref ctrl) = self.control {
                     k_i += ctrl(t_i, state_i, params);
@@ -138,7 +104,7 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
                         .varmat
                         .as_ref()
                         .expect("varmat required")
-                        .compute(t_i, state_i);
+                        .compute(t_i, state_i, params);
 
                     if compute_phi {
                         k_phi[i] = a_i * (phi.unwrap() + h * k_phi_sum);
@@ -184,12 +150,12 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
             if error <= 1.0 || min_step_reached {
                 let dt_next = compute_next_step_size(error, h, 0.2, &self.config);
 
-                return AdaptiveStepInternalResultS {
+                return SIntegratorStepResult {
                     state: state_high,
                     phi: phi.map(|p| p + phi_update),
                     sens: sens.map(|s| s + sens_update),
                     dt_used: h,
-                    error_estimate: error,
+                    error_estimate: Some(error),
                     dt_next,
                 };
             }
@@ -202,15 +168,40 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
     }
 }
 
-impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SIntegrator<S, P> {
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
-        let result = self.step_internal(t, state, None, None, None, dt);
-        AdaptiveStepSResult {
-            state: result.state,
-            dt_used: result.dt_used,
-            error_estimate: result.error_estimate,
-            dt_next: result.dt_next,
+impl<const S: usize, const P: usize> SIntegrator<S, P> for RKF45SIntegrator<S, P> {
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RKF45_TABLEAU,
+            config,
         }
+    }
+
+    fn config(&self) -> &IntegratorConfig {
+        &self.config
+    }
+
+    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, None, None, dt)
     }
 
     fn step_with_varmat(
@@ -218,16 +209,10 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SInt
         t: f64,
         state: SVector<f64, S>,
         phi: SMatrix<f64, S, S>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), None, None, dt)
     }
 
     fn step_with_sensmat(
@@ -236,16 +221,10 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SInt
         state: SVector<f64, S>,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, P>, f64, f64, f64) {
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
     }
 
     fn step_with_varmat_sensmat(
@@ -255,24 +234,10 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SInt
         phi: SMatrix<f64, S, S>,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (
-        SVector<f64, S>,
-        SMatrix<f64, S, S>,
-        SMatrix<f64, S, P>,
-        f64,
-        f64,
-        f64,
-    ) {
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
 
@@ -289,7 +254,7 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SInt
 ///
 /// ```
 /// use nalgebra::DVector;
-/// use brahe::integrators::{RKF45DIntegrator, AdaptiveStepDIntegrator, IntegratorConfig};
+/// use brahe::integrators::{RKF45DIntegrator, DIntegrator, IntegratorConfig};
 ///
 /// let f = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
 ///     DVector::from_vec(vec![2.0 * t])
@@ -299,60 +264,25 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P> for RKF45SInt
 /// let rkf45 = RKF45DIntegrator::with_config(1, Box::new(f), None, None, None, config);
 ///
 /// let state = DVector::from_vec(vec![0.0]);
-/// let result = rkf45.step(0.0, state, 0.5);
+/// let result = rkf45.step(0.0, state, Some(0.5));
 /// ```
 pub struct RKF45DIntegrator {
     dimension: usize,
-    f: StateDynamicsD,
-    varmat: VariationalMatrixD,
-    sensmat: SensitivityD,
-    control: ControlInputD,
+    f: DStateDynamics,
+    varmat: DVariationalMatrix,
+    sensmat: DSensitivity,
+    control: DControlInput,
     bt: EmbeddedButcherTableau<6>,
     config: IntegratorConfig,
-}
-
-impl RKF45DIntegrator {
-    /// Create a new RKF45 integrator with default configuration.
-    pub fn new(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-    ) -> Self {
-        <Self as DIntegrator>::new(dimension, f, varmat, sensmat, control)
-    }
-
-    /// Create a new RKF45 integrator with custom configuration.
-    pub fn with_config(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-        config: IntegratorConfig,
-    ) -> Self {
-        <Self as DIntegrator>::with_config(dimension, f, varmat, sensmat, control, config)
-    }
-
-    /// Get the state vector dimension for this integrator.
-    pub fn dimension(&self) -> usize {
-        self.dimension
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
 }
 
 impl DIntegrator for RKF45DIntegrator {
     fn new(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
     ) -> Self {
         Self::with_config(
             dimension,
@@ -366,10 +296,10 @@ impl DIntegrator for RKF45DIntegrator {
 
     fn with_config(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -390,6 +320,47 @@ impl DIntegrator for RKF45DIntegrator {
     fn config(&self) -> &IntegratorConfig {
         &self.config
     }
+
+    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, None, None, dt)
+    }
+
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), None, None, dt)
+    }
+
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
+    }
+
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
 }
 
 impl RKF45DIntegrator {
@@ -405,7 +376,7 @@ impl RKF45DIntegrator {
         sens: Option<DMatrix<f64>>,
         params: Option<&DVector<f64>>,
         dt: f64,
-    ) -> AdaptiveStepInternalResultD {
+    ) -> DIntegratorStepResult {
         // Validate dimensions
         assert_eq!(
             state.len(),
@@ -489,11 +460,11 @@ impl RKF45DIntegrator {
                 k.set_column(i, &k_i);
 
                 if compute_phi || compute_sens {
-                    let a_i = self
-                        .varmat
-                        .as_ref()
-                        .expect("varmat required")
-                        .compute(t_i, state_i.clone());
+                    let a_i = self.varmat.as_ref().expect("varmat required").compute(
+                        t_i,
+                        state_i.clone(),
+                        params,
+                    );
 
                     if compute_phi {
                         k_phi[i] = &a_i * (phi.as_ref().unwrap() + h * k_phi_sum);
@@ -547,12 +518,12 @@ impl RKF45DIntegrator {
             if error <= 1.0 || min_step_reached {
                 let dt_next = compute_next_step_size(error, h, 0.2, &self.config);
 
-                return AdaptiveStepInternalResultD {
+                return DIntegratorStepResult {
                     state: state_high,
                     phi: phi.map(|p| p + phi_update),
                     sens: sens.map(|s| s + sens_update),
                     dt_used: h,
-                    error_estimate: error,
+                    error_estimate: Some(error),
                     dt_next,
                 };
             }
@@ -565,73 +536,6 @@ impl RKF45DIntegrator {
     }
 }
 
-impl AdaptiveStepDIntegrator for RKF45DIntegrator {
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
-        let result = self.step_internal(t, state, None, None, None, dt);
-        AdaptiveStepDResult {
-            state: result.state,
-            dt_used: result.dt_used,
-            error_estimate: result.error_estimate,
-            dt_next: result.dt_next,
-        }
-    }
-
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
-    }
-
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
-    }
-
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>, f64, f64, f64) {
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
-    }
-}
-
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -641,13 +545,17 @@ mod tests {
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::IntegratorConfig;
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{AdaptiveStepDIntegrator, AdaptiveStepSIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator};
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
 
-    fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
+    fn point_earth(
+        _: f64,
+        x: SVector<f64, 6>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -668,7 +576,10 @@ mod tests {
     #[test]
     fn test_rkf45s_integrator_parabola() {
         // Test RKF45 on simple parabola x' = 2t
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let rkf45: RKF45SIntegrator<1, 0> =
@@ -679,7 +590,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -691,7 +602,10 @@ mod tests {
     #[test]
     fn test_rkf45s_integrator_adaptive() {
         // Test adaptive stepping on parabola
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let rkf45: RKF45SIntegrator<1, 0> =
@@ -703,12 +617,12 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
 
             // Verify that error estimate is reasonable
-            assert!(result.error_estimate >= 0.0);
+            assert!(result.error_estimate.unwrap() >= 0.0);
         }
 
         // Should still get accurate result
@@ -734,7 +648,7 @@ mod tests {
 
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = rkf45.step(epc - epc0, state, dt);
+            let result = rkf45.step(epc - epc0, state, Some(dt));
             state = result.state;
             epc += result.dt_used;
         }
@@ -749,8 +663,10 @@ mod tests {
     #[test]
     fn test_rkf45s_accuracy() {
         // Verify RKF45 achieves expected 5th order accuracy
-        let f =
-            |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
 
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkf45: RKF45SIntegrator<1, 0> =
@@ -761,7 +677,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -776,7 +692,10 @@ mod tests {
     #[test]
     fn test_rkf45s_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-4);
         let rkf45: RKF45SIntegrator<1, 0> =
@@ -786,7 +705,7 @@ mod tests {
         let dt_initial = 0.01;
 
         // Take a step with loose tolerance - error should be small
-        let result = rkf45.step(0.0, state, dt_initial);
+        let result = rkf45.step(0.0, state, Some(dt_initial));
 
         // For this simple problem with loose tolerance, suggested step should be larger
         assert!(
@@ -797,13 +716,16 @@ mod tests {
         );
 
         // Error should be very small for this simple problem
-        assert!(result.error_estimate < 0.1);
+        assert!(result.error_estimate.unwrap() < 0.1);
     }
 
     #[test]
     fn test_rkf45s_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
-        let f = |_t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |_t: f64,
+                 state: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> {
             // Stiff problem: y' = -1000 * y
             SVector::<f64, 1>::new(-1000.0 * state[0])
         };
@@ -816,7 +738,7 @@ mod tests {
         let dt_initial = 0.1; // Too large for this stiff problem
 
         // This should trigger step rejection and reduction
-        let result = rkf45.step(0.0, state, dt_initial);
+        let result = rkf45.step(0.0, state, Some(dt_initial));
 
         // Step should have been reduced from initial
         assert!(result.dt_used <= dt_initial);
@@ -825,7 +747,10 @@ mod tests {
     #[test]
     fn test_rkf45s_config_parameters() {
         // Verify that config parameters are actually used
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let mut config = IntegratorConfig::adaptive(1e-8, 1e-6);
         config.step_safety_factor = Some(0.5); // Very conservative
@@ -835,7 +760,7 @@ mod tests {
             RKF45SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = rkf45.step(0.0, state, 0.01);
+        let result = rkf45.step(0.0, state, Some(0.01));
 
         // With safety factor 0.5, growth should be limited
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -844,7 +769,10 @@ mod tests {
     #[test]
     fn test_rkf45s_no_limits() {
         // Verify that setting limits to None removes protections
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let mut config = IntegratorConfig::adaptive(1e-8, 1e-6);
         config.min_step = None; // No minimum
@@ -856,7 +784,7 @@ mod tests {
             RKF45SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = rkf45.step(0.0, state, 0.001);
+        let result = rkf45.step(0.0, state, Some(0.001));
 
         // With no max_step_scale_factor, step can grow beyond typical 10x limit
         // (though actual growth depends on error)
@@ -887,8 +815,10 @@ mod tests {
 
         // Propagate single step
         let dt = 10.0; // 10 seconds
-        let (state_new, phi, _dt_used, _error, _dt_next) =
-            rkf45.step_with_varmat(0.0, state0, SMatrix::<f64, 6, 6>::identity(), dt);
+        let result =
+            rkf45.step_with_varmat(0.0, state0, SMatrix::<f64, 6, 6>::identity(), Some(dt));
+        let state_new = result.state;
+        let phi = result.phi.unwrap();
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -897,7 +827,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = state0 + perturbation;
-            let result_pert = rkf45.step(0.0, state0_pert, dt);
+            let result_pert = rkf45.step(0.0, state0_pert, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi * perturbation;
@@ -972,13 +902,16 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let (state_new, phi_new, dt_used, _, _) = rkf45.step_with_varmat(t, state, phi, dt);
+            let result = rkf45.step_with_varmat(t, state, phi, Some(dt));
+            let state_new = result.state;
+            let phi_new = result.phi;
+            let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = rkf45.step(t, state_pert, dt);
+            let result_pert = rkf45.step(t, state_pert, Some(dt));
 
             // Predict perturbed state using STM
-            let state_pert_predicted = state_new + phi_new * perturbation;
+            let state_pert_predicted = state_new + phi_new.unwrap() * perturbation;
 
             // Compare
             let error = (result_pert.state - state_pert_predicted).norm();
@@ -998,7 +931,7 @@ mod tests {
 
             // Update for next step
             state = state_new;
-            phi = phi_new;
+            phi = phi_new.unwrap();
             state_pert = result_pert.state;
             t += dt_used;
         }
@@ -1029,7 +962,11 @@ mod tests {
     }
 
     // Wrapper for Jacobian computation which expects a 2-argument function
-    fn point_earth_dynamic_for_jacobian(t: f64, x: DVector<f64>) -> DVector<f64> {
+    fn point_earth_dynamic_for_jacobian(
+        t: f64,
+        x: DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> DVector<f64> {
         point_earth_dynamic(t, x, None)
     }
 
@@ -1047,7 +984,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -1070,11 +1007,11 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
 
-            assert!(result.error_estimate >= 0.0);
+            assert!(result.error_estimate.unwrap() >= 0.0);
         }
 
         assert_abs_diff_eq!(state[0], 1.0, epsilon = 1.0e-8);
@@ -1106,7 +1043,7 @@ mod tests {
 
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = rkf45.step(epc - epc0, state, dt);
+            let result = rkf45.step(epc - epc0, state, Some(dt));
             state = result.state;
             epc += result.dt_used;
         }
@@ -1132,7 +1069,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = rkf45.step(t, state, dt);
+            let result = rkf45.step(t, state, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -1155,7 +1092,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
         let dt_initial = 0.01;
 
-        let result = rkf45.step(0.0, state, dt_initial);
+        let result = rkf45.step(0.0, state, Some(dt_initial));
 
         assert!(
             result.dt_next > dt_initial,
@@ -1164,7 +1101,7 @@ mod tests {
             dt_initial
         );
 
-        assert!(result.error_estimate < 0.1);
+        assert!(result.error_estimate.unwrap() < 0.1);
     }
 
     #[test]
@@ -1179,7 +1116,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let dt_initial = 0.1;
 
-        let result = rkf45.step(0.0, state, dt_initial);
+        let result = rkf45.step(0.0, state, Some(dt_initial));
 
         assert!(result.dt_used <= dt_initial);
     }
@@ -1198,7 +1135,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = rkf45.step(0.0, state, 0.01);
+        let result = rkf45.step(0.0, state, Some(0.01));
 
         // Verify config parameters limit step size growth
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1220,7 +1157,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = rkf45.step(0.0, state, 0.001);
+        let result = rkf45.step(0.0, state, Some(0.001));
 
         // Verify step succeeds without limits
         assert!(result.dt_next > 0.0);
@@ -1251,8 +1188,14 @@ mod tests {
 
         // Propagate with STM
         let dt = 10.0;
-        let (state_new, phi, _dt_used, _error, _dt_next) =
-            rkf45.step_with_varmat(0.0, state0.clone(), DMatrix::<f64>::identity(6, 6), dt);
+        let result = rkf45.step_with_varmat(
+            0.0,
+            state0.clone(),
+            DMatrix::<f64>::identity(6, 6),
+            Some(dt),
+        );
+        let state_new = result.state;
+        let phi = result.phi.unwrap();
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1261,7 +1204,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = &state0 + &perturbation;
-            let result_pert = rkf45.step(0.0, state0_pert, dt);
+            let result_pert = rkf45.step(0.0, state0_pert, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi * &perturbation;
@@ -1333,11 +1276,13 @@ mod tests {
         // Propagate both trajectories and verify STM prediction at each step
         for step in 0..num_steps {
             // Propagate nominal state with STM
-            let (state_new, phi_new, dt_used, _, _) =
-                rkf45.step_with_varmat(t, state.clone(), phi.clone(), dt);
+            let result = rkf45.step_with_varmat(t, state.clone(), phi.clone(), Some(dt));
+            let state_new = result.state;
+            let phi_new = result.phi.unwrap();
+            let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = rkf45.step(t, state_pert.clone(), dt);
+            let result_pert = rkf45.step(t, state_pert.clone(), Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
@@ -1366,9 +1311,10 @@ mod tests {
     #[test]
     fn test_rkf45_s_vs_d_consistency() {
         // Verify RKF45SIntegrator and RKF45DIntegrator produce identical results
-        let f_static = |_t: f64, x: SVector<f64, 2>| -> SVector<f64, 2> {
-            SVector::<f64, 2>::new(x[1], -x[0])
-        };
+        let f_static = |_t: f64,
+                        x: SVector<f64, 2>,
+                        _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
         let f_dynamic = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![x[1], -x[0]])
         };
@@ -1383,8 +1329,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = rkf45_s.step(0.0, state_s, dt);
-        let result_d = rkf45_d.step(0.0, state_d, dt);
+        let result_s = rkf45_s.step(0.0, state_s, Some(dt));
+        let result_d = rkf45_d.step(0.0, state_d, Some(dt));
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
@@ -1392,8 +1338,8 @@ mod tests {
 
         // Error estimates and step suggestions should also match
         assert_abs_diff_eq!(
-            result_s.error_estimate,
-            result_d.error_estimate,
+            result_s.error_estimate.unwrap(),
+            result_d.error_estimate.unwrap(),
             epsilon = 1.0e-15
         );
         assert_abs_diff_eq!(result_s.dt_used, result_d.dt_used, epsilon = 1.0e-15);
@@ -1416,7 +1362,7 @@ mod tests {
         let mut state_fwd = state0;
         let mut t = 0.0;
         while t < 100.0 {
-            let result = rkf45.step(t, state_fwd, dt_forward);
+            let result = rkf45.step(t, state_fwd, Some(dt_forward));
             state_fwd = result.state;
             t += result.dt_used;
         }
@@ -1429,7 +1375,7 @@ mod tests {
         while t > 0.0 {
             // Ensure we don't step past t=0
             dt_back = dt_back.max(-t);
-            let result = rkf45.step(t, state_back, dt_back);
+            let result = rkf45.step(t, state_back, Some(dt_back));
             state_back = result.state;
             t += result.dt_used;
             dt_back = result.dt_next; // Use adaptive timestep suggestion
@@ -1464,7 +1410,7 @@ mod tests {
         let mut state_fwd = state0.clone();
         let mut t = 0.0;
         while t < 100.0 {
-            let result = rkf45.step(t, state_fwd, dt_forward);
+            let result = rkf45.step(t, state_fwd, Some(dt_forward));
             state_fwd = result.state;
             t += result.dt_used;
         }
@@ -1477,7 +1423,7 @@ mod tests {
         while t > 0.0 {
             // Ensure we don't step past t=0
             dt_back = dt_back.max(-t);
-            let result = rkf45.step(t, state_back, dt_back);
+            let result = rkf45.step(t, state_back, Some(dt_back));
             state_back = result.state;
             t += result.dt_used;
             dt_back = result.dt_next; // Use adaptive timestep suggestion
@@ -1511,7 +1457,12 @@ mod tests {
         // Jacobian provider: ∂f/∂x = -k
         struct DecayJacobian;
         impl crate::math::jacobian::DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 // For simplicity, use k=1.0 for the Jacobian (this is approximate but works for testing)
                 // In a real application, you'd pass k through or use numerical differentiation
                 DMatrix::from_vec(1, 1, vec![-1.0])
@@ -1550,15 +1501,18 @@ mod tests {
         let dt = 0.1;
 
         // Take a step with combined method
-        let (state_combined, phi_combined, sens_combined, dt_used, _, _) = rkf45
-            .step_with_varmat_sensmat(
-                0.0,
-                state0.clone(),
-                phi0.clone(),
-                sens0.clone(),
-                &params,
-                dt,
-            );
+        let result_combined = rkf45.step_with_varmat_sensmat(
+            0.0,
+            state0.clone(),
+            phi0.clone(),
+            sens0.clone(),
+            &params,
+            Some(dt),
+        );
+        let state_combined = result_combined.state;
+        let phi_combined = result_combined.phi.unwrap();
+        let sens_combined = result_combined.sens.unwrap();
+        let dt_used = result_combined.dt_used;
 
         // Create separate integrator for comparison (to avoid cache issues)
         let rkf45_sensmat = RKF45DIntegrator::with_config(
@@ -1572,8 +1526,11 @@ mod tests {
 
         // Test 1: Compare with step_with_sensmat - states and sensitivity should match
         // Both use params, so the dynamics are identical
-        let (state_sensmat, sens_sensmat, dt_sensmat, _, _) =
-            rkf45_sensmat.step_with_sensmat(0.0, state0.clone(), sens0.clone(), &params, dt);
+        let result_sensmat =
+            rkf45_sensmat.step_with_sensmat(0.0, state0.clone(), sens0.clone(), &params, Some(dt));
+        let state_sensmat = result_sensmat.state;
+        let sens_sensmat = result_sensmat.sens.unwrap();
+        let dt_sensmat = result_sensmat.dt_used;
 
         // The dt_used should be the same since both methods have identical dynamics
         assert_abs_diff_eq!(dt_used, dt_sensmat, epsilon = 1e-14);
@@ -1594,7 +1551,7 @@ mod tests {
         // Perturb initial state
         let delta = 1e-6;
         let state0_pert = DVector::from_vec(vec![x0 + delta]);
-        let result_pert = rkf45_pert.step(0.0, state0_pert, dt);
+        let result_pert = rkf45_pert.step(0.0, state0_pert, Some(dt));
 
         // STM should predict the perturbed state
         let state_pert_predicted = state_combined[0] + phi_combined[(0, 0)] * delta;
@@ -1642,11 +1599,15 @@ mod tests {
         );
 
         for _ in 0..10 {
-            let (new_state, new_phi, new_sens, dt_used, _, _) =
-                rkf45_multi.step_with_varmat_sensmat(t, state, phi, sens, &params, 0.1);
+            let result =
+                rkf45_multi.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(0.1));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1671,8 +1632,13 @@ mod tests {
 
         // Jacobian provider: ∂f/∂x = -k (using k=1.0)
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1691,7 +1657,10 @@ mod tests {
         }
 
         // Dynamics: dx/dt = -k*x where k = 1.0
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::with_config(
@@ -1715,10 +1684,12 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_sens, dt_used, _, _) =
-                rkf45.step_with_sensmat(t, state, sens, &params, dt);
+            let result = rkf45.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1739,7 +1710,12 @@ mod tests {
 
         struct DecayJacobian;
         impl crate::math::jacobian::DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
             }
         }
@@ -1780,10 +1756,12 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_sens, dt_used, _, _) =
-                rkf45.step_with_sensmat(t, state, sens, &params, dt);
+            let result = rkf45.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1803,8 +1781,13 @@ mod tests {
         use crate::math::sensitivity::SSensitivityProvider;
 
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1821,7 +1804,10 @@ mod tests {
             }
         }
 
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkf45: RKF45SIntegrator<1, 1> = RKF45SIntegrator::with_config(
@@ -1845,11 +1831,14 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_phi, new_sens, dt_used, _, _) =
-                rkf45.step_with_varmat_sensmat(t, state, phi, sens, &params, dt);
+            let result = rkf45.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1877,7 +1866,7 @@ mod tests {
         let mut t_pert = 0.0_f64;
         while t_pert < 1.0 {
             let dt = (1.0_f64 - t_pert).min(0.1);
-            let result = rkf45_pert.step(t_pert, state_pert, dt);
+            let result = rkf45_pert.step(t_pert, state_pert, Some(dt));
             state_pert = result.state;
             t_pert += result.dt_used;
         }
@@ -1897,7 +1886,11 @@ mod tests {
 
     #[test]
     fn test_rkf45s_new_uses_default_config() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 
@@ -1915,7 +1908,11 @@ mod tests {
 
     #[test]
     fn test_rkf45s_with_config_stores_config() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 
@@ -1950,7 +1947,11 @@ mod tests {
 
     #[test]
     fn test_rkf45s_config_returns_reference() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             state
         }
 
@@ -2056,7 +2057,11 @@ mod tests {
     fn test_rkf45s_panics_on_max_attempts_exceeded() {
         // Create a "stiff" problem that will fail to converge
         // Use very tight tolerances and small max_step_attempts
-        fn stiff_dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn stiff_dynamics(
+            _t: f64,
+            state: SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             // Rapidly varying dynamics that will produce large errors
             SVector::<f64, 1>::new(1e10 * state[0])
         }
@@ -2079,7 +2084,7 @@ mod tests {
 
         let state = SVector::<f64, 1>::new(1.0);
         // This should panic because the error will be too large and we only allow 1 attempt
-        let _ = integrator.step(0.0, state, 1.0);
+        let _ = integrator.step(0.0, state, Some(1.0));
     }
 
     #[test]
@@ -2110,6 +2115,6 @@ mod tests {
             RKF45DIntegrator::with_config(1, Box::new(stiff_dynamics), None, None, None, config);
 
         let state = DVector::from_vec(vec![1.0]);
-        let _ = integrator.step(0.0, state, 1.0);
+        let _ = integrator.step(0.0, state, Some(1.0));
     }
 }

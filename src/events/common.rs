@@ -1,0 +1,705 @@
+/*!
+ * Common event detectors
+ *
+ * Threshold and binary event detectors for custom conditions.
+ */
+
+use super::traits::{
+    DEventCallback, DEventDetector, EdgeType, EventAction, EventDirection, SEventCallback,
+    SEventDetector,
+};
+use crate::time::Epoch;
+use nalgebra::{DVector, SVector};
+
+/// Time-based event detector (static-sized)
+///
+/// Fires when simulation time reaches the target time. Useful for
+/// pre-planned maneuvers or discrete events at known times.
+///
+/// # Examples
+/// ```
+/// use brahe::events::STimeEvent;
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let target = Epoch::from_jd(2451545.5, TimeSystem::UTC);
+/// let event = STimeEvent::<6, 0>::new(target, "Maneuver Start");
+/// ```
+pub struct STimeEvent<const S: usize, const P: usize> {
+    target_time: Epoch,
+    base_name: String,
+    formatted_name: String,
+    callback: Option<SEventCallback<S, P>>,
+    action: EventAction,
+}
+
+impl<const S: usize, const P: usize> STimeEvent<S, P> {
+    /// Create a new time event
+    pub fn new(target_time: Epoch, name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            target_time,
+            formatted_name: name.clone(),
+            base_name: name,
+            callback: None,
+            action: EventAction::Continue,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation)
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
+    fn evaluate(
+        &self,
+        t: Epoch,
+        _state: &SVector<f64, S>,
+        _params: Option<&SVector<f64, P>>,
+    ) -> f64 {
+        t - self.target_time // Returns signed time difference in seconds
+    }
+
+    fn threshold(&self) -> f64 {
+        0.0 // Event occurs when time reaches target (crossing from negative to positive)
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn callback(&self) -> Option<&SEventCallback<S, P>> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+/// Dynamic-sized time event
+///
+/// See [`STimeEvent`] for details. This version works with dynamic-sized
+/// state vectors.
+pub struct DTimeEvent {
+    target_time: Epoch,
+    base_name: String,
+    formatted_name: String,
+    callback: Option<DEventCallback>,
+    action: EventAction,
+}
+
+impl DTimeEvent {
+    /// Create a new time event
+    pub fn new(target_time: Epoch, name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            target_time,
+            formatted_name: name.clone(),
+            base_name: name,
+            callback: None,
+            action: EventAction::Continue,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: DEventCallback) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation)
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl DEventDetector for DTimeEvent {
+    fn evaluate(&self, t: Epoch, _state: &DVector<f64>, _params: Option<&DVector<f64>>) -> f64 {
+        t - self.target_time // Returns signed time difference in seconds
+    }
+
+    fn threshold(&self) -> f64 {
+        0.0 // Event occurs when time reaches target (crossing from negative to positive)
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn callback(&self) -> Option<&DEventCallback> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+/// Threshold event detector (static-sized)
+///
+/// Detects when a continuous value crosses a threshold. The user provides
+/// a function that computes the value, and the threshold is specified separately.
+/// Internally converts to zero-crossing for bisection detection.
+///
+/// # Examples
+/// ```
+/// use brahe::events::{SThresholdEvent, EventDirection};
+/// use brahe::constants::R_EARTH;
+/// use brahe::time::Epoch;
+/// use nalgebra::SVector;
+///
+/// // Detect when altitude drops below 500 km
+/// let event = SThresholdEvent::<7, 4>::new(
+///     "Low Altitude",
+///     |_t: Epoch, state: &SVector<f64, 7>, _params| {
+///         state.fixed_rows::<3>(0).norm()  // Just compute radius
+///     },
+///     R_EARTH + 500e3,  // Threshold specified separately
+///     EventDirection::Decreasing
+/// );
+/// ```
+pub struct SThresholdEvent<const S: usize, const P: usize> {
+    base_name: String,
+    formatted_name: String,
+    #[allow(clippy::type_complexity)]
+    value_fn: Box<dyn Fn(Epoch, &SVector<f64, S>, Option<&SVector<f64, P>>) -> f64 + Send + Sync>,
+    threshold: f64,
+    direction: EventDirection,
+    callback: Option<SEventCallback<S, P>>,
+    action: EventAction,
+    time_tol: f64,
+    value_tol: f64,
+}
+
+impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
+    /// Create new threshold event
+    ///
+    /// # Arguments
+    /// * `name` - Event identifier
+    /// * `value_fn` - Function that computes the value to monitor
+    /// * `threshold` - Threshold value for comparison
+    /// * `direction` - Detection direction (increasing/decreasing/any)
+    pub fn new<F>(
+        name: impl Into<String>,
+        value_fn: F,
+        threshold: f64,
+        direction: EventDirection,
+    ) -> Self
+    where
+        F: Fn(Epoch, &SVector<f64, S>, Option<&SVector<f64, P>>) -> f64 + Send + Sync + 'static,
+    {
+        let name = name.into();
+        Self {
+            formatted_name: name.clone(),
+            base_name: name,
+            value_fn: Box::new(value_fn),
+            threshold,
+            direction,
+            callback: None,
+            action: EventAction::Continue,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.time_tol = time_tol;
+        self.value_tol = value_tol;
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation)
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl<const S: usize, const P: usize> SEventDetector<S, P> for SThresholdEvent<S, P> {
+    fn evaluate(&self, t: Epoch, state: &SVector<f64, S>, params: Option<&SVector<f64, P>>) -> f64 {
+        // Return raw value from user function
+        (self.value_fn)(t, state, params)
+    }
+
+    fn threshold(&self) -> f64 {
+        self.threshold
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn direction(&self) -> EventDirection {
+        self.direction
+    }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    fn value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    fn callback(&self) -> Option<&SEventCallback<S, P>> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+/// Dynamic-sized threshold event detector
+///
+/// See [`SThresholdEvent`] for details. This version works with dynamic-sized
+/// state vectors.
+pub struct DThresholdEvent {
+    base_name: String,
+    formatted_name: String,
+    #[allow(clippy::type_complexity)]
+    value_fn: Box<dyn Fn(Epoch, &DVector<f64>, Option<&DVector<f64>>) -> f64 + Send + Sync>,
+    threshold: f64,
+    direction: EventDirection,
+    callback: Option<DEventCallback>,
+    action: EventAction,
+    time_tol: f64,
+    value_tol: f64,
+}
+
+impl DThresholdEvent {
+    /// Create new threshold event
+    pub fn new<F>(
+        name: impl Into<String>,
+        value_fn: F,
+        threshold: f64,
+        direction: EventDirection,
+    ) -> Self
+    where
+        F: Fn(Epoch, &DVector<f64>, Option<&DVector<f64>>) -> f64 + Send + Sync + 'static,
+    {
+        let name = name.into();
+        Self {
+            formatted_name: name.clone(),
+            base_name: name,
+            value_fn: Box::new(value_fn),
+            threshold,
+            direction,
+            callback: None,
+            action: EventAction::Continue,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.time_tol = time_tol;
+        self.value_tol = value_tol;
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: DEventCallback) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl DEventDetector for DThresholdEvent {
+    fn evaluate(&self, t: Epoch, state: &DVector<f64>, params: Option<&DVector<f64>>) -> f64 {
+        (self.value_fn)(t, state, params)
+    }
+
+    fn threshold(&self) -> f64 {
+        self.threshold
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn direction(&self) -> EventDirection {
+        self.direction
+    }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    fn value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    fn callback(&self) -> Option<&DEventCallback> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+/// Binary event detector (static-sized)
+///
+/// Detects transitions in boolean conditions (e.g., entering/exiting eclipse,
+/// visibility changes). The user provides a predicate function that returns
+/// `true` or `false`, and specifies which edge to detect (rising/falling/any).
+///
+/// # Examples
+/// ```
+/// use brahe::events::{SBinaryEvent, EdgeType};
+/// use brahe::time::Epoch;
+/// use nalgebra::SVector;
+///
+/// # fn is_sunlit(_pos: nalgebra::Vector3<f64>) -> bool { true }
+/// // Detect eclipse entry (sunlit → shadow)
+/// let event = SBinaryEvent::<7, 4>::new(
+///     "Enter Eclipse",
+///     |_t: Epoch, state: &SVector<f64, 7>, _params| {
+///         // Returns true if sunlit, false if in shadow
+///         is_sunlit(state.fixed_rows::<3>(0).into())
+///     },
+///     EdgeType::FallingEdge  // Detect true → false
+/// );
+/// ```
+pub struct SBinaryEvent<const S: usize, const P: usize> {
+    base_name: String,
+    formatted_name: String,
+    #[allow(clippy::type_complexity)]
+    condition_fn:
+        Box<dyn Fn(Epoch, &SVector<f64, S>, Option<&SVector<f64, P>>) -> bool + Send + Sync>,
+    edge: EdgeType,
+    callback: Option<SEventCallback<S, P>>,
+    action: EventAction,
+    time_tol: f64,
+    value_tol: f64,
+}
+
+impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
+    /// Create new binary event
+    ///
+    /// # Arguments
+    /// * `name` - Event identifier
+    /// * `condition_fn` - Function that returns true/false
+    /// * `edge` - Which edge to detect (rising/falling/any)
+    pub fn new<F>(name: impl Into<String>, condition_fn: F, edge: EdgeType) -> Self
+    where
+        F: Fn(Epoch, &SVector<f64, S>, Option<&SVector<f64, P>>) -> bool + Send + Sync + 'static,
+    {
+        let name = name.into();
+        Self {
+            formatted_name: name.clone(),
+            base_name: name,
+            condition_fn: Box::new(condition_fn),
+            edge,
+            callback: None,
+            action: EventAction::Continue,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.time_tol = time_tol;
+        self.value_tol = value_tol;
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation)
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl<const S: usize, const P: usize> SEventDetector<S, P> for SBinaryEvent<S, P> {
+    fn evaluate(&self, t: Epoch, state: &SVector<f64, S>, params: Option<&SVector<f64, P>>) -> f64 {
+        // Convert boolean to value: true = 1.0, false = -1.0
+        if (self.condition_fn)(t, state, params) {
+            1.0
+        } else {
+            -1.0
+        }
+    }
+
+    fn threshold(&self) -> f64 {
+        0.0 // Zero-crossing occurs at threshold of 0.0
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn direction(&self) -> EventDirection {
+        // Convert EdgeType to EventDirection
+        match self.edge {
+            EdgeType::RisingEdge => EventDirection::Increasing,
+            EdgeType::FallingEdge => EventDirection::Decreasing,
+            EdgeType::AnyEdge => EventDirection::Any,
+        }
+    }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    fn value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    fn callback(&self) -> Option<&SEventCallback<S, P>> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+/// Dynamic-sized binary event detector
+///
+/// See [`SBinaryEvent`] for details. This version works with dynamic-sized
+/// state vectors.
+pub struct DBinaryEvent {
+    base_name: String,
+    formatted_name: String,
+    #[allow(clippy::type_complexity)]
+    condition_fn: Box<dyn Fn(Epoch, &DVector<f64>, Option<&DVector<f64>>) -> bool + Send + Sync>,
+    edge: EdgeType,
+    callback: Option<DEventCallback>,
+    action: EventAction,
+    time_tol: f64,
+    value_tol: f64,
+}
+
+impl DBinaryEvent {
+    /// Create new binary event
+    pub fn new<F>(name: impl Into<String>, condition_fn: F, edge: EdgeType) -> Self
+    where
+        F: Fn(Epoch, &DVector<f64>, Option<&DVector<f64>>) -> bool + Send + Sync + 'static,
+    {
+        let name = name.into();
+        Self {
+            formatted_name: name.clone(),
+            base_name: name,
+            condition_fn: Box::new(condition_fn),
+            edge,
+            callback: None,
+            action: EventAction::Continue,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+        }
+    }
+
+    /// Set instance number for display name
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.formatted_name = format!("{} {}", self.base_name, instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.time_tol = time_tol;
+        self.value_tol = value_tol;
+        self
+    }
+
+    /// Set event callback
+    pub fn with_callback(mut self, callback: DEventCallback) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    /// Mark as terminal event
+    pub fn is_terminal(mut self) -> Self {
+        self.action = EventAction::Stop;
+        self
+    }
+}
+
+impl DEventDetector for DBinaryEvent {
+    fn evaluate(&self, t: Epoch, state: &DVector<f64>, params: Option<&DVector<f64>>) -> f64 {
+        if (self.condition_fn)(t, state, params) {
+            1.0
+        } else {
+            -1.0
+        }
+    }
+
+    fn threshold(&self) -> f64 {
+        0.0 // Zero-crossing occurs at threshold of 0.0
+    }
+
+    fn name(&self) -> &str {
+        &self.formatted_name
+    }
+
+    fn direction(&self) -> EventDirection {
+        match self.edge {
+            EdgeType::RisingEdge => EventDirection::Increasing,
+            EdgeType::FallingEdge => EventDirection::Decreasing,
+            EdgeType::AnyEdge => EventDirection::Any,
+        }
+    }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    fn value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    fn callback(&self) -> Option<&DEventCallback> {
+        self.callback.as_ref()
+    }
+
+    fn action(&self) -> EventAction {
+        self.action
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::time::TimeSystem;
+    use nalgebra::Vector6;
+
+    #[test]
+    fn test_time_event() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+
+        let state = Vector6::zeros();
+
+        // Before target - evaluate returns signed difference (negative)
+        let before_val = event.evaluate(target - 10.0, &state, None);
+        assert_eq!(before_val, -10.0); // 10 seconds before target
+        assert!((before_val - event.threshold()) < 0.0); // -10.0 - 0.0 = -10.0 (negative)
+
+        // At target
+        let at_val = event.evaluate(target, &state, None);
+        assert_eq!(at_val, 0.0); // At target
+        assert_eq!(at_val - event.threshold(), 0.0); // Zero-crossing
+
+        // After target - evaluate returns signed difference (positive)
+        let after_val = event.evaluate(target + 10.0, &state, None);
+        assert_eq!(after_val, 10.0); // 10 seconds after target
+        assert!((after_val - event.threshold()) > 0.0); // 10.0 - 0.0 = 10.0 (positive)
+    }
+
+    #[test]
+    fn test_threshold_event() {
+        // Detect when x-coordinate crosses 7000 km
+        let event = SThresholdEvent::<6, 0>::new(
+            "X-Crossing",
+            |_t, state: &Vector6<f64>, _params| state[0],
+            7000e3,
+            EventDirection::Any,
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Below threshold - evaluate returns raw value (6000e3)
+        let state_below = Vector6::new(6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let val_below = event.evaluate(epoch, &state_below, None);
+        assert_eq!(val_below, 6000e3);
+        assert!((val_below - event.threshold()) < 0.0); // 6000e3 - 7000e3 < 0
+
+        // At threshold - evaluate returns raw value (7000e3)
+        let state_at = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let val_at = event.evaluate(epoch, &state_at, None);
+        assert_eq!(val_at, 7000e3);
+        assert_eq!(val_at - event.threshold(), 0.0); // 7000e3 - 7000e3 = 0
+
+        // Above threshold - evaluate returns raw value (8000e3)
+        let state_above = Vector6::new(8000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let val_above = event.evaluate(epoch, &state_above, None);
+        assert_eq!(val_above, 8000e3);
+        assert!((val_above - event.threshold()) > 0.0); // 8000e3 - 7000e3 > 0
+    }
+
+    #[test]
+    fn test_binary_event() {
+        // Detect when x-coordinate becomes positive (mock eclipse)
+        let event = SBinaryEvent::<6, 0>::new(
+            "X-Positive",
+            |_t, state: &Vector6<f64>, _params| state[0] > 0.0,
+            EdgeType::RisingEdge,
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State with negative x (condition false)
+        let state_neg = Vector6::new(-1000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        assert_eq!(event.evaluate(epoch, &state_neg, None), -1.0);
+
+        // State with positive x (condition true)
+        let state_pos = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        assert_eq!(event.evaluate(epoch, &state_pos, None), 1.0);
+
+        // Check direction mapping
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+}

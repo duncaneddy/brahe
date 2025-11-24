@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::{Epoch, R_EARTH, KeplerianPropagator, AngleFormat};
-use brahe::traits::{OrbitPropagator, OrbitalTrajectory, Trajectory};
+use brahe::traits::{SStatePropagator, OrbitalTrajectory, Trajectory};
 use nalgebra::Vector6;
 
 fn main() {

@@ -70,7 +70,7 @@ fn main() {
     );
 
     while t < period {
-        let result = integrator.step(t, current_state, dt);
+        let result = integrator.step(t, current_state, Some(dt));
         current_state = result.state;
         t += result.dt_used;
         dt = result.dt_next;

@@ -450,7 +450,7 @@ fn get_tle_by_id_from_group(
 /// ```no_run
 /// use brahe::datasets::celestrak::get_tle_by_id_as_propagator;
 /// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::propagators::traits::StateProvider;
+/// use brahe::propagators::traits::SOrbitStateProvider;
 ///
 /// // Get ISS as propagator with 60-second step size
 /// let propagator = get_tle_by_id_as_propagator(25544, None, 60.0).unwrap();
@@ -587,7 +587,7 @@ pub fn get_tle_by_name(
 /// ```no_run
 /// use brahe::datasets::celestrak::get_tle_by_name_as_propagator;
 /// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::propagators::traits::StateProvider;
+/// use brahe::propagators::traits::SOrbitStateProvider;
 ///
 /// // Get ISS as propagator with 60-second step size
 /// let propagator = get_tle_by_name_as_propagator("ISS", Some("stations"), 60.0).unwrap();
@@ -1682,7 +1682,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_tle_by_name_as_propagator_propagation() {
-        use crate::propagators::traits::StateProvider;
+        use crate::propagators::traits::SOrbitStateProvider;
         use crate::time::{Epoch, TimeSystem};
         use crate::utils::testing::setup_global_test_eop;
 
@@ -1829,7 +1829,7 @@ mod tests {
     #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial]
     fn test_get_tle_by_name_as_propagator_network() {
-        use crate::propagators::traits::StateProvider;
+        use crate::propagators::traits::SOrbitStateProvider;
         use crate::time::{Epoch, TimeSystem};
         use crate::utils::testing::setup_global_test_eop;
 

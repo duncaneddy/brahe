@@ -406,7 +406,7 @@ impl PyDNumericalJacobian {
         // Create a Rust closure that calls the Python function
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
-            move |t: f64, state: DVector<f64>| -> DVector<f64> {
+            move |t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
                 Python::with_gil(|py| {
                     // Convert state to NumPy array
                     let state_py = state.as_slice().to_pyarray(py);
@@ -448,7 +448,7 @@ impl PyDNumericalJacobian {
         };
 
         // Compute Jacobian
-        let jac_matrix = provider.compute(t, state_dvec);
+        let jac_matrix = provider.compute(t, state_dvec, None);
 
         // Convert DMatrix to NumPy 2D array (row-major order)
         let rows = jac_matrix.nrows();

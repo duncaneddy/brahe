@@ -4,7 +4,7 @@
 
 use rayon::prelude::*;
 
-use crate::propagators::traits::OrbitPropagator;
+use crate::propagators::traits::SStatePropagator;
 use crate::time::Epoch;
 use crate::utils::threading::get_thread_pool;
 
@@ -32,7 +32,7 @@ use crate::utils::threading::get_thread_pool;
 ///
 /// ```
 /// use brahe::propagators::{KeplerianPropagator, par_propagate_to};
-/// use brahe::traits::OrbitPropagator;
+/// use brahe::traits::SStatePropagator;
 /// use brahe::constants::AngleFormat;
 /// use brahe::Epoch;
 /// use nalgebra as na;
@@ -65,7 +65,7 @@ use crate::utils::threading::get_thread_pool;
 /// assert_eq!(propagators[0].current_epoch(), target);
 /// assert_eq!(propagators[1].current_epoch(), target);
 /// ```
-pub fn par_propagate_to<P: OrbitPropagator + Send>(propagators: &mut [P], target_epoch: Epoch) {
+pub fn par_propagate_to<P: SStatePropagator + Send>(propagators: &mut [P], target_epoch: Epoch) {
     get_thread_pool().install(|| {
         propagators
             .par_iter_mut()
@@ -80,7 +80,7 @@ mod tests {
     use crate::constants::AngleFormat;
     use crate::propagators::{KeplerianPropagator, SGPPropagator};
     use crate::time::Epoch;
-    use crate::traits::OrbitPropagator;
+    use crate::traits::SStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra as na;
 

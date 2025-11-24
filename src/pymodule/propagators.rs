@@ -1,5 +1,5 @@
 // Import traits needed by propagator methods
-use crate::propagators::traits::{StateProvider, OrbitPropagator};
+use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SOrbitPropagator};
 
 /// Python wrapper for SGPPropagator (replaces TLE)
 /// SGP4/SDP4 satellite propagator using TLE data.

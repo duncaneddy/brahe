@@ -73,7 +73,7 @@ fn main() {
     println!("Integrating with thrust for {:.2} hours...", period / 3600.0);
 
     while t < period {
-        let result = integrator.step(t, current_state, dt);
+        let result = integrator.step(t, current_state, Some(dt));
         current_state = result.state;
         t += result.dt_used;
         dt = result.dt_next;

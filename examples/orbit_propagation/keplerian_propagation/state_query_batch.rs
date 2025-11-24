@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::traits::StateProvider;
+use bh::traits::SOrbitStateProvider;
 use nalgebra as na;
 
 fn main() {

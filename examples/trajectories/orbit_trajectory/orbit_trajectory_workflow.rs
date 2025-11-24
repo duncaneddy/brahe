@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::traits::{Trajectory, OrbitPropagator};
+use bh::traits::{Trajectory, SStatePropagator};
 use bh::trajectories::traits::OrbitalTrajectory;
 use bh::{KeplerianPropagator, orbital_period, position_ecef_to_geodetic, R_EARTH, AngleFormat};
 use nalgebra as na;

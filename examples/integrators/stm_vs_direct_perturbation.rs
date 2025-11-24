@@ -28,7 +28,7 @@ fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVe
 }
 
 /// Two-body dynamics (for Jacobian computation - no params)
-fn dynamics_for_jac(_t: f64, state: DVector<f64>) -> DVector<f64> {
+fn dynamics_for_jac(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();
@@ -103,18 +103,21 @@ fn main() {
 
     for step in 0..num_steps {
         // Propagate nominal trajectory with STM
-        let (new_state_nominal, new_phi, dt_used, _, _) = integrator_nominal.step_with_varmat(
+        let result_nominal = integrator_nominal.step_with_varmat(
             t,
             state_nominal.clone(),
             phi.clone(),
-            dt,
+            Some(dt),
         );
+        let new_state_nominal = result_nominal.state;
+        let new_phi = result_nominal.phi.unwrap();
+        let dt_used = result_nominal.dt_used;
 
         // Propagate perturbed trajectory directly
         let result_pert = integrator_pert.step(
             t,
             state_pert.clone(),
-            dt,
+            Some(dt),
         );
 
         // Predict perturbed state using STM: x_pert ≈ x_nominal + Φ·δx₀

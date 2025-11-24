@@ -72,6 +72,11 @@ pub struct DTrajectory {
     /// - Custom: arbitrary units for arbitrary dimensions
     pub states: Vec<DVector<f64>>,
 
+    /// Optional covariance matrices corresponding to each state.
+    /// If present, must have the same length as `states` and each matrix
+    /// must be square with dimension matching the state dimension.
+    pub covariances: Option<Vec<DMatrix<f64>>>,
+
     /// Dimension of state vectors (must be consistent for all states)
     pub dimension: usize,
 
@@ -120,6 +125,7 @@ impl DTrajectory {
         Self {
             epochs: Vec::new(),
             states: Vec::new(),
+            covariances: None,
             dimension,
             interpolation_method: InterpolationMethod::Linear,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -241,6 +247,186 @@ impl DTrajectory {
         Ok(matrix)
     }
 
+    /// Enable covariance storage
+    ///
+    /// Initializes the covariance vector with zero matrices for all existing states.
+    /// After calling this, covariances can be added using `add_with_covariance()` or
+    /// `set_covariance_at()`.
+    pub fn enable_covariance_storage(&mut self) {
+        if self.covariances.is_none() {
+            // Initialize with zero matrices for all existing states
+            let zero_cov = DMatrix::zeros(self.dimension, self.dimension);
+            self.covariances = Some(vec![zero_cov; self.states.len()]);
+        }
+    }
+
+    /// Add a state with its corresponding covariance matrix
+    ///
+    /// This automatically enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `covariance` - Covariance matrix (must be square with dimension matching state)
+    ///
+    /// # Panics
+    /// Panics if state or covariance dimensions don't match trajectory dimension
+    pub fn add_with_covariance(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: DMatrix<f64>,
+    ) {
+        // Validate dimensions
+        if state.len() != self.dimension {
+            panic!("State vector dimension does not match trajectory dimension.");
+        }
+        if covariance.nrows() != self.dimension || covariance.ncols() != self.dimension {
+            panic!(
+                "Covariance matrix dimensions {}x{} do not match trajectory dimension {}",
+                covariance.nrows(),
+                covariance.ncols(),
+                self.dimension
+            );
+        }
+
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state.clone());
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, covariance);
+        }
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy();
+    }
+
+    /// Set covariance matrix at a specific index
+    ///
+    /// Enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `index` - Index in the trajectory
+    /// * `covariance` - Covariance matrix
+    ///
+    /// # Panics
+    /// Panics if index is out of bounds or covariance dimensions are incorrect
+    pub fn set_covariance_at(&mut self, index: usize, covariance: DMatrix<f64>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+        if covariance.nrows() != self.dimension || covariance.ncols() != self.dimension {
+            panic!(
+                "Covariance matrix dimensions {}x{} do not match trajectory dimension {}",
+                covariance.nrows(),
+                covariance.ncols(),
+                self.dimension
+            );
+        }
+
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Set the covariance at the specified index
+        if let Some(ref mut covs) = self.covariances {
+            covs[index] = covariance;
+        }
+    }
+
+    /// Get covariance matrix at a specific epoch (with interpolation)
+    ///
+    /// Returns None if covariance storage is not enabled or epoch is out of range.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch to query
+    ///
+    /// # Returns
+    /// Covariance matrix at the requested epoch (interpolated if necessary)
+    pub fn covariance_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        // Check if covariance storage is enabled
+        let covs = self.covariances.as_ref()?;
+
+        // Check if trajectory has data
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Handle exact match at endpoint
+        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+            return Some(covs[idx].clone());
+        }
+
+        // Find surrounding indices for interpolation
+        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+
+        // Handle exact matches
+        if self.epochs[idx_before] == epoch {
+            return Some(covs[idx_before].clone());
+        }
+        if self.epochs[idx_after] == epoch {
+            return Some(covs[idx_after].clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
+        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
+        let t = epoch - self.epoch_initial()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Linear interpolation: C(t) = (1-α)*C0 + α*C1
+        // Note: This is a simplified approach. Proper covariance interpolation
+        // would use geometric interpolation or ensure positive definiteness.
+        let cov = &covs[idx_before] * (1.0 - alpha) + &covs[idx_after] * alpha;
+
+        Some(cov)
+    }
+
+    /// Helper to find initial epoch for interpolation
+    fn epoch_initial(&self) -> Option<Epoch> {
+        self.epochs.first().copied()
+    }
+
+    /// Helper to find surrounding indices for interpolation
+    fn find_surrounding_indices(&self, epoch: Epoch) -> Option<(usize, usize)> {
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Check bounds
+        if epoch < self.epochs[0] || epoch > *self.epochs.last()? {
+            return None;
+        }
+
+        // Binary search to find the interval
+        for i in 0..self.epochs.len() - 1 {
+            if self.epochs[i] <= epoch && epoch <= self.epochs[i + 1] {
+                return Some((i, i + 1));
+            }
+        }
+
+        None
+    }
+
     /// Apply eviction policy to manage trajectory memory
     fn apply_eviction_policy(&mut self) {
         match self.eviction_policy {
@@ -254,6 +440,9 @@ impl DTrajectory {
                     let to_remove = self.epochs.len() - max_size;
                     self.epochs.drain(0..to_remove);
                     self.states.drain(0..to_remove);
+                    if let Some(ref mut covs) = self.covariances {
+                        covs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -276,6 +465,13 @@ impl DTrajectory {
 
                     self.epochs = new_epochs;
                     self.states = new_states;
+
+                    // Also evict covariances if enabled
+                    if let Some(ref mut covs) = self.covariances {
+                        let new_covs: Vec<DMatrix<f64>> =
+                            indices_to_keep.iter().map(|&i| covs[i].clone()).collect();
+                        *covs = new_covs;
+                    }
                 }
             }
         }
@@ -391,6 +587,7 @@ impl Trajectory for DTrajectory {
         Ok(Self {
             epochs: sorted_epochs,
             states: sorted_states,
+            covariances: None,
             dimension,
             interpolation_method: InterpolationMethod::Linear,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -421,6 +618,12 @@ impl Trajectory for DTrajectory {
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state.clone());
+
+        // If covariances are being tracked, insert None placeholder
+        if let Some(ref mut covs) = self.covariances {
+            // Insert None to maintain alignment with states
+            covs.insert(insert_idx, DMatrix::zeros(self.dimension, self.dimension));
+        }
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();

@@ -27,7 +27,7 @@
  * ```
  */
 
-use nalgebra::SVector;
+use nalgebra::{SMatrix, SVector};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Index;
@@ -75,6 +75,11 @@ pub struct STrajectory<const R: usize> {
     /// R-dimensional state vectors corresponding to epochs.
     pub states: Vec<SVector<f64, R>>,
 
+    /// Optional covariance matrices corresponding to each state.
+    /// If present, must have the same length as `states` and each matrix
+    /// must be RxR square matrix.
+    pub covariances: Option<Vec<SMatrix<f64, R, R>>>,
+
     /// Interpolation method for state retrieval at arbitrary epochs.
     /// Default is linear interpolation for optimal performance/accuracy balance.
     pub interpolation_method: InterpolationMethod,
@@ -119,6 +124,7 @@ impl<const R: usize> STrajectory<R> {
         Self {
             epochs: Vec::new(),
             states: Vec::new(),
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -225,6 +231,9 @@ impl<const R: usize> STrajectory<R> {
                     let to_remove = self.epochs.len() - max_size;
                     self.epochs.drain(0..to_remove);
                     self.states.drain(0..to_remove);
+                    if let Some(ref mut covs) = self.covariances {
+                        covs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -245,6 +254,13 @@ impl<const R: usize> STrajectory<R> {
 
                     self.epochs = new_epochs;
                     self.states = new_states;
+
+                    // Also evict covariances if enabled
+                    if let Some(ref mut covs) = self.covariances {
+                        let new_covs: Vec<SMatrix<f64, R, R>> =
+                            indices_to_keep.iter().map(|&i| covs[i]).collect();
+                        *covs = new_covs;
+                    }
                 }
             }
         }
@@ -278,6 +294,159 @@ impl<const R: usize> STrajectory<R> {
         }
 
         Ok(matrix)
+    }
+
+    /// Enable covariance storage
+    ///
+    /// Initializes the covariance vector with zero matrices for all existing states.
+    /// After calling this, covariances can be added using `add_with_covariance()` or
+    /// `set_covariance_at()`.
+    pub fn enable_covariance_storage(&mut self) {
+        if self.covariances.is_none() {
+            // Initialize with zero matrices for all existing states
+            self.covariances = Some(vec![SMatrix::<f64, R, R>::zeros(); self.states.len()]);
+        }
+    }
+
+    /// Add a state with its corresponding covariance matrix
+    ///
+    /// This automatically enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `covariance` - Covariance matrix (must be RxR square matrix)
+    pub fn add_with_covariance(
+        &mut self,
+        epoch: Epoch,
+        state: SVector<f64, R>,
+        covariance: SMatrix<f64, R, R>,
+    ) {
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, covariance);
+        }
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy();
+    }
+
+    /// Set covariance matrix at a specific index
+    ///
+    /// Enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `index` - Index in the trajectory
+    /// * `covariance` - Covariance matrix
+    ///
+    /// # Panics
+    /// Panics if index is out of bounds
+    pub fn set_covariance_at(&mut self, index: usize, covariance: SMatrix<f64, R, R>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Set the covariance at the specified index
+        if let Some(ref mut covs) = self.covariances {
+            covs[index] = covariance;
+        }
+    }
+
+    /// Get covariance matrix at a specific epoch (with interpolation)
+    ///
+    /// Returns None if covariance storage is not enabled or epoch is out of range.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch to query
+    ///
+    /// # Returns
+    /// Covariance matrix at the requested epoch (interpolated if necessary)
+    pub fn covariance_at(&self, epoch: Epoch) -> Option<SMatrix<f64, R, R>> {
+        // Check if covariance storage is enabled
+        let covs = self.covariances.as_ref()?;
+
+        // Check if trajectory has data
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Handle exact match
+        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+            return Some(covs[idx]);
+        }
+
+        // Find surrounding indices for interpolation
+        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+
+        // Handle exact matches
+        if self.epochs[idx_before] == epoch {
+            return Some(covs[idx_before]);
+        }
+        if self.epochs[idx_after] == epoch {
+            return Some(covs[idx_after]);
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
+        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
+        let t = epoch - self.epoch_initial()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Linear interpolation: C(t) = (1-α)*C0 + α*C1
+        let cov = covs[idx_before] * (1.0 - alpha) + covs[idx_after] * alpha;
+
+        Some(cov)
+    }
+
+    /// Helper to find initial epoch for interpolation
+    fn epoch_initial(&self) -> Option<Epoch> {
+        self.epochs.first().copied()
+    }
+
+    /// Helper to find surrounding indices for interpolation
+    fn find_surrounding_indices(&self, epoch: Epoch) -> Option<(usize, usize)> {
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Check bounds
+        if epoch < self.epochs[0] || epoch > *self.epochs.last()? {
+            return None;
+        }
+
+        // Binary search to find the interval
+        for i in 0..self.epochs.len() - 1 {
+            if self.epochs[i] <= epoch && epoch <= self.epochs[i + 1] {
+                return Some((i, i + 1));
+            }
+        }
+
+        None
     }
 }
 
@@ -373,6 +542,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         Ok(Self {
             epochs: sorted_epochs,
             states: sorted_states,
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear, // Default to Linear
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
@@ -397,6 +567,11 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state);
+
+        // If covariances are being tracked, insert zero matrix placeholder
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, SMatrix::<f64, R, R>::zeros());
+        }
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();

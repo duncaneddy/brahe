@@ -923,7 +923,7 @@ mod tests {
     use crate::constants::AngleFormat;
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::propagators::KeplerianPropagator;
-    use crate::propagators::traits::StateProvider;
+    use crate::propagators::traits::SOrbitStateProvider;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
 

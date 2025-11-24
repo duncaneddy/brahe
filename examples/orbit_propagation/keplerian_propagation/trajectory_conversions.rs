@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::traits::{OrbitalTrajectory, OrbitPropagator, Trajectory};
+use bh::traits::{OrbitalTrajectory, SStatePropagator, Trajectory};
 use nalgebra as na;
 
 fn main() {

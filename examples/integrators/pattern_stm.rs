@@ -20,7 +20,7 @@ fn main() {
         DVector::from_vec(vec![-k * state[0]])
     };
     // Clone for Jacobian computation
-    let dynamics_for_jac = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics_for_jac = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         DVector::from_vec(vec![-k * state[0]])
     };
 
@@ -45,8 +45,10 @@ fn main() {
     let phi = DMatrix::identity(1, 1); // 1x1 identity matrix
     let dt = 60.0;
 
-    let (new_state, new_phi, dt_used, _error_est, _dt_next) =
-        integrator.step_with_varmat(t, state, phi, dt);
+    let result = integrator.step_with_varmat(t, state, phi, Some(dt));
+    let new_state = result.state;
+    let new_phi = result.phi.unwrap();
+    let dt_used = result.dt_used;
 
     println!("Initial state: {:.6}", 1.0);
     println!("State after {:.2}s: {:.6}", dt_used, new_state[0]);

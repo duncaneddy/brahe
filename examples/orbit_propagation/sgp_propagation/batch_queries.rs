@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::StateProvider;
+use brahe::traits::SOrbitStateProvider;
 
 fn main() {
     bh::initialize_eop().unwrap();

@@ -1646,7 +1646,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state(&self.trajectory, epoch.obj);
+        let state = self.trajectory.state(epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1674,7 +1674,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_eci(&self.trajectory, epoch.obj);
+        let state = SOrbitStateProvider::state_eci(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1702,7 +1702,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_ecef(&self.trajectory, epoch.obj);
+        let state = SOrbitStateProvider::state_ecef(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1730,7 +1730,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_gcrf(&self.trajectory, epoch.obj);
+        let state = SOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1758,7 +1758,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_itrf(&self.trajectory, epoch.obj);
+        let state = SOrbitStateProvider::state_itrf(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1786,7 +1786,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_eme2000(&self.trajectory, epoch.obj);
+        let state = SOrbitStateProvider::state_eme2000(&self.trajectory, epoch.obj);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -1822,7 +1822,7 @@ impl PyOrbitalTrajectory {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = StateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value);
+        let state = SOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value);
         state.as_slice().to_pyarray(py).to_owned()
     }
 
@@ -2037,7 +2037,7 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array
     ///     ```
     fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match CovarianceProvider::covariance(&self.trajectory, epoch.obj) {
+        match self.trajectory.covariance(epoch.obj) {
             Some(cov_mat) => {
                 let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
                 Ok(Some(array.to_owned()))
@@ -2072,7 +2072,7 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array
     ///     ```
     fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match CovarianceProvider::covariance_eci(&self.trajectory, epoch.obj) {
+        match SOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj) {
             Some(cov_mat) => {
                 let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
                 Ok(Some(array.to_owned()))
@@ -2107,7 +2107,7 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array
     ///     ```
     fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match CovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj) {
+        match SOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj) {
             Some(cov_mat) => {
                 let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
                 Ok(Some(array.to_owned()))
@@ -2147,7 +2147,7 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array in RTN frame
     ///     ```
     fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match CovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj) {
+        match SOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj) {
             Some(cov_mat) => {
                 let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
                 Ok(Some(array.to_owned()))
@@ -3032,6 +3032,166 @@ impl PyTrajectory {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Enable covariance storage for this trajectory.
+    ///
+    /// Initializes the covariance vector with zero matrices for all existing states.
+    /// After calling this, covariances can be added using `add_with_covariance()` or
+    /// `set_covariance_at()`.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     traj = bh.DTrajectory(6)
+    ///     traj.enable_covariance_storage()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn enable_covariance_storage(&mut self) {
+        self.trajectory.enable_covariance_storage();
+    }
+
+    /// Add a state with its corresponding covariance matrix.
+    ///
+    /// This automatically enables covariance storage if not already enabled.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time epoch
+    ///     state (numpy.ndarray): State vector (must match trajectory dimension)
+    ///     covariance (numpy.ndarray): Covariance matrix (must be square, dimension x dimension)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.DTrajectory(6)
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    ///     cov = np.eye(6) * 100.0  # 100 m²/m²/s² diagonal covariance
+    ///     traj.add_with_covariance(epc, state, cov)
+    ///     ```
+    #[pyo3(text_signature = "(epoch, state, covariance)")]
+    pub fn add_with_covariance(
+        &mut self,
+        epoch: PyRef<PyEpoch>,
+        state: PyReadonlyArray1<f64>,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<()> {
+        let state_array = state.as_array();
+        if state_array.len() != self.trajectory.dimension {
+            return Err(exceptions::PyValueError::new_err(
+                format!("State vector must have exactly {} elements for {}D trajectory",
+                    self.trajectory.dimension, self.trajectory.dimension)
+            ));
+        }
+
+        let cov_array = covariance.as_array();
+        if cov_array.nrows() != self.trajectory.dimension || cov_array.ncols() != self.trajectory.dimension {
+            return Err(exceptions::PyValueError::new_err(
+                format!("Covariance matrix must be {}x{} for {}D trajectory",
+                    self.trajectory.dimension, self.trajectory.dimension, self.trajectory.dimension)
+            ));
+        }
+
+        let state_vec = na::DVector::from_column_slice(state_array.as_slice().unwrap());
+
+        // Convert 2D array to DMatrix
+        let mut cov_matrix = na::DMatrix::zeros(self.trajectory.dimension, self.trajectory.dimension);
+        for i in 0..self.trajectory.dimension {
+            for j in 0..self.trajectory.dimension {
+                cov_matrix[(i, j)] = cov_array[[i, j]];
+            }
+        }
+
+        self.trajectory.add_with_covariance(epoch.obj, state_vec, cov_matrix);
+        Ok(())
+    }
+
+    /// Set covariance matrix at a specific index.
+    ///
+    /// Enables covariance storage if not already enabled.
+    ///
+    /// Args:
+    ///     index (int): Index in the trajectory
+    ///     covariance (numpy.ndarray): Covariance matrix (must be square, dimension x dimension)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.DTrajectory(6)
+    ///     # ... add states ...
+    ///     cov = np.eye(6) * 100.0
+    ///     traj.set_covariance_at(0, cov)
+    ///     ```
+    #[pyo3(text_signature = "(index, covariance)")]
+    pub fn set_covariance_at(
+        &mut self,
+        index: usize,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<()> {
+        let cov_array = covariance.as_array();
+        if cov_array.nrows() != self.trajectory.dimension || cov_array.ncols() != self.trajectory.dimension {
+            return Err(exceptions::PyValueError::new_err(
+                format!("Covariance matrix must be {}x{} for {}D trajectory",
+                    self.trajectory.dimension, self.trajectory.dimension, self.trajectory.dimension)
+            ));
+        }
+
+        // Convert 2D array to DMatrix
+        let mut cov_matrix = na::DMatrix::zeros(self.trajectory.dimension, self.trajectory.dimension);
+        for i in 0..self.trajectory.dimension {
+            for j in 0..self.trajectory.dimension {
+                cov_matrix[(i, j)] = cov_array[[i, j]];
+            }
+        }
+
+        self.trajectory.set_covariance_at(index, cov_matrix);
+        Ok(())
+    }
+
+    /// Get covariance matrix at a specific epoch (with interpolation).
+    ///
+    /// Returns None if covariance storage is not enabled or epoch is out of range.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time epoch to query
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Covariance matrix at the requested epoch (interpolated if necessary)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # ... create trajectory with covariances ...
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     cov = traj.covariance_at(epc)
+    ///     if cov is not None:
+    ///         print(f"Position variance: {cov[0,0]} m²")
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance_at<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Option<Bound<'a, PyArray<f64, Ix2>>>> {
+        match self.trajectory.covariance_at(epoch.obj) {
+            Some(cov_matrix) => {
+                // Convert DMatrix to 2D numpy array
+                let dim = self.trajectory.dimension;
+                let mut array = ndarray::Array2::<f64>::zeros((dim, dim));
+                for i in 0..dim {
+                    for j in 0..dim {
+                        array[[i, j]] = cov_matrix[(i, j)];
+                    }
+                }
+                Ok(Some(array.to_pyarray(py).to_owned()))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Iterator over (epoch, state) pairs
     fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyTrajectoryIterator>> {
         let py = slf.py();
@@ -3826,6 +3986,162 @@ impl PySTrajectory6 {
     #[pyo3(text_signature = "()")]
     pub fn is_empty(&self) -> bool {
         self.trajectory.is_empty()
+    }
+
+    /// Enable covariance storage for this trajectory.
+    ///
+    /// Initializes the covariance vector with zero matrices for all existing states.
+    /// After calling this, covariances can be added using `add_with_covariance()` or
+    /// `set_covariance_at()`.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     traj = bh.STrajectory6()
+    ///     traj.enable_covariance_storage()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn enable_covariance_storage(&mut self) {
+        self.trajectory.enable_covariance_storage();
+    }
+
+    /// Add a state with its corresponding covariance matrix.
+    ///
+    /// This automatically enables covariance storage if not already enabled.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time epoch
+    ///     state (numpy.ndarray): 6-element state vector
+    ///     covariance (numpy.ndarray): 6x6 covariance matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.STrajectory6()
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    ///     cov = np.eye(6) * 100.0  # 100 m²/m²/s² diagonal covariance
+    ///     traj.add_with_covariance(epc, state, cov)
+    ///     ```
+    #[pyo3(text_signature = "(epoch, state, covariance)")]
+    pub fn add_with_covariance(
+        &mut self,
+        epoch: PyRef<PyEpoch>,
+        state: PyReadonlyArray1<f64>,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<()> {
+        let state_array = state.as_array();
+        if state_array.len() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "State vector must have exactly 6 elements for STrajectory6"
+            ));
+        }
+
+        let cov_array = covariance.as_array();
+        if cov_array.nrows() != 6 || cov_array.ncols() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "Covariance matrix must be 6x6 for STrajectory6"
+            ));
+        }
+
+        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+
+        // Convert 2D array to SMatrix<f64, 6, 6>
+        let mut cov_matrix = na::SMatrix::<f64, 6, 6>::zeros();
+        for i in 0..6 {
+            for j in 0..6 {
+                cov_matrix[(i, j)] = cov_array[[i, j]];
+            }
+        }
+
+        self.trajectory.add_with_covariance(epoch.obj, state_vec, cov_matrix);
+        Ok(())
+    }
+
+    /// Set covariance matrix at a specific index.
+    ///
+    /// Enables covariance storage if not already enabled.
+    ///
+    /// Args:
+    ///     index (int): Index in the trajectory
+    ///     covariance (numpy.ndarray): 6x6 covariance matrix
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.STrajectory6()
+    ///     # ... add states ...
+    ///     cov = np.eye(6) * 100.0
+    ///     traj.set_covariance_at(0, cov)
+    ///     ```
+    #[pyo3(text_signature = "(index, covariance)")]
+    pub fn set_covariance_at(
+        &mut self,
+        index: usize,
+        covariance: PyReadonlyArray2<f64>,
+    ) -> PyResult<()> {
+        let cov_array = covariance.as_array();
+        if cov_array.nrows() != 6 || cov_array.ncols() != 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "Covariance matrix must be 6x6 for STrajectory6"
+            ));
+        }
+
+        // Convert 2D array to SMatrix<f64, 6, 6>
+        let mut cov_matrix = na::SMatrix::<f64, 6, 6>::zeros();
+        for i in 0..6 {
+            for j in 0..6 {
+                cov_matrix[(i, j)] = cov_array[[i, j]];
+            }
+        }
+
+        self.trajectory.set_covariance_at(index, cov_matrix);
+        Ok(())
+    }
+
+    /// Get covariance matrix at a specific epoch (with interpolation).
+    ///
+    /// Returns None if covariance storage is not enabled or epoch is out of range.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time epoch to query
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: 6x6 covariance matrix at the requested epoch (interpolated if necessary)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # ... create trajectory with covariances ...
+    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     cov = traj.covariance_at(epc)
+    ///     if cov is not None:
+    ///         print(f"Position variance: {cov[0,0]} m²")
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance_at<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Option<Bound<'a, PyArray<f64, Ix2>>>> {
+        match self.trajectory.covariance_at(epoch.obj) {
+            Some(cov_matrix) => {
+                // Convert SMatrix<f64, 6, 6> to 2D numpy array
+                let mut array = ndarray::Array2::<f64>::zeros((6, 6));
+                for i in 0..6 {
+                    for j in 0..6 {
+                        array[[i, j]] = cov_matrix[(i, j)];
+                    }
+                }
+                Ok(Some(array.to_pyarray(py).to_owned()))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Python length

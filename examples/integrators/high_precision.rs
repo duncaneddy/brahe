@@ -53,20 +53,21 @@ fn main() {
     let mut total_error = 0.0;
 
     while t < period {
-        let result = integrator.step(t, state, dt.min(period - t));
+        let result = integrator.step(t, state, Some(dt.min(period - t)));
 
-        t += result.dt_used;
+        let dt_used = result.dt_used;
+        t += dt_used;
         state = result.state;
         dt = result.dt_next;
         steps += 1;
-        total_error += result.error_estimate;
+        total_error += result.error_estimate.unwrap();
 
         // Print at intervals
         if steps % 10 == 1 {
             let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
             let r_norm = r.norm();
             println!("t={:6.2}h  r={:8.1}km  dt={:6.1}s  err={:.2e}",
-                     t / 3600.0, r_norm / 1e3, result.dt_used, result.error_estimate);
+                     t / 3600.0, r_norm / 1e3, dt_used, result.error_estimate.unwrap());
         }
     }
 

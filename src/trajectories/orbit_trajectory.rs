@@ -51,7 +51,9 @@ use crate::frames::{
     state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
 use crate::math::{interpolate_covariance_sqrt, interpolate_covariance_two_wasserstein};
-use crate::propagators::traits::{CovarianceProvider, StateProvider};
+use crate::propagators::traits::{
+    SCovarianceProvider, SOrbitCovarianceProvider, SOrbitStateProvider, SStateProvider,
+};
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
 use crate::utils::{BraheError, Identifiable};
@@ -1328,13 +1330,15 @@ impl OrbitalTrajectory for OrbitTrajectory {
     }
 }
 
-impl StateProvider for OrbitTrajectory {
+impl SStateProvider for OrbitTrajectory {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
         // Interpolate state in native frame/representation
         self.interpolate(&epoch)
             .unwrap_or_else(|_| Vector6::zeros())
     }
+}
 
+impl SOrbitStateProvider for OrbitTrajectory {
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
         // Get state in native format then convert to ECI Cartesian
         let state = self
@@ -1646,8 +1650,8 @@ impl StateProvider for OrbitTrajectory {
     }
 }
 
-// Implementation of CovarianceProvider trait
-impl CovarianceProvider for OrbitTrajectory {
+// Implementation of SCovarianceProvider trait (base trait)
+impl SCovarianceProvider for OrbitTrajectory {
     fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
         // Return None if no covariances are stored
         let covs = self.covariances.as_ref()?;
@@ -1705,7 +1709,10 @@ impl CovarianceProvider for OrbitTrajectory {
 
         Some(cov_interp)
     }
+}
 
+// Implementation of SOrbitCovarianceProvider trait (frame-specific methods)
+impl SOrbitCovarianceProvider for OrbitTrajectory {
     fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
         // Get covariance in native frame
         let cov_native = self.covariance(epoch)?;
@@ -2056,7 +2063,7 @@ mod tests {
             None,
         );
 
-        // Test valid indices (use Trajectory::state to disambiguate from StateProvider::state)
+        // Test valid indices (use Trajectory::state to disambiguate from SOrbitStateProvider::state)
         let state0 = Trajectory::state_at_idx(&traj, 0).unwrap();
         assert_eq!(state0[0], 7000e3);
 
@@ -3728,13 +3735,11 @@ mod tests {
         }
     }
 
-    // StateProvider Trait Tests
+    // SOrbitStateProvider Trait Tests
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eci_cartesian() {
-        use crate::propagators::traits::StateProvider;
-
-        // Test StateProvider::state() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3746,14 +3751,14 @@ mod tests {
         traj.add(epoch2, state2);
 
         // Query at exact epoch
-        let state_at_1 = StateProvider::state(&traj, epoch1);
+        let state_at_1 = SStateProvider::state(&traj, epoch1);
         for i in 0..6 {
             assert_abs_diff_eq!(state_at_1[i], state1[i], epsilon = 1e-6);
         }
 
         // Query at interpolated epoch
         let epoch_mid = Epoch::from_jd(2451545.25, TimeSystem::UTC);
-        let state_mid = StateProvider::state(&traj, epoch_mid);
+        let state_mid = SStateProvider::state(&traj, epoch_mid);
         // Should be interpolated between state1 and state2
         assert!(state_mid[0] > state1[0] && state_mid[0] < state2[0]);
     }
@@ -3762,7 +3767,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_eci() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_eci() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_eci() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3778,7 +3783,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eci_from_keplerian() {
-        // Test StateProvider::state_eci() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_eci() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
@@ -3804,7 +3809,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_eci_from_ecef() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_eci() for ECEF Cartesian trajectory
+        // Test SOrbitStateProvider::state_eci() for ECEF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3824,9 +3829,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_gcrf_cartesian() {
-        use crate::propagators::traits::StateProvider;
-
-        // Test StateProvider::state() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
 
         let epoch1 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3838,14 +3841,14 @@ mod tests {
         traj.add(epoch2, state2);
 
         // Query at exact epoch
-        let state_at_1 = StateProvider::state(&traj, epoch1);
+        let state_at_1 = SStateProvider::state(&traj, epoch1);
         for i in 0..6 {
             assert_abs_diff_eq!(state_at_1[i], state1[i], epsilon = 1e-6);
         }
 
         // Query at interpolated epoch
         let epoch_mid = Epoch::from_jd(2451545.25, TimeSystem::UTC);
-        let state_mid = StateProvider::state(&traj, epoch_mid);
+        let state_mid = SStateProvider::state(&traj, epoch_mid);
         // Should be interpolated between state1 and state2
         assert!(state_mid[0] > state1[0] && state_mid[0] < state2[0]);
     }
@@ -3854,7 +3857,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_gcrf() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_gcrf() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_gcrf() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3870,7 +3873,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_gcrf_from_keplerian() {
-        // Test StateProvider::state_gcrf() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_gcrf() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::GCRF,
             OrbitRepresentation::Keplerian,
@@ -3896,7 +3899,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_gcrf_from_itrf() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_gcrf() for ITRF Cartesian trajectory
+        // Test SOrbitStateProvider::state_gcrf() for ITRF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3918,7 +3921,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_ecef() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_ecef() for ECEF Cartesian trajectory
+        // Test SOrbitStateProvider::state_ecef() for ECEF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3937,7 +3940,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_ecef_from_eci() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_ecef() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_ecef() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -3959,7 +3962,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_ecef_from_keplerian() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_ecef() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_ecef() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
@@ -3986,7 +3989,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_itrf() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_itrf() for ECEF Cartesian trajectory
+        // Test SOrbitStateProvider::state_itrf() for ECEF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -4005,7 +4008,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_itrf_from_gcrf() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_itrf() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_itrf() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -4027,7 +4030,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_itrf_from_keplerian() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_itrf() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_itrf() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::GCRF,
             OrbitRepresentation::Keplerian,
@@ -4052,7 +4055,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eme2000() {
-        // Test StateProvider::state_eme2000() for EME2000 Cartesian trajectory
+        // Test SOrbitStateProvider::state_eme2000() for EME2000 Cartesian trajectory
         let mut traj =
             OrbitTrajectory::new(OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
 
@@ -4070,7 +4073,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eme2000_from_keplerian() {
-        // Test StateProvider::state_eme2000() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_eme2000() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::GCRF,
             OrbitRepresentation::Keplerian,
@@ -4095,7 +4098,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_eme2000_from_gcrf() {
-        // Test StateProvider::state_eme2000() for GCRF Cartesian trajectory
+        // Test SOrbitStateProvider::state_eme2000() for GCRF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -4117,7 +4120,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_eme2000_from_itrf() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_eme2000() for ITRF Cartesian trajectory
+        // Test SOrbitStateProvider::state_eme2000() for ITRF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -4138,7 +4141,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_as_osculating_elements_from_cartesian() {
-        // Test StateProvider::state_as_osculating_elements() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_as_osculating_elements() for ECI Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -4166,7 +4169,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_as_osculating_elements_from_keplerian() {
-        // Test StateProvider::state_as_osculating_elements() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_as_osculating_elements() for Keplerian trajectory
         let mut traj = OrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
@@ -4208,7 +4211,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_as_osculating_elements_from_ecef() {
         setup_global_test_eop();
 
-        // Test StateProvider::state_as_osculating_elements() for ECEF Cartesian trajectory
+        // Test SOrbitStateProvider::state_as_osculating_elements() for ECEF Cartesian trajectory
         let mut traj = OrbitTrajectory::new(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);

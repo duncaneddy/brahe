@@ -39,7 +39,7 @@ fn main() {
 
     let mut step_count = 0;
     while t < t_end {
-        let result = integrator.step(t, state, dt.min(t_end - t));
+        let result = integrator.step(t, state, Some(dt.min(t_end - t)));
         t += result.dt_used;
         state = result.state;
         dt = result.dt_next;

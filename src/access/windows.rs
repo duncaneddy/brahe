@@ -13,7 +13,7 @@ use crate::access::properties::{AccessProperties, AccessPropertyComputer};
 use crate::constants::{AngleFormat, GM_EARTH};
 use crate::coordinates::position_ecef_to_geodetic;
 use crate::orbits::keplerian::orbital_period_from_state;
-use crate::propagators::traits::IdentifiableStateProvider;
+use crate::propagators::traits::SIdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::traits::Identifiable;
 use crate::utils::BraheError;
@@ -370,7 +370,7 @@ impl Default for AccessSearchConfig {
 /// };
 /// let windows = find_access_candidates(&location, &prop, start, end, &constraint, &config);
 /// ```
-pub fn find_access_candidates<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn find_access_candidates<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     search_start: Epoch,
@@ -461,7 +461,7 @@ pub enum StepDirection {
 /// # Returns
 /// Refined boundary time where constraint transitions
 #[allow(clippy::too_many_arguments)]
-pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn bisection_search<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     time: Epoch,
@@ -542,7 +542,7 @@ pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
 ///
 /// # Returns
 /// Complete AccessProperties or error
-pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn compute_window_properties<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     window_open: Epoch,
     window_close: Epoch,
     location: &L,
@@ -683,7 +683,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
 }
 
 /// Wrapper for compute_window_properties that propagates errors
-fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStateProvider>(
+fn compute_window_properties_internal<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     window_open: Epoch,
     window_close: Epoch,
     location: &L,
@@ -717,7 +717,7 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStat
 /// # Returns
 /// Result containing list of complete AccessWindow objects, or error if property computation fails
 #[allow(clippy::too_many_arguments)]
-pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     search_start: Epoch,
@@ -831,7 +831,7 @@ mod tests {
     use crate::access::location::PointLocation;
     use crate::constants::{AngleFormat, R_EARTH};
     use crate::propagators::keplerian_propagator::KeplerianPropagator;
-    use crate::propagators::traits::StateProvider;
+    use crate::propagators::traits::SOrbitStateProvider;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;

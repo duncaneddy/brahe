@@ -36,7 +36,7 @@ use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, stat
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
 };
-use crate::propagators::traits::{OrbitPropagator, StateProvider};
+use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -679,7 +679,7 @@ impl SGPPropagator {
     }
 }
 
-impl OrbitPropagator for SGPPropagator {
+impl SStatePropagator for SGPPropagator {
     fn step_by(&mut self, step_size: f64) {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size; // step_size is in seconds
@@ -730,20 +730,6 @@ impl OrbitPropagator for SGPPropagator {
         self.trajectory.add(self.epoch, self.initial_state);
     }
 
-    fn set_initial_conditions(
-        &mut self,
-        _epoch: Epoch,
-        _state: Vector6<f64>,
-        _frame: OrbitFrame,
-        _representation: OrbitRepresentation,
-        _angle_format: Option<AngleFormat>,
-    ) {
-        // For SGP propagator, initial conditions come from TLE and cannot be changed
-        panic!(
-            "Cannot change initial conditions for SGP propagator - state is determined by TLE data"
-        );
-    }
-
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
         self.trajectory.set_eviction_policy_max_size(max_size)
     }
@@ -753,11 +739,13 @@ impl OrbitPropagator for SGPPropagator {
     }
 }
 
-impl StateProvider for SGPPropagator {
+impl SStateProvider for SGPPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
         self.propagate_internal(epoch)
     }
+}
 
+impl SOrbitStateProvider for SGPPropagator {
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
         let state_ecef = self.state_ecef(epoch);
 
@@ -889,7 +877,6 @@ impl Identifiable for SGPPropagator {
 mod tests {
     use super::*;
     use crate::RADIANS;
-    use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use approx::assert_abs_diff_eq;
 
@@ -1113,25 +1100,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot change initial conditions for SGP propagator")]
-    fn test_sgppropagator_orbitpropagator_set_initial_conditions() {
-        setup_global_test_eop();
-        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-
-        // Should panic - SGP propagator doesn't allow changing initial conditions
-        prop.set_initial_conditions(
-            epoch,
-            state,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            None, // None for Cartesian
-        );
-    }
-
-    #[test]
-    fn test_sgppropagator_orbitpropagator_set_eviction_policy_max_size() {
+    fn test_sgppropagator_statepropagator_set_eviction_policy_max_size() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         prop.set_eviction_policy_max_size(5).unwrap();

@@ -403,8 +403,8 @@ def test_dtrajectory_trajectory_add_dimension_mismatch():
         trajectory.add(epoch, state)
 
 
-def test_dtrajectory_trajectory_add_replace():
-    """Rust: test_dtrajectory_trajectory_add_replace"""
+def test_dtrajectory_trajectory_add_same_time():
+    """Rust: test_dtrajectory_trajectory_add_append"""
     trajectory = DTrajectory(6)
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -415,10 +415,14 @@ def test_dtrajectory_trajectory_add_replace():
 
     state2 = np.array([7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0])
     trajectory.add(epoch, state2)
-    assert len(trajectory) == 1  # Length should remain the same
+    assert len(trajectory) == 2  # Length should increment by one (append behavior)
+    # Append behavior: both states preserved, state1 at index 0, state2 at index 1
     np.testing.assert_array_equal(
-        trajectory.state_at_idx(0), state2
-    )  # State should be replaced
+        trajectory.state_at_idx(0), state1
+    )  # First state unchanged
+    np.testing.assert_array_equal(
+        trajectory.state_at_idx(1), state2
+    )  # Second state appended
 
 
 def test_dtrajectory_trajectory_epoch():
@@ -954,3 +958,111 @@ def test_dtrajectory_interpolate_after_end():
     # Also test with interpolate() method
     with pytest.raises(Exception):
         traj.interpolate(after_end)
+
+
+# Covariance Storage Tests
+
+
+def test_dtrajectory_enable_covariance_storage():
+    """Test enabling covariance storage on a trajectory"""
+    traj = DTrajectory(6)
+
+    # Enable covariance storage
+    traj.enable_covariance_storage()
+
+    # Add a state - covariance should default to zeros
+    t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    traj.add(t0, state)
+
+    # Should be able to query covariance (will be zeros)
+    cov = traj.covariance_at(t0)
+    assert cov is not None
+    assert cov.shape == (6, 6)
+    assert np.allclose(cov, np.zeros((6, 6)))
+
+
+def test_dtrajectory_add_with_covariance():
+    """Test adding states with covariance matrices"""
+    traj = DTrajectory(6)
+
+    # Add states with covariances
+    t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state0 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    cov0 = np.eye(6) * 100.0  # 100 m²/m²/s² diagonal covariance
+    traj.add_with_covariance(t0, state0, cov0)
+
+    t1 = t0 + 60.0
+    state1 = np.array([brahe.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7550.0, 0.0])
+    cov1 = np.eye(6) * 200.0
+    traj.add_with_covariance(t1, state1, cov1)
+
+    # Verify covariances are stored
+    retrieved_cov0 = traj.covariance_at(t0)
+    assert retrieved_cov0 is not None
+    assert np.allclose(retrieved_cov0, cov0)
+
+    retrieved_cov1 = traj.covariance_at(t1)
+    assert retrieved_cov1 is not None
+    assert np.allclose(retrieved_cov1, cov1)
+
+
+def test_dtrajectory_set_covariance_at():
+    """Test setting covariance at a specific index"""
+    traj = DTrajectory(6)
+
+    # Add state without covariance first
+    t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    traj.add(t0, state)
+
+    # Set covariance at index 0
+    cov = np.eye(6) * 150.0
+    traj.set_covariance_at(0, cov)
+
+    # Verify covariance is set
+    retrieved_cov = traj.covariance_at(t0)
+    assert retrieved_cov is not None
+    assert np.allclose(retrieved_cov, cov)
+
+
+def test_dtrajectory_covariance_interpolation():
+    """Test covariance interpolation at intermediate epochs"""
+    traj = DTrajectory(6)
+
+    # Add states with covariances at t0 and t2
+    t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state0 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    cov0 = np.eye(6) * 100.0
+    traj.add_with_covariance(t0, state0, cov0)
+
+    t2 = t0 + 120.0
+    state2 = np.array([brahe.R_EARTH + 520e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+    cov2 = np.eye(6) * 200.0
+    traj.add_with_covariance(t2, state2, cov2)
+
+    # Query covariance at midpoint (should be interpolated)
+    t1 = t0 + 60.0
+    cov_interp = traj.covariance_at(t1)
+    assert cov_interp is not None
+    assert cov_interp.shape == (6, 6)
+
+    # Diagonal should be approximately halfway between 100 and 200
+    # (linear interpolation in covariance space)
+    for i in range(6):
+        assert cov_interp[i, i] > 100.0
+        assert cov_interp[i, i] < 200.0
+
+
+def test_dtrajectory_covariance_without_initialization_returns_none():
+    """Test that covariance returns None when not initialized"""
+    traj = DTrajectory(6)
+
+    # Add state without covariance
+    t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    traj.add(t0, state)
+
+    # Query covariance should return None
+    cov = traj.covariance_at(t0)
+    assert cov is None

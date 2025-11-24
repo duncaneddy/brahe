@@ -34,7 +34,8 @@ fn main() {
     // Integrate one step
     let t = 0.0;
     let initial_state = DVector::from_vec(vec![1.0]);
-    let new_state = integrator.step(t, initial_state.clone(), None);
+    let result = integrator.step(t, initial_state.clone(), None);
+    let new_state = result.state;
     // --8<-- [end:snippet]
 
     println!("Initial state: {:.6}", initial_state[0]);

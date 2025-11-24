@@ -14,7 +14,9 @@ use crate::frames::{
     state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
 use crate::orbits::keplerian::mean_motion;
-use crate::propagators::traits::{OrbitPropagator, StateProvider};
+use crate::propagators::traits::{
+    SOrbitPropagator, SOrbitStateProvider, SStatePropagator, SStateProvider,
+};
 use crate::time::Epoch;
 use crate::trajectories::OrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
@@ -402,7 +404,7 @@ impl KeplerianPropagator {
     }
 }
 
-impl OrbitPropagator for KeplerianPropagator {
+impl SStatePropagator for KeplerianPropagator {
     fn step_by(&mut self, step_size: f64) {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size;
@@ -458,6 +460,16 @@ impl OrbitPropagator for KeplerianPropagator {
         self.trajectory.add(self.initial_epoch, converted_state);
     }
 
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_size(max_size)
+    }
+
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
+        self.trajectory.set_eviction_policy_max_age(max_age)
+    }
+}
+
+impl SOrbitPropagator for KeplerianPropagator {
     fn set_initial_conditions(
         &mut self,
         epoch: Epoch,
@@ -503,23 +515,17 @@ impl OrbitPropagator for KeplerianPropagator {
         self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
         self.trajectory.add(epoch, state);
     }
-
-    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
-        self.trajectory.set_eviction_policy_max_size(max_size)
-    }
-
-    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
-        self.trajectory.set_eviction_policy_max_age(max_age)
-    }
 }
 
-impl StateProvider for KeplerianPropagator {
+impl SStateProvider for KeplerianPropagator {
     fn state(&self, epoch: Epoch) -> Vector6<f64> {
         // Get state in original format
         let internal_state = self.propagate_internal(epoch);
         self.convert_from_internal_osculating(epoch, internal_state)
     }
+}
 
+impl SOrbitStateProvider for KeplerianPropagator {
     fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
         // Keplerian propagation is in ECI/GCRF frame
         // state_eci already returns the Cartesian state in ECI/GCRF

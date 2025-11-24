@@ -64,7 +64,7 @@ serial_test = "3.1.1"
 httpmock = "0.8.2"
 tempfile = "3.13.0"
 cargo-deny = "0.18.5"
-mockall = "0.13.1"
+mockall = "0.14.0"
 
 [features]
 ci = []

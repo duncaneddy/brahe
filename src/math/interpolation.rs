@@ -7,8 +7,8 @@
  * - Standalone interpolation functions for vectors and covariance matrices
  */
 
-use crate::math::linalg::{SMatrix6, sqrtm};
-use nalgebra::{DVector, SVector};
+use crate::math::linalg::{sqrtm, sqrtm_dmatrix};
+use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -90,7 +90,8 @@ pub trait InterpolationConfig {
 /// to maintain positive semi-definiteness.
 ///
 /// This trait is separate from actual interpolation logic. The standalone functions
-/// [`interpolate_covariance_sqrt`] and [`interpolate_covariance_two_wasserstein`]
+/// [`interpolate_covariance_sqrt_smatrix`], [`interpolate_covariance_two_wasserstein_smatrix`],
+/// [`interpolate_covariance_sqrt_dmatrix`], and [`interpolate_covariance_two_wasserstein_dmatrix`]
 /// perform the actual interpolation.
 pub trait CovarianceInterpolationConfig {
     /// Set the covariance interpolation method using builder pattern.
@@ -195,7 +196,7 @@ pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) 
     v1 + t * (v2 - v1)
 }
 
-/// Interpolates between two covariance matrices using square root interpolation.
+/// Interpolates between two static-sized covariance matrices using square root interpolation.
 ///
 /// # Arguments
 /// * `cov1` - The first covariance matrix.
@@ -207,15 +208,22 @@ pub fn interpolate_linear_dvector(v1: &DVector<f64>, v2: &DVector<f64>, t: f64) 
 ///
 /// # Example
 /// ```rust
-/// use brahe::interpolate_covariance_sqrt;
+/// use brahe::interpolate_covariance_sqrt_smatrix;
 /// use brahe::SMatrix6;
 ///
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_sqrt(cov1, cov2, t);
+/// let interpolated_cov = interpolate_covariance_sqrt_smatrix(cov1, cov2, t);
 /// ```
-pub fn interpolate_covariance_sqrt(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SMatrix6 {
+pub fn interpolate_covariance_sqrt_smatrix<const N: usize>(
+    cov1: SMatrix<f64, N, N>,
+    cov2: SMatrix<f64, N, N>,
+    t: f64,
+) -> SMatrix<f64, N, N>
+where
+    nalgebra::Const<N>: nalgebra::DimName,
+{
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
         panic!("Interpolation factor t must be in the range [0, 1]");
@@ -228,7 +236,7 @@ pub fn interpolate_covariance_sqrt(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SM
     interpolated_sqrt * interpolated_sqrt.transpose()
 }
 
-/// Interpolates between two covariance matrices using the two-Wasserstein metric.
+/// Interpolates between two static-sized covariance matrices using the two-Wasserstein metric.
 ///
 /// # Arguments
 /// * `cov1` - The first covariance matrix.
@@ -240,18 +248,25 @@ pub fn interpolate_covariance_sqrt(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SM
 ///
 /// # Example
 /// ```rust
-/// use brahe::interpolate_covariance_two_wasserstein;
+/// use brahe::interpolate_covariance_two_wasserstein_smatrix;
 /// use brahe::SMatrix6;
 ///
 /// let cov1 = SMatrix6::identity();
 /// let cov2 = SMatrix6::identity() * 4.0;
 /// let t = 0.5;
-/// let interpolated_cov = interpolate_covariance_two_wasserstein(cov1, cov2, t);
+/// let interpolated_cov = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t);
 /// ```
 ///
 /// # References
 /// - [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
-pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t: f64) -> SMatrix6 {
+pub fn interpolate_covariance_two_wasserstein_smatrix<const N: usize>(
+    cov1: SMatrix<f64, N, N>,
+    cov2: SMatrix<f64, N, N>,
+    t: f64,
+) -> SMatrix<f64, N, N>
+where
+    nalgebra::Const<N>: nalgebra::DimName,
+{
     // Confirm that t is within [0, 1]
     if !(0.0..=1.0).contains(&t) {
         panic!("Interpolation factor t must be in the range [0, 1]");
@@ -262,10 +277,117 @@ pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t:
         + t * (1.0 - t) * (sqrtm(cov1 * cov2).unwrap() + sqrtm(cov2 * cov1).unwrap())
 }
 
+/// Interpolates between two dynamic-sized covariance matrices using square root interpolation.
+///
+/// # Arguments
+/// * `cov1` - The first covariance matrix.
+/// * `cov2` - The second covariance matrix.
+/// * `t` - Interpolation factor (0.0 to 1.0).
+///
+/// # Returns
+/// The interpolated covariance matrix.
+///
+/// # Panics
+/// Panics if matrices have different dimensions, are not square, or if t is not in [0, 1].
+///
+/// # Example
+/// ```rust
+/// use brahe::interpolate_covariance_sqrt_dmatrix;
+/// use nalgebra::DMatrix;
+///
+/// let cov1 = DMatrix::<f64>::identity(6, 6);
+/// let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
+/// let t = 0.5;
+/// let interpolated_cov = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t);
+/// ```
+pub fn interpolate_covariance_sqrt_dmatrix(
+    cov1: &DMatrix<f64>,
+    cov2: &DMatrix<f64>,
+    t: f64,
+) -> DMatrix<f64> {
+    // Confirm that t is within [0, 1]
+    if !(0.0..=1.0).contains(&t) {
+        panic!("Interpolation factor t must be in the range [0, 1]");
+    }
+
+    // Confirm matrices have same dimensions
+    if cov1.nrows() != cov2.nrows() || cov1.ncols() != cov2.ncols() {
+        panic!(
+            "Covariance matrices must have same dimensions: got {}x{} and {}x{}",
+            cov1.nrows(),
+            cov1.ncols(),
+            cov2.nrows(),
+            cov2.ncols()
+        );
+    }
+
+    let sqrt_cov1 = sqrtm_dmatrix(cov1).unwrap();
+    let sqrt_cov2 = sqrtm_dmatrix(cov2).unwrap();
+
+    let interpolated_sqrt = (1.0 - t) * &sqrt_cov1 + t * &sqrt_cov2;
+    &interpolated_sqrt * interpolated_sqrt.transpose()
+}
+
+/// Interpolates between two dynamic-sized covariance matrices using the two-Wasserstein metric.
+///
+/// # Arguments
+/// * `cov1` - The first covariance matrix.
+/// * `cov2` - The second covariance matrix.
+/// * `t` - Interpolation factor (0.0 to 1.0).
+///
+/// # Returns
+/// The interpolated covariance matrix.
+///
+/// # Panics
+/// Panics if matrices have different dimensions, are not square, or if t is not in [0, 1].
+///
+/// # Example
+/// ```rust
+/// use brahe::interpolate_covariance_two_wasserstein_dmatrix;
+/// use nalgebra::DMatrix;
+///
+/// let cov1 = DMatrix::<f64>::identity(6, 6);
+/// let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
+/// let t = 0.5;
+/// let interpolated_cov = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t);
+/// ```
+///
+/// # References
+/// - [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+pub fn interpolate_covariance_two_wasserstein_dmatrix(
+    cov1: &DMatrix<f64>,
+    cov2: &DMatrix<f64>,
+    t: f64,
+) -> DMatrix<f64> {
+    // Confirm that t is within [0, 1]
+    if !(0.0..=1.0).contains(&t) {
+        panic!("Interpolation factor t must be in the range [0, 1]");
+    }
+
+    // Confirm matrices have same dimensions
+    if cov1.nrows() != cov2.nrows() || cov1.ncols() != cov2.ncols() {
+        panic!(
+            "Covariance matrices must have same dimensions: got {}x{} and {}x{}",
+            cov1.nrows(),
+            cov1.ncols(),
+            cov2.nrows(),
+            cov2.ncols()
+        );
+    }
+
+    let prod12 = cov1 * cov2;
+    let prod21 = cov2 * cov1;
+
+    (1.0 - t).powi(2) * cov1
+        + t.powi(2) * cov2
+        + t * (1.0 - t) * (sqrtm_dmatrix(&prod12).unwrap() + sqrtm_dmatrix(&prod21).unwrap())
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::math::linalg::SMatrix6;
     use approx::assert_abs_diff_eq;
 
     // =========================================================================
@@ -351,11 +473,11 @@ mod tests {
     }
 
     #[test]
-    fn test_interpolate_covariance_sqrt() {
+    fn test_interpolate_covariance_sqrt_smatrix() {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_sqrt(cov1, cov2, t);
+        let result = interpolate_covariance_sqrt_smatrix(cov1, cov2, t);
 
         for i in 0..6 {
             for j in 0..6 {
@@ -366,16 +488,61 @@ mod tests {
     }
 
     #[test]
-    fn test_interpolate_covariance_two_wasserstein() {
+    fn test_interpolate_covariance_two_wasserstein_smatrix() {
         let cov1 = SMatrix6::identity();
         let cov2 = SMatrix6::identity() * 4.0;
         let t = 0.5;
-        let result = interpolate_covariance_two_wasserstein(cov1, cov2, t);
+        let result = interpolate_covariance_two_wasserstein_smatrix(cov1, cov2, t);
         for i in 0..6 {
             for j in 0..6 {
                 let expected = if i == j { 2.25 } else { 0.0 };
                 assert_abs_diff_eq!(result[(i, j)], expected, epsilon = 1e-10);
             }
         }
+    }
+
+    #[test]
+    fn test_interpolate_covariance_sqrt_dmatrix() {
+        let cov1 = DMatrix::<f64>::identity(6, 6);
+        let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
+        let t = 0.5;
+        let result = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, t);
+
+        for i in 0..6 {
+            for j in 0..6 {
+                let expected = if i == j { 2.25 } else { 0.0 };
+                assert_abs_diff_eq!(result[(i, j)], expected, epsilon = 1e-10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix() {
+        let cov1 = DMatrix::<f64>::identity(6, 6);
+        let cov2 = DMatrix::<f64>::identity(6, 6) * 4.0;
+        let t = 0.5;
+        let result = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, t);
+        for i in 0..6 {
+            for j in 0..6 {
+                let expected = if i == j { 2.25 } else { 0.0 };
+                assert_abs_diff_eq!(result[(i, j)], expected, epsilon = 1e-10);
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariance matrices must have same dimensions")]
+    fn test_interpolate_covariance_sqrt_dmatrix_dimension_mismatch() {
+        let cov1 = DMatrix::<f64>::identity(3, 3);
+        let cov2 = DMatrix::<f64>::identity(4, 4);
+        let _ = interpolate_covariance_sqrt_dmatrix(&cov1, &cov2, 0.5);
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariance matrices must have same dimensions")]
+    fn test_interpolate_covariance_two_wasserstein_dmatrix_dimension_mismatch() {
+        let cov1 = DMatrix::<f64>::identity(3, 3);
+        let cov2 = DMatrix::<f64>::identity(4, 4);
+        let _ = interpolate_covariance_two_wasserstein_dmatrix(&cov1, &cov2, 0.5);
     }
 }

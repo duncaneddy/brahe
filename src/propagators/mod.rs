@@ -2,18 +2,18 @@
  * The propagators module contains orbit propagation implementations and traits.
  */
 
+pub mod dnumerical_orbit_propagator;
 pub mod force_model_config;
 pub mod functions;
 pub mod keplerian_propagator;
-pub mod numerical_orbit_propagator;
 pub mod numerical_propagation_config;
 pub mod sgp_propagator;
 pub mod traits;
 
+pub use dnumerical_orbit_propagator::*;
 pub use force_model_config::*;
 pub use functions::*;
 pub use keplerian_propagator::*;
-pub use numerical_orbit_propagator::*;
 pub use numerical_propagation_config::*;
 pub use sgp_propagator::*;
 // Note: traits::* is not re-exported here to avoid ambiguous glob re-exports

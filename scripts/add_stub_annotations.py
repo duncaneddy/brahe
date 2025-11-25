@@ -53,7 +53,7 @@ def parse_return_type_from_docstring(doc: str) -> str:
             "RotationMatrix": "RotationMatrix",
             "EulerAngle": "EulerAngle",
             "EulerAxis": "EulerAxis",
-            "OrbitalTrajectory": "OrbitTrajectory",  # Fix typo in docstring
+            "OrbitalTrajectory": "SOrbitTrajectory",  # Fix typo in docstring
             "tuple": "Tuple",
             "list": "List",
         }
@@ -85,9 +85,9 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
     if name in ["__repr__", "__str__"]:
         return "str"
 
-    # Special case: trajectory property returns OrbitTrajectory (not OrbitalTrajectory)
+    # Special case: trajectory property returns SOrbitTrajectory (not OrbitalTrajectory)
     if name == "trajectory":
-        return "OrbitTrajectory"
+        return "SOrbitTrajectory"
 
     # Conversion methods
     if name.startswith("to_"):

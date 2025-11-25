@@ -30,21 +30,43 @@ pub trait SStatePropagator {
         self.step_by(self.step_size());
     }
 
-    /// Step forward by a specified time duration
+    /// Step by a specified time duration (positive or negative)
     ///
     /// # Arguments
-    /// * `step_size` - Time step in seconds
+    /// * `step_size` - Time step in seconds (positive for forward, negative for backward)
     fn step_by(&mut self, step_size: f64);
 
-    /// Step past a specified target epoch
-    /// If the target epoch is before or equal to the current epoch, no action is taken
+    /// Step past a specified target epoch in the current propagation direction.
+    ///
+    /// The propagation direction is determined by the sign of `step_size()`:
+    /// - For forward propagation (step_size > 0): steps until current_epoch >= target_epoch
+    /// - For backward propagation (step_size < 0): steps until current_epoch <= target_epoch
+    ///
+    /// If the target is in the opposite direction of propagation, no action is taken.
     fn step_past(&mut self, target_epoch: Epoch) {
-        while self.current_epoch() < target_epoch {
-            self.step();
+        let current = self.current_epoch();
+        let step = self.step_size();
+
+        if step >= 0.0 {
+            // Forward propagation - only proceed if target is in the future
+            if target_epoch <= current {
+                return;
+            }
+            while self.current_epoch() < target_epoch {
+                self.step();
+            }
+        } else {
+            // Backward propagation - only proceed if target is in the past
+            if target_epoch >= current {
+                return;
+            }
+            while self.current_epoch() > target_epoch {
+                self.step();
+            }
         }
     }
 
-    /// Step forward by default step size for a specified number of steps
+    /// Step by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
@@ -54,25 +76,54 @@ pub trait SStatePropagator {
         }
     }
 
-    /// Propagate to a specific target epoch
+    /// Propagate to a specific target epoch, respecting propagation direction.
+    ///
+    /// The propagation direction is determined by the sign of `step_size()`:
+    /// - For forward propagation (step_size > 0): propagates forward to target
+    /// - For backward propagation (step_size < 0): propagates backward to target
+    ///
+    /// If the target is in the opposite direction of propagation, no action is taken.
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
     fn propagate_to(&mut self, target_epoch: Epoch) {
         let mut current_epoch = self.current_epoch();
+        let step = self.step_size();
 
-        while current_epoch < target_epoch {
-            // Calculate step size to not overshoot
-            let remaining_time = target_epoch - current_epoch;
-            let step_size = remaining_time.min(self.step_size());
-
-            // Guard against very small steps to avoid infinite loops
-            if step_size <= 1e-9 {
-                break;
+        if step >= 0.0 {
+            // Forward propagation - only proceed if target is in the future
+            if target_epoch <= current_epoch {
+                return;
             }
+            while current_epoch < target_epoch {
+                let remaining_time = target_epoch - current_epoch;
+                let step_size = remaining_time.min(step);
 
-            self.step_by(step_size);
-            current_epoch = self.current_epoch();
+                // Guard against very small steps to avoid infinite loops
+                if step_size <= 1e-9 {
+                    break;
+                }
+
+                self.step_by(step_size);
+                current_epoch = self.current_epoch();
+            }
+        } else {
+            // Backward propagation - only proceed if target is in the past
+            if target_epoch >= current_epoch {
+                return;
+            }
+            while current_epoch > target_epoch {
+                let remaining_time = current_epoch - target_epoch;
+                let step_size = -(remaining_time.min(step.abs()));
+
+                // Guard against very small steps to avoid infinite loops
+                if step_size.abs() <= 1e-9 {
+                    break;
+                }
+
+                self.step_by(step_size);
+                current_epoch = self.current_epoch();
+            }
         }
     }
 
@@ -133,21 +184,43 @@ pub trait DStatePropagator {
         self.step_by(self.step_size());
     }
 
-    /// Step forward by a specified time duration
+    /// Step by a specified time duration (positive or negative)
     ///
     /// # Arguments
-    /// * `step_size` - Time step in seconds
+    /// * `step_size` - Time step in seconds (positive for forward, negative for backward)
     fn step_by(&mut self, step_size: f64);
 
-    /// Step past a specified target epoch
-    /// If the target epoch is before or equal to the current epoch, no action is taken
+    /// Step past a specified target epoch in the current propagation direction.
+    ///
+    /// The propagation direction is determined by the sign of `step_size()`:
+    /// - For forward propagation (step_size > 0): steps until current_epoch >= target_epoch
+    /// - For backward propagation (step_size < 0): steps until current_epoch <= target_epoch
+    ///
+    /// If the target is in the opposite direction of propagation, no action is taken.
     fn step_past(&mut self, target_epoch: Epoch) {
-        while self.current_epoch() < target_epoch {
-            self.step();
+        let current = self.current_epoch();
+        let step = self.step_size();
+
+        if step >= 0.0 {
+            // Forward propagation - only proceed if target is in the future
+            if target_epoch <= current {
+                return;
+            }
+            while self.current_epoch() < target_epoch {
+                self.step();
+            }
+        } else {
+            // Backward propagation - only proceed if target is in the past
+            if target_epoch >= current {
+                return;
+            }
+            while self.current_epoch() > target_epoch {
+                self.step();
+            }
         }
     }
 
-    /// Step forward by default step size for a specified number of steps
+    /// Step by default step size for a specified number of steps
     ///
     /// # Arguments
     /// * `num_steps` - Number of steps to take
@@ -157,25 +230,54 @@ pub trait DStatePropagator {
         }
     }
 
-    /// Propagate to a specific target epoch
+    /// Propagate to a specific target epoch, respecting propagation direction.
+    ///
+    /// The propagation direction is determined by the sign of `step_size()`:
+    /// - For forward propagation (step_size > 0): propagates forward to target
+    /// - For backward propagation (step_size < 0): propagates backward to target
+    ///
+    /// If the target is in the opposite direction of propagation, no action is taken.
     ///
     /// # Arguments
     /// * `target_epoch` - The epoch to propagate to
     fn propagate_to(&mut self, target_epoch: Epoch) {
         let mut current_epoch = self.current_epoch();
+        let step = self.step_size();
 
-        while current_epoch < target_epoch {
-            // Calculate step size to not overshoot
-            let remaining_time = target_epoch - current_epoch;
-            let step_size = remaining_time.min(self.step_size());
-
-            // Guard against very small steps to avoid infinite loops
-            if step_size <= 1e-9 {
-                break;
+        if step >= 0.0 {
+            // Forward propagation - only proceed if target is in the future
+            if target_epoch <= current_epoch {
+                return;
             }
+            while current_epoch < target_epoch {
+                let remaining_time = target_epoch - current_epoch;
+                let step_size = remaining_time.min(step);
 
-            self.step_by(step_size);
-            current_epoch = self.current_epoch();
+                // Guard against very small steps to avoid infinite loops
+                if step_size <= 1e-9 {
+                    break;
+                }
+
+                self.step_by(step_size);
+                current_epoch = self.current_epoch();
+            }
+        } else {
+            // Backward propagation - only proceed if target is in the past
+            if target_epoch >= current_epoch {
+                return;
+            }
+            while current_epoch > target_epoch {
+                let remaining_time = current_epoch - target_epoch;
+                let step_size = -(remaining_time.min(step.abs()));
+
+                // Guard against very small steps to avoid infinite loops
+                if step_size.abs() <= 1e-9 {
+                    break;
+                }
+
+                self.step_by(step_size);
+                current_epoch = self.current_epoch();
+            }
         }
     }
 

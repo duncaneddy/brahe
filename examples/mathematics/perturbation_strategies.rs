@@ -6,7 +6,7 @@ use nalgebra::{DMatrix, DVector};
 
 fn main() {
     // Define dynamics with mixed-scale state
-    let dynamics = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let x = state[0];
         let v = state[1];
         DVector::from_vec(vec![v, -x * 1e-6])
@@ -33,7 +33,7 @@ fn main() {
     println!("1. Fixed Perturbation (h = 1e-6)");
     let jacobian_fixed = DNumericalJacobian::central(Box::new(dynamics))
         .with_fixed_offset(1e-6);
-    let j_fixed = jacobian_fixed.compute(t, state.clone(), None);
+    let j_fixed = jacobian_fixed.compute(t, &state, None);
     let error_fixed = (j_fixed - j_analytical.clone()).norm();
     println!("   Error: {:.2e}\n", error_fixed);
 
@@ -41,7 +41,7 @@ fn main() {
     println!("2. Percentage Perturbation (0.001%)");
     let jacobian_pct = DNumericalJacobian::central(Box::new(dynamics))
         .with_percentage(1e-5);
-    let j_pct = jacobian_pct.compute(t, state.clone(), None);
+    let j_pct = jacobian_pct.compute(t, &state, None);
     let error_pct = (j_pct - j_analytical.clone()).norm();
     println!("   Error: {:.2e}\n", error_pct);
 
@@ -49,7 +49,7 @@ fn main() {
     println!("3. Adaptive Perturbation (scale=1.0, min=1.0)");
     let jacobian_adaptive = DNumericalJacobian::central(Box::new(dynamics))
         .with_adaptive(1.0, 1.0);
-    let j_adaptive = jacobian_adaptive.compute(t, state.clone(), None);
+    let j_adaptive = jacobian_adaptive.compute(t, &state, None);
     let error_adaptive = (j_adaptive - j_analytical.clone()).norm();
     println!("   Error: {:.2e}\n", error_adaptive);
 
@@ -69,12 +69,12 @@ fn main() {
     let j_analytical_zero = analytical_jacobian();
 
     // Percentage can be problematic when component is near zero
-    let j_pct_zero = jacobian_pct.compute(t, state_zero.clone(), None);
+    let j_pct_zero = jacobian_pct.compute(t, &state_zero, None);
     let error_pct_zero = (j_pct_zero - j_analytical_zero.clone()).norm();
     println!("Percentage: Error = {:.2e}", error_pct_zero);
 
     // Adaptive handles it gracefully
-    let j_adaptive_zero = jacobian_adaptive.compute(t, state_zero, None);
+    let j_adaptive_zero = jacobian_adaptive.compute(t, &state_zero, None);
     let error_adaptive_zero = (j_adaptive_zero - j_analytical_zero).norm();
     println!("Adaptive:   Error = {:.2e}", error_adaptive_zero);
 

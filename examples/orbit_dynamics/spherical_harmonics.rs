@@ -35,9 +35,9 @@ fn main() {
     println!("  z = {:.3}", r_eci[2]);
 
     // Load gravity model (GGM05S - degree/order 180)
-    let gravity_model = bh::orbit_dynamics::GravityModel::from_default(
-        bh::orbit_dynamics::DefaultGravityModel::GGM05S
-    );
+    let gravity_model = bh::orbit_dynamics::GravityModel::from_model_type(
+        &bh::orbit_dynamics::GravityModelType::GGM05S
+    ).unwrap();
     println!("\nGravity model: GGM05S (max degree {}, max order {})",
              gravity_model.n_max, gravity_model.m_max);
 

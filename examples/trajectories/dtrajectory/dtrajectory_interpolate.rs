@@ -4,7 +4,7 @@
 use brahe as bh;
 use bh::time::Epoch;
 use bh::trajectories::DTrajectory;
-use bh::traits::{Trajectory, Interpolatable};
+use bh::traits::{Trajectory, InterpolatableTrajectory};
 use bh::constants::R_EARTH;
 use nalgebra as na;
 

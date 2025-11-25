@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Create OrbitTrajectory from existing epochs and orbital states
+Create SOrbitTrajectory from existing epochs and orbital states
 """
 
 import brahe as bh
@@ -23,7 +23,7 @@ state2 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, -7600.0, 0.0])
 # Create trajectory from data
 epochs = [epoch0, epoch1, epoch2]
 states = np.array([state0, state1, state2])  # Flattened array
-traj = bh.OrbitTrajectory.from_orbital_data(
+traj = bh.SOrbitTrajectory.from_orbital_data(
     epochs, states, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
 )
 

@@ -115,7 +115,7 @@ def plot_groundtrack(
 
     Args:
         trajectories (list of dict, optional): List of trajectory groups, each with:
-            - trajectory: OrbitTrajectory or numpy array
+            - trajectory: SOrbitTrajectory or numpy array
             - color (str, optional): Line color
             - line_width (float, optional): Line width
             - track_length (float, optional): Length of track to display
@@ -738,7 +738,7 @@ def _plot_trajectory_group_matplotlib(ax, group):
 
     # Extract ECI states from trajectory
     if hasattr(trajectory, "to_matrix"):
-        # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+        # SOrbitTrajectory - use to_matrix() which returns (N, 6) array
         states = trajectory.to_matrix()
         epochs = trajectory.epochs()
 
@@ -986,7 +986,7 @@ def _plot_trajectory_group_plotly(fig, group, show_legend, track_idx=1):
 
     # Extract lat/lon
     if hasattr(trajectory, "to_matrix"):
-        # OrbitTrajectory - use to_matrix() which returns (N, 6) array
+        # SOrbitTrajectory - use to_matrix() which returns (N, 6) array
         states = trajectory.to_matrix()
         epochs = trajectory.epochs()
 

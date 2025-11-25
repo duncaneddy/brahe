@@ -68,7 +68,7 @@ fn main() {
 
     // Create Jacobian provider (dynamics without explicit params for Jacobian)
     let params_clone = params.clone();
-    let dynamics_for_jacobian = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics_for_jacobian = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let cd_area_m = params_clone[0];
 
         let r = state.fixed_rows::<3>(0);
@@ -123,7 +123,7 @@ fn main() {
         let state_dot = dynamics_with_params(t, &state, &params_for_aug);
 
         // Compute Jacobian ∂f/∂x
-        let jacobian = jacobian_provider.compute(t, state.clone(), None);
+        let jacobian = jacobian_provider.compute(t, &state, None);
 
         // Compute sensitivity ∂f/∂p
         let sensitivity = sensitivity_provider.compute(t, &state, &params_for_aug);

@@ -1173,3 +1173,135 @@ def test_strajectory6_covariance_without_initialization_returns_none():
     # Query covariance should return None
     cov = traj.covariance_at(t0)
     assert cov is None
+
+
+# Covariance Interpolation Configuration Tests
+
+
+def test_strajectory6_covariance_interpolation_config():
+    """Rust test: test_strajectory_covariance_interpolation_config
+
+    Test the CovarianceInterpolationConfig trait implementation.
+    """
+    # Test default is TwoWasserstein
+    traj = STrajectory6()
+    assert (
+        traj.get_covariance_interpolation_method()
+        == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+
+    # Test with_covariance_interpolation_method builder
+    traj = STrajectory6().with_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+    assert (
+        traj.get_covariance_interpolation_method()
+        == brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+
+    # Test set_covariance_interpolation_method
+    traj = STrajectory6()
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+    assert (
+        traj.get_covariance_interpolation_method()
+        == brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+    assert (
+        traj.get_covariance_interpolation_method()
+        == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+
+
+def test_strajectory6_covariance_interpolation_methods():
+    """Rust test: test_strajectory_covariance_interpolation_methods
+
+    Test that covariance interpolation produces correct results.
+    """
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+    t1 = t0 + 60.0
+
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
+
+    # Create diagonal covariance matrices
+    cov1 = np.diag([100.0, 100.0, 100.0, 1.0, 1.0, 1.0])
+    cov2 = np.diag([200.0, 200.0, 200.0, 2.0, 2.0, 2.0])
+
+    # Create trajectory with covariances
+    traj = STrajectory6()
+    traj.enable_covariance_storage()
+    traj.add(t0, state1)
+    traj.add(t1, state2)
+    traj.set_covariance_at(0, cov1)
+    traj.set_covariance_at(1, cov2)
+
+    # Test matrix square root interpolation at midpoint
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    )
+    t_mid = t0 + 30.0
+    cov_sqrt = traj.covariance_at(t_mid)
+
+    # Check symmetry and positive semi-definiteness
+    for i in range(6):
+        assert cov_sqrt[i, i] > 0.0
+        for j in range(6):
+            assert cov_sqrt[i, j] == pytest.approx(cov_sqrt[j, i], abs=1e-10)
+
+    # Check values are between endpoints
+    assert cov_sqrt[0, 0] > 100.0 and cov_sqrt[0, 0] < 200.0
+
+    # Test two-Wasserstein interpolation at midpoint
+    traj.set_covariance_interpolation_method(
+        brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    )
+    cov_wasserstein = traj.covariance_at(t_mid)
+
+    # Check symmetry and positive semi-definiteness
+    for i in range(6):
+        assert cov_wasserstein[i, i] > 0.0
+        for j in range(6):
+            assert cov_wasserstein[i, j] == pytest.approx(
+                cov_wasserstein[j, i], abs=1e-10
+            )
+
+    # Check values are between endpoints
+    assert cov_wasserstein[0, 0] > 100.0 and cov_wasserstein[0, 0] < 200.0
+
+    # For diagonal matrices, both methods should give similar results
+    assert cov_sqrt[0, 0] == pytest.approx(cov_wasserstein[0, 0], abs=1e-6)
+
+
+def test_strajectory6_covariance_at_exact_epochs():
+    """Rust test: test_strajectory_covariance_at_exact_epochs
+
+    Test that covariance_at returns exact values at data points.
+    """
+    t0 = Epoch.from_jd(2451545.0, brahe.UTC)
+    t1 = t0 + 60.0
+
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    state2 = np.array([7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
+
+    cov1 = np.eye(6) * 100.0
+    cov2 = np.eye(6) * 200.0
+
+    traj = STrajectory6()
+    traj.enable_covariance_storage()
+    traj.add(t0, state1)
+    traj.add(t1, state2)
+    traj.set_covariance_at(0, cov1)
+    traj.set_covariance_at(1, cov2)
+
+    # At exact t0, should return cov1
+    result = traj.covariance_at(t0)
+    assert result[0, 0] == pytest.approx(100.0, abs=1e-10)
+
+    # At exact t1, should return cov2
+    result = traj.covariance_at(t1)
+    assert result[0, 0] == pytest.approx(200.0, abs=1e-10)

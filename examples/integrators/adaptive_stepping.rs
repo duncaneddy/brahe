@@ -7,7 +7,7 @@ use nalgebra::DVector;
 fn main() {
     // Define dynamics: Van der Pol oscillator (stiff for large mu)
     let mu = 1.0;
-    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let x = state[0];
         let v = state[1];
         DVector::from_vec(vec![v, mu * (1.0 - x.powi(2)) * v - x])

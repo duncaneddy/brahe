@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Create empty OrbitTrajectory in Cartesian representation
+Create empty SOrbitTrajectory in Cartesian representation
 """
 
 import brahe as bh
@@ -10,7 +10,7 @@ import brahe as bh
 bh.initialize_eop()
 
 # Create trajectory in ECI frame, Cartesian representation
-traj_eci = bh.OrbitTrajectory(
+traj_eci = bh.SOrbitTrajectory(
     bh.OrbitFrame.ECI,
     bh.OrbitRepresentation.CARTESIAN,
     None,  # No angle format for Cartesian
@@ -25,7 +25,7 @@ print(
 )  # Output: OrbitRepresentation(Cartesian)
 
 # Create trajectory in ECEF frame, Cartesian representation
-traj_ecef = bh.OrbitTrajectory(
+traj_ecef = bh.SOrbitTrajectory(
     bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
 )
 print(f"Frame (str): {traj_ecef.frame}")  # Output: ECEF

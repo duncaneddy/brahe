@@ -15,7 +15,7 @@ use brahe::*;
 use nalgebra::{DMatrix, DVector, SVector};
 
 /// Two-body point-mass dynamics with Earth gravity (for integrator)
-fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();
@@ -28,7 +28,7 @@ fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVe
 }
 
 /// Two-body dynamics (for Jacobian computation - no params)
-fn dynamics_for_jac(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+fn dynamics_for_jac(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
     let r = state.rows(0, 3);
     let v = state.rows(3, 3);
     let r_norm = r.norm();

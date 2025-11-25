@@ -3,9 +3,9 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation};
-use bh::traits::{Trajectory, Interpolatable};
+use bh::traits::{Trajectory, InterpolatableTrajectory};
 use bh::{state_osculating_to_cartesian, R_EARTH, AngleFormat};
 use nalgebra as na;
 
@@ -13,7 +13,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory
-    let mut traj = OrbitTrajectory::new(
+    let mut traj = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None

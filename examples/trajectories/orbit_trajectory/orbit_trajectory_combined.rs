@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::{state_osculating_to_cartesian, R_EARTH, AngleFormat};
@@ -13,7 +13,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Start with ECI Cartesian trajectory
-    let mut traj_eci_cart = OrbitTrajectory::new(
+    let mut traj_eci_cart = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None

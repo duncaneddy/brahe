@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::{Trajectory, Interpolatable};
+use brahe::traits::{Trajectory, InterpolatableTrajectory};
 use bh::constants::R_EARTH;
 use nalgebra as na;
 

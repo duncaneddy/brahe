@@ -17,6 +17,10 @@ use crate::constants::{GM_EARTH, R_EARTH};
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::rotation_eci_to_ecef;
 use crate::integrators::traits::DIntegrator;
+use crate::math::interpolation::{
+    CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
+    InterpolationMethod,
+};
 #[allow(unused_imports)]
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
@@ -35,15 +39,20 @@ use crate::propagators::{
     AtmosphericModel, EclipseModel, EphemerisSource, ForceModelConfiguration, GravityConfiguration,
     GravityModelSource, ThirdBody,
 };
+use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
 use crate::traits::{OrbitFrame, OrbitRepresentation};
-use crate::trajectories::DTrajectory;
-use crate::trajectories::traits::Trajectory;
+use crate::trajectories::DOrbitTrajectory;
+use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
 use crate::utils::errors::BraheError;
-use crate::utils::state_providers::SCovarianceProvider;
+use crate::utils::identifiable::Identifiable;
+use crate::utils::state_providers::{
+    DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
+};
 use crate::{AngleFormat, state_cartesian_to_osculating};
 
 use super::TrajectoryMode;
+use super::traits::DStatePropagator;
 
 // Event detection imports
 use crate::events::{DDetectedEvent, DEventDetector, EventAction, dscan_for_event};
@@ -170,7 +179,9 @@ pub struct DNumericalOrbitPropagator {
     // ===== Time Management =====
     /// Initial absolute time (Epoch)
     epoch_initial: Epoch,
-    /// Current relative time (seconds since start)
+    /// Current absolute time (Epoch) - updated on each step
+    epoch_current: Epoch,
+    /// Current relative time (seconds since start) - used by integrator for numerical stability
     t_rel: f64,
 
     // ===== Integration =====
@@ -226,9 +237,13 @@ pub struct DNumericalOrbitPropagator {
 
     // ===== Trajectory Storage =====
     /// Storage for state history
-    trajectory: DTrajectory,
+    trajectory: DOrbitTrajectory,
     /// Trajectory storage mode
     trajectory_mode: TrajectoryMode,
+    /// Interpolation method for state retrieval
+    interpolation_method: InterpolationMethod,
+    /// Covariance interpolation method
+    covariance_interpolation_method: CovarianceInterpolationMethod,
 
     // ===== Event Detection =====
     /// Event detectors for monitoring propagation
@@ -386,8 +401,9 @@ impl DNumericalOrbitPropagator {
             propagation_config.integrator,
         );
 
-        // Create trajectory storage
-        let mut trajectory = DTrajectory::new(state_dim);
+        // Create trajectory storage (internally always ECI Cartesian)
+        let mut trajectory =
+            DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
@@ -423,6 +439,7 @@ impl DNumericalOrbitPropagator {
 
         Ok(Self {
             epoch_initial: epoch,
+            epoch_current: epoch,
             t_rel: 0.0,
             integrator,
             force_config,
@@ -445,6 +462,8 @@ impl DNumericalOrbitPropagator {
             current_covariance,
             trajectory,
             trajectory_mode: TrajectoryMode::AllSteps,
+            interpolation_method: InterpolationMethod::Linear,
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
@@ -870,12 +889,14 @@ impl DNumericalOrbitPropagator {
 
         // ===== DRAG =====
         if let Some(drag_config) = &force_config.drag {
-            // Get parameters for drag calculation (mass, area, Cd)
-            let default_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
-            let p = params_opt.unwrap_or(&default_params);
-            let mass = p[0];
-            let drag_area = drag_config.area.get_value(Some(p), 10.0);
-            let cd = drag_config.cd.get_value(Some(p), 2.2);
+            // Get mass from configuration (respects priority: params > config value)
+            let mass = force_config
+                .get_mass(params_opt)
+                .expect("Mass required for drag calculation. Either provide a parameter vector or set ForceModelConfiguration.mass to ParameterSource::Value(mass_kg)");
+
+            // Get drag parameters (area, Cd)
+            let drag_area = drag_config.area.get_value(params_opt, 10.0);
+            let cd = drag_config.cd.get_value(params_opt, 2.2);
 
             // Compute atmospheric density
             let density = match &drag_config.model {
@@ -907,12 +928,14 @@ impl DNumericalOrbitPropagator {
 
         // ===== SOLAR RADIATION PRESSURE =====
         if let Some(srp_config) = &force_config.srp {
-            // Get parameters for SRP calculation (mass, area, Cr)
-            let default_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
-            let p = params_opt.unwrap_or(&default_params);
-            let mass = p[0];
-            let srp_area = srp_config.area.get_value(Some(p), 10.0);
-            let cr = srp_config.cr.get_value(Some(p), 1.3);
+            // Get mass from configuration (respects priority: params > config value)
+            let mass = force_config
+                .get_mass(params_opt)
+                .expect("Mass required for SRP calculation. Either provide a parameter vector or set ForceModelConfiguration.mass to ParameterSource::Value(mass_kg)");
+
+            // Get SRP parameters (area, Cr)
+            let srp_area = srp_config.area.get_value(params_opt, 10.0);
+            let cr = srp_config.cr.get_value(params_opt, 1.3);
 
             // Get sun position
             let r_sun = sun_position(epoch);
@@ -990,27 +1013,6 @@ impl DNumericalOrbitPropagator {
         self.trajectory_mode
     }
 
-    /// Set step size
-    pub fn set_step_size(&mut self, step_size: f64) {
-        self.dt = step_size;
-        self.dt_next = step_size;
-    }
-
-    /// Get step size
-    pub fn step_size(&self) -> f64 {
-        self.dt
-    }
-
-    /// Set eviction policy to keep a maximum number of states
-    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
-        self.trajectory.set_eviction_policy_max_size(max_size)
-    }
-
-    /// Set eviction policy to keep states within a maximum age
-    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
-        self.trajectory.set_eviction_policy_max_age(max_age)
-    }
-
     /// Enable output step (dense output mode)
     pub fn set_output_step(&mut self, _step: f64) {
         // Future: implement dense output
@@ -1025,16 +1027,14 @@ impl DNumericalOrbitPropagator {
     // State Access
     // =========================================================================
 
-    /// Get current epoch
-    pub fn current_epoch(&self) -> Epoch {
-        self.epoch_initial + self.t_rel
-    }
-
-    /// Get current state in ECI Cartesian format
+    /// Get current state in ECI Cartesian format (reference)
+    ///
+    /// This returns a reference to the internal state vector, which is more
+    /// efficient than the trait's `current_state()` method that returns a clone.
     ///
     /// # Returns
-    /// Current state vector in ECI Cartesian format (always)
-    pub fn current_state(&self) -> &DVector<f64> {
+    /// Reference to current state vector in ECI Cartesian format
+    pub fn current_state_ref(&self) -> &DVector<f64> {
         &self.x_curr
     }
 
@@ -1043,24 +1043,8 @@ impl DNumericalOrbitPropagator {
         &self.params
     }
 
-    /// Get initial epoch
-    pub fn initial_epoch(&self) -> Epoch {
-        self.epoch_initial
-    }
-
-    /// Get initial state in user format
-    pub fn initial_state(&self) -> DVector<f64> {
-        self.convert_state_from_eci(&self.x_initial, self.initial_epoch())
-            .expect("State conversion from ECI to user format failed")
-    }
-
-    /// Get state dimension
-    pub fn state_dim(&self) -> usize {
-        self.state_dim
-    }
-
     /// Get trajectory (in ECI Cartesian format)
-    pub fn trajectory(&self) -> &DTrajectory {
+    pub fn trajectory(&self) -> &DOrbitTrajectory {
         &self.trajectory
     }
 
@@ -1314,7 +1298,8 @@ impl DNumericalOrbitPropagator {
 
             // Update time (use actual dt_used)
             self.t_rel += self.dt;
-            let epoch_new = self.current_epoch();
+            self.epoch_current = self.epoch_initial + self.t_rel;
+            let epoch_new = self.epoch_current;
 
             // Scan for events in [epoch_prev, epoch_new]
             let detected_events =
@@ -1359,6 +1344,7 @@ impl DNumericalOrbitPropagator {
                     // Event callback modified state/params
                     // Reset to event time and state, then continue loop
                     self.t_rel = epoch - self.epoch_initial;
+                    self.epoch_current = epoch;
                     self.x_curr = state;
                     // Note: process_events_smart() already updated self.params if needed
                     continue; // Take new step from event time
@@ -1400,17 +1386,80 @@ impl DNumericalOrbitPropagator {
         }
     }
 
-    /// Step forward by a specified time duration
+    /// Helper to determine if current state should be stored
+    fn should_store_state(&self) -> bool {
+        match self.trajectory_mode {
+            TrajectoryMode::OutputStepsOnly => true,
+            TrajectoryMode::AllSteps => true,
+            TrajectoryMode::Disabled => false,
+        }
+    }
+
+    // =========================================================================
+    // State/Covariance Access with On-Demand Propagation
+    // =========================================================================
+
+    /// Ensure trajectory has data at or beyond the requested epoch.
     ///
-    /// Uses adaptive stepping to advance the state by the requested time.
-    /// The integrator may take multiple smaller steps to achieve the requested duration
-    /// while maintaining accuracy.
-    ///
-    /// Stops early if a terminal event is encountered.
+    /// This method propagates forward or backward as needed to ensure the
+    /// trajectory covers the requested epoch. The propagation direction is
+    /// determined by the sign of `step_size()`.
     ///
     /// # Arguments
-    /// * `step_size` - Time step in seconds to advance
-    pub fn step_by(&mut self, step_size: f64) {
+    /// * `epoch` - The epoch to ensure coverage for
+    ///
+    /// # Panics
+    /// Panics if the requested epoch is in the opposite direction of propagation
+    /// (i.e., past epoch requested in forward mode, or future epoch in backward mode).
+    pub fn ensure_trajectory_coverage(&mut self, epoch: Epoch) {
+        use crate::trajectories::traits::Trajectory;
+
+        // Get trajectory bounds
+        let traj_start = self.trajectory.start_epoch();
+        let traj_end = self.trajectory.end_epoch();
+
+        if let (Some(t0), Some(t1)) = (traj_start, traj_end)
+            && epoch >= t0
+            && epoch <= t1
+        {
+            // Epoch is within trajectory bounds, no propagation needed
+            return;
+        }
+
+        // Need to propagate - determine direction based on step_size sign
+        let current = self.current_epoch();
+        let step = self.step_size();
+
+        if step >= 0.0 {
+            // Forward propagation mode
+            if epoch > current {
+                self.step_past(epoch);
+            } else if epoch < current {
+                panic!(
+                    "Cannot propagate backwards to epoch {} when in forward propagation mode (step_size={}, current={})",
+                    epoch, step, current
+                );
+            }
+        } else {
+            // Backward propagation mode
+            if epoch < current {
+                self.step_past(epoch);
+            } else if epoch > current {
+                panic!(
+                    "Cannot propagate forwards to epoch {} when in backward propagation mode (step_size={}, current={})",
+                    epoch, step, current
+                );
+            }
+        }
+    }
+}
+
+// =============================================================================
+// DStatePropagator Trait Implementation
+// =============================================================================
+
+impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
+    fn step_by(&mut self, step_size: f64) {
         let target_t = self.t_rel + step_size;
 
         // Take adaptive steps until we've advanced by at least step_size
@@ -1447,17 +1496,7 @@ impl DNumericalOrbitPropagator {
         }
     }
 
-    /// Propagate to a target epoch
-    ///
-    /// Propagates the orbit forward in time until the target epoch is reached
-    /// or a terminal event stops propagation.
-    ///
-    /// # Arguments
-    /// * `target_epoch` - The epoch to propagate to
-    ///
-    /// # Returns
-    /// Nothing. Check `terminated()` to see if propagation was stopped early by a terminal event.
-    pub fn propagate_to(&mut self, target_epoch: Epoch) {
+    fn propagate_to(&mut self, target_epoch: Epoch) {
         let target_rel = target_epoch - self.epoch_initial;
 
         while self.t_rel < target_rel && !self.terminated {
@@ -1484,42 +1523,40 @@ impl DNumericalOrbitPropagator {
         }
     }
 
-    /// Helper to determine if current state should be stored
-    fn should_store_state(&self) -> bool {
-        match self.trajectory_mode {
-            TrajectoryMode::OutputStepsOnly => true,
-            TrajectoryMode::AllSteps => true,
-            TrajectoryMode::Disabled => false,
-        }
+    fn current_epoch(&self) -> Epoch {
+        self.epoch_current
     }
 
-    /// Propagate covariance matrix
-    ///
-    /// **Note**: This method requires the propagator to be constructed with STM enabled
-    /// (e.g., via `with_covariance()` or `with_parameters()` with a covariance matrix).
-    ///
-    /// Propagates to target epoch and returns the propagated covariance: P(t) = Φ(t,t₀) P(t₀) Φ(t,t₀)ᵀ
-    ///
-    /// # Panics
-    /// Panics if STM propagation is not enabled.
-    pub fn propagate_covariance(&mut self, p0: DMatrix<f64>, target_epoch: Epoch) -> DMatrix<f64> {
-        // Verify STM propagation is enabled
-        match self.propagation_mode {
-            PropagationMode::WithSTM | PropagationMode::WithSTMAndSensitivity => {}
-            _ => panic!("Covariance propagation requires STM to be enabled at construction"),
-        }
-
-        self.stm = Some(p0.clone());
-        self.propagate_to(target_epoch);
-
-        let phi = self.stm.as_ref().unwrap();
-        phi * &p0 * phi.transpose()
+    fn current_state(&self) -> DVector<f64> {
+        self.x_curr.clone()
     }
 
-    /// Reset propagator to initial conditions
-    pub fn reset(&mut self) {
+    fn initial_epoch(&self) -> Epoch {
+        self.epoch_initial
+    }
+
+    fn initial_state(&self) -> DVector<f64> {
+        self.convert_state_from_eci(&self.x_initial, self.epoch_initial)
+            .expect("State conversion from ECI to user format failed")
+    }
+
+    fn state_dim(&self) -> usize {
+        self.state_dim
+    }
+
+    fn step_size(&self) -> f64 {
+        self.dt
+    }
+
+    fn set_step_size(&mut self, step_size: f64) {
+        self.dt = step_size;
+        self.dt_next = step_size;
+    }
+
+    fn reset(&mut self) {
         // Reset time
         self.t_rel = 0.0;
+        self.epoch_current = self.epoch_initial;
 
         // Reset state
         self.x_curr = self.x_initial.clone();
@@ -1551,141 +1588,328 @@ impl DNumericalOrbitPropagator {
         }
 
         // Clear trajectory
-        self.trajectory = DTrajectory::new(self.state_dim);
+        self.trajectory =
+            DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Clear event state
         self.event_log.clear();
         self.terminated = false;
     }
-}
-
-// =============================================================================
-// DStatePropagator Trait Implementation
-// =============================================================================
-
-impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
-    fn step_by(&mut self, step_size: f64) {
-        self.step_by(step_size)
-    }
-
-    fn current_epoch(&self) -> Epoch {
-        self.current_epoch()
-    }
-
-    fn current_state(&self) -> DVector<f64> {
-        self.current_state().clone()
-    }
-
-    fn initial_epoch(&self) -> Epoch {
-        self.initial_epoch()
-    }
-
-    fn initial_state(&self) -> DVector<f64> {
-        self.initial_state()
-    }
-
-    fn state_dim(&self) -> usize {
-        self.state_dim()
-    }
-
-    fn step_size(&self) -> f64 {
-        self.step_size()
-    }
-
-    fn set_step_size(&mut self, step_size: f64) {
-        self.set_step_size(step_size)
-    }
-
-    fn reset(&mut self) {
-        self.reset()
-    }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
-        self.set_eviction_policy_max_size(max_size)
+        self.trajectory.set_eviction_policy_max_size(max_size)
     }
 
     fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError> {
-        self.set_eviction_policy_max_age(max_age)
+        self.trajectory.set_eviction_policy_max_age(max_age)
+    }
+}
+
+// =============================================================================
+// InterpolationConfig Trait
+// =============================================================================
+
+impl InterpolationConfig for DNumericalOrbitPropagator {
+    fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self.trajectory.set_interpolation_method(method);
+        self
+    }
+
+    fn set_interpolation_method(&mut self, method: InterpolationMethod) {
+        self.interpolation_method = method;
+        self.trajectory.set_interpolation_method(method);
+    }
+
+    fn get_interpolation_method(&self) -> InterpolationMethod {
+        self.interpolation_method
+    }
+}
+
+// =============================================================================
+// CovarianceInterpolationConfig Trait
+// =============================================================================
+
+impl CovarianceInterpolationConfig for DNumericalOrbitPropagator {
+    fn with_covariance_interpolation_method(
+        mut self,
+        method: CovarianceInterpolationMethod,
+    ) -> Self {
+        self.covariance_interpolation_method = method;
+        self.trajectory.set_covariance_interpolation_method(method);
+        self
+    }
+
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod) {
+        self.covariance_interpolation_method = method;
+        self.trajectory.set_covariance_interpolation_method(method);
+    }
+
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod {
+        self.covariance_interpolation_method
+    }
+}
+
+// =============================================================================
+// DStateProvider Trait
+// =============================================================================
+
+impl DStateProvider for DNumericalOrbitPropagator {
+    fn state(&self, epoch: Epoch) -> DVector<f64> {
+        // Try to interpolate from trajectory
+        if let Ok(state) = self.trajectory.interpolate(&epoch) {
+            return state;
+        }
+
+        // If epoch matches current, return current state (always allowed)
+        if (self.current_epoch() - epoch).abs() < 1e-9 {
+            return self.x_curr.clone();
+        }
+
+        // Panic with helpful message - epoch is neither in trajectory nor at current time
+        let start = self.trajectory.start_epoch().unwrap_or(self.epoch_initial);
+        let end = self.current_epoch();
+        panic!(
+            "Cannot get state at epoch {}: outside propagator time range [{}, {}]. \
+             Maybe you need to advance the propagator past the desired time with step_by() first.",
+            epoch, start, end
+        );
+    }
+
+    fn state_dim(&self) -> usize {
+        self.state_dim
+    }
+}
+
+// =============================================================================
+// DOrbitStateProvider Trait
+// =============================================================================
+
+impl DOrbitStateProvider for DNumericalOrbitPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+        // Try to interpolate from trajectory
+        if let Ok(state) = self.trajectory.interpolate(&epoch) {
+            return state.fixed_rows::<6>(0).into();
+        }
+
+        // If at current epoch, return current state (always allowed)
+        if (self.current_epoch() - epoch).abs() < 1e-9 {
+            return self.x_curr.fixed_rows::<6>(0).into();
+        }
+
+        // Panic with helpful message - epoch is neither in trajectory nor at current time
+        let start = self.trajectory.start_epoch().unwrap_or(self.epoch_initial);
+        let end = self.current_epoch();
+        panic!(
+            "Cannot get state at epoch {}: outside propagator time range [{}, {}]. \
+             Maybe you need to advance the propagator past the desired time with step_by() first.",
+            epoch, start, end
+        );
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+        let eci_state = self.state_eci(epoch);
+        crate::frames::state_eci_to_ecef(epoch, eci_state)
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+        // For now, GCRF ≈ ECI (very close for most applications)
+        self.state_eci(epoch)
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
+        let gcrf_state = self.state_gcrf(epoch);
+        crate::frames::state_gcrf_to_itrf(epoch, gcrf_state)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+        let gcrf_state = self.state_gcrf(epoch);
+        crate::frames::state_gcrf_to_eme2000(gcrf_state)
+    }
+
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Vector6<f64> {
+        let eci_state = self.state_eci(epoch);
+        state_cartesian_to_osculating(eci_state, angle_format)
+    }
+}
+
+// =============================================================================
+// DCovarianceProvider Trait
+// =============================================================================
+
+impl DCovarianceProvider for DNumericalOrbitPropagator {
+    fn covariance(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        // Check if covariance tracking is enabled
+        self.current_covariance.as_ref()?;
+
+        // Check bounds - panic if outside range
+        if let Some(start) = self.trajectory.start_epoch()
+            && epoch < start
+        {
+            panic!(
+                "Cannot get covariance at epoch {}: before trajectory start {}. \
+                    Maybe you need to advance the propagator past the desired time with step_by() first.",
+                epoch, start
+            );
+        }
+        if let Some(end) = self.trajectory.end_epoch()
+            && epoch > end
+        {
+            panic!(
+                "Cannot get covariance at epoch {}: after trajectory end {}. \
+                    Maybe you need to advance the propagator past the desired time with step_by() first.",
+                epoch, end
+            );
+        }
+
+        // Try to get from trajectory (may still return None if no covariance at exact epoch)
+        self.trajectory.covariance_at(epoch)
+    }
+
+    fn covariance_dim(&self) -> usize {
+        self.state_dim
+    }
+}
+
+// =============================================================================
+// DOrbitCovarianceProvider Trait
+// =============================================================================
+
+impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
+    fn covariance_eci(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        // Native frame is ECI
+        DCovarianceProvider::covariance(self, epoch)
+    }
+
+    fn covariance_gcrf(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        // GCRF ≈ ECI for most applications
+        DCovarianceProvider::covariance(self, epoch)
+    }
+
+    fn covariance_rtn(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let cov_eci = DCovarianceProvider::covariance(self, epoch)?;
+
+        // Get state at this epoch for RTN rotation
+        let state_eci = self.state_eci(epoch);
+
+        // Compute RTN rotation matrix using the library function
+        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
+
+        // Extract position and velocity
+        let r = state_eci.fixed_rows::<3>(0);
+        let v = state_eci.fixed_rows::<3>(3);
+
+        // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
+        let f_dot = (r.cross(&v)).norm() / (r.norm().powi(2));
+        let omega = nalgebra::Vector3::new(0.0, 0.0, f_dot);
+
+        // Build skew-symmetric matrix of omega
+        let omega_skew = nalgebra::SMatrix::<f64, 3, 3>::new(
+            0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
+        );
+
+        let j21 = -omega_skew * rot_eci_to_rtn;
+
+        // Build full transformation Jacobian for dynamic-sized covariance
+        let dim = cov_eci.nrows();
+        let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
+
+        // Block diagonal rotation parts (6x6 core)
+        for i in 0..3 {
+            for j in 0..3 {
+                jacobian[(i, j)] = rot_eci_to_rtn[(i, j)];
+                jacobian[(3 + i, 3 + j)] = rot_eci_to_rtn[(i, j)];
+            }
+        }
+
+        // Off-diagonal parts due to angular velocity
+        for i in 3..6 {
+            for j in 0..3 {
+                jacobian[(i, j)] = j21[(i - 3, j)];
+            }
+        }
+
+        // For extended state dimensions (beyond 6D), leave as identity
+        for i in 6..dim {
+            jacobian[(i, i)] = 1.0;
+        }
+
+        // Transform covariance: C_RTN = J * C_ECI * J^T
+        let cov_rtn = &jacobian * &cov_eci * jacobian.transpose();
+
+        Some(cov_rtn)
     }
 }
 
 // =============================================================================
 // Identifiable Trait
 // =============================================================================
-// TODO: Implement Identifiable trait once API is stabilized
 
-// =============================================================================
-// Covariance Provider Traits
-// =============================================================================
-
-impl super::traits::SCovarianceProvider for DNumericalOrbitPropagator {
-    fn covariance(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
-        // Check if covariance tracking is enabled
-        self.current_covariance.as_ref()?;
-
-        // Get covariance from trajectory (with interpolation if needed)
-        let cov_dynamic = self.trajectory.covariance_at(epoch)?;
-
-        // Extract 6x6 block from dynamic matrix
-        // This assumes the orbital state is the first 6 elements
-        let cov_6x6: nalgebra::SMatrix<f64, 6, 6> = cov_dynamic.fixed_view::<6, 6>(0, 0).into();
-
-        Some(cov_6x6)
-    }
-}
-
-impl super::traits::SOrbitCovarianceProvider for DNumericalOrbitPropagator {
-    fn covariance_eci(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
-        // Native frame is already ECI
-        self.covariance(epoch)
+impl Identifiable for DNumericalOrbitPropagator {
+    fn with_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
     }
 
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
-        // Get ECI covariance
-        let cov_eci = self.covariance(epoch)?;
-
-        // For now, assume ECI and GCRF are the same (they're very close for most applications)
-        // TODO: Add proper transformation when ECI != GCRF
-        Some(cov_eci)
+    fn with_uuid(mut self, uuid: uuid::Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self
     }
 
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
-        use crate::trajectories::traits::InterpolatableTrajectory;
+    fn with_new_uuid(mut self) -> Self {
+        self.uuid = Some(uuid::Uuid::new_v4());
+        self
+    }
 
-        // Get ECI covariance
-        let cov_eci = self.covariance(epoch)?;
+    fn with_id(mut self, id: u64) -> Self {
+        self.id = Some(id);
+        self
+    }
 
-        // Get state at this epoch to compute RTN rotation
-        let state = self.trajectory.interpolate(&epoch).ok()?;
-        let state_6d: Vector6<f64> = state.fixed_rows::<6>(0).into();
+    fn with_identity(
+        mut self,
+        name: Option<&str>,
+        uuid: Option<uuid::Uuid>,
+        id: Option<u64>,
+    ) -> Self {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+        self
+    }
 
-        // Compute RTN frame rotation matrix
-        // R axis: radial (unit position vector)
-        // T axis: tangential (completes right-handed system: N × R)
-        // N axis: normal to orbit plane (angular momentum direction)
-        let r_vec = state_6d.fixed_rows::<3>(0);
-        let v_vec = state_6d.fixed_rows::<3>(3);
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<uuid::Uuid>, id: Option<u64>) {
+        self.name = name.map(|s| s.to_string());
+        self.uuid = uuid;
+        self.id = id;
+    }
 
-        let r_unit = r_vec.normalize();
-        let h_vec = r_vec.cross(&v_vec); // Angular momentum
-        let n_unit = h_vec.normalize();
-        let t_unit = n_unit.cross(&r_unit);
+    fn set_id(&mut self, id: Option<u64>) {
+        self.id = id;
+    }
 
-        // Build rotation matrix from ECI to RTN
-        let mut r_eci_to_rtn = nalgebra::Matrix3::<f64>::zeros();
-        r_eci_to_rtn.row_mut(0).copy_from(&r_unit.transpose());
-        r_eci_to_rtn.row_mut(1).copy_from(&t_unit.transpose());
-        r_eci_to_rtn.row_mut(2).copy_from(&n_unit.transpose());
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(|s| s.to_string());
+    }
 
-        // Build 6x6 rotation matrix (position and velocity components)
-        let mut r_full = nalgebra::SMatrix::<f64, 6, 6>::zeros();
-        r_full.fixed_view_mut::<3, 3>(0, 0).copy_from(&r_eci_to_rtn);
-        r_full.fixed_view_mut::<3, 3>(3, 3).copy_from(&r_eci_to_rtn);
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(uuid::Uuid::new_v4());
+    }
 
-        // Transform covariance: C_rtn = R * C_eci * R^T
-        let cov_rtn = r_full * cov_eci * r_full.transpose();
+    fn get_id(&self) -> Option<u64> {
+        self.id
+    }
 
-        Some(cov_rtn)
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<uuid::Uuid> {
+        self.uuid
     }
 }
 
@@ -1731,6 +1955,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            mass: None, // Uses params[0] by default
         }
     }
 
@@ -2240,7 +2465,7 @@ mod tests {
 
         assert!(prop.is_ok());
         let prop = prop.unwrap();
-        assert_eq!(prop.state_dim(), 6);
+        assert_eq!(DStatePropagator::state_dim(&prop), 6);
         assert_eq!(prop.initial_epoch(), epoch);
     }
 
@@ -2349,7 +2574,7 @@ mod tests {
 
         assert!(prop.is_ok());
         let prop = prop.unwrap();
-        assert_eq!(prop.state_dim(), 8);
+        assert_eq!(DStatePropagator::state_dim(&prop), 8);
 
         let current = prop.current_state();
         assert_eq!(current.len(), 8);
@@ -2395,7 +2620,7 @@ mod tests {
 
         assert!(prop.is_ok());
         let mut prop = prop.unwrap();
-        assert_eq!(prop.state_dim(), 7);
+        assert_eq!(DStatePropagator::state_dim(&prop), 7);
 
         let initial_mass = prop.current_state()[6];
 
@@ -2648,7 +2873,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(prop_6d.state_dim(), 6);
+        assert_eq!(DStatePropagator::state_dim(&prop_6d), 6);
 
         // Test extended state
         let state_8d = DVector::from_vec(vec![
@@ -2673,7 +2898,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(prop_8d.state_dim(), 8);
+        assert_eq!(DStatePropagator::state_dim(&prop_8d), 8);
     }
 
     #[test]
@@ -3034,6 +3259,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -3058,7 +3284,7 @@ mod tests {
         prop.step_by(5400.0); // ~90 minutes
 
         let final_state = prop.current_state();
-        let final_energy = compute_orbital_energy(final_state);
+        let final_energy = compute_orbital_energy(&final_state);
 
         // Energy should be conserved with point mass gravity only
         assert!(
@@ -3086,6 +3312,7 @@ mod tests {
 
         // Test with 4x4 spherical harmonic
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
@@ -3134,6 +3361,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -3162,7 +3390,7 @@ mod tests {
         prop.step_by(600.0);
 
         let final_state = prop.current_state();
-        let final_energy = compute_orbital_energy(final_state);
+        let final_energy = compute_orbital_energy(&final_state);
 
         // Drag should decrease energy
         assert!(
@@ -3181,6 +3409,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 300e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::Exponential {
@@ -3212,7 +3441,7 @@ mod tests {
         // Propagate
         prop.step_by(600.0);
 
-        let final_energy = compute_orbital_energy(prop.current_state());
+        let final_energy = compute_orbital_energy(&prop.current_state());
 
         // Drag should decrease energy
         assert!(final_energy < initial_energy);
@@ -3237,6 +3466,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -3278,6 +3508,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -3316,6 +3547,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -3359,6 +3591,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -3394,6 +3627,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -3429,6 +3663,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -3462,6 +3697,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -3553,6 +3789,7 @@ mod tests {
 
         // Configure with Cd from parameter vector
         let force_config = ForceModelConfiguration {
+            mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -3836,60 +4073,6 @@ mod tests {
         assert!(prop.sensitivity().is_some());
     }
 
-    #[test]
-    fn test_dnumericalorbitpropagator_propagate_covariance() {
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-
-        // Enable STM via config
-        let mut config = NumericalPropagationConfig::default();
-        config.variational.enable_stm = true;
-
-        let mut prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            config,
-            ForceModelConfiguration::gravity_only(),
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-
-        // Propagate covariance
-        let initial_cov = DMatrix::identity(6, 6) * 100.0; // 100 m² initial uncertainty
-        let final_cov = prop.propagate_covariance(initial_cov.clone(), epoch + 600.0);
-
-        // Covariance should have changed
-        assert_ne!(final_cov[(0, 0)], initial_cov[(0, 0)]);
-    }
-
-    #[test]
-    #[should_panic(expected = "Covariance propagation requires STM")]
-    fn test_dnumericalorbitpropagator_propagate_covariance_without_stm_panics() {
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-
-        let mut prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            ForceModelConfiguration::gravity_only(),
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-
-        // Try to propagate covariance without enabling STM - should panic
-        let initial_cov = DMatrix::identity(6, 6) * 100.0;
-        prop.propagate_covariance(initial_cov, epoch + 600.0);
-    }
-
     // =========================================================================================
     // COVARIANCE PROPAGATION TESTS
     // =========================================================================================
@@ -4005,126 +4188,5 @@ mod tests {
             !covs.is_empty(),
             "Trajectory should contain covariance matrices"
         );
-    }
-
-    #[test]
-    fn test_covariance_provider_trait() {
-        use super::super::traits::SOrbitCovarianceProvider;
-
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-
-        let initial_cov = DMatrix::identity(6, 6) * 100.0;
-
-        let mut prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            ForceModelConfiguration::gravity_only(),
-            None,
-            None,
-            Some(initial_cov),
-        )
-        .unwrap();
-
-        // Propagate forward
-        prop.propagate_to(epoch + 300.0); // 5 minutes
-
-        // Test covariance() method
-        let cov = prop.covariance(epoch + 150.0);
-        assert!(
-            cov.is_some(),
-            "Should return covariance at intermediate epoch"
-        );
-
-        let cov_matrix = cov.unwrap();
-        assert_eq!(cov_matrix.nrows(), 6);
-        assert_eq!(cov_matrix.ncols(), 6);
-
-        // Test covariance_eci() method
-        let cov_eci = prop.covariance_eci(epoch + 150.0);
-        assert!(cov_eci.is_some(), "Should return ECI covariance");
-
-        // Test covariance_gcrf() method
-        let cov_gcrf = prop.covariance_gcrf(epoch + 150.0);
-        assert!(cov_gcrf.is_some(), "Should return GCRF covariance");
-
-        // Test covariance_rtn() method
-        let cov_rtn = prop.covariance_rtn(epoch + 150.0);
-        assert!(cov_rtn.is_some(), "Should return RTN covariance");
-    }
-
-    #[test]
-    fn test_covariance_without_initialization_returns_none() {
-        use super::super::traits::SOrbitCovarianceProvider;
-
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-
-        // Create without initial covariance
-        let mut prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            ForceModelConfiguration::gravity_only(),
-            None,
-            None,
-            None, // No initial covariance
-        )
-        .unwrap();
-
-        prop.propagate_to(epoch + 300.0);
-
-        // Covariance methods should return None
-        assert!(prop.covariance(epoch + 150.0).is_none());
-        assert!(prop.covariance_eci(epoch + 150.0).is_none());
-        assert!(prop.covariance_gcrf(epoch + 150.0).is_none());
-        assert!(prop.covariance_rtn(epoch + 150.0).is_none());
-    }
-
-    #[test]
-    fn test_covariance_interpolation() {
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-
-        let initial_cov = DMatrix::identity(6, 6) * 100.0;
-
-        let mut prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            ForceModelConfiguration::gravity_only(),
-            None,
-            None,
-            Some(initial_cov),
-        )
-        .unwrap();
-
-        // Propagate to create trajectory with multiple points
-        prop.propagate_to(epoch + 600.0); // 10 minutes
-
-        // Request covariance at an intermediate time (should use interpolation)
-        let cov_interp = prop.covariance(epoch + 123.45);
-        assert!(cov_interp.is_some(), "Should interpolate covariance");
-
-        let cov_matrix = cov_interp.unwrap();
-        // Check it's a valid covariance matrix (symmetric positive semi-definite)
-        assert_eq!(cov_matrix.nrows(), 6);
-        assert_eq!(cov_matrix.ncols(), 6);
-
-        // Check diagonal elements are positive (variances)
-        for i in 0..6 {
-            assert!(
-                cov_matrix[(i, i)] > 0.0,
-                "Variance {} should be positive",
-                i
-            );
-        }
     }
 }

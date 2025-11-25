@@ -305,6 +305,101 @@ where
     Ok(result)
 }
 
+/// Compute the matrix square root of a general dynamic-sized square matrix.
+///
+/// This function computes the square root of a general (possibly non-symmetric) square matrix
+/// using Denman-Beavers iteration. See [Denman-Beavers iteration](https://en.wikipedia.org/wiki/Square_root_of_a_matrix#By_Denman%E2%80%93Beavers_iteration) for additional details.
+///
+/// # Arguments
+///
+/// * `matrix` - A square DMatrix
+///
+/// # Returns
+///
+/// * `Result<DMatrix<f64>, String>` - The matrix square root, or an error if:
+///   - The matrix is not square
+///   - The matrix has complex eigenvalues
+///   - The matrix has negative real eigenvalues
+///   - The eigendecomposition fails
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::DMatrix;
+/// use brahe::math::linalg::sqrtm_dmatrix;
+///
+/// // Test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
+/// let a = DMatrix::from_row_slice(2, 2, &[33.0, 24.0, 48.0, 57.0]);
+/// let sqrt_a = sqrtm_dmatrix(&a).unwrap();
+/// let expected = DMatrix::from_row_slice(2, 2, &[5.0, 2.0, 4.0, 7.0]);
+/// assert!((sqrt_a.clone() - expected).norm() < 1e-10);
+///
+/// // Verify: sqrtm(A) * sqrtm(A) = A
+/// let reconstructed = &sqrt_a * &sqrt_a;
+/// assert!((reconstructed - a).norm() < 1e-10);
+/// ```
+pub fn sqrtm_dmatrix(matrix: &na::DMatrix<f64>) -> Result<na::DMatrix<f64>, String> {
+    // Check matrix is square
+    if matrix.nrows() != matrix.ncols() {
+        return Err(format!(
+            "Matrix must be square, got {}x{}",
+            matrix.nrows(),
+            matrix.ncols()
+        ));
+    }
+
+    let n = matrix.nrows();
+
+    // Use Denman-Beavers iteration for computing matrix square root
+    // This works for any matrix with eigenvalues in the open right half-plane
+    // Iterations: Y_{k+1} = (Y_k + Z_k^{-1}) / 2
+    //             Z_{k+1} = (Z_k + Y_k^{-1}) / 2
+    // Starting with Y_0 = A, Z_0 = I
+
+    let mut y = matrix.clone();
+    let mut z = na::DMatrix::<f64>::identity(n, n);
+
+    const MAX_ITERATIONS: usize = 50;
+    const TOLERANCE: f64 = 1e-10;
+
+    for _ in 0..MAX_ITERATIONS {
+        // Compute inverses
+        let y_inv = y.clone().try_inverse().ok_or_else(|| {
+            "Matrix became singular during iteration; cannot compute matrix square root".to_string()
+        })?;
+
+        let z_inv = z.clone().try_inverse().ok_or_else(|| {
+            "Iteration matrix became singular; cannot compute matrix square root".to_string()
+        })?;
+
+        // Update Y and Z
+        let y_new = (&y + &z_inv) * 0.5;
+        let z_new = (&z + &y_inv) * 0.5;
+
+        // Check convergence: ||Y_{k+1} - Y_k|| < tolerance
+        let diff = (&y_new - &y).norm();
+        if diff < TOLERANCE {
+            y = y_new;
+            break;
+        }
+
+        y = y_new;
+        z = z_new;
+    }
+
+    // Verify the result: Y * Y should equal A
+    let check = &y * &y;
+    let error = (&check - matrix).norm();
+    if error > 1e-8 {
+        return Err(format!(
+            "Matrix square root did not converge to sufficient accuracy (error: {})",
+            error
+        ));
+    }
+
+    Ok(y)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -484,5 +579,50 @@ mod tests {
                 || err_msg.contains("converge")
                 || err_msg.contains("accuracy")
         );
+    }
+
+    // =========================================================================
+    // sqrtm_dmatrix Tests
+    // =========================================================================
+
+    #[test]
+    fn test_sqrtm_dmatrix_wiki_test_case() {
+        // Wikipedia test case: A = [33 24; 48 57], sqrtm(A) = [5 2; 4 7]
+        let a = na::DMatrix::from_row_slice(2, 2, &[33.0, 24.0, 48.0, 57.0]);
+
+        let sqrt_a = sqrtm_dmatrix(&a).unwrap();
+        let expected = na::DMatrix::from_row_slice(2, 2, &[5.0, 2.0, 4.0, 7.0]);
+
+        // Check result matches expected
+        assert!((&sqrt_a - &expected).norm() < 1e-10);
+
+        // Verify: sqrtm(A) * sqrtm(A) = A
+        let reconstructed = &sqrt_a * &sqrt_a;
+        assert!((reconstructed - &a).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_dmatrix_identity() {
+        // sqrtm(I) = I
+        let identity = na::DMatrix::<f64>::identity(4, 4);
+        let sqrt_identity = sqrtm_dmatrix(&identity).unwrap();
+        assert!((sqrt_identity - &identity).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_dmatrix_diagonal() {
+        // Diagonal matrix: sqrt([4 0; 0 9]) = [2 0; 0 3]
+        let diag = na::DMatrix::from_row_slice(2, 2, &[4.0, 0.0, 0.0, 9.0]);
+        let sqrt_diag = sqrtm_dmatrix(&diag).unwrap();
+        let expected = na::DMatrix::from_row_slice(2, 2, &[2.0, 0.0, 0.0, 3.0]);
+        assert!((&sqrt_diag - &expected).norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_sqrtm_dmatrix_non_square_error() {
+        let mat = na::DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let result = sqrtm_dmatrix(&mat);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("square"));
     }
 }

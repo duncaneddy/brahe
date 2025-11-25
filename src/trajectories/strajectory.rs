@@ -35,9 +35,14 @@ use std::ops::Index;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
+use crate::math::{
+    CovarianceInterpolationConfig, interpolate_covariance_sqrt_smatrix,
+    interpolate_covariance_two_wasserstein_smatrix,
+};
+
 use super::traits::{
-    InterpolatableTrajectory, InterpolationConfig, InterpolationMethod, Trajectory,
-    TrajectoryEvictionPolicy,
+    CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
+    InterpolationMethod, Trajectory, TrajectoryEvictionPolicy,
 };
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
@@ -87,6 +92,10 @@ pub struct STrajectory<const R: usize> {
     /// Default is linear interpolation for optimal performance/accuracy balance.
     pub interpolation_method: InterpolationMethod,
 
+    /// Interpolation method for covariance retrieval at arbitrary epochs.
+    /// Default is TwoWasserstein for proper positive semi-definiteness preservation.
+    pub covariance_interpolation_method: CovarianceInterpolationMethod,
+
     /// Memory management policy for automatic state eviction.
     /// Controls how states are removed when limits are exceeded.
     pub eviction_policy: TrajectoryEvictionPolicy,
@@ -129,6 +138,7 @@ impl<const R: usize> STrajectory<R> {
             states: Vec::new(),
             covariances: None,
             interpolation_method: InterpolationMethod::Linear,
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -414,14 +424,24 @@ impl<const R: usize> STrajectory<R> {
             return Some(covs[idx_after]);
         }
 
-        // Linear interpolation parameter
+        // Interpolation parameter
         let t0 = self.epochs[idx_before] - self.epoch_initial()?;
         let t1 = self.epochs[idx_after] - self.epoch_initial()?;
         let t = epoch - self.epoch_initial()?;
         let alpha = (t - t0) / (t1 - t0);
 
-        // Linear interpolation: C(t) = (1-α)*C0 + α*C1
-        let cov = covs[idx_before] * (1.0 - alpha) + covs[idx_after] * alpha;
+        let cov0 = covs[idx_before];
+        let cov1 = covs[idx_after];
+
+        // Dispatch based on covariance interpolation method
+        let cov = match self.covariance_interpolation_method {
+            CovarianceInterpolationMethod::MatrixSquareRoot => {
+                interpolate_covariance_sqrt_smatrix(cov0, cov1, alpha)
+            }
+            CovarianceInterpolationMethod::TwoWasserstein => {
+                interpolate_covariance_two_wasserstein_smatrix(cov0, cov1, alpha)
+            }
+        };
 
         Some(cov)
     }
@@ -547,6 +567,7 @@ impl<const R: usize> Trajectory for STrajectory<R> {
             states: sorted_states,
             covariances: None,
             interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -812,6 +833,24 @@ impl<const R: usize> InterpolationConfig for STrajectory<R> {
     }
 }
 
+impl<const R: usize> CovarianceInterpolationConfig for STrajectory<R> {
+    fn with_covariance_interpolation_method(
+        mut self,
+        method: CovarianceInterpolationMethod,
+    ) -> Self {
+        self.covariance_interpolation_method = method;
+        self
+    }
+
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod) {
+        self.covariance_interpolation_method = method;
+    }
+
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod {
+        self.covariance_interpolation_method
+    }
+}
+
 // InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
 impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {}
 
@@ -824,6 +863,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use nalgebra as na;
     use nalgebra::Vector6;
 
     fn create_test_trajectory() -> STrajectory6 {
@@ -1908,5 +1948,135 @@ mod tests {
         // Also test with interpolate() method
         let result = traj.interpolate(&t_different);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_strajectory_covariance_interpolation_config() {
+        // Test the CovarianceInterpolationConfig trait implementation
+        setup_global_test_eop();
+
+        // Test default is TwoWasserstein
+        let traj = STrajectory6::new();
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+
+        // Test with_covariance_interpolation_method builder
+        let traj = STrajectory6::new()
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+
+        // Test set_covariance_interpolation_method
+        let mut traj = STrajectory6::new();
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+    }
+
+    #[test]
+    fn test_strajectory_covariance_interpolation_methods() {
+        // Test that covariance interpolation produces correct results
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+
+        // Create diagonal covariance matrices
+        let cov1 = na::SMatrix::<f64, 6, 6>::from_diagonal(&na::Vector6::new(
+            100.0, 100.0, 100.0, 1.0, 1.0, 1.0,
+        ));
+        let cov2 = na::SMatrix::<f64, 6, 6>::from_diagonal(&na::Vector6::new(
+            200.0, 200.0, 200.0, 2.0, 2.0, 2.0,
+        ));
+
+        // Create trajectory with covariances
+        let mut traj = STrajectory6::new();
+        traj.enable_covariance_storage();
+        traj.add(t0, state1);
+        traj.add(t1, state2);
+        traj.set_covariance_at(0, cov1);
+        traj.set_covariance_at(1, cov2);
+
+        // Test matrix square root interpolation at midpoint
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        let t_mid = t0 + 30.0;
+        let cov_sqrt = traj.covariance_at(t_mid).unwrap();
+
+        // Check symmetry and positive semi-definiteness
+        for i in 0..6 {
+            assert!(cov_sqrt[(i, i)] > 0.0);
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_sqrt[(i, j)], cov_sqrt[(j, i)], epsilon = 1e-10);
+            }
+        }
+
+        // Check values are between endpoints
+        assert!(cov_sqrt[(0, 0)] > 100.0 && cov_sqrt[(0, 0)] < 200.0);
+
+        // Test two-Wasserstein interpolation at midpoint
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        let cov_wasserstein = traj.covariance_at(t_mid).unwrap();
+
+        // Check symmetry and positive semi-definiteness
+        for i in 0..6 {
+            assert!(cov_wasserstein[(i, i)] > 0.0);
+            for j in 0..6 {
+                assert_abs_diff_eq!(
+                    cov_wasserstein[(i, j)],
+                    cov_wasserstein[(j, i)],
+                    epsilon = 1e-10
+                );
+            }
+        }
+
+        // Check values are between endpoints
+        assert!(cov_wasserstein[(0, 0)] > 100.0 && cov_wasserstein[(0, 0)] < 200.0);
+
+        // For diagonal matrices, both methods should give similar results
+        assert_abs_diff_eq!(cov_sqrt[(0, 0)], cov_wasserstein[(0, 0)], epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_strajectory_covariance_at_exact_epochs() {
+        // Test that covariance_at returns exact values at data points
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+
+        let cov1 = na::SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = na::SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        let mut traj = STrajectory6::new();
+        traj.enable_covariance_storage();
+        traj.add(t0, state1);
+        traj.add(t1, state2);
+        traj.set_covariance_at(0, cov1);
+        traj.set_covariance_at(1, cov2);
+
+        // At exact t0, should return cov1
+        let result = traj.covariance_at(t0).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 100.0, epsilon = 1e-10);
+
+        // At exact t1, should return cov2
+        let result = traj.covariance_at(t1).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 200.0, epsilon = 1e-10);
     }
 }

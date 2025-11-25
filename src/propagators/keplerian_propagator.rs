@@ -18,7 +18,7 @@ use crate::propagators::traits::{
     SOrbitPropagator, SOrbitStateProvider, SStatePropagator, SStateProvider,
 };
 use crate::time::Epoch;
-use crate::trajectories::OrbitTrajectory;
+use crate::trajectories::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 
@@ -44,7 +44,7 @@ pub struct KeplerianPropagator {
     pub step_size: f64,
 
     /// Accumulated trajectory (current state is always the last entry)
-    pub trajectory: OrbitTrajectory,
+    pub trajectory: SOrbitTrajectory,
 
     /// Internal osculating orbital elements (always in radians, ECI frame)
     internal_osculating_elements: Vector6<f64>,
@@ -132,7 +132,7 @@ impl KeplerianPropagator {
         );
 
         // Create initial trajectory
-        let mut trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+        let mut trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
         trajectory.add(epoch, state);
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
@@ -275,7 +275,7 @@ impl KeplerianPropagator {
         self.angle_format = angle_format;
 
         // Reset trajectory to initial state only
-        self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
@@ -450,7 +450,7 @@ impl SStatePropagator for KeplerianPropagator {
 
     fn reset(&mut self) {
         // Reset trajectory to initial state only
-        self.trajectory = OrbitTrajectory::new(self.frame, self.representation, self.angle_format);
+        self.trajectory = SOrbitTrajectory::new(self.frame, self.representation, self.angle_format);
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
@@ -512,7 +512,7 @@ impl SOrbitPropagator for KeplerianPropagator {
         self.n = mean_motion(self.internal_osculating_elements[0], AngleFormat::Radians);
 
         // Reset trajectory to new initial conditions
-        self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
         self.trajectory.add(epoch, state);
     }
 }

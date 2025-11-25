@@ -9,7 +9,7 @@ fn main() {
     initialize_eop().unwrap();
 
     // Define two-body dynamics (for integrator - takes optional params)
-    let dynamics = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
@@ -18,7 +18,7 @@ fn main() {
     };
 
     // Same dynamics for Jacobian (without params argument)
-    let dynamics_for_jac = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics_for_jac = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();

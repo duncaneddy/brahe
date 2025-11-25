@@ -507,10 +507,10 @@ pub trait DOrbitStateProvider: DStateProvider {
 ///
 /// ```
 /// use brahe::time::Epoch;
-/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::trajectories::SOrbitTrajectory;
 /// use brahe::utils::state_providers::SOrbitCovarianceProvider;
 ///
-/// # fn example(trajectory: &OrbitTrajectory, epoch: Epoch) {
+/// # fn example(trajectory: &SOrbitTrajectory, epoch: Epoch) {
 /// // Get covariance in native frame
 /// if let Some(cov) = trajectory.covariance_eci(epoch) {
 ///     println!("Position uncertainty: {:.3} m", cov[(0, 0)].sqrt());

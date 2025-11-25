@@ -1004,7 +1004,7 @@ mod tests {
 
     #[test]
     fn test_state_provider_orbit_trajectory() {
-        use crate::trajectories::orbit_trajectory::OrbitTrajectory;
+        use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 
         // Initialize EOP for frame conversions
@@ -1017,11 +1017,11 @@ mod tests {
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
         let state2 = Vector6::new(7000e3, 100e3, 10e3, 10.0, 7500.0, 100.0);
 
-        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         traj.add(epoch1, state1);
         traj.add(epoch2, state2);
 
-        // Use StateProvider trait directly (now implemented by OrbitTrajectory)
+        // Use StateProvider trait directly (now implemented by SOrbitTrajectory)
         let mid_epoch = epoch1 + 30.0;
         let state = traj.state_ecef(mid_epoch);
         assert_eq!(state.len(), 6);

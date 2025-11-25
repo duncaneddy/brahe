@@ -1,15 +1,15 @@
-//! Create empty OrbitTrajectory in Cartesian representation
+//! Create empty SOrbitTrajectory in Cartesian representation
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 
 fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory in ECI frame, Cartesian representation
-    let traj_eci = OrbitTrajectory::new(
+    let traj_eci = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
@@ -20,7 +20,7 @@ fn main() {
     println!("Representation (Debug): {:?}", traj_eci.representation);
 
     // Create trajectory in ECEF frame, Cartesian representation
-    let traj_ecef = OrbitTrajectory::new(
+    let traj_ecef = SOrbitTrajectory::new(
         OrbitFrame::ECEF,
         OrbitRepresentation::Cartesian,
         None

@@ -484,14 +484,14 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::trajectories::SOrbitTrajectory;
 /// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, Trajectory};
 /// use brahe::AngleFormat;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
 /// // Create orbital trajectory in ECI Cartesian coordinates
-/// let mut traj = OrbitTrajectory::new(
+/// let mut traj = SOrbitTrajectory::new(
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     None,

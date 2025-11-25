@@ -1,9 +1,9 @@
-//! Create OrbitTrajectory from existing epochs and orbital states
+//! Create SOrbitTrajectory from existing epochs and orbital states
 
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::constants::R_EARTH;
@@ -32,7 +32,7 @@ fn main() {
     // Create trajectory from data
     let epochs = vec![epoch0, epoch1, epoch2];
     let states = vec![state0, state1, state2];
-    let traj = OrbitTrajectory::from_orbital_data(
+    let traj = SOrbitTrajectory::from_orbital_data(
         epochs,
         states,
         OrbitFrame::ECI,

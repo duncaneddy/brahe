@@ -38,7 +38,7 @@ use crate::orbits::tle::{
 };
 use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
-use crate::trajectories::OrbitTrajectory;
+use crate::trajectories::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{Vector3, Vector6};
@@ -161,7 +161,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    pub trajectory: OrbitTrajectory,
+    pub trajectory: SOrbitTrajectory,
 
     /// Step size in seconds for stepping operations
     pub step_size: f64,
@@ -309,7 +309,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -381,7 +381,7 @@ impl SGPPropagator {
         self.angle_format = angle_format;
 
         // Reset trajectory to initial state only
-        self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
 
         // Propagate to initial epoch and add to trajectory
         let prediction = self

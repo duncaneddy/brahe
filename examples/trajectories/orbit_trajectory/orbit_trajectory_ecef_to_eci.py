@@ -11,7 +11,7 @@ import numpy as np
 bh.initialize_eop()
 
 # Create trajectory in ECEF frame
-traj_ecef = bh.OrbitTrajectory(
+traj_ecef = bh.SOrbitTrajectory(
     bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
 )
 

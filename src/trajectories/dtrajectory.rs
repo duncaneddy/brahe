@@ -35,7 +35,10 @@ use std::collections::HashMap;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Interpolatable, InterpolationMethod, Trajectory, TrajectoryEvictionPolicy};
+use super::traits::{
+    InterpolatableTrajectory, InterpolationConfig, InterpolationMethod, Trajectory,
+    TrajectoryEvictionPolicy,
+};
 
 /// Dynamic (runtime-sized) trajectory container for N-dimensional state vectors over time.
 ///
@@ -1227,7 +1230,12 @@ impl Trajectory for DTrajectory {
     }
 }
 
-impl Interpolatable for DTrajectory {
+impl InterpolationConfig for DTrajectory {
+    fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self
+    }
+
     fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
     }
@@ -1236,6 +1244,9 @@ impl Interpolatable for DTrajectory {
         self.interpolation_method
     }
 }
+
+// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
+impl InterpolatableTrajectory for DTrajectory {}
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]

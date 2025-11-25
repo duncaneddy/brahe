@@ -35,7 +35,10 @@ use std::ops::Index;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Interpolatable, InterpolationMethod, Trajectory, TrajectoryEvictionPolicy};
+use super::traits::{
+    InterpolatableTrajectory, InterpolationConfig, InterpolationMethod, Trajectory,
+    TrajectoryEvictionPolicy,
+};
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
 pub type STrajectory3 = STrajectory<3>;
@@ -794,7 +797,12 @@ impl<const R: usize> Trajectory for STrajectory<R> {
     }
 }
 
-impl<const R: usize> Interpolatable for STrajectory<R> {
+impl<const R: usize> InterpolationConfig for STrajectory<R> {
+    fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self
+    }
+
     fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
     }
@@ -803,6 +811,9 @@ impl<const R: usize> Interpolatable for STrajectory<R> {
         self.interpolation_method
     }
 }
+
+// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
+impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {}
 
 // Iterator implementation will be added later once trait bounds are resolved
 

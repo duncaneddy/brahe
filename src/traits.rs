@@ -31,9 +31,13 @@
  * - `SOrbitCovarianceProvider` - Trait for static-sized covariance with frame conversions (extends `SCovarianceProvider`)
  * - `DOrbitCovarianceProvider` - Trait for dynamic-sized covariance with frame conversions (extends `DCovarianceProvider`)
  *
+ * ## Interpolation
+ * - `InterpolationConfig` - Configuration trait for interpolation method selection
+ * - `CovarianceInterpolationConfig` - Configuration trait for covariance interpolation method selection
+ *
  * ## Trajectories
  * - `Trajectory` - Core trajectory functionality for storing and managing state data
- * - `Interpolatable` - Trajectory interpolation functionality
+ * - `InterpolatableTrajectory` - Trajectory interpolation functionality (requires Trajectory + InterpolationConfig)
  * - `OrbitalTrajectory` - Orbital-specific trajectory functionality
  *
  * ## Attitude Representations
@@ -63,16 +67,15 @@ pub use crate::utils::state_providers::{
     SOrbitStateProvider, SStateProvider,
 };
 
+// Interpolation configuration traits (from math module)
+pub use crate::math::interpolation::{
+    CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
+    InterpolationMethod,
+};
+
 // Trajectory traits and types
 pub use crate::trajectories::traits::{
-    // Traits
-    Interpolatable,
-    // Types and Enums
-    InterpolationMethod,
-    OrbitFrame,
-    OrbitRepresentation,
-    OrbitalTrajectory,
-    Trajectory,
+    InterpolatableTrajectory, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory,
     TrajectoryEvictionPolicy,
 };
 

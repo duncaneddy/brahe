@@ -1038,16 +1038,6 @@ impl DNumericalOrbitPropagator {
         &self.x_curr
     }
 
-    /// Get current state in ECI Cartesian format (alias for `current_state`)
-    ///
-    /// # Note
-    /// This method is deprecated. Use `current_state()` instead, which now always
-    /// returns ECI Cartesian format.
-    #[deprecated(since = "0.8.0", note = "Use current_state() instead")]
-    pub fn current_state_eci(&self) -> &DVector<f64> {
-        &self.x_curr
-    }
-
     /// Get current parameters
     pub fn current_params(&self) -> &DVector<f64> {
         &self.params
@@ -1660,7 +1650,7 @@ impl super::traits::SOrbitCovarianceProvider for DNumericalOrbitPropagator {
     }
 
     fn covariance_rtn(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
-        use crate::trajectories::traits::Interpolatable;
+        use crate::trajectories::traits::InterpolatableTrajectory;
 
         // Get ECI covariance
         let cov_eci = self.covariance(epoch)?;

@@ -527,7 +527,6 @@ impl PyOrbitalTrajectory {
         mut slf: PyRefMut<'_, Self>,
         method: PyRef<PyCovarianceInterpolationMethod>,
     ) -> Self {
-        use trajectories::traits::CovarianceInterpolatable;
         slf.trajectory = slf.trajectory.clone().with_covariance_interpolation_method(method.method);
         Self { trajectory: slf.trajectory.clone() }
     }
@@ -549,7 +548,6 @@ impl PyOrbitalTrajectory {
         &mut self,
         method: PyRef<PyCovarianceInterpolationMethod>,
     ) {
-        use trajectories::traits::CovarianceInterpolatable;
         self.trajectory.set_covariance_interpolation_method(method.method);
     }
 
@@ -567,7 +565,6 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn get_covariance_interpolation_method(&self) -> PyCovarianceInterpolationMethod {
-        use trajectories::traits::CovarianceInterpolatable;
         PyCovarianceInterpolationMethod {
             method: self.trajectory.get_covariance_interpolation_method(),
         }

@@ -12,35 +12,10 @@ use nalgebra::SMatrix;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
-///
-/// Different methods provide varying trade-offs between computational cost and accuracy.
-/// For most applications, linear interpolation provides sufficient accuracy with minimal
-/// computational overhead.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum InterpolationMethod {
-    /// Linear interpolation between adjacent states.
-    /// Good balance of speed and accuracy for smooth trajectories.
-    #[default]
-    Linear,
-}
-
-/// Interpolation methods for retrieving covariance matrices at arbitrary epochs.
-///
-/// Covariance matrices live on the manifold of positive semi-definite matrices,
-/// requiring specialized interpolation methods to maintain mathematical properties.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum CovarianceInterpolationMethod {
-    /// Matrix square root interpolation of covariance matrices.
-    /// Preserves positive-definiteness by interpolating on the manifold of
-    /// positive semi-definite matrices.
-    MatrixSquareRoot,
-    /// Entropy-regularized 2-Wasserstein interpolation for interpolation between
-    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
-    /// for details.
-    #[default]
-    TwoWasserstein,
-}
+// Re-export interpolation types from math module for backward compatibility
+pub use crate::math::interpolation::{
+    CovarianceInterpolationMethod, InterpolationConfig, InterpolationMethod,
+};
 
 /// Enumeration of trajectory eviction policies for memory management
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -334,8 +309,13 @@ pub trait Trajectory {
 
 /// Trait for trajectory interpolation functionality.
 ///
-/// This trait provides interpolation methods for retrieving trajectory states at arbitrary epochs.
-/// It requires the implementing type to also implement `Trajectory` to access the underlying state data.
+/// This trait combines `Trajectory` (for data storage) with `InterpolationConfig`
+/// (for interpolation method selection) and provides default implementations for
+/// actual interpolation operations.
+///
+/// # Supertraits
+/// - [`Trajectory`] - Provides access to the underlying state data
+/// - [`InterpolationConfig`] - Provides get/set methods for interpolation method
 ///
 /// # Default Implementations
 /// The trait provides default implementations for `interpolate_linear` and `interpolate` methods
@@ -344,7 +324,7 @@ pub trait Trajectory {
 /// # Examples
 /// ```rust
 /// use brahe::trajectories::STrajectory6;
-/// use brahe::traits::{Trajectory, Interpolatable, InterpolationMethod};
+/// use brahe::traits::{Trajectory, InterpolatableTrajectory, InterpolationMethod};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
@@ -362,19 +342,7 @@ pub trait Trajectory {
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 30, 0.0, 0.0, TimeSystem::UTC);
 /// let state = traj.interpolate(&epoch).unwrap();
 /// ```
-pub trait Interpolatable: Trajectory {
-    /// Set the interpolation method for the trajectory
-    ///
-    /// # Arguments
-    /// * `method` - The interpolation method to use
-    fn set_interpolation_method(&mut self, method: InterpolationMethod);
-
-    /// Get the current interpolation method
-    ///
-    /// # Returns
-    /// The current interpolation method (defaults to Linear if not set)
-    fn get_interpolation_method(&self) -> InterpolationMethod;
-
+pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
     /// Interpolate state at a given epoch using linear interpolation
     ///
     /// This is a default implementation that uses the `Trajectory` methods to
@@ -490,51 +458,6 @@ pub trait Interpolatable: Trajectory {
     }
 }
 
-/// Trait for covariance interpolation functionality.
-///
-/// This trait provides methods for configuring and managing covariance interpolation
-/// in trajectories that store covariance matrices. Since covariance matrices are
-/// positive semi-definite matrices living on a manifold, specialized interpolation
-/// methods may be needed to preserve mathematical properties.
-///
-/// # Examples
-/// ```rust
-/// use brahe::trajectories::OrbitTrajectory;
-/// use brahe::trajectories::traits::{CovarianceInterpolatable, CovarianceInterpolationMethod, OrbitFrame, OrbitRepresentation};
-/// use brahe::time::{Epoch, TimeSystem};
-/// use nalgebra::SMatrix;
-///
-/// let mut traj = OrbitTrajectory::new(
-///     OrbitFrame::ECI,
-///     OrbitRepresentation::Cartesian,
-///     None,
-/// ).with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
-/// ```
-pub trait CovarianceInterpolatable {
-    /// Set the covariance interpolation method using a builder pattern
-    ///
-    /// # Arguments
-    /// * `method` - The covariance interpolation method to use
-    ///
-    /// # Returns
-    /// Self with the interpolation method set
-    fn with_covariance_interpolation_method(self, method: CovarianceInterpolationMethod) -> Self
-    where
-        Self: Sized;
-
-    /// Set the covariance interpolation method
-    ///
-    /// # Arguments
-    /// * `method` - The covariance interpolation method to use
-    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod);
-
-    /// Get the current covariance interpolation method
-    ///
-    /// # Returns
-    /// The current covariance interpolation method (defaults to TwoWasserstein if not set)
-    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod;
-}
-
 /// Trait for orbital-specific functionality on 6-dimensional trajectories.
 ///
 /// This trait provides methods for working with orbital state trajectories, including
@@ -542,8 +465,9 @@ pub trait CovarianceInterpolatable {
 /// and angle formats (radians/degrees). It also provides convenient accessors for position
 /// and velocity components.
 ///
-/// This trait requires both `Trajectory` and `Interpolatable` to be implemented, enabling
-/// both basic trajectory operations and state interpolation.
+/// This trait requires `InterpolatableTrajectory` to be implemented, which in turn
+/// requires both `Trajectory` and `InterpolationConfig`, enabling trajectory storage,
+/// interpolation configuration, and state interpolation.
 ///
 /// # Reference Frames
 /// - **ECI (Earth-Centered Inertial)**: GCRF inertial reference frame
@@ -581,7 +505,7 @@ pub trait CovarianceInterpolatable {
 /// // Convert to Keplerian in degrees
 /// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
 /// ```
-pub trait OrbitalTrajectory: Interpolatable {
+pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
     /// # Arguments
@@ -681,32 +605,6 @@ pub trait OrbitalTrajectory: Interpolatable {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-
-    // =========================================================================
-    // InterpolationMethod Display/Debug Tests
-    // =========================================================================
-
-    #[test]
-    fn test_interpolation_method_debug_linear() {
-        let method = InterpolationMethod::Linear;
-        assert_eq!(format!("{:?}", method), "Linear");
-    }
-
-    // =========================================================================
-    // CovarianceInterpolationMethod Display/Debug Tests
-    // =========================================================================
-
-    #[test]
-    fn test_covariance_interpolation_method_debug_matrix_square_root() {
-        let method = CovarianceInterpolationMethod::MatrixSquareRoot;
-        assert_eq!(format!("{:?}", method), "MatrixSquareRoot");
-    }
-
-    #[test]
-    fn test_covariance_interpolation_method_debug_two_wasserstein() {
-        let method = CovarianceInterpolationMethod::TwoWasserstein;
-        assert_eq!(format!("{:?}", method), "TwoWasserstein");
-    }
 
     // =========================================================================
     // TrajectoryEvictionPolicy Display/Debug Tests

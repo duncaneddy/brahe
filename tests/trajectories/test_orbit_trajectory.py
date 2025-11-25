@@ -3034,7 +3034,7 @@ def test_covariance_rtn_from_eme2000_frame(eop):
 
 
 def test_covariance_interpolatable_trait_methods(eop):
-    """Test CovarianceInterpolatable trait methods: getter, setter, and builder pattern."""
+    """Test trait methods: getter, setter, and builder pattern."""
     epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     cov = np.eye(6) * 100.0

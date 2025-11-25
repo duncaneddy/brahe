@@ -50,7 +50,10 @@ use crate::frames::{
     rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
     state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
-use crate::math::{interpolate_covariance_sqrt, interpolate_covariance_two_wasserstein};
+use crate::math::{
+    CovarianceInterpolationConfig, interpolate_covariance_sqrt,
+    interpolate_covariance_two_wasserstein,
+};
 use crate::propagators::traits::{
     SCovarianceProvider, SOrbitCovarianceProvider, SOrbitStateProvider, SStateProvider,
 };
@@ -59,8 +62,9 @@ use crate::time::Epoch;
 use crate::utils::{BraheError, Identifiable};
 
 use super::traits::{
-    CovarianceInterpolatable, CovarianceInterpolationMethod, Interpolatable, InterpolationMethod,
-    OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory, TrajectoryEvictionPolicy,
+    CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
+    InterpolationMethod, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory,
+    TrajectoryEvictionPolicy,
 };
 
 /// Specialized orbital trajectory container.
@@ -788,8 +792,13 @@ impl Trajectory for OrbitTrajectory {
     }
 }
 
-// Passthrough implementations for Interpolatable trait
-impl Interpolatable for OrbitTrajectory {
+// Implementation of InterpolationConfig trait
+impl InterpolationConfig for OrbitTrajectory {
+    fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self
+    }
+
     fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
     }
@@ -799,8 +808,11 @@ impl Interpolatable for OrbitTrajectory {
     }
 }
 
-// Implementation of CovarianceInterpolatable trait
-impl CovarianceInterpolatable for OrbitTrajectory {
+// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
+impl InterpolatableTrajectory for OrbitTrajectory {}
+
+// Implementation of CovarianceInterpolationConfig trait
+impl CovarianceInterpolationConfig for OrbitTrajectory {
     fn with_covariance_interpolation_method(
         mut self,
         method: CovarianceInterpolationMethod,

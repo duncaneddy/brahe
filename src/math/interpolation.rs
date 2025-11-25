@@ -1,9 +1,125 @@
 /*!
- * Utility functions for interpolation.
+ * Interpolation utilities, enums, and configuration traits.
+ *
+ * This module provides:
+ * - Interpolation method enums for state and covariance interpolation
+ * - Configuration traits for selecting interpolation methods
+ * - Standalone interpolation functions for vectors and covariance matrices
  */
 
 use crate::math::linalg::{SMatrix6, sqrtm};
 use nalgebra::{DVector, SVector};
+use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// Interpolation Method Enums
+// ============================================================================
+
+/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
+///
+/// Different methods provide varying trade-offs between computational cost and accuracy.
+/// For most applications, linear interpolation provides sufficient accuracy with minimal
+/// computational overhead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum InterpolationMethod {
+    /// Linear interpolation between adjacent states.
+    /// Good balance of speed and accuracy for smooth trajectories.
+    #[default]
+    Linear,
+}
+
+/// Interpolation methods for retrieving covariance matrices at arbitrary epochs.
+///
+/// Covariance matrices live on the manifold of positive semi-definite matrices,
+/// requiring specialized interpolation methods to maintain mathematical properties.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum CovarianceInterpolationMethod {
+    /// Matrix square root interpolation of covariance matrices.
+    /// Preserves positive-definiteness by interpolating on the manifold of
+    /// positive semi-definite matrices.
+    MatrixSquareRoot,
+    /// Entropy-regularized 2-Wasserstein interpolation for interpolation between
+    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
+    /// for details.
+    #[default]
+    TwoWasserstein,
+}
+
+// ============================================================================
+// Interpolation Configuration Traits
+// ============================================================================
+
+/// Configuration trait for interpolation method selection.
+///
+/// This trait provides methods for getting and setting the interpolation method
+/// used when retrieving values at arbitrary points between stored data.
+/// Implementing types store their interpolation method configuration internally.
+///
+/// This trait is separate from actual interpolation logic, allowing types to
+/// be configured without requiring access to trajectory data.
+pub trait InterpolationConfig {
+    /// Set the interpolation method using builder pattern.
+    ///
+    /// # Arguments
+    /// * `method` - The interpolation method to use
+    ///
+    /// # Returns
+    /// Self with the interpolation method set
+    fn with_interpolation_method(self, method: InterpolationMethod) -> Self
+    where
+        Self: Sized;
+
+    /// Set the interpolation method.
+    ///
+    /// # Arguments
+    /// * `method` - The interpolation method to use
+    fn set_interpolation_method(&mut self, method: InterpolationMethod);
+
+    /// Get the current interpolation method.
+    ///
+    /// # Returns
+    /// The current interpolation method (defaults to Linear if not set)
+    fn get_interpolation_method(&self) -> InterpolationMethod;
+}
+
+/// Configuration trait for covariance interpolation method selection.
+///
+/// This trait provides methods for getting and setting the covariance interpolation
+/// method used when retrieving covariance matrices at arbitrary epochs between
+/// stored points. Covariance matrices require specialized interpolation methods
+/// to maintain positive semi-definiteness.
+///
+/// This trait is separate from actual interpolation logic. The standalone functions
+/// [`interpolate_covariance_sqrt`] and [`interpolate_covariance_two_wasserstein`]
+/// perform the actual interpolation.
+pub trait CovarianceInterpolationConfig {
+    /// Set the covariance interpolation method using builder pattern.
+    ///
+    /// # Arguments
+    /// * `method` - The covariance interpolation method to use
+    ///
+    /// # Returns
+    /// Self with the covariance interpolation method set
+    fn with_covariance_interpolation_method(self, method: CovarianceInterpolationMethod) -> Self
+    where
+        Self: Sized;
+
+    /// Set the covariance interpolation method.
+    ///
+    /// # Arguments
+    /// * `method` - The covariance interpolation method to use
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod);
+
+    /// Get the current covariance interpolation method.
+    ///
+    /// # Returns
+    /// The current covariance interpolation method (defaults to TwoWasserstein if not set)
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod;
+}
+
+// ============================================================================
+// Interpolation Functions
+// ============================================================================
 
 /// Linearly interpolates between two static-sized vectors.
 ///
@@ -151,6 +267,32 @@ pub fn interpolate_covariance_two_wasserstein(cov1: SMatrix6, cov2: SMatrix6, t:
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+
+    // =========================================================================
+    // InterpolationMethod Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_interpolation_method_debug_linear() {
+        let method = InterpolationMethod::Linear;
+        assert_eq!(format!("{:?}", method), "Linear");
+    }
+
+    // =========================================================================
+    // CovarianceInterpolationMethod Display/Debug Tests
+    // =========================================================================
+
+    #[test]
+    fn test_covariance_interpolation_method_debug_matrix_square_root() {
+        let method = CovarianceInterpolationMethod::MatrixSquareRoot;
+        assert_eq!(format!("{:?}", method), "MatrixSquareRoot");
+    }
+
+    #[test]
+    fn test_covariance_interpolation_method_debug_two_wasserstein() {
+        let method = CovarianceInterpolationMethod::TwoWasserstein;
+        assert_eq!(format!("{:?}", method), "TwoWasserstein");
+    }
 
     #[test]
     fn test_interpolate_linear_svector() {

@@ -27,7 +27,7 @@ use crate::math::sensitivity::{DSensitivityProvider, SSensitivityProvider};
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension
 pub type SStateDynamics<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>;
+    Box<dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>;
 
 /// Jacobian provider type for static-sized variational matrix propagation.
 ///
@@ -47,7 +47,7 @@ pub type SVariationalMatrix<const S: usize, const P: usize> =
 ///
 /// Requires `Send + Sync` for thread-safe integrator usage.
 pub type SControlInput<const S: usize, const P: usize> = Option<
-    Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>,
+    Box<dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>,
 >;
 
 // ============================================================================
@@ -59,7 +59,7 @@ pub type SControlInput<const S: usize, const P: usize> = Option<
 /// The third parameter is optional consider parameters that the dynamics may depend on.
 /// This enables sensitivity matrix propagation for parameter estimation.
 pub type DStateDynamics =
-    Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
+    Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
 /// Jacobian provider type for dynamic-sized variational matrix propagation.
 pub type DVariationalMatrix = Option<Box<dyn DJacobianProvider>>;
@@ -70,7 +70,29 @@ pub type DVariationalMatrix = Option<Box<dyn DJacobianProvider>>;
 /// The third parameter is an optional parameter vector that the control law may depend on.
 /// This enables control laws that vary based on physical parameters (e.g., mass, area).
 pub type DControlInput =
-    Option<Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>>;
+    Option<Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>>;
+
+// ============================================================================
+// Sensitivity Dynamics Types (Required Parameters)
+// ============================================================================
+
+/// Dynamics function for sensitivity computation (static-sized).
+///
+/// Unlike `SStateDynamics`, the parameters are required (not optional) since
+/// sensitivity analysis inherently involves computing derivatives with respect to parameters.
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub type SSensitivityDynamics<const S: usize, const P: usize> =
+    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SVector<f64, S> + Send + Sync>;
+
+/// Dynamics function for sensitivity computation (dynamic-sized).
+///
+/// Unlike `DStateDynamics`, the parameters are required (not optional) since
+/// sensitivity analysis inherently involves computing derivatives with respect to parameters.
+pub type DSensitivityDynamics =
+    Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send + Sync>;
 
 // ============================================================================
 // Sensitivity Matrix Support

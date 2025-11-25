@@ -104,7 +104,7 @@ fn main() {
     // Augmented dynamics for state + sensitivity matrix propagation
     let params_for_aug = params.clone();
     let augmented_dynamics = move |t: f64,
-                                   aug_state: DVector<f64>,
+                                   aug_state: &DVector<f64>,
                                    _params: Option<&DVector<f64>>|
           -> DVector<f64> {
         // Extract state and sensitivity matrix

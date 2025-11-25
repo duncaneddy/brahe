@@ -26,7 +26,7 @@ use crate::integrators::traits::{
 /// use brahe::integrators::{RK4SIntegrator, SIntegrator, SIntegratorConstructor};
 ///
 /// // Define a simple function for testing x' = 2x,
-/// let f = |t: f64, state: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+/// let f = |t: f64, state: &SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
 ///    let mut state_new = SVector::<f64, 1>::zeros();
 ///     state_new[0] = 2.0*t;
 ///     state_new
@@ -133,11 +133,11 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
 
             let state_i = state + dt * ksum;
             let t_i = t + self.bt.c[i] * dt;
-            let mut k_i = (self.f)(t_i, state_i, params);
+            let mut k_i = (self.f)(t_i, &state_i, params);
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k_i += ctrl(t_i, state_i, params);
+                k_i += ctrl(t_i, &state_i, params);
             }
 
             k.set_column(i, &k_i);
@@ -148,7 +148,7 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
                     .varmat
                     .as_ref()
                     .expect("varmat required for step_with_varmat or step_with_sensmat")
-                    .compute(t_i, state_i, params);
+                    .compute(t_i, &state_i, params);
 
                 // Variational: dΦ/dt = A*Φ
                 if compute_phi {
@@ -286,7 +286,7 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RK4SIntegr
 /// use brahe::integrators::{RK4DIntegrator, DIntegrator};
 ///
 /// // Define a simple exponential decay: x' = -x
-/// let f = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+/// let f = |t: f64, state: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
 ///     state.map(|x| -x)
 /// };
 ///
@@ -336,7 +336,7 @@ impl RK4DIntegrator {
     /// use nalgebra::DVector;
     /// use brahe::integrators::RK4DIntegrator;
     ///
-    /// let f = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+    /// let f = |t: f64, state: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
     ///     DVector::from_vec(vec![state[1], -state[0]])  // Oscillator
     /// };
     ///
@@ -571,14 +571,14 @@ impl RK4DIntegrator {
 
             // Compute dynamics (pass params if computing sensitivity)
             let mut k_i = if compute_sens {
-                (self.f)(t_i, state_i.clone(), params)
+                (self.f)(t_i, &state_i, params)
             } else {
-                (self.f)(t_i, state_i.clone(), None)
+                (self.f)(t_i, &state_i, None)
             };
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k_i += ctrl(t_i, state_i.clone(), params);
+                k_i += ctrl(t_i, &state_i, params);
             }
 
             k.set_column(i, &k_i);
@@ -589,7 +589,7 @@ impl RK4DIntegrator {
                     .varmat
                     .as_ref()
                     .expect("varmat required for step_with_varmat or step_with_sensmat")
-                    .compute(t_i, state_i.clone(), params);
+                    .compute(t_i, &state_i, params);
 
                 // Variational: dΦ/dt = A*Φ
                 if compute_phi {
@@ -658,7 +658,7 @@ mod tests {
 
     fn point_earth(
         _: f64,
-        x: SVector<f64, 6>,
+        x: &SVector<f64, 6>,
         _params: Option<&SVector<f64, 0>>,
     ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
@@ -682,7 +682,7 @@ mod tests {
     fn test_rk4s_integrator_cubic() {
         // Define a simple function for testing x' = 2x,
         let f =
-            |t: f64, _: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+            |t: f64, _: &SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
                 let mut state_new = SVector::<f64, 1>::zeros();
                 state_new[0] = 3.0 * t * t;
                 state_new
@@ -704,7 +704,7 @@ mod tests {
     fn test_rk4s_integrator_parabola() {
         // Define a simple function for testing x' = 2x,
         let f =
-            |t: f64, _: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+            |t: f64, _: &SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
                 let mut state_new = SVector::<f64, 1>::zeros();
                 state_new[0] = 2.0 * t;
                 state_new
@@ -830,7 +830,7 @@ mod tests {
 
     fn point_earth_dynamic(
         _: f64,
-        x: DVector<f64>,
+        x: &DVector<f64>,
         _params: Option<&DVector<f64>>,
     ) -> DVector<f64> {
         assert_eq!(x.len(), 6, "State must be 6D for orbital mechanics");
@@ -853,7 +853,7 @@ mod tests {
     #[test]
     fn test_rk4d_integrator_cubic() {
         // Define a simple function for testing x' = 3t²
-        let f = |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![3.0 * t * t])
         };
 
@@ -872,7 +872,7 @@ mod tests {
     #[test]
     fn test_rk4d_integrator_parabola() {
         // Define a simple function for testing x' = 2t
-        let f = |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![2.0 * t])
         };
 
@@ -925,7 +925,7 @@ mod tests {
     fn test_rk4d_integrator_varmat() {
         // Define a 2-argument wrapper for the jacobian (it doesn't need params)
         let point_earth_for_jacobian = |t: f64,
-                                        x: DVector<f64>,
+                                        x: &DVector<f64>,
                                         _params: Option<&DVector<f64>>|
          -> DVector<f64> { point_earth_dynamic(t, x, None) };
 
@@ -981,7 +981,7 @@ mod tests {
 
         // Create a new jacobian provider with central differences
         let point_earth_for_jacobian2 =
-            |t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+            |t: f64, x: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
                 point_earth_dynamic(t, x, None)
             };
         let jacobian2 =
@@ -1014,10 +1014,10 @@ mod tests {
     fn test_rk4_s_vs_d_consistency() {
         // Verify RK4SIntegrator and RK4DIntegrator produce identical results
         let f_static = |_t: f64,
-                        x: SVector<f64, 3>,
+                        x: &SVector<f64, 3>,
                         _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 3> { SVector::<f64, 3>::new(-x[0], -x[1], -x[2]) };
-        let f_dynamic = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f_dynamic = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![-x[0], -x[1], -x[2]])
         };
 
@@ -1104,13 +1104,13 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_with_control_input() {
         // Simple dynamics: x' = 0 (constant state without control)
-        let f = |_t: f64, _x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+        let f = |_t: f64, _x: &SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
             SVector::<f64, 1>::zeros()
         };
 
         // Control input adds constant rate: u = 1.0
         let control = |_t: f64,
-                       _x: SVector<f64, 1>,
+                       _x: &SVector<f64, 1>,
                        _p: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
 
@@ -1130,12 +1130,12 @@ mod tests {
     #[test]
     fn test_rk4d_integrator_with_control_input() {
         // Simple dynamics: x' = 0 (constant state without control)
-        let f = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::zeros(x.len())
         };
 
         // Control input adds constant rate: u = [1.0, 2.0]
-        let control = |_t: f64, _x: DVector<f64>, _p: Option<&DVector<f64>>| -> DVector<f64> {
+        let control = |_t: f64, _x: &DVector<f64>, _p: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![1.0, 2.0])
         };
 
@@ -1157,13 +1157,13 @@ mod tests {
     fn test_rk4s_integrator_control_with_dynamics() {
         // Dynamics: x' = -x (exponential decay)
         let f = |_t: f64,
-                 x: SVector<f64, 1>,
+                 x: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { -x };
 
         // Control input: u = 1 (constant forcing)
         let control = |_t: f64,
-                       _x: SVector<f64, 1>,
+                       _x: &SVector<f64, 1>,
                        _p: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(1.0) };
 
@@ -1186,13 +1186,13 @@ mod tests {
     #[test]
     fn test_rk4s_integrator_state_dependent_control() {
         // Dynamics: x' = 0
-        let f = |_t: f64, _x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
+        let f = |_t: f64, _x: &SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
             SVector::<f64, 1>::zeros()
         };
 
         // State-dependent control: u = -x (proportional feedback)
         let control =
-            |_t: f64, x: SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> { -x };
+            |_t: f64, x: &SVector<f64, 1>, _p: Option<&SVector<f64, 0>>| -> SVector<f64, 1> { -x };
 
         // With this control: x' = -x, so exponential decay
         let rk4: RK4SIntegrator<1, 0> =
@@ -1230,7 +1230,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 1>,
+                _state: &SVector<f64, 1>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
@@ -1252,7 +1252,7 @@ mod tests {
 
         // Dynamics: dx/dt = -k*x where k = params[0]
         let f = |_t: f64,
-                 x: SVector<f64, 1>,
+                 x: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 1> { -x };
 
@@ -1311,7 +1311,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
@@ -1332,7 +1332,7 @@ mod tests {
         }
 
         // Dynamics: dx/dt = -k*x
-        let f = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> { -x };
+        let f = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> { -x };
 
         let rk4 = RK4DIntegrator::new(
             1,
@@ -1384,7 +1384,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 1>,
+                _state: &SVector<f64, 1>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
@@ -1404,7 +1404,7 @@ mod tests {
         }
 
         let f = |_t: f64,
-                 x: SVector<f64, 1>,
+                 x: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 1> { -x };
 
@@ -1480,7 +1480,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
@@ -1499,7 +1499,7 @@ mod tests {
             }
         }
 
-        let f = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> { -x };
+        let f = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> { -x };
 
         let rk4 = RK4DIntegrator::new(
             1,
@@ -1570,10 +1570,10 @@ mod tests {
         // Simple linear ODE: dx/dt = x
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let integrator: RK4SIntegrator<1, 0> =
@@ -1593,10 +1593,10 @@ mod tests {
     fn test_rk4s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let custom_config = crate::integrators::config::IntegratorConfig {
@@ -1635,10 +1635,10 @@ mod tests {
     fn test_rk4s_config_returns_reference() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let integrator: RK4SIntegrator<1, 0> =
@@ -1655,8 +1655,8 @@ mod tests {
 
     #[test]
     fn test_rk4d_new_uses_default_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = RK4DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -1673,8 +1673,8 @@ mod tests {
 
     #[test]
     fn test_rk4d_with_config_stores_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let custom_config = crate::integrators::config::IntegratorConfig {
@@ -1712,8 +1712,8 @@ mod tests {
 
     #[test]
     fn test_rk4d_config_returns_reference() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = RK4DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -1729,8 +1729,8 @@ mod tests {
 
     #[test]
     fn test_rk4d_dimension_method() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = RK4DIntegrator::new(6, Box::new(dynamics), None, None, None);

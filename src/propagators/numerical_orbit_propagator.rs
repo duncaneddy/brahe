@@ -708,7 +708,7 @@ impl DNumericalOrbitPropagator {
                 if let Some(ref add_dyn) = additional_dynamics
                     && state.len() > 6
                 {
-                    dx += add_dyn(t, state.clone(), params_opt);
+                    dx += add_dyn(t, state, params_opt);
                 }
 
                 dx
@@ -716,14 +716,14 @@ impl DNumericalOrbitPropagator {
         )
     }
 
-    /// Wrap shared dynamics for use with the main integrator
+    /// Convert shared dynamics (Arc) to integrator dynamics (Box)
     ///
-    /// The integrator expects `DStateDynamics` which takes owned state,
-    /// while SharedDynamics takes borrowed state.
+    /// Both SharedDynamics and DStateDynamics now use references for the state parameter,
+    /// so this is a simple Arc->Box conversion that moves the Arc into a boxed closure.
     fn wrap_for_integrator(shared: SharedDynamics) -> DStateDynamics {
         Box::new(
-            move |t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
-                shared(t, &state, params)
+            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+                shared(t, state, params)
             },
         )
     }
@@ -745,9 +745,10 @@ impl DNumericalOrbitPropagator {
         method: DifferenceMethod,
     ) -> Box<dyn crate::math::jacobian::DJacobianProvider> {
         // Wrap shared dynamics for the Jacobian provider signature
+        // Both SharedDynamics and DStateDynamics use references, so this is a simple conversion
         let dynamics_for_jacobian = Box::new(
-            move |t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
-                shared_dynamics(t, &state, params)
+            move |t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+                shared_dynamics(t, state, params)
             },
         );
 

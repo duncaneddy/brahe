@@ -68,7 +68,7 @@ use crate::integrators::traits::{
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem (second-order)
-/// let f = |_t: f64, state: SVector<f64, 6>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 6> {
+/// let f = |_t: f64, state: &SVector<f64, 6>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 6> {
 ///     let r = state.fixed_rows::<3>(0);
 ///     let v = state.fixed_rows::<3>(3);
 ///     let r_norm = r.norm();
@@ -180,11 +180,11 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
 
                 // Evaluate dynamics and extract acceleration
                 let t_i = t + self.bt.c[i] * h;
-                let mut state_dot = (self.f)(t_i, stage_state, params);
+                let mut state_dot = (self.f)(t_i, &stage_state, params);
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state, params);
+                    state_dot += ctrl(t_i, &stage_state, params);
                 }
 
                 for dim in 0..half_dim {
@@ -197,7 +197,7 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
                         .varmat
                         .as_ref()
                         .expect("varmat required for step_with_varmat or step_with_sensmat")
-                        .compute(t_i, stage_state, params);
+                        .compute(t_i, &stage_state, params);
 
                     // Variational: dΦ/dt = A*Φ
                     if has_phi {
@@ -411,7 +411,7 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKN1210SIn
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem
-/// let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+/// let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
 ///     let r = state.rows(0, 3);
 ///     let v = state.rows(3, 3);
 ///     let r_norm = r.norm();
@@ -651,14 +651,14 @@ impl RKN1210DIntegrator {
                 // Evaluate dynamics and extract acceleration
                 let t_i = t + self.bt.c[i] * h;
                 let mut state_dot = if has_sens {
-                    (self.f)(t_i, stage_state.clone(), params)
+                    (self.f)(t_i, &stage_state, params)
                 } else {
-                    (self.f)(t_i, stage_state.clone(), None)
+                    (self.f)(t_i, &stage_state, None)
                 };
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    state_dot += ctrl(t_i, stage_state.clone(), params);
+                    state_dot += ctrl(t_i, &stage_state, params);
                 }
 
                 for dim in 0..half_dim {
@@ -671,7 +671,7 @@ impl RKN1210DIntegrator {
                         .varmat
                         .as_ref()
                         .expect("varmat required for step_with_varmat or step_with_sensmat")
-                        .compute(t_i, stage_state.clone(), params);
+                        .compute(t_i, &stage_state, params);
 
                     // Variational: dΦ/dt = A*Φ
                     if has_phi {
@@ -839,7 +839,7 @@ mod tests {
     // Two-body gravitational dynamics
     fn point_earth(
         _: f64,
-        x: SVector<f64, 6>,
+        x: &SVector<f64, 6>,
         _params: Option<&SVector<f64, 0>>,
     ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
@@ -861,7 +861,7 @@ mod tests {
     fn test_rkn1210s_single_step() {
         // Test a single step with constant acceleration to verify formulas
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> {
             // state = [x, v], state_dot = [v, a] where a = 2
@@ -895,7 +895,7 @@ mod tests {
         // Test with simple parabolic motion: x'' = 2 (constant acceleration)
         // Solution: x(t) = t²
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> {
             // state = [x, v]
@@ -973,7 +973,7 @@ mod tests {
     fn test_rkn1210s_accuracy() {
         // Verify 12th order convergence on simple problem
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
 
@@ -1001,7 +1001,7 @@ mod tests {
     #[test]
     fn test_rkn1210s_step_size_increases() {
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
 
@@ -1025,7 +1025,7 @@ mod tests {
         // even with large steps on stiff problems. This test verifies the mechanism works,
         // not that it necessarily reduces step size.
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> {
             let x = state[0];
@@ -1054,7 +1054,7 @@ mod tests {
     #[test]
     fn test_rkn1210s_config_parameters() {
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
 
@@ -1079,7 +1079,7 @@ mod tests {
     fn test_rkn1210s_high_precision() {
         // Test with very tight tolerances
         let f = |_t: f64,
-                 state: SVector<f64, 2>,
+                 state: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(state[1], 2.0) };
 
@@ -1325,7 +1325,7 @@ mod tests {
 
     fn point_earth_dynamic(
         _t: f64,
-        state: DVector<f64>,
+        state: &DVector<f64>,
         _params: Option<&DVector<f64>>,
     ) -> DVector<f64> {
         let r = state.rows(0, 3);
@@ -1376,7 +1376,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_integrator_parabola() {
-        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 2.0;
@@ -1443,7 +1443,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_step_size_increases() {
-        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
@@ -1458,7 +1458,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_adaptive_mechanism() {
-        let f = |t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = -t.sin();
@@ -1474,7 +1474,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_config_parameters() {
-        let f = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        let f = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let mut state_dot = DVector::zeros(2);
             state_dot[0] = state[1];
             state_dot[1] = 0.0;
@@ -1517,7 +1517,7 @@ mod tests {
     fn test_rkn1210d_varmat() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,
-                                        x: DVector<f64>,
+                                        x: &DVector<f64>,
                                         _params: Option<&DVector<f64>>|
          -> DVector<f64> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
@@ -1554,7 +1554,7 @@ mod tests {
     fn test_rkn1210d_stm_accuracy() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,
-                                        x: DVector<f64>,
+                                        x: &DVector<f64>,
                                         _params: Option<&DVector<f64>>|
          -> DVector<f64> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
@@ -1596,7 +1596,7 @@ mod tests {
     fn test_rkn1210d_stm_vs_direct_perturbation() {
         setup_global_test_eop();
         let point_earth_for_jacobian = |t: f64,
-                                        x: DVector<f64>,
+                                        x: &DVector<f64>,
                                         _params: Option<&DVector<f64>>|
          -> DVector<f64> { point_earth_dynamic(t, x, None) };
         let jacobian = DNumericalJacobian::new(Box::new(point_earth_for_jacobian))
@@ -1651,11 +1651,11 @@ mod tests {
     fn test_rkn1210_s_vs_d_consistency() {
         // Verify RKN1210SIntegrator and RKN1210DIntegrator produce identical results
         let f_static = |_t: f64,
-                        x: SVector<f64, 2>,
+                        x: &SVector<f64, 2>,
                         _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], 2.0) };
         let f_dynamic = |_t: f64,
-                         x: DVector<f64>,
+                         x: &DVector<f64>,
                          _params: Option<&DVector<f64>>|
          -> DVector<f64> { DVector::from_vec(vec![x[1], 2.0]) };
 
@@ -1704,7 +1704,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 2>,
+                _state: &SVector<f64, 2>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 2, 2> {
                 SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
@@ -1726,7 +1726,7 @@ mod tests {
 
         // Harmonic oscillator: dx/dt = v, dv/dt = -k*x
         let f = |_t: f64,
-                 x: SVector<f64, 2>,
+                 x: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
 
@@ -1782,7 +1782,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
@@ -1801,9 +1801,10 @@ mod tests {
             }
         }
 
-        let dynamics = |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-            DVector::from_vec(vec![x[1], -x[0]])
-        };
+        let dynamics = |_t: f64,
+                        x: &DVector<f64>,
+                        _params: Option<&DVector<f64>>|
+         -> DVector<f64> { DVector::from_vec(vec![x[1], -x[0]]) };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
@@ -1855,7 +1856,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 2>,
+                _state: &SVector<f64, 2>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 2, 2> {
                 SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
@@ -1875,7 +1876,7 @@ mod tests {
         }
 
         let f = |_t: f64,
-                 x: SVector<f64, 2>,
+                 x: &SVector<f64, 2>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
 
@@ -1937,7 +1938,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
@@ -1956,9 +1957,10 @@ mod tests {
             }
         }
 
-        let dynamics = |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-            DVector::from_vec(vec![x[1], -x[0]])
-        };
+        let dynamics = |_t: f64,
+                        x: &DVector<f64>,
+                        _params: Option<&DVector<f64>>|
+         -> DVector<f64> { DVector::from_vec(vec![x[1], -x[0]]) };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let rkn = RKN1210DIntegrator::with_config(
@@ -2016,7 +2018,7 @@ mod tests {
     fn test_rkn1210s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 2>,
+            state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 2> {
             SVector::<f64, 2>::new(state[1], -state[0])
@@ -2038,7 +2040,7 @@ mod tests {
     fn test_rkn1210s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 2>,
+            state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 2> {
             SVector::<f64, 2>::new(state[1], -state[0])
@@ -2077,7 +2079,7 @@ mod tests {
     fn test_rkn1210s_config_returns_reference() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 2>,
+            state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 2> {
             SVector::<f64, 2>::new(state[1], -state[0])
@@ -2096,7 +2098,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_new_uses_default_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
             DVector::from_vec(vec![state[1], -state[0]])
         }
 
@@ -2113,7 +2115,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_with_config_stores_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
             DVector::from_vec(vec![state[1], -state[0]])
         }
 
@@ -2149,7 +2151,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_config_returns_reference() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
             DVector::from_vec(vec![state[1], -state[0]])
         }
 
@@ -2165,7 +2167,7 @@ mod tests {
 
     #[test]
     fn test_rkn1210d_dimension_method() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
             DVector::from_vec(vec![state[1], -state[0]])
         }
 
@@ -2185,7 +2187,7 @@ mod tests {
     fn test_rkn1210s_panics_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
-            state: SVector<f64, 2>,
+            state: &SVector<f64, 2>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 2> {
             // Rapidly varying dynamics
@@ -2217,7 +2219,7 @@ mod tests {
     fn test_rkn1210d_panics_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
-            state: DVector<f64>,
+            state: &DVector<f64>,
             _params: Option<&DVector<f64>>,
         ) -> DVector<f64> {
             DVector::from_vec(vec![1e10 * state[1], 1e10 * state[0]])

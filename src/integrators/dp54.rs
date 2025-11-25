@@ -72,15 +72,15 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 *cached_f
             } else {
-                (self.f)(t, state, params)
+                (self.f)(t, &state, params)
             };
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state, params);
+                k0 += ctrl(t, &state, params);
             }
             k.set_column(0, &k0);
 
             if compute_phi || compute_sens {
-                let a0 = self.varmat.as_ref().unwrap().compute(t, state, params);
+                let a0 = self.varmat.as_ref().unwrap().compute(t, &state, params);
                 if compute_phi {
                     k_phi[0] = a0 * phi.unwrap();
                 }
@@ -112,14 +112,14 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
 
                 let state_i = state + h * ksum;
                 let t_i = t + self.bt.c[i] * h;
-                let mut k_i = (self.f)(t_i, state_i, params);
+                let mut k_i = (self.f)(t_i, &state_i, params);
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i, params);
+                    k_i += ctrl(t_i, &state_i, params);
                 }
                 k.set_column(i, &k_i);
 
                 if compute_phi || compute_sens {
-                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, state_i, params);
+                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, &state_i, params);
                     if compute_phi {
                         k_phi[i] = a_i * (phi.unwrap() + h * k_phi_sum);
                     }
@@ -455,20 +455,16 @@ impl DormandPrince54DIntegrator {
             let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 cached_f.clone()
             } else {
-                (self.f)(t, state.clone(), params)
+                (self.f)(t, &state, params)
             };
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state.clone(), params);
+                k0 += ctrl(t, &state, params);
             }
             k.set_column(0, &k0);
 
             if compute_phi || compute_sens {
-                let a0 = self
-                    .varmat
-                    .as_ref()
-                    .unwrap()
-                    .compute(t, state.clone(), params);
+                let a0 = self.varmat.as_ref().unwrap().compute(t, &state, params);
                 if compute_phi {
                     k_phi[0] = &a0 * &current_phi;
                 }
@@ -509,19 +505,15 @@ impl DormandPrince54DIntegrator {
 
                 let state_i = &state + h * &ksum;
                 let t_i = t + self.bt.c[i] * h;
-                let mut k_i = (self.f)(t_i, state_i.clone(), params);
+                let mut k_i = (self.f)(t_i, &state_i, params);
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i.clone(), params);
+                    k_i += ctrl(t_i, &state_i, params);
                 }
                 k.set_column(i, &k_i);
 
                 if compute_phi || compute_sens {
-                    let a_i = self
-                        .varmat
-                        .as_ref()
-                        .unwrap()
-                        .compute(t_i, state_i.clone(), params);
+                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, &state_i, params);
                     if compute_phi {
                         k_phi[i] = &a_i * (&current_phi + h * k_phi_sum);
                     }
@@ -628,7 +620,7 @@ mod tests {
 
     fn point_earth(
         _: f64,
-        x: SVector<f64, 6>,
+        x: &SVector<f64, 6>,
         _params: Option<&SVector<f64, 0>>,
     ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
@@ -652,7 +644,7 @@ mod tests {
     fn test_dp54_integrator_parabola() {
         // Test DP54 on simple parabola x' = 2t
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
@@ -678,7 +670,7 @@ mod tests {
     fn test_dp54_integrator_adaptive() {
         // Test adaptive stepping on parabola
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
@@ -745,7 +737,7 @@ mod tests {
     fn test_dp54_accuracy() {
         // Verify DP54 achieves expected 5th order accuracy
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
 
@@ -774,7 +766,7 @@ mod tests {
     fn test_dp54_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
@@ -804,7 +796,7 @@ mod tests {
     fn test_dp54_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
         let f = |_t: f64,
-                 state: SVector<f64, 1>,
+                 state: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> {
             // Stiff problem: y' = -1000 * y
@@ -829,7 +821,7 @@ mod tests {
     fn test_dp54_config_parameters() {
         // Verify that config parameters are actually used
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
@@ -851,7 +843,7 @@ mod tests {
     fn test_dp54_fsal_cache() {
         // Verify that FSAL optimization works - second step should reuse cached value
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
@@ -877,7 +869,7 @@ mod tests {
     fn test_dp54_vs_rkf45_accuracy() {
         // Compare DP54 and RKF45 accuracy on same problem
         let f = |t: f64,
-                 _: SVector<f64, 1>,
+                 _: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
 
@@ -1079,7 +1071,7 @@ mod tests {
 
     fn point_earth_dynamic(
         _: f64,
-        x: DVector<f64>,
+        x: &DVector<f64>,
         _params: Option<&DVector<f64>>,
     ) -> DVector<f64> {
         assert_eq!(x.len(), 6);
@@ -1099,7 +1091,7 @@ mod tests {
     // Wrapper for Jacobian computation which expects a 2-argument function
     fn point_earth_dynamic_for_jacobian(
         t: f64,
-        x: DVector<f64>,
+        x: &DVector<f64>,
         _params: Option<&DVector<f64>>,
     ) -> DVector<f64> {
         point_earth_dynamic(t, x, None)
@@ -1108,7 +1100,7 @@ mod tests {
     #[test]
     fn test_dp54d_integrator_parabola() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54 =
@@ -1130,7 +1122,7 @@ mod tests {
     #[test]
     fn test_dp54d_integrator_adaptive() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54 =
@@ -1190,7 +1182,7 @@ mod tests {
 
     #[test]
     fn test_dp54d_accuracy() {
-        let f = |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| {
+        let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             DVector::from_vec(vec![3.0 * t * t])
         };
 
@@ -1216,7 +1208,7 @@ mod tests {
     #[test]
     fn test_dp54d_step_size_increases() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-4);
         let dp54 =
@@ -1233,7 +1225,7 @@ mod tests {
 
     #[test]
     fn test_dp54d_step_size_decreases() {
-        let f = |_t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| {
+        let f = |_t: f64, state: &DVector<f64>, _: Option<&DVector<f64>>| {
             DVector::from_vec(vec![-1000.0 * state[0]])
         };
 
@@ -1253,7 +1245,7 @@ mod tests {
     fn test_dp54d_config_parameters() {
         // Setup with custom configuration
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let mut config = IntegratorConfig::adaptive(1e-8, 1e-6);
         config.step_safety_factor = Some(0.5);
         config.max_step_scale_factor = Some(2.0);
@@ -1273,7 +1265,7 @@ mod tests {
     fn test_dp54d_fsal_cache() {
         // Setup integrator
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let dp54 =
             DormandPrince54DIntegrator::with_config(1, Box::new(f), None, None, None, config);
@@ -1291,7 +1283,7 @@ mod tests {
     fn test_dp54d_vs_rkf45_accuracy() {
         // Setup both integrators
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let dp54 = DormandPrince54DIntegrator::with_config(
             1,
@@ -1449,10 +1441,10 @@ mod tests {
     fn test_dp54_s_vs_d_consistency() {
         // Verify DormandPrince54SIntegrator and DormandPrince54DIntegrator produce identical results
         let f_static = |_t: f64,
-                        x: SVector<f64, 2>,
+                        x: &SVector<f64, 2>,
                         _params: Option<&SVector<f64, 0>>|
          -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
-        let f_dynamic = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f_dynamic = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![x[1], -x[0]])
         };
 
@@ -1508,7 +1500,7 @@ mod tests {
 
         // Dynamics: dx/dt = -k*x where k = params[0] if provided, else k=1.0
         let dynamics =
-            |_t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
                 let k = params.map_or(1.0, |p| p[0]);
                 DVector::from_vec(vec![-k * state[0]])
             };
@@ -1519,7 +1511,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 // For simplicity, use k=1.0 for the Jacobian (this is approximate but works for testing)
@@ -1694,7 +1686,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 1>,
+                _state: &SVector<f64, 1>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
@@ -1714,7 +1706,7 @@ mod tests {
         }
 
         let f = |_t: f64,
-                 x: SVector<f64, 1>,
+                 x: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 1> { -x };
 
@@ -1766,7 +1758,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: DVector<f64>,
+                _state: &DVector<f64>,
                 _params: Option<&DVector<f64>>,
             ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
@@ -1786,7 +1778,7 @@ mod tests {
         }
 
         let dynamics =
-            |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> { -x };
+            |_t: f64, x: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54 = DormandPrince54DIntegrator::with_config(
@@ -1838,7 +1830,7 @@ mod tests {
             fn compute(
                 &self,
                 _t: f64,
-                _state: SVector<f64, 1>,
+                _state: &SVector<f64, 1>,
                 _params: Option<&SVector<f64, 1>>,
             ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
@@ -1858,7 +1850,7 @@ mod tests {
         }
 
         let f = |_t: f64,
-                 x: SVector<f64, 1>,
+                 x: &SVector<f64, 1>,
                  _params: Option<&SVector<f64, 1>>|
          -> SVector<f64, 1> { -x };
 
@@ -1941,10 +1933,10 @@ mod tests {
     fn test_dp54s_new_uses_default_config() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let integrator: DormandPrince54SIntegrator<1, 0> =
@@ -1963,10 +1955,10 @@ mod tests {
     fn test_dp54s_with_config_stores_config() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let custom_config = IntegratorConfig {
@@ -2002,10 +1994,10 @@ mod tests {
     fn test_dp54s_config_returns_reference() {
         fn dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
-            state
+            *state
         }
 
         let integrator: DormandPrince54SIntegrator<1, 0> =
@@ -2021,8 +2013,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_new_uses_default_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -2038,8 +2030,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_with_config_stores_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let custom_config = IntegratorConfig {
@@ -2074,8 +2066,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_config_returns_reference() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -2090,8 +2082,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_dimension_method() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(6, Box::new(dynamics), None, None, None);
@@ -2110,7 +2102,7 @@ mod tests {
     fn test_dp54s_panics_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
-            state: SVector<f64, 1>,
+            state: &SVector<f64, 1>,
             _params: Option<&SVector<f64, 0>>,
         ) -> SVector<f64, 1> {
             SVector::<f64, 1>::new(1e10 * state[0])
@@ -2146,7 +2138,7 @@ mod tests {
     fn test_dp54d_panics_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
-            state: DVector<f64>,
+            state: &DVector<f64>,
             _params: Option<&DVector<f64>>,
         ) -> DVector<f64> {
             DVector::from_vec(vec![1e10 * state[0]])

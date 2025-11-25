@@ -38,7 +38,7 @@ Third-Body Perturbations:
 
 Gravity:
 - accel_point_mass_gravity: Point-mass gravity acceleration
-- DefaultGravityModel: Enum for default packaged gravity models
+- GravityModelType: Enum for gravity model types (packaged or from file)
 - GravityModelTideSystem: Enum for tide system conventions
 - GravityModelErrors: Enum for error estimation types
 - GravityModelNormalization: Enum for coefficient normalization conventions
@@ -88,7 +88,7 @@ from brahe._brahe import (
     accel_third_body_neptune_de440s,
     # Gravity
     accel_point_mass_gravity,
-    DefaultGravityModel,
+    GravityModelType,
     GravityModelTideSystem,
     GravityModelErrors,
     GravityModelNormalization,
@@ -136,7 +136,7 @@ __all__ = [
     "accel_third_body_neptune_de440s",
     # Gravity
     "accel_point_mass_gravity",
-    "DefaultGravityModel",
+    "GravityModelType",
     "GravityModelTideSystem",
     "GravityModelErrors",
     "GravityModelNormalization",

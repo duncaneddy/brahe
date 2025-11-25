@@ -1418,6 +1418,36 @@ impl PyGravityModel {
         Ok(vector_to_numpy!(py, a, 3, f64))
     }
 
+    /// Truncate the gravity model to a smaller degree and order to save memory.
+    ///
+    /// This method resizes the internal coefficient matrix in-place, discarding
+    /// coefficients beyond the specified limits. This is useful when loading a
+    /// high-fidelity model but only needing a lower-degree expansion.
+    ///
+    /// Args:
+    ///     n (int): New maximum degree (must be <= current n_max)
+    ///     m (int): New maximum order (must be <= min(n, current m_max))
+    ///
+    /// Raises:
+    ///     ValueError: If m > n or if n/m exceed current model limits
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Load full EGM2008 360x360 model
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+    ///     print(f"Before: {model.n_max}x{model.m_max}")  # 360x360
+    ///
+    ///     # Truncate to 70x70 to save memory
+    ///     model.set_max_degree_order(70, 70)
+    ///     print(f"After: {model.n_max}x{model.m_max}")  # 70x70
+    ///     ```
+    fn set_max_degree_order(&mut self, n: usize, m: usize) -> PyResult<()> {
+        self.model.set_max_degree_order(n, m)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max degree/order: {}", e)))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "GravityModel(name='{}', n_max={}, m_max={})",
@@ -1464,7 +1494,7 @@ impl PyGravityModel {
 ///     bh.initialize_eop()
 ///
 ///     # Load gravity model
-///     model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 ///
 ///     # Create test position
 ///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])

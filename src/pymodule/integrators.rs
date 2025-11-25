@@ -357,7 +357,7 @@ impl PyRK4DIntegrator {
         // Note: Uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -373,7 +373,7 @@ impl PyRK4DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -400,7 +400,7 @@ impl PyRK4DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -441,7 +441,7 @@ impl PyRK4DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -932,7 +932,7 @@ impl PyRKF45DIntegrator {
         // Note: Uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -948,7 +948,7 @@ impl PyRKF45DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -973,7 +973,7 @@ impl PyRKF45DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1014,7 +1014,7 @@ impl PyRKF45DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1507,7 +1507,7 @@ impl PyDP54DIntegrator {
         // Note: DP54 uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -1523,7 +1523,7 @@ impl PyDP54DIntegrator {
         // Create Rust closure for control input if provided
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -1548,7 +1548,7 @@ impl PyDP54DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1589,7 +1589,7 @@ impl PyDP54DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -2090,7 +2090,7 @@ impl PyRKN1210DIntegrator {
         // Create Rust closure for dynamics
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -2113,7 +2113,7 @@ impl PyRKN1210DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -2154,7 +2154,7 @@ impl PyRKN1210DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc

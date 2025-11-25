@@ -17,7 +17,7 @@ Configuration structures for numerical integrators.
 ///     ..Default::default()
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IntegratorConfig {
     /// Absolute error tolerance for adaptive stepping
     pub abs_tol: f64,

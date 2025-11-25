@@ -18,23 +18,28 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 /// Sensitivity function type for static-sized systems.
 type SSensitivityFn<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SMatrix<f64, S, P> + Send>;
+    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SMatrix<f64, S, P> + Send + Sync>;
 
 /// Sensitivity function type for dynamic-sized systems.
-type DSensitivityFn = Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DMatrix<f64> + Send>;
+type DSensitivityFn = Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DMatrix<f64> + Send + Sync>;
 
 /// Dynamics function type for static-sized sensitivity computation.
 type SDynamicsWithParams<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SVector<f64, S> + Send>;
+    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SVector<f64, S> + Send + Sync>;
 
 /// Dynamics function type for dynamic-sized sensitivity computation.
-type DDynamicsWithParams = Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send>;
+type DDynamicsWithParams =
+    Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send + Sync>;
 
 /// Trait for static-sized sensitivity providers.
 ///
 /// Computes the sensitivity matrix ∂f/∂p where f is the dynamics function
 /// and p are the consider parameters.
-pub trait SSensitivityProvider<const S: usize, const P: usize>: Send {
+///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+pub trait SSensitivityProvider<const S: usize, const P: usize>: Send + Sync {
     /// Compute the sensitivity matrix at the given time, state, and parameters.
     ///
     /// # Arguments
@@ -56,7 +61,7 @@ pub trait SSensitivityProvider<const S: usize, const P: usize>: Send {
 ///
 /// Computes the sensitivity matrix ∂f/∂p where f is the dynamics function
 /// and p are the consider parameters.
-pub trait DSensitivityProvider: Send {
+pub trait DSensitivityProvider: Send + Sync {
     /// Compute the sensitivity matrix at the given time, state, and parameters.
     ///
     /// # Arguments

@@ -934,15 +934,16 @@ fn py_accel_point_mass_gravity<'py>(
 /// Default gravity models packaged with Brahe.
 ///
 /// These models provide varying levels of fidelity for Earth's gravitational field.
+/// Models can either be packaged with Brahe or loaded from external files.
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "DefaultGravityModel")]
+#[pyo3(name = "GravityModelType")]
 #[derive(Clone)]
-pub struct PyDefaultGravityModel {
-    pub(crate) model: orbit_dynamics::DefaultGravityModel,
+pub struct PyGravityModelType {
+    pub(crate) model: orbit_dynamics::GravityModelType,
 }
 
 #[pymethods]
-impl PyDefaultGravityModel {
+impl PyGravityModelType {
     /// Earth Gravitational Model 2008, 360x360 degree and order.
     ///
     /// High-fidelity gravity model from the National Geospatial-Intelligence Agency (NGA).
@@ -950,8 +951,8 @@ impl PyDefaultGravityModel {
     #[classattr]
     #[allow(non_snake_case)]
     fn EGM2008_360() -> Self {
-        PyDefaultGravityModel {
-            model: orbit_dynamics::DefaultGravityModel::EGM2008_360,
+        PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::EGM2008_360,
         }
     }
 
@@ -962,8 +963,8 @@ impl PyDefaultGravityModel {
     #[classattr]
     #[allow(non_snake_case)]
     fn GGM05S() -> Self {
-        PyDefaultGravityModel {
-            model: orbit_dynamics::DefaultGravityModel::GGM05S,
+        PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::GGM05S,
         }
     }
 
@@ -974,23 +975,57 @@ impl PyDefaultGravityModel {
     #[classattr]
     #[allow(non_snake_case)]
     fn JGM3() -> Self {
-        PyDefaultGravityModel {
-            model: orbit_dynamics::DefaultGravityModel::JGM3,
+        PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::JGM3,
+        }
+    }
+
+    /// Load a custom gravity model from a file.
+    ///
+    /// Args:
+    ///     filepath (str): Path to the gravity model file in GFC format
+    ///
+    /// Returns:
+    ///     GravityModelType: Gravity model type for loading from file
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model_type = bh.GravityModelType.from_file("/path/to/custom_model.gfc")
+    ///     model = bh.GravityModel.from_model_type(model_type)
+    ///     ```
+    #[staticmethod]
+    fn from_file(filepath: String) -> Self {
+        PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::FromFile(filepath),
         }
     }
 
     fn __str__(&self) -> String {
-        format!("{:?}", self.model)
+        match &self.model {
+            orbit_dynamics::GravityModelType::FromFile(path) => format!("FromFile({})", path),
+            _ => format!("{:?}", self.model),
+        }
     }
 
     fn __repr__(&self) -> String {
-        format!("DefaultGravityModel.{:?}", self.model)
+        match &self.model {
+            orbit_dynamics::GravityModelType::FromFile(path) => format!("GravityModelType.FromFile('{}')", path),
+            _ => format!("GravityModelType.{:?}", self.model),
+        }
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(std::mem::discriminant(&self.model) == std::mem::discriminant(&other.model)),
-            CompareOp::Ne => Ok(std::mem::discriminant(&self.model) != std::mem::discriminant(&other.model)),
+            CompareOp::Eq => Ok(match (&self.model, &other.model) {
+                (orbit_dynamics::GravityModelType::FromFile(a), orbit_dynamics::GravityModelType::FromFile(b)) => a == b,
+                _ => std::mem::discriminant(&self.model) == std::mem::discriminant(&other.model),
+            }),
+            CompareOp::Ne => Ok(match (&self.model, &other.model) {
+                (orbit_dynamics::GravityModelType::FromFile(a), orbit_dynamics::GravityModelType::FromFile(b)) => a != b,
+                _ => std::mem::discriminant(&self.model) != std::mem::discriminant(&other.model),
+            }),
             _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
         }
     }
@@ -1286,28 +1321,36 @@ impl PyGravityModel {
         Ok(PyGravityModel { model })
     }
 
-    /// Load one of the default packaged gravity models.
+    /// Load a gravity model from a GravityModelType.
     ///
     /// Args:
-    ///     model (DefaultGravityModel): Which default model to load
+    ///     model_type (GravityModelType): Which model to load (packaged or from file)
     ///
     /// Returns:
     ///     GravityModel: Loaded gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file loading fails (for FromFile variant)
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     # Load JGM3 70x70 model
-    ///     model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
     ///     print(f"Loaded {model.model_name}")
     ///
     ///     # Load EGM2008 360x360 model
-    ///     model_hifi = bh.GravityModel.from_default(bh.DefaultGravityModel.EGM2008_360)
+    ///     model_hifi = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+    ///
+    ///     # Load from custom file
+    ///     custom_type = bh.GravityModelType.from_file("/path/to/model.gfc")
+    ///     model_custom = bh.GravityModel.from_model_type(custom_type)
     ///     ```
     #[classmethod]
-    fn from_default(_cls: &Bound<'_, PyType>, model: &PyDefaultGravityModel) -> PyResult<Self> {
-        let grav_model = orbit_dynamics::GravityModel::from_default(model.model);
+    fn from_model_type(_cls: &Bound<'_, PyType>, model_type: &PyGravityModelType) -> PyResult<Self> {
+        let grav_model = orbit_dynamics::GravityModel::from_model_type(&model_type.model)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
         Ok(PyGravityModel { model: grav_model })
     }
 
@@ -1327,7 +1370,7 @@ impl PyGravityModel {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
     ///
     ///     # Get J2 coefficient (C20)
     ///     c20, s20 = model.get(2, 0)
@@ -1356,7 +1399,7 @@ impl PyGravityModel {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
     ///     r_body = np.array([6525.919e3, 1710.416e3, 2508.886e3])
     ///
     ///     # Compute using 20x20 expansion

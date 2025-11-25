@@ -19,10 +19,11 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{EmbeddedRKNButcherTableau, rkn1210_tableau};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
-    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
-    SStateDynamics, SVariationalMatrix, compute_next_step_size, compute_normalized_error,
-    compute_normalized_error_s, compute_reduced_step_size,
+    DControlInput, DIntegrator, DIntegratorConstructor, DIntegratorStepResult, DSensitivity,
+    DStateDynamics, DVariationalMatrix, SControlInput, SIntegrator, SIntegratorConstructor,
+    SIntegratorStepResult, SSensitivity, SStateDynamics, SVariationalMatrix,
+    compute_next_step_size, compute_normalized_error, compute_normalized_error_s,
+    compute_reduced_step_size,
 };
 
 /// Implementation of the RKN12(10) Runge-Kutta-Nyström numerical integrator.
@@ -63,7 +64,7 @@ use crate::integrators::traits::{
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::integrators::{RKN1210SIntegrator, SIntegrator, IntegratorConfig};
+/// use brahe::integrators::{RKN1210SIntegrator, SIntegrator, SIntegratorConstructor, IntegratorConfig};
 /// use brahe::constants::GM_EARTH;
 ///
 /// // Define dynamics for two-body problem (second-order)
@@ -312,32 +313,6 @@ impl<const S: usize, const P: usize> RKN1210SIntegrator<S, P> {
 }
 
 impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S, P> {
-    fn new(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    fn with_config(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: rkn1210_tableau(),
-            config,
-        }
-    }
-
     fn config(&self) -> &IntegratorConfig {
         &self.config
     }
@@ -381,6 +356,34 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
     ) -> SIntegratorStepResult<S, P> {
         let dt = dt.expect("Adaptive integrators require dt");
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKN1210SIntegrator<S, P> {
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: rkn1210_tableau(),
+            config,
+        }
     }
 }
 
@@ -436,8 +439,16 @@ pub struct RKN1210DIntegrator {
     config: IntegratorConfig,
 }
 
-impl DIntegrator for RKN1210DIntegrator {
-    fn new(
+impl RKN1210DIntegrator {
+    /// Create a new RKN12(10) integrator with default configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension (must be even: position + velocity)
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    pub fn new(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -454,7 +465,16 @@ impl DIntegrator for RKN1210DIntegrator {
         )
     }
 
-    fn with_config(
+    /// Create a new RKN12(10) integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension (must be even: position + velocity)
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integrator configuration
+    pub fn with_config(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -476,7 +496,9 @@ impl DIntegrator for RKN1210DIntegrator {
             config,
         }
     }
+}
 
+impl DIntegrator for RKN1210DIntegrator {
     fn dimension(&self) -> usize {
         self.dimension
     }
@@ -524,6 +546,27 @@ impl DIntegrator for RKN1210DIntegrator {
     ) -> DIntegratorStepResult {
         let dt = dt.expect("Adaptive integrators require dt");
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl DIntegratorConstructor for RKN1210DIntegrator {
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: rkn1210_tableau(),
+            config,
+        }
     }
 }
 
@@ -755,7 +798,7 @@ mod tests {
     use crate::integrators::butcher_tableau::rkn1210_tableau;
     use crate::integrators::config::IntegratorConfig;
     use crate::integrators::rkn1210::RKN1210SIntegrator;
-    use crate::integrators::traits::SIntegrator;
+    use crate::integrators::traits::{SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};

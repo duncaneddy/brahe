@@ -923,7 +923,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
-    module.add_class::<PyDefaultGravityModel>()?;
+    module.add_class::<PyGravityModelType>()?;
     module.add_class::<PyGravityModelTideSystem>()?;
     module.add_class::<PyGravityModelErrors>()?;
     module.add_class::<PyGravityModelNormalization>()?;

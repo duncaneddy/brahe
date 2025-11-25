@@ -7,9 +7,9 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{ButcherTableau, RK4_TABLEAU};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
-    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
-    SStateDynamics, SVariationalMatrix, get_step_size,
+    DControlInput, DIntegrator, DIntegratorConstructor, DIntegratorStepResult, DSensitivity,
+    DStateDynamics, DVariationalMatrix, SControlInput, SIntegrator, SIntegratorConstructor,
+    SIntegratorStepResult, SSensitivity, SStateDynamics, SVariationalMatrix, get_step_size,
 };
 
 /// Implementation of the 4th order Runge-Kutta numerical integrator. This implementation is generic
@@ -23,7 +23,7 @@ use crate::integrators::traits::{
 ///
 /// ```
 /// use nalgebra::{SVector, SMatrix};
-/// use brahe::integrators::{RK4SIntegrator, SIntegrator};
+/// use brahe::integrators::{RK4SIntegrator, SIntegrator, SIntegratorConstructor};
 ///
 /// // Define a simple function for testing x' = 2x,
 /// let f = |t: f64, state: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
@@ -195,32 +195,6 @@ impl<const S: usize, const P: usize> RK4SIntegrator<S, P> {
 }
 
 impl<const S: usize, const P: usize> SIntegrator<S, P> for RK4SIntegrator<S, P> {
-    fn new(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    fn with_config(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: RK4_TABLEAU,
-            config,
-        }
-    }
-
     fn config(&self) -> &IntegratorConfig {
         &self.config
     }
@@ -264,6 +238,34 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RK4SIntegrator<S, P> 
     ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RK4SIntegrator<S, P> {
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RK4_TABLEAU,
+            config,
+        }
     }
 }
 
@@ -322,6 +324,8 @@ impl RK4DIntegrator {
     /// - `dimension`: State vector dimension (runtime-determined)
     /// - `f`: State derivative function defining the dynamics
     /// - `varmat`: Optional variational matrix computation function for STM propagation
+    /// - `sensmat`: Optional sensitivity matrix computation function
+    /// - `control`: Optional control input function
     ///
     /// # Returns
     /// RK4DIntegrator instance ready for numerical integration
@@ -345,7 +349,14 @@ impl RK4DIntegrator {
         sensmat: DSensitivity,
         control: DControlInput,
     ) -> Self {
-        <Self as DIntegrator>::new(dimension, f, varmat, sensmat, control)
+        Self::with_config(
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            IntegratorConfig::default(),
+        )
     }
 
     /// Create a new 4th-order Runge-Kutta integrator with custom configuration.
@@ -368,46 +379,6 @@ impl RK4DIntegrator {
         control: DControlInput,
         config: IntegratorConfig,
     ) -> Self {
-        <Self as DIntegrator>::with_config(dimension, f, varmat, sensmat, control, config)
-    }
-
-    /// Get the state vector dimension for this integrator.
-    pub fn dimension(&self) -> usize {
-        self.dimension
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
-}
-
-impl DIntegrator for RK4DIntegrator {
-    fn new(
-        dimension: usize,
-        f: DStateDynamics,
-        varmat: DVariationalMatrix,
-        sensmat: DSensitivity,
-        control: DControlInput,
-    ) -> Self {
-        Self::with_config(
-            dimension,
-            f,
-            varmat,
-            sensmat,
-            control,
-            IntegratorConfig::default(),
-        )
-    }
-
-    fn with_config(
-        dimension: usize,
-        f: DStateDynamics,
-        varmat: DVariationalMatrix,
-        sensmat: DSensitivity,
-        control: DControlInput,
-        config: IntegratorConfig,
-    ) -> Self {
         Self {
             dimension,
             f,
@@ -418,7 +389,9 @@ impl DIntegrator for RK4DIntegrator {
             config,
         }
     }
+}
 
+impl DIntegrator for RK4DIntegrator {
     fn dimension(&self) -> usize {
         self.dimension
     }
@@ -466,6 +439,27 @@ impl DIntegrator for RK4DIntegrator {
     ) -> DIntegratorStepResult {
         let dt = get_step_size(dt, &self.config);
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl DIntegratorConstructor for RK4DIntegrator {
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RK4_TABLEAU,
+            config,
+        }
     }
 }
 
@@ -657,7 +651,7 @@ mod tests {
 
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::rk4::{RK4DIntegrator, RK4SIntegrator};
-    use crate::integrators::traits::{DIntegrator, SIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};

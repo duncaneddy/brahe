@@ -37,9 +37,9 @@ static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
 /// # Examples
 ///
 /// ```
-/// use brahe::gravity::{GravityModel, set_global_gravity_model, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 /// set_global_gravity_model(gravity_model);
 /// ```
 pub fn set_global_gravity_model(gravity_model: GravityModel) {
@@ -55,9 +55,9 @@ pub fn set_global_gravity_model(gravity_model: GravityModel) {
 /// # Examples
 ///
 /// ```
-/// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 /// set_global_gravity_model(gravity_model);
 ///
 /// let model = get_global_gravity_model();
@@ -195,9 +195,12 @@ pub enum GravityModelNormalization {
     Unnormalized,
 }
 
-/// Enumeration of the default gravity models available in Brahe.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DefaultGravityModel {
+/// Type of spherical harmonic gravity model
+///
+/// Specifies which gravity model to load and use for orbit propagation.
+/// Models can either be packaged with Brahe or loaded from external files.
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+pub enum GravityModelType {
     /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
     /// global model developed by NGA. Best for precision orbit determination.
     EGM2008_360,
@@ -207,6 +210,10 @@ pub enum DefaultGravityModel {
     /// Joint Gravity Model 3, degree/order 70. Legacy model from 1990s. Included
     /// for compatibility and applications not requiring modern accuracy.
     JGM3,
+    /// Load gravity model from custom file
+    ///
+    /// Allows using custom gravity models. File must be in standard GFC format.
+    FromFile(String),
 }
 
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
@@ -407,30 +414,37 @@ impl GravityModel {
         Self::from_bufreader(reader)
     }
 
-    /// Load a gravity model from default models included with Brahe. The available default models
-    /// are defined by the `DefaultGravityModel` enum. Currently, the available default models are:
+    /// Load a gravity model from packaged models or file.
     ///
-    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008_360 model.
+    /// The available packaged models are:
+    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008 model.
     /// - `GGM05S` - The full 180x180 GGM05S model.
     /// - `JGM3` - The full 70x70 JGM3 model.
     ///
+    /// Or load a custom model from file using `FromFile(path)`.
+    ///
     /// # Arguments
     ///
-    /// - `model` : Default gravity model to load. This is a `DefaultGravityModel` enum.
-    pub fn from_default(model: DefaultGravityModel) -> Self {
+    /// - `model` : Gravity model type to load. This is a `GravityModelType` enum.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Loaded gravity model, or error if file loading fails.
+    pub fn from_model_type(model: &GravityModelType) -> Result<Self, BraheError> {
         match model {
-            DefaultGravityModel::EGM2008_360 => {
+            GravityModelType::EGM2008_360 => {
                 let reader = BufReader::new(PACKAGED_EGM2008_360);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
-            DefaultGravityModel::GGM05S => {
+            GravityModelType::GGM05S => {
                 let reader = BufReader::new(PACKAGED_GGM05S);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
-            DefaultGravityModel::JGM3 => {
+            GravityModelType::JGM3 => {
                 let reader = BufReader::new(PACKAGED_JGM3);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
+            GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
         }
     }
 
@@ -644,7 +658,7 @@ impl std::fmt::Debug for GravityModel {
 /// Using a position vector:
 /// ```
 /// use nalgebra::{Vector3, Vector6};
-/// use brahe::gravity::{GravityModel, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, GravityModelType};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -658,7 +672,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -672,7 +686,7 @@ impl std::fmt::Debug for GravityModel {
 /// Using a state vector:
 /// ```
 /// use nalgebra::Vector6;
-/// use brahe::gravity::{GravityModel, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, GravityModelType};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -686,7 +700,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -746,8 +760,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_egm2008_360() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+    fn test_gravity_model_from_model_type_egm2008_360() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -763,8 +777,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_ggm05s() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::GGM05S);
+    fn test_gravity_model_from_model_type_ggm05s() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
 
         assert_eq!(gravity_model.model_name, "GGM05S");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -780,8 +794,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_jgm3() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+    fn test_gravity_model_from_model_type_jgm3() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
         assert_eq!(gravity_model.model_name, "JGM3");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -798,7 +812,7 @@ mod tests {
 
     #[test]
     fn test_gravity_model_get() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         let (c, s) = gravity_model.get(2, 0).unwrap();
         assert_abs_diff_eq!(c, -0.484165143790815e-03, epsilon = 1e-12);
@@ -855,7 +869,7 @@ mod tests {
     fn test_gravity_model_compute_spherical_harmonics() {
         setup_global_test_eop();
 
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
@@ -905,7 +919,7 @@ mod tests {
     ) {
         let rot = SMatrix3::identity();
 
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
         let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);

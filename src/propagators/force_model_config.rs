@@ -12,6 +12,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::orbit_dynamics::gravity::GravityModelType;
+
 // =============================================================================
 // Parameter Source Configuration
 // =============================================================================
@@ -144,6 +146,130 @@ impl Default for ForceModelConfiguration {
 }
 
 impl ForceModelConfiguration {
+    /// Check if this configuration requires a parameter vector
+    ///
+    /// Returns true if any force model component (drag, SRP) references
+    /// a parameter index instead of using a fixed value.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use brahe::propagators::ForceModelConfiguration;
+    ///
+    /// let config = ForceModelConfiguration::default();
+    /// assert!(config.requires_params()); // Default uses parameter indices
+    ///
+    /// let gravity_only = ForceModelConfiguration::gravity_only();
+    /// assert!(!gravity_only.requires_params()); // No drag/SRP
+    /// ```
+    pub fn requires_params(&self) -> bool {
+        // Check drag configuration
+        if let Some(ref drag) = self.drag
+            && (drag.area.requires_params() || drag.cd.requires_params())
+        {
+            return true;
+        }
+
+        // Check SRP configuration
+        if let Some(ref srp) = self.srp
+            && (srp.area.requires_params() || srp.cr.requires_params())
+        {
+            return true;
+        }
+
+        false
+    }
+
+    /// Get the maximum parameter index required by this configuration
+    ///
+    /// Returns the highest parameter index referenced, or None if no
+    /// parameter indices are used.
+    fn max_required_param_index(&self) -> Option<usize> {
+        let mut max_idx: Option<usize> = None;
+
+        // Check drag configuration
+        if let Some(ref drag) = self.drag {
+            if let ParameterSource::ParameterIndex(idx) = drag.area {
+                max_idx = Some(max_idx.map_or(idx, |m| m.max(idx)));
+            }
+            if let ParameterSource::ParameterIndex(idx) = drag.cd {
+                max_idx = Some(max_idx.map_or(idx, |m| m.max(idx)));
+            }
+        }
+
+        // Check SRP configuration
+        if let Some(ref srp) = self.srp {
+            if let ParameterSource::ParameterIndex(idx) = srp.area {
+                max_idx = Some(max_idx.map_or(idx, |m| m.max(idx)));
+            }
+            if let ParameterSource::ParameterIndex(idx) = srp.cr {
+                max_idx = Some(max_idx.map_or(idx, |m| m.max(idx)));
+            }
+        }
+
+        max_idx
+    }
+
+    /// Validate that the provided parameter vector satisfies this configuration
+    ///
+    /// Returns an error if the configuration references parameter indices but:
+    /// - No parameter vector is provided
+    /// - The parameter vector is too short
+    ///
+    /// # Arguments
+    /// * `params` - Optional parameter vector to validate
+    ///
+    /// # Returns
+    /// `Ok(())` if valid, `Err(BraheError)` with descriptive message if invalid
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use brahe::propagators::ForceModelConfiguration;
+    /// use nalgebra::DVector;
+    ///
+    /// let config = ForceModelConfiguration::default();
+    ///
+    /// // This will fail - default config needs params but none provided
+    /// let result = config.validate_params(None);
+    /// assert!(result.is_err());
+    ///
+    /// // This will succeed - params vector is long enough
+    /// let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+    /// let result = config.validate_params(Some(&params));
+    /// assert!(result.is_ok());
+    /// ```
+    pub fn validate_params(
+        &self,
+        params: Option<&nalgebra::DVector<f64>>,
+    ) -> Result<(), crate::utils::errors::BraheError> {
+        if let Some(max_idx) = self.max_required_param_index() {
+            match params {
+                None => {
+                    return Err(crate::utils::errors::BraheError::Error(format!(
+                        "Force model configuration references parameter index {} but no parameter \
+                         vector was provided. Use ForceModelConfiguration::gravity_only() for \
+                         propagation without parameters, or provide a parameter vector with at \
+                         least {} elements.",
+                        max_idx,
+                        max_idx + 1
+                    )));
+                }
+                Some(p) if p.len() <= max_idx => {
+                    return Err(crate::utils::errors::BraheError::Error(format!(
+                        "Parameter vector length {} is insufficient; force model configuration \
+                         requires at least {} elements (max index: {})",
+                        p.len(),
+                        max_idx + 1,
+                        max_idx
+                    )));
+                }
+                _ => {} // Valid
+            }
+        }
+        Ok(())
+    }
+
     /// Create a high-fidelity force model configuration
     ///
     /// Uses:
@@ -270,31 +396,6 @@ pub enum GravityConfiguration {
         /// Maximum order (m) of expansion
         order: usize,
     },
-}
-
-/// Type of spherical harmonic gravity model
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum GravityModelType {
-    /// EGM2008 model (360×360)
-    ///
-    /// Earth Gravitational Model 2008 - state-of-the-art model with 360×360 coefficients.
-    /// Most accurate for Earth orbit propagation.
-    EGM2008_360,
-
-    /// GGM05S model
-    ///
-    /// GRACE Gravity Model 05S - alternative high-accuracy model
-    GGM05S,
-
-    /// JGM3 model
-    ///
-    /// Joint Gravity Model 3 - older but still widely used
-    JGM3,
-
-    /// Load gravity model from file
-    ///
-    /// Allows using custom gravity models. File must be in standard GFC format.
-    FromFile(String),
 }
 
 // =============================================================================

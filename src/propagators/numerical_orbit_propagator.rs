@@ -14,7 +14,6 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 use crate::constants::{GM_EARTH, R_EARTH};
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::rotation_eci_to_ecef;
-use crate::integrators::IntegratorConfig;
 use crate::integrators::traits::DIntegrator;
 #[allow(unused_imports)]
 use crate::math::jacobian::DNumericalJacobian;
@@ -113,38 +112,41 @@ enum EventProcessingResult {
 ///
 /// Users can customize indices in the force configuration.
 ///
-/// # Type Parameters
-/// - `I`: Adaptive integrator type implementing `DIntegrator`
-///
 /// # Example
 ///
 /// ```rust,ignore
 /// use brahe::prelude::*;
 /// use nalgebra::DVector;
 ///
-/// // Create force configuration
+/// // Create configurations
+/// let prop_config = NumericalPropagationConfig::default();
 /// let force_config = ForceModelConfiguration::default();
 ///
 /// // Create initial state (ECI Cartesian)
-/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0);
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = DVector::from_vec(vec![
 ///     R_EARTH + 500e3, 0.0, 0.0,  // position
 ///     0.0, 7500.0, 0.0,            // velocity
 /// ]);
 ///
-/// // Create propagator (integrator type is inferred)
+/// // Parameters: [mass, drag_area, Cd, srp_area, Cr]
+/// let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+///
+/// // Create propagator
 /// let mut prop = DNumericalOrbitPropagator::new(
 ///     epoch,
 ///     state,
-///     OrbitFrame::ECI,
-///     OrbitRepresentation::Cartesian,
-///     AngleFormat::Radians,
-/// );
+///     prop_config,
+///     force_config,
+///     Some(params),
+///     None,  // additional_dynamics
+///     None,  // initial_covariance
+/// ).unwrap();
 ///
 /// // Propagate
 /// prop.propagate_to(epoch + 86400.0);  // 1 day
 /// ```
-pub struct DNumericalOrbitPropagator<I: DIntegrator> {
+pub struct DNumericalOrbitPropagator {
     // ===== Time Management =====
     /// Initial absolute time (Epoch)
     epoch_initial: Epoch,
@@ -152,8 +154,8 @@ pub struct DNumericalOrbitPropagator<I: DIntegrator> {
     t_rel: f64,
 
     // ===== Integration =====
-    /// Numerical integrator
-    integrator: I,
+    /// Numerical integrator (type-erased for runtime flexibility)
+    integrator: Box<dyn DIntegrator>,
     /// Force model configuration
     #[allow(dead_code)]
     force_config: ForceModelConfiguration,
@@ -217,124 +219,70 @@ pub struct DNumericalOrbitPropagator<I: DIntegrator> {
     pub uuid: Option<uuid::Uuid>,
 }
 
-impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
+impl DNumericalOrbitPropagator {
     // =========================================================================
     // Construction
     // =========================================================================
 
-    /// Create a new numerical orbit propagator from a pre-constructed integrator
+    /// Create a new numerical orbit propagator
     ///
-    /// This is the most flexible constructor that takes a fully configured integrator.
-    /// State is assumed to be in ECI Cartesian format. For other frames or representations,
-    /// use `with_frame_and_representation()` after construction.
+    /// This is the primary constructor that builds the integrator based on the
+    /// propagation configuration. State is assumed to be in ECI Cartesian format.
     ///
     /// # Arguments
     /// * `epoch` - Initial epoch
     /// * `state` - Initial state vector in ECI Cartesian format (6D or 6+N dimensional)
-    /// * `integrator` - Pre-constructed integrator implementing `DIntegrator`
-    /// * `force_config` - Force model configuration
-    /// * `params` - Parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`
+    /// * `propagation_config` - Numerical propagation configuration (integrator method + settings)
+    /// * `force_config` - Force model configuration (gravity, drag, SRP, third-body, etc.)
+    /// * `params` - Optional parameter vector `[mass, drag_area, Cd, srp_area, Cr, ...]`.
+    ///   Required if force_config references parameter indices.
+    /// * `additional_dynamics` - Optional function for extended state dynamics (beyond 6D)
     /// * `initial_covariance` - Optional initial covariance matrix P₀ (enables STM propagation)
     ///
     /// # Returns
-    /// New propagator ready for propagation
-    pub fn from_integrator(
+    /// New propagator ready for propagation, or error if configuration is invalid
+    ///
+    /// # Errors
+    /// Returns `BraheError` if:
+    /// - Force model references parameter indices but no parameter vector is provided
+    /// - Parameter vector is too short for the force model configuration
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfiguration};
+    /// use nalgebra::DVector;
+    ///
+    /// let prop = DNumericalOrbitPropagator::new(
+    ///     epoch,
+    ///     state,
+    ///     NumericalPropagationConfig::default(),
+    ///     ForceModelConfiguration::default(),
+    ///     Some(DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3])),
+    ///     None,
+    ///     None,
+    /// )?;
+    /// ```
+    pub fn new(
         epoch: Epoch,
         state: DVector<f64>,
-        integrator: I,
+        propagation_config: super::NumericalPropagationConfig,
         force_config: ForceModelConfiguration,
-        params: DVector<f64>,
+        params: Option<DVector<f64>>,
+        additional_dynamics: Option<DStateDynamics>,
         initial_covariance: Option<DMatrix<f64>>,
     ) -> Result<Self, BraheError> {
+        // Validate parameters against force model requirements
+        force_config.validate_params(params.as_ref())?;
+
+        // Use provided params or create empty vector (only valid if force config doesn't need params)
+        let params = params.unwrap_or_else(|| DVector::zeros(0));
+
         // State is assumed to be in ECI Cartesian format
         let state_eci = state;
 
         // Get state dimension
         let state_dim = state_eci.len();
-
-        // Get initial step size (default to 60s)
-        let initial_dt = 60.0;
-
-        // Create trajectory storage
-        let trajectory = DTrajectory::new(state_dim);
-
-        // Set up covariance propagation if initial covariance provided
-        let (propagation_mode, stm, current_covariance) = if let Some(ref p0) = initial_covariance {
-            // Initialize STM to identity matrix
-            let identity = DMatrix::identity(state_dim, state_dim);
-            (PropagationMode::WithSTM, Some(identity), Some(p0.clone()))
-        } else {
-            (PropagationMode::StateOnly, None, None)
-        };
-
-        Ok(Self {
-            epoch_initial: epoch,
-            t_rel: 0.0,
-            integrator,
-            force_config,
-            dt: initial_dt,
-            dt_next: initial_dt,
-            x_initial: state_eci.clone(),
-            x_curr: state_eci,
-            params,
-            state_dim,
-            input_frame: OrbitFrame::ECI,
-            input_representation: OrbitRepresentation::Cartesian,
-            angle_format: AngleFormat::Radians,
-            propagation_mode,
-            stm,
-            sensitivity: None,
-            initial_covariance,
-            current_covariance,
-            trajectory,
-            trajectory_mode: TrajectoryMode::AllSteps,
-            event_detectors: Vec::new(),
-            event_log: Vec::new(),
-            terminated: false,
-            name: None,
-            id: None,
-            uuid: None,
-        })
-    }
-
-    /// Create a new numerical orbit propagator with configurable integrator type
-    ///
-    /// This constructor builds the integrator for you based on the specified type.
-    /// State is assumed to be in ECI Cartesian format. For other frames or representations,
-    /// use `with_frame_and_representation()` after construction.
-    ///
-    /// # Arguments
-    /// * `epoch` - Initial epoch
-    /// * `state` - Initial state vector in ECI Cartesian format (6D or 6+N dimensional)
-    /// * `force_config` - Force model configuration
-    /// * `integrator_config` - Integrator configuration (tolerances, step limits, etc.)
-    /// * `additional_dynamics` - Optional function for extended state dynamics (beyond 6D)
-    /// * `initial_covariance` - Optional initial covariance matrix P₀ (enables STM propagation)
-    ///
-    /// # Returns
-    /// New propagator with specified integrator type
-    pub fn with_config(
-        epoch: Epoch,
-        state: DVector<f64>,
-        force_config: ForceModelConfiguration,
-        integrator_config: IntegratorConfig,
-        additional_dynamics: Option<DStateDynamics>,
-        initial_covariance: Option<DMatrix<f64>>,
-    ) -> Result<Self, BraheError>
-    where
-        I: DIntegrator,
-    {
-        // State is assumed to be in ECI Cartesian format
-        let state_eci = state;
-
-        // Create default parameter vector
-        let params = DVector::from_vec(vec![
-            1000.0, // mass [kg]
-            10.0,   // drag area [m²]
-            2.2,    // Cd
-            10.0,   // SRP area [m²]
-            1.3,    // Cr
-        ]);
 
         // Build dynamics function
         let dynamics = Self::build_dynamics_function(
@@ -344,11 +292,8 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
             additional_dynamics,
         );
 
-        // Get state dimension
-        let state_dim = state_eci.len();
-
         // Get initial step size from config
-        let initial_dt = integrator_config.initial_step.unwrap_or(60.0);
+        let initial_dt = propagation_config.integrator.initial_step.unwrap_or(60.0);
 
         // Build Jacobian and Sensitivity providers
         let jacobian_provider = Some(Self::build_jacobian_provider(
@@ -362,14 +307,15 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
             force_config.clone(),
         ));
 
-        // Create integrator using DIntegrator trait
-        let integrator = I::with_config(
+        // Create integrator using factory function
+        let integrator = crate::integrators::create_dintegrator(
+            propagation_config.method,
             state_dim,
             dynamics,
             jacobian_provider,
             sensitivity_provider,
             None, // No control input by default
-            integrator_config,
+            propagation_config.integrator,
         );
 
         // Create trajectory storage
@@ -412,31 +358,6 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
             id: None,
             uuid: None,
         })
-    }
-
-    /// Configure custom reference frame and representation
-    ///
-    /// Use this method to set up input/output frame and representation different from the default
-    /// ECI Cartesian. This affects how `current_state()` returns data.
-    ///
-    /// # Arguments
-    /// * `frame` - Reference frame for state input/output
-    /// * `representation` - State representation (Cartesian or Keplerian)
-    /// * `angle_format` - Angle format for conversions (Radians or Degrees)
-    ///
-    /// # Note
-    /// Internal propagation is always done in ECI Cartesian format. This only affects
-    /// the frame/representation of states returned by `current_state()`.
-    pub fn with_frame_and_representation(
-        mut self,
-        frame: OrbitFrame,
-        representation: OrbitRepresentation,
-        angle_format: AngleFormat,
-    ) -> Self {
-        self.input_frame = frame;
-        self.input_representation = representation;
-        self.angle_format = angle_format;
-        self
     }
 
     /// Enable STM propagation with initial covariance
@@ -747,13 +668,12 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
     ///
     /// Returns a boxed closure that computes state derivatives from the
     /// configured force models and optional additional dynamics.
-    #[allow(clippy::type_complexity)]
     fn build_dynamics_function(
         epoch_initial: Epoch,
         force_config: ForceModelConfiguration,
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
-    ) -> Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>> {
+    ) -> DStateDynamics {
         Box::new(
             move |t: f64, state: DVector<f64>, params_opt: Option<&DVector<f64>>| -> DVector<f64> {
                 // Compute orbital dynamics (first 6 elements)
@@ -769,11 +689,7 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
                 if let Some(ref add_dyn) = additional_dynamics
                     && state.len() > 6
                 {
-                    let dx_additional = add_dyn(t, state, params_opt);
-                    // Replace elements 6+ with additional dynamics output
-                    for i in 0..dx_additional.len() {
-                        dx[6 + i] = dx_additional[i];
-                    }
+                    dx += add_dyn(t, state, params_opt);
                 }
 
                 dx
@@ -798,14 +714,12 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
         // Extract position and velocity (first 6 elements always orbital state)
         let r = Vector3::new(state[0], state[1], state[2]);
         let v = Vector3::new(state[3], state[4], state[5]);
-        let x_eci = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
-
-        // Get parameters
-        let default_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
-        let p = params_opt.unwrap_or(&default_params);
-
-        // Extract spacecraft parameters
-        let mass = p[0];
+        let x_eci: nalgebra::Matrix<
+            f64,
+            nalgebra::Const<6>,
+            nalgebra::Const<1>,
+            nalgebra::ArrayStorage<f64, 6, 1>,
+        > = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
 
         // Accumulate total acceleration
         let mut a_total = Vector3::zeros();
@@ -833,6 +747,10 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
 
         // ===== DRAG =====
         if let Some(drag_config) = &force_config.drag {
+            // Get parameters for drag calculation (mass, area, Cd)
+            let default_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+            let p = params_opt.unwrap_or(&default_params);
+            let mass = p[0];
             let drag_area = drag_config.area.get_value(Some(p), 10.0);
             let cd = drag_config.cd.get_value(Some(p), 2.2);
 
@@ -866,6 +784,10 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
 
         // ===== SOLAR RADIATION PRESSURE =====
         if let Some(srp_config) = &force_config.srp {
+            // Get parameters for SRP calculation (mass, area, Cr)
+            let default_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+            let p = params_opt.unwrap_or(&default_params);
+            let mass = p[0];
             let srp_area = srp_config.area.get_value(Some(p), 10.0);
             let cr = srp_config.cr.get_value(Some(p), 1.3);
 
@@ -1439,7 +1361,7 @@ impl<I: DIntegrator> DNumericalOrbitPropagator<I> {
 // DStatePropagator Trait Implementation
 // =============================================================================
 
-impl<I: DIntegrator> super::traits::DStatePropagator for DNumericalOrbitPropagator<I> {
+impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     fn step_by(&mut self, step_size: f64) {
         self.step_by(step_size)
     }
@@ -1494,7 +1416,7 @@ impl<I: DIntegrator> super::traits::DStatePropagator for DNumericalOrbitPropagat
 // Covariance Provider Traits
 // =============================================================================
 
-impl<I: DIntegrator> super::traits::SCovarianceProvider for DNumericalOrbitPropagator<I> {
+impl super::traits::SCovarianceProvider for DNumericalOrbitPropagator {
     fn covariance(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
         // Check if covariance tracking is enabled
         self.current_covariance.as_ref()?;
@@ -1510,7 +1432,7 @@ impl<I: DIntegrator> super::traits::SCovarianceProvider for DNumericalOrbitPropa
     }
 }
 
-impl<I: DIntegrator> super::traits::SOrbitCovarianceProvider for DNumericalOrbitPropagator<I> {
+impl super::traits::SOrbitCovarianceProvider for DNumericalOrbitPropagator {
     fn covariance_eci(&self, epoch: Epoch) -> Option<nalgebra::SMatrix<f64, 6, 6>> {
         // Native frame is already ECI
         self.covariance(epoch)
@@ -1570,7 +1492,10 @@ mod tests {
     use super::*;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
-    use crate::integrators::DormandPrince54DIntegrator;
+    use crate::propagators::NumericalPropagationConfig;
+    use crate::propagators::force_model_config::{
+        AtmosphericModel, DragConfiguration, ParameterSource,
+    };
     use crate::propagators::traits::DStatePropagator;
     use crate::state_osculating_to_cartesian;
     use crate::time::TimeSystem;
@@ -1578,6 +1503,33 @@ mod tests {
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
+    }
+
+    /// Create default spacecraft parameters for tests
+    fn default_test_params() -> DVector<f64> {
+        DVector::from_vec(vec![
+            1000.0, // mass [kg]
+            10.0,   // drag area [m²]
+            2.2,    // Cd
+            10.0,   // SRP area [m²]
+            1.3,    // Cr
+        ])
+    }
+
+    /// Create a test-friendly force config that uses point mass gravity but has drag
+    /// This allows testing parameter-dependent features without loading gravity model
+    fn test_force_config_with_params() -> ForceModelConfiguration {
+        ForceModelConfiguration {
+            gravity: GravityConfiguration::PointMass,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::HarrisPriester,
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            srp: None,
+            third_body: None,
+            relativity: false,
+        }
     }
 
     #[test]
@@ -1595,11 +1547,12 @@ mod tests {
         ]);
 
         // Test construction with default integrator (DP54)
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::default(),
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         );
@@ -1630,11 +1583,12 @@ mod tests {
             0.0, // velocity
         ]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1670,11 +1624,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1710,11 +1665,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1758,11 +1714,12 @@ mod tests {
             AngleFormat::Radians,
         );
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             DVector::from_column_slice(state.as_slice()),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1793,11 +1750,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1834,11 +1792,13 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        // Use test-friendly force config that has params but point mass gravity
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            NumericalPropagationConfig::default(),
+            test_force_config_with_params(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -1877,11 +1837,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1929,11 +1890,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -1964,11 +1926,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2004,40 +1967,23 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_dnumericalorbitpropagator_construction_from_integrator() {
+    fn test_dnumericalorbitpropagator_construction_with_custom_params() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        // Create integrator manually
-        let force_config = ForceModelConfiguration::gravity_only();
-        let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+        // Create with custom parameters
+        let force_config = ForceModelConfiguration::default();
+        let params = DVector::from_vec(vec![500.0, 5.0, 2.0, 8.0, 1.5]); // Custom values
 
-        let dynamics =
-            DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::build_dynamics_function(
-                epoch,
-                force_config.clone(),
-                params.clone(),
-                None,
-            );
-
-        let integrator = DormandPrince54DIntegrator::with_config(
-            6,
-            dynamics,
-            None,
-            None,
-            None,
-            IntegratorConfig::default(),
-        );
-
-        // Test from_integrator constructor
-        let prop = DNumericalOrbitPropagator::from_integrator(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
-            integrator,
+            NumericalPropagationConfig::default(),
             force_config,
-            params,
+            Some(params),
+            None,
             None,
         );
 
@@ -2071,11 +2017,12 @@ mod tests {
         );
         let cartesian_state_dvector = DVector::from_vec(cartesian_state.as_slice().to_vec());
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             cartesian_state_dvector,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
@@ -2101,11 +2048,12 @@ mod tests {
         // Create ECI state (constructor expects ECI Cartesian)
         let eci_state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             eci_state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
@@ -2138,11 +2086,12 @@ mod tests {
             200.0, // additional state 2
         ]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             extended_state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
@@ -2176,15 +2125,19 @@ mod tests {
         ]);
 
         // Additional dynamics: mass depletion (e.g., -0.1 kg/s)
-        let additional_dynamics: DStateDynamics = Box::new(|_t, _state, _params| {
-            DVector::from_vec(vec![-0.1]) // dm/dt = -0.1 kg/s
+        // Returns full state-sized vector with additional contributions
+        let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
+            let mut dx = DVector::zeros(state.len());
+            dx[6] = -0.1; // dm/dt = -0.1 kg/s
+            dx
         });
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             extended_state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             Some(additional_dynamics),
             None,
         );
@@ -2206,45 +2159,60 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_construction_multiple_integrators() {
-        use crate::integrators::{RKF45DIntegrator, RKN1210DIntegrator};
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        // Test with DormandPrince54
-        let prop_dp54 = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        use crate::propagators::IntegratorMethod;
+
+        // Test with DormandPrince54 (default)
+        let prop_dp54 = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
         assert!(prop_dp54.is_ok());
 
         // Test with RKF45
-        let prop_rkf45 = DNumericalOrbitPropagator::<RKF45DIntegrator>::with_config(
+        let prop_rkf45 = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::with_method(IntegratorMethod::RKF45),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
         assert!(prop_rkf45.is_ok());
 
         // Test with RKN1210
-        let prop_rkn = DNumericalOrbitPropagator::<RKN1210DIntegrator>::with_config(
+        let prop_rkn = DNumericalOrbitPropagator::new(
             epoch,
-            state,
+            state.clone(),
+            NumericalPropagationConfig::with_method(IntegratorMethod::RKN1210),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         );
         assert!(prop_rkn.is_ok());
+
+        // Test with RK4
+        let prop_rk4 = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::with_method(IntegratorMethod::RK4),
+            ForceModelConfiguration::gravity_only(),
+            None,
+            None,
+            None,
+        );
+        assert!(prop_rk4.is_ok());
     }
 
     // =========================================================================
@@ -2258,11 +2226,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2284,11 +2253,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2303,12 +2273,6 @@ mod tests {
         }
     }
 
-    // NOTE: Frame conversion test removed - current_state() now always returns ECI Cartesian
-    // Use with_frame_and_representation() if custom output frames are needed
-
-    // NOTE: Representation conversion test removed - current_state() now always returns ECI Cartesian
-    // Use state_cartesian_to_osculating() for Keplerian conversions if needed
-
     #[test]
     fn test_dnumericalorbitpropagator_current_params() {
         setup_global_test_eop();
@@ -2316,19 +2280,36 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        // Test with gravity_only - no params needed
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
-            state,
+            state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
         .unwrap();
 
         let params = prop.current_params();
+        // With gravity_only, no params are required so empty vec is stored
+        assert_eq!(params.len(), 0);
 
-        // Default parameters: [mass, drag_area, Cd, srp_area, Cr]
+        // Test with explicit params
+        let custom_params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+        let prop_with_params = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::default(),
+            Some(custom_params),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let params = prop_with_params.current_params();
         assert_eq!(params.len(), 5);
         assert_eq!(params[0], 1000.0); // mass
         assert_eq!(params[1], 10.0); // drag_area
@@ -2344,11 +2325,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 30, 45.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2369,11 +2351,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2403,11 +2386,12 @@ mod tests {
         // Test 6D state
         let state_6d = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop_6d = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop_6d = DNumericalOrbitPropagator::new(
             epoch,
             state_6d,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2427,11 +2411,12 @@ mod tests {
             200.0,
         ]);
 
-        let prop_8d = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop_8d = DNumericalOrbitPropagator::new(
             epoch,
             state_8d,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2447,11 +2432,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2476,11 +2462,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2507,11 +2494,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2538,11 +2526,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2573,11 +2562,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2613,11 +2603,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2634,11 +2625,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2660,11 +2652,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2682,11 +2675,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2716,11 +2710,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -2770,11 +2765,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -2805,7 +2801,7 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_spherical_harmonic() {
-        use crate::propagators::force_model_config::GravityModelType;
+        use crate::orbit_dynamics::gravity::GravityModelType;
 
         setup_global_test_eop();
 
@@ -2828,11 +2824,12 @@ mod tests {
         // Note: Spherical harmonic gravity requires loading model data files
         // This test verifies construction succeeds; actual propagation would
         // require gravity model data to be loaded
-        let prop_result = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop_result = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         );
@@ -2872,11 +2869,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -2922,11 +2920,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -2973,11 +2972,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3013,11 +3013,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3050,11 +3051,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3091,11 +3093,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3125,11 +3128,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3159,11 +3163,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3188,11 +3193,12 @@ mod tests {
             relativity: true, // Enable relativity
         };
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3214,11 +3220,12 @@ mod tests {
 
         // Note: LEO default includes spherical harmonic gravity which requires model data
         // This test verifies construction succeeds
-        let prop_result = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop_result = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         );
@@ -3242,11 +3249,12 @@ mod tests {
 
         // Note: GEO default includes spherical harmonic gravity which requires model data
         // This test verifies construction succeeds
-        let prop_result = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop_result = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         );
@@ -3280,11 +3288,12 @@ mod tests {
             relativity: false,
         };
 
-        let mut prop1 = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop1 = DNumericalOrbitPropagator::new(
             epoch,
             state.clone(),
+            NumericalPropagationConfig::default(),
             force_config.clone(),
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3295,11 +3304,12 @@ mod tests {
         let final_state1 = prop1.current_state().clone();
 
         // Create second propagator and modify Cd parameter
-        let mut prop2 = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop2 = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             force_config,
-            IntegratorConfig::default(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3335,11 +3345,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3357,11 +3368,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3404,11 +3416,14 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        // Must provide params for sensitivity propagation (5 params -> 6x5 sensitivity matrix)
+        // Use test-friendly config with point mass gravity to avoid gravity model dependency
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            NumericalPropagationConfig::default(),
+            test_force_config_with_params(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3437,11 +3452,14 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        // Must provide params for sensitivity propagation (5 params -> 6x5 sensitivity matrix)
+        // Use test-friendly config with point mass gravity to avoid gravity model dependency
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            NumericalPropagationConfig::default(),
+            test_force_config_with_params(),
+            Some(default_test_params()),
             None,
             None,
         )
@@ -3470,11 +3488,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3496,11 +3515,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3522,11 +3542,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3551,11 +3572,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3580,11 +3602,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None,
         )
@@ -3616,11 +3639,12 @@ mod tests {
         }
 
         // Constructor with initial covariance should automatically enable STM
-        let prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             Some(initial_cov.clone()),
         )
@@ -3651,11 +3675,12 @@ mod tests {
         // Small initial covariance
         let initial_cov = DMatrix::identity(6, 6) * 10.0; // 10 m²/m²/s²
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             Some(initial_cov.clone()),
         )
@@ -3687,11 +3712,12 @@ mod tests {
 
         let initial_cov = DMatrix::identity(6, 6) * 100.0;
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             Some(initial_cov),
         )
@@ -3720,11 +3746,12 @@ mod tests {
 
         let initial_cov = DMatrix::identity(6, 6) * 100.0;
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             Some(initial_cov),
         )
@@ -3767,11 +3794,12 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Create without initial covariance
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             None, // No initial covariance
         )
@@ -3795,11 +3823,12 @@ mod tests {
 
         let initial_cov = DMatrix::identity(6, 6) * 100.0;
 
-        let mut prop = DNumericalOrbitPropagator::<DormandPrince54DIntegrator>::with_config(
+        let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
+            NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
-            IntegratorConfig::default(),
+            None,
             None,
             Some(initial_cov),
         )

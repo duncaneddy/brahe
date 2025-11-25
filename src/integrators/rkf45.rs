@@ -7,10 +7,11 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 use crate::integrators::butcher_tableau::{EmbeddedButcherTableau, RKF45_TABLEAU};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
-    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
-    SStateDynamics, SVariationalMatrix, compute_next_step_size, compute_normalized_error,
-    compute_normalized_error_s, compute_reduced_step_size,
+    DControlInput, DIntegrator, DIntegratorConstructor, DIntegratorStepResult, DSensitivity,
+    DStateDynamics, DVariationalMatrix, SControlInput, SIntegrator, SIntegratorConstructor,
+    SIntegratorStepResult, SSensitivity, SStateDynamics, SVariationalMatrix,
+    compute_next_step_size, compute_normalized_error, compute_normalized_error_s,
+    compute_reduced_step_size,
 };
 
 /// Runge-Kutta-Fehlberg 4(5) adaptive integrator.
@@ -22,7 +23,7 @@ use crate::integrators::traits::{
 ///
 /// ```
 /// use nalgebra::SVector;
-/// use brahe::integrators::{RKF45SIntegrator, SIntegrator, IntegratorConfig};
+/// use brahe::integrators::{RKF45SIntegrator, SIntegrator, SIntegratorConstructor, IntegratorConfig};
 ///
 /// let f = |t: f64, state: SVector<f64, 1>, _params: Option<&SVector<f64, 0>>| -> SVector<f64, 1> {
 ///     SVector::<f64, 1>::new(2.0 * t)
@@ -169,32 +170,6 @@ impl<const S: usize, const P: usize> RKF45SIntegrator<S, P> {
 }
 
 impl<const S: usize, const P: usize> SIntegrator<S, P> for RKF45SIntegrator<S, P> {
-    fn new(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    fn with_config(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: RKF45_TABLEAU,
-            config,
-        }
-    }
-
     fn config(&self) -> &IntegratorConfig {
         &self.config
     }
@@ -241,6 +216,34 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKF45SIntegrator<S, P
     }
 }
 
+impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKF45SIntegrator<S, P> {
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RKF45_TABLEAU,
+            config,
+        }
+    }
+}
+
 // ============================================================================
 // Dynamic (runtime-sized) RKF45 Integrator
 // ============================================================================
@@ -276,8 +279,16 @@ pub struct RKF45DIntegrator {
     config: IntegratorConfig,
 }
 
-impl DIntegrator for RKF45DIntegrator {
-    fn new(
+impl RKF45DIntegrator {
+    /// Create a new RKF45 integrator with default configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    pub fn new(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -294,7 +305,16 @@ impl DIntegrator for RKF45DIntegrator {
         )
     }
 
-    fn with_config(
+    /// Create a new RKF45 integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integrator configuration
+    pub fn with_config(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -312,7 +332,9 @@ impl DIntegrator for RKF45DIntegrator {
             config,
         }
     }
+}
 
+impl DIntegrator for RKF45DIntegrator {
     fn dimension(&self) -> usize {
         self.dimension
     }
@@ -360,6 +382,27 @@ impl DIntegrator for RKF45DIntegrator {
     ) -> DIntegratorStepResult {
         let dt = dt.expect("Adaptive integrators require dt");
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl DIntegratorConstructor for RKF45DIntegrator {
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: RKF45_TABLEAU,
+            config,
+        }
     }
 }
 
@@ -545,7 +588,7 @@ mod tests {
     use crate::constants::{DEGREES, RADIANS};
     use crate::integrators::IntegratorConfig;
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{DIntegrator, SIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;

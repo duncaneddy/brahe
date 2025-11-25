@@ -19,11 +19,15 @@ use crate::math::sensitivity::{DSensitivityProvider, SSensitivityProvider};
 /// This enables sensitivity matrix propagation for parameter estimation and matches
 /// the signature of `DStateDynamics`.
 ///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+///
 /// # Type Parameters
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension
 pub type SStateDynamics<const S: usize, const P: usize> =
-    Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>>;
+    Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>;
 
 /// Jacobian provider type for static-sized variational matrix propagation.
 ///
@@ -31,15 +35,20 @@ pub type SStateDynamics<const S: usize, const P: usize> =
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension
 pub type SVariationalMatrix<const S: usize, const P: usize> =
-    Option<Box<dyn SJacobianProvider<S, P>>>;
+    Option<Box<dyn SJacobianProvider<S, P> + Send + Sync>>;
 
 /// Control input function type for static-sized state vectors.
 /// Returns perturbation to be added to dynamics output.
 ///
 /// The third parameter is an optional parameter vector that the control law may depend on.
 /// This enables control laws that vary based on physical parameters (e.g., mass, area).
-pub type SControlInput<const S: usize, const P: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>>>;
+///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+pub type SControlInput<const S: usize, const P: usize> = Option<
+    Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>,
+>;
 
 // ============================================================================
 // Type Aliases for Dynamic-Sized Integrators
@@ -49,7 +58,8 @@ pub type SControlInput<const S: usize, const P: usize> =
 ///
 /// The third parameter is optional consider parameters that the dynamics may depend on.
 /// This enables sensitivity matrix propagation for parameter estimation.
-pub type DStateDynamics = Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>>;
+pub type DStateDynamics =
+    Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
 /// Jacobian provider type for dynamic-sized variational matrix propagation.
 pub type DVariationalMatrix = Option<Box<dyn DJacobianProvider>>;
@@ -60,7 +70,7 @@ pub type DVariationalMatrix = Option<Box<dyn DJacobianProvider>>;
 /// The third parameter is an optional parameter vector that the control law may depend on.
 /// This enables control laws that vary based on physical parameters (e.g., mass, area).
 pub type DControlInput =
-    Option<Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>>>;
+    Option<Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>>;
 
 // ============================================================================
 // Sensitivity Matrix Support
@@ -72,7 +82,8 @@ pub use crate::math::sensitivity::{
 };
 
 /// Sensitivity provider type for static-sized sensitivity matrix propagation.
-pub type SSensitivity<const S: usize, const P: usize> = Option<Box<dyn SSensitivityProvider<S, P>>>;
+pub type SSensitivity<const S: usize, const P: usize> =
+    Option<Box<dyn SSensitivityProvider<S, P> + Send + Sync>>;
 
 /// Sensitivity provider type for dynamic-sized sensitivity matrix propagation.
 pub type DSensitivity = Option<Box<dyn DSensitivityProvider>>;
@@ -83,43 +94,16 @@ pub type DSensitivity = Option<Box<dyn DSensitivityProvider>>;
 
 /// Base trait for dynamic-sized integrators.
 ///
-/// Defines the common constructor and accessor interface that all dynamic-sized
-/// integrators must implement.
-pub trait DIntegrator: Sized {
-    /// Create a new integrator with default configuration.
-    ///
-    /// # Arguments
-    /// - `dimension`: State vector dimension
-    /// - `f`: Dynamics function
-    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
-    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
-    /// - `control`: Optional control input function
-    fn new(
-        dimension: usize,
-        f: DStateDynamics,
-        varmat: DVariationalMatrix,
-        sensmat: DSensitivity,
-        control: DControlInput,
-    ) -> Self;
-
-    /// Create a new integrator with custom configuration.
-    ///
-    /// # Arguments
-    /// - `dimension`: State vector dimension
-    /// - `f`: Dynamics function
-    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
-    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
-    /// - `control`: Optional control input function
-    /// - `config`: Integration configuration (tolerances, step sizes, etc.)
-    fn with_config(
-        dimension: usize,
-        f: DStateDynamics,
-        varmat: DVariationalMatrix,
-        sensmat: DSensitivity,
-        control: DControlInput,
-        config: IntegratorConfig,
-    ) -> Self;
-
+/// This trait is object-safe, enabling runtime integrator selection via `Box<dyn DIntegrator>`.
+/// Constructors (`new()`, `with_config()`) are implemented as inherent methods on each
+/// integrator type rather than trait methods, since methods returning `Self` are not
+/// object-safe.
+///
+/// # Thread Safety
+///
+/// This trait requires `Send + Sync` to allow integrators to be used across threads
+/// and shared safely.
+pub trait DIntegrator: Send + Sync {
     /// Get the state vector dimension.
     fn dimension(&self) -> usize;
 
@@ -206,45 +190,53 @@ pub trait DIntegrator: Sized {
     ) -> DIntegratorStepResult;
 }
 
-/// Base trait for static-sized integrators.
+/// Constructor trait for dynamic-sized integrators.
 ///
-/// Defines the common constructor and accessor interface that all static-sized
-/// integrators must implement.
+/// This trait provides the constructor interface that is not object-safe
+/// and therefore cannot be part of `DIntegrator`. Use this trait bound
+/// when you need to construct an integrator with a known type.
 ///
-/// # Type Parameters
-/// - `S`: State vector dimension
-/// - `P`: Parameter vector dimension (for sensitivity matrix)
-pub trait SIntegrator<const S: usize, const P: usize>: Sized {
-    /// Create a new integrator with default configuration.
-    ///
-    /// # Arguments
-    /// - `f`: Dynamics function
-    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
-    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
-    /// - `control`: Optional control input function
-    fn new(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-    ) -> Self;
-
+/// # Example
+///
+/// ```rust,ignore
+/// fn create_propagator<I: DIntegrator + DIntegratorConstructor>(config: IntegratorConfig) -> I {
+///     I::with_config(6, dynamics, None, None, None, config)
+/// }
+/// ```
+pub trait DIntegratorConstructor: DIntegrator + Sized {
     /// Create a new integrator with custom configuration.
     ///
     /// # Arguments
+    /// - `dimension`: State vector dimension
     /// - `f`: Dynamics function
     /// - `varmat`: Optional Jacobian provider for variational matrix propagation
     /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
     /// - `control`: Optional control input function
     /// - `config`: Integration configuration (tolerances, step sizes, etc.)
     fn with_config(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
         config: IntegratorConfig,
     ) -> Self;
+}
 
+/// Base trait for static-sized integrators.
+///
+/// This trait is designed to mirror `DIntegrator` for consistency.
+/// Constructors (`new()`, `with_config()`) are in the separate
+/// `SIntegratorConstructor` trait.
+///
+/// # Thread Safety
+///
+/// This trait requires `Send + Sync` to match `DIntegrator`.
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension (for sensitivity matrix)
+pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
     /// Get the integrator configuration.
     fn config(&self) -> &IntegratorConfig;
 
@@ -326,6 +318,59 @@ pub trait SIntegrator<const S: usize, const P: usize>: Sized {
         params: &SVector<f64, P>,
         dt: Option<f64>,
     ) -> SIntegratorStepResult<S, P>;
+}
+
+/// Constructor trait for static-sized integrators.
+///
+/// This trait provides the constructor interface that requires `Sized`,
+/// mirroring `DIntegratorConstructor`. Use this trait bound when you need
+/// to construct an integrator with a known type.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// fn create_integrator<I: SIntegrator<6, 0> + SIntegratorConstructor<6, 0>>(
+///     config: IntegratorConfig
+/// ) -> I {
+///     I::with_config(dynamics, None, None, None, config)
+/// }
+/// ```
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub trait SIntegratorConstructor<const S: usize, const P: usize>:
+    SIntegrator<S, P> + Sized
+{
+    /// Create a new integrator with default configuration.
+    ///
+    /// # Arguments
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self;
+
+    /// Create a new integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integration configuration (tolerances, step sizes, etc.)
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self;
 }
 
 // ============================================================================
@@ -538,6 +583,75 @@ pub(crate) fn compute_normalized_error_s<const S: usize>(
         error = error.max((error_vec[i] / tol).abs());
     }
     error
+}
+
+// ============================================================================
+// Integrator Factory Function
+// ============================================================================
+
+use crate::propagators::IntegratorMethod;
+
+/// Create a boxed dynamic integrator based on the specified method.
+///
+/// This factory function enables runtime integrator selection by returning
+/// a trait object (`Box<dyn DIntegrator>`). Use this when the integrator
+/// type needs to be determined at runtime based on configuration.
+///
+/// # Arguments
+/// * `method` - The integration method to use (RK4, RKF45, DP54, or RKN1210)
+/// * `dimension` - State vector dimension
+/// * `dynamics` - Dynamics function computing state derivatives
+/// * `varmat` - Optional Jacobian provider for STM propagation
+/// * `sensmat` - Optional sensitivity provider for parameter sensitivity
+/// * `control` - Optional control input function
+/// * `config` - Integrator configuration (tolerances, step sizes, etc.)
+///
+/// # Returns
+/// Boxed integrator implementing `DIntegrator` trait
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use brahe::integrators::{create_dintegrator, IntegratorConfig};
+/// use brahe::propagators::IntegratorMethod;
+///
+/// let integrator = create_dintegrator(
+///     IntegratorMethod::DP54,
+///     6,
+///     dynamics_fn,
+///     None,
+///     None,
+///     None,
+///     IntegratorConfig::default(),
+/// );
+/// ```
+pub fn create_dintegrator(
+    method: IntegratorMethod,
+    dimension: usize,
+    dynamics: DStateDynamics,
+    varmat: DVariationalMatrix,
+    sensmat: DSensitivity,
+    control: DControlInput,
+    config: IntegratorConfig,
+) -> Box<dyn DIntegrator> {
+    use crate::integrators::{
+        DormandPrince54DIntegrator, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
+    };
+
+    match method {
+        IntegratorMethod::RK4 => Box::new(RK4DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::RKF45 => Box::new(RKF45DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::DP54 => Box::new(DormandPrince54DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::RKN1210 => Box::new(RKN1210DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+    }
 }
 
 /// Determines the step size to use for fixed-step integration.

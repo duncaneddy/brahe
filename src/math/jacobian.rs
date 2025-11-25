@@ -13,9 +13,9 @@ use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 ///
 /// Different methods trade off accuracy vs computational cost:
 /// - **Forward**: O(h) error, S+1 function evaluations
-/// - **Central**: O(h²) error, 2S function evaluations (more accurate)
+/// - **Central**: O(h^2) error, 2S function evaluations (more accurate)
 /// - **Backward**: O(h) error, S+1 function evaluations
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DifferenceMethod {
     /// Forward finite difference: df/dx ≈ (f(x+h) - f(x)) / h
     ///
@@ -68,10 +68,14 @@ pub enum PerturbationStrategy {
 /// Implementors of this trait can compute Jacobian matrices for systems with
 /// compile-time known dimensionality.
 ///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+///
 /// # Type Parameters
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension
-pub trait SJacobianProvider<const S: usize, const P: usize>: Send {
+pub trait SJacobianProvider<const S: usize, const P: usize>: Send + Sync {
     /// Compute the Jacobian matrix at the given time and state.
     ///
     /// # Arguments
@@ -93,7 +97,7 @@ pub trait SJacobianProvider<const S: usize, const P: usize>: Send {
 ///
 /// Implementors of this trait can compute Jacobian matrices for systems with
 /// runtime-determined dimensionality.
-pub trait DJacobianProvider: Send {
+pub trait DJacobianProvider: Send + Sync {
     /// Compute the Jacobian matrix at the given time and state.
     ///
     /// # Arguments
@@ -131,8 +135,9 @@ pub trait DJacobianProvider: Send {
 /// let jacobian = provider.compute(0.0, state, None);
 /// ```
 pub struct SAnalyticJacobian<const S: usize, const P: usize> {
-    jacobian_fn:
-        Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S> + Send>,
+    jacobian_fn: Box<
+        dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S> + Send + Sync,
+    >,
 }
 
 impl<const S: usize, const P: usize> SAnalyticJacobian<S, P> {
@@ -142,7 +147,9 @@ impl<const S: usize, const P: usize> SAnalyticJacobian<S, P> {
     /// - `jacobian_fn`: Function that computes the analytical Jacobian
     pub fn new(
         jacobian_fn: Box<
-            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S> + Send,
+            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S>
+                + Send
+                + Sync,
         >,
     ) -> Self {
         Self { jacobian_fn }
@@ -185,7 +192,8 @@ impl<const S: usize, const P: usize> SJacobianProvider<S, P> for SAnalyticJacobi
 /// let jacobian = provider.compute(0.0, state, None);
 /// ```
 pub struct DAnalyticJacobian {
-    jacobian_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send>,
+    jacobian_fn:
+        Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send + Sync>,
 }
 
 impl DAnalyticJacobian {
@@ -194,7 +202,9 @@ impl DAnalyticJacobian {
     /// # Arguments
     /// - `jacobian_fn`: Function that computes the analytical Jacobian
     pub fn new(
-        jacobian_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send>,
+        jacobian_fn: Box<
+            dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send + Sync,
+        >,
     ) -> Self {
         Self { jacobian_fn }
     }
@@ -234,8 +244,9 @@ impl DJacobianProvider for DAnalyticJacobian {
 /// let jacobian = provider.compute(0.0, state, None);
 /// ```
 pub struct SNumericalJacobian<const S: usize, const P: usize> {
-    dynamics_fn:
-        Box<dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send>,
+    dynamics_fn: Box<
+        dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
+    >,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 }
@@ -246,7 +257,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     /// Default: central differences with adaptive perturbations.
     pub fn new(
         dynamics_fn: Box<
-            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send,
+            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
         >,
     ) -> Self {
         Self {
@@ -262,7 +273,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     /// Create with forward finite differences.
     pub fn forward(
         dynamics_fn: Box<
-            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send,
+            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
         >,
     ) -> Self {
         Self {
@@ -278,7 +289,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     /// Create with central finite differences.
     pub fn central(
         dynamics_fn: Box<
-            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send,
+            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
         >,
     ) -> Self {
         Self::new(dynamics_fn)
@@ -287,7 +298,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     /// Create with backward finite differences.
     pub fn backward(
         dynamics_fn: Box<
-            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send,
+            dyn Fn(f64, SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
         >,
     ) -> Self {
         Self {
@@ -477,7 +488,8 @@ impl<const S: usize, const P: usize> SJacobianProvider<S, P> for SNumericalJacob
 /// let jacobian = provider.compute(0.0, state, None);
 /// ```
 pub struct DNumericalJacobian {
-    dynamics_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send>,
+    dynamics_fn:
+        Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 }
@@ -487,7 +499,9 @@ impl DNumericalJacobian {
     ///
     /// Default: central differences with adaptive perturbations.
     pub fn new(
-        dynamics_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
     ) -> Self {
         Self {
             dynamics_fn,
@@ -501,7 +515,9 @@ impl DNumericalJacobian {
 
     /// Create with forward finite differences.
     pub fn forward(
-        dynamics_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
     ) -> Self {
         Self {
             dynamics_fn,
@@ -515,14 +531,18 @@ impl DNumericalJacobian {
 
     /// Create with central finite differences.
     pub fn central(
-        dynamics_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
     ) -> Self {
         Self::new(dynamics_fn)
     }
 
     /// Create with backward finite differences.
     pub fn backward(
-        dynamics_fn: Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
     ) -> Self {
         Self {
             dynamics_fn,

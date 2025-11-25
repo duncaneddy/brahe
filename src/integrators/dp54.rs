@@ -3,15 +3,16 @@ Implementation of the Dormand-Prince 5(4) adaptive integration method.
  */
 
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
-use std::cell::RefCell;
+use std::sync::RwLock;
 
 use crate::integrators::butcher_tableau::{EmbeddedButcherTableau, dp54_tableau};
 use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    DControlInput, DIntegrator, DIntegratorStepResult, DSensitivity, DStateDynamics,
-    DVariationalMatrix, SControlInput, SIntegrator, SIntegratorStepResult, SSensitivity,
-    SStateDynamics, SVariationalMatrix, compute_next_step_size, compute_normalized_error,
-    compute_normalized_error_s, compute_reduced_step_size,
+    DControlInput, DIntegrator, DIntegratorConstructor, DIntegratorStepResult, DSensitivity,
+    DStateDynamics, DVariationalMatrix, SControlInput, SIntegrator, SIntegratorConstructor,
+    SIntegratorStepResult, SSensitivity, SStateDynamics, SVariationalMatrix,
+    compute_next_step_size, compute_normalized_error, compute_normalized_error_s,
+    compute_reduced_step_size,
 };
 
 /// Dormand-Prince 5(4) adaptive integrator.
@@ -33,7 +34,7 @@ pub struct DormandPrince54SIntegrator<const S: usize, const P: usize> {
     bt: EmbeddedButcherTableau<7>,
     config: IntegratorConfig,
     /// Cached last stage evaluation for FSAL optimization
-    last_f: RefCell<Option<SVector<f64, S>>>,
+    last_f: RwLock<Option<SVector<f64, S>>>,
 }
 
 impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
@@ -68,7 +69,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             let mut k_sens = [SMatrix::<f64, S, P>::zeros(); 7];
 
             // Stage 0: Use cached FSAL value if available
-            let mut k0 = if let Some(cached_f) = self.last_f.borrow().as_ref() {
+            let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 *cached_f
             } else {
                 (self.f)(t, state, params)
@@ -134,7 +135,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             }
 
             // Cache last stage for FSAL
-            *self.last_f.borrow_mut() = Some(k.column(6).clone_owned());
+            *self.last_f.write().unwrap() = Some(k.column(6).clone_owned());
 
             // Compute solutions
             let mut state_high = SVector::<f64, S>::zeros();
@@ -176,7 +177,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             }
 
             // Step rejected - reduce step size and clear FSAL cache
-            *self.last_f.borrow_mut() = None;
+            *self.last_f.write().unwrap() = None;
             h = compute_reduced_step_size(error, h, 0.25, &self.config);
         }
 
@@ -185,33 +186,6 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
 }
 
 impl<const S: usize, const P: usize> SIntegrator<S, P> for DormandPrince54SIntegrator<S, P> {
-    fn new(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    fn with_config(
-        f: SStateDynamics<S, P>,
-        varmat: SVariationalMatrix<S, P>,
-        sensmat: SSensitivity<S, P>,
-        control: SControlInput<S, P>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: dp54_tableau(),
-            config,
-            last_f: RefCell::new(None),
-        }
-    }
-
     fn config(&self) -> &IntegratorConfig {
         &self.config
     }
@@ -257,6 +231,38 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for DormandPrince54SInteg
         self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
+
+impl<const S: usize, const P: usize> SIntegratorConstructor<S, P>
+    for DormandPrince54SIntegrator<S, P>
+{
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: dp54_tableau(),
+            config,
+            last_f: RwLock::new(None),
+        }
+    }
+}
+
 /// Dormand-Prince 5(4) adaptive integrator with runtime-sized state vectors.
 ///
 /// This is the dynamic-sized counterpart to `DormandPrince54SIntegrator<S>`.
@@ -270,11 +276,19 @@ pub struct DormandPrince54DIntegrator {
     bt: EmbeddedButcherTableau<7>,
     config: IntegratorConfig,
     /// Cached last stage evaluation for FSAL optimization
-    last_f: RefCell<Option<DVector<f64>>>,
+    last_f: RwLock<Option<DVector<f64>>>,
 }
 
-impl DIntegrator for DormandPrince54DIntegrator {
-    fn new(
+impl DormandPrince54DIntegrator {
+    /// Create a new Dormand-Prince 5(4) integrator with default configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    pub fn new(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -291,7 +305,16 @@ impl DIntegrator for DormandPrince54DIntegrator {
         )
     }
 
-    fn with_config(
+    /// Create a new Dormand-Prince 5(4) integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integrator configuration
+    pub fn with_config(
         dimension: usize,
         f: DStateDynamics,
         varmat: DVariationalMatrix,
@@ -307,10 +330,12 @@ impl DIntegrator for DormandPrince54DIntegrator {
             control,
             bt: dp54_tableau(),
             config,
-            last_f: RefCell::new(None),
+            last_f: RwLock::new(None),
         }
     }
+}
 
+impl DIntegrator for DormandPrince54DIntegrator {
     fn dimension(&self) -> usize {
         self.dimension
     }
@@ -361,6 +386,28 @@ impl DIntegrator for DormandPrince54DIntegrator {
     }
 }
 
+impl DIntegratorConstructor for DormandPrince54DIntegrator {
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: dp54_tableau(),
+            config,
+            last_f: RwLock::new(None),
+        }
+    }
+}
+
 impl DormandPrince54DIntegrator {
     /// Internal consolidated step function that handles all cases.
     ///
@@ -405,7 +452,7 @@ impl DormandPrince54DIntegrator {
             };
 
             // Stage 0: Use cached FSAL value if available
-            let mut k0 = if let Some(cached_f) = self.last_f.borrow().as_ref() {
+            let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 cached_f.clone()
             } else {
                 (self.f)(t, state.clone(), params)
@@ -490,7 +537,7 @@ impl DormandPrince54DIntegrator {
             }
 
             // Cache last stage for FSAL
-            *self.last_f.borrow_mut() = Some(k.column(6).clone_owned());
+            *self.last_f.write().unwrap() = Some(k.column(6).clone_owned());
 
             // Compute solutions
             let mut state_high = DVector::<f64>::zeros(self.dimension);
@@ -553,7 +600,7 @@ impl DormandPrince54DIntegrator {
             }
 
             // Step rejected - invalidate FSAL cache since we'll retry with different h
-            *self.last_f.borrow_mut() = None;
+            *self.last_f.write().unwrap() = None;
 
             // Reduce step size
             h = compute_reduced_step_size(error, h, 0.25, &self.config);
@@ -573,7 +620,7 @@ mod tests {
     use crate::integrators::IntegratorConfig;
     use crate::integrators::dp54::{DormandPrince54DIntegrator, DormandPrince54SIntegrator};
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{DIntegrator, SIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;

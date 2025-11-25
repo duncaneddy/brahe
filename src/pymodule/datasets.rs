@@ -1,10 +1,5 @@
 // Python bindings for the datasets module.
 
-use crate::datasets::celestrak;
-use crate::datasets::groundstations;
-use crate::datasets::naif;
-use std::path::PathBuf;
-
 /// Get satellite ephemeris data from CelesTrak
 ///
 /// Downloads and parses 3LE (three-line element) data for the specified satellite group

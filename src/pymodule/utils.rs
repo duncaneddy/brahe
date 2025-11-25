@@ -40,8 +40,6 @@
 #[pyfunction]
 #[pyo3(name = "get_brahe_cache_dir")]
 pub fn py_get_brahe_cache_dir() -> PyResult<String> {
-    use crate::utils::cache::get_brahe_cache_dir;
-
     get_brahe_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
@@ -80,8 +78,6 @@ pub fn py_get_brahe_cache_dir() -> PyResult<String> {
 #[pyfunction]
 #[pyo3(name = "get_brahe_cache_dir_with_subdir")]
 pub fn py_get_brahe_cache_dir_with_subdir(subdirectory: Option<&str>) -> PyResult<String> {
-    use crate::utils::cache::get_brahe_cache_dir_with_subdir;
-
     get_brahe_cache_dir_with_subdir(subdirectory).map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
@@ -111,8 +107,6 @@ pub fn py_get_brahe_cache_dir_with_subdir(subdirectory: Option<&str>) -> PyResul
 #[pyfunction]
 #[pyo3(name = "get_eop_cache_dir")]
 pub fn py_get_eop_cache_dir() -> PyResult<String> {
-    use crate::utils::cache::get_eop_cache_dir;
-
     get_eop_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
@@ -143,8 +137,6 @@ pub fn py_get_eop_cache_dir() -> PyResult<String> {
 #[pyfunction]
 #[pyo3(name = "get_celestrak_cache_dir")]
 pub fn py_get_celestrak_cache_dir() -> PyResult<String> {
-    use crate::utils::cache::get_celestrak_cache_dir;
-
     get_celestrak_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
@@ -189,8 +181,6 @@ pub fn py_get_celestrak_cache_dir() -> PyResult<String> {
 #[pyfunction]
 #[pyo3(name = "set_num_threads")]
 pub fn py_set_num_threads(n: usize) -> PyResult<()> {
-    use crate::utils::threading::set_num_threads;
-
     if n == 0 {
         return Err(exceptions::PyValueError::new_err(
             "Number of threads must be at least 1"
@@ -237,8 +227,6 @@ pub fn py_set_num_threads(n: usize) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(name = "set_max_threads")]
 pub fn py_set_max_threads() -> PyResult<()> {
-    use crate::utils::threading::set_max_threads;
-
     // Use panic::catch_unwind only for thread pool build failures
     match std::panic::catch_unwind(set_max_threads) {
         Ok(_) => Ok(()),
@@ -322,7 +310,6 @@ pub fn py_set_ludicrous_speed() -> PyResult<()> {
 #[pyfunction]
 #[pyo3(name = "get_max_threads")]
 pub fn py_get_max_threads() -> PyResult<usize> {
-    use crate::utils::threading::get_max_threads;
     Ok(get_max_threads())
 }
 
@@ -363,6 +350,5 @@ pub fn py_get_max_threads() -> PyResult<usize> {
 #[pyfunction]
 #[pyo3(name = "format_time_string", signature = (seconds, short=false))]
 pub fn py_format_time_string(seconds: f64, short: bool) -> PyResult<String> {
-    use crate::utils::formatting::format_time_string;
     Ok(format_time_string(seconds, short))
 }

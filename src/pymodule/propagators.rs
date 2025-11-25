@@ -1,6 +1,3 @@
-// Import traits needed by propagator methods
-use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SOrbitPropagator};
-
 /// Python wrapper for SGPPropagator (replaces TLE)
 /// SGP4/SDP4 satellite propagator using TLE data.
 ///
@@ -738,7 +735,7 @@ impl PySGPPropagator {
     ///     print(f"Name: {prop.name}")
     ///     ```
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
+
         slf.propagator = slf.propagator.clone().with_name(&name);
         slf
     }
@@ -751,7 +748,7 @@ impl PySGPPropagator {
     /// Returns:
     ///     SGPPropagator: Self with UUID set.
     pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
-        use crate::utils::Identifiable;
+
         let uuid = uuid::Uuid::parse_str(&uuid_str)
             .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
         slf.propagator = slf.propagator.clone().with_uuid(uuid);
@@ -763,7 +760,7 @@ impl PySGPPropagator {
     /// Returns:
     ///     SGPPropagator: Self with new UUID set.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
+
         slf.propagator = slf.propagator.clone().with_new_uuid();
         slf
     }
@@ -776,7 +773,7 @@ impl PySGPPropagator {
     /// Returns:
     ///     SGPPropagator: Self with ID set.
     pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
+
         slf.propagator = slf.propagator.clone().with_id(id);
         slf
     }
@@ -803,8 +800,7 @@ impl PySGPPropagator {
     ///     print(f"Name: {prop.name}, ID: {prop.id}, UUID: {prop.uuid}")
     ///     ```
     pub fn with_identity(mut slf: PyRefMut<'_, Self>, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<PyRefMut<'_, Self>> {
-        use crate::utils::Identifiable;
-        let uuid = match uuid_str {
+        let uuid = match uuid_str {            
             Some(s) => Some(uuid::Uuid::parse_str(&s)
                 .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
             None => None,
@@ -820,8 +816,8 @@ impl PySGPPropagator {
     ///     uuid_str (str or None): Optional UUID string to assign.
     ///     id (int or None): Optional numeric ID to assign.
     pub fn set_identity(&mut self, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<()> {
-        use crate::utils::Identifiable;
-        let uuid = match uuid_str {
+
+        let uuid = match uuid_str {       
             Some(s) => Some(uuid::Uuid::parse_str(&s)
                 .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
             None => None,
@@ -835,8 +831,7 @@ impl PySGPPropagator {
     /// Args:
     ///     id (int or None): Numeric ID to assign, or None to clear.
     pub fn set_id(&mut self, id: Option<u64>) {
-        use crate::utils::Identifiable;
-        self.propagator.set_id(id);
+        self.propagator.set_id(id)
     }
 
     /// Set the name in-place (mutating).
@@ -844,15 +839,13 @@ impl PySGPPropagator {
     /// Args:
     ///     name (str or None): Name to assign, or None to clear.
     pub fn set_name(&mut self, name: Option<String>) {
-        use crate::utils::Identifiable;
-        self.propagator.set_name(name.as_deref());
+        self.propagator.set_name(name.as_deref());    
     }
 
     /// Generate a new UUID and set it in-place (mutating).
     pub fn generate_uuid(&mut self) {
-        use crate::utils::Identifiable;
-        self.propagator.generate_uuid();
-    }
+        self.propagator.generate_uuid()   
+     }
 
     /// Get the current numeric ID.
     ///
@@ -869,7 +862,6 @@ impl PySGPPropagator {
     ///     print(f"ID: {prop.get_id()}")
     ///     ```
     pub fn get_id(&self) -> Option<u64> {
-        use crate::utils::Identifiable;
         self.propagator.get_id()
     }
 
@@ -889,7 +881,6 @@ impl PySGPPropagator {
     ///     print(f"Name: {prop.get_name()}")
     ///     ```
     pub fn get_name(&self) -> Option<String> {
-        use crate::utils::Identifiable;
         self.propagator.get_name().map(|s| s.to_string())
     }
 
@@ -908,7 +899,6 @@ impl PySGPPropagator {
     ///     print(f"UUID: {prop.get_uuid()}")
     ///     ```
     pub fn get_uuid(&self) -> Option<String> {
-        use crate::utils::Identifiable;
         self.propagator.get_uuid().map(|u| u.to_string())
     }
 
@@ -1742,7 +1732,6 @@ impl PyKeplerianPropagator {
     ///     print(f"Name: {prop.name}")
     ///     ```
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
         slf.propagator = slf.propagator.clone().with_name(&name);
         slf
     }
@@ -1755,7 +1744,6 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     KeplerianPropagator: Self with UUID set.
     pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
-        use crate::utils::Identifiable;
         let uuid = uuid::Uuid::parse_str(&uuid_str)
             .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
         slf.propagator = slf.propagator.clone().with_uuid(uuid);
@@ -1767,7 +1755,7 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     KeplerianPropagator: Self with new UUID set.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
+
         slf.propagator = slf.propagator.clone().with_new_uuid();
         slf
     }
@@ -1780,7 +1768,7 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     KeplerianPropagator: Self with ID set.
     pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
-        use crate::utils::Identifiable;
+
         slf.propagator = slf.propagator.clone().with_id(id);
         slf
     }
@@ -1795,7 +1783,7 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     KeplerianPropagator: Self with identity set.
     pub fn with_identity(mut slf: PyRefMut<'_, Self>, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<PyRefMut<'_, Self>> {
-        use crate::utils::Identifiable;
+
         let uuid = match uuid_str {
             Some(s) => Some(uuid::Uuid::parse_str(&s)
                 .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
@@ -1812,7 +1800,7 @@ impl PyKeplerianPropagator {
     ///     uuid_str (str or None): Optional UUID string to assign.
     ///     id (int or None): Optional numeric ID to assign.
     pub fn set_identity(&mut self, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<()> {
-        use crate::utils::Identifiable;
+
         let uuid = match uuid_str {
             Some(s) => Some(uuid::Uuid::parse_str(&s)
                 .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
@@ -1827,24 +1815,21 @@ impl PyKeplerianPropagator {
     /// Args:
     ///     id (int or None): Numeric ID to assign, or None to clear.
     pub fn set_id(&mut self, id: Option<u64>) {
-        use crate::utils::Identifiable;
-        self.propagator.set_id(id);
-    }
+
+        self.propagator.set_id(id)    }
 
     /// Set the name in-place (mutating).
     ///
     /// Args:
     ///     name (str or None): Name to assign, or None to clear.
     pub fn set_name(&mut self, name: Option<String>) {
-        use crate::utils::Identifiable;
-        self.propagator.set_name(name.as_deref());
-    }
+
+        self.propagator.set_name(name.as_deref())    }
 
     /// Generate a new UUID and set it in-place (mutating).
     pub fn generate_uuid(&mut self) {
-        use crate::utils::Identifiable;
-        self.propagator.generate_uuid();
-    }
+
+        self.propagator.generate_uuid()    }
 
     /// Get the current numeric ID.
     ///
@@ -1863,7 +1848,6 @@ impl PyKeplerianPropagator {
     ///     print(f"ID: {prop.get_id()}")
     ///     ```
     pub fn get_id(&self) -> Option<u64> {
-        use crate::utils::Identifiable;
         self.propagator.get_id()
     }
 
@@ -1884,7 +1868,6 @@ impl PyKeplerianPropagator {
     ///     print(f"Name: {prop.get_name()}")
     ///     ```
     pub fn get_name(&self) -> Option<String> {
-        use crate::utils::Identifiable;
         self.propagator.get_name().map(|s| s.to_string())
     }
 
@@ -1905,7 +1888,6 @@ impl PyKeplerianPropagator {
     ///     print(f"UUID: {prop.get_uuid()}")
     ///     ```
     pub fn get_uuid(&self) -> Option<String> {
-        use crate::utils::Identifiable;
         self.propagator.get_uuid().map(|u| u.to_string())
     }
 

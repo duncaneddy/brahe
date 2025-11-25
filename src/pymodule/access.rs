@@ -3,23 +3,6 @@
 // This file contains Python bindings for the access computation module,
 // including constraints, locations, and access window finding.
 
-use crate::access::constraints::{
-    AccessConstraint, AscDsc, AscDscConstraint, ConstraintComposite, ElevationConstraint,
-    ElevationMaskConstraint, LocalTimeConstraint, LookDirection, LookDirectionConstraint,
-    OffNadirConstraint,
-};
-use crate::access::location::{AccessibleLocation, PointLocation, PolygonLocation};
-use crate::access::properties::{
-    AccessProperties, AccessPropertyComputer, DopplerComputer, PropertyValue, RangeComputer,
-    RangeRateComputer, SamplingConfig,
-};
-use crate::access::windows::{AccessSearchConfig, AccessWindow};
-use crate::utils::identifiable::Identifiable;
-use crate::utils::BraheError;
-use nalgebra::Vector3;
-use pyo3::types::PyDict;
-use std::collections::HashMap;
-
 // ================================
 // Properties Dict Wrapper
 // ================================
@@ -3805,10 +3788,6 @@ impl PyAccessConstraintComputer {
     }
 }
 
-// Internal wrapper that implements the Rust AccessConstraintComputer trait
-// by calling Python methods
-use crate::access::constraints::AccessConstraintComputer;
-
 #[allow(dead_code)]
 pub(crate) struct RustAccessConstraintComputerWrapper {
     py_computer: Py<PyAny>,
@@ -4104,9 +4083,6 @@ fn py_location_accesses(
     config: Option<&PyAccessSearchConfig>,
     time_tolerance: Option<f64>,
 ) -> PyResult<Vec<PyAccessWindow>> {
-    use crate::access::compute::location_accesses;
-    use pyo3::types::PyList;
-
     // Use provided config or create default
     let search_config = config.map(|c| c.config).unwrap_or_default();
 

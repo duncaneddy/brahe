@@ -8,14 +8,6 @@
 
 // NOTE: Imports are handled by mod.rs since this file is included via include! macro
 
-use std::sync::Arc;
-
-use crate::integrators::{
-    DIntegrator, DIntegratorStepResult, DormandPrince54DIntegrator,
-    IntegratorConfig, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
-};
-use crate::math::jacobian::DJacobianProvider;
-use crate::math::sensitivity::DSensitivityProvider;
 
 // ============================================================================
 // Configuration Types

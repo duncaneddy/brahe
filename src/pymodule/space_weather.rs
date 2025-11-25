@@ -1,7 +1,3 @@
-// Python bindings for space weather module
-
-use crate::space_weather::SpaceWeatherProvider;
-
 // Helper functions for type conversions
 
 /// Helper function to parse strings into appropriate SpaceWeatherExtrapolation enumerations

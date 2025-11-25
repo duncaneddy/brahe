@@ -3,10 +3,12 @@
  * all the Python bindings for the core library into a single module.
  */
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use nalgebra as na;
-use nalgebra::{SMatrix, SVector};
+use nalgebra::{DVector, SMatrix, SVector, Vector3};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
@@ -15,10 +17,16 @@ use numpy::{
 use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess, PyTuple, PyType};
+use pyo3::types::{
+    PyDateAccess, PyDateTime, PyDict, PyList, PyString, PyTimeAccess, PyTuple, PyType,
+};
 use pyo3::{IntoPyObjectExt, exceptions, wrap_pyfunction};
 
 use crate::traits::*;
+use crate::utils::{
+    BraheError, format_time_string, get_brahe_cache_dir, get_brahe_cache_dir_with_subdir,
+    get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads, set_max_threads, set_num_threads,
+};
 use crate::*;
 
 // NOTE: While it would be better if all bindings were in separate files,

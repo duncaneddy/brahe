@@ -4,11 +4,6 @@
  * Provides numerical and analytical Jacobian providers for dynamic-sized systems.
  */
 
-// NOTE: Imports are handled by mod.rs since this file is included via include! macro
-// We need to import DVector explicitly since it's not in mod.rs prelude
-use na::DVector;
-
-use crate::math::jacobian;
 
 // ============================================================================
 // Enums

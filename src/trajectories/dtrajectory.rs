@@ -77,6 +77,20 @@ pub struct DTrajectory {
     /// must be square with dimension matching the state dimension.
     pub covariances: Option<Vec<DMatrix<f64>>>,
 
+    /// Optional state transition matrices (STM) corresponding to each state.
+    /// If present, must have the same length as `states` and each matrix
+    /// must be square with dimension matching the state dimension.
+    pub stms: Option<Vec<DMatrix<f64>>>,
+
+    /// Optional sensitivity matrices corresponding to each state.
+    /// If present, must have the same length as `states`.
+    /// Each matrix has shape (state_dim x param_dim).
+    pub sensitivities: Option<Vec<DMatrix<f64>>>,
+
+    /// Dimension of sensitivity matrices as (rows, cols) = (state_dim, param_dim).
+    /// Set when sensitivity storage is enabled.
+    sensitivity_dimension: Option<(usize, usize)>,
+
     /// Dimension of state vectors (must be consistent for all states)
     pub dimension: usize,
 
@@ -126,6 +140,9 @@ impl DTrajectory {
             epochs: Vec::new(),
             states: Vec::new(),
             covariances: None,
+            stms: None,
+            sensitivities: None,
+            sensitivity_dimension: None,
             dimension,
             interpolation_method: InterpolationMethod::Linear,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -257,6 +274,40 @@ impl DTrajectory {
             // Initialize with zero matrices for all existing states
             let zero_cov = DMatrix::zeros(self.dimension, self.dimension);
             self.covariances = Some(vec![zero_cov; self.states.len()]);
+        }
+    }
+
+    /// Enable STM storage
+    ///
+    /// Initializes the STM vector with identity matrices for all existing states.
+    /// After calling this, STMs can be added using `add_full()` or `set_stm_at()`.
+    pub fn enable_stm_storage(&mut self) {
+        if self.stms.is_none() {
+            // Initialize with identity matrices for all existing states
+            let identity = DMatrix::identity(self.dimension, self.dimension);
+            self.stms = Some(vec![identity; self.states.len()]);
+        }
+    }
+
+    /// Enable sensitivity matrix storage with specified parameter dimension
+    ///
+    /// Initializes the sensitivity vector with zero matrices for all existing states.
+    /// After calling this, sensitivity matrices can be added using `add_full()` or
+    /// `set_sensitivity_at()`.
+    ///
+    /// # Arguments
+    /// * `param_dim` - Number of parameters (number of columns in sensitivity matrices)
+    ///
+    /// # Panics
+    /// Panics if param_dim is zero
+    pub fn enable_sensitivity_storage(&mut self, param_dim: usize) {
+        if param_dim == 0 {
+            panic!("Parameter dimension must be > 0");
+        }
+        if self.sensitivities.is_none() {
+            let zero_sens = DMatrix::zeros(self.dimension, param_dim);
+            self.sensitivities = Some(vec![zero_sens; self.states.len()]);
+            self.sensitivity_dimension = Some((self.dimension, param_dim));
         }
     }
 
@@ -401,6 +452,285 @@ impl DTrajectory {
         Some(cov)
     }
 
+    /// Set STM at a specific index
+    ///
+    /// Enables STM storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `index` - Index in the trajectory
+    /// * `stm` - State transition matrix (must be square with dimension matching state)
+    ///
+    /// # Panics
+    /// Panics if index is out of bounds or STM dimensions are incorrect
+    pub fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+        if stm.nrows() != self.dimension || stm.ncols() != self.dimension {
+            panic!(
+                "STM dimensions {}x{} do not match trajectory dimension {}",
+                stm.nrows(),
+                stm.ncols(),
+                self.dimension
+            );
+        }
+
+        // Enable STM storage if not already enabled
+        if self.stms.is_none() {
+            self.enable_stm_storage();
+        }
+
+        if let Some(ref mut stms) = self.stms {
+            stms[index] = stm;
+        }
+    }
+
+    /// Set sensitivity matrix at a specific index
+    ///
+    /// Enables sensitivity storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `index` - Index in the trajectory
+    /// * `sensitivity` - Sensitivity matrix (rows must match state dimension)
+    ///
+    /// # Panics
+    /// Panics if index is out of bounds or sensitivity dimensions are incorrect
+    pub fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+        if sensitivity.nrows() != self.dimension {
+            panic!(
+                "Sensitivity row count {} does not match state dimension {}",
+                sensitivity.nrows(),
+                self.dimension
+            );
+        }
+
+        // Check consistency with existing sensitivity dimension
+        if let Some((_, existing_cols)) = self.sensitivity_dimension
+            && sensitivity.ncols() != existing_cols
+        {
+            panic!(
+                "Sensitivity column count {} does not match existing {}",
+                sensitivity.ncols(),
+                existing_cols
+            );
+        }
+
+        // Enable sensitivity storage if not already enabled
+        if self.sensitivities.is_none() {
+            self.enable_sensitivity_storage(sensitivity.ncols());
+        }
+
+        if let Some(ref mut sens) = self.sensitivities {
+            sens[index] = sensitivity;
+        }
+    }
+
+    /// Get STM at a specific index
+    ///
+    /// Returns None if STM storage is not enabled.
+    pub fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.stms.as_ref()?.get(index)
+    }
+
+    /// Get sensitivity matrix at a specific index
+    ///
+    /// Returns None if sensitivity storage is not enabled.
+    pub fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.sensitivities.as_ref()?.get(index)
+    }
+
+    /// Get STM at a specific epoch (with linear interpolation)
+    ///
+    /// Returns None if STM storage is not enabled or epoch is out of range.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch to query
+    ///
+    /// # Returns
+    /// STM at the requested epoch (interpolated if necessary)
+    pub fn stm_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let stms = self.stms.as_ref()?;
+
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Handle exact match
+        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+            return Some(stms[idx].clone());
+        }
+
+        // Find surrounding indices for interpolation
+        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+
+        // Handle exact matches
+        if self.epochs[idx_before] == epoch {
+            return Some(stms[idx_before].clone());
+        }
+        if self.epochs[idx_after] == epoch {
+            return Some(stms[idx_after].clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
+        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
+        let t = epoch - self.epoch_initial()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Linear interpolation: Φ(t) = (1-α)*Φ₀ + α*Φ₁
+        let stm = &stms[idx_before] * (1.0 - alpha) + &stms[idx_after] * alpha;
+        Some(stm)
+    }
+
+    /// Get sensitivity matrix at a specific epoch (with linear interpolation)
+    ///
+    /// Returns None if sensitivity storage is not enabled or epoch is out of range.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch to query
+    ///
+    /// # Returns
+    /// Sensitivity matrix at the requested epoch (interpolated if necessary)
+    pub fn sensitivity_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let sens = self.sensitivities.as_ref()?;
+
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Handle exact match
+        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+            return Some(sens[idx].clone());
+        }
+
+        // Find surrounding indices for interpolation
+        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+
+        // Handle exact matches
+        if self.epochs[idx_before] == epoch {
+            return Some(sens[idx_before].clone());
+        }
+        if self.epochs[idx_after] == epoch {
+            return Some(sens[idx_after].clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
+        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
+        let t = epoch - self.epoch_initial()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Linear interpolation: S(t) = (1-α)*S₀ + α*S₁
+        let sensitivity = &sens[idx_before] * (1.0 - alpha) + &sens[idx_after] * alpha;
+        Some(sensitivity)
+    }
+
+    /// Add a complete state record with all optional data
+    ///
+    /// This is the most flexible method, allowing any combination of
+    /// covariance, STM, and sensitivity to be provided or omitted.
+    /// Automatically enables storage for any provided data.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `covariance` - Optional covariance matrix
+    /// * `stm` - Optional state transition matrix
+    /// * `sensitivity` - Optional sensitivity matrix
+    ///
+    /// # Panics
+    /// Panics if dimensions don't match
+    pub fn add_full(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+        stm: Option<DMatrix<f64>>,
+        sensitivity: Option<DMatrix<f64>>,
+    ) {
+        // Validate state dimension
+        if state.len() != self.dimension {
+            panic!("State vector dimension does not match trajectory dimension");
+        }
+
+        // Validate and enable storage as needed
+        if let Some(ref cov) = covariance {
+            if cov.nrows() != self.dimension || cov.ncols() != self.dimension {
+                panic!("Covariance dimension mismatch");
+            }
+            if self.covariances.is_none() {
+                self.enable_covariance_storage();
+            }
+        }
+
+        if let Some(ref s) = stm {
+            if s.nrows() != self.dimension || s.ncols() != self.dimension {
+                panic!("STM dimension mismatch");
+            }
+            if self.stms.is_none() {
+                self.enable_stm_storage();
+            }
+        }
+
+        if let Some(ref sens) = sensitivity {
+            if sens.nrows() != self.dimension {
+                panic!("Sensitivity row dimension mismatch");
+            }
+            if let Some((_, cols)) = self.sensitivity_dimension
+                && sens.ncols() != cols
+            {
+                panic!("Sensitivity column dimension mismatch");
+            }
+            if self.sensitivities.is_none() {
+                self.enable_sensitivity_storage(sens.ncols());
+            }
+        }
+
+        // Find insert position
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            }
+        }
+
+        // Insert core data
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+
+        // Insert optional data or placeholders
+        if let Some(ref mut covs) = self.covariances {
+            let cov_val =
+                covariance.unwrap_or_else(|| DMatrix::zeros(self.dimension, self.dimension));
+            covs.insert(insert_idx, cov_val);
+        }
+
+        if let Some(ref mut stms) = self.stms {
+            let stm_val = stm.unwrap_or_else(|| DMatrix::identity(self.dimension, self.dimension));
+            stms.insert(insert_idx, stm_val);
+        }
+
+        if let Some(ref mut sens) = self.sensitivities {
+            let (_, param_dim) = self.sensitivity_dimension.unwrap();
+            let sens_val = sensitivity.unwrap_or_else(|| DMatrix::zeros(self.dimension, param_dim));
+            sens.insert(insert_idx, sens_val);
+        }
+
+        self.apply_eviction_policy();
+    }
+
     /// Helper to find initial epoch for interpolation
     fn epoch_initial(&self) -> Option<Epoch> {
         self.epochs.first().copied()
@@ -443,6 +773,12 @@ impl DTrajectory {
                     if let Some(ref mut covs) = self.covariances {
                         covs.drain(0..to_remove);
                     }
+                    if let Some(ref mut stms) = self.stms {
+                        stms.drain(0..to_remove);
+                    }
+                    if let Some(ref mut sens) = self.sensitivities {
+                        sens.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -471,6 +807,18 @@ impl DTrajectory {
                         let new_covs: Vec<DMatrix<f64>> =
                             indices_to_keep.iter().map(|&i| covs[i].clone()).collect();
                         *covs = new_covs;
+                    }
+                    // Also evict STMs if enabled
+                    if let Some(ref mut stms) = self.stms {
+                        let new_stms: Vec<DMatrix<f64>> =
+                            indices_to_keep.iter().map(|&i| stms[i].clone()).collect();
+                        *stms = new_stms;
+                    }
+                    // Also evict sensitivities if enabled
+                    if let Some(ref mut sens) = self.sensitivities {
+                        let new_sens: Vec<DMatrix<f64>> =
+                            indices_to_keep.iter().map(|&i| sens[i].clone()).collect();
+                        *sens = new_sens;
                     }
                 }
             }
@@ -588,6 +936,9 @@ impl Trajectory for DTrajectory {
             epochs: sorted_epochs,
             states: sorted_states,
             covariances: None,
+            stms: None,
+            sensitivities: None,
+            sensitivity_dimension: None,
             dimension,
             interpolation_method: InterpolationMethod::Linear,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -619,10 +970,19 @@ impl Trajectory for DTrajectory {
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state.clone());
 
-        // If covariances are being tracked, insert None placeholder
+        // Maintain consistency for all optional arrays
         if let Some(ref mut covs) = self.covariances {
-            // Insert None to maintain alignment with states
             covs.insert(insert_idx, DMatrix::zeros(self.dimension, self.dimension));
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.insert(
+                insert_idx,
+                DMatrix::identity(self.dimension, self.dimension),
+            );
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            let (_, param_dim) = self.sensitivity_dimension.unwrap();
+            sens.insert(insert_idx, DMatrix::zeros(self.dimension, param_dim));
         }
 
         // Apply eviction policy after adding state
@@ -719,12 +1079,30 @@ impl Trajectory for DTrajectory {
     fn clear(&mut self) {
         self.epochs.clear();
         self.states.clear();
+        if let Some(ref mut covs) = self.covariances {
+            covs.clear();
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.clear();
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.clear();
+        }
     }
 
     fn remove_epoch(&mut self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
             self.epochs.remove(index);
+            if let Some(ref mut covs) = self.covariances {
+                covs.remove(index);
+            }
+            if let Some(ref mut stms) = self.stms {
+                stms.remove(index);
+            }
+            if let Some(ref mut sens) = self.sensitivities {
+                sens.remove(index);
+            }
             Ok(removed_state)
         } else {
             Err(BraheError::Error(
@@ -744,6 +1122,15 @@ impl Trajectory for DTrajectory {
 
         let removed_epoch = self.epochs.remove(index);
         let removed_state = self.states.remove(index);
+        if let Some(ref mut covs) = self.covariances {
+            covs.remove(index);
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.remove(index);
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.remove(index);
+        }
         Ok((removed_epoch, removed_state))
     }
 

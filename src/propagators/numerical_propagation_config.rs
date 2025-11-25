@@ -102,6 +102,167 @@ impl IntegratorMethod {
 }
 
 // =============================================================================
+// Trajectory Mode
+// =============================================================================
+
+/// Trajectory storage mode for numerical propagators
+///
+/// Controls when and whether state data is stored in the trajectory during propagation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum TrajectoryMode {
+    /// Store state at requested output epochs only (default)
+    ///
+    /// Most memory-efficient. Only stores at times explicitly requested
+    /// via `propagate_to_epochs()` or similar methods.
+    #[default]
+    OutputStepsOnly,
+
+    /// Store state at every integration step
+    ///
+    /// Useful for debugging or high-resolution trajectory analysis.
+    /// May use significantly more memory for long propagations.
+    AllSteps,
+
+    /// Disable trajectory storage entirely
+    ///
+    /// Only the current state is maintained. Useful when only the
+    /// final state matters and memory is constrained.
+    Disabled,
+}
+
+// =============================================================================
+// Variational Configuration
+// =============================================================================
+
+/// Configuration for STM and sensitivity matrix propagation
+///
+/// Controls whether the propagator computes and stores variational matrices
+/// (State Transition Matrix and Sensitivity Matrix) during propagation.
+///
+/// # Example
+///
+/// ```rust
+/// use brahe::propagators::VariationalConfig;
+/// use brahe::math::jacobian::DifferenceMethod;
+///
+/// // Default: no variational matrices
+/// let config = VariationalConfig::default();
+///
+/// // Enable STM and sensitivity with history storage
+/// let config = VariationalConfig::new(
+///     true, true, true, true,
+///     DifferenceMethod::Central, DifferenceMethod::Central,
+/// );
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VariationalConfig {
+    /// Enable State Transition Matrix (STM) propagation
+    ///
+    /// When enabled, the propagator computes the STM (Φ) which maps
+    /// initial state perturbations to final state perturbations:
+    /// δx(t) = Φ(t, t₀) · δx(t₀)
+    ///
+    /// Default: `false`
+    /// Note: Automatically enabled if `initial_covariance` is provided to constructor.
+    pub enable_stm: bool,
+
+    /// Enable sensitivity matrix propagation
+    ///
+    /// When enabled, the propagator computes the sensitivity matrix (S)
+    /// which maps parameter perturbations to state perturbations:
+    /// δx(t) = S(t) · δp
+    ///
+    /// Default: `false`
+    /// Note: Requires `params` to be provided to constructor when enabled.
+    pub enable_sensitivity: bool,
+
+    /// Store STM at output times in trajectory
+    ///
+    /// When enabled, the STM is stored at requested output epochs
+    /// and can be retrieved from the trajectory.
+    ///
+    /// Default: `false`
+    pub store_stm_history: bool,
+
+    /// Store sensitivity matrix at output times in trajectory
+    ///
+    /// When enabled, the sensitivity matrix is stored at requested
+    /// output epochs and can be retrieved from the trajectory.
+    ///
+    /// Default: `false`
+    pub store_sensitivity_history: bool,
+
+    /// Finite difference method for Jacobian computation
+    ///
+    /// Used when computing the state transition matrix (STM) numerically.
+    ///
+    /// Default: `DifferenceMethod::Central`
+    pub jacobian_method: DifferenceMethod,
+
+    /// Finite difference method for sensitivity matrix computation
+    ///
+    /// Used when computing parameter sensitivities numerically.
+    ///
+    /// Default: `DifferenceMethod::Central`
+    pub sensitivity_method: DifferenceMethod,
+}
+
+impl Default for VariationalConfig {
+    fn default() -> Self {
+        Self {
+            enable_stm: false,
+            enable_sensitivity: false,
+            store_stm_history: false,
+            store_sensitivity_history: false,
+            jacobian_method: DifferenceMethod::Central,
+            sensitivity_method: DifferenceMethod::Central,
+        }
+    }
+}
+
+impl VariationalConfig {
+    /// Create configuration with specified STM and sensitivity settings
+    ///
+    /// # Arguments
+    /// * `enable_stm` - Enable STM propagation
+    /// * `enable_sensitivity` - Enable sensitivity matrix propagation
+    /// * `store_stm_history` - Store STM at each step in trajectory
+    /// * `store_sensitivity_history` - Store sensitivity at each step in trajectory
+    /// * `jacobian_method` - Finite difference method for Jacobian computation
+    /// * `sensitivity_method` - Finite difference method for sensitivity computation
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use brahe::propagators::VariationalConfig;
+    /// use brahe::math::jacobian::DifferenceMethod;
+    ///
+    /// // Full uncertainty quantification with history
+    /// let config = VariationalConfig::new(
+    ///     true, true, true, true,
+    ///     DifferenceMethod::Central, DifferenceMethod::Central,
+    /// );
+    /// ```
+    pub fn new(
+        enable_stm: bool,
+        enable_sensitivity: bool,
+        store_stm_history: bool,
+        store_sensitivity_history: bool,
+        jacobian_method: DifferenceMethod,
+        sensitivity_method: DifferenceMethod,
+    ) -> Self {
+        Self {
+            enable_stm,
+            enable_sensitivity,
+            store_stm_history,
+            store_sensitivity_history,
+            jacobian_method,
+            sensitivity_method,
+        }
+    }
+}
+
+// =============================================================================
 // Numerical Propagation Configuration
 // =============================================================================
 
@@ -110,7 +271,7 @@ impl IntegratorMethod {
 /// This struct contains the integrator-specific configuration options:
 /// - Integration method selection
 /// - Integrator tolerances and step sizes
-/// - Methods for computing Jacobians and sensitivities
+/// - Variational equation settings (STM, sensitivity, finite difference methods)
 ///
 /// Note: Force model configuration (gravity, drag, SRP, etc.) is handled
 /// separately via `ForceModelConfiguration`.
@@ -136,15 +297,8 @@ pub struct NumericalPropagationConfig {
     /// Integrator configuration (tolerances, step sizes)
     pub integrator: IntegratorConfig,
 
-    /// Finite difference method for Jacobian computation
-    ///
-    /// Used when computing the state transition matrix (STM) numerically.
-    pub jacobian_method: DifferenceMethod,
-
-    /// Finite difference method for sensitivity matrix computation
-    ///
-    /// Used when computing parameter sensitivities numerically.
-    pub sensitivity_method: DifferenceMethod,
+    /// STM and sensitivity propagation configuration
+    pub variational: VariationalConfig,
 }
 
 impl Default for NumericalPropagationConfig {
@@ -153,13 +307,12 @@ impl Default for NumericalPropagationConfig {
     /// Uses:
     /// - Dormand-Prince 5(4) integrator
     /// - Default tolerances (abs=1e-6, rel=1e-3)
-    /// - Central differences for Jacobian/sensitivity
+    /// - No variational matrix propagation (central differences when enabled)
     fn default() -> Self {
         Self {
             method: IntegratorMethod::default(),
             integrator: IntegratorConfig::default(),
-            jacobian_method: DifferenceMethod::Central,
-            sensitivity_method: DifferenceMethod::Central,
+            variational: VariationalConfig::default(),
         }
     }
 }
@@ -192,7 +345,7 @@ impl NumericalPropagationConfig {
     /// Uses:
     /// - Dormand-Prince 5(4) integrator
     /// - Tight tolerances (abs=1e-10, rel=1e-8)
-    /// - Central differences for Jacobian/sensitivity
+    /// - No variational matrix propagation (central differences when enabled)
     ///
     /// # Example
     ///
@@ -205,8 +358,7 @@ impl NumericalPropagationConfig {
         Self {
             method: IntegratorMethod::DP54,
             integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
-            jacobian_method: DifferenceMethod::Central,
-            sensitivity_method: DifferenceMethod::Central,
+            variational: VariationalConfig::default(),
         }
     }
 }
@@ -235,8 +387,14 @@ mod tests {
         let config = NumericalPropagationConfig::default();
 
         assert_eq!(config.method, IntegratorMethod::DP54);
-        assert_eq!(config.jacobian_method, DifferenceMethod::Central);
-        assert_eq!(config.sensitivity_method, DifferenceMethod::Central);
+        assert_eq!(
+            config.variational.jacobian_method,
+            DifferenceMethod::Central
+        );
+        assert_eq!(
+            config.variational.sensitivity_method,
+            DifferenceMethod::Central
+        );
     }
 
     #[test]
@@ -253,5 +411,63 @@ mod tests {
         // Tolerances are set tighter
         assert!(config.integrator.abs_tol <= 1e-9);
         assert!(config.integrator.rel_tol <= 1e-7);
+    }
+
+    #[test]
+    fn test_variational_config_default() {
+        let config = VariationalConfig::default();
+
+        assert!(!config.enable_stm);
+        assert!(!config.enable_sensitivity);
+        assert!(!config.store_stm_history);
+        assert!(!config.store_sensitivity_history);
+        assert_eq!(config.jacobian_method, DifferenceMethod::Central);
+        assert_eq!(config.sensitivity_method, DifferenceMethod::Central);
+    }
+
+    #[test]
+    fn test_variational_config_new() {
+        let config = VariationalConfig::new(
+            true,
+            true,
+            true,
+            true,
+            DifferenceMethod::Forward,
+            DifferenceMethod::Backward,
+        );
+
+        assert!(config.enable_stm);
+        assert!(config.enable_sensitivity);
+        assert!(config.store_stm_history);
+        assert!(config.store_sensitivity_history);
+        assert_eq!(config.jacobian_method, DifferenceMethod::Forward);
+        assert_eq!(config.sensitivity_method, DifferenceMethod::Backward);
+    }
+
+    #[test]
+    fn test_variational_config_partial() {
+        let config = VariationalConfig::new(
+            true,
+            false,
+            true,
+            false,
+            DifferenceMethod::Central,
+            DifferenceMethod::Central,
+        );
+
+        assert!(config.enable_stm);
+        assert!(!config.enable_sensitivity);
+        assert!(config.store_stm_history);
+        assert!(!config.store_sensitivity_history);
+        assert_eq!(config.jacobian_method, DifferenceMethod::Central);
+        assert_eq!(config.sensitivity_method, DifferenceMethod::Central);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_default_variational() {
+        let config = NumericalPropagationConfig::default();
+
+        assert!(!config.variational.enable_stm);
+        assert!(!config.variational.enable_sensitivity);
     }
 }

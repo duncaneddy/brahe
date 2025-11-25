@@ -474,6 +474,81 @@ impl GravityModel {
         }
     }
 
+    /// Truncate the gravity model to a smaller degree and order.
+    ///
+    /// This reduces memory usage by discarding higher-degree/order coefficients
+    /// that won't be used. The operation is irreversible - coefficients beyond
+    /// the new limits are permanently removed.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - New maximum degree (must be <= current n_max)
+    /// * `m` - New maximum order (must be <= n and <= current m_max)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if truncation succeeded
+    /// * `Err(BraheError)` if validation fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// assert_eq!(model.n_max, 360);
+    ///
+    /// // Reduce from 360×360 to 70×70 to save memory
+    /// model.set_max_degree_order(70, 70).unwrap();
+    /// assert_eq!(model.n_max, 70);
+    /// assert_eq!(model.m_max, 70);
+    /// ```
+    pub fn set_max_degree_order(&mut self, n: usize, m: usize) -> Result<(), BraheError> {
+        // Validate: m <= n
+        if m > n {
+            return Err(BraheError::Error(format!(
+                "Maximum order (m={}) cannot exceed maximum degree (n={})",
+                m, n
+            )));
+        }
+
+        // Validate: new limits don't exceed current model
+        if n > self.n_max {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested degree (n={}) exceeds model's maximum degree (n_max={})",
+                n, self.n_max
+            )));
+        }
+        if m > self.m_max {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested order (m={}) exceeds model's maximum order (m_max={})",
+                m, self.m_max
+            )));
+        }
+
+        // Skip if no resize needed
+        if n == self.n_max && m == self.m_max {
+            return Ok(());
+        }
+
+        // Resize matrix in-place using nalgebra's resize_mut
+        // The data matrix stores:
+        //   - C coefficients at data[(n, m)] for the lower triangle
+        //   - S coefficients at data[(m-1, n)] for m > 0 (upper triangle shifted)
+        // Both fit within the (n+1) x (n+1) square when n == m (typical case)
+        let new_size = n + 1;
+
+        // resize_mut preserves existing values at their (row, col) positions
+        // and fills new cells with the provided value (0.0 here, but we're shrinking)
+        self.data.resize_mut(new_size, new_size, 0.0);
+
+        // Update model limits
+        self.n_max = n;
+        self.m_max = m;
+
+        Ok(())
+    }
+
     /// Compute gravitational acceleration from spherical harmonic expansion.
     ///
     /// Evaluates gravity field using recursively-computed associated Legendre functions.
@@ -932,5 +1007,164 @@ mod tests {
         assert_abs_diff_eq!(a_grav[0], ax, epsilon = tol);
         assert_abs_diff_eq!(a_grav[1], ay, epsilon = tol);
         assert_abs_diff_eq!(a_grav[2], az, epsilon = tol);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_basic() {
+        // Load JGM3 (70x70) and truncate to 20x20
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.m_max, 70);
+
+        model.set_max_degree_order(20, 20).unwrap();
+
+        assert_eq!(model.n_max, 20);
+        assert_eq!(model.m_max, 20);
+        // Matrix should be resized to (21, 21)
+        assert_eq!(model.data.nrows(), 21);
+        assert_eq!(model.data.ncols(), 21);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_coefficient_preservation() {
+        // Load JGM3 and verify coefficients are preserved after truncation
+        let original_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let mut truncated_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // Get some coefficients before truncation
+        let (c_2_0_orig, s_2_0_orig) = original_model.get(2, 0).unwrap();
+        let (c_3_3_orig, s_3_3_orig) = original_model.get(3, 3).unwrap();
+        let (c_10_5_orig, s_10_5_orig) = original_model.get(10, 5).unwrap();
+        let (c_20_20_orig, s_20_20_orig) = original_model.get(20, 20).unwrap();
+
+        // Truncate to 20x20
+        truncated_model.set_max_degree_order(20, 20).unwrap();
+
+        // Verify coefficients are preserved
+        let (c_2_0, s_2_0) = truncated_model.get(2, 0).unwrap();
+        assert_abs_diff_eq!(c_2_0, c_2_0_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_2_0, s_2_0_orig, epsilon = 1e-15);
+
+        let (c_3_3, s_3_3) = truncated_model.get(3, 3).unwrap();
+        assert_abs_diff_eq!(c_3_3, c_3_3_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_3_3, s_3_3_orig, epsilon = 1e-15);
+
+        let (c_10_5, s_10_5) = truncated_model.get(10, 5).unwrap();
+        assert_abs_diff_eq!(c_10_5, c_10_5_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_10_5, s_10_5_orig, epsilon = 1e-15);
+
+        let (c_20_20, s_20_20) = truncated_model.get(20, 20).unwrap();
+        assert_abs_diff_eq!(c_20_20, c_20_20_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_20_20, s_20_20_orig, epsilon = 1e-15);
+
+        // Verify coefficients beyond truncation limit are now inaccessible
+        assert!(truncated_model.get(21, 0).is_err());
+        assert!(truncated_model.get(70, 70).is_err());
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_m_greater_than_n() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // m > n should error
+        let result = model.set_max_degree_order(10, 15);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), BraheError::Error(_)));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_n_exceeds_max() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // n > n_max (70 for JGM3) should error
+        let result = model.set_max_degree_order(100, 100);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BraheError::OutOfBoundsError(_)
+        ));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_m_exceeds_max() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // First truncate to (50, 40) - n_max=50, m_max=40
+        model.set_max_degree_order(50, 40).unwrap();
+        assert_eq!(model.n_max, 50);
+        assert_eq!(model.m_max, 40);
+
+        // Now try to set m > m_max (40) but m <= n (valid m <= n)
+        let result = model.set_max_degree_order(50, 45);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BraheError::OutOfBoundsError(_)
+        ));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_no_change() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let original_size = model.data.nrows();
+
+        // Setting same values should succeed without error
+        model.set_max_degree_order(70, 70).unwrap();
+
+        // Size should be unchanged
+        assert_eq!(model.data.nrows(), original_size);
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.m_max, 70);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_asymmetric() {
+        // Test with m < n (less common but valid)
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        model.set_max_degree_order(30, 20).unwrap();
+
+        assert_eq!(model.n_max, 30);
+        assert_eq!(model.m_max, 20);
+        // Matrix is sized based on n
+        assert_eq!(model.data.nrows(), 31);
+        assert_eq!(model.data.ncols(), 31);
+
+        // Can still access coefficients within the truncated range
+        let (c, s) = model.get(20, 20).unwrap();
+        assert!(c.is_finite());
+        assert!(s.is_finite());
+
+        // Can access coefficients with n > m_max but m <= m_max
+        let (c, s) = model.get(30, 15).unwrap();
+        assert!(c.is_finite());
+        assert!(s.is_finite());
+    }
+
+    #[test]
+    fn test_set_max_degree_order_computation_after_truncation() {
+        setup_global_test_eop();
+
+        // Load full model and truncate
+        let mut truncated_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        truncated_model.set_max_degree_order(20, 20).unwrap();
+
+        // Load fresh model for comparison
+        let full_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
+
+        // Compute spherical harmonics up to 20x20 on both
+        let a_truncated = truncated_model
+            .compute_spherical_harmonics(r_body, 20, 20)
+            .unwrap();
+        let a_full = full_model
+            .compute_spherical_harmonics(r_body, 20, 20)
+            .unwrap();
+
+        // Results should be identical
+        assert_abs_diff_eq!(a_truncated[0], a_full[0], epsilon = 1e-15);
+        assert_abs_diff_eq!(a_truncated[1], a_full[1], epsilon = 1e-15);
+        assert_abs_diff_eq!(a_truncated[2], a_full[2], epsilon = 1e-15);
     }
 }

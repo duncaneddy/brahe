@@ -9,6 +9,8 @@
  * - Handles frame and representation conversions
  */
 
+use std::sync::Arc;
+
 use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::constants::{GM_EARTH, R_EARTH};
@@ -17,19 +19,21 @@ use crate::frames::rotation_eci_to_ecef;
 use crate::integrators::traits::DIntegrator;
 #[allow(unused_imports)]
 use crate::math::jacobian::DNumericalJacobian;
+use crate::math::jacobian::DifferenceMethod;
 #[allow(unused_imports)]
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity,
-    accel_solar_radiation_pressure, accel_third_body_jupiter_de440s, accel_third_body_mars_de440s,
-    accel_third_body_mercury_de440s, accel_third_body_moon, accel_third_body_moon_de440s,
-    accel_third_body_neptune_de440s, accel_third_body_saturn_de440s, accel_third_body_sun,
-    accel_third_body_sun_de440s, accel_third_body_uranus_de440s, accel_third_body_venus_de440s,
-    eclipse_conical, eclipse_cylindrical, get_global_gravity_model, sun_position,
+    GravityModel, accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity,
+    accel_relativity, accel_solar_radiation_pressure, accel_third_body_jupiter_de440s,
+    accel_third_body_mars_de440s, accel_third_body_mercury_de440s, accel_third_body_moon,
+    accel_third_body_moon_de440s, accel_third_body_neptune_de440s, accel_third_body_saturn_de440s,
+    accel_third_body_sun, accel_third_body_sun_de440s, accel_third_body_uranus_de440s,
+    accel_third_body_venus_de440s, eclipse_conical, eclipse_cylindrical, get_global_gravity_model,
+    sun_position,
 };
 use crate::propagators::{
     AtmosphericModel, EclipseModel, EphemerisSource, ForceModelConfiguration, GravityConfiguration,
-    ThirdBody,
+    GravityModelSource, ThirdBody,
 };
 use crate::time::Epoch;
 use crate::traits::{OrbitFrame, OrbitRepresentation};
@@ -81,6 +85,22 @@ enum EventProcessingResult {
     /// Terminal event detected - stop propagation
     Terminal,
 }
+
+// =============================================================================
+// Shared Dynamics Type
+// =============================================================================
+
+/// Shared dynamics function that can be used by multiple consumers
+///
+/// This type wraps the dynamics function in an Arc to allow sharing between:
+/// - The main integrator
+/// - The Jacobian provider (for STM computation)
+/// - The sensitivity provider (for parameter sensitivity computation)
+///
+/// This ensures consistency - all three use the exact same dynamics function,
+/// including any `additional_dynamics` that were provided.
+type SharedDynamics =
+    Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
 // =============================================================================
 // Numerical Orbit Propagator
@@ -159,6 +179,10 @@ pub struct DNumericalOrbitPropagator {
     /// Force model configuration
     #[allow(dead_code)]
     force_config: ForceModelConfiguration,
+    /// Gravity model (loaded at construction if source is ModelType)
+    /// Note: The model is captured by the dynamics closure, this field stores it for Clone support
+    #[allow(dead_code)]
+    gravity_model: Option<Arc<GravityModel>>,
     /// Current integration step size
     dt: f64,
     /// Suggested next step size (from adaptive integrator)
@@ -189,6 +213,10 @@ pub struct DNumericalOrbitPropagator {
     stm: Option<DMatrix<f64>>,
     /// Sensitivity matrix S(t, t₀) = ∂x/∂p
     sensitivity: Option<DMatrix<f64>>,
+    /// Whether to store STM history in trajectory
+    store_stm_history: bool,
+    /// Whether to store sensitivity history in trajectory
+    store_sensitivity_history: bool,
 
     // ===== Covariance =====
     /// Initial covariance matrix P₀ (if provided)
@@ -284,28 +312,68 @@ impl DNumericalOrbitPropagator {
         // Get state dimension
         let state_dim = state_eci.len();
 
-        // Build dynamics function
-        let dynamics = Self::build_dynamics_function(
+        // Determine what to propagate based on config and provided data
+        // STM is auto-enabled if initial_covariance is provided, or can be explicitly enabled
+        let enable_stm = propagation_config.variational.enable_stm || initial_covariance.is_some();
+        let enable_sensitivity = propagation_config.variational.enable_sensitivity;
+
+        // Validate: sensitivity requires params
+        if enable_sensitivity && params.is_empty() {
+            return Err(BraheError::PropagatorError(
+                "Sensitivity propagation requires params to be provided".to_string(),
+            ));
+        }
+
+        // Load gravity model if using ModelType source, truncating to requested degree/order
+        let gravity_model = match &force_config.gravity {
+            GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(model_type),
+                degree,
+                order,
+            } => {
+                let mut model = GravityModel::from_model_type(model_type)?;
+                // Truncate model to save memory (only keep coefficients we'll use)
+                model.set_max_degree_order(*degree, *order)?;
+                Some(Arc::new(model))
+            }
+            _ => None,
+        };
+
+        // Build shared dynamics function (includes additional_dynamics)
+        let shared_dynamics = Self::build_shared_dynamics(
             epoch,
             force_config.clone(),
             params.clone(),
             additional_dynamics,
+            gravity_model.clone(),
         );
+
+        // Wrap for main integrator
+        let dynamics = Self::wrap_for_integrator(Arc::clone(&shared_dynamics));
 
         // Get initial step size from config
         let initial_dt = propagation_config.integrator.initial_step.unwrap_or(60.0);
 
-        // Build Jacobian and Sensitivity providers
-        let jacobian_provider = Some(Self::build_jacobian_provider(
-            epoch,
-            force_config.clone(),
-            params.clone(),
-        ));
+        // Build Jacobian provider if STM or sensitivity enabled
+        // (sensitivity propagation requires the Jacobian: dS/dt = A*S + B where A is ∂f/∂x)
+        let jacobian_provider = if enable_stm || enable_sensitivity {
+            Some(Self::build_jacobian_provider(
+                Arc::clone(&shared_dynamics),
+                propagation_config.variational.jacobian_method,
+            ))
+        } else {
+            None
+        };
 
-        let sensitivity_provider = Some(Self::build_sensitivity_provider(
-            epoch,
-            force_config.clone(),
-        ));
+        // Build Sensitivity provider if enabled
+        let sensitivity_provider = if enable_sensitivity {
+            Some(Self::build_sensitivity_provider(
+                Arc::clone(&shared_dynamics),
+                propagation_config.variational.sensitivity_method,
+            ))
+        } else {
+            None
+        };
 
         // Create integrator using factory function
         let integrator = crate::integrators::create_dintegrator(
@@ -319,22 +387,46 @@ impl DNumericalOrbitPropagator {
         );
 
         // Create trajectory storage
-        let trajectory = DTrajectory::new(state_dim);
+        let mut trajectory = DTrajectory::new(state_dim);
 
-        // Set up covariance propagation if initial covariance provided
-        let (propagation_mode, stm, current_covariance) = if let Some(ref p0) = initial_covariance {
-            // Initialize STM to identity matrix
-            let identity = DMatrix::identity(state_dim, state_dim);
-            (PropagationMode::WithSTM, Some(identity), Some(p0.clone()))
-        } else {
-            (PropagationMode::StateOnly, None, None)
+        // Enable STM/sensitivity storage in trajectory if configured
+        if propagation_config.variational.store_stm_history {
+            trajectory.enable_stm_storage();
+        }
+        if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
+            trajectory.enable_sensitivity_storage(params.len());
+        }
+
+        // Determine propagation mode based on what's enabled
+        let propagation_mode = match (enable_stm, enable_sensitivity) {
+            (false, false) => PropagationMode::StateOnly,
+            (true, false) => PropagationMode::WithSTM,
+            (false, true) => PropagationMode::WithSensitivity,
+            (true, true) => PropagationMode::WithSTMAndSensitivity,
         };
+
+        // Initialize matrices
+        let stm = if enable_stm {
+            Some(DMatrix::identity(state_dim, state_dim))
+        } else {
+            None
+        };
+
+        let sensitivity = if enable_sensitivity {
+            Some(DMatrix::zeros(state_dim, params.len()))
+        } else {
+            None
+        };
+
+        // Set up covariance if initial covariance provided
+        let current_covariance = initial_covariance.clone();
 
         Ok(Self {
             epoch_initial: epoch,
             t_rel: 0.0,
             integrator,
             force_config,
+            gravity_model,
             dt: initial_dt,
             dt_next: initial_dt,
             x_initial: state_eci.clone(),
@@ -346,7 +438,9 @@ impl DNumericalOrbitPropagator {
             angle_format: AngleFormat::Radians,
             propagation_mode,
             stm,
-            sensitivity: None,
+            sensitivity,
+            store_stm_history: propagation_config.variational.store_stm_history,
+            store_sensitivity_history: propagation_config.variational.store_sensitivity_history,
             initial_covariance,
             current_covariance,
             trajectory,
@@ -358,44 +452,6 @@ impl DNumericalOrbitPropagator {
             id: None,
             uuid: None,
         })
-    }
-
-    /// Enable STM propagation with initial covariance
-    ///
-    /// Call this after constructing the propagator to enable STM propagation
-    /// for covariance analysis.
-    ///
-    /// # Arguments
-    /// * `covariance` - Initial covariance matrix
-    pub fn enable_stm(&mut self, covariance: DMatrix<f64>) {
-        self.propagation_mode = PropagationMode::WithSTM;
-        self.stm = Some(covariance);
-    }
-
-    /// Enable sensitivity matrix propagation
-    ///
-    /// Call this after constructing the propagator to enable sensitivity
-    /// matrix propagation for parameter estimation.
-    ///
-    /// # Arguments
-    /// * `sensitivity` - Initial sensitivity matrix (state_dim × param_dim)
-    pub fn enable_sensitivity(&mut self, sensitivity: DMatrix<f64>) {
-        self.propagation_mode = PropagationMode::WithSensitivity;
-        self.sensitivity = Some(sensitivity);
-    }
-
-    /// Enable both STM and sensitivity propagation
-    ///
-    /// Call this for full uncertainty quantification combining both
-    /// initial state uncertainties and parameter uncertainties.
-    ///
-    /// # Arguments
-    /// * `stm` - Initial state transition matrix
-    /// * `sensitivity` - Initial sensitivity matrix (state_dim × param_dim)
-    pub fn enable_stm_and_sensitivity(&mut self, stm: DMatrix<f64>, sensitivity: DMatrix<f64>) {
-        self.propagation_mode = PropagationMode::WithSTMAndSensitivity;
-        self.stm = Some(stm);
-        self.sensitivity = Some(sensitivity);
     }
 
     /// Convert state from ECI Cartesian (internal format) to user format
@@ -614,68 +670,30 @@ impl DNumericalOrbitPropagator {
     }
 
     // =========================================================================
-    // Jacobian and Sensitivity Provider Builders
+    // Unified Dynamics Builder
     // =========================================================================
 
-    /// Build Jacobian provider for STM propagation
+    /// Build shared dynamics function from force model configuration
     ///
-    /// Creates a numerical Jacobian provider that computes ∂f/∂x using
-    /// finite differences on the dynamics function.
+    /// Creates a shared dynamics function that is used consistently by:
+    /// - The main integrator
+    /// - The Jacobian provider (for STM computation)
+    /// - The Sensitivity provider (for parameter sensitivity computation)
     ///
-    /// **Note:** Reserved for future STM propagation enhancement.
-    #[allow(dead_code)]
-    fn build_jacobian_provider(
-        epoch_initial: Epoch,
-        force_config: ForceModelConfiguration,
-        params: DVector<f64>,
-    ) -> Box<dyn crate::math::jacobian::DJacobianProvider> {
-        // Create a dynamics function without Option wrapper for Jacobian computation
-        let dynamics_for_jacobian = Box::new(
-            move |t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-                Self::compute_dynamics(t, state, epoch_initial, &force_config, Some(&params))
-            },
-        );
-
-        Box::new(DNumericalJacobian::forward(dynamics_for_jacobian))
-    }
-
-    /// Build Sensitivity provider for parameter sensitivity propagation
-    ///
-    /// Creates a numerical sensitivity provider that computes ∂f/∂p using
-    /// finite differences on the dynamics function.
-    ///
-    /// **Note:** Reserved for future sensitivity propagation enhancement.
-    #[allow(dead_code)]
-    fn build_sensitivity_provider(
-        epoch_initial: Epoch,
-        force_config: ForceModelConfiguration,
-    ) -> Box<dyn crate::math::sensitivity::DSensitivityProvider> {
-        // Create a dynamics function that takes parameters explicitly
-        let dynamics_with_params = Box::new(
-            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-                Self::compute_dynamics(t, state.clone(), epoch_initial, &force_config, Some(params))
-            },
-        );
-
-        Box::new(DNumericalSensitivity::forward(dynamics_with_params))
-    }
-
-    // =========================================================================
-    // Dynamics Function Builder
-    // =========================================================================
-
-    /// Build dynamics function from force model configuration
-    ///
-    /// Returns a boxed closure that computes state derivatives from the
-    /// configured force models and optional additional dynamics.
-    fn build_dynamics_function(
+    /// This ensures that all three use the exact same dynamics, including
+    /// any `additional_dynamics` that were provided.
+    fn build_shared_dynamics(
         epoch_initial: Epoch,
         force_config: ForceModelConfiguration,
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
-    ) -> DStateDynamics {
-        Box::new(
-            move |t: f64, state: DVector<f64>, params_opt: Option<&DVector<f64>>| -> DVector<f64> {
+        gravity_model: Option<Arc<GravityModel>>,
+    ) -> SharedDynamics {
+        Arc::new(
+            move |t: f64,
+                  state: &DVector<f64>,
+                  params_opt: Option<&DVector<f64>>|
+                  -> DVector<f64> {
                 // Compute orbital dynamics (first 6 elements)
                 let mut dx = Self::compute_dynamics(
                     t,
@@ -683,18 +701,99 @@ impl DNumericalOrbitPropagator {
                     epoch_initial,
                     &force_config,
                     params_opt.or(Some(&params)),
+                    gravity_model.as_ref(),
                 );
 
                 // If additional dynamics provided and state dimension > 6, compute extended state derivatives
                 if let Some(ref add_dyn) = additional_dynamics
                     && state.len() > 6
                 {
-                    dx += add_dyn(t, state, params_opt);
+                    dx += add_dyn(t, state.clone(), params_opt);
                 }
 
                 dx
             },
         )
+    }
+
+    /// Wrap shared dynamics for use with the main integrator
+    ///
+    /// The integrator expects `DStateDynamics` which takes owned state,
+    /// while SharedDynamics takes borrowed state.
+    fn wrap_for_integrator(shared: SharedDynamics) -> DStateDynamics {
+        Box::new(
+            move |t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+                shared(t, &state, params)
+            },
+        )
+    }
+
+    // =========================================================================
+    // Jacobian and Sensitivity Provider Builders
+    // =========================================================================
+
+    /// Build Jacobian provider for STM propagation
+    ///
+    /// Creates a numerical Jacobian provider that computes ∂f/∂x using
+    /// finite differences on the shared dynamics function.
+    ///
+    /// # Arguments
+    /// * `shared_dynamics` - The shared dynamics function
+    /// * `method` - Finite difference method (Forward, Central, or Backward)
+    fn build_jacobian_provider(
+        shared_dynamics: SharedDynamics,
+        method: DifferenceMethod,
+    ) -> Box<dyn crate::math::jacobian::DJacobianProvider> {
+        // Wrap shared dynamics for the Jacobian provider signature
+        let dynamics_for_jacobian = Box::new(
+            move |t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+                shared_dynamics(t, &state, params)
+            },
+        );
+
+        match method {
+            DifferenceMethod::Forward => {
+                Box::new(DNumericalJacobian::forward(dynamics_for_jacobian))
+            }
+            DifferenceMethod::Central => {
+                Box::new(DNumericalJacobian::central(dynamics_for_jacobian))
+            }
+            DifferenceMethod::Backward => {
+                Box::new(DNumericalJacobian::backward(dynamics_for_jacobian))
+            }
+        }
+    }
+
+    /// Build Sensitivity provider for parameter sensitivity propagation
+    ///
+    /// Creates a numerical sensitivity provider that computes ∂f/∂p using
+    /// finite differences on the shared dynamics function.
+    ///
+    /// # Arguments
+    /// * `shared_dynamics` - The shared dynamics function
+    /// * `method` - Finite difference method (Forward, Central, or Backward)
+    fn build_sensitivity_provider(
+        shared_dynamics: SharedDynamics,
+        method: DifferenceMethod,
+    ) -> Box<dyn crate::math::sensitivity::DSensitivityProvider> {
+        // Wrap shared dynamics for the Sensitivity provider signature
+        let dynamics_with_params = Box::new(
+            move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
+                shared_dynamics(t, state, Some(params))
+            },
+        );
+
+        match method {
+            DifferenceMethod::Forward => {
+                Box::new(DNumericalSensitivity::forward(dynamics_with_params))
+            }
+            DifferenceMethod::Central => {
+                Box::new(DNumericalSensitivity::central(dynamics_with_params))
+            }
+            DifferenceMethod::Backward => {
+                Box::new(DNumericalSensitivity::backward(dynamics_with_params))
+            }
+        }
     }
 
     /// Core dynamics computation function
@@ -707,6 +806,7 @@ impl DNumericalOrbitPropagator {
         epoch_initial: Epoch,
         force_config: &ForceModelConfiguration,
         params_opt: Option<&DVector<f64>>,
+        gravity_model: Option<&Arc<GravityModel>>,
     ) -> DVector<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -730,18 +830,40 @@ impl DNumericalOrbitPropagator {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
             GravityConfiguration::SphericalHarmonic {
-                model: _,
+                source,
                 degree,
                 order,
             } => {
                 // Get rotation matrix from ECI to ECEF
                 let r_i2b = rotation_eci_to_ecef(epoch);
 
-                // Get gravity model (assumes it's already loaded globally)
-                let gravity_model = get_global_gravity_model();
-
-                a_total +=
-                    accel_gravity_spherical_harmonics(r, r_i2b, &gravity_model, *degree, *order);
+                // Use gravity model based on source
+                match source {
+                    GravityModelSource::Global => {
+                        // Use global gravity model
+                        let global_model: std::sync::RwLockReadGuard<'_, Box<GravityModel>> =
+                            get_global_gravity_model();
+                        a_total += accel_gravity_spherical_harmonics(
+                            r,
+                            r_i2b,
+                            &global_model,
+                            *degree,
+                            *order,
+                        );
+                    }
+                    GravityModelSource::ModelType(_) => {
+                        // Use the model loaded at construction (passed in)
+                        if let Some(model) = gravity_model {
+                            a_total += accel_gravity_spherical_harmonics(
+                                r,
+                                r_i2b,
+                                model.as_ref(),
+                                *degree,
+                                *order,
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -961,6 +1083,63 @@ impl DNumericalOrbitPropagator {
         self.sensitivity.as_ref()
     }
 
+    /// Get STM at a specific index in the trajectory
+    ///
+    /// Returns the STM stored at the specified trajectory index, if STM
+    /// history storage was enabled and the index is valid.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory storage
+    ///
+    /// # Returns
+    /// Reference to the STM matrix if available, None otherwise
+    pub fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.trajectory.stm_at_idx(index)
+    }
+
+    /// Get sensitivity matrix at a specific index in the trajectory
+    ///
+    /// Returns the sensitivity matrix stored at the specified trajectory index,
+    /// if sensitivity history storage was enabled and the index is valid.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory storage
+    ///
+    /// # Returns
+    /// Reference to the sensitivity matrix if available, None otherwise
+    pub fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.trajectory.sensitivity_at_idx(index)
+    }
+
+    /// Get STM at a specific epoch (with interpolation)
+    ///
+    /// Returns the STM at the specified epoch by interpolating between stored
+    /// trajectory points. Requires STM history storage to be enabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve the STM
+    ///
+    /// # Returns
+    /// Interpolated STM matrix if available, None otherwise
+    pub fn stm_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        self.trajectory.stm_at(epoch)
+    }
+
+    /// Get sensitivity matrix at a specific epoch (with interpolation)
+    ///
+    /// Returns the sensitivity matrix at the specified epoch by interpolating
+    /// between stored trajectory points. Requires sensitivity history storage
+    /// to be enabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to retrieve the sensitivity matrix
+    ///
+    /// # Returns
+    /// Interpolated sensitivity matrix if available, None otherwise
+    pub fn sensitivity_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        self.trajectory.sensitivity_at(epoch)
+    }
+
     /// Check if propagation was terminated
     pub fn terminated(&self) -> bool {
         self.terminated
@@ -1156,11 +1335,27 @@ impl DNumericalOrbitPropagator {
                     // No events or all events processed without callbacks
                     // Accept step and store in trajectory if needed
                     if self.should_store_state() {
-                        if let Some(ref cov) = self.current_covariance {
-                            self.trajectory.add_with_covariance(
+                        // Prepare optional matrices for storage
+                        let cov = self.current_covariance.clone();
+                        let stm_to_store = if self.store_stm_history {
+                            self.stm.clone()
+                        } else {
+                            None
+                        };
+                        let sens_to_store = if self.store_sensitivity_history {
+                            self.sensitivity.clone()
+                        } else {
+                            None
+                        };
+
+                        // Use add_full if any optional data is present, otherwise use add
+                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
+                            self.trajectory.add_full(
                                 epoch_new,
                                 self.x_curr.clone(),
-                                cov.clone(),
+                                cov,
+                                stm_to_store,
+                                sens_to_store,
                             );
                         } else {
                             self.trajectory.add(epoch_new, self.x_curr.clone());
@@ -1182,11 +1377,27 @@ impl DNumericalOrbitPropagator {
                     // Terminal event detected
                     // Store final state and exit (terminated flag already set)
                     if self.should_store_state() {
-                        if let Some(ref cov) = self.current_covariance {
-                            self.trajectory.add_with_covariance(
+                        // Prepare optional matrices for storage
+                        let cov = self.current_covariance.clone();
+                        let stm_to_store = if self.store_stm_history {
+                            self.stm.clone()
+                        } else {
+                            None
+                        };
+                        let sens_to_store = if self.store_sensitivity_history {
+                            self.sensitivity.clone()
+                        } else {
+                            None
+                        };
+
+                        // Use add_full if any optional data is present, otherwise use add
+                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
+                            self.trajectory.add_full(
                                 epoch_new,
                                 self.x_curr.clone(),
-                                cov.clone(),
+                                cov,
+                                stm_to_store,
+                                sens_to_store,
                             );
                         } else {
                             self.trajectory.add(epoch_new, self.x_curr.clone());
@@ -1497,8 +1708,8 @@ mod tests {
         AtmosphericModel, DragConfiguration, ParameterSource,
     };
     use crate::propagators::traits::DStatePropagator;
-    use crate::state_osculating_to_cartesian;
     use crate::time::TimeSystem;
+    use crate::{orbital_period, state_osculating_to_cartesian};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -1730,7 +1941,7 @@ mod tests {
         prop.add_event_detector(Box::new(alt_event));
 
         // Propagate for one orbit period
-        let period = 2.0 * std::f64::consts::PI * (a.powi(3) / GM_EARTH).sqrt();
+        let period = 2.0 * orbital_period(a);
         prop.propagate_to(epoch + period);
 
         // Should detect 2 events for elliptical orbit (ascending and descending)
@@ -1738,6 +1949,55 @@ mod tests {
         assert!(
             !events.is_empty(),
             "Expected at least 1 altitude crossing (should be 2), got {}. Period: {} s",
+            events.len(),
+            period
+        );
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_event_detection_no_altitude_events() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Start with elliptical orbit that crosses 450 km altitude
+        let a = R_EARTH + 500e3; // 500 km semi-major axis
+        let e = 0.00; // Small eccentricity
+        let i = 0.0;
+        let raan = 0.0;
+        let argp = 0.0;
+        let ta = 0.0;
+
+        let oe = DVector::from_vec(vec![a, e, i, raan, argp, ta]);
+        let state = state_osculating_to_cartesian(
+            Vector6::from_column_slice(oe.as_slice()),
+            AngleFormat::Radians,
+        );
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_column_slice(state.as_slice()),
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::gravity_only(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add altitude event at 450 km (detect both increasing and decreasing)
+        let alt_event = DAltitudeEvent::new(450e3, "Low Alt", EventDirection::Any);
+        prop.add_event_detector(Box::new(alt_event));
+
+        // Propagate for one orbit period
+        let period = 2.0 * orbital_period(a);
+        prop.propagate_to(epoch + period);
+
+        // Should detect 2 events for elliptical orbit (ascending and descending)
+        let events = prop.event_log();
+        assert!(
+            events.is_empty(),
+            "Expected at least 0 altitude crossings, got {}. Period: {} s",
             events.len(),
             period
         );
@@ -2462,9 +2722,10 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::new(
+        // Test 1: Without STM enabled (default config)
+        let prop_no_stm = DNumericalOrbitPropagator::new(
             epoch,
-            state,
+            state.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
             None,
@@ -2473,14 +2734,25 @@ mod tests {
         )
         .unwrap();
 
-        // Initially STM should be None (StateOnly mode)
-        assert!(prop.stm().is_none());
+        // STM should be None (StateOnly mode)
+        assert!(prop_no_stm.stm().is_none());
 
-        // Enable STM
-        let initial_stm = DMatrix::identity(6, 6);
-        prop.enable_stm(initial_stm);
+        // Test 2: With STM enabled via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
 
-        // Now STM should be Some
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfiguration::gravity_only(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Now STM should be Some (initialized to identity)
         assert!(prop.stm().is_some());
         let stm = prop.stm().unwrap();
         assert_eq!(stm.nrows(), 6);
@@ -2494,9 +2766,10 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::new(
+        // Test 1: Without sensitivity enabled (default config)
+        let prop_no_sens = DNumericalOrbitPropagator::new(
             epoch,
-            state,
+            state.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfiguration::gravity_only(),
             None,
@@ -2505,14 +2778,26 @@ mod tests {
         )
         .unwrap();
 
-        // Initially sensitivity should be None
-        assert!(prop.sensitivity().is_none());
+        // Sensitivity should be None
+        assert!(prop_no_sens.sensitivity().is_none());
 
-        // Enable sensitivity
-        let initial_sens = DMatrix::zeros(6, 5);
-        prop.enable_sensitivity(initial_sens);
+        // Test 2: With sensitivity enabled via config (requires params)
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_sensitivity = true;
+        let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]); // 5 params
 
-        // Now sensitivity should be Some
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfiguration::gravity_only(),
+            Some(params),
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Now sensitivity should be Some (initialized to zeros)
         assert!(prop.sensitivity().is_some());
         let sens = prop.sensitivity().unwrap();
         assert_eq!(sens.nrows(), 6);
@@ -2811,7 +3096,7 @@ mod tests {
         // Test with 4x4 spherical harmonic
         let force_config = ForceModelConfiguration {
             gravity: GravityConfiguration::SphericalHarmonic {
-                model: GravityModelType::EGM2008_360,
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
                 order: 4,
             },
@@ -3368,20 +3653,20 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Enable STM via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfiguration::gravity_only(),
             None,
             None,
             None,
         )
         .unwrap();
-
-        // Enable STM
-        let initial_stm = DMatrix::identity(6, 6);
-        prop.enable_stm(initial_stm);
 
         assert!(prop.stm().is_some());
         assert!(prop.sensitivity().is_none());
@@ -3416,22 +3701,22 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Enable sensitivity via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_sensitivity = true;
+
         // Must provide params for sensitivity propagation (5 params -> 6x5 sensitivity matrix)
         // Use test-friendly config with point mass gravity to avoid gravity model dependency
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             test_force_config_with_params(),
             Some(default_test_params()),
             None,
             None,
         )
         .unwrap();
-
-        // Enable sensitivity
-        let initial_sens = DMatrix::zeros(6, 5);
-        prop.enable_sensitivity(initial_sens);
 
         assert!(prop.stm().is_none());
         assert!(prop.sensitivity().is_some());
@@ -3452,23 +3737,23 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Enable both STM and sensitivity via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+        config.variational.enable_sensitivity = true;
+
         // Must provide params for sensitivity propagation (5 params -> 6x5 sensitivity matrix)
         // Use test-friendly config with point mass gravity to avoid gravity model dependency
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             test_force_config_with_params(),
             Some(default_test_params()),
             None,
             None,
         )
         .unwrap();
-
-        // Enable both
-        let initial_stm = DMatrix::identity(6, 6);
-        let initial_sens = DMatrix::zeros(6, 5);
-        prop.enable_stm_and_sensitivity(initial_stm, initial_sens);
 
         assert!(prop.stm().is_some());
         assert!(prop.sensitivity().is_some());
@@ -3482,84 +3767,79 @@ mod tests {
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_enable_stm() {
+    fn test_dnumericalorbitpropagator_config_stm() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::new(
+        // Test: STM enabled via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfiguration::gravity_only(),
             None,
             None,
             None,
         )
         .unwrap();
-
-        assert!(prop.stm().is_none());
-
-        // Enable STM
-        let covariance = DMatrix::identity(6, 6);
-        prop.enable_stm(covariance);
 
         assert!(prop.stm().is_some());
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_enable_sensitivity() {
+    fn test_dnumericalorbitpropagator_config_sensitivity() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::new(
+        // Test: sensitivity enabled via config (requires params)
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_sensitivity = true;
+        let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]); // 5 params
+
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfiguration::gravity_only(),
-            None,
+            Some(params),
             None,
             None,
         )
         .unwrap();
-
-        assert!(prop.sensitivity().is_none());
-
-        // Enable sensitivity
-        let sens = DMatrix::zeros(6, 5);
-        prop.enable_sensitivity(sens);
 
         assert!(prop.sensitivity().is_some());
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_enable_stm_and_sensitivity() {
+    fn test_dnumericalorbitpropagator_config_stm_and_sensitivity() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let mut prop = DNumericalOrbitPropagator::new(
+        // Test: both STM and sensitivity enabled via config (requires params)
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+        config.variational.enable_sensitivity = true;
+        let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]); // 5 params
+
+        let prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfiguration::gravity_only(),
-            None,
+            Some(params),
             None,
             None,
         )
         .unwrap();
-
-        assert!(prop.stm().is_none());
-        assert!(prop.sensitivity().is_none());
-
-        // Enable both
-        let stm = DMatrix::identity(6, 6);
-        let sens = DMatrix::zeros(6, 5);
-        prop.enable_stm_and_sensitivity(stm, sens);
 
         assert!(prop.stm().is_some());
         assert!(prop.sensitivity().is_some());
@@ -3572,10 +3852,14 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Enable STM via config
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfiguration::gravity_only(),
             None,
             None,
@@ -3583,11 +3867,8 @@ mod tests {
         )
         .unwrap();
 
-        // Enable STM first
-        let initial_cov = DMatrix::identity(6, 6) * 100.0; // 100 m² initial uncertainty
-        prop.enable_stm(DMatrix::identity(6, 6));
-
         // Propagate covariance
+        let initial_cov = DMatrix::identity(6, 6) * 100.0; // 100 m² initial uncertainty
         let final_cov = prop.propagate_covariance(initial_cov.clone(), epoch + 600.0);
 
         // Covariance should have changed

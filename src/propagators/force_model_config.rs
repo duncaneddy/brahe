@@ -122,7 +122,7 @@ impl Default for ForceModelConfiguration {
     fn default() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
-                model: GravityModelType::EGM2008_360,
+                source: GravityModelSource::default(),
                 degree: 20,
                 order: 20,
             },
@@ -281,7 +281,7 @@ impl ForceModelConfiguration {
     pub fn high_fidelity() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
-                model: GravityModelType::EGM2008_360,
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 70,
                 order: 70,
             },
@@ -327,7 +327,7 @@ impl ForceModelConfiguration {
     pub fn leo_default() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
-                model: GravityModelType::EGM2008_360,
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 30,
                 order: 30,
             },
@@ -349,7 +349,7 @@ impl ForceModelConfiguration {
     pub fn geo_default() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
-                model: GravityModelType::EGM2008_360,
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 8,
                 order: 8,
             },
@@ -372,6 +372,46 @@ impl ForceModelConfiguration {
 // Gravity Configuration
 // =============================================================================
 
+/// Source for the gravity model coefficients
+///
+/// Specifies where the gravity model should be loaded from. This allows users to either
+/// share a single global gravity model across multiple propagators (memory efficient) or
+/// load a specific model for each propagator (explicit and independent).
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::propagators::GravityModelSource;
+/// use brahe::gravity::GravityModelType;
+///
+/// // Use the global gravity model (requires set_global_gravity_model() first)
+/// let source = GravityModelSource::Global;
+///
+/// // Load a specific model at propagator construction
+/// let source = GravityModelSource::ModelType(GravityModelType::JGM3);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum GravityModelSource {
+    /// Use the global gravity model
+    ///
+    /// The gravity model must be set via `set_global_gravity_model()` before
+    /// propagation. This is memory efficient when multiple propagators share
+    /// the same gravity model.
+    Global,
+
+    /// Load a specific gravity model type
+    ///
+    /// The model is loaded at propagator construction time and stored internally.
+    /// Each propagator has its own copy of the model coefficients.
+    ModelType(GravityModelType),
+}
+
+impl Default for GravityModelSource {
+    fn default() -> Self {
+        GravityModelSource::ModelType(GravityModelType::EGM2008_360)
+    }
+}
+
 /// Gravity model configuration
 ///
 /// Specifies the gravity model to use for computing gravitational acceleration.
@@ -389,8 +429,8 @@ pub enum GravityConfiguration {
     /// Includes higher-order terms in the gravity field expansion.
     /// More accurate but computationally expensive.
     SphericalHarmonic {
-        /// Gravity model to use
-        model: GravityModelType,
+        /// Source of the gravity model coefficients
+        source: GravityModelSource,
         /// Maximum degree (n) of expansion
         degree: usize,
         /// Maximum order (m) of expansion

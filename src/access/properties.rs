@@ -995,7 +995,7 @@ mod tests {
         );
 
         // Use StateProvider trait directly
-        let state = prop.state_ecef(epoch);
+        let state = prop.state_ecef(epoch).unwrap();
         assert_eq!(state.len(), 6);
 
         // State should be non-zero
@@ -1023,7 +1023,7 @@ mod tests {
 
         // Use StateProvider trait directly (now implemented by SOrbitTrajectory)
         let mid_epoch = epoch1 + 30.0;
-        let state = traj.state_ecef(mid_epoch);
+        let state = traj.state_ecef(mid_epoch).unwrap();
         assert_eq!(state.len(), 6);
     }
 
@@ -1293,7 +1293,7 @@ mod tests {
         // Get states at sample epochs using StateProvider trait
         let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
             .iter()
-            .map(|&epoch| prop.state_ecef(epoch))
+            .map(|&epoch| prop.state_ecef(epoch).unwrap())
             .collect();
 
         // Convert epochs to MJD for property computer interface

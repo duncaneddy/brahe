@@ -192,7 +192,7 @@ nav:
                 - learn/trajectories/index.md
                 - learn/trajectories/dtrajectory.md
                 - learn/trajectories/strajectory6.md
-                - learn/trajectories/orbit_trajectory.md
+                - learn/trajectories/sorbit_trajectory.md
             - Orbital Dynamics:
                 - learn/orbital_dynamics/index.md
                 - Gravity Models: learn/orbital_dynamics/gravity.md
@@ -310,7 +310,7 @@ nav:
                 - library_api/trajectories/index.md
                 - DTrajectory: library_api/trajectories/dtrajectory.md
                 - STrajectory6: library_api/trajectories/strajectory6.md
-                - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
+                - SOrbitTrajectory: library_api/trajectories/sorbit_trajectory.md
             - Orbital Dynamics:
                 - library_api/orbit_dynamics/index.md
                 - Gravity Models: library_api/orbit_dynamics/gravity.md

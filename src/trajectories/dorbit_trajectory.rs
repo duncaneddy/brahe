@@ -39,7 +39,7 @@
  * ```
  */
 
-use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
+use nalgebra::{DMatrix, DVector, SMatrix, Vector3, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
@@ -49,14 +49,18 @@ use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
 use crate::frames::{
-    state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
-    state_gcrf_to_itrf, state_itrf_to_gcrf,
+    rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
+    state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
     interpolate_covariance_two_wasserstein_dmatrix,
 };
+use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
+use crate::utils::state_providers::{
+    DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
+};
 use crate::utils::{BraheError, Identifiable};
 
 /// Convert a DVector to a static Vector6.
@@ -1909,6 +1913,521 @@ impl Identifiable for DOrbitTrajectory {
 
     fn get_uuid(&self) -> Option<Uuid> {
         self.uuid
+    }
+}
+
+// =============================================================================
+// DStateProvider Trait
+// =============================================================================
+
+impl DStateProvider for DOrbitTrajectory {
+    fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError> {
+        // Delegate to existing interpolate method - returns FULL state (all dimensions)
+        self.interpolate(&epoch)
+    }
+
+    fn state_dim(&self) -> usize {
+        // Return actual dimension from first state (can be >6 for extended states)
+        self.states.first().map(|s| s.len()).unwrap_or(6)
+    }
+}
+
+// =============================================================================
+// DCovarianceProvider Trait
+// =============================================================================
+
+impl DCovarianceProvider for DOrbitTrajectory {
+    fn covariance(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
+        // Check if covariance tracking is enabled
+        if self.covariances.is_none() {
+            return Err(BraheError::InitializationError(
+                "Covariance not available: covariance tracking was not enabled for this trajectory"
+                    .to_string(),
+            ));
+        }
+
+        // Validate bounds
+        if let Some(start) = self.start_epoch()
+            && epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: before trajectory start {}",
+                epoch, start
+            )));
+        }
+        if let Some(end) = self.end_epoch()
+            && epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Delegate to existing method - returns FULL covariance matrix (all dimensions)
+        self.covariance_at(epoch).ok_or_else(|| {
+            BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: no covariance data available",
+                epoch
+            ))
+        })
+    }
+
+    fn covariance_dim(&self) -> usize {
+        // Return actual dimension from first covariance (can be >6 for extended states)
+        self.covariances
+            .as_ref()
+            .and_then(|covs| covs.first())
+            .map(|c| c.nrows())
+            .unwrap_or(6)
+    }
+}
+
+// =============================================================================
+// DOrbitStateProvider Trait
+// =============================================================================
+
+impl DOrbitStateProvider for DOrbitTrajectory {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state, // GCRF treated as ECI
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
+                state_eme2000_to_gcrf(state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                ))
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_ecef_to_eci(epoch, state),
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state_eme2000_to_gcrf(state),
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
+                state_eme2000_to_gcrf(state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                ))
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state_eme2000_to_gcrf(state),
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_itrf(epoch, state),
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_eme2000_to_gcrf(state);
+                state_gcrf_to_itrf(epoch, state_gcrf)
+            }
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                let state_eci_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_eci_to_ecef(epoch, state_eci_cart)
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
+                let state_eme2000_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
+                state_gcrf_to_itrf(epoch, state_gcrf)
+            }
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
+                let state_gcrf_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_gcrf_to_itrf(epoch, state_gcrf_cart)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_itrf(epoch, state),
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_eme2000_to_gcrf(state);
+                state_gcrf_to_itrf(epoch, state_gcrf)
+            }
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                let state_eci_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_eci_to_ecef(epoch, state_eci_cart)
+            }
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
+                let state_gcrf_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_gcrf_to_itrf(epoch, state_gcrf_cart)
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
+                let state_eme2000_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
+                state_gcrf_to_itrf(epoch, state_gcrf)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
+                let state_gcrf_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_gcrf_to_eme2000(state_gcrf_cart)
+            }
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                let state_eci_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                state_gcrf_to_eme2000(state_eci_cart)
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+                state,
+                self.angle_format
+                    .expect("Keplerian representation must have angle_format"),
+            ),
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_itrf_to_gcrf(epoch, state);
+                state_gcrf_to_eme2000(state_gcrf)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_itrf_to_gcrf(epoch, state);
+                state_gcrf_to_eme2000(state_gcrf)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        // Get state in native format (full dimensions)
+        let state_dvec = self.interpolate(&epoch)?;
+
+        // Extract first 6 elements (orbital state only - ignore extended dimensions)
+        let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
+
+        Ok(match (self.frame, self.representation) {
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
+                // Already in Keplerian, just convert angle format if needed
+                let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
+                if native_format == angle_format {
+                    state
+                } else {
+                    // Convert angles
+                    let mut converted = state;
+                    let factor = if angle_format == AngleFormat::Degrees {
+                        RAD2DEG
+                    } else {
+                        DEG2RAD
+                    };
+                    converted[2] *= factor; // inclination
+                    converted[3] *= factor; // RAAN
+                    converted[4] *= factor; // arg periapsis
+                    converted[5] *= factor; // mean anomaly
+                    converted
+                }
+            }
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
+                // Already in Keplerian, just convert angle format if needed
+                let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
+                if native_format == angle_format {
+                    state
+                } else {
+                    // Convert angles
+                    let mut converted = state;
+                    let factor = if angle_format == AngleFormat::Degrees {
+                        RAD2DEG
+                    } else {
+                        DEG2RAD
+                    };
+                    converted[2] *= factor; // inclination
+                    converted[3] *= factor; // RAAN
+                    converted[4] *= factor; // arg periapsis
+                    converted[5] *= factor; // mean anomaly
+                    converted
+                }
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
+                // Convert back to Cartesian, to GCRF, then to osculating elements
+                let state_eme2000_cart = state_osculating_to_cartesian(
+                    state,
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                );
+                let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
+                state_cartesian_to_osculating(state_gcrf, angle_format)
+            }
+            (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => {
+                state_cartesian_to_osculating(state, angle_format)
+            }
+            (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => {
+                state_cartesian_to_osculating(state, angle_format)
+            }
+            (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_eme2000_to_gcrf(state);
+                state_cartesian_to_osculating(state_gcrf, angle_format)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
+                let state_eci = state_ecef_to_eci(epoch, state);
+                state_cartesian_to_osculating(state_eci, angle_format)
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
+                let state_gcrf = state_itrf_to_gcrf(epoch, state);
+                state_cartesian_to_osculating(state_gcrf, angle_format)
+            }
+            (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+            (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
+            }
+        })
+    }
+}
+
+// =============================================================================
+// DOrbitCovarianceProvider Trait
+// =============================================================================
+
+impl DOrbitCovarianceProvider for DOrbitTrajectory {
+    fn covariance_eci(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
+        let cov_native = self.covariance(epoch)?;
+        let dim = cov_native.nrows();
+
+        match self.frame {
+            OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
+            OrbitFrame::EME2000 => {
+                // Apply frame bias rotation to first 6x6 block only
+                let rot = rotation_eme2000_to_gcrf();
+
+                // Build full-dimensional Jacobian
+                let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
+
+                // Position and velocity blocks (top-left 3x3, and indices 3-5)
+                for i in 0..3 {
+                    for j in 0..3 {
+                        jacobian[(i, j)] = rot[(i, j)];
+                        jacobian[(3 + i, 3 + j)] = rot[(i, j)];
+                    }
+                }
+
+                // Extended dimensions use identity (pass through unchanged)
+                for i in 6..dim {
+                    jacobian[(i, i)] = 1.0;
+                }
+
+                // Transform: C_ECI = J * C_EME2000 * J^T
+                Ok(&jacobian * &cov_native * jacobian.transpose())
+            }
+            OrbitFrame::ECEF | OrbitFrame::ITRF => Err(BraheError::Error(
+                "ECEF/ITRF covariance transformation not supported (requires time-dependent rotation derivatives)"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn covariance_gcrf(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
+        // GCRF ≈ ECI for practical purposes
+        self.covariance_eci(epoch)
+    }
+
+    fn covariance_rtn(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
+        let cov_eci = self.covariance_eci(epoch)?;
+        let state_eci = self.state_eci(epoch)?;
+        let dim = cov_eci.nrows();
+
+        // Compute RTN rotation (from first 6 elements of orbital state)
+        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
+
+        // Compute angular velocity (Alfriend equation 2.16)
+        let r = state_eci.fixed_rows::<3>(0);
+        let v = state_eci.fixed_rows::<3>(3);
+        let f_dot = (r.cross(&v)).norm() / r.norm().powi(2);
+        let omega = Vector3::new(0.0, 0.0, f_dot);
+
+        // Build skew-symmetric matrix [ω]×
+        let omega_skew = SMatrix::<f64, 3, 3>::new(
+            0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
+        );
+
+        // Compute J21 = -[ω]× * R
+        let j21 = -omega_skew * rot_eci_to_rtn;
+
+        // Build full-dimensional Jacobian: J = [R, 0; J21, R; 0, 0, I]
+        let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
+
+        // Position rotation block (top-left 3x3)
+        for i in 0..3 {
+            for j in 0..3 {
+                jacobian[(i, j)] = rot_eci_to_rtn[(i, j)];
+            }
+        }
+
+        // Velocity coupling block (indices 3-5, columns 0-2)
+        for i in 0..3 {
+            for j in 0..3 {
+                jacobian[(3 + i, j)] = j21[(i, j)];
+            }
+        }
+
+        // Velocity rotation block (indices 3-5, columns 3-5)
+        for i in 0..3 {
+            for j in 0..3 {
+                jacobian[(3 + i, 3 + j)] = rot_eci_to_rtn[(i, j)];
+            }
+        }
+
+        // Extended dimensions use identity (pass through unchanged)
+        for i in 6..dim {
+            jacobian[(i, i)] = 1.0;
+        }
+
+        // Transform: C_RTN = J * C_ECI * J^T
+        Ok(&jacobian * &cov_eci * jacobian.transpose())
     }
 }
 

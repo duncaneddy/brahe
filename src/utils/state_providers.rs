@@ -25,6 +25,7 @@ use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
+use crate::utils::errors::BraheError;
 use crate::utils::identifiable::Identifiable;
 
 // ============================================================================
@@ -48,8 +49,9 @@ pub trait SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing the state in the provider's native output format
-    fn state(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing the state in the provider's native output format
+    /// * `Err(BraheError)` - If the state cannot be computed (e.g., epoch out of bounds)
+    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns states at multiple epochs in the propagator's native coordinate frame
     ///
@@ -57,8 +59,9 @@ pub trait SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing states in the propagator's native output format
-    fn states(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing states
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state(epoch)).collect()
     }
 }
@@ -80,8 +83,9 @@ pub trait DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A dynamic vector containing the state in the provider's native output format
-    fn state(&self, epoch: Epoch) -> DVector<f64>;
+    /// * `Ok(DVector<f64>)` - Dynamic vector containing the state in the provider's native output format
+    /// * `Err(BraheError)` - If the state cannot be computed (e.g., epoch out of bounds)
+    fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError>;
 
     /// Returns the dimension of the state vector
     fn state_dim(&self) -> usize;
@@ -92,8 +96,9 @@ pub trait DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of dynamic vectors containing states in the propagator's native output format
-    fn states(&self, epochs: &[Epoch]) -> Vec<DVector<f64>> {
+    /// * `Ok(Vec<DVector<f64>>)` - Vector of dynamic vectors containing states
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states(&self, epochs: &[Epoch]) -> Result<Vec<DVector<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state(epoch)).collect()
     }
 }
@@ -127,9 +132,9 @@ pub trait SCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+    /// * `Ok(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix
+    /// * `Err(BraheError)` - If covariance is unavailable (e.g., tracking not enabled, epoch out of bounds)
+    fn covariance(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError>;
 }
 
 /// Trait for types that can provide dynamic-sized covariance matrices at arbitrary epochs.
@@ -145,9 +150,9 @@ pub trait DCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(DMatrix<f64>)` - Covariance matrix if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance(&self, epoch: Epoch) -> Option<DMatrix<f64>>;
+    /// * `Ok(DMatrix<f64>)` - Covariance matrix
+    /// * `Err(BraheError)` - If covariance is unavailable (e.g., tracking not enabled, epoch out of bounds)
+    fn covariance(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError>;
 
     /// Returns the dimension of the covariance matrix (should match state_dim)
     fn covariance_dim(&self) -> usize;
@@ -174,9 +179,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ECI frame.
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ECI
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Earth-Centered Earth-Fixed (ECEF)
     /// Cartesian coordinates.
@@ -185,9 +190,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ECEF frame.
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ECEF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Geocentric Celestial Reference Frame (GCRF)
     /// Cartesian coordinates.
@@ -196,9 +201,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the GCRF frame.
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in GCRF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in International Terrestrial Reference Frame (ITRF)
     /// Cartesian coordinates.
@@ -207,9 +212,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ITRF frame.
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ITRF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Earth Mean Equator and Equinox of J2000.0 (EME2000)
     /// Cartesian coordinates.
@@ -218,9 +223,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the EME2000 frame.
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in EME2000
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
@@ -229,10 +234,13 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
-    /// A 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
-    /// where angles are in the specified format
-    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat)
-    -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates.
@@ -241,8 +249,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_eci(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
     }
 
@@ -252,8 +261,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_ecef(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
     }
 
@@ -263,9 +273,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the GCRF frame.
-    fn states_gcrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in GCRF
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_gcrf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_gcrf(epoch)).collect()
     }
 
@@ -275,9 +285,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the ITRF frame.
-    fn states_itrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in ITRF
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_itrf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_itrf(epoch)).collect()
     }
 
@@ -287,9 +297,9 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the EME2000 frame.
-    fn states_eme2000(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in EME2000
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_eme2000(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
             .map(|&epoch| self.state_eme2000(epoch))
@@ -303,12 +313,13 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing osculating Keplerian elements
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing osculating Keplerian elements
+    /// * `Err(BraheError)` - If any state cannot be computed
     fn states_as_osculating_elements(
         &self,
         epochs: &[Epoch],
         angle_format: AngleFormat,
-    ) -> Vec<Vector6<f64>> {
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
             .map(|&epoch| self.state_as_osculating_elements(epoch, angle_format))
@@ -331,9 +342,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ECI frame.
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ECI
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Earth-Centered Earth-Fixed (ECEF)
     /// Cartesian coordinates.
@@ -342,9 +353,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ECEF frame.
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ECEF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Geocentric Celestial Reference Frame (GCRF)
     /// Cartesian coordinates.
@@ -353,9 +364,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the GCRF frame.
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in GCRF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in International Terrestrial Reference Frame (ITRF)
     /// Cartesian coordinates.
@@ -364,9 +375,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the ITRF frame.
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in ITRF
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch in Earth Mean Equator and Equinox of J2000.0 (EME2000)
     /// Cartesian coordinates.
@@ -375,9 +386,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epoch` - The epoch at which to compute the state
     ///
     /// # Returns
-    /// A 6-element vector containing position (m) and velocity (m/s) components
-    /// in the EME2000 frame.
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in EME2000
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
@@ -386,10 +397,13 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
-    /// A 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
-    /// where angles are in the specified format
-    fn state_as_osculating_elements(&self, epoch: Epoch, angle_format: AngleFormat)
-    -> Vector6<f64>;
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError>;
 
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates.
@@ -398,8 +412,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_eci(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_eci(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_eci(epoch)).collect()
     }
 
@@ -409,8 +424,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    fn states_ecef(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_ecef(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_ecef(epoch)).collect()
     }
 
@@ -420,9 +436,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the GCRF frame.
-    fn states_gcrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in GCRF
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_gcrf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_gcrf(epoch)).collect()
     }
 
@@ -432,9 +448,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the ITRF frame.
-    fn states_itrf(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in ITRF
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_itrf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs.iter().map(|&epoch| self.state_itrf(epoch)).collect()
     }
 
@@ -444,9 +460,9 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `epochs` - Slice of epochs at which to compute states
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing position (m) and velocity (m/s) components
-    ///   in the EME2000 frame.
-    fn states_eme2000(&self, epochs: &[Epoch]) -> Vec<Vector6<f64>> {
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in EME2000
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_eme2000(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
             .map(|&epoch| self.state_eme2000(epoch))
@@ -460,12 +476,13 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
     ///
     /// # Returns
-    /// * Vector of 6-element vectors containing osculating Keplerian elements
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing osculating Keplerian elements
+    /// * `Err(BraheError)` - If any state cannot be computed
     fn states_as_osculating_elements(
         &self,
         epochs: &[Epoch],
         angle_format: AngleFormat,
-    ) -> Vec<Vector6<f64>> {
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
             .map(|&epoch| self.state_as_osculating_elements(epoch, angle_format))
@@ -480,8 +497,8 @@ pub trait DOrbitStateProvider: DStateProvider {
 /// Trait for providing 6x6 covariance matrices in multiple reference frames.
 ///
 /// This trait extends [`SCovarianceProvider`] with orbital-specific frame transformations.
-/// All methods return `Option<SMatrix<f64, 6, 6>>` to handle cases where covariance
-/// data may not be available for the requested epoch.
+/// All methods return `Result<SMatrix<f64, 6, 6>, BraheError>` to provide explicit errors
+/// for cases where covariance data is unavailable.
 ///
 /// # Covariance Matrix Structure
 ///
@@ -510,23 +527,21 @@ pub trait DOrbitStateProvider: DStateProvider {
 /// use brahe::trajectories::SOrbitTrajectory;
 /// use brahe::utils::state_providers::SOrbitCovarianceProvider;
 ///
-/// # fn example(trajectory: &SOrbitTrajectory, epoch: Epoch) {
+/// # fn example(trajectory: &SOrbitTrajectory, epoch: Epoch) -> Result<(), brahe::BraheError> {
 /// // Get covariance in native frame
-/// if let Some(cov) = trajectory.covariance_eci(epoch) {
-///     println!("Position uncertainty: {:.3} m", cov[(0, 0)].sqrt());
-/// }
+/// let cov = trajectory.covariance_eci(epoch)?;
+/// println!("Position uncertainty: {:.3} m", cov[(0, 0)].sqrt());
 ///
 /// // Get covariance in GCRF frame
-/// if let Some(cov_gcrf) = trajectory.covariance_gcrf(epoch) {
-///     println!("GCRF covariance available");
-/// }
+/// let cov_gcrf = trajectory.covariance_gcrf(epoch)?;
+/// println!("GCRF covariance available");
 ///
 /// // Get covariance in RTN frame for relative navigation
-/// if let Some(cov_rtn) = trajectory.covariance_rtn(epoch) {
-///     println!("Radial uncertainty: {:.3} m", cov_rtn[(0, 0)].sqrt());
-///     println!("In-track uncertainty: {:.3} m", cov_rtn[(1, 1)].sqrt());
-///     println!("Normal uncertainty: {:.3} m", cov_rtn[(2, 2)].sqrt());
-/// }
+/// let cov_rtn = trajectory.covariance_rtn(epoch)?;
+/// println!("Radial uncertainty: {:.3} m", cov_rtn[(0, 0)].sqrt());
+/// println!("In-track uncertainty: {:.3} m", cov_rtn[(1, 1)].sqrt());
+/// println!("Normal uncertainty: {:.3} m", cov_rtn[(2, 2)].sqrt());
+/// # Ok(())
 /// # }
 /// ```
 pub trait SOrbitCovarianceProvider: SCovarianceProvider {
@@ -536,9 +551,9 @@ pub trait SOrbitCovarianceProvider: SCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in ECI frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+    /// * `Ok(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in ECI frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_eci(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError>;
 
     /// Returns the covariance matrix at the given epoch in Geocentric Celestial Reference Frame (GCRF).
     ///
@@ -546,9 +561,9 @@ pub trait SOrbitCovarianceProvider: SCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in GCRF frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+    /// * `Ok(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in GCRF frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_gcrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError>;
 
     /// Returns the covariance matrix at the given epoch in Radial, Along-track, Normal (RTN) frame.
     ///
@@ -563,9 +578,9 @@ pub trait SOrbitCovarianceProvider: SCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in RTN frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>>;
+    /// * `Ok(SMatrix<f64, 6, 6>)` - 6x6 covariance matrix in RTN frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_rtn(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError>;
 }
 
 /// Trait for providing dynamic-sized covariance matrices in multiple reference frames.
@@ -579,9 +594,9 @@ pub trait DOrbitCovarianceProvider: DCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(DMatrix<f64>)` - Covariance matrix in ECI frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_eci(&self, epoch: Epoch) -> Option<DMatrix<f64>>;
+    /// * `Ok(DMatrix<f64>)` - Covariance matrix in ECI frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_eci(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError>;
 
     /// Returns the covariance matrix at the given epoch in Geocentric Celestial Reference Frame (GCRF).
     ///
@@ -589,9 +604,9 @@ pub trait DOrbitCovarianceProvider: DCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(DMatrix<f64>)` - Covariance matrix in GCRF frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<DMatrix<f64>>;
+    /// * `Ok(DMatrix<f64>)` - Covariance matrix in GCRF frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_gcrf(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError>;
 
     /// Returns the covariance matrix at the given epoch in Radial, Along-track, Normal (RTN) frame.
     ///
@@ -599,9 +614,9 @@ pub trait DOrbitCovarianceProvider: DCovarianceProvider {
     /// * `epoch` - The epoch at which to retrieve/compute the covariance
     ///
     /// # Returns
-    /// * `Some(DMatrix<f64>)` - Covariance matrix in RTN frame if available
-    /// * `None` - If no covariance data is available for this epoch
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<DMatrix<f64>>;
+    /// * `Ok(DMatrix<f64>)` - Covariance matrix in RTN frame
+    /// * `Err(BraheError)` - If covariance is unavailable
+    fn covariance_rtn(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError>;
 }
 
 // ============================================================================

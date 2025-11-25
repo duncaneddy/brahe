@@ -1655,25 +1655,25 @@ impl CovarianceInterpolationConfig for DNumericalOrbitPropagator {
 // =============================================================================
 
 impl DStateProvider for DNumericalOrbitPropagator {
-    fn state(&self, epoch: Epoch) -> DVector<f64> {
+    fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError> {
         // Try to interpolate from trajectory
         if let Ok(state) = self.trajectory.interpolate(&epoch) {
-            return state;
+            return Ok(state);
         }
 
         // If epoch matches current, return current state (always allowed)
         if (self.current_epoch() - epoch).abs() < 1e-9 {
-            return self.x_curr.clone();
+            return Ok(self.x_curr.clone());
         }
 
-        // Panic with helpful message - epoch is neither in trajectory nor at current time
+        // Return error - epoch is neither in trajectory nor at current time
         let start = self.trajectory.start_epoch().unwrap_or(self.epoch_initial);
         let end = self.current_epoch();
-        panic!(
+        Err(BraheError::OutOfBoundsError(format!(
             "Cannot get state at epoch {}: outside propagator time range [{}, {}]. \
-             Maybe you need to advance the propagator past the desired time with step_by() first.",
+             Call step_by() or propagate_to() to advance the propagator first.",
             epoch, start, end
-        );
+        )))
     }
 
     fn state_dim(&self) -> usize {
@@ -1686,54 +1686,54 @@ impl DStateProvider for DNumericalOrbitPropagator {
 // =============================================================================
 
 impl DOrbitStateProvider for DNumericalOrbitPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Try to interpolate from trajectory
         if let Ok(state) = self.trajectory.interpolate(&epoch) {
-            return state.fixed_rows::<6>(0).into();
+            return Ok(state.fixed_rows::<6>(0).into());
         }
 
         // If at current epoch, return current state (always allowed)
         if (self.current_epoch() - epoch).abs() < 1e-9 {
-            return self.x_curr.fixed_rows::<6>(0).into();
+            return Ok(self.x_curr.fixed_rows::<6>(0).into());
         }
 
-        // Panic with helpful message - epoch is neither in trajectory nor at current time
+        // Return error - epoch is neither in trajectory nor at current time
         let start = self.trajectory.start_epoch().unwrap_or(self.epoch_initial);
         let end = self.current_epoch();
-        panic!(
+        Err(BraheError::OutOfBoundsError(format!(
             "Cannot get state at epoch {}: outside propagator time range [{}, {}]. \
-             Maybe you need to advance the propagator past the desired time with step_by() first.",
+             Call step_by() or propagate_to() to advance the propagator first.",
             epoch, start, end
-        );
+        )))
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
-        let eci_state = self.state_eci(epoch);
-        crate::frames::state_eci_to_ecef(epoch, eci_state)
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let eci_state = self.state_eci(epoch)?;
+        Ok(crate::frames::state_eci_to_ecef(epoch, eci_state))
     }
 
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // For now, GCRF ≈ ECI (very close for most applications)
         self.state_eci(epoch)
     }
 
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
-        let gcrf_state = self.state_gcrf(epoch);
-        crate::frames::state_gcrf_to_itrf(epoch, gcrf_state)
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(crate::frames::state_gcrf_to_itrf(epoch, gcrf_state))
     }
 
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
-        let gcrf_state = self.state_gcrf(epoch);
-        crate::frames::state_gcrf_to_eme2000(gcrf_state)
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
     }
 
     fn state_as_osculating_elements(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
-        let eci_state = self.state_eci(epoch);
-        state_cartesian_to_osculating(eci_state, angle_format)
+    ) -> Result<Vector6<f64>, BraheError> {
+        let eci_state = self.state_eci(epoch)?;
+        Ok(state_cartesian_to_osculating(eci_state, angle_format))
     }
 }
 
@@ -1742,32 +1742,42 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
 // =============================================================================
 
 impl DCovarianceProvider for DNumericalOrbitPropagator {
-    fn covariance(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+    fn covariance(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
         // Check if covariance tracking is enabled
-        self.current_covariance.as_ref()?;
+        if self.current_covariance.is_none() {
+            return Err(BraheError::InitializationError(
+                "Covariance not available: covariance tracking was not enabled for this propagator"
+                    .to_string(),
+            ));
+        }
 
-        // Check bounds - panic if outside range
+        // Check bounds
         if let Some(start) = self.trajectory.start_epoch()
             && epoch < start
         {
-            panic!(
+            return Err(BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: before trajectory start {}. \
-                    Maybe you need to advance the propagator past the desired time with step_by() first.",
+                 Call step_by() or propagate_to() to advance the propagator first.",
                 epoch, start
-            );
+            )));
         }
         if let Some(end) = self.trajectory.end_epoch()
             && epoch > end
         {
-            panic!(
+            return Err(BraheError::OutOfBoundsError(format!(
                 "Cannot get covariance at epoch {}: after trajectory end {}. \
-                    Maybe you need to advance the propagator past the desired time with step_by() first.",
+                 Call step_by() or propagate_to() to advance the propagator first.",
                 epoch, end
-            );
+            )));
         }
 
-        // Try to get from trajectory (may still return None if no covariance at exact epoch)
-        self.trajectory.covariance_at(epoch)
+        // Try to get from trajectory
+        self.trajectory.covariance_at(epoch).ok_or_else(|| {
+            BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: no covariance data available at this epoch",
+                epoch
+            ))
+        })
     }
 
     fn covariance_dim(&self) -> usize {
@@ -1780,21 +1790,21 @@ impl DCovarianceProvider for DNumericalOrbitPropagator {
 // =============================================================================
 
 impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
-    fn covariance_eci(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+    fn covariance_eci(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
         // Native frame is ECI
         DCovarianceProvider::covariance(self, epoch)
     }
 
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+    fn covariance_gcrf(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
         // GCRF ≈ ECI for most applications
         DCovarianceProvider::covariance(self, epoch)
     }
 
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+    fn covariance_rtn(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
         let cov_eci = DCovarianceProvider::covariance(self, epoch)?;
 
         // Get state at this epoch for RTN rotation
-        let state_eci = self.state_eci(epoch);
+        let state_eci = self.state_eci(epoch)?;
 
         // Compute RTN rotation matrix using the library function
         let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
@@ -1841,7 +1851,7 @@ impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
         // Transform covariance: C_RTN = J * C_ECI * J^T
         let cov_rtn = &jacobian * &cov_eci * jacobian.transpose();
 
-        Some(cov_rtn)
+        Ok(cov_rtn)
     }
 }
 

@@ -518,51 +518,51 @@ impl SOrbitPropagator for KeplerianPropagator {
 }
 
 impl SStateProvider for KeplerianPropagator {
-    fn state(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in original format
         let internal_state = self.propagate_internal(epoch);
-        self.convert_from_internal_osculating(epoch, internal_state)
+        Ok(self.convert_from_internal_osculating(epoch, internal_state))
     }
 }
 
 impl SOrbitStateProvider for KeplerianPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Keplerian propagation is in ECI/GCRF frame
         // state_eci already returns the Cartesian state in ECI/GCRF
         self.state_gcrf(epoch)
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
-        let eci_state = self.state_eci(epoch);
-        state_eci_to_ecef(epoch, eci_state)
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let eci_state = self.state_eci(epoch)?;
+        Ok(state_eci_to_ecef(epoch, eci_state))
     }
 
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in original format
         let state = self.propagate_internal(epoch);
 
         // Convert to ECI
-        state_osculating_to_cartesian(state, AngleFormat::Radians)
+        Ok(state_osculating_to_cartesian(state, AngleFormat::Radians))
     }
 
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
-        let gcrf_state = self.state_gcrf(epoch);
-        state_gcrf_to_itrf(epoch, gcrf_state)
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_itrf(epoch, gcrf_state))
     }
 
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get GCRF state and convert to EME2000
-        let gcrf_state = self.state_gcrf(epoch);
-        state_gcrf_to_eme2000(gcrf_state)
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
     fn state_as_osculating_elements(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
+    ) -> Result<Vector6<f64>, BraheError> {
         let internal_state = self.propagate_internal(epoch);
-        match angle_format {
+        Ok(match angle_format {
             AngleFormat::Degrees => {
                 let mut elements = internal_state;
                 // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
@@ -572,7 +572,7 @@ impl SOrbitStateProvider for KeplerianPropagator {
                 elements
             }
             AngleFormat::Radians => internal_state,
-        }
+        })
     }
 
     // Default implementations from trait are used for:
@@ -1128,7 +1128,7 @@ mod tests {
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
         let target_epoch = epoch + orbital_period(elements[0]);
-        let state = propagator.state(target_epoch);
+        let state = propagator.state(target_epoch).unwrap();
 
         // State should be exactly the same as initial elements after one orbital period
         for i in 0..6 {
@@ -1144,7 +1144,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let state = propagator.state_eci(epoch + orbital_period(elements[0]));
+        let state = propagator
+            .state_eci(epoch + orbital_period(elements[0]))
+            .unwrap();
 
         // Should be Cartesian state in ECI
         assert!(state.norm() > 0.0);
@@ -1166,7 +1168,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let state = propagator.state_ecef(epoch + orbital_period(elements[0]));
+        let state = propagator
+            .state_ecef(epoch + orbital_period(elements[0]))
+            .unwrap();
 
         // Convert back into osculating elements via ECI
         let eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state);
@@ -1187,7 +1191,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let state = propagator.state_itrf(epoch + orbital_period(elements[0]));
+        let state = propagator
+            .state_itrf(epoch + orbital_period(elements[0]))
+            .unwrap();
 
         // Convert back into osculating elements via ECI
         let eci_state = state_itrf_to_gcrf(epoch + orbital_period(elements[0]), state);
@@ -1208,7 +1214,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let state = propagator.state_gcrf(epoch + orbital_period(elements[0]));
+        let state = propagator
+            .state_gcrf(epoch + orbital_period(elements[0]))
+            .unwrap();
 
         // Convert back into osculating elements (GCRF is inertial, direct conversion)
         let computed_elements = state_cartesian_to_osculating(state, DEGREES);
@@ -1228,7 +1236,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let state = propagator.state_eme2000(epoch + orbital_period(elements[0]));
+        let state = propagator
+            .state_eme2000(epoch + orbital_period(elements[0]))
+            .unwrap();
 
         // Convert back into osculating elements via GCRF
         let gcrf_state = state_eme2000_to_gcrf(state);
@@ -1248,10 +1258,9 @@ mod tests {
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let osc_elements = propagator.state_as_osculating_elements(
-            epoch + orbital_period(elements[0]),
-            AngleFormat::Degrees,
-        );
+        let osc_elements = propagator
+            .state_as_osculating_elements(epoch + orbital_period(elements[0]), AngleFormat::Degrees)
+            .unwrap();
 
         // Should match initial elements within small tolerance
         for i in 0..6 {
@@ -1259,10 +1268,9 @@ mod tests {
         }
 
         // Now test with radians to degrees conversion
-        let osc_elements_rad = propagator.state_as_osculating_elements(
-            epoch + orbital_period(elements[0]),
-            AngleFormat::Radians,
-        );
+        let osc_elements_rad = propagator
+            .state_as_osculating_elements(epoch + orbital_period(elements[0]), AngleFormat::Radians)
+            .unwrap();
         for i in 0..2 {
             assert_abs_diff_eq!(osc_elements_rad[i], elements[i], epsilon = 1e-6);
         }
@@ -1285,7 +1293,7 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0]),
         ];
 
-        let traj = propagator.states(&epochs);
+        let traj = propagator.states(&epochs).unwrap();
         assert_eq!(traj.len(), 3);
 
         // Confirm all elements remain unchanged within small tolerance
@@ -1310,7 +1318,7 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0]),
         ];
 
-        let states = propagator.states_eci(&epochs);
+        let states = propagator.states_eci(&epochs).unwrap();
         assert_eq!(states.len(), 3);
         // Verify states convert back to original elements within small tolerance
         for state in &states {
@@ -1336,7 +1344,7 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0]),
         ];
 
-        let states = propagator.states_ecef(&epochs);
+        let states = propagator.states_ecef(&epochs).unwrap();
         assert_eq!(states.len(), 3);
         // Verify states convert back to original elements within small tolerance
         for (i, state) in states.iter().enumerate() {
@@ -1362,7 +1370,9 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0]),
         ];
 
-        let traj = propagator.states_as_osculating_elements(&epochs, AngleFormat::Degrees);
+        let traj = propagator
+            .states_as_osculating_elements(&epochs, AngleFormat::Degrees)
+            .unwrap();
         assert_eq!(traj.len(), 3);
 
         // Confirm all elements remain unchanged within small tolerance
@@ -1373,7 +1383,9 @@ mod tests {
         }
 
         // Repeat with radians output
-        let traj_rad = propagator.states_as_osculating_elements(&epochs, AngleFormat::Radians);
+        let traj_rad = propagator
+            .states_as_osculating_elements(&epochs, AngleFormat::Radians)
+            .unwrap();
         assert_eq!(traj_rad.len(), 3);
 
         for state in &traj_rad {

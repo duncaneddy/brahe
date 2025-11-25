@@ -1713,21 +1713,18 @@ impl OrbitalTrajectory for SOrbitTrajectory {
 }
 
 impl SStateProvider for SOrbitTrajectory {
-    fn state(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Interpolate state in native frame/representation
         self.interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros())
     }
 }
 
 impl SOrbitStateProvider for SOrbitTrajectory {
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to ECI Cartesian
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
@@ -1751,21 +1748,23 @@ impl SOrbitStateProvider for SOrbitTrajectory {
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state_eme2000_to_gcrf(state),
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to GCRF Cartesian
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
@@ -1789,21 +1788,23 @@ impl SOrbitStateProvider for SOrbitTrajectory {
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state_itrf_to_gcrf(epoch, state),
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to ECEF Cartesian
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -1838,21 +1839,23 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf_cart)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to ECEF Cartesian
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -1887,21 +1890,23 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to EME2000 Cartesian
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
@@ -1935,25 +1940,27 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_eme2000(state_gcrf)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 
     fn state_as_osculating_elements(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
+    ) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to osculating elements
-        let state = self
-            .interpolate(&epoch)
-            .unwrap_or_else(|_| Vector6::zeros());
+        let state = self.interpolate(&epoch)?;
 
-        match (self.frame, self.representation) {
+        Ok(match (self.frame, self.representation) {
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
                 // Already in Keplerian, just convert angle format if needed
                 let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
@@ -2023,44 +2030,70 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_cartesian_to_osculating(state_gcrf, angle_format)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Keplerian) => {
-                panic!("Keplerian element trajectories should be in an inertial frame")
+                return Err(BraheError::Error(
+                    "Keplerian element trajectories should be in an inertial frame".to_string(),
+                ));
             }
-        }
+        })
     }
 }
 
 // Implementation of SCovarianceProvider trait (base trait)
 impl SCovarianceProvider for SOrbitTrajectory {
-    fn covariance(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
-        // Return None if no covariances are stored
-        let covs = self.covariances.as_ref()?;
+    fn covariance(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        // Return error if no covariances are stored
+        let covs = self.covariances.as_ref().ok_or_else(|| {
+            BraheError::InitializationError(
+                "Covariance not available: covariance tracking was not enabled for this trajectory"
+                    .to_string(),
+            )
+        })?;
 
         if covs.is_empty() {
-            return None;
+            return Err(BraheError::InitializationError(
+                "Covariance not available: no covariance data has been added to this trajectory"
+                    .to_string(),
+            ));
         }
 
         // Check for exact epoch match
         for (i, &e) in self.epochs.iter().enumerate() {
             if (e - epoch).abs() < 1e-9 {
-                return Some(covs[i]);
+                return Ok(covs[i]);
             }
         }
 
         // Find bracketing indices for interpolation
-        let idx_after = match self.index_after_epoch(&epoch) {
-            Ok(idx) => idx,
-            Err(_) => return None,
-        };
+        let idx_after = self.index_after_epoch(&epoch).map_err(|_| {
+            let (start, end) = if self.epochs.is_empty() {
+                (epoch, epoch)
+            } else {
+                (self.epochs[0], self.epochs[self.epochs.len() - 1])
+            };
+            BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: outside covariance data range [{}, {}]",
+                epoch, start, end
+            ))
+        })?;
 
-        // Handle boundary cases - return None for epochs outside data range
+        // Handle boundary cases
         if idx_after == 0 {
-            return None; // Epoch is before first data point
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: before first covariance data point at {}",
+                epoch, self.epochs[0]
+            )));
         }
         if idx_after >= self.epochs.len() {
-            return None; // Epoch is after last data point
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot get covariance at epoch {}: after last covariance data point at {}",
+                epoch,
+                self.epochs[self.epochs.len() - 1]
+            )));
         }
 
         // Interpolate using matrix square root method
@@ -2070,7 +2103,7 @@ impl SCovarianceProvider for SOrbitTrajectory {
         let dt = t1 - t0;
 
         if dt.abs() < 1e-12 {
-            return Some(covs[idx_before]);
+            return Ok(covs[idx_before]);
         }
 
         // Compute interpolation parameter alpha
@@ -2089,22 +2122,22 @@ impl SCovarianceProvider for SOrbitTrajectory {
             }
         };
 
-        Some(cov_interp)
+        Ok(cov_interp)
     }
 }
 
 // Implementation of SOrbitCovarianceProvider trait (frame-specific methods)
 impl SOrbitCovarianceProvider for SOrbitTrajectory {
-    fn covariance_eci(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+    fn covariance_eci(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
         // Get covariance in native frame
         let cov_native = self.covariance(epoch)?;
 
         // Transform to ECI if needed
         match self.frame {
-            OrbitFrame::ECI | OrbitFrame::GCRF => Some(cov_native),
-            OrbitFrame::ECEF | OrbitFrame::ITRF => {
-                panic!("Covariance transformation from ECEF/ITRF to ECI not implemented")
-            }
+            OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
+            OrbitFrame::ECEF | OrbitFrame::ITRF => Err(BraheError::Error(
+                "Covariance transformation from ECEF/ITRF to ECI not implemented".to_string(),
+            )),
             OrbitFrame::EME2000 => {
                 // We just construct a block diagonal rotation matrix using the
                 // EME2000 to GCRF rotation matrix
@@ -2120,24 +2153,24 @@ impl SOrbitCovarianceProvider for SOrbitTrajectory {
                 }
                 // Transform covariance: C_ECI = R * C_EME2000 * R^T
                 let cov_eci = rot * cov_native * rot.transpose();
-                Some(cov_eci)
+                Ok(cov_eci)
             }
         }
     }
 
-    fn covariance_gcrf(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+    fn covariance_gcrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
         // GCRF is essentially the same as ECI for our purposes
         self.covariance_eci(epoch)
     }
 
-    fn covariance_rtn(&self, epoch: Epoch) -> Option<SMatrix<f64, 6, 6>> {
+    fn covariance_rtn(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
         // Get covariance in ECI/GCRF frame first
         // Note: because we go through covariance_eci, this will also handle EME2000 frame conversion
         // as well as erroring out for ECEF/ITRF frames
         let cov_eci = self.covariance_eci(epoch)?;
 
         // Get state in ECI/GCRF frame
-        let state_eci = self.state_eci(epoch);
+        let state_eci = self.state_eci(epoch)?;
 
         // Get rotation matrix from ECI to RTN
         let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
@@ -2177,7 +2210,7 @@ impl SOrbitCovarianceProvider for SOrbitTrajectory {
 
         // Transform covariance: C_RTN = J * C_ECI * J^T
         let cov_rtn = jacobian * cov_eci * jacobian.transpose();
-        Some(cov_rtn)
+        Ok(cov_rtn)
     }
 }
 
@@ -4136,14 +4169,14 @@ mod tests {
         traj.add(epoch2, state2);
 
         // Query at exact epoch
-        let state_at_1 = SStateProvider::state(&traj, epoch1);
+        let state_at_1 = SStateProvider::state(&traj, epoch1).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(state_at_1[i], state1[i], epsilon = 1e-6);
         }
 
         // Query at interpolated epoch
         let epoch_mid = Epoch::from_jd(2451545.25, TimeSystem::UTC);
-        let state_mid = SStateProvider::state(&traj, epoch_mid);
+        let state_mid = SStateProvider::state(&traj, epoch_mid).unwrap();
         // Should be interpolated between state1 and state2
         assert!(state_mid[0] > state1[0] && state_mid[0] < state2[0]);
     }
@@ -4160,7 +4193,7 @@ mod tests {
         traj.add(epoch, state_eci);
 
         // Query ECI state
-        let result = traj.state_eci(epoch);
+        let result = traj.state_eci(epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], state_eci[i], epsilon = 1e-6);
         }
@@ -4180,7 +4213,7 @@ mod tests {
         traj.add(epoch, state_kep);
 
         // Query ECI Cartesian state
-        let result = traj.state_eci(epoch);
+        let result = traj.state_eci(epoch).unwrap();
 
         // Convert Keplerian to Cartesian manually for comparison
         let expected = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
@@ -4203,7 +4236,7 @@ mod tests {
         traj.add(epoch, state_ecef);
 
         // Query ECI state
-        let result = traj.state_eci(epoch);
+        let result = traj.state_eci(epoch).unwrap();
 
         // Convert ECEF to ECI manually for comparison
         let expected = state_ecef_to_eci(epoch, state_ecef);
@@ -4228,14 +4261,14 @@ mod tests {
         traj.add(epoch2, state2);
 
         // Query at exact epoch
-        let state_at_1 = SStateProvider::state(&traj, epoch1);
+        let state_at_1 = SStateProvider::state(&traj, epoch1).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(state_at_1[i], state1[i], epsilon = 1e-6);
         }
 
         // Query at interpolated epoch
         let epoch_mid = Epoch::from_jd(2451545.25, TimeSystem::UTC);
-        let state_mid = SStateProvider::state(&traj, epoch_mid);
+        let state_mid = SStateProvider::state(&traj, epoch_mid).unwrap();
         // Should be interpolated between state1 and state2
         assert!(state_mid[0] > state1[0] && state_mid[0] < state2[0]);
     }
@@ -4253,7 +4286,7 @@ mod tests {
         traj.add(epoch, state_gcrf);
 
         // Query GCRF state
-        let result = traj.state_gcrf(epoch);
+        let result = traj.state_gcrf(epoch).unwrap();
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], state_gcrf[i], epsilon = 1e-6);
         }
@@ -4273,7 +4306,7 @@ mod tests {
         traj.add(epoch, state_kep);
 
         // Query GCRF Cartesian state
-        let result = traj.state_gcrf(epoch);
+        let result = traj.state_gcrf(epoch).unwrap();
 
         // Convert Keplerian to Cartesian manually for comparison
         let expected = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
@@ -4296,7 +4329,7 @@ mod tests {
         traj.add(epoch, state_itrf);
 
         // Query GCRF state
-        let result = traj.state_gcrf(epoch);
+        let result = traj.state_gcrf(epoch).unwrap();
 
         // Convert ITRF to GCRF manually for comparison
         let expected = state_itrf_to_gcrf(epoch, state_itrf);
@@ -4319,7 +4352,7 @@ mod tests {
         traj.add(epoch, state_ecef);
 
         // Query ECEF state
-        let result = traj.state_ecef(epoch);
+        let result = traj.state_ecef(epoch).unwrap();
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], state_ecef[i], epsilon = 1e-6);
@@ -4338,7 +4371,7 @@ mod tests {
         traj.add(epoch, state_eci);
 
         // Query ECEF state
-        let result = traj.state_ecef(epoch);
+        let result = traj.state_ecef(epoch).unwrap();
 
         // Convert ECI to ECEF manually for comparison
         let expected = state_eci_to_ecef(epoch, state_eci);
@@ -4364,7 +4397,7 @@ mod tests {
         traj.add(epoch, state_kep);
 
         // Query ECEF state
-        let result = traj.state_ecef(epoch);
+        let result = traj.state_ecef(epoch).unwrap();
 
         // Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
         let state_eci_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
@@ -4388,7 +4421,7 @@ mod tests {
         traj.add(epoch, state_itrf);
 
         // Query ECEF state
-        let result = traj.state_itrf(epoch);
+        let result = traj.state_itrf(epoch).unwrap();
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], state_itrf[i], epsilon = 1e-6);
@@ -4408,7 +4441,7 @@ mod tests {
         traj.add(epoch, state_eci);
 
         // Query ECEF state
-        let result = traj.state_itrf(epoch);
+        let result = traj.state_itrf(epoch).unwrap();
 
         // Convert ECI to ECEF manually for comparison
         let expected = state_gcrf_to_itrf(epoch, state_eci);
@@ -4434,7 +4467,7 @@ mod tests {
         traj.add(epoch, state_kep);
 
         // Query ECEF state
-        let result = traj.state_itrf(epoch);
+        let result = traj.state_itrf(epoch).unwrap();
 
         // Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
         let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
@@ -4456,7 +4489,7 @@ mod tests {
         traj.add(epoch, state_eme2000);
 
         // Query state
-        let result = traj.state_eme2000(epoch);
+        let result = traj.state_eme2000(epoch).unwrap();
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], state_eme2000[i], epsilon = 1e-6);
@@ -4477,7 +4510,7 @@ mod tests {
         traj.add(epoch, state_kep);
 
         // Query EME2000 state
-        let result = traj.state_eme2000(epoch);
+        let result = traj.state_eme2000(epoch).unwrap();
 
         // Convert Keplerian -> GCRF Cartesian -> EME2000 manually for comparison
         let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
@@ -4499,7 +4532,7 @@ mod tests {
         traj.add(epoch, state_gcrf);
 
         // Query EME2000 state
-        let result = traj.state_eme2000(epoch);
+        let result = traj.state_eme2000(epoch).unwrap();
 
         // Convert GCRF to EME2000 manually for comparison
         let expected = state_gcrf_to_eme2000(state_gcrf);
@@ -4522,7 +4555,7 @@ mod tests {
         traj.add(epoch, state_itrf);
 
         // Query EME2000 state
-        let result = traj.state_eme2000(epoch);
+        let result = traj.state_eme2000(epoch).unwrap();
 
         // Convert ITRF -> GCRF -> EME2000 manually for comparison
         let state_gcrf = state_itrf_to_gcrf(epoch, state_itrf);
@@ -4543,7 +4576,9 @@ mod tests {
         traj.add(epoch, state_cart);
 
         // Query osculating elements in degrees
-        let result_deg = traj.state_as_osculating_elements(epoch, AngleFormat::Degrees);
+        let result_deg = traj
+            .state_as_osculating_elements(epoch, AngleFormat::Degrees)
+            .unwrap();
 
         // Convert Cartesian to Keplerian manually for comparison
         let expected_deg = state_cartesian_to_osculating(state_cart, AngleFormat::Degrees);
@@ -4553,7 +4588,9 @@ mod tests {
         }
 
         // Query osculating elements in radians
-        let result_rad = traj.state_as_osculating_elements(epoch, AngleFormat::Radians);
+        let result_rad = traj
+            .state_as_osculating_elements(epoch, AngleFormat::Radians)
+            .unwrap();
         let expected_rad = state_cartesian_to_osculating(state_cart, AngleFormat::Radians);
 
         for i in 0..6 {
@@ -4575,14 +4612,18 @@ mod tests {
         traj.add(epoch, state_kep_deg);
 
         // Query osculating elements in degrees (same as native format)
-        let result_deg = traj.state_as_osculating_elements(epoch, AngleFormat::Degrees);
+        let result_deg = traj
+            .state_as_osculating_elements(epoch, AngleFormat::Degrees)
+            .unwrap();
 
         for i in 0..6 {
             assert_abs_diff_eq!(result_deg[i], state_kep_deg[i], epsilon = 1e-6);
         }
 
         // Query osculating elements in radians (requires conversion)
-        let result_rad = traj.state_as_osculating_elements(epoch, AngleFormat::Radians);
+        let result_rad = traj
+            .state_as_osculating_elements(epoch, AngleFormat::Radians)
+            .unwrap();
 
         // First two elements unchanged (a, e)
         assert_abs_diff_eq!(result_rad[0], state_kep_deg[0], epsilon = 1e-6);
@@ -4614,7 +4655,9 @@ mod tests {
         traj.add(epoch, state_ecef);
 
         // Query osculating elements
-        let result = traj.state_as_osculating_elements(epoch, AngleFormat::Degrees);
+        let result = traj
+            .state_as_osculating_elements(epoch, AngleFormat::Degrees)
+            .unwrap();
 
         // Convert ECEF -> ECI -> Keplerian manually for comparison
         let state_eci = state_ecef_to_eci(epoch, state_ecef);
@@ -4795,7 +4838,7 @@ mod tests {
         );
 
         let result = traj.covariance(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
         assert_abs_diff_eq!(result.unwrap()[(0, 0)], 100.0, epsilon = 1e-6);
     }
 
@@ -4817,7 +4860,7 @@ mod tests {
         );
 
         let result = traj.covariance_rtn(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let result_cov = result.unwrap();
         assert!(result_cov[(0, 0)].abs() > 1e-6);
@@ -4843,7 +4886,7 @@ mod tests {
         );
 
         let result = traj.covariance_eci(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let result_cov = result.unwrap();
         assert_abs_diff_eq!(result_cov[(0, 0)], 100.0, epsilon = 1e-6);
@@ -4869,7 +4912,7 @@ mod tests {
         );
 
         let result = traj.covariance_gcrf(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let result_cov = result.unwrap();
         assert_abs_diff_eq!(result_cov[(0, 0)], 100.0, epsilon = 1e-6);
@@ -4898,7 +4941,7 @@ mod tests {
 
         // Get covariance in ECI frame (should be transformed)
         let result = traj.covariance_eci(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let cov_eci = result.unwrap();
 
@@ -4944,8 +4987,8 @@ mod tests {
         let result_gcrf = traj.covariance_gcrf(epoch);
         let result_eci = traj.covariance_eci(epoch);
 
-        assert!(result_gcrf.is_some());
-        assert!(result_eci.is_some());
+        assert!(result_gcrf.is_ok());
+        assert!(result_eci.is_ok());
 
         let cov_gcrf = result_gcrf.unwrap();
         let cov_eci = result_eci.unwrap();
@@ -4977,7 +5020,7 @@ mod tests {
 
         // Get covariance in RTN frame (should go EME2000 -> ECI -> RTN)
         let result = traj.covariance_rtn(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let cov_rtn = result.unwrap();
 
@@ -5069,26 +5112,26 @@ mod tests {
 
         // Test at exact epoch
         let result_exact = traj.covariance(epoch2);
-        assert!(result_exact.is_some());
+        assert!(result_exact.is_ok());
         assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 200.0, epsilon = 1e-6);
 
         // Test halfway between epoch1 and epoch2 (should be interpolated)
         let epoch_halfway = Epoch::from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, TimeSystem::UTC);
         let result_halfway = traj.covariance(epoch_halfway);
-        assert!(result_halfway.is_some());
+        assert!(result_halfway.is_ok());
         // Verify interpolation gives value between endpoints
         let halfway_val = result_halfway.unwrap()[(0, 0)];
         assert!(halfway_val > 100.0 && halfway_val < 200.0);
 
-        // Test before data range (should return None)
+        // Test before data range (should return error)
         let epoch_before = Epoch::from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, TimeSystem::UTC);
         let result_before = traj.covariance(epoch_before);
-        assert!(result_before.is_none());
+        assert!(result_before.is_err());
 
-        // Test after data range (should return None)
+        // Test after data range (should return error)
         let epoch_after = Epoch::from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, TimeSystem::UTC);
         let result_after = traj.covariance(epoch_after);
-        assert!(result_after.is_none());
+        assert!(result_after.is_err());
     }
 
     #[test]
@@ -5119,26 +5162,26 @@ mod tests {
 
         // Test at exact epoch
         let result_exact = traj.covariance(epoch2);
-        assert!(result_exact.is_some());
+        assert!(result_exact.is_ok());
         assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 200.0, epsilon = 1e-6);
 
         // Test halfway between epoch1 and epoch2 (should be interpolated)
         let epoch_halfway = Epoch::from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, TimeSystem::UTC);
         let result_halfway = traj.covariance(epoch_halfway);
-        assert!(result_halfway.is_some());
+        assert!(result_halfway.is_ok());
         // Verify interpolation gives value between endpoints
         let halfway_val = result_halfway.unwrap()[(0, 0)];
         assert!(halfway_val > 100.0 && halfway_val < 200.0);
 
-        // Test before data range (should return None)
+        // Test before data range (should return error)
         let epoch_before = Epoch::from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, TimeSystem::UTC);
         let result_before = traj.covariance(epoch_before);
-        assert!(result_before.is_none());
+        assert!(result_before.is_err());
 
-        // Test after data range (should return None)
+        // Test after data range (should return error)
         let epoch_after = Epoch::from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, TimeSystem::UTC);
         let result_after = traj.covariance(epoch_after);
-        assert!(result_after.is_none());
+        assert!(result_after.is_err());
     }
 
     #[test]
@@ -5230,13 +5273,13 @@ mod tests {
 
         // Exact epoch should return covariance
         let result_exact = traj.covariance(epoch);
-        assert!(result_exact.is_some());
+        assert!(result_exact.is_ok());
         assert_abs_diff_eq!(result_exact.unwrap()[(0, 0)], 100.0, epsilon = 1e-6);
 
-        // Different epoch should return None (no interpolation possible with single point)
+        // Different epoch should return error (no interpolation possible with single point)
         let epoch_later = epoch + 60.0;
         let result_later = traj.covariance(epoch_later);
-        assert!(result_later.is_none());
+        assert!(result_later.is_err());
     }
 
     #[test]
@@ -5272,7 +5315,7 @@ mod tests {
 
         // Get covariance in RTN frame
         let result = traj.covariance_rtn(epoch);
-        assert!(result.is_some());
+        assert!(result.is_ok());
 
         let cov_rtn = result.unwrap();
 

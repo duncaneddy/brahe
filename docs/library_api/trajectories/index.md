@@ -12,7 +12,7 @@ Trajectory containers for storing, managing, and interpolating time-series state
 ### [STrajectory6](strajectory6.md)
 **Static 6-dimensional** trajectory optimized for orbital state vectors [x, y, z, vx, vy, vz]. Faster than DTrajectory for fixed-size data.
 
-### [OrbitTrajectory](orbit_trajectory.md)
+### [SOrbitTrajectory](sorbit_trajectory.md)
 **Specialized orbital** trajectory with frame-aware storage and automatic coordinate transformations.
 
 ---

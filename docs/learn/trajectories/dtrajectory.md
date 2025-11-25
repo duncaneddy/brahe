@@ -9,7 +9,7 @@ Use `DTrajectory` when:
 - State vectors are non-standard (not 3D or 6D)
 - Flexibility is prioritized over maximum performance
 
-For fixed-dimension orbital mechanics applications, consider using [`STrajectory6`](strajectory6.md) or [`OrbitTrajectory`](orbit_trajectory.md) instead for better performance.
+For fixed-dimension orbital mechanics applications, consider using [`STrajectory6`](strajectory6.md) or [`SOrbitTrajectory`](sorbit_trajectory.md) instead for better performance.
 
 ## Initialization
 
@@ -203,5 +203,5 @@ Convert trajectory data to matrix format for analysis or export:
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
 - [STrajectory6](strajectory6.md) - Fixed 6D trajectory for better performance
-- [OrbitTrajectory](orbit_trajectory.md) - Orbital trajectory with frame conversions
+- [SOrbitTrajectory](sorbit_trajectory.md) - Orbital trajectory with frame conversions
 - [DTrajectory API Reference](../../library_api/trajectories/dtrajectory.md)

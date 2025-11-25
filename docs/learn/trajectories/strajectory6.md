@@ -9,7 +9,7 @@ Use `STrajectory6` when:
 - Performance is critical
 - You want compile-time dimension checking
 
-`STrajectory6` is part of the `STrajectory<R>` family which includes `STrajectory3` (3D, position only) and `STrajectory4` (4D, quaternions). For applications requiring frame or representation conversions, consider using [`OrbitTrajectory`](orbit_trajectory.md).
+`STrajectory6` is part of the `STrajectory<R>` family which includes `STrajectory3` (3D, position only) and `STrajectory4` (4D, quaternions). For applications requiring frame or representation conversions, consider using [`SOrbitTrajectory`](sorbit_trajectory.md).
 
 ## Initialization
 
@@ -225,5 +225,5 @@ All variants share the same API and support the same operations.
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
 - [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory for variable sizes
-- [OrbitTrajectory](orbit_trajectory.md) - Orbital trajectory with frame conversions
+- [SOrbitTrajectory](sorbit_trajectory.md) - Orbital trajectory with frame conversions
 - [STrajectory6 API Reference](../../library_api/trajectories/strajectory6.md)

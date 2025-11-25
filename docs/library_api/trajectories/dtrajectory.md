@@ -12,5 +12,5 @@ Dynamic-dimension trajectory container for N-dimensional state data.
 ## See Also
 
 - [STrajectory6](strajectory6.md) - Fixed 6D trajectory (faster)
-- [OrbitTrajectory](orbit_trajectory.md) - Frame-aware orbital trajectory
+- [SOrbitTrajectory](sorbit_trajectory.md) - Frame-aware orbital trajectory
 - [InterpolationMethod](../orbits/enums.md#interpolationmethod)

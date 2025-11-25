@@ -229,7 +229,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector in the propagator's current output format.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state(epoch.obj);
+        let state = self.propagator.state(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -255,7 +255,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_eci(epoch.obj);
+        let state = self.propagator.state_eci(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -268,7 +268,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_ecef(epoch.obj);
+        let state = self.propagator.state_ecef(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -281,7 +281,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_gcrf(epoch.obj);
+        let state = self.propagator.state_gcrf(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -294,7 +294,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_eme2000(epoch.obj);
+        let state = self.propagator.state_eme2000(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -307,7 +307,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_itrf(epoch.obj);
+        let state = self.propagator.state_itrf(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -319,10 +319,10 @@ impl PySGPPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ECI coordinates.
@@ -333,10 +333,10 @@ impl PySGPPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_eci(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_eci(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in GCRF coordinates.
@@ -347,10 +347,10 @@ impl PySGPPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_gcrf(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_gcrf(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ITRF coordinates.
@@ -361,10 +361,10 @@ impl PySGPPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_itrf(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_itrf(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Step forward by the default step size.
@@ -935,9 +935,9 @@ impl PySGPPropagator {
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
-    ) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value);
-        state.as_slice().to_pyarray(py).to_owned()
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute states as osculating elements at multiple epochs.
@@ -971,10 +971,10 @@ impl PySGPPropagator {
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
-    ) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// String representation.
@@ -1507,9 +1507,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector in the propagator's native format.
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state at a specific epoch in ECI coordinates.
@@ -1520,9 +1520,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_eci(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_eci(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state at a specific epoch in ECEF coordinates.
@@ -1533,9 +1533,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_ecef(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_ecef(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state at a specific epoch in GCRF coordinates.
@@ -1546,9 +1546,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_gcrf(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_gcrf(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state at a specific epoch in EME2000 coordinates.
@@ -1559,9 +1559,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_eme2000(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_eme2000(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state at a specific epoch in ITRF coordinates.
@@ -1572,9 +1572,9 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_itrf(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_itrf(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute state as osculating elements at a specific epoch.
@@ -1591,9 +1591,9 @@ impl PyKeplerianPropagator {
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
-    ) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value);
-        state.as_slice().to_pyarray(py).to_owned()
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Compute states at multiple epochs.
@@ -1604,10 +1604,10 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of state vectors in the propagator's native format.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ECI coordinates.
@@ -1618,10 +1618,10 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_eci(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_eci(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ECEF coordinates.
@@ -1632,10 +1632,10 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of ECEF state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_ecef(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_ecef(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in GCRF coordinates.
@@ -1646,10 +1646,10 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_gcrf(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_gcrf(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ITRF coordinates.
@@ -1660,10 +1660,10 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
-    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_itrf(&epoch_vec);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_itrf(&epoch_vec)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states as osculating elements at multiple epochs.
@@ -1680,10 +1680,10 @@ impl PyKeplerianPropagator {
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
-    ) -> Vec<Bound<'a, PyArray<f64, Ix1>>> {
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value);
-        states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect()
+        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Get accumulated trajectory.

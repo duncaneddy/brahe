@@ -550,7 +550,7 @@ mod tests {
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
 
         // Get states for all epochs (should be in degrees since that's the output format)
-        let states = prop.states(&epochs);
+        let states = prop.states(&epochs).unwrap();
 
         // Verify we got the right number of states
         assert_eq!(states.len(), 3);
@@ -596,7 +596,7 @@ mod tests {
         );
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
-        let states = prop.states_eci(&epochs);
+        let states = prop.states_eci(&epochs).unwrap();
 
         assert_eq!(states.len(), 3);
 
@@ -631,7 +631,7 @@ mod tests {
         );
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
-        let states = prop.states_ecef(&epochs);
+        let states = prop.states_ecef(&epochs).unwrap();
 
         assert_eq!(states.len(), 3);
 
@@ -659,7 +659,7 @@ mod tests {
         );
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
-        let states = prop.states_gcrf(&epochs);
+        let states = prop.states_gcrf(&epochs).unwrap();
 
         assert_eq!(states.len(), 3);
 
@@ -687,7 +687,7 @@ mod tests {
         );
 
         let epochs = vec![epoch, epoch + 120.0, epoch + 240.0];
-        let states = prop.states_itrf(&epochs);
+        let states = prop.states_itrf(&epochs).unwrap();
 
         assert_eq!(states.len(), 3);
 

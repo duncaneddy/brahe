@@ -10,5 +10,5 @@
 ## See Also
 
 - [DTrajectory](dtrajectory.md) - Variable dimension trajectory
-- [OrbitTrajectory](orbit_trajectory.md) - Orbit-aware trajectory
+- [SOrbitTrajectory](sorbit_trajectory.md) - Orbit-aware trajectory
 - [Trajectories Overview](../../learn/trajectories/index.md)

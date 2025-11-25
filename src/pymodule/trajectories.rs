@@ -1642,9 +1642,9 @@ impl PyOrbitalTrajectory {
     ///     state = traj.state(epc1)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = self.trajectory.state(epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.trajectory.state(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state in ECI Cartesian frame at specified epoch.
@@ -1670,9 +1670,9 @@ impl PyOrbitalTrajectory {
     ///     state_eci = traj.state_eci(epc)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_eci(&self.trajectory, epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_eci(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state in ECEF Cartesian frame at specified epoch.
@@ -1698,9 +1698,9 @@ impl PyOrbitalTrajectory {
     ///     state_ecef = traj.state_ecef(epc)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_ecef(&self.trajectory, epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_ecef(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state in GCRF Cartesian frame at specified epoch.
@@ -1726,9 +1726,9 @@ impl PyOrbitalTrajectory {
     ///     state_gcrf = traj.state_gcrf(epc)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state in ITRF Cartesian frame at specified epoch.
@@ -1754,9 +1754,9 @@ impl PyOrbitalTrajectory {
     ///     state_itrf = traj.state_itrf(epc)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_itrf(&self.trajectory, epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_itrf(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state in EME2000 Cartesian frame at specified epoch.
@@ -1782,9 +1782,9 @@ impl PyOrbitalTrajectory {
     ///     state_eme2000 = traj.state_eme2000(epc)
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_eme2000(&self.trajectory, epoch.obj);
-        state.as_slice().to_pyarray(py).to_owned()
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_eme2000(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Get state as osculating Keplerian elements at specified epoch.
@@ -1818,9 +1818,9 @@ impl PyOrbitalTrajectory {
         py: Python<'a>,
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
-    ) -> Bound<'a, PyArray<f64, Ix1>> {
-        let state = SOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value);
-        state.as_slice().to_pyarray(py).to_owned()
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
     /// Iterator over (epoch, state) pairs
@@ -2033,14 +2033,10 @@ impl PyOrbitalTrajectory {
     ///     result = traj.covariance(epoch)
     ///     print(result)  # 6x6 numpy array
     ///     ```
-    fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match self.trajectory.covariance(epoch.obj) {
-            Some(cov_mat) => {
-                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-                Ok(Some(array.to_owned()))
-            }
-            None => Ok(None),
-        }
+    fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = self.trajectory.covariance(epoch.obj)?;
+        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+        Ok(array.to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the ECI frame.
@@ -2068,14 +2064,10 @@ impl PyOrbitalTrajectory {
     ///     result = traj.covariance_eci(epoch)
     ///     print(result)  # 6x6 numpy array
     ///     ```
-    fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match SOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj) {
-            Some(cov_mat) => {
-                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-                Ok(Some(array.to_owned()))
-            }
-            None => Ok(None),
-        }
+    fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = SOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj)?;
+        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+        Ok(array.to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the GCRF frame.
@@ -2103,14 +2095,10 @@ impl PyOrbitalTrajectory {
     ///     result = traj.covariance_gcrf(epoch)
     ///     print(result)  # 6x6 numpy array
     ///     ```
-    fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match SOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj) {
-            Some(cov_mat) => {
-                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-                Ok(Some(array.to_owned()))
-            }
-            None => Ok(None),
-        }
+    fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = SOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj)?;
+        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+        Ok(array.to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the RTN (Radial, Along-Track, Normal) frame.
@@ -2143,14 +2131,10 @@ impl PyOrbitalTrajectory {
     ///     result = traj.covariance_rtn(epoch)
     ///     print(result)  # 6x6 numpy array in RTN frame
     ///     ```
-    fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
-        match SOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj) {
-            Some(cov_mat) => {
-                let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-                Ok(Some(array.to_owned()))
-            }
-            None => Ok(None),
-        }
+    fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = SOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj)?;
+        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
+        Ok(array.to_owned())
     }
 }
 

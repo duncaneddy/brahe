@@ -377,13 +377,13 @@ pub fn find_access_candidates<L: AccessibleLocation, P: SIdentifiableStateProvid
     search_end: Epoch,
     constraint: &dyn AccessConstraint,
     config: &AccessSearchConfig,
-) -> Vec<(Epoch, Epoch)> {
+) -> Result<Vec<(Epoch, Epoch)>, BraheError> {
     let mut candidates = Vec::new();
     let location_ecef = location.center_ecef();
 
     // Compute orbital period once at start if adaptive stepping is enabled
     let orbital_period = if config.adaptive_step {
-        let state_eci = propagator.state_eci(search_start);
+        let state_eci = propagator.state_eci(search_start)?;
         Some(orbital_period_from_state(&state_eci, GM_EARTH))
     } else {
         None
@@ -396,7 +396,7 @@ pub fn find_access_candidates<L: AccessibleLocation, P: SIdentifiableStateProvid
 
     while current_time <= search_end {
         // Propagate satellite to current time
-        let sat_state_ecef = propagator.state_ecef(current_time);
+        let sat_state_ecef = propagator.state_ecef(current_time)?;
 
         // Evaluate constraints
         let is_satisfied = constraint.evaluate(&current_time, &sat_state_ecef, &location_ecef);
@@ -429,7 +429,7 @@ pub fn find_access_candidates<L: AccessibleLocation, P: SIdentifiableStateProvid
         candidates.push((window_start, search_end));
     }
 
-    candidates
+    Ok(candidates)
 }
 
 /// Direction for stepping during boundary search
@@ -472,7 +472,7 @@ pub fn bisection_search<L: AccessibleLocation, P: SIdentifiableStateProvider>(
     tolerance: f64,
     min_bound: Epoch,
     max_bound: Epoch,
-) -> Epoch {
+) -> Result<Epoch, BraheError> {
     let location_ecef = location.center_ecef();
 
     // Step in given direction until condition changes or we hit bounds
@@ -490,21 +490,21 @@ pub fn bisection_search<L: AccessibleLocation, P: SIdentifiableStateProvider>(
         // Check bounds
         if next_time < min_bound || next_time > max_bound || steps_taken >= MAX_STEPS {
             // Hit boundary without finding transition - return current best estimate
-            return current_time;
+            return Ok(current_time);
         }
 
         current_time = next_time;
         steps_taken += 1;
 
         // Evaluate constraint at new time
-        let sat_state_ecef = propagator.state_ecef(current_time);
+        let sat_state_ecef = propagator.state_ecef(current_time)?;
         let current_condition = constraint.evaluate(&current_time, &sat_state_ecef, &location_ecef);
 
         // Check if condition changed
         if current_condition != condition {
             // Found transition - check if we should recurse or stop
             if step < tolerance {
-                return current_time;
+                return Ok(current_time);
             } else {
                 // Recurse with opposite direction and half step size
                 let new_direction = match direction {
@@ -556,11 +556,11 @@ pub fn compute_window_properties<L: AccessibleLocation, P: SIdentifiableStatePro
     let midtime = window_open + (window_close - window_open) / 2.0;
 
     // Compute states at key times
-    let state_open_ecef = propagator.state_ecef(window_open);
+    let state_open_ecef = propagator.state_ecef(window_open)?;
 
-    let state_close_ecef = propagator.state_ecef(window_close);
+    let state_close_ecef = propagator.state_ecef(window_close)?;
 
-    let state_mid_ecef = propagator.state_ecef(midtime);
+    let state_mid_ecef = propagator.state_ecef(midtime)?;
 
     let sat_pos_open = state_open_ecef.fixed_rows::<3>(0).into_owned();
     let sat_pos_close = state_close_ecef.fixed_rows::<3>(0).into_owned();
@@ -578,7 +578,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: SIdentifiableStatePro
     let mut elevation_samples = vec![elevation_open, elevation_close, elevation_mid];
     for i in 1..4 {
         let t = window_open + (window_close - window_open) * (i as f64 / 4.0);
-        let state_ecef = propagator.state_ecef(t);
+        let state_ecef = propagator.state_ecef(t)?;
 
         let pos = state_ecef.fixed_rows::<3>(0).into_owned();
         elevation_samples.push(compute_elevation(&pos, &location_ecef));
@@ -659,7 +659,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: SIdentifiableStatePro
             let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
                 .iter()
                 .map(|&epoch| propagator.state_ecef(epoch))
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
 
             // Convert epochs to MJD for property computer interface
             let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
@@ -746,7 +746,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>
         search_end,
         constraint,
         &config,
-    );
+    )?;
 
     // Refine each candidate
     let mut windows = Vec::new();
@@ -759,7 +759,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>
         // Start at coarse_start (condition=true) and search backward
         let refined_start = if coarse_start > search_start {
             // Evaluate condition at coarse_start to confirm
-            let sat_state = propagator.state_ecef(coarse_start);
+            let sat_state = propagator.state_ecef(coarse_start)?;
             let start_condition = constraint.evaluate(&coarse_start, &sat_state, &location_ecef);
 
             bisection_search(
@@ -773,7 +773,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>
                 time_tolerance,
                 search_start, // min_bound
                 coarse_start, // max_bound
-            )
+            )?
         } else {
             coarse_start
         };
@@ -782,7 +782,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>
         // Start at coarse_end (last point where condition=true) and search forward
         let refined_end = if coarse_end < search_end {
             // Evaluate condition at coarse_end to confirm
-            let sat_state = propagator.state_ecef(coarse_end);
+            let sat_state = propagator.state_ecef(coarse_end)?;
             let end_condition = constraint.evaluate(&coarse_end, &sat_state, &location_ecef);
 
             bisection_search(
@@ -796,7 +796,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: SIdentifiableStateProvider>
                 time_tolerance,
                 coarse_end, // min_bound (starting point)
                 search_end, // max_bound (allow stepping forward to search end)
-            )
+            )?
         } else {
             coarse_end
         };
@@ -880,7 +880,8 @@ mod tests {
             search_end,
             &constraint,
             &config,
-        );
+        )
+        .unwrap();
 
         // Should find at least one access window
         assert!(
@@ -920,7 +921,7 @@ mod tests {
 
         // Evaluate initial condition
         let location_ecef = location.center_ecef();
-        let sat_state = propagator.state_ecef(t_start);
+        let sat_state = propagator.state_ecef(t_start).unwrap();
         let initial_condition = constraint.evaluate(&t_start, &sat_state, &location_ecef);
 
         // Search backward from t_start with initial step of 60 seconds
@@ -936,7 +937,8 @@ mod tests {
             0.01,
             epoch,   // min_bound - don't search before epoch
             t_start, // max_bound
-        );
+        )
+        .unwrap();
 
         // Refined time should be within bounds
         assert!(refined <= t_start);
@@ -1690,7 +1692,8 @@ mod tests {
             search_end,
             &constraint,
             &config_no_adaptive,
-        );
+        )
+        .unwrap();
 
         // Find candidates WITH adaptive stepping
         let config_adaptive = AccessSearchConfig {
@@ -1707,7 +1710,8 @@ mod tests {
             search_end,
             &constraint,
             &config_adaptive,
-        );
+        )
+        .unwrap();
 
         // Both methods should find windows
         assert!(

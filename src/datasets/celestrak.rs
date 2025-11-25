@@ -1697,7 +1697,7 @@ mod tests {
 
         // Propagate to a specific epoch
         let epoch = Epoch::from_datetime(2021, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = propagator.state_eci(epoch);
+        let state = propagator.state_eci(epoch).unwrap();
 
         // Verify state vector has correct dimensions
         assert_eq!(state.len(), 6);
@@ -1846,7 +1846,7 @@ mod tests {
 
         // Test propagation
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = propagator.state_eci(epoch);
+        let state = propagator.state_eci(epoch).unwrap();
         assert_eq!(state.len(), 6);
 
         // Verify ISS altitude is reasonable (300-500 km)

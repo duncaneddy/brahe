@@ -740,24 +740,24 @@ impl SStatePropagator for SGPPropagator {
 }
 
 impl SStateProvider for SGPPropagator {
-    fn state(&self, epoch: Epoch) -> Vector6<f64> {
-        self.propagate_internal(epoch)
+    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        Ok(self.propagate_internal(epoch))
     }
 }
 
 impl SOrbitStateProvider for SGPPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
-        let state_ecef = self.state_ecef(epoch);
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let state_ecef = self.state_ecef(epoch)?;
 
         // Step 3: ECEF to ECI
-        state_ecef_to_eci(epoch, state_ecef)
+        Ok(state_ecef_to_eci(epoch, state_ecef))
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         self.state_itrf(epoch)
     }
 
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let state_pef = self.state_pef(epoch);
 
         // Step 2: PEF to ECEF
@@ -767,31 +767,31 @@ impl SOrbitStateProvider for SGPPropagator {
         let r_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
         let v_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
 
-        Vector6::new(
+        Ok(Vector6::new(
             r_itrf[0], r_itrf[1], r_itrf[2], v_itrf[0], v_itrf[1], v_itrf[2],
-        )
+        ))
     }
 
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get ECEF state and convert to GCRF/ECI
-        let state_itrf = self.state_itrf(epoch);
-        state_itrf_to_gcrf(epoch, state_itrf)
+        let state_itrf = self.state_itrf(epoch)?;
+        Ok(state_itrf_to_gcrf(epoch, state_itrf))
     }
 
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get GCRF state and convert to EME2000
-        let gcrf_state = self.state_gcrf(epoch);
-        state_gcrf_to_eme2000(gcrf_state)
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
     fn state_as_osculating_elements(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
-        let state_eci = self.state_eci(epoch);
+    ) -> Result<Vector6<f64>, BraheError> {
+        let state_eci = self.state_eci(epoch)?;
 
-        state_cartesian_to_osculating(state_eci, angle_format)
+        Ok(state_cartesian_to_osculating(state_eci, angle_format))
     }
 
     // Default implementations from trait are used for:
@@ -1393,7 +1393,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_as_osculating_elements(epoch, RADIANS);
+        let elements = prop.state_as_osculating_elements(epoch, RADIANS).unwrap();
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -1416,7 +1416,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01, initial_epoch + 0.02];
 
-        let states = prop.states(&epochs);
+        let states = prop.states(&epochs).unwrap();
         assert_eq!(states.len(), 3);
     }
 
@@ -1428,7 +1428,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let states = prop.states_eci(&epochs);
+        let states = prop.states_eci(&epochs).unwrap();
         assert_eq!(states.len(), 2);
         // Verify states are valid Cartesian vectors
         for state in &states {
@@ -1444,7 +1444,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let states = prop.states_ecef(&epochs);
+        let states = prop.states_ecef(&epochs).unwrap();
         assert_eq!(states.len(), 2);
         // Verify states are valid Cartesian vectors
         for state in &states {
@@ -1460,7 +1460,9 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop.states_as_osculating_elements(&epochs, RADIANS);
+        let elements = prop
+            .states_as_osculating_elements(&epochs, RADIANS)
+            .unwrap();
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {
@@ -1478,7 +1480,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in TEME frame (native SGP4 output)
-        let state = prop.state(epoch);
+        let state = prop.state(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // TEME is the native SGP4 output frame
@@ -1528,7 +1530,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECEF/ITRF frame
-        let state = prop.state_ecef(epoch);
+        let state = prop.state_ecef(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECEF/ITRF frame
@@ -1548,7 +1550,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECEF/ITRF frame
-        let state = prop.state_itrf(epoch);
+        let state = prop.state_itrf(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECEF/ITRF frame
@@ -1568,7 +1570,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECI/GCRF frame
-        let state = prop.state_eci(epoch);
+        let state = prop.state_eci(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
@@ -1588,7 +1590,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECI/GCRF frame
-        let state = prop.state_gcrf(epoch);
+        let state = prop.state_gcrf(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
@@ -1608,7 +1610,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in EME2000 frame
-        let state = prop.state_eme2000(epoch);
+        let state = prop.state_eme2000(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // EME2000 frame (GCRF with bias transformation applied)
@@ -1817,7 +1819,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let state = prop.state_gcrf(epoch);
+        let state = prop.state_gcrf(epoch).unwrap();
 
         // State should be a valid 6D vector
         assert_eq!(state.len(), 6);
@@ -1838,8 +1840,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let state1 = prop.state_gcrf(initial_epoch);
-        let state2 = prop.state_gcrf(initial_epoch + 60.0);
+        let state1 = prop.state_gcrf(initial_epoch).unwrap();
+        let state2 = prop.state_gcrf(initial_epoch + 60.0).unwrap();
 
         // States should be different after propagation
         assert_ne!(state1, state2);
@@ -1856,7 +1858,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let state = prop.state_eme2000(epoch);
+        let state = prop.state_eme2000(epoch).unwrap();
 
         // State should be a valid 6D vector
         assert_eq!(state.len(), 6);
@@ -1877,8 +1879,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let state1 = prop.state_eme2000(initial_epoch);
-        let state2 = prop.state_eme2000(initial_epoch + 60.0);
+        let state1 = prop.state_eme2000(initial_epoch).unwrap();
+        let state2 = prop.state_eme2000(initial_epoch + 60.0).unwrap();
 
         // States should be different after propagation
         assert_ne!(state1, state2);
@@ -1895,8 +1897,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let gcrf_state = prop.state_gcrf(epoch);
-        let eme2000_state = prop.state_eme2000(epoch);
+        let gcrf_state = prop.state_gcrf(epoch).unwrap();
+        let eme2000_state = prop.state_eme2000(epoch).unwrap();
 
         // GCRF and EME2000 should be very close (frame bias is small)
         // Difference should be less than 100 meters in position
@@ -1920,8 +1922,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let gcrf_state = prop.state_gcrf(epoch);
-        let eci_state = prop.state_eci(epoch);
+        let gcrf_state = prop.state_gcrf(epoch).unwrap();
+        let eci_state = prop.state_eci(epoch).unwrap();
 
         // GCRF and ECI should be identical (ECI is implemented as GCRF)
         assert_abs_diff_eq!(gcrf_state[0], eci_state[0], epsilon = 1.0);

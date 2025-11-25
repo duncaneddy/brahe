@@ -2767,8 +2767,8 @@ def test_covariance_rtn(eop):
     assert np.all(np.diag(cov_rtn) > 0)
 
 
-def test_covariance_none_for_trajectory_without_covariances(eop):
-    """Test that covariance methods return None for trajectories without covariances."""
+def test_covariance_error_for_trajectory_without_covariances(eop):
+    """Test that covariance methods raise an error for trajectories without covariances."""
     # Create trajectory WITHOUT covariances
     epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -2781,11 +2781,15 @@ def test_covariance_none_for_trajectory_without_covariances(eop):
         # No covariances parameter
     )
 
-    # All covariance methods should return None
-    assert traj.covariance(epoch) is None
-    assert traj.covariance_eci(epoch) is None
-    assert traj.covariance_gcrf(epoch) is None
-    assert traj.covariance_rtn(epoch) is None
+    # All covariance methods should raise an error when covariances not initialized
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        traj.covariance(epoch)
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        traj.covariance_eci(epoch)
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        traj.covariance_gcrf(epoch)
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        traj.covariance_rtn(epoch)
 
 
 def test_covariance_interpolation_method_two_wasserstein(eop):
@@ -3102,15 +3106,15 @@ def test_covariance_interpolation_edge_cases_matrix_square_root(eop):
     # Verify interpolation gives value between endpoints
     assert 100.0 < result_halfway[0, 0] < 200.0
 
-    # Test before data range (should return None)
+    # Test before data range (should raise an error)
     epoch_before = brahe.Epoch.from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, brahe.UTC)
-    result_before = traj.covariance(epoch_before)
-    assert result_before is None
+    with pytest.raises(Exception, match="before first covariance data point"):
+        traj.covariance(epoch_before)
 
-    # Test after data range (should return None)
+    # Test after data range (should raise an error)
     epoch_after = brahe.Epoch.from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, brahe.UTC)
-    result_after = traj.covariance(epoch_after)
-    assert result_after is None
+    with pytest.raises(Exception, match="outside covariance data range"):
+        traj.covariance(epoch_after)
 
 
 def test_covariance_interpolation_edge_cases_two_wasserstein(eop):
@@ -3149,15 +3153,15 @@ def test_covariance_interpolation_edge_cases_two_wasserstein(eop):
     # Verify interpolation gives value between endpoints
     assert 100.0 < result_halfway[0, 0] < 200.0
 
-    # Test before data range (should return None)
+    # Test before data range (should raise an error)
     epoch_before = brahe.Epoch.from_datetime(2023, 12, 31, 23, 50, 0.0, 0.0, brahe.UTC)
-    result_before = traj.covariance(epoch_before)
-    assert result_before is None
+    with pytest.raises(Exception, match="before first covariance data point"):
+        traj.covariance(epoch_before)
 
-    # Test after data range (should return None)
+    # Test after data range (should raise an error)
     epoch_after = brahe.Epoch.from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, brahe.UTC)
-    result_after = traj.covariance(epoch_after)
-    assert result_after is None
+    with pytest.raises(Exception, match="outside covariance data range"):
+        traj.covariance(epoch_after)
 
 
 def test_covariance_interpolation_methods_comparison(eop):
@@ -3240,10 +3244,10 @@ def test_covariance_single_point_trajectory(eop):
     assert result_exact is not None
     assert result_exact[0, 0] == pytest.approx(100.0, rel=1e-6)
 
-    # Different epoch should return None (no interpolation possible with single point)
+    # Different epoch should raise an error (no interpolation possible with single point)
     epoch_later = epoch + 60.0
-    result_later = traj.covariance(epoch_later)
-    assert result_later is None
+    with pytest.raises(Exception, match="outside covariance data range"):
+        traj.covariance(epoch_later)
 
 
 def test_covariance_rtn_elliptical_orbit(eop):

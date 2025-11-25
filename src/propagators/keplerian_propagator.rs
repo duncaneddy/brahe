@@ -3,7 +3,7 @@
  * with nalgebra vectors and clean interfaces
  */
 
-use nalgebra::Vector6;
+use nalgebra::{DVector, Vector6};
 use std::f64::consts::PI;
 
 use crate::constants::AngleFormat;
@@ -14,13 +14,25 @@ use crate::frames::{
     state_gcrf_to_itrf, state_itrf_to_gcrf,
 };
 use crate::orbits::keplerian::mean_motion;
-use crate::propagators::traits::{
-    SOrbitPropagator, SOrbitStateProvider, SStatePropagator, SStateProvider,
-};
+use crate::propagators::traits::{SOrbitPropagator, SStatePropagator};
 use crate::time::Epoch;
-use crate::trajectories::SOrbitTrajectory;
+use crate::trajectories::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
+use crate::utils::state_providers::{DOrbitStateProvider, DStateProvider};
 use crate::utils::{BraheError, Identifiable};
+
+/// Convert DVector to Vector6 (panics if not exactly 6 elements)
+#[inline]
+fn dvec_to_svec6(dv: DVector<f64>) -> Vector6<f64> {
+    assert_eq!(dv.len(), 6, "DVector must have exactly 6 elements");
+    Vector6::from_iterator(dv.iter().copied())
+}
+
+/// Convert Vector6 to DVector
+#[inline]
+fn svec6_to_dvec(sv: Vector6<f64>) -> DVector<f64> {
+    DVector::from_iterator(6, sv.iter().copied())
+}
 
 /// Keplerian propagator for analytical two-body orbital motion
 #[derive(Debug, Clone)]
@@ -44,7 +56,7 @@ pub struct KeplerianPropagator {
     pub step_size: f64,
 
     /// Accumulated trajectory (current state is always the last entry)
-    pub trajectory: SOrbitTrajectory,
+    pub trajectory: DOrbitTrajectory,
 
     /// Internal osculating orbital elements (always in radians, ECI frame)
     internal_osculating_elements: Vector6<f64>,
@@ -132,8 +144,8 @@ impl KeplerianPropagator {
         );
 
         // Create initial trajectory
-        let mut trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
-        trajectory.add(epoch, state);
+        let mut trajectory = DOrbitTrajectory::new(frame, representation, angle_format);
+        trajectory.add(epoch, svec6_to_dvec(state));
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
 
@@ -274,15 +286,24 @@ impl KeplerianPropagator {
         self.representation = representation;
         self.angle_format = angle_format;
 
-        // Reset trajectory to initial state only
-        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
+        // Reset trajectory to initial state only, preserving identity
+        let name = self.trajectory.get_name().map(|s| s.to_string());
+        let uuid = self.trajectory.get_uuid();
+        let id = self.trajectory.get_id();
+
+        self.trajectory = DOrbitTrajectory::new(frame, representation, angle_format).with_identity(
+            name.as_deref(),
+            uuid,
+            id,
+        );
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
             self.initial_epoch,
             self.internal_osculating_elements,
         );
-        self.trajectory.add(self.initial_epoch, converted_state);
+        self.trajectory
+            .add(self.initial_epoch, svec6_to_dvec(converted_state));
 
         self
     }
@@ -413,7 +434,7 @@ impl SStatePropagator for KeplerianPropagator {
         // Convert back to original state format
         let state = self.convert_from_internal_osculating(target_epoch, new_state);
 
-        self.trajectory.add(target_epoch, state)
+        self.trajectory.add(target_epoch, svec6_to_dvec(state))
     }
 
     // Default implementation from trait is used for:
@@ -429,7 +450,7 @@ impl SStatePropagator for KeplerianPropagator {
 
     fn current_state(&self) -> Vector6<f64> {
         // Return the most recent state from trajectory
-        self.trajectory.last().unwrap().1
+        dvec_to_svec6(self.trajectory.last().unwrap().1)
     }
 
     fn initial_epoch(&self) -> Epoch {
@@ -449,15 +470,21 @@ impl SStatePropagator for KeplerianPropagator {
     }
 
     fn reset(&mut self) {
-        // Reset trajectory to initial state only
-        self.trajectory = SOrbitTrajectory::new(self.frame, self.representation, self.angle_format);
+        // Reset trajectory to initial state only, preserving identity
+        let name = self.trajectory.get_name().map(|s| s.to_string());
+        let uuid = self.trajectory.get_uuid();
+        let id = self.trajectory.get_id();
+
+        self.trajectory = DOrbitTrajectory::new(self.frame, self.representation, self.angle_format)
+            .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
             self.initial_epoch,
             self.internal_osculating_elements,
         );
-        self.trajectory.add(self.initial_epoch, converted_state);
+        self.trajectory
+            .add(self.initial_epoch, svec6_to_dvec(converted_state));
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -511,95 +538,42 @@ impl SOrbitPropagator for KeplerianPropagator {
         );
         self.n = mean_motion(self.internal_osculating_elements[0], AngleFormat::Radians);
 
-        // Reset trajectory to new initial conditions
-        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
-        self.trajectory.add(epoch, state);
+        // Reset trajectory to new initial conditions, preserving identity
+        let name = self.trajectory.get_name().map(|s| s.to_string());
+        let uuid = self.trajectory.get_uuid();
+        let id = self.trajectory.get_id();
+
+        self.trajectory = DOrbitTrajectory::new(frame, representation, angle_format).with_identity(
+            name.as_deref(),
+            uuid,
+            id,
+        );
+        self.trajectory.add(epoch, svec6_to_dvec(state));
     }
-}
-
-impl SStateProvider for KeplerianPropagator {
-    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in original format
-        let internal_state = self.propagate_internal(epoch);
-        Ok(self.convert_from_internal_osculating(epoch, internal_state))
-    }
-}
-
-impl SOrbitStateProvider for KeplerianPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Keplerian propagation is in ECI/GCRF frame
-        // state_eci already returns the Cartesian state in ECI/GCRF
-        self.state_gcrf(epoch)
-    }
-
-    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let eci_state = self.state_eci(epoch)?;
-        Ok(state_eci_to_ecef(epoch, eci_state))
-    }
-
-    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get state in original format
-        let state = self.propagate_internal(epoch);
-
-        // Convert to ECI
-        Ok(state_osculating_to_cartesian(state, AngleFormat::Radians))
-    }
-
-    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let gcrf_state = self.state_gcrf(epoch)?;
-        Ok(state_gcrf_to_itrf(epoch, gcrf_state))
-    }
-
-    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        // Get GCRF state and convert to EME2000
-        let gcrf_state = self.state_gcrf(epoch)?;
-        Ok(state_gcrf_to_eme2000(gcrf_state))
-    }
-
-    fn state_as_osculating_elements(
-        &self,
-        epoch: Epoch,
-        angle_format: AngleFormat,
-    ) -> Result<Vector6<f64>, BraheError> {
-        let internal_state = self.propagate_internal(epoch);
-        Ok(match angle_format {
-            AngleFormat::Degrees => {
-                let mut elements = internal_state;
-                // Convert angles from radians to degrees (i, RAAN, argp, mean_anomaly)
-                for i in 2..6 {
-                    elements[i] *= RAD2DEG;
-                }
-                elements
-            }
-            AngleFormat::Radians => internal_state,
-        })
-    }
-
-    // Default implementations from trait are used for:
-    // - states()
-    // - states_eci()
-    // - states_ecef()
-    // - states_as_osculating_elements()
 }
 
 impl Identifiable for KeplerianPropagator {
     fn with_name(mut self, name: &str) -> Self {
         self.name = Some(name.to_string());
+        self.trajectory = self.trajectory.with_name(name);
         self
     }
 
     fn with_uuid(mut self, uuid: uuid::Uuid) -> Self {
         self.uuid = Some(uuid);
+        self.trajectory = self.trajectory.with_uuid(uuid);
         self
     }
 
     fn with_new_uuid(mut self) -> Self {
         self.uuid = Some(uuid::Uuid::new_v4());
+        self.trajectory = self.trajectory.with_uuid(self.uuid.unwrap());
         self
     }
 
     fn with_id(mut self, id: u64) -> Self {
         self.id = Some(id);
+        self.trajectory = self.trajectory.with_id(id);
         self
     }
 
@@ -612,6 +586,7 @@ impl Identifiable for KeplerianPropagator {
         self.name = name.map(|s| s.to_string());
         self.uuid = uuid;
         self.id = id;
+        self.trajectory = self.trajectory.with_identity(name, uuid, id);
         self
     }
 
@@ -619,18 +594,22 @@ impl Identifiable for KeplerianPropagator {
         self.name = name.map(|s| s.to_string());
         self.uuid = uuid;
         self.id = id;
+        self.trajectory.set_identity(name, uuid, id);
     }
 
     fn set_id(&mut self, id: Option<u64>) {
         self.id = id;
+        self.trajectory.set_id(id);
     }
 
     fn set_name(&mut self, name: Option<&str>) {
         self.name = name.map(|s| s.to_string());
+        self.trajectory.set_name(name);
     }
 
     fn generate_uuid(&mut self) {
         self.uuid = Some(uuid::Uuid::new_v4());
+        self.trajectory.generate_uuid();
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -644,6 +623,78 @@ impl Identifiable for KeplerianPropagator {
     fn get_uuid(&self) -> Option<uuid::Uuid> {
         self.uuid
     }
+}
+
+impl DStateProvider for KeplerianPropagator {
+    fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError> {
+        // Reuse existing internal propagation logic
+        let internal_state = self.propagate_internal(epoch);
+        let sv = self.convert_from_internal_osculating(epoch, internal_state);
+        Ok(svec6_to_dvec(sv))
+    }
+
+    fn state_dim(&self) -> usize {
+        6
+    }
+
+    // states() uses default implementation from trait
+}
+
+impl DOrbitStateProvider for KeplerianPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_gcrf(epoch)
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let state_eci = self.state_eci(epoch)?;
+        Ok(state_eci_to_ecef(epoch, state_eci))
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let internal_state = self.propagate_internal(epoch);
+        // Always convert to Cartesian for DOrbitStateProvider methods
+        let state_eci = state_osculating_to_cartesian(internal_state, AngleFormat::Radians);
+
+        match self.frame {
+            OrbitFrame::ECI | OrbitFrame::GCRF => Ok(state_eci),
+            OrbitFrame::ECEF => Ok(state_ecef_to_eci(epoch, state_eci)),
+            OrbitFrame::ITRF => {
+                let state_gcrf = state_itrf_to_gcrf(epoch, state_eci);
+                Ok(state_gcrf)
+            }
+            OrbitFrame::EME2000 => Ok(state_eme2000_to_gcrf(state_eci)),
+        }
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let state_gcrf = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_itrf(epoch, state_gcrf))
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let state_gcrf = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_eme2000(state_gcrf))
+    }
+
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let state_eci = self.state_eci(epoch)?;
+        let mut elements = state_cartesian_to_osculating(state_eci, AngleFormat::Radians);
+
+        if angle_format == AngleFormat::Degrees {
+            elements[2] *= RAD2DEG; // i
+            elements[3] *= RAD2DEG; // RAAN
+            elements[4] *= RAD2DEG; // arg periapsis
+            elements[5] *= RAD2DEG; // anomaly
+        }
+
+        Ok(elements)
+    }
+
+    // All batch methods (states_eci, states_ecef, etc.) use default implementations
 }
 
 #[cfg(test)]

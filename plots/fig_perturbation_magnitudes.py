@@ -68,7 +68,7 @@ r_moon = bh.moon_position_de440s(epoch)
 R_identity = np.eye(3)
 
 # Load gravity model for harmonics calculations
-gravity_model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+gravity_model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
 # Calculate accelerations at each altitude
 for i, alt_m in enumerate(altitudes_m):

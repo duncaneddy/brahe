@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::traits::{SOrbitStateProvider, SStateProvider};
+use bh::utils::{DStateProvider, DOrbitStateProvider};
 use nalgebra as na;
 
 fn main() {
@@ -16,12 +16,12 @@ fn main() {
 
     // Query state 1 hour later (doesn't add to trajectory)
     let query_epoch = epoch + 3600.0;
-    let state_native = prop.state(query_epoch);       // Native format of propagator internal state  (Keplerian)
-    let state_eci = prop.state_eci(query_epoch);      // ECI Cartesian
-    let state_ecef = prop.state_ecef(query_epoch);    // ECEF Cartesian
+    let state_native = prop.state(query_epoch).unwrap();       // Native format of propagator internal state  (Keplerian)
+    let state_eci = prop.state_eci(query_epoch).unwrap();      // ECI Cartesian
+    let state_ecef = prop.state_ecef(query_epoch).unwrap();    // ECEF Cartesian
     let _state_kep = prop.state_as_osculating_elements(
         query_epoch, bh::AngleFormat::Degrees
-    );
+    ).unwrap();
 
     println!("Native state (Keplerian): a={:.1} km", state_native[0] / 1e3);
     // Native state (Keplerian): a=6878.1 km

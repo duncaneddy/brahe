@@ -1930,7 +1930,7 @@ mod tests {
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
-        AtmosphericModel, DragConfiguration, ParameterSource,
+        AtmosphericModel, DragConfiguration, GravityConfiguration, ParameterSource,
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
@@ -3073,11 +3073,21 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
+        // Use simple point mass gravity only (no third body) to avoid requiring ephemerides
+        let force_config = ForceModelConfiguration {
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+        };
+
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::gravity_only(),
+            force_config,
             None,
             None,
             None,

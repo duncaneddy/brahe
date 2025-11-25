@@ -6,10 +6,8 @@ Trajectory containers and interpolation for orbit propagation.
 This module provides containers for storing and interpolating spacecraft trajectories:
 
 **Trajectory Types:**
-- DTrajectory: Dynamic trajectory container for arbitrary state vectors
-- STrajectory6: Static 6-DOF trajectory container
-- SOrbitTrajectory: Static orbital trajectory with frame/representation conversions
-- DOrbitTrajectory: Dynamic orbital trajectory with frame/representation conversions (future)
+- Trajectory: Dynamic trajectory container for arbitrary state vectors
+- OrbitTrajectory: Orbital trajectory with frame/representation conversions
 
 **Trajectory Features:**
 - Time-series state storage
@@ -28,9 +26,8 @@ This module provides containers for storing and interpolating spacecraft traject
 
 from brahe._brahe import (
     # Trajectory classes
-    DTrajectory,
-    SOrbitTrajectory,
-    STrajectory6,
+    Trajectory,
+    OrbitTrajectory,
     # Configuration enums
     OrbitFrame,
     OrbitRepresentation,
@@ -41,9 +38,8 @@ from brahe._brahe import (
 
 __all__ = [
     # Trajectory classes
-    "DTrajectory",
-    "SOrbitTrajectory",
-    "STrajectory6",
+    "Trajectory",
+    "OrbitTrajectory",
     # Configuration enums
     "OrbitFrame",
     "OrbitRepresentation",

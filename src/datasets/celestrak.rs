@@ -457,7 +457,7 @@ fn get_tle_by_id_from_group(
 ///
 /// // Compute state at a specific epoch
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = propagator.state_eci(epoch);
+/// let state = propagator.state_eci(epoch).unwrap();
 /// println!("ISS position: x={}, y={}, z={}", state[0], state[1], state[2]);
 /// ```
 ///
@@ -594,7 +594,7 @@ pub fn get_tle_by_name(
 ///
 /// // Propagate to a specific epoch
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = propagator.state_eci(epoch);
+/// let state = propagator.state_eci(epoch).unwrap();
 /// println!("Position: x={}, y={}, z={}", state[0], state[1], state[2]);
 /// ```
 pub fn get_tle_by_name_as_propagator(

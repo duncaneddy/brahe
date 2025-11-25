@@ -170,7 +170,6 @@ The `SOrbitTrajectory` implementation is specialized for orbital mechanics appli
 
 ## See Also
 
-- [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory implementation
-- [STrajectory6](strajectory6.md) - Static 6D trajectory implementation
-- [SOrbitTrajectory](sorbit_trajectory.md) - Orbital mechanics trajectory with frame conversions
+- [Trajectory](trajectory.md) - Dynamic-dimension trajectory implementation
+- [OrbitTrajectory](orbit_trajectory.md) - Orbital mechanics trajectory with frame conversions
 - [API Reference](../../library_api/trajectories/index.md)

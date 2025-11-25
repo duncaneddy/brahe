@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::{Epoch, R_EARTH, KeplerianPropagator, AngleFormat};
-use brahe::traits::{SStatePropagator, OrbitalTrajectory, Trajectory};
+use brahe::traits::{SStatePropagator, Trajectory};
 use nalgebra::Vector6;
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
     // Iterate over all stored states
     for i in 0..eci_trajectory.len() {
         let epoch = eci_trajectory.epochs[i];
-        let state = eci_trajectory.states[i];
+        let state = eci_trajectory.states[i].clone();
         println!(
             "Epoch: {}, Position (ECI): {:.2} km, {:.2} km, {:.2} km",
             epoch,

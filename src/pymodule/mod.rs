@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use nalgebra as na;
-use nalgebra::{DVector, SMatrix, SVector, Vector3};
+use nalgebra::{DVector, SVector, Vector3};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
@@ -854,7 +854,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
-    module.add_class::<PySTrajectory6>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;

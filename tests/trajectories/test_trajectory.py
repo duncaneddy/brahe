@@ -1,9 +1,9 @@
-"""Tests for DTrajectory in brahe - 1:1 parity with Rust tests"""
+"""Tests for Trajectory in brahe - 1:1 parity with Rust tests"""
 
 import pytest
 import numpy as np
 import brahe
-from brahe import Epoch, DTrajectory, InterpolationMethod
+from brahe import Epoch, Trajectory, InterpolationMethod
 
 
 def create_test_trajectory():
@@ -20,7 +20,7 @@ def create_test_trajectory():
         np.array([7200e3, 2000e3, 1000e3, 200.0, 7.7e3, 100.0]),
     ]
 
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     for epoch, state in zip(epochs, states):
         traj.add(epoch, state)
 
@@ -30,63 +30,63 @@ def create_test_trajectory():
 # Trajectory Trait Tests
 
 
-def test_dtrajectory_new_with_dimension():
-    """Rust: test_dtrajectory_new_with_dimension"""
+def test_trajectory_new_with_dimension():
+    """Rust: test_trajectory_new_with_dimension"""
     # 3
-    traj = DTrajectory(3)
+    traj = Trajectory(3)
     assert traj.dimension() == 3
     assert len(traj) == 0
     assert traj.is_empty()
 
     # 6
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     assert traj.dimension() == 6
     assert len(traj) == 0
     assert traj.is_empty()
 
     # 12
-    traj = DTrajectory(12)
+    traj = Trajectory(12)
     assert traj.dimension() == 12
     assert len(traj) == 0
     assert traj.is_empty()
 
 
-def test_dtrajectory_new_with_zero_dimension():
-    """Rust: test_dtrajectory_new_with_zero_dimension"""
+def test_trajectory_new_with_zero_dimension():
+    """Rust: test_trajectory_new_with_zero_dimension"""
     with pytest.raises(Exception, match="Trajectory dimension must be greater than 0"):
-        DTrajectory(0)
+        Trajectory(0)
 
 
-def test_dtrajectory_with_interpolation_method():
-    """Rust: test_dtrajectory_with_interpolation_method"""
-    traj = DTrajectory(12).with_interpolation_method(InterpolationMethod.LINEAR)
+def test_trajectory_with_interpolation_method():
+    """Rust: test_trajectory_with_interpolation_method"""
+    traj = Trajectory(12).with_interpolation_method(InterpolationMethod.LINEAR)
     assert traj.dimension() == 12
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
-def test_dtrajectory_with_eviction_policy_max_size_builder():
-    """Rust: test_dtrajectory_with_eviction_policy_max_size_builder"""
+def test_trajectory_with_eviction_policy_max_size_builder():
+    """Rust: test_trajectory_with_eviction_policy_max_size_builder"""
     # Test builder pattern for max size eviction policy
-    traj = DTrajectory(6).with_eviction_policy_max_size(5)
+    traj = Trajectory(6).with_eviction_policy_max_size(5)
 
     assert traj.get_eviction_policy() == "KeepCount"
     assert len(traj) == 0
 
 
-def test_dtrajectory_with_eviction_policy_max_age_builder():
-    """Rust: test_dtrajectory_with_eviction_policy_max_age_builder"""
+def test_trajectory_with_eviction_policy_max_age_builder():
+    """Rust: test_trajectory_with_eviction_policy_max_age_builder"""
     # Test builder pattern for max age eviction policy
-    traj = DTrajectory(6).with_eviction_policy_max_age(300.0)
+    traj = Trajectory(6).with_eviction_policy_max_age(300.0)
 
     assert traj.get_eviction_policy() == "KeepWithinDuration"
     assert len(traj) == 0
 
 
-def test_dtrajectory_builder_pattern_chaining():
-    """Rust: test_dtrajectory_builder_pattern_chaining"""
+def test_trajectory_builder_pattern_chaining():
+    """Rust: test_trajectory_builder_pattern_chaining"""
     # Test chaining multiple builder methods
     traj = (
-        DTrajectory(6)
+        Trajectory(6)
         .with_interpolation_method(InterpolationMethod.LINEAR)
         .with_eviction_policy_max_size(10)
     )
@@ -105,26 +105,26 @@ def test_dtrajectory_builder_pattern_chaining():
     assert len(traj) == 10
 
 
-def test_dtrajectory_dimension():
-    """Rust: test_dtrajectory_dimension"""
-    traj = DTrajectory(9)
+def test_trajectory_dimension():
+    """Rust: test_trajectory_dimension"""
+    traj = Trajectory(9)
     assert traj.dimension() == 9
 
-    traj = DTrajectory(4)
+    traj = Trajectory(4)
     assert traj.dimension() == 4
 
 
-def test_dtrajectory_interpolatable_set_interpolation_method():
-    """Rust: test_dtrajectory_interpolatable_set_interpolation_method"""
-    traj = DTrajectory(6)
+def test_trajectory_interpolatable_set_interpolation_method():
+    """Rust: test_trajectory_interpolatable_set_interpolation_method"""
+    traj = Trajectory(6)
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
     traj.set_interpolation_method(InterpolationMethod.LINEAR)
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
-def test_dtrajectory_to_matrix():
-    """Rust: test_dtrajectory_to_matrix"""
+def test_trajectory_to_matrix():
+    """Rust: test_trajectory_to_matrix"""
     traj = create_test_trajectory()
     matrix = traj.to_matrix()
 
@@ -158,9 +158,9 @@ def test_dtrajectory_to_matrix():
     assert matrix[2, 0] == pytest.approx(7200e3, abs=1.0)
 
 
-def test_dtrajectory_trajectory_get_eviction_policy():
-    """Rust: test_dtrajectory_trajectory_get_eviction_policy"""
-    traj = DTrajectory(6)
+def test_trajectory_trajectory_get_eviction_policy():
+    """Rust: test_trajectory_trajectory_get_eviction_policy"""
+    traj = Trajectory(6)
 
     # Default is None
     assert traj.get_eviction_policy() == "None"
@@ -174,9 +174,9 @@ def test_dtrajectory_trajectory_get_eviction_policy():
     assert traj.get_eviction_policy() == "KeepWithinDuration"
 
 
-def test_dtrajectory_apply_eviction_policy_keep_count():
-    """Rust: test_dtrajectory_apply_eviction_policy_keep_count"""
-    traj = DTrajectory(6).with_eviction_policy_max_size(3)
+def test_trajectory_apply_eviction_policy_keep_count():
+    """Rust: test_trajectory_apply_eviction_policy_keep_count"""
+    traj = Trajectory(6).with_eviction_policy_max_size(3)
 
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     for i in range(5):
@@ -191,9 +191,9 @@ def test_dtrajectory_apply_eviction_policy_keep_count():
     )  # First state should be the third added
 
 
-def test_dtrajectory_apply_eviction_policy_keep_within_duration():
-    """Rust: test_dtrajectory_apply_eviction_policy_keep_within_duration"""
-    traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0 - 1.0)  # 7 days
+def test_trajectory_apply_eviction_policy_keep_within_duration():
+    """Rust: test_trajectory_apply_eviction_policy_keep_within_duration"""
+    traj = Trajectory(6).with_eviction_policy_max_age(86400.0 * 7.0 - 1.0)  # 7 days
 
     t0 = Epoch.from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     for i in range(10):
@@ -208,7 +208,7 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
     )  # First state should be the fourth added
 
     # Repeat with an exact 7 days limit
-    traj = DTrajectory(6).with_eviction_policy_max_age(86400.0 * 7.0)  # 7 days
+    traj = Trajectory(6).with_eviction_policy_max_age(86400.0 * 7.0)  # 7 days
     for i in range(10):
         epoch = t0 + (i * 86400.0)
         state = np.array([7000e3 + i * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -224,9 +224,9 @@ def test_dtrajectory_apply_eviction_policy_keep_within_duration():
 # Default Trait Tests
 
 
-def test_dtrajectory_default():
-    """Rust: test_dtrajectory_default"""
-    traj = DTrajectory()
+def test_trajectory_default():
+    """Rust: test_trajectory_default"""
+    traj = Trajectory()
     assert traj.dimension() == 6
     assert len(traj) == 0
     assert traj.is_empty()
@@ -237,8 +237,8 @@ def test_dtrajectory_default():
 # Index Trait Tests
 
 
-def test_dtrajectory_index():
-    """Rust: test_dtrajectory_index"""
+def test_trajectory_index():
+    """Rust: test_trajectory_index"""
     traj = create_test_trajectory()
     state = traj[0]
 
@@ -267,8 +267,8 @@ def test_dtrajectory_index():
     assert state[5] == 100.0
 
 
-def test_dtrajectory_index_index_out_of_bounds():
-    """Rust: test_dtrajectory_index_index_out_of_bounds"""
+def test_trajectory_index_index_out_of_bounds():
+    """Rust: test_trajectory_index_index_out_of_bounds"""
     traj = create_test_trajectory()
     with pytest.raises(IndexError):
         _ = traj[10]
@@ -277,8 +277,8 @@ def test_dtrajectory_index_index_out_of_bounds():
 # IntoIterator Trait Tests
 
 
-def test_dtrajectory_intoiterator_into_iter():
-    """Rust: test_dtrajectory_intoiterator_into_iter"""
+def test_trajectory_intoiterator_into_iter():
+    """Rust: test_trajectory_intoiterator_into_iter"""
     traj = create_test_trajectory()
 
     count = 0
@@ -298,9 +298,9 @@ def test_dtrajectory_intoiterator_into_iter():
     assert count == 3
 
 
-def test_dtrajectory_intoiterator_into_iter_empty():
-    """Rust: test_dtrajectory_intoiterator_into_iter_empty"""
-    traj = DTrajectory(6)
+def test_trajectory_intoiterator_into_iter_empty():
+    """Rust: test_trajectory_intoiterator_into_iter_empty"""
+    traj = Trajectory(6)
 
     count = 0
     for _ in traj:
@@ -311,8 +311,8 @@ def test_dtrajectory_intoiterator_into_iter_empty():
 # Trajectory Trait Tests
 
 
-def test_dtrajectory_from_data():
-    """Rust: test_dtrajectory_from_data"""
+def test_trajectory_from_data():
+    """Rust: test_trajectory_from_data"""
     epochs = [
         Epoch.from_jd(2451545.0, brahe.UTC),
         Epoch.from_jd(2451545.1, brahe.UTC),
@@ -325,13 +325,13 @@ def test_dtrajectory_from_data():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
     assert traj.dimension() == 3
     assert len(traj) == 2
 
 
-def test_dtrajectory_from_data_errors():
-    """Rust: test_dtrajectory_from_data_errors"""
+def test_trajectory_from_data_errors():
+    """Rust: test_trajectory_from_data_errors"""
     epochs = [
         Epoch.from_jd(2451545.0, brahe.UTC),
         Epoch.from_jd(2451545.1, brahe.UTC),
@@ -344,17 +344,17 @@ def test_dtrajectory_from_data_errors():
     )
 
     with pytest.raises(Exception):
-        DTrajectory.from_data(epochs, states)
+        Trajectory.from_data(epochs, states)
 
     empty_epochs = []
     empty_states = np.array([]).reshape(0, 3)  # Empty 2D array
     with pytest.raises(Exception):
-        DTrajectory.from_data(empty_epochs, empty_states)
+        Trajectory.from_data(empty_epochs, empty_states)
 
 
-def test_dtrajectory_trajectory_add():
-    """Rust: test_dtrajectory_trajectory_add"""
-    trajectory = DTrajectory(6)
+def test_trajectory_trajectory_add():
+    """Rust: test_trajectory_trajectory_add"""
+    trajectory = Trajectory(6)
 
     epoch1 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
@@ -372,9 +372,9 @@ def test_dtrajectory_trajectory_add():
     np.testing.assert_array_equal(trajectory.state_at_idx(1), state2)
 
 
-def test_dtrajectory_trajectory_add_out_of_order():
-    """Rust: test_dtrajectory_trajectory_add_out_of_order"""
-    trajectory = DTrajectory(6)
+def test_trajectory_trajectory_add_out_of_order():
+    """Rust: test_trajectory_trajectory_add_out_of_order"""
+    trajectory = Trajectory(6)
     epoch1 = Epoch.from_datetime(2023, 1, 1, 13, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7100e3, 100e3, 60e3, 10.0, 7.6e3, 5.0])
 
@@ -393,9 +393,9 @@ def test_dtrajectory_trajectory_add_out_of_order():
     np.testing.assert_array_equal(trajectory.state_at_idx(1), state1)
 
 
-def test_dtrajectory_trajectory_add_dimension_mismatch():
-    """Rust: test_dtrajectory_trajectory_add_dimension_mismatch"""
-    trajectory = DTrajectory(6)
+def test_trajectory_trajectory_add_dimension_mismatch():
+    """Rust: test_trajectory_trajectory_add_dimension_mismatch"""
+    trajectory = Trajectory(6)
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([7000e3, 0.0, 0.0])  # Dimension 3 instead of 6
 
@@ -403,9 +403,9 @@ def test_dtrajectory_trajectory_add_dimension_mismatch():
         trajectory.add(epoch, state)
 
 
-def test_dtrajectory_trajectory_add_same_time():
-    """Rust: test_dtrajectory_trajectory_add_append"""
-    trajectory = DTrajectory(6)
+def test_trajectory_trajectory_add_same_time():
+    """Rust: test_trajectory_trajectory_add_append"""
+    trajectory = Trajectory(6)
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
 
@@ -425,8 +425,8 @@ def test_dtrajectory_trajectory_add_same_time():
     )  # Second state appended
 
 
-def test_dtrajectory_trajectory_epoch():
-    """Rust: test_dtrajectory_trajectory_epoch"""
+def test_trajectory_trajectory_epoch():
+    """Rust: test_trajectory_trajectory_epoch"""
     traj = create_test_trajectory()
 
     epoch = traj.epoch_at_idx(0)
@@ -436,8 +436,8 @@ def test_dtrajectory_trajectory_epoch():
     assert epoch == Epoch.from_jd(2451545.1, brahe.UTC)
 
 
-def test_dtrajectory_trajectory_state():
-    """Rust: test_dtrajectory_trajectory_state"""
+def test_trajectory_trajectory_state():
+    """Rust: test_trajectory_trajectory_state"""
     traj = create_test_trajectory()
 
     state = traj.state_at_idx(0)
@@ -447,8 +447,8 @@ def test_dtrajectory_trajectory_state():
     assert state[0] == pytest.approx(7100e3, abs=1.0)
 
 
-def test_dtrajectory_trajectory_nearest_state():
-    """Rust: test_dtrajectory_trajectory_nearest_state"""
+def test_trajectory_trajectory_nearest_state():
+    """Rust: test_trajectory_trajectory_nearest_state"""
     traj = create_test_trajectory()
 
     # Halfway between first and second
@@ -472,78 +472,78 @@ def test_dtrajectory_trajectory_nearest_state():
     assert nearest_epoch == Epoch.from_jd(2451545.2, brahe.UTC)
 
 
-def test_dtrajectory_trajectory_len():
-    """Rust: test_dtrajectory_trajectory_len"""
+def test_trajectory_trajectory_len():
+    """Rust: test_trajectory_trajectory_len"""
     traj = create_test_trajectory()
     assert len(traj) == 3
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert len(empty_traj) == 0
 
 
-def test_dtrajectory_trajectory_is_empty():
-    """Rust: test_dtrajectory_trajectory_is_empty"""
+def test_trajectory_trajectory_is_empty():
+    """Rust: test_trajectory_trajectory_is_empty"""
     traj = create_test_trajectory()
     assert not traj.is_empty()
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.is_empty()
 
 
-def test_dtrajectory_trajectory_start_epoch():
-    """Rust: test_dtrajectory_trajectory_start_epoch"""
+def test_trajectory_trajectory_start_epoch():
+    """Rust: test_trajectory_trajectory_start_epoch"""
     traj = create_test_trajectory()
     start = traj.start_epoch()
     assert start == Epoch.from_jd(2451545.0, brahe.UTC)
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.start_epoch() is None
 
 
-def test_dtrajectory_trajectory_end_epoch():
-    """Rust: test_dtrajectory_trajectory_end_epoch"""
+def test_trajectory_trajectory_end_epoch():
+    """Rust: test_trajectory_trajectory_end_epoch"""
     traj = create_test_trajectory()
     end = traj.end_epoch()
     assert end == Epoch.from_jd(2451545.2, brahe.UTC)
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.end_epoch() is None
 
 
-def test_dtrajectory_trajectory_timespan():
-    """Rust: test_dtrajectory_trajectory_timespan"""
+def test_trajectory_trajectory_timespan():
+    """Rust: test_trajectory_trajectory_timespan"""
     traj = create_test_trajectory()
     timespan = traj.timespan()
     assert timespan == pytest.approx(0.2 * 86400.0, abs=1.0)
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.timespan() is None
 
 
-def test_dtrajectory_trajectory_first():
-    """Rust: test_dtrajectory_trajectory_first"""
+def test_trajectory_trajectory_first():
+    """Rust: test_trajectory_trajectory_first"""
     traj = create_test_trajectory()
     epoch, state = traj.first()
     assert epoch == Epoch.from_jd(2451545.0, brahe.UTC)
     assert state[0] == pytest.approx(7000e3, abs=1.0)
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.first() is None
 
 
-def test_dtrajectory_trajectory_last():
-    """Rust: test_dtrajectory_trajectory_last"""
+def test_trajectory_trajectory_last():
+    """Rust: test_trajectory_trajectory_last"""
     traj = create_test_trajectory()
     epoch, state = traj.last()
     assert epoch == Epoch.from_jd(2451545.2, brahe.UTC)
     assert state[0] == pytest.approx(7200e3, abs=1.0)
 
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     assert empty_traj.last() is None
 
 
-def test_dtrajectory_trajectory_clear():
-    """Rust: test_dtrajectory_trajectory_clear"""
+def test_trajectory_trajectory_clear():
+    """Rust: test_trajectory_trajectory_clear"""
     traj = create_test_trajectory()
     assert len(traj) == 3
 
@@ -552,8 +552,8 @@ def test_dtrajectory_trajectory_clear():
     assert traj.is_empty()
 
 
-def test_dtrajectory_trajectory_remove_epoch():
-    """Rust: test_dtrajectory_trajectory_remove_epoch"""
+def test_trajectory_trajectory_remove_epoch():
+    """Rust: test_trajectory_trajectory_remove_epoch"""
     traj = create_test_trajectory()
     epoch = Epoch.from_jd(2451545.1, brahe.UTC)
 
@@ -562,8 +562,8 @@ def test_dtrajectory_trajectory_remove_epoch():
     assert len(traj) == 2
 
 
-def test_dtrajectory_trajectory_remove():
-    """Rust: test_dtrajectory_trajectory_remove"""
+def test_trajectory_trajectory_remove():
+    """Rust: test_trajectory_trajectory_remove"""
     traj = create_test_trajectory()
 
     removed_epoch, removed_state = traj.remove(1)
@@ -572,16 +572,16 @@ def test_dtrajectory_trajectory_remove():
     assert len(traj) == 2
 
 
-def test_dtrajectory_trajectory_remove_out_of_bounds():
-    """Rust: test_dtrajectory_trajectory_remove_out_of_bounds"""
+def test_trajectory_trajectory_remove_out_of_bounds():
+    """Rust: test_trajectory_trajectory_remove_out_of_bounds"""
     traj = create_test_trajectory()
 
     with pytest.raises(Exception):
         traj.remove(10)
 
 
-def test_dtrajectory_trajectory_get():
-    """Rust: test_dtrajectory_trajectory_get"""
+def test_trajectory_trajectory_get():
+    """Rust: test_trajectory_trajectory_get"""
     traj = create_test_trajectory()
 
     epoch, state = traj.get(1)
@@ -589,9 +589,9 @@ def test_dtrajectory_trajectory_get():
     assert state[0] == pytest.approx(7100e3, abs=1.0)
 
 
-def test_dtrajectory_trajectory_index_before_epoch():
-    """Rust: test_dtrajectory_trajectory_index_before_epoch"""
-    # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
+def test_trajectory_trajectory_index_before_epoch():
+    """Rust: test_trajectory_trajectory_index_before_epoch"""
+    # Create a 6-dimensional Trajectory with states at epochs: t0, t0+60s, t0+120s
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
@@ -605,7 +605,7 @@ def test_dtrajectory_trajectory_index_before_epoch():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test finding index before t0 (should error - before all states)
     before_t0 = t0 + (-10.0)
@@ -631,9 +631,9 @@ def test_dtrajectory_trajectory_index_before_epoch():
     assert traj.index_before_epoch(t0_plus_150) == 2
 
 
-def test_dtrajectory_trajectory_index_after_epoch():
-    """Rust: test_dtrajectory_trajectory_index_after_epoch"""
-    # Create a 6-dimensional DTrajectory with states at epochs: t0, t0+60s, t0+120s
+def test_trajectory_trajectory_index_after_epoch():
+    """Rust: test_trajectory_trajectory_index_after_epoch"""
+    # Create a 6-dimensional Trajectory with states at epochs: t0, t0+60s, t0+120s
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
@@ -647,7 +647,7 @@ def test_dtrajectory_trajectory_index_after_epoch():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test finding index after t0-30s (should return index 0)
     t0_minus_30 = t0 + (-30.0)
@@ -676,9 +676,9 @@ def test_dtrajectory_trajectory_index_after_epoch():
         traj.index_after_epoch(t0_plus_150)
 
 
-def test_dtrajectory_trajectory_state_before_epoch():
-    """Rust: test_dtrajectory_trajectory_state_before_epoch"""
-    # Create a DTrajectory with distinguishable states at 3 epochs
+def test_trajectory_trajectory_state_before_epoch():
+    """Rust: test_trajectory_trajectory_state_before_epoch"""
+    # Create a Trajectory with distinguishable states at 3 epochs
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
@@ -692,7 +692,7 @@ def test_dtrajectory_trajectory_state_before_epoch():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test that state_before_epoch returns correct (epoch, state) tuples
     t0_plus_30 = t0 + 30.0
@@ -716,9 +716,9 @@ def test_dtrajectory_trajectory_state_before_epoch():
     assert state[0] == 11.0
 
 
-def test_dtrajectory_trajectory_state_after_epoch():
-    """Rust: test_dtrajectory_trajectory_state_after_epoch"""
-    # Create a DTrajectory with distinguishable states at 3 epochs
+def test_trajectory_trajectory_state_after_epoch():
+    """Rust: test_trajectory_trajectory_state_after_epoch"""
+    # Create a Trajectory with distinguishable states at 3 epochs
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
     t2 = t0 + 120.0
@@ -732,7 +732,7 @@ def test_dtrajectory_trajectory_state_after_epoch():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test that state_after_epoch returns correct (epoch, state) tuples
     t0_plus_30 = t0 + 30.0
@@ -756,8 +756,8 @@ def test_dtrajectory_trajectory_state_after_epoch():
     assert state[0] == 11.0
 
 
-def test_dtrajectory_set_eviction_policy_max_size():
-    """Rust: test_dtrajectory_set_eviction_policy_max_size"""
+def test_trajectory_set_eviction_policy_max_size():
+    """Rust: test_trajectory_set_eviction_policy_max_size"""
     traj = create_test_trajectory()
     assert len(traj) == 3
 
@@ -766,8 +766,8 @@ def test_dtrajectory_set_eviction_policy_max_size():
     assert traj.get_eviction_policy() == "KeepCount"
 
 
-def test_dtrajectory_set_eviction_policy_max_age():
-    """Rust: test_dtrajectory_set_eviction_policy_max_age"""
+def test_trajectory_set_eviction_policy_max_age():
+    """Rust: test_trajectory_set_eviction_policy_max_age"""
     traj = create_test_trajectory()
 
     # Max age slightly larger than 0.1 days
@@ -779,10 +779,10 @@ def test_dtrajectory_set_eviction_policy_max_age():
 # Interpolatable Trait Tests
 
 
-def test_dtrajectory_interpolatable_get_interpolation_method():
-    """Rust: test_dtrajectory_interpolatable_get_interpolation_method"""
+def test_trajectory_interpolatable_get_interpolation_method():
+    """Rust: test_trajectory_interpolatable_get_interpolation_method"""
     # Create a trajectory with default Linear interpolation
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Test that get_interpolation_method returns Linear
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
@@ -792,8 +792,8 @@ def test_dtrajectory_interpolatable_get_interpolation_method():
     assert traj.get_interpolation_method() == InterpolationMethod.LINEAR
 
 
-def test_dtrajectory_interpolatable_interpolate_linear():
-    """Rust: test_dtrajectory_interpolatable_interpolate_linear"""
+def test_trajectory_interpolatable_interpolate_linear():
+    """Rust: test_trajectory_interpolatable_interpolate_linear"""
     # Create a 6-dimensional trajectory with 3 states at t0, t0+60s, t0+120s
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
@@ -808,7 +808,7 @@ def test_dtrajectory_interpolatable_interpolate_linear():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test interpolate_linear at midpoints and exact epochs
     state_at_t0 = traj.interpolate_linear(t0)
@@ -854,7 +854,7 @@ def test_dtrajectory_interpolatable_interpolate_linear():
     # Test edge case: single state trajectory
     single_epoch = [t0]
     single_state = np.array([[100.0, 200.0, 300.0, 400.0, 500.0, 600.0]])
-    single_traj = DTrajectory.from_data(single_epoch, single_state)
+    single_traj = Trajectory.from_data(single_epoch, single_state)
 
     state_single = single_traj.interpolate_linear(t0)
     assert state_single[0] == pytest.approx(100.0, abs=1e-10)
@@ -870,13 +870,13 @@ def test_dtrajectory_interpolatable_interpolate_linear():
         single_traj.interpolate_linear(different_epoch)
 
     # Test error case: interpolation on empty trajectory
-    empty_traj = DTrajectory(6)
+    empty_traj = Trajectory(6)
     with pytest.raises(Exception):
         empty_traj.interpolate_linear(t0)
 
 
-def test_dtrajectory_interpolatable_interpolate():
-    """Rust: test_dtrajectory_interpolatable_interpolate"""
+def test_trajectory_interpolatable_interpolate():
+    """Rust: test_trajectory_interpolatable_interpolate"""
     # Create a trajectory for testing
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
@@ -891,7 +891,7 @@ def test_dtrajectory_interpolatable_interpolate():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test that interpolate() with Linear method returns same result as interpolate_linear()
     t0_plus_30 = t0 + 30.0
@@ -904,8 +904,8 @@ def test_dtrajectory_interpolatable_interpolate():
         )
 
 
-def test_dtrajectory_interpolate_before_start():
-    """Rust test: test_dtrajectory_interpolate_before_start"""
+def test_trajectory_interpolate_before_start():
+    """Rust test: test_trajectory_interpolate_before_start"""
     # Create a trajectory for testing
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
@@ -920,7 +920,7 @@ def test_dtrajectory_interpolate_before_start():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test interpolation before trajectory start
     before_start = t0 - 10.0
@@ -932,8 +932,8 @@ def test_dtrajectory_interpolate_before_start():
         traj.interpolate(before_start)
 
 
-def test_dtrajectory_interpolate_after_end():
-    """Rust test: test_dtrajectory_interpolate_after_end"""
+def test_trajectory_interpolate_after_end():
+    """Rust test: test_trajectory_interpolate_after_end"""
     # Create a trajectory for testing
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     t1 = t0 + 60.0
@@ -948,7 +948,7 @@ def test_dtrajectory_interpolate_after_end():
         ]
     )
 
-    traj = DTrajectory.from_data(epochs, states)
+    traj = Trajectory.from_data(epochs, states)
 
     # Test interpolation after trajectory end
     after_end = t0 + 130.0
@@ -963,9 +963,9 @@ def test_dtrajectory_interpolate_after_end():
 # Covariance Storage Tests
 
 
-def test_dtrajectory_enable_covariance_storage():
+def test_trajectory_enable_covariance_storage():
     """Test enabling covariance storage on a trajectory"""
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Enable covariance storage
     traj.enable_covariance_storage()
@@ -982,9 +982,9 @@ def test_dtrajectory_enable_covariance_storage():
     assert np.allclose(cov, np.zeros((6, 6)))
 
 
-def test_dtrajectory_add_with_covariance():
+def test_trajectory_add_with_covariance():
     """Test adding states with covariance matrices"""
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Add states with covariances
     t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -1007,9 +1007,9 @@ def test_dtrajectory_add_with_covariance():
     assert np.allclose(retrieved_cov1, cov1)
 
 
-def test_dtrajectory_set_covariance_at():
+def test_trajectory_set_covariance_at():
     """Test setting covariance at a specific index"""
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Add state without covariance first
     t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -1026,9 +1026,9 @@ def test_dtrajectory_set_covariance_at():
     assert np.allclose(retrieved_cov, cov)
 
 
-def test_dtrajectory_covariance_interpolation():
+def test_trajectory_covariance_interpolation():
     """Test covariance interpolation at intermediate epochs"""
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Add states with covariances at t0 and t2
     t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -1054,9 +1054,9 @@ def test_dtrajectory_covariance_interpolation():
         assert cov_interp[i, i] < 200.0
 
 
-def test_dtrajectory_covariance_without_initialization_returns_none():
+def test_trajectory_covariance_without_initialization_returns_none():
     """Test that covariance returns None when not initialized"""
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
 
     # Add state without covariance
     t0 = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -1071,20 +1071,20 @@ def test_dtrajectory_covariance_without_initialization_returns_none():
 # Covariance Interpolation Configuration Tests
 
 
-def test_dtrajectory_covariance_interpolation_config():
-    """Rust test: test_dtrajectory_covariance_interpolation_config
+def test_trajectory_covariance_interpolation_config():
+    """Rust test: test_trajectory_covariance_interpolation_config
 
     Test the CovarianceInterpolationConfig trait implementation.
     """
     # Test default is TwoWasserstein
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     assert (
         traj.get_covariance_interpolation_method()
         == brahe.CovarianceInterpolationMethod.TWO_WASSERSTEIN
     )
 
     # Test with_covariance_interpolation_method builder
-    traj = DTrajectory(6).with_covariance_interpolation_method(
+    traj = Trajectory(6).with_covariance_interpolation_method(
         brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
     )
     assert (
@@ -1093,7 +1093,7 @@ def test_dtrajectory_covariance_interpolation_config():
     )
 
     # Test set_covariance_interpolation_method
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     traj.set_covariance_interpolation_method(
         brahe.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
     )
@@ -1110,8 +1110,8 @@ def test_dtrajectory_covariance_interpolation_config():
     )
 
 
-def test_dtrajectory_covariance_interpolation_methods():
-    """Rust test: test_dtrajectory_covariance_interpolation_methods
+def test_trajectory_covariance_interpolation_methods():
+    """Rust test: test_trajectory_covariance_interpolation_methods
 
     Test that covariance interpolation produces correct results.
     """
@@ -1126,7 +1126,7 @@ def test_dtrajectory_covariance_interpolation_methods():
     cov2 = np.diag([200.0, 200.0, 200.0, 2.0, 2.0, 2.0])
 
     # Create trajectory with covariances
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     traj.enable_covariance_storage()
     traj.add(t0, state1)
     traj.add(t1, state2)
@@ -1170,8 +1170,8 @@ def test_dtrajectory_covariance_interpolation_methods():
     assert cov_sqrt[0, 0] == pytest.approx(cov_wasserstein[0, 0], abs=1e-6)
 
 
-def test_dtrajectory_covariance_at_exact_epochs():
-    """Rust test: test_dtrajectory_covariance_at_exact_epochs
+def test_trajectory_covariance_at_exact_epochs():
+    """Rust test: test_trajectory_covariance_at_exact_epochs
 
     Test that covariance_at returns exact values at data points.
     """
@@ -1184,7 +1184,7 @@ def test_dtrajectory_covariance_at_exact_epochs():
     cov1 = np.eye(6) * 100.0
     cov2 = np.eye(6) * 200.0
 
-    traj = DTrajectory(6)
+    traj = Trajectory(6)
     traj.enable_covariance_storage()
     traj.add(t0, state1)
     traj.add(t1, state2)

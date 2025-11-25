@@ -36,7 +36,7 @@ def plot_cartesian_trajectory(
 
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
-            - trajectory: SOrbitTrajectory or numpy array [N×6] or [N×7]
+            - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7]
             - times (np.ndarray, optional): Time array if trajectory is numpy array without time column
             - color (str, optional): Line/marker color
             - marker (str, optional): Marker style
@@ -163,7 +163,7 @@ def plot_keplerian_trajectory(
 
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
-            - trajectory: SOrbitTrajectory or numpy array [N×6] or [N×7] as [a, e, i, Ω, ω, M]
+            - trajectory: OrbitTrajectory or numpy array [N×6] or [N×7] as [a, e, i, Ω, ω, M]
             - times (np.ndarray, optional): Time array if trajectory is numpy array without time column
             - color (str, optional): Line/marker color
             - marker (str, optional): Marker style
@@ -350,7 +350,7 @@ def _cartesian_elements_matplotlib(
 
         # Extract times and states
         if hasattr(trajectory, "to_matrix"):
-            # SOrbitTrajectory - use to_matrix() which returns (N, 6) array
+            # OrbitTrajectory - use to_matrix() which returns (N, 6) array
             epochs = trajectory.epochs()
             states = trajectory.to_matrix()
 
@@ -526,7 +526,7 @@ def _cartesian_elements_plotly(
 
         # Extract times and states
         if hasattr(trajectory, "to_matrix"):
-            # SOrbitTrajectory - use to_matrix() which returns (N, 6) array
+            # OrbitTrajectory - use to_matrix() which returns (N, 6) array
             epochs = trajectory.epochs()
             states = trajectory.to_matrix()
 
@@ -770,7 +770,7 @@ def _keplerian_elements_matplotlib(
 
         # Extract times and elements
         if hasattr(trajectory, "to_matrix"):
-            # SOrbitTrajectory - need to convert Cartesian to Keplerian
+            # OrbitTrajectory - need to convert Cartesian to Keplerian
             epochs = trajectory.epochs()
             states = trajectory.to_matrix()  # Returns (N, 6) array
 
@@ -994,7 +994,7 @@ def _keplerian_elements_plotly(
 
         # Extract times and elements
         if hasattr(trajectory, "to_matrix"):
-            # SOrbitTrajectory - need to convert Cartesian to Keplerian
+            # OrbitTrajectory - need to convert Cartesian to Keplerian
             epochs = trajectory.epochs()
             states = trajectory.to_matrix()  # Returns (N, 6) array
 

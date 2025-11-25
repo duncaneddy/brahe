@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::SOrbitStateProvider;
+use bh::utils::DOrbitStateProvider;
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -16,7 +16,7 @@ fn main() {
     let query_epochs: Vec<bh::Epoch> = (0..5)
         .map(|i| prop.epoch + i as f64 * orbital_period)
         .collect();
-    let states_eci = prop.states_eci(&query_epochs);
+    let states_eci = prop.states_eci(&query_epochs).unwrap();
 
     println!("Generated {} states over {} orbits", states_eci.len(), query_epochs.len());
     for (i, state) in states_eci.iter().enumerate() {

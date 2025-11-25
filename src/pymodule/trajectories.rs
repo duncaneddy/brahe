@@ -271,9 +271,9 @@ impl PyOrbitRepresentation {
 /// Stores a sequence of orbital states at specific epochs with support for
 /// interpolation, frame conversions, and representation transformations.
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "SOrbitTrajectory")]
+#[pyo3(name = "OrbitTrajectory")]
 pub struct PyOrbitalTrajectory {
-    pub(crate) trajectory: trajectories::SOrbitTrajectory,
+    pub(crate) trajectory: trajectories::DOrbitTrajectory,
 }
 
 #[pymethods]
@@ -287,7 +287,7 @@ impl PyOrbitalTrajectory {
     ///         must be None for Cartesian representation
     ///
     /// Returns:
-    ///     SOrbitTrajectory: New empty trajectory instance
+    ///     OrbitTrajectory: New empty trajectory instance
     ///
     /// Example:
     ///     ```python
@@ -295,7 +295,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create trajectory in ECI Cartesian frame
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///
     ///     # Define Keplerian elements for a 500 km circular orbit
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])  # a, e, i, raan, argp, M
@@ -331,7 +331,7 @@ impl PyOrbitalTrajectory {
 
         let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
-        let trajectory = trajectories::SOrbitTrajectory::new(
+        let trajectory = trajectories::DOrbitTrajectory::new(
             frame.frame,
             representation.representation,
             angle_fmt,
@@ -342,12 +342,12 @@ impl PyOrbitalTrajectory {
     /// Create a default empty orbital trajectory (ECI Cartesian).
     ///
     /// Returns:
-    ///     SOrbitTrajectory: New trajectory with ECI frame and Cartesian representation
+    ///     OrbitTrajectory: New trajectory with ECI frame and Cartesian representation
     #[classmethod]
     #[pyo3(text_signature = "()")]
     pub fn default(_cls: &Bound<'_, PyType>) -> Self {
         PyOrbitalTrajectory {
-            trajectory: trajectories::SOrbitTrajectory::default(),
+            trajectory: trajectories::DOrbitTrajectory::default(),
         }
     }
 
@@ -366,7 +366,7 @@ impl PyOrbitalTrajectory {
     ///         ECI and GCRF frames.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: New trajectory instance populated with data
+    ///     OrbitTrajectory: New trajectory instance populated with data
     ///
     /// Example:
     ///     ```python
@@ -378,7 +378,7 @@ impl PyOrbitalTrajectory {
     ///     # Covariance is optional
     ///     covs = np.array([np.eye(6) * 100.0])  # 100 m² position variance
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         epochs, states, bh.OrbitFrame.ECI,
     ///         bh.OrbitRepresentation.CARTESIAN, None,
     ///         covariances=covs
@@ -438,7 +438,7 @@ impl PyOrbitalTrajectory {
         let mut states_vec = Vec::new();
         for i in 0..num_epochs {
             let state_row = states_array.row(i);
-            let state_vec = na::Vector6::from_iterator(state_row.iter().copied());
+            let state_vec = na::DVector::from_iterator(6, state_row.iter().copied());
             states_vec.push(state_vec);
         }
 
@@ -463,8 +463,8 @@ impl PyOrbitalTrajectory {
             let mut cov_vec = Vec::new();
             for i in 0..num_epochs {
                 let cov_slice = covs_array.slice(ndarray::s![i, .., ..]);
-                let cov_matrix = na::SMatrix::<f64, 6, 6>::from_iterator(
-                    cov_slice.iter().copied()
+                let cov_matrix = na::DMatrix::<f64>::from_iterator(
+                    6, 6, cov_slice.iter().copied()
                 );
                 cov_vec.push(cov_matrix);
             }
@@ -475,7 +475,7 @@ impl PyOrbitalTrajectory {
 
         let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
-        let trajectory = trajectories::SOrbitTrajectory::from_orbital_data(
+        let trajectory = trajectories::DOrbitTrajectory::from_orbital_data(
             epochs_vec,
             states_vec,
             frame.frame,
@@ -492,13 +492,13 @@ impl PyOrbitalTrajectory {
     ///     interpolation_method (InterpolationMethod): Interpolation method to use
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with updated interpolation method
+    ///     OrbitTrajectory: Self with updated interpolation method
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_interpolation_method(bh.InterpolationMethod.LINEAR)
     ///     ```
     #[pyo3(text_signature = "(interpolation_method)")]
@@ -513,13 +513,13 @@ impl PyOrbitalTrajectory {
     ///     method (CovarianceInterpolationMethod): Covariance interpolation method to use
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with updated covariance interpolation method
+    ///     OrbitTrajectory: Self with updated covariance interpolation method
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWO_WASSERSTEIN)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -540,7 +540,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_covariance_interpolation_method(bh.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -560,7 +560,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     method = traj.get_covariance_interpolation_method()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -576,13 +576,13 @@ impl PyOrbitalTrajectory {
     ///     max_size (int): Maximum number of states to retain
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with updated eviction policy
+    ///     OrbitTrajectory: Self with updated eviction policy
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_eviction_policy_max_size(1000)
     ///     ```
     #[pyo3(text_signature = "(max_size)")]
@@ -597,13 +597,13 @@ impl PyOrbitalTrajectory {
     ///     max_age (float): Maximum age of states in seconds
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with updated eviction policy
+    ///     OrbitTrajectory: Self with updated eviction policy
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_eviction_policy_max_age(3600.0)
     ///     ```
     #[pyo3(text_signature = "(max_age)")]
@@ -621,7 +621,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Dimension: {traj.dimension()}")
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -640,7 +640,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -656,7 +656,7 @@ impl PyOrbitalTrajectory {
 
         let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
 
-        self.trajectory.add(epoch.obj, state_vec);
+        self.trajectory.add(epoch.obj, na::DVector::from_iterator(6, state_vec.iter().copied()));
         Ok(())
     }
 
@@ -673,7 +673,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -703,7 +703,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -731,7 +731,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -759,7 +759,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -789,7 +789,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -815,7 +815,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_interpolation_method(bh.InterpolationMethod.LINEAR)
     ///     ```
     #[pyo3(text_signature = "(method)")]
@@ -832,7 +832,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     method = traj.get_interpolation_method()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -853,7 +853,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -884,7 +884,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -953,7 +953,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Frame: {traj.frame}")
     ///     ```
     #[getter]
@@ -970,7 +970,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Representation: {traj.representation}")
     ///     ```
     #[getter]
@@ -987,7 +987,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Angle format: {traj.angle_format}")
     ///     ```
     #[getter]
@@ -1002,7 +1002,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1023,7 +1023,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1044,7 +1044,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1065,7 +1065,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1087,7 +1087,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1110,7 +1110,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1133,7 +1133,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1156,7 +1156,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1192,7 +1192,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Is empty: {traj.is_empty()}")
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1203,14 +1203,14 @@ impl PyOrbitalTrajectory {
     /// Convert to ECI (Earth-Centered Inertial) frame in Cartesian representation.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in ECI Cartesian frame
+    ///     OrbitTrajectory: Trajectory in ECI Cartesian frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
     ///     traj.add(epc, state)
@@ -1225,14 +1225,14 @@ impl PyOrbitalTrajectory {
     /// Convert to ECEF (Earth-Centered Earth-Fixed) frame in Cartesian representation.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in ECEF Cartesian frame
+    ///     OrbitTrajectory: Trajectory in ECEF Cartesian frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1247,14 +1247,14 @@ impl PyOrbitalTrajectory {
     /// Convert to GCRF (Geocentric Celestial Reference Frame) frame in Cartesian representation.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in GCRF Cartesian frame
+    ///     OrbitTrajectory: Trajectory in GCRF Cartesian frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.EME2000, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.EME2000, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1269,14 +1269,14 @@ impl PyOrbitalTrajectory {
     /// Convert to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame in Cartesian representation.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in EME2000 Cartesian frame
+    ///     OrbitTrajectory: Trajectory in EME2000 Cartesian frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1291,14 +1291,14 @@ impl PyOrbitalTrajectory {
     /// Convert to ITRF (International Terrestrial Reference Frame) frame in Cartesian representation.
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in ITRF Cartesian frame
+    ///     OrbitTrajectory: Trajectory in ITRF Cartesian frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1316,14 +1316,14 @@ impl PyOrbitalTrajectory {
     ///     angle_format (AngleFormat): Angle format for the result (Radians or Degrees)
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Trajectory in ECI Keplerian representation
+    ///     OrbitTrajectory: Trajectory in ECI Keplerian representation
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1345,7 +1345,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1384,7 +1384,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1411,7 +1411,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1440,7 +1440,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -1464,7 +1464,7 @@ impl PyOrbitalTrajectory {
     /// String representation
     fn __repr__(&self) -> String {
         format!(
-            "SOrbitTrajectory(frame={}, representation={}, states={})",
+            "DOrbitTrajectory(frame={}, representation={}, states={})",
             PyOrbitFrame { frame: self.trajectory.frame }.__repr__(),
             PyOrbitRepresentation { representation: self.trajectory.representation }.__repr__(),
             self.trajectory.len()
@@ -1474,7 +1474,7 @@ impl PyOrbitalTrajectory {
     /// String conversion
     fn __str__(&self) -> String {
         format!(
-            "SOrbitTrajectory(frame={}, representation={}, states={})",
+            "DOrbitTrajectory(frame={}, representation={}, states={})",
             PyOrbitFrame { frame: self.trajectory.frame }.__str__(),
             PyOrbitRepresentation { representation: self.trajectory.representation }.__str__(),
             self.trajectory.len()
@@ -1490,7 +1490,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_eviction_policy_max_size(1000)
     ///     ```
     #[pyo3(text_signature = "(max_size)")]
@@ -1510,7 +1510,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj.set_eviction_policy_max_age(3600.0)
     ///     ```
     #[pyo3(text_signature = "(max_age)")]
@@ -1530,7 +1530,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     policy = traj.get_eviction_policy()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1574,7 +1574,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state)
@@ -1603,7 +1603,7 @@ impl PyOrbitalTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state)
@@ -1633,7 +1633,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ECI Cartesian trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc1, state1)
@@ -1661,7 +1661,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create trajectory in any frame/representation
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.KEPLERIAN, bh.AngleFormat.DEGREES)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.001, 98.0, 15.0, 30.0, 45.0])
     ///     traj.add(epc, oe)
@@ -1671,7 +1671,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_eci(&self.trajectory, epoch.obj)?;
+        let state = DOrbitStateProvider::state_eci(&self.trajectory, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1689,7 +1689,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ECI trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_eci = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_eci)
@@ -1699,7 +1699,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_ecef(&self.trajectory, epoch.obj)?;
+        let state = DOrbitStateProvider::state_ecef(&self.trajectory, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1717,7 +1717,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create ITRF trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_itrf = np.array([7000e3, 0.0, 0.0, 0.0, 0.0, 7.5e3])
     ///     traj.add(epc, state_itrf)
@@ -1727,7 +1727,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj)?;
+        let state = DOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1745,7 +1745,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create GCRF trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_gcrf)
@@ -1755,7 +1755,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_itrf(&self.trajectory, epoch.obj)?;
+        let state = DOrbitStateProvider::state_itrf(&self.trajectory, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1773,7 +1773,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create GCRF trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_gcrf = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_gcrf)
@@ -1783,7 +1783,7 @@ impl PyOrbitalTrajectory {
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_eme2000(&self.trajectory, epoch.obj)?;
+        let state = DOrbitStateProvider::state_eme2000(&self.trajectory, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1802,7 +1802,7 @@ impl PyOrbitalTrajectory {
     ///     import numpy as np
     ///
     ///     # Create Cartesian trajectory
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
     ///     state_cart = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     traj.add(epc, state_cart)
@@ -1819,7 +1819,7 @@ impl PyOrbitalTrajectory {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value)?;
+        let state = DOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1839,13 +1839,13 @@ impl PyOrbitalTrajectory {
     ///     name (str): Name to assign to the trajectory
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with name set
+    ///     OrbitTrajectory: Self with name set
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_name("My Trajectory")
     ///     ```
     fn with_name(slf: PyRefMut<'_, Self>, name: &str) -> Py<Self> {
@@ -1861,13 +1861,13 @@ impl PyOrbitalTrajectory {
     ///     id (int): Numeric ID to assign to the trajectory
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with ID set
+    ///     OrbitTrajectory: Self with ID set
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_id(12345)
     ///     ```
     fn with_id(slf: PyRefMut<'_, Self>, id: u64) -> Py<Self> {
@@ -1886,7 +1886,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_name("My Trajectory")
     ///     print(traj.get_name())  # "My Trajectory"
     ///     ```
@@ -1903,7 +1903,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_id(12345)
     ///     print(traj.get_id())  # 12345
     ///     ```
@@ -1920,7 +1920,7 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_new_uuid()
     ///     print(traj.get_uuid())  # e.g., "550e8400-e29b-41d4-a716-446655440000"
     ///     ```
@@ -1931,13 +1931,13 @@ impl PyOrbitalTrajectory {
     /// Generate a new UUID and set it on the trajectory (builder pattern).
     ///
     /// Returns:
-    ///     SOrbitTrajectory: Self with new UUID set
+    ///     OrbitTrajectory: Self with new UUID set
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     traj = traj.with_new_uuid()
     ///     ```
     fn with_new_uuid(slf: PyRefMut<'_, Self>) -> Py<Self> {
@@ -1966,7 +1966,7 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
@@ -1992,7 +1992,7 @@ impl PyOrbitalTrajectory {
         }
         let state_vec = SVector::<f64, 6>::from_column_slice(state_array.as_slice().unwrap());
 
-        // Convert covariance array to SMatrix
+        // Convert covariance array to DMatrix
         let cov_array = covariance.as_array();
         if cov_array.shape() != [6, 6] {
             return Err(exceptions::PyValueError::new_err(format!(
@@ -2001,10 +2001,14 @@ impl PyOrbitalTrajectory {
             )));
         }
         let cov_slice = cov_array.as_slice().unwrap();
-        let cov_mat = SMatrix::<f64, 6, 6>::from_column_slice(cov_slice);
+        let cov_mat = na::DMatrix::<f64>::from_column_slice(6, 6, cov_slice);
 
         // Call Rust method
-        self.trajectory.add_state_and_covariance(epoch.obj, state_vec, cov_mat);
+        self.trajectory.add_state_and_covariance(
+            epoch.obj,
+            na::DVector::from_iterator(6, state_vec.iter().copied()),
+            cov_mat
+        );
         Ok(())
     }
 
@@ -2025,7 +2029,7 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
@@ -2035,8 +2039,11 @@ impl PyOrbitalTrajectory {
     ///     ```
     fn covariance<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let cov_mat = self.trajectory.covariance(epoch.obj)?;
-        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-        Ok(array.to_owned())
+        let cov_ref = &cov_mat;
+        let flat_vec: Vec<f64> = (0..6)
+            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+            .collect();
+        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the ECI frame.
@@ -2056,7 +2063,7 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
@@ -2065,9 +2072,12 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array
     ///     ```
     fn covariance_eci<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-        let cov_mat = SOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj)?;
-        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-        Ok(array.to_owned())
+        let cov_mat = DOrbitCovarianceProvider::covariance_eci(&self.trajectory, epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let flat_vec: Vec<f64> = (0..6)
+            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+            .collect();
+        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the GCRF frame.
@@ -2087,7 +2097,7 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         [epoch], [state], bh.OrbitFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
@@ -2096,9 +2106,12 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array
     ///     ```
     fn covariance_gcrf<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-        let cov_mat = SOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj)?;
-        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-        Ok(array.to_owned())
+        let cov_mat = DOrbitCovarianceProvider::covariance_gcrf(&self.trajectory, epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let flat_vec: Vec<f64> = (0..6)
+            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+            .collect();
+        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
     }
 
     /// Get the covariance matrix at a specific epoch in the RTN (Radial, Along-Track, Normal) frame.
@@ -2123,7 +2136,7 @@ impl PyOrbitalTrajectory {
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
-    ///     traj = bh.SOrbitTrajectory.from_orbital_data(
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
     ///         [epoch], [state], bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
@@ -2132,13 +2145,16 @@ impl PyOrbitalTrajectory {
     ///     print(result)  # 6x6 numpy array in RTN frame
     ///     ```
     fn covariance_rtn<'py>(&self, py: Python<'py>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-        let cov_mat = SOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj)?;
-        let array = matrix_to_numpy!(py, cov_mat, 6, 6, f64);
-        Ok(array.to_owned())
+        let cov_mat = DOrbitCovarianceProvider::covariance_rtn(&self.trajectory, epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let flat_vec: Vec<f64> = (0..6)
+            .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
+            .collect();
+        Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
     }
 }
 
-/// Iterator for SOrbitTrajectory
+/// Iterator for DOrbitTrajectory
 #[pyclass(module = "brahe._brahe")]
 struct PyOrbitalTrajectoryIterator {
     trajectory: Py<PyOrbitalTrajectory>,
@@ -2175,7 +2191,7 @@ impl PyOrbitalTrajectoryIterator {
 /// for interpolation and automatic state eviction policies. Dimension is
 /// determined at runtime.
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "DTrajectory")]
+#[pyo3(name = "Trajectory")]
 pub struct PyTrajectory {
     pub(crate) trajectory: trajectories::DTrajectory,
 }
@@ -2410,7 +2426,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -2440,7 +2456,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -2468,7 +2484,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -2496,7 +2512,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -2526,7 +2542,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state)
@@ -2556,7 +2572,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -2587,7 +2603,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc1, state1)
@@ -2856,7 +2872,7 @@ impl PyTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     policy = traj.get_eviction_policy()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -2898,7 +2914,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -2921,7 +2937,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -2968,7 +2984,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -2995,7 +3011,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3024,7 +3040,7 @@ impl PyTrajectory {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
@@ -3263,1070 +3279,6 @@ struct PyTrajectoryIterator {
 
 #[pymethods]
 impl PyTrajectoryIterator {
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    fn __next__<'a>(&mut self, py: Python<'a>) -> PyTrajectoryIterItem<'a> {
-        let traj = self.trajectory.borrow(py);
-        if self.index < traj.trajectory.len() {
-            let (epoch, state) = traj.trajectory.get(self.index)
-                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-            self.index += 1;
-            Ok(Some((
-                PyEpoch { obj: epoch },
-                state.as_slice().to_pyarray(py).to_owned()
-            )))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-
-/// Static-dimension 6D trajectory container.
-///
-/// Stores a sequence of 6-dimensional states at specific epochs with support
-/// for interpolation and automatic state eviction policies. Dimension is fixed
-/// at compile time for performance.
-#[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "STrajectory6")]
-pub struct PySTrajectory6 {
-    pub(crate) trajectory: trajectories::STrajectory6,
-}
-
-#[pymethods]
-impl PySTrajectory6 {
-    /// Create a new empty 6D trajectory.
-    ///
-    /// Args:
-    ///     interpolation_method (InterpolationMethod): Interpolation method (default Linear)
-    ///
-    /// Returns:
-    ///     STrajectory6: New empty 6D trajectory instance
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     ```
-    #[new]
-    #[pyo3(signature = (interpolation_method=None))]
-    pub fn new(
-        interpolation_method: Option<PyRef<PyInterpolationMethod>>,
-    ) -> Self {
-        let method = interpolation_method
-            .map(|m| m.method)
-            .unwrap_or(trajectories::traits::InterpolationMethod::Linear);
-
-        let trajectory = trajectories::STrajectory6::new()
-            .with_interpolation_method(method);
-
-        PySTrajectory6 { trajectory }
-    }
-
-    /// Create a trajectory from existing data.
-    ///
-    /// Args:
-    ///     epochs (list[Epoch]): List of time epochs
-    ///     states (numpy.ndarray): 2D array of 6D state vectors with shape (N, 6)
-    ///         where N is the number of epochs. Each row is one state vector.
-    ///     interpolation_method (InterpolationMethod): Interpolation method (default Linear)
-    ///
-    /// Returns:
-    ///     STrajectory6: New 6D trajectory instance populated with data
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     states = np.array([[bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0],
-    ///                        [bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0]])
-    ///     traj = bh.STrajectory6.from_data([epc1, epc2], states)
-    ///     ```
-    #[classmethod]
-    #[pyo3(signature = (epochs, states, interpolation_method=None))]
-    pub fn from_data(
-        _cls: &Bound<'_, PyType>,
-        epochs: Vec<PyRef<PyEpoch>>,
-        states: PyReadonlyArray2<f64>,
-        interpolation_method: Option<PyRef<PyInterpolationMethod>>,
-    ) -> PyResult<Self> {
-        let epochs_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states_array = states.as_array();
-
-        let num_epochs = epochs_vec.len();
-        if num_epochs == 0 {
-            return Err(exceptions::PyValueError::new_err(
-                "At least one epoch is required"
-            ));
-        }
-
-        // Check that number of states (rows) matches number of epochs
-        if states_array.nrows() != num_epochs {
-            return Err(exceptions::PyValueError::new_err(
-                format!("Number of state rows ({}) must match number of epochs ({})",
-                    states_array.nrows(), num_epochs)
-            ));
-        }
-
-        // Check that state dimension is 6
-        if states_array.ncols() != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                format!("State dimension must be 6, got {}", states_array.ncols())
-            ));
-        }
-
-        let mut states_vec = Vec::new();
-        for i in 0..num_epochs {
-            let state_row = states_array.row(i);
-            let state_vec = na::Vector6::from_iterator(state_row.iter().copied());
-            states_vec.push(state_vec);
-        }
-
-        let mut trajectory = trajectories::STrajectory6::from_data(epochs_vec, states_vec)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        if let Some(method) = interpolation_method {
-            trajectory.set_interpolation_method(method.method);
-        }
-
-        Ok(PySTrajectory6 { trajectory })
-    }
-
-    /// Set interpolation method using builder pattern
-    ///
-    /// Arguments:
-    ///     interpolation_method (InterpolationMethod): Interpolation method to use
-    ///
-    /// Returns:
-    ///     STrajectory6: Self with updated interpolation method
-    #[pyo3(text_signature = "(interpolation_method)")]
-    pub fn with_interpolation_method(mut slf: PyRefMut<'_, Self>, method: PyRef<PyInterpolationMethod>) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_interpolation_method(method.method);
-        Self { trajectory: slf.trajectory.clone() }
-    }
-
-    /// Set eviction policy to keep maximum number of states using builder pattern
-    ///
-    /// Arguments:
-    ///     max_size (int): Maximum number of states to retain
-    ///
-    /// Returns:
-    ///     STrajectory6: Self with updated eviction policy
-    #[pyo3(text_signature = "(max_size)")]
-    pub fn with_eviction_policy_max_size(mut slf: PyRefMut<'_, Self>, max_size: usize) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_size(max_size);
-        Self { trajectory: slf.trajectory.clone() }
-    }
-
-    /// Set eviction policy to keep states within maximum age using builder pattern
-    ///
-    /// Arguments:
-    ///     max_age (float): Maximum age of states in seconds
-    ///
-    /// Returns:
-    ///     STrajectory6: Self with updated eviction policy
-    #[pyo3(text_signature = "(max_age)")]
-    pub fn with_eviction_policy_max_age(mut slf: PyRefMut<'_, Self>, max_age: f64) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_eviction_policy_max_age(max_age);
-        Self { trajectory: slf.trajectory.clone() }
-    }
-
-    /// Get trajectory dimension (always 6).
-    ///
-    /// Returns:
-    ///     int: Dimension of the trajectory (always 6)
-    #[pyo3(text_signature = "()")]
-    pub fn dimension(&self) -> usize {
-        6
-    }
-
-    /// Add a state to the trajectory.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Time of the state
-    ///     state (numpy.ndarray): 6-element state vector
-    #[pyo3(text_signature = "(epoch, state)")]
-    pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
-        let state_array = state.as_array();
-        if state_array.len() != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                "State vector must have exactly 6 elements"
-            ));
-        }
-
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
-
-        self.trajectory.add(epoch.obj, state_vec);
-        Ok(())
-    }
-
-    /// Get the nearest state to a given epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     tuple: Tuple of (Epoch, numpy.ndarray) containing the nearest state
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 30.0, 0.0, bh.TimeSystem.UTC)
-    ///     nearest_epc, nearest_state = traj.nearest_state(epc2)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn nearest_state<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.nearest_state(&epoch.obj) {
-            Ok((nearest_epoch, nearest_state)) => {
-                Ok((PyEpoch { obj: nearest_epoch }, nearest_state.as_slice().to_pyarray(py).to_owned()))
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the index of the state at or before the given epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     int: Index of the state at or before the target epoch
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     index = traj.index_before_epoch(epc2)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn index_before_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
-        match self.trajectory.index_before_epoch(&epoch.obj) {
-            Ok(index) => Ok(index),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the index of the state at or after the given epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     int: Index of the state at or after the target epoch
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     index = traj.index_after_epoch(epc2)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn index_after_epoch(&self, epoch: PyRef<PyEpoch>) -> PyResult<usize> {
-        match self.trajectory.index_after_epoch(&epoch.obj) {
-            Ok(index) => Ok(index),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the state at or before the given epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     tuple: Tuple of (Epoch, numpy.ndarray) containing state at or before the target epoch
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     ret_epc, ret_state = traj.state_before_epoch(epc2)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_before_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.state_before_epoch(&epoch.obj) {
-            Ok((ret_epoch, ret_state)) => {
-                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the state at or after the given epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     tuple: Tuple of (Epoch, numpy.ndarray) containing state at or after the target epoch
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     ret_epc, ret_state = traj.state_after_epoch(epc2)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn state_after_epoch<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.state_after_epoch(&epoch.obj) {
-            Ok((ret_epoch, ret_state)) => {
-                Ok((PyEpoch { obj: ret_epoch }, ret_state.as_slice().to_pyarray(py).to_owned()))
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Set the interpolation method for the trajectory.
-    ///
-    /// Args:
-    ///     method (InterpolationMethod): New interpolation method
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     traj.set_interpolation_method(bh.InterpolationMethod.LINEAR)
-    ///     ```
-    #[pyo3(text_signature = "(method)")]
-    pub fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
-        self.trajectory.set_interpolation_method(method.method);
-    }
-
-    /// Set covariance interpolation method using builder pattern.
-    ///
-    /// Covariance matrices require special interpolation methods to preserve
-    /// positive semi-definiteness. This method allows setting the interpolation
-    /// method used when calling `covariance_at()`.
-    ///
-    /// Args:
-    ///     method (CovarianceInterpolationMethod): Covariance interpolation method to use
-    ///
-    /// Returns:
-    ///     STrajectory6: Self with updated covariance interpolation method
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     traj = traj.with_covariance_interpolation_method(bh.CovarianceInterpolationMethod.TWO_WASSERSTEIN)
-    ///     ```
-    #[pyo3(text_signature = "(method)")]
-    pub fn with_covariance_interpolation_method(
-        mut slf: PyRefMut<'_, Self>,
-        method: PyRef<PyCovarianceInterpolationMethod>,
-    ) -> Self {
-        slf.trajectory = slf.trajectory.clone().with_covariance_interpolation_method(method.method);
-        Self { trajectory: slf.trajectory.clone() }
-    }
-
-    /// Set covariance interpolation method.
-    ///
-    /// Covariance matrices require special interpolation methods to preserve
-    /// positive semi-definiteness.
-    ///
-    /// Args:
-    ///     method (CovarianceInterpolationMethod): Covariance interpolation method to use
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     traj.set_covariance_interpolation_method(bh.CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT)
-    ///     ```
-    #[pyo3(text_signature = "(method)")]
-    pub fn set_covariance_interpolation_method(
-        &mut self,
-        method: PyRef<PyCovarianceInterpolationMethod>,
-    ) {
-        self.trajectory.set_covariance_interpolation_method(method.method);
-    }
-
-    /// Get current covariance interpolation method.
-    ///
-    /// Returns:
-    ///     CovarianceInterpolationMethod: Current covariance interpolation method
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     method = traj.get_covariance_interpolation_method()
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn get_covariance_interpolation_method(&self) -> PyCovarianceInterpolationMethod {
-        PyCovarianceInterpolationMethod {
-            method: self.trajectory.get_covariance_interpolation_method(),
-        }
-    }
-
-    /// Interpolate state at a given epoch using linear interpolation.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Linearly interpolated state vector
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state1)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
-    ///     traj.add(epc2, state2)
-    ///     epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state_interp = traj.interpolate_linear(epc_mid)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn interpolate_linear<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.interpolate_linear(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Interpolate state at a given epoch using the configured interpolation method.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Target epoch
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Interpolated state vector
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state1 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc1, state1)
-    ///     epc2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state2 = np.array([bh.R_EARTH + 510e3, 0.0, 0.0, 0.0, 7650.0, 0.0])
-    ///     traj.add(epc2, state2)
-    ///     epc_mid = bh.Epoch.from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state_interp = traj.interpolate(epc_mid)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn interpolate<'a>(&self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.interpolate(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get state at a specific index
-    ///
-    /// Arguments:
-    ///     index (int): Index of the state
-    ///
-    /// Returns:
-    ///     numpy.ndarray: State vector at index
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.DTrajectory(6)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     retrieved_state = traj.state_at_idx(0)
-    ///     ```
-    #[pyo3(text_signature = "(index)")]
-    pub fn state_at_idx<'a>(&self, py: Python<'a>, index: usize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.state_at_idx(index) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get epoch at a specific index
-    ///
-    /// Arguments:
-    ///     index (int): Index of the epoch
-    ///
-    /// Returns:
-    ///     Epoch: Epoch at index
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.DTrajectory(6)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     retrieved_epc = traj.epoch_at_idx(0)
-    ///     ```
-    #[pyo3(text_signature = "(index)")]
-    pub fn epoch_at_idx(&self, index: usize) -> PyResult<PyEpoch> {
-        match self.trajectory.epoch_at_idx(index) {
-            Ok(epoch) => Ok(PyEpoch { obj: epoch }),
-            Err(e) => Err(exceptions::PyIndexError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get the number of states in the trajectory.
-    ///
-    /// Returns:
-    ///     int: Number of states in the trajectory
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.DTrajectory(6)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     print(f"Trajectory length: {traj.length}")
-    ///     ```
-    #[getter]
-    pub fn length(&self) -> usize {
-        self.trajectory.len()
-    }
-
-    /// Get the number of states in the trajectory (alias for length).
-    ///
-    /// Returns:
-    ///     int: Number of states in the trajectory
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.DTrajectory(6)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     print(f"Number of states: {traj.len()}")
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn len(&self) -> usize {
-        self.trajectory.len()
-    }
-
-    /// Get interpolation method.
-    ///
-    /// Returns:
-    ///     InterpolationMethod: Current interpolation method
-    #[getter]
-    pub fn interpolation_method(&self) -> PyInterpolationMethod {
-        PyInterpolationMethod { method: self.trajectory.get_interpolation_method() }
-    }
-
-    /// Set maximum trajectory size.
-    ///
-    /// Args:
-    ///     max_size (int): Maximum number of states to retain
-    #[pyo3(text_signature = "(max_size)")]
-    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
-        match self.trajectory.set_eviction_policy_max_size(max_size) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Set maximum age for trajectory states.
-    ///
-    /// Args:
-    ///     max_age (float): Maximum age in seconds relative to most recent state
-    #[pyo3(text_signature = "(max_age)")]
-    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
-        match self.trajectory.set_eviction_policy_max_age(max_age) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get current eviction policy.
-    ///
-    /// Returns:
-    ///     str: String representation of eviction policy
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     policy = traj.get_eviction_policy()
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn get_eviction_policy(&self) -> String {
-        format!("{:?}", self.trajectory.get_eviction_policy())
-    }
-
-    /// Get start epoch of trajectory.
-    ///
-    /// Returns:
-    ///     Epoch or None: First epoch if trajectory is not empty, None otherwise
-    #[getter]
-    pub fn start_epoch(&self) -> Option<PyEpoch> {
-        self.trajectory.start_epoch().map(|epoch| PyEpoch { obj: epoch })
-    }
-
-    /// Get end epoch of trajectory.
-    ///
-    /// Returns:
-    ///     Epoch or None: Last epoch if trajectory is not empty, None otherwise
-    #[getter]
-    pub fn end_epoch(&self) -> Option<PyEpoch> {
-        self.trajectory.end_epoch().map(|epoch| PyEpoch { obj: epoch })
-    }
-
-    /// Get time span of trajectory in seconds.
-    ///
-    /// Returns:
-    ///     float or None: Time span between first and last epochs, or None if less than 2 states
-    #[getter]
-    pub fn time_span(&self) -> Option<f64> {
-        self.trajectory.timespan()
-    }
-
-    /// Clear all states from the trajectory.
-    #[pyo3(text_signature = "()")]
-    pub fn clear(&mut self) {
-        self.trajectory.clear();
-    }
-
-    /// Get the first (epoch, state) tuple in the trajectory, if any exists.
-    ///
-    /// Returns:
-    ///     tuple or None: Tuple of (Epoch, numpy.ndarray) for first state, or None if empty
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     first_epc, first_state = traj.first()
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn first<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        self.trajectory.first().map(|(epoch, state)| {
-            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
-        })
-    }
-
-    /// Get the last (epoch, state) tuple in the trajectory, if any exists.
-    ///
-    /// Returns:
-    ///     tuple or None: Tuple of (Epoch, numpy.ndarray) for last state, or None if empty
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     last_epc, last_state = traj.last()
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn last<'a>(&self, py: Python<'a>) -> Option<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        self.trajectory.last().map(|(epoch, state)| {
-            (PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned())
-        })
-    }
-
-    /// Get all states as a numpy array
-    #[pyo3(text_signature = "()")]
-    pub fn to_matrix<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyArray<f64, numpy::Ix2>>> {
-        match self.trajectory.to_matrix() {
-            Ok(states_matrix) => {
-                // Nalgebra uses column-major storage, but numpy expects row-major
-                // Iterate explicitly by row then column to build row-major data
-                let nrows = states_matrix.nrows();
-                let ncols = states_matrix.ncols();
-                let mut data = Vec::with_capacity(nrows * ncols);
-                for i in 0..nrows {
-                    for j in 0..ncols {
-                        data.push(states_matrix[(i, j)]);
-                    }
-                }
-                Ok(numpy::PyArray::from_vec(py, data).reshape((nrows, ncols)).unwrap().to_owned())
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Remove a state at a specific epoch.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Epoch of the state to remove
-    ///
-    /// Returns:
-    ///     numpy.ndarray: The removed state vector
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     removed_state = traj.remove_epoch(epc)
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn remove_epoch<'a>(&mut self, py: Python<'a>, epoch: PyRef<PyEpoch>) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        match self.trajectory.remove_epoch(&epoch.obj) {
-            Ok(state) => Ok(state.as_slice().to_pyarray(py).to_owned()),
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Remove a state at a specific index.
-    ///
-    /// Args:
-    ///     index (int): Index of the state to remove
-    ///
-    /// Returns:
-    ///     tuple: Tuple of (Epoch, numpy.ndarray) for the removed epoch and state
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     removed_epc, removed_state = traj.remove(0)
-    ///     ```
-    #[pyo3(text_signature = "(index)")]
-    pub fn remove<'a>(&mut self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.remove(index) {
-            Ok((epoch, state)) => {
-                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Get both epoch and state at a specific index.
-    ///
-    /// Args:
-    ///     index (int): Index to retrieve
-    ///
-    /// Returns:
-    ///     tuple: Tuple of (Epoch, numpy.ndarray) for epoch and state at the index
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.SOrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     traj.add(epc, state)
-    ///     ret_epc, ret_state = traj.get(0)
-    ///     ```
-    #[pyo3(text_signature = "(index)")]
-    pub fn get<'a>(&self, py: Python<'a>, index: usize) -> PyResult<(PyEpoch, Bound<'a, PyArray<f64, Ix1>>)> {
-        match self.trajectory.get(index) {
-            Ok((epoch, state)) => {
-                Ok((PyEpoch { obj: epoch }, state.as_slice().to_pyarray(py).to_owned()))
-            }
-            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    }
-
-    /// Check if trajectory is empty.
-    ///
-    /// Returns:
-    ///     bool: True if trajectory contains no states, False otherwise
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     traj = bh.DTrajectory(6)
-    ///     print(f"Is empty: {traj.is_empty()}")
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn is_empty(&self) -> bool {
-        self.trajectory.is_empty()
-    }
-
-    /// Enable covariance storage for this trajectory.
-    ///
-    /// Initializes the covariance vector with zero matrices for all existing states.
-    /// After calling this, covariances can be added using `add_with_covariance()` or
-    /// `set_covariance_at()`.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     traj = bh.STrajectory6()
-    ///     traj.enable_covariance_storage()
-    ///     ```
-    #[pyo3(text_signature = "()")]
-    pub fn enable_covariance_storage(&mut self) {
-        self.trajectory.enable_covariance_storage();
-    }
-
-    /// Add a state with its corresponding covariance matrix.
-    ///
-    /// This automatically enables covariance storage if not already enabled.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Time epoch
-    ///     state (numpy.ndarray): 6-element state vector
-    ///     covariance (numpy.ndarray): 6x6 covariance matrix
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
-    ///     cov = np.eye(6) * 100.0  # 100 m²/m²/s² diagonal covariance
-    ///     traj.add_with_covariance(epc, state, cov)
-    ///     ```
-    #[pyo3(text_signature = "(epoch, state, covariance)")]
-    pub fn add_with_covariance(
-        &mut self,
-        epoch: PyRef<PyEpoch>,
-        state: PyReadonlyArray1<f64>,
-        covariance: PyReadonlyArray2<f64>,
-    ) -> PyResult<()> {
-        let state_array = state.as_array();
-        if state_array.len() != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                "State vector must have exactly 6 elements for STrajectory6"
-            ));
-        }
-
-        let cov_array = covariance.as_array();
-        if cov_array.nrows() != 6 || cov_array.ncols() != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                "Covariance matrix must be 6x6 for STrajectory6"
-            ));
-        }
-
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
-
-        // Convert 2D array to SMatrix<f64, 6, 6>
-        let mut cov_matrix = na::SMatrix::<f64, 6, 6>::zeros();
-        for i in 0..6 {
-            for j in 0..6 {
-                cov_matrix[(i, j)] = cov_array[[i, j]];
-            }
-        }
-
-        self.trajectory.add_with_covariance(epoch.obj, state_vec, cov_matrix);
-        Ok(())
-    }
-
-    /// Set covariance matrix at a specific index.
-    ///
-    /// Enables covariance storage if not already enabled.
-    ///
-    /// Args:
-    ///     index (int): Index in the trajectory
-    ///     covariance (numpy.ndarray): 6x6 covariance matrix
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     traj = bh.STrajectory6()
-    ///     # ... add states ...
-    ///     cov = np.eye(6) * 100.0
-    ///     traj.set_covariance_at(0, cov)
-    ///     ```
-    #[pyo3(text_signature = "(index, covariance)")]
-    pub fn set_covariance_at(
-        &mut self,
-        index: usize,
-        covariance: PyReadonlyArray2<f64>,
-    ) -> PyResult<()> {
-        let cov_array = covariance.as_array();
-        if cov_array.nrows() != 6 || cov_array.ncols() != 6 {
-            return Err(exceptions::PyValueError::new_err(
-                "Covariance matrix must be 6x6 for STrajectory6"
-            ));
-        }
-
-        // Convert 2D array to SMatrix<f64, 6, 6>
-        let mut cov_matrix = na::SMatrix::<f64, 6, 6>::zeros();
-        for i in 0..6 {
-            for j in 0..6 {
-                cov_matrix[(i, j)] = cov_array[[i, j]];
-            }
-        }
-
-        self.trajectory.set_covariance_at(index, cov_matrix);
-        Ok(())
-    }
-
-    /// Get covariance matrix at a specific epoch (with interpolation).
-    ///
-    /// Returns None if covariance storage is not enabled or epoch is out of range.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Time epoch to query
-    ///
-    /// Returns:
-    ///     numpy.ndarray or None: 6x6 covariance matrix at the requested epoch (interpolated if necessary)
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # ... create trajectory with covariances ...
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 5, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     cov = traj.covariance_at(epc)
-    ///     if cov is not None:
-    ///         print(f"Position variance: {cov[0,0]} m²")
-    ///     ```
-    #[pyo3(text_signature = "(epoch)")]
-    pub fn covariance_at<'a>(
-        &self,
-        py: Python<'a>,
-        epoch: PyRef<PyEpoch>,
-    ) -> PyResult<Option<Bound<'a, PyArray<f64, Ix2>>>> {
-        match self.trajectory.covariance_at(epoch.obj) {
-            Some(cov_matrix) => {
-                // Convert SMatrix<f64, 6, 6> to 2D numpy array
-                let mut array = ndarray::Array2::<f64>::zeros((6, 6));
-                for i in 0..6 {
-                    for j in 0..6 {
-                        array[[i, j]] = cov_matrix[(i, j)];
-                    }
-                }
-                Ok(Some(array.to_pyarray(py).to_owned()))
-            }
-            None => Ok(None),
-        }
-    }
-
-    /// Python length
-    fn __len__(&self) -> usize {
-        self.trajectory.len()
-    }
-
-    /// String representation
-    fn __repr__(&self) -> String {
-        format!(
-            "STrajectory6(interpolation_method={:?}, states={})",
-            self.trajectory.get_interpolation_method(),
-            self.trajectory.len()
-        )
-    }
-
-    /// String conversion
-    fn __str__(&self) -> String {
-        self.__repr__()
-    }
-
-    /// Index access returns state vector at given index.
-    ///
-    /// Args:
-    ///     index (int): Index of the state (supports negative indexing)
-    ///
-    /// Returns:
-    ///     numpy.ndarray: State vector at index
-    fn __getitem__<'a>(&self, py: Python<'a>, index: isize) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let len = self.trajectory.len() as isize;
-        let actual_index = if index < 0 {
-            (len + index) as usize
-        } else {
-            index as usize
-        };
-
-        if actual_index >= self.trajectory.len() {
-            return Err(exceptions::PyIndexError::new_err("Index out of range"));
-        }
-
-        let state = &self.trajectory[actual_index];
-        Ok(state.as_slice().to_pyarray(py).to_owned())
-    }
-
-    /// Iterator over (epoch, state) pairs
-    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PySTrajectory6Iterator>> {
-        let py = slf.py();
-        let iter = PySTrajectory6Iterator {
-            trajectory: slf.into(),
-            index: 0,
-        };
-        Py::new(py, iter)
-    }
-}
-
-/// Iterator for STrajectory6
-#[pyclass(module = "brahe._brahe")]
-struct PySTrajectory6Iterator {
-    trajectory: Py<PySTrajectory6>,
-    index: usize,
-}
-
-#[pymethods]
-impl PySTrajectory6Iterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }

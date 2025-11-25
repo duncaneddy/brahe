@@ -380,8 +380,16 @@ impl SGPPropagator {
         self.representation = representation;
         self.angle_format = angle_format;
 
-        // Reset trajectory to initial state only
-        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format);
+        // Reset trajectory to initial state only, preserving identity
+        let name = self.trajectory.get_name().map(|s| s.to_string());
+        let uuid = self.trajectory.get_uuid();
+        let id = self.trajectory.get_id();
+
+        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format).with_identity(
+            name.as_deref(),
+            uuid,
+            id,
+        );
 
         // Propagate to initial epoch and add to trajectory
         let prediction = self
@@ -796,6 +804,61 @@ impl SOrbitStateProvider for SGPPropagator {
 
     // Default implementations from trait are used for:
     // - states()
+    // - states_eci()
+    // - states_ecef()
+    // - states_as_osculating_elements()
+}
+
+// Implement DStateProvider for SGPPropagator
+impl crate::utils::DStateProvider for SGPPropagator {
+    fn state(&self, epoch: Epoch) -> Result<nalgebra::DVector<f64>, BraheError> {
+        let state_vec6 = <Self as SStateProvider>::state(self, epoch)?;
+        Ok(nalgebra::DVector::from_column_slice(state_vec6.as_slice()))
+    }
+
+    fn state_dim(&self) -> usize {
+        6
+    }
+
+    fn states(&self, epochs: &[Epoch]) -> Result<Vec<nalgebra::DVector<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| <Self as crate::utils::DStateProvider>::state(self, epoch))
+            .collect()
+    }
+}
+
+// Implement DOrbitStateProvider for SGPPropagator
+impl crate::utils::DOrbitStateProvider for SGPPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_eci(self, epoch)
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_ecef(self, epoch)
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_itrf(self, epoch)
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_gcrf(self, epoch)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_eme2000(self, epoch)
+    }
+
+    fn state_as_osculating_elements(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_as_osculating_elements(self, epoch, angle_format)
+    }
+
+    // Default batch implementations from trait are used for:
     // - states_eci()
     // - states_ecef()
     // - states_as_osculating_elements()

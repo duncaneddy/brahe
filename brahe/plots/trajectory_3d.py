@@ -13,7 +13,7 @@ from loguru import logger
 import brahe as bh
 from brahe.plots.backend import validate_backend, apply_scienceplots_style
 from brahe.plots.texture_utils import load_earth_texture
-from brahe._brahe import SOrbitTrajectory, OrbitFrame, OrbitRepresentation
+from brahe._brahe import OrbitTrajectory, OrbitFrame, OrbitRepresentation
 
 
 def plot_trajectory_3d(
@@ -36,7 +36,7 @@ def plot_trajectory_3d(
 
     Args:
         trajectories (list of dict): List of trajectory groups, each with:
-            - trajectory: SOrbitTrajectory or numpy array [N×3] or [N×6] (positions in ECI)
+            - trajectory: OrbitTrajectory or numpy array [N×3] or [N×6] (positions in ECI)
             - color (str, optional): Line color
             - line_width (float, optional): Line width
             - label (str, optional): Legend label
@@ -223,10 +223,10 @@ def _trajectory_3d_matplotlib(
         if trajectory is None:
             continue
 
-        # Validate that trajectory is an SOrbitTrajectory
-        if not isinstance(trajectory, SOrbitTrajectory):
+        # Validate that trajectory is an OrbitTrajectory
+        if not isinstance(trajectory, OrbitTrajectory):
             raise TypeError(
-                f"Trajectory must be an SOrbitTrajectory object, got {type(trajectory)}"
+                f"Trajectory must be an OrbitTrajectory object, got {type(trajectory)}"
             )
 
         # Convert to ECI Cartesian if needed
@@ -317,10 +317,10 @@ def _trajectory_3d_plotly(
         if trajectory is None:
             continue
 
-        # Validate that trajectory is an SOrbitTrajectory
-        if not isinstance(trajectory, SOrbitTrajectory):
+        # Validate that trajectory is an OrbitTrajectory
+        if not isinstance(trajectory, OrbitTrajectory):
             raise TypeError(
-                f"Trajectory must be an SOrbitTrajectory object, got {type(trajectory)}"
+                f"Trajectory must be an OrbitTrajectory object, got {type(trajectory)}"
             )
 
         # Convert to ECI Cartesian if needed

@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::traits::SOrbitStateProvider;
+use bh::utils::DOrbitStateProvider;
 use nalgebra as na;
 
 fn main() {
@@ -18,7 +18,7 @@ fn main() {
     let query_epochs = vec![
         epoch, epoch + 100.0, epoch + 500.0, epoch + 1000.0, epoch + 3600.0
     ];
-    let states_eci = prop.states_eci(&query_epochs);
+    let states_eci = prop.states_eci(&query_epochs).unwrap();
 
     println!("Generated {} states", states_eci.len());
     // Generated 5 states

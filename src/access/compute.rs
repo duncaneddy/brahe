@@ -11,9 +11,9 @@ use crate::access::constraints::AccessConstraint;
 use crate::access::location::AccessibleLocation;
 use crate::access::properties::AccessPropertyComputer;
 use crate::access::windows::{AccessSearchConfig, AccessWindow, find_access_windows};
-use crate::propagators::traits::SIdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::utils::BraheError;
+use crate::utils::state_providers::DIdentifiableStateProvider;
 use crate::utils::threading::get_thread_pool;
 use rayon::prelude::*;
 
@@ -54,26 +54,26 @@ impl<L: AccessibleLocation> ToLocationRefs<L> for Vec<L> {
 ///
 /// This trait enables the unified `location_accesses` function to accept
 /// either single propagators or slices/vectors of propagators.
-pub(crate) trait ToPropagatorRefs<P: SIdentifiableStateProvider> {
+pub(crate) trait ToPropagatorRefs<P: DIdentifiableStateProvider> {
     fn to_refs(&self) -> Vec<&P>;
 }
 
 // Single propagator reference
-impl<P: SIdentifiableStateProvider> ToPropagatorRefs<P> for P {
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for P {
     fn to_refs(&self) -> Vec<&P> {
         vec![self]
     }
 }
 
 // Slice of propagators
-impl<P: SIdentifiableStateProvider> ToPropagatorRefs<P> for [P] {
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [P] {
     fn to_refs(&self) -> Vec<&P> {
         self.iter().collect()
     }
 }
 
 // Vec of propagators
-impl<P: SIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
     fn to_refs(&self) -> Vec<&P> {
         self.iter().collect()
     }
@@ -97,7 +97,7 @@ fn compute_accesses_sequential<L, P>(
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation,
-    P: SIdentifiableStateProvider,
+    P: DIdentifiableStateProvider,
 {
     let mut all_windows = Vec::new();
 
@@ -141,7 +141,7 @@ fn compute_accesses_parallel<L, P>(
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
-    P: SIdentifiableStateProvider + Sync,
+    P: DIdentifiableStateProvider + Sync,
 {
     // Create all location-propagator pairs
     let pairs: Vec<(&L, &P)> = locations
@@ -258,7 +258,7 @@ pub fn location_accesses<L, P, Locs, Props>(
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
-    P: SIdentifiableStateProvider + Sync,
+    P: DIdentifiableStateProvider + Sync,
     Locs: ToLocationRefs<L> + ?Sized,
     Props: ToPropagatorRefs<P> + ?Sized,
 {

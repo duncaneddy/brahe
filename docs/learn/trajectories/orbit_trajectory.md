@@ -1,8 +1,8 @@
-# SOrbitTrajectory
+# OrbitTrajectory
 
-`SOrbitTrajectory` is a specialized trajectory container for orbital mechanics that tracks reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian). Unlike `DTrajectory` and `STrajectory6` which store frame-agnostic data, `SOrbitTrajectory` understands orbital mechanics and enables automatic conversions between reference frames and representations.
+`OrbitTrajectory` is a specialized trajectory container for orbital mechanics that tracks reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian). Unlike `Trajectory` which store frame-agnostic data, `OrbitTrajectory` understands orbital mechanics and enables automatic conversions between reference frames and representations.
 
-Use `SOrbitTrajectory` when:
+Use `OrbitTrajectory` when:
 
 - Working with orbital mechanics applications
 - Need to convert between ECI and ECEF frames
@@ -10,7 +10,7 @@ Use `SOrbitTrajectory` when:
 - Want frame/representation metadata tracked automatically
 - Working with propagators that output orbital trajectories
 
-`SOrbitTrajectory` implements the `OrbitalTrajectory` trait in addition to `Trajectory` and `Interpolatable`, providing orbital-specific functionality on top of the standard trajectory interface.
+`OrbitTrajectory` implements the `OrbitalTrajectory` trait in addition to `Trajectory` and `Interpolatable`, providing orbital-specific functionality on top of the standard trajectory interface.
 
 ## Initialization
 
@@ -64,7 +64,7 @@ You can also initialize an `OrbitTrajectory` from existing epoch and state data:
 
 ### From Propagator
 
-The most common way to get an `SOrbitTrajectory` from a propagator. All orbit propagators in Brahe have a `*.trajectory` attribute which is an `SOrbitTrajectory`.
+The most common way to get an `OrbitTrajectory` from a propagator. All orbit propagators in Brahe have a `*.trajectory` attribute which is an `OrbitTrajectory`.
 
 See the [Propagators](../orbit_propagation/index.md) section for more details on propagators.
 
@@ -82,7 +82,7 @@ See the [Propagators](../orbit_propagation/index.md) section for more details on
 
 ## Frame Conversions
 
-The key feature of `SOrbitTrajectory` is automatic frame conversions of the trajectory data to different reference frames and representations. In particular, with a single method call you can convert between ECI and ECEF frames, and between Cartesian and Keplerian representations.
+The key feature of `OrbitTrajectory` is automatic frame conversions of the trajectory data to different reference frames and representations. In particular, with a single method call you can convert between ECI and ECEF frames, and between Cartesian and Keplerian representations.
 
 ### Converting ECI to ECEF
 
@@ -166,7 +166,7 @@ Convert to Keplerian with different angle formats:
 
 ## Combined Frame and Representation Conversions
 
-Every conversion method returns a new `SOrbitTrajectory` instance, so you can chain conversions together if desired:
+Every conversion method returns a new `OrbitTrajectory` instance, so you can chain conversions together if desired:
 
 === "Python"
 
@@ -182,7 +182,7 @@ Every conversion method returns a new `SOrbitTrajectory` instance, so you can ch
 
 ## Standard Trajectory Operations
 
-`SOrbitTrajectory` supports all standard trajectory operations since it implements the `Trajectory` and `Interpolatable` traits:
+`OrbitTrajectory` supports all standard trajectory operations since it implements the `Trajectory` and `Interpolatable` traits:
 
 === "Python"
 
@@ -217,6 +217,5 @@ A complete example showing propagation, frame conversion, and analysis:
 ## See Also
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
-- [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory
-- [STrajectory6](strajectory6.md) - Static 6D trajectory
-- [SOrbitTrajectory API Reference](../../library_api/trajectories/sorbit_trajectory.md)
+- [Trajectory](trajectory.md) - Dynamic-dimension trajectory
+- [OrbitTrajectory API Reference](../../library_api/trajectories/orbit_trajectory.md)

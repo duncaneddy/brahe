@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Create DTrajectory from existing epochs and states
+Create Trajectory from existing epochs and states
 """
 
 import brahe as bh
@@ -23,7 +23,7 @@ state2 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, -7600.0, 0.0])
 # Create trajectory from data
 epochs = [epoch0, epoch1, epoch2]
 states = np.array([state0, state1, state2])
-traj = bh.DTrajectory.from_data(epochs, states)
+traj = bh.Trajectory.from_data(epochs, states)
 
 print(f"Trajectory length: {len(traj)}")
 # Trajectory length: 3

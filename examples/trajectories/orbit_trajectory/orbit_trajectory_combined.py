@@ -11,7 +11,7 @@ import numpy as np
 bh.initialize_eop()
 
 # Start with ECI Cartesian trajectory
-traj_eci_cart = bh.SOrbitTrajectory(
+traj_eci_cart = bh.OrbitTrajectory(
     bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
 )
 

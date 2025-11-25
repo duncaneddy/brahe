@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Create SOrbitTrajectory through orbit propagation
+Create OrbitTrajectory through orbit propagation
 """
 
 import brahe as bh

@@ -2,7 +2,7 @@
 # dependencies = ["brahe"]
 # ///
 """
-Add states to a DTrajectory one at a time
+Add states to a Trajectory one at a time
 """
 
 import brahe as bh
@@ -11,7 +11,7 @@ import numpy as np
 bh.initialize_eop()
 
 # Create empty trajectory
-traj = bh.DTrajectory(6)
+traj = bh.Trajectory(6)
 
 # Add states
 epoch0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

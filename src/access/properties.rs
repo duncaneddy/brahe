@@ -925,6 +925,7 @@ mod tests {
     use crate::propagators::KeplerianPropagator;
     use crate::propagators::traits::SOrbitStateProvider;
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::state_providers::DOrbitStateProvider;
     use crate::utils::testing::setup_global_test_eop;
 
     use super::super::geometry::{

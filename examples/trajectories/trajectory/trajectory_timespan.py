@@ -11,7 +11,7 @@ import numpy as np
 bh.initialize_eop()
 
 # Create trajectory spanning 5 minutes
-traj = bh.DTrajectory(6)
+traj = bh.Trajectory(6)
 epoch0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
 for i in range(6):

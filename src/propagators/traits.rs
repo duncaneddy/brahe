@@ -560,7 +560,7 @@ mod tests {
         let mean_motion_deg_per_sec = orbits::mean_motion(a, AngleFormat::Degrees);
 
         // For each state, verify Keplerian elements behavior
-        for (idx, &state) in states.iter().enumerate() {
+        for (idx, state) in states.iter().enumerate() {
             let time_elapsed = 120.0 * idx as f64; // seconds
 
             // Orbital elements should remain constant (a, e, i, raan, argp)

@@ -11,7 +11,7 @@ import numpy as np
 bh.initialize_eop()
 
 # Create trajectory with max size limit
-traj = bh.DTrajectory(6).with_eviction_policy_max_size(3)
+traj = bh.Trajectory(6).with_eviction_policy_max_size(3)
 
 epoch0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 

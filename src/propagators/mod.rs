@@ -16,5 +16,3 @@ pub use functions::*;
 pub use keplerian_propagator::*;
 pub use numerical_propagation_config::*;
 pub use sgp_propagator::*;
-// Note: traits::* is not re-exported here to avoid ambiguous glob re-exports
-// Use `use brahe::traits::*` or `use brahe::propagators::traits::*` instead

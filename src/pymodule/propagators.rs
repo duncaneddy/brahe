@@ -229,7 +229,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector in the propagator's current output format.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state(epoch.obj)?;
+        use crate::utils::SStateProvider;
+        let state = SStateProvider::state(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -255,7 +256,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_eci(epoch.obj)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_eci(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -268,7 +270,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_ecef(epoch.obj)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_ecef(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -281,7 +284,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_gcrf(epoch.obj)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_gcrf(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -294,7 +298,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_eme2000(epoch.obj)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_eme2000(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -307,7 +312,8 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_itrf(epoch.obj)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_itrf(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -320,9 +326,11 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::SStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = SStateProvider::states(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ECI coordinates.
@@ -334,9 +342,11 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::SOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_eci(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = SOrbitStateProvider::states_eci(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in GCRF coordinates.
@@ -348,9 +358,11 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::SOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_gcrf(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = SOrbitStateProvider::states_gcrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ITRF coordinates.
@@ -362,9 +374,11 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::SOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_itrf(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = SOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Step forward by the default step size.
@@ -545,7 +559,38 @@ impl PySGPPropagator {
     ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
-        PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
+        use nalgebra::{DVector, DMatrix};
+        let traj = &self.propagator.trajectory;
+
+        // Convert states from SVector to DVector
+        let states: Vec<DVector<f64>> = traj.states.iter()
+            .map(|s| DVector::from_column_slice(s.as_slice()))
+            .collect();
+
+        // Convert covariances from SMatrix to DMatrix if present
+        let covariances = traj.covariances.as_ref().map(|covs| {
+            covs.iter()
+                .map(|c| DMatrix::from_row_slice(6, 6, c.as_slice()))
+                .collect()
+        });
+
+        let mut d_traj = trajectories::DOrbitTrajectory::from_orbital_data(
+            traj.epochs.clone(),
+            states,
+            traj.frame,
+            traj.representation,
+            traj.angle_format,
+            covariances,
+        );
+
+        // Copy identity from original trajectory
+        d_traj.set_identity(
+            traj.get_name(),
+            traj.get_uuid(),
+            traj.get_id()
+        );
+
+        PyOrbitalTrajectory { trajectory: d_traj }
     }
 
     /// Get Keplerian orbital elements from TLE data.
@@ -936,7 +981,8 @@ impl PySGPPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value)?;
+        use crate::utils::SOrbitStateProvider;
+        let state = SOrbitStateProvider::state_as_osculating_elements(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -972,9 +1018,11 @@ impl PySGPPropagator {
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::SOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = SOrbitStateProvider::states_as_osculating_elements(&self.propagator, &epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// String representation.
@@ -1592,7 +1640,8 @@ impl PyKeplerianPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_as_osculating_elements(epoch.obj, angle_format.value)?;
+        use crate::utils::DOrbitStateProvider;
+        let state = DOrbitStateProvider::state_as_osculating_elements(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1605,8 +1654,9 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of state vectors in the propagator's native format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DStateProvider;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states(&epoch_vec)?;
+        let states = DStateProvider::states(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -1619,9 +1669,11 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_eci(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = DOrbitStateProvider::states_eci(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ECEF coordinates.
@@ -1633,9 +1685,11 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ECEF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_ecef(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = DOrbitStateProvider::states_ecef(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in GCRF coordinates.
@@ -1647,9 +1701,11 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_gcrf(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = DOrbitStateProvider::states_gcrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states at multiple epochs in ITRF coordinates.
@@ -1661,9 +1717,11 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_itrf(&epoch_vec)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = DOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Compute states as osculating elements at multiple epochs.
@@ -1681,9 +1739,11 @@ impl PyKeplerianPropagator {
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        use crate::utils::DOrbitStateProvider;
+        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = self.propagator.states_as_osculating_elements(&epoch_vec, angle_format.value)?;
-        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
+        let states = DOrbitStateProvider::states_as_osculating_elements(&self.propagator, &epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     /// Get accumulated trajectory.
@@ -1706,7 +1766,38 @@ impl PyKeplerianPropagator {
     ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
-        PyOrbitalTrajectory { trajectory: self.propagator.trajectory.clone() }
+        use nalgebra::{DVector, DMatrix};
+        let traj = &self.propagator.trajectory;
+
+        // Convert states from SVector to DVector
+        let states: Vec<DVector<f64>> = traj.states.iter()
+            .map(|s| DVector::from_column_slice(s.as_slice()))
+            .collect();
+
+        // Convert covariances from SMatrix to DMatrix if present
+        let covariances = traj.covariances.as_ref().map(|covs| {
+            covs.iter()
+                .map(|c| DMatrix::from_row_slice(6, 6, c.as_slice()))
+                .collect()
+        });
+
+        let mut d_traj = trajectories::DOrbitTrajectory::from_orbital_data(
+            traj.epochs.clone(),
+            states,
+            traj.frame,
+            traj.representation,
+            traj.angle_format,
+            covariances,
+        );
+
+        // Copy identity from original trajectory
+        d_traj.set_identity(
+            traj.get_name(),
+            traj.get_uuid(),
+            traj.get_id()
+        );
+
+        PyOrbitalTrajectory { trajectory: d_traj }
     }
 
     // Identity methods

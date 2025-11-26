@@ -1793,7 +1793,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -2616,9 +2616,7 @@ mod tests {
 
         // Get osculating elements in radians
         let query_epoch = epoch + 900.0;
-        let elements = prop
-            .state_as_osculating_elements(query_epoch, AngleFormat::Degrees)
-            .unwrap();
+        let elements = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
 
         // Verify we get 6 elements [a, e, i, RAAN, arg_p, M]
         assert_eq!(elements.len(), 6);
@@ -2657,9 +2655,7 @@ mod tests {
 
         // Get osculating elements in degrees
         let query_epoch = epoch + 900.0;
-        let elements = prop
-            .state_as_osculating_elements(query_epoch, AngleFormat::Degrees)
-            .unwrap();
+        let elements = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
 
         // Verify we get 6 elements
         assert_eq!(elements.len(), 6);
@@ -2746,9 +2742,7 @@ mod tests {
         let cartesian = prop.state_eci(query_epoch).unwrap();
 
         // Convert to Keplerian and back
-        let keplerian = prop
-            .state_as_osculating_elements(query_epoch, AngleFormat::Degrees)
-            .unwrap();
+        let keplerian = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
         let cartesian_from_keplerian =
             state_osculating_to_cartesian(keplerian, AngleFormat::Degrees);
 
@@ -2848,12 +2842,8 @@ mod tests {
         let query_epoch = epoch + 900.0;
 
         // Get elements in both formats
-        let elements_rad = prop
-            .state_as_osculating_elements(query_epoch, AngleFormat::Radians)
-            .unwrap();
-        let elements_deg = prop
-            .state_as_osculating_elements(query_epoch, AngleFormat::Degrees)
-            .unwrap();
+        let elements_rad = prop.state_koe(query_epoch, AngleFormat::Radians).unwrap();
+        let elements_deg = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
 
         // Verify semi-major axis and eccentricity are the same (not angles)
         assert!(
@@ -3895,10 +3885,10 @@ mod tests {
         let alt_event_builtin = DAltitudeEvent::new(450e3, "Altitude", EventDirection::Any);
         prop_builtin.add_event_detector(Box::new(alt_event_builtin));
 
-        // Add manual threshold event that computes altitude
-        use crate::events::DThresholdEvent;
+        // Add manual value event that computes altitude
+        use crate::events::DValueEvent;
         use nalgebra::Vector3;
-        let alt_event_manual = DThresholdEvent::new(
+        let alt_event_manual = DValueEvent::new(
             "ManualAltitude",
             |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
                 // Extract position (first 3 elements)

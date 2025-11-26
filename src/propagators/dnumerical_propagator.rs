@@ -1596,7 +1596,7 @@ impl Identifiable for DNumericalPropagator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::{DEventCallback, DThresholdEvent, DTimeEvent, EventDirection};
+    use crate::events::{DEventCallback, DTimeEvent, DValueEvent, EventDirection};
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::traits::DStatePropagator as DStatePropagatorTrait;
     use crate::time::TimeSystem;
@@ -2683,13 +2683,13 @@ mod tests {
         let mut prop = create_test_sho_propagator();
         let initial_epoch = prop.initial_epoch();
 
-        // Add threshold event: position crosses zero
+        // Add value event: position crosses zero
         let value_fn =
             |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
-        let event = DThresholdEvent::new(
+        let event = DValueEvent::new(
             "PositionCrossing",
             value_fn,
-            0.0,                        // threshold
+            0.0,                        // target value
             EventDirection::Decreasing, // detect when crossing from positive to negative (first crossing for SHO)
         );
         prop.add_event_detector(Box::new(event));
@@ -2723,9 +2723,8 @@ mod tests {
 
         let value_fn =
             |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
-        let event =
-            DThresholdEvent::new("ImpulseAtZero", value_fn, 0.0, EventDirection::Decreasing)
-                .with_callback(callback);
+        let event = DValueEvent::new("ImpulseAtZero", value_fn, 0.0, EventDirection::Decreasing)
+            .with_callback(callback);
 
         prop.add_event_detector(Box::new(event));
 

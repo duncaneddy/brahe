@@ -966,23 +966,23 @@ impl PySGPPropagator {
     ///
     ///     # Get osculating elements at initial epoch
     ///     epoch = prop.epoch
-    ///     elements_deg = prop.state_as_osculating_elements(epoch, bh.AngleFormat.DEGREES)
+    ///     elements_deg = prop.state_koe(epoch, bh.AngleFormat.DEGREES)
     ///     print(f"Semi-major axis: {elements_deg[0]/1000:.3f} km")
     ///     print(f"Inclination: {elements_deg[2]:.4f} degrees")
     ///
     ///     # Get elements in radians
-    ///     elements_rad = prop.state_as_osculating_elements(epoch, bh.AngleFormat.RADIANS)
+    ///     elements_rad = prop.state_koe(epoch, bh.AngleFormat.RADIANS)
     ///     print(f"Inclination: {elements_rad[2]:.4f} radians")
     ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_as_osculating_elements<'a>(
+    pub fn state_koe<'a>(
         &self,
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         use crate::utils::SOrbitStateProvider;
-        let state = SOrbitStateProvider::state_as_osculating_elements(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = SOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1006,13 +1006,13 @@ impl PySGPPropagator {
     ///     # Get elements at multiple epochs
     ///     epoch0 = prop.epoch
     ///     epochs = [epoch0 + i*3600.0 for i in range(10)]  # Every hour for 10 hours
-    ///     elements_list = prop.states_as_osculating_elements(epochs, bh.AngleFormat.DEGREES)
+    ///     elements_list = prop.states_koe(epochs, bh.AngleFormat.DEGREES)
     ///
     ///     for i, elements in enumerate(elements_list):
     ///         print(f"Hour {i}: a={elements[0]/1000:.3f} km, e={elements[1]:.6f}")
     ///     ```
     #[pyo3(text_signature = "(epochs, angle_format)")]
-    pub fn states_as_osculating_elements<'a>(
+    pub fn states_koe<'a>(
         &self,
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
@@ -1021,7 +1021,7 @@ impl PySGPPropagator {
         use crate::utils::SOrbitStateProvider;
         use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = SOrbitStateProvider::states_as_osculating_elements(&self.propagator, &epoch_vec, angle_format.value)?;
+        let states = SOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -1634,14 +1634,14 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_as_osculating_elements<'a>(
+    pub fn state_koe<'a>(
         &self,
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         use crate::utils::DOrbitStateProvider;
-        let state = DOrbitStateProvider::state_as_osculating_elements(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1733,7 +1733,7 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of osculating element vectors.
     #[pyo3(text_signature = "(epochs, angle_format)")]
-    pub fn states_as_osculating_elements<'a>(
+    pub fn states_koe<'a>(
         &self,
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
@@ -1742,7 +1742,7 @@ impl PyKeplerianPropagator {
         use crate::utils::DOrbitStateProvider;
         use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = DOrbitStateProvider::states_as_osculating_elements(&self.propagator, &epoch_vec, angle_format.value)?;
+        let states = DOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 

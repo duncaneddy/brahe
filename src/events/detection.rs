@@ -60,7 +60,7 @@ where
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
     let step_factor = detector.step_reduction_factor();
-    let threshold = detector.threshold();
+    let target_value = detector.target_value();
 
     // TERMINATION: Bracket is tight enough
     let bracket_width = (bracket_high - bracket_low).abs();
@@ -68,7 +68,7 @@ where
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
-        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - threshold;
+        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - target_value;
 
         // Validate: prefer midpoint if within tolerance
         if mid_crossing.abs() <= value_tol {
@@ -77,13 +77,13 @@ where
 
         // Try endpoints
         let low_state = state_fn(bracket_low);
-        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - threshold;
+        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - target_value;
         if low_crossing.abs() <= value_tol {
             return Some((bracket_low, low_state));
         }
 
         let high_state = state_fn(bracket_high);
-        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - threshold;
+        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - target_value;
         if high_crossing.abs() <= value_tol {
             return Some((bracket_high, high_state));
         }
@@ -119,7 +119,7 @@ where
         // No progress possible - validate and return
         if next_time == current_time {
             let state = state_fn(current_time);
-            let crossing = detector.evaluate(current_time, &state, params) - threshold;
+            let crossing = detector.evaluate(current_time, &state, params) - target_value;
             if crossing.abs() <= value_tol {
                 return Some((current_time, state));
             }
@@ -133,7 +133,7 @@ where
 
         // Evaluate at next time
         let next_state = state_fn(next_time);
-        let next_crossing = detector.evaluate(next_time, &next_state, params) - threshold;
+        let next_crossing = detector.evaluate(next_time, &next_state, params) - target_value;
 
         // During bisection refinement, we're looking for ANY sign change
         // because we know there's a crossing in the bracket. The original
@@ -207,7 +207,7 @@ where
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
     let step_factor = detector.step_reduction_factor();
-    let threshold = detector.threshold();
+    let target_value = detector.target_value();
 
     // TERMINATION: Bracket is tight enough
     let bracket_width = (bracket_high - bracket_low).abs();
@@ -215,7 +215,7 @@ where
         // Return the midpoint of the bracket
         let mid_time = bracket_low + bracket_width / 2.0;
         let mid_state = state_fn(mid_time);
-        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - threshold;
+        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - target_value;
 
         // Validate: prefer midpoint if within tolerance
         if mid_crossing.abs() <= value_tol {
@@ -224,13 +224,13 @@ where
 
         // Try endpoints
         let low_state = state_fn(bracket_low);
-        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - threshold;
+        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - target_value;
         if low_crossing.abs() <= value_tol {
             return Some((bracket_low, low_state));
         }
 
         let high_state = state_fn(bracket_high);
-        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - threshold;
+        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - target_value;
         if high_crossing.abs() <= value_tol {
             return Some((bracket_high, high_state));
         }
@@ -266,7 +266,7 @@ where
         // No progress possible - validate and return
         if next_time == current_time {
             let state = state_fn(current_time);
-            let crossing = detector.evaluate(current_time, &state, params) - threshold;
+            let crossing = detector.evaluate(current_time, &state, params) - target_value;
             if crossing.abs() <= value_tol {
                 return Some((current_time, state));
             }
@@ -280,7 +280,7 @@ where
 
         // Evaluate at next time
         let next_state = state_fn(next_time);
-        let next_crossing = detector.evaluate(next_time, &next_state, params) - threshold;
+        let next_crossing = detector.evaluate(next_time, &next_state, params) - target_value;
 
         // During bisection refinement, we're looking for ANY sign change
         // because we know there's a crossing in the bracket. The original
@@ -365,11 +365,11 @@ where
     // Evaluate monitored values at both times
     let prev_value = detector.evaluate(prev_time, prev_state, params);
     let current_value = detector.evaluate(current_time, current_state, params);
-    let threshold = detector.threshold();
+    let target_value = detector.target_value();
 
     // Compute zero-crossings
-    let prev_crossing = prev_value - threshold;
-    let current_crossing = current_value - threshold;
+    let prev_crossing = prev_value - target_value;
+    let current_crossing = current_value - target_value;
 
     // Check for zero crossing
     let dir = detector.direction();
@@ -438,10 +438,10 @@ where
 {
     let prev_value = detector.evaluate(prev_time, prev_state, params);
     let current_value = detector.evaluate(current_time, current_state, params);
-    let threshold = detector.threshold();
+    let target_value = detector.target_value();
 
-    let prev_crossing = prev_value - threshold;
-    let current_crossing = current_value - threshold;
+    let prev_crossing = prev_value - target_value;
+    let current_crossing = current_value - target_value;
 
     let dir = detector.direction();
     let crossed = match dir {
@@ -512,7 +512,7 @@ mod tests {
             t - self.target_time // Returns signed time difference in seconds
         }
 
-        fn threshold(&self) -> f64 {
+        fn target_value(&self) -> f64 {
             0.0 // Event occurs when time reaches target
         }
 
@@ -535,7 +535,7 @@ mod tests {
         let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
-        let initial_crossing = initial_value - detector.threshold();
+        let initial_crossing = initial_value - detector.target_value();
 
         let result = bisection_search(
             &detector,
@@ -612,7 +612,7 @@ mod tests {
             t - self.target_time
         }
 
-        fn threshold(&self) -> f64 {
+        fn target_value(&self) -> f64 {
             0.0
         }
 
@@ -646,7 +646,7 @@ mod tests {
         let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
-        let initial_crossing = initial_value - detector.threshold();
+        let initial_crossing = initial_value - detector.target_value();
 
         let result = bisection_search(
             &detector,
@@ -682,7 +682,7 @@ mod tests {
         let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
-        let initial_crossing = initial_value - detector.threshold();
+        let initial_crossing = initial_value - detector.target_value();
 
         let result = bisection_search(
             &detector,
@@ -718,7 +718,7 @@ mod tests {
         let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
 
         let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
-        let initial_crossing = initial_value - detector.threshold();
+        let initial_crossing = initial_value - detector.target_value();
 
         let result = bisection_search(
             &detector,
@@ -739,13 +739,13 @@ mod tests {
     }
 
     // =========================================================================
-    // Dynamic-sized threshold event tests
+    // Dynamic-sized value event tests
     // =========================================================================
 
-    use crate::events::DThresholdEvent;
+    use crate::events::DValueEvent;
 
     #[test]
-    fn test_dscan_threshold_event_position_crossing() {
+    fn test_dscan_value_event_position_crossing() {
         // Simulate SHO: position crosses from positive to negative
         // x_prev = [1.0, 0.0] (position=1, velocity=0)
         // x_new = [-0.4, -0.9] (position=-0.4, velocity=-0.9)
@@ -765,13 +765,13 @@ mod tests {
             &x_prev_clone + (&x_new_clone - &x_prev_clone) * alpha
         };
 
-        // Threshold event: detect when position (state[0]) crosses 0
+        // Value event: detect when position (state[0]) crosses 0
         let value_fn =
             |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
-        let detector = DThresholdEvent::new(
+        let detector = DValueEvent::new(
             "PositionCrossing",
             value_fn,
-            0.0,                        // threshold
+            0.0,                        // target value
             EventDirection::Decreasing, // detect positive -> negative crossing
         );
 
@@ -795,13 +795,13 @@ mod tests {
         // Position should be close to 0 at event time
         assert!(
             event.value.abs() < 0.01,
-            "Event value should be close to threshold 0, got {}",
+            "Event value should be close to target value 0, got {}",
             event.value
         );
     }
 
     #[test]
-    fn test_dscan_threshold_event_no_crossing() {
+    fn test_dscan_value_event_no_crossing() {
         // Position stays positive - no crossing should be detected
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let end_epoch = start_epoch + 2.0;
@@ -816,7 +816,7 @@ mod tests {
 
         let value_fn =
             |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
-        let detector = DThresholdEvent::new(
+        let detector = DValueEvent::new(
             "PositionCrossing",
             value_fn,
             0.0,
@@ -841,7 +841,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dscan_threshold_event_increasing_direction() {
+    fn test_dscan_value_event_increasing_direction() {
         // Position crosses from negative to positive (increasing)
         let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let end_epoch = start_epoch + 2.0;
@@ -856,7 +856,7 @@ mod tests {
 
         let value_fn =
             |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
-        let detector = DThresholdEvent::new(
+        let detector = DValueEvent::new(
             "PositionCrossing",
             value_fn,
             0.0,

@@ -1,7 +1,7 @@
 /*!
  * Common event detectors
  *
- * Threshold and binary event detectors for custom conditions.
+ * Value and binary event detectors for custom conditions.
  */
 
 use super::traits::{
@@ -103,7 +103,7 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
         t - self.target_time // Returns signed time difference in seconds
     }
 
-    fn threshold(&self) -> f64 {
+    fn target_value(&self) -> f64 {
         0.0 // Event occurs when time reaches target (crossing from negative to positive)
     }
 
@@ -202,7 +202,7 @@ impl DEventDetector for DTimeEvent {
         t - self.target_time // Returns signed time difference in seconds
     }
 
-    fn threshold(&self) -> f64 {
+    fn target_value(&self) -> f64 {
         0.0 // Event occurs when time reaches target (crossing from negative to positive)
     }
 
@@ -227,35 +227,35 @@ impl DEventDetector for DTimeEvent {
     }
 }
 
-/// Threshold event detector (static-sized)
+/// Value event detector (static-sized)
 ///
-/// Detects when a continuous value crosses a threshold. The user provides
-/// a function that computes the value, and the threshold is specified separately.
+/// Detects when a continuous value crosses a target value. The user provides
+/// a function that computes the value, and the target value is specified separately.
 /// Internally converts to zero-crossing for bisection detection.
 ///
 /// # Examples
 /// ```
-/// use brahe::events::{SThresholdEvent, EventDirection};
+/// use brahe::events::{SValueEvent, EventDirection};
 /// use brahe::constants::R_EARTH;
 /// use brahe::time::Epoch;
 /// use nalgebra::SVector;
 ///
 /// // Detect when altitude drops below 500 km
-/// let event = SThresholdEvent::<7, 4>::new(
+/// let event = SValueEvent::<7, 4>::new(
 ///     "Low Altitude",
 ///     |_t: Epoch, state: &SVector<f64, 7>, _params| {
 ///         state.fixed_rows::<3>(0).norm()  // Just compute radius
 ///     },
-///     R_EARTH + 500e3,  // Threshold specified separately
+///     R_EARTH + 500e3,  // Target value specified separately
 ///     EventDirection::Decreasing
 /// );
 /// ```
-pub struct SThresholdEvent<const S: usize, const P: usize> {
+pub struct SValueEvent<const S: usize, const P: usize> {
     base_name: String,
     formatted_name: String,
     #[allow(clippy::type_complexity)]
     value_fn: Box<dyn Fn(Epoch, &SVector<f64, S>, Option<&SVector<f64, P>>) -> f64 + Send + Sync>,
-    threshold: f64,
+    target_value: f64,
     direction: EventDirection,
     callback: Option<SEventCallback<S, P>>,
     action: EventAction,
@@ -264,18 +264,18 @@ pub struct SThresholdEvent<const S: usize, const P: usize> {
     step_reduction_factor: f64,
 }
 
-impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
-    /// Create new threshold event
+impl<const S: usize, const P: usize> SValueEvent<S, P> {
+    /// Create new value event
     ///
     /// # Arguments
     /// * `name` - Event identifier
     /// * `value_fn` - Function that computes the value to monitor
-    /// * `threshold` - Threshold value for comparison
+    /// * `target_value` - Target value for comparison
     /// * `direction` - Detection direction (increasing/decreasing/any)
     pub fn new<F>(
         name: impl Into<String>,
         value_fn: F,
-        threshold: f64,
+        target_value: f64,
         direction: EventDirection,
     ) -> Self
     where
@@ -286,7 +286,7 @@ impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
             formatted_name: name.clone(),
             base_name: name,
             value_fn: Box::new(value_fn),
-            threshold,
+            target_value,
             direction,
             callback: None,
             action: EventAction::Continue,
@@ -331,14 +331,14 @@ impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
     }
 }
 
-impl<const S: usize, const P: usize> SEventDetector<S, P> for SThresholdEvent<S, P> {
+impl<const S: usize, const P: usize> SEventDetector<S, P> for SValueEvent<S, P> {
     fn evaluate(&self, t: Epoch, state: &SVector<f64, S>, params: Option<&SVector<f64, P>>) -> f64 {
         // Return raw value from user function
         (self.value_fn)(t, state, params)
     }
 
-    fn threshold(&self) -> f64 {
-        self.threshold
+    fn target_value(&self) -> f64 {
+        self.target_value
     }
 
     fn name(&self) -> &str {
@@ -370,16 +370,16 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for SThresholdEvent<S,
     }
 }
 
-/// Dynamic-sized threshold event detector
+/// Dynamic-sized value event detector
 ///
-/// See [`SThresholdEvent`] for details. This version works with dynamic-sized
+/// See [`SValueEvent`] for details. This version works with dynamic-sized
 /// state vectors.
-pub struct DThresholdEvent {
+pub struct DValueEvent {
     base_name: String,
     formatted_name: String,
     #[allow(clippy::type_complexity)]
     value_fn: Box<dyn Fn(Epoch, &DVector<f64>, Option<&DVector<f64>>) -> f64 + Send + Sync>,
-    threshold: f64,
+    target_value: f64,
     direction: EventDirection,
     callback: Option<DEventCallback>,
     action: EventAction,
@@ -388,12 +388,12 @@ pub struct DThresholdEvent {
     step_reduction_factor: f64,
 }
 
-impl DThresholdEvent {
-    /// Create new threshold event
+impl DValueEvent {
+    /// Create new value event
     pub fn new<F>(
         name: impl Into<String>,
         value_fn: F,
-        threshold: f64,
+        target_value: f64,
         direction: EventDirection,
     ) -> Self
     where
@@ -404,7 +404,7 @@ impl DThresholdEvent {
             formatted_name: name.clone(),
             base_name: name,
             value_fn: Box::new(value_fn),
-            threshold,
+            target_value,
             direction,
             callback: None,
             action: EventAction::Continue,
@@ -449,13 +449,13 @@ impl DThresholdEvent {
     }
 }
 
-impl DEventDetector for DThresholdEvent {
+impl DEventDetector for DValueEvent {
     fn evaluate(&self, t: Epoch, state: &DVector<f64>, params: Option<&DVector<f64>>) -> f64 {
         (self.value_fn)(t, state, params)
     }
 
-    fn threshold(&self) -> f64 {
-        self.threshold
+    fn target_value(&self) -> f64 {
+        self.target_value
     }
 
     fn name(&self) -> &str {
@@ -594,8 +594,8 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for SBinaryEvent<S, P>
         }
     }
 
-    fn threshold(&self) -> f64 {
-        0.0 // Zero-crossing occurs at threshold of 0.0
+    fn target_value(&self) -> f64 {
+        0.0 // Zero-crossing occurs at target value of 0.0
     }
 
     fn name(&self) -> &str {
@@ -713,8 +713,8 @@ impl DEventDetector for DBinaryEvent {
         }
     }
 
-    fn threshold(&self) -> f64 {
-        0.0 // Zero-crossing occurs at threshold of 0.0
+    fn target_value(&self) -> f64 {
+        0.0 // Zero-crossing occurs at target value of 0.0
     }
 
     fn name(&self) -> &str {
@@ -766,23 +766,23 @@ mod tests {
         // Before target - evaluate returns signed difference (negative)
         let before_val = event.evaluate(target - 10.0, &state, None);
         assert_eq!(before_val, -10.0); // 10 seconds before target
-        assert!((before_val - event.threshold()) < 0.0); // -10.0 - 0.0 = -10.0 (negative)
+        assert!((before_val - event.target_value()) < 0.0); // -10.0 - 0.0 = -10.0 (negative)
 
         // At target
         let at_val = event.evaluate(target, &state, None);
         assert_eq!(at_val, 0.0); // At target
-        assert_eq!(at_val - event.threshold(), 0.0); // Zero-crossing
+        assert_eq!(at_val - event.target_value(), 0.0); // Zero-crossing
 
         // After target - evaluate returns signed difference (positive)
         let after_val = event.evaluate(target + 10.0, &state, None);
         assert_eq!(after_val, 10.0); // 10 seconds after target
-        assert!((after_val - event.threshold()) > 0.0); // 10.0 - 0.0 = 10.0 (positive)
+        assert!((after_val - event.target_value()) > 0.0); // 10.0 - 0.0 = 10.0 (positive)
     }
 
     #[test]
-    fn test_threshold_event() {
+    fn test_value_event() {
         // Detect when x-coordinate crosses 7000 km
-        let event = SThresholdEvent::<6, 0>::new(
+        let event = SValueEvent::<6, 0>::new(
             "X-Crossing",
             |_t, state: &Vector6<f64>, _params| state[0],
             7000e3,
@@ -791,23 +791,23 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
-        // Below threshold - evaluate returns raw value (6000e3)
+        // Below target value - evaluate returns raw value (6000e3)
         let state_below = Vector6::new(6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_below = event.evaluate(epoch, &state_below, None);
         assert_eq!(val_below, 6000e3);
-        assert!((val_below - event.threshold()) < 0.0); // 6000e3 - 7000e3 < 0
+        assert!((val_below - event.target_value()) < 0.0); // 6000e3 - 7000e3 < 0
 
-        // At threshold - evaluate returns raw value (7000e3)
+        // At target value - evaluate returns raw value (7000e3)
         let state_at = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_at = event.evaluate(epoch, &state_at, None);
         assert_eq!(val_at, 7000e3);
-        assert_eq!(val_at - event.threshold(), 0.0); // 7000e3 - 7000e3 = 0
+        assert_eq!(val_at - event.target_value(), 0.0); // 7000e3 - 7000e3 = 0
 
-        // Above threshold - evaluate returns raw value (8000e3)
+        // Above target value - evaluate returns raw value (8000e3)
         let state_above = Vector6::new(8000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_above = event.evaluate(epoch, &state_above, None);
         assert_eq!(val_above, 8000e3);
-        assert!((val_above - event.threshold()) > 0.0); // 8000e3 - 7000e3 > 0
+        assert!((val_above - event.target_value()) > 0.0); // 8000e3 - 7000e3 > 0
     }
 
     #[test]

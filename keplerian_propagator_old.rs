@@ -550,7 +550,7 @@ impl StateProvider for KeplerianPropagator {
         state_gcrf_to_eme2000(gcrf_state)
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -573,7 +573,7 @@ impl StateProvider for KeplerianPropagator {
     // - states()
     // - states_eci()
     // - states_ecef()
-    // - states_as_osculating_elements()
+    // - states_koe()
 }
 
 impl Identifiable for KeplerianPropagator {
@@ -1235,14 +1235,14 @@ mod tests {
     }
 
     #[test]
-    fn test_keplerianpropagator_analyticpropagator_state_as_osculating_elements() {
+    fn test_keplerianpropagator_analyticpropagator_state_koe() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
 
         let propagator =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        let osc_elements = propagator.state_as_osculating_elements(
+        let osc_elements = propagator.state_koe(
             epoch + orbital_period(elements[0]),
             AngleFormat::Degrees,
         );
@@ -1253,7 +1253,7 @@ mod tests {
         }
 
         // Now test with radians to degrees conversion
-        let osc_elements_rad = propagator.state_as_osculating_elements(
+        let osc_elements_rad = propagator.state_koe(
             epoch + orbital_period(elements[0]),
             AngleFormat::Radians,
         );
@@ -1343,7 +1343,7 @@ mod tests {
     }
 
     #[test]
-    fn test_keplerianpropagator_analyticpropagator_states_as_osculating_elements() {
+    fn test_keplerianpropagator_analyticpropagator_states_koe() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
 
@@ -1356,7 +1356,7 @@ mod tests {
             epoch + 2.0 * orbital_period(elements[0]),
         ];
 
-        let traj = propagator.states_as_osculating_elements(&epochs, AngleFormat::Degrees);
+        let traj = propagator.states_koe(&epochs, AngleFormat::Degrees);
         assert_eq!(traj.len(), 3);
 
         // Confirm all elements remain unchanged within small tolerance
@@ -1367,7 +1367,7 @@ mod tests {
         }
 
         // Repeat with radians output
-        let traj_rad = propagator.states_as_osculating_elements(&epochs, AngleFormat::Radians);
+        let traj_rad = propagator.states_koe(&epochs, AngleFormat::Radians);
         assert_eq!(traj_rad.len(), 3);
 
         for state in &traj_rad {

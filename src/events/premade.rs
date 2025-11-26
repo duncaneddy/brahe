@@ -4,7 +4,7 @@
  * Domain-specific event detectors for altitude and apsis detection.
  */
 
-use super::common::{DThresholdEvent, SThresholdEvent};
+use super::common::{DValueEvent, SValueEvent};
 use super::traits::{
     DEventCallback, DEventDetector, EventAction, EventDirection, SEventCallback, SEventDetector,
 };
@@ -27,8 +27,8 @@ macro_rules! impl_sevent_detector_delegate {
                 self.$inner.evaluate(t, state, params)
             }
 
-            fn threshold(&self) -> f64 {
-                self.$inner.threshold()
+            fn target_value(&self) -> f64 {
+                self.$inner.target_value()
             }
 
             fn name(&self) -> &str {
@@ -75,8 +75,8 @@ macro_rules! impl_devent_detector_delegate {
                 self.$inner.evaluate(t, state, params)
             }
 
-            fn threshold(&self) -> f64 {
-                self.$inner.threshold()
+            fn target_value(&self) -> f64 {
+                self.$inner.target_value()
             }
 
             fn name(&self) -> &str {
@@ -112,7 +112,7 @@ macro_rules! impl_devent_detector_delegate {
 
 /// Altitude-based event detector (for orbital states, static-sized)
 ///
-/// Convenience wrapper around [`SThresholdEvent`] for detecting geodetic altitude
+/// Convenience wrapper around [`SValueEvent`] for detecting geodetic altitude
 /// crossings. Assumes the first 3 elements of the state vector are ECI position
 /// in meters. Transforms to geodetic coordinates to compute altitude above the
 /// WGS84 ellipsoid.
@@ -137,7 +137,7 @@ macro_rules! impl_devent_detector_delegate {
 /// );
 /// ```
 pub struct SAltitudeEvent<const S: usize, const P: usize> {
-    inner: SThresholdEvent<S, P>,
+    inner: SValueEvent<S, P>,
 }
 
 impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
@@ -165,7 +165,7 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
         };
 
         Self {
-            inner: SThresholdEvent::new(name, altitude_fn, threshold_altitude, direction),
+            inner: SValueEvent::new(name, altitude_fn, threshold_altitude, direction),
         }
     }
 
@@ -203,7 +203,7 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
     }
 }
 
-// Delegate EventDetector trait implementation to inner SThresholdEvent
+// Delegate EventDetector trait implementation to inner SValueEvent
 impl_sevent_detector_delegate!(SAltitudeEvent<S, P>, inner, S, P);
 
 /// Dynamic-sized altitude event detector
@@ -211,7 +211,7 @@ impl_sevent_detector_delegate!(SAltitudeEvent<S, P>, inner, S, P);
 /// See [`SAltitudeEvent`] for details. This version works with dynamic-sized
 /// state vectors. Assumes first 3 elements are ECI position in meters.
 pub struct DAltitudeEvent {
-    inner: DThresholdEvent,
+    inner: DValueEvent,
 }
 
 impl DAltitudeEvent {
@@ -240,7 +240,7 @@ impl DAltitudeEvent {
         };
 
         Self {
-            inner: DThresholdEvent::new(name, altitude_fn, threshold_altitude, direction),
+            inner: DValueEvent::new(name, altitude_fn, threshold_altitude, direction),
         }
     }
 
@@ -278,7 +278,7 @@ impl DAltitudeEvent {
     }
 }
 
-// Delegate EventDetectorD trait implementation to inner DThresholdEvent
+// Delegate EventDetectorD trait implementation to inner DValueEvent
 impl_devent_detector_delegate!(DAltitudeEvent, inner);
 
 #[cfg(test)]

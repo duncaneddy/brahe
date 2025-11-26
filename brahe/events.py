@@ -6,7 +6,7 @@ during propagation.
 
 Event Types:
     - TimeEvent: Detects when simulation time reaches a target epoch
-    - ThresholdEvent: Detects when a monitored value crosses a threshold
+    - ValueEvent: Detects when a monitored value crosses a target value
     - BinaryEvent: Detects boolean condition transitions
     - AltitudeEvent: Detects geodetic altitude crossings (convenience wrapper)
 
@@ -18,12 +18,12 @@ Example:
     # Simple time event
     event = bh.TimeEvent(target_epoch, "Maneuver Start")
 
-    # Custom threshold event with value function
+    # Custom value event with value function
     def altitude_fn(epoch, state):
         r = np.linalg.norm(state[:3])
         return r - bh.R_EARTH
 
-    event = bh.ThresholdEvent(
+    event = bh.ValueEvent(
         "Low Altitude",
         altitude_fn,
         300e3,
@@ -39,7 +39,7 @@ from brahe._brahe import (
     EventType,
     DetectedEvent,
     TimeEvent,
-    ThresholdEvent,
+    ValueEvent,
     BinaryEvent,
     AltitudeEvent,
 )
@@ -51,7 +51,7 @@ __all__ = [
     "EventType",
     "DetectedEvent",
     "TimeEvent",
-    "ThresholdEvent",
+    "ValueEvent",
     "BinaryEvent",
     "AltitudeEvent",
 ]

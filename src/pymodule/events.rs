@@ -673,20 +673,20 @@ impl PyTimeEvent {
     }
 }
 
-/// Threshold event detector with custom value function.
+/// Value event detector with custom value function.
 ///
 /// Monitors a custom value computed by a Python function and detects when it
-/// crosses a specified threshold. The value function receives the current epoch
+/// crosses a specified target value. The value function receives the current epoch
 /// and state, and returns a float value to monitor.
 ///
 /// Args:
 ///     name (str): Event name for identification
 ///     value_fn (callable): Function (epoch, state) -> float that computes monitored value
-///     threshold (float): Threshold value for crossing detection
+///     target_value (float): Target value for crossing detection
 ///     direction (EventDirection): Detection direction (INCREASING, DECREASING, or ANY)
 ///
 /// Returns:
-///     ThresholdEvent: New threshold event detector
+///     ValueEvent: New value event detector
 ///
 /// Example:
 ///     ```python
@@ -697,7 +697,7 @@ impl PyTimeEvent {
 ///     def radial_distance(epoch, state):
 ///         return np.linalg.norm(state[:3])
 ///
-///     event = bh.ThresholdEvent(
+///     event = bh.ValueEvent(
 ///         "Altitude Check",
 ///         radial_distance,
 ///         bh.R_EARTH + 500e3,
@@ -708,33 +708,33 @@ impl PyTimeEvent {
 ///     event = event.with_tolerances(1e-3, 1e-6).is_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "ThresholdEvent")]
-pub struct PyThresholdEvent {
-    event: Option<events::DThresholdEvent>,
+#[pyo3(name = "ValueEvent")]
+pub struct PyValueEvent {
+    event: Option<events::DValueEvent>,
     // Store Python callable for potential re-wrapping if needed
     #[allow(dead_code)]
     value_fn_py: Option<Py<PyAny>>,
 }
 
 #[pymethods]
-impl PyThresholdEvent {
-    /// Create a new threshold event detector.
+impl PyValueEvent {
+    /// Create a new value event detector.
     ///
     /// Args:
     ///     name (str): Event name for identification
     ///     value_fn (callable): Function (epoch, state) -> float that computes monitored value
-    ///     threshold (float): Threshold value for crossing detection
+    ///     target_value (float): Target value for crossing detection
     ///     direction (EventDirection): Detection direction
     ///
     /// Returns:
-    ///     ThresholdEvent: New threshold event detector
+    ///     ValueEvent: New value event detector
     #[new]
     #[allow(deprecated)]
     fn new(
         py: Python<'_>,
         name: String,
         value_fn: Py<PyAny>,
-        threshold: f64,
+        target_value: f64,
         direction: PyRef<PyEventDirection>,
     ) -> PyResult<Self> {
         // Create Rust closure from Python callable
@@ -772,9 +772,9 @@ impl PyThresholdEvent {
             };
 
         // Create Rust event with closure
-        let event = events::DThresholdEvent::new(name, rust_value_fn, threshold, direction.direction);
+        let event = events::DValueEvent::new(name, rust_value_fn, target_value, direction.direction);
 
-        Ok(PyThresholdEvent {
+        Ok(PyValueEvent {
             event: Some(event),
             value_fn_py: Some(value_fn),
         })
@@ -786,7 +786,7 @@ impl PyThresholdEvent {
     ///     instance (int): Instance number to append
     ///
     /// Returns:
-    ///     ThresholdEvent: Self for method chaining
+    ///     ValueEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -804,7 +804,7 @@ impl PyThresholdEvent {
     ///     value_tol (float): Value tolerance (default: 1e-9)
     ///
     /// Returns:
-    ///     ThresholdEvent: Self for method chaining
+    ///     ValueEvent: Self for method chaining
     ///
     /// Example:
     ///     ```python
@@ -813,7 +813,7 @@ impl PyThresholdEvent {
     ///     def value_fn(epoch, state):
     ///         return state[0]  # Monitor x position
     ///
-    ///     event = (bh.ThresholdEvent("X Crossing", value_fn, 0.0, bh.EventDirection.ANY)
+    ///     event = (bh.ValueEvent("X Crossing", value_fn, 0.0, bh.EventDirection.ANY)
     ///              .with_tolerances(1e-3, 1e-6))  # Looser tolerances
     ///     ```
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
@@ -832,7 +832,7 @@ impl PyThresholdEvent {
     ///     callback (callable): Function (epoch, state) -> (Optional[state], EventAction)
     ///
     /// Returns:
-    ///     ThresholdEvent: Self for method chaining
+    ///     ValueEvent: Self for method chaining
     #[allow(deprecated)]
     fn with_callback(mut slf: PyRefMut<'_, Self>, callback: Py<PyAny>) -> Self {
         let callback_clone = callback.clone_ref(slf.py());
@@ -895,7 +895,7 @@ impl PyThresholdEvent {
     /// Mark this event as terminal (stops propagation).
     ///
     /// Returns:
-    ///     ThresholdEvent: Self for method chaining
+    ///     ValueEvent: Self for method chaining
     fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.is_terminal());

@@ -991,7 +991,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEventType>()?;
     module.add_class::<PyDetectedEvent>()?;
     module.add_class::<PyTimeEvent>()?;
-    module.add_class::<PyThresholdEvent>()?;
+    module.add_class::<PyValueEvent>()?;
     module.add_class::<PyBinaryEvent>()?;
     module.add_class::<PyAltitudeEvent>()?;
 

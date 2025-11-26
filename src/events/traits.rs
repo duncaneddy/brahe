@@ -204,24 +204,24 @@ pub type DEventCallback = Box<
 
 /// Trait for event detection during numerical propagation (static-sized)
 ///
-/// Event detectors monitor a value and detect when it crosses a threshold.
+/// Event detectors monitor a value and detect when it crosses a target value.
 /// The propagator uses bisection search to refine the event time to within
 /// specified tolerances.
 ///
 /// # Event Detection
-/// Events are detected when `evaluate() - threshold()` crosses zero. The detector
-/// should return the raw monitored value from `evaluate()`, and the threshold
-/// value from `threshold()`. The detection algorithm computes the zero-crossing.
+/// Events are detected when `evaluate() - target_value()` crosses zero. The detector
+/// should return the raw monitored value from `evaluate()`, and the target
+/// value from `target_value()`. The detection algorithm computes the zero-crossing.
 ///
 /// # Examples
-/// - Altitude event: `evaluate()` returns altitude(y), `threshold()` returns target altitude
-/// - Time event: `evaluate()` returns (t - target_time).abs(), `threshold()` returns 0.0
-/// - Apogee: `evaluate()` returns velocity · position, `threshold()` returns 0.0
+/// - Altitude event: `evaluate()` returns altitude(y), `target_value()` returns target altitude
+/// - Time event: `evaluate()` returns (t - target_time).abs(), `target_value()` returns 0.0
+/// - Apogee: `evaluate()` returns velocity · position, `target_value()` returns 0.0
 pub trait SEventDetector<const S: usize, const P: usize>: Send + Sync + std::any::Any {
     /// Evaluate the monitored value
     ///
     /// Returns the raw value being monitored (NOT a zero-crossing).
-    /// The detection algorithm will compute `evaluate() - threshold()` to
+    /// The detection algorithm will compute `evaluate() - target_value()` to
     /// find zero-crossings.
     ///
     /// # Arguments
@@ -230,11 +230,11 @@ pub trait SEventDetector<const S: usize, const P: usize>: Send + Sync + std::any
     /// * `params` - Optional parameter vector
     fn evaluate(&self, t: Epoch, state: &SVector<f64, S>, params: Option<&SVector<f64, P>>) -> f64;
 
-    /// Get threshold value for comparison
+    /// Get target value for comparison
     ///
-    /// Event occurs when `evaluate() - threshold()` crosses zero according
+    /// Event occurs when `evaluate() - target_value()` crosses zero according
     /// to the specified `direction()`.
-    fn threshold(&self) -> f64;
+    fn target_value(&self) -> f64;
 
     /// Get event name for identification
     fn name(&self) -> &str;
@@ -292,15 +292,15 @@ pub trait DEventDetector: Send + Sync + std::any::Any {
     /// Evaluate the monitored value
     ///
     /// Returns the raw value being monitored (NOT a zero-crossing).
-    /// The detection algorithm will compute `evaluate() - threshold()` to
+    /// The detection algorithm will compute `evaluate() - target_value()` to
     /// find zero-crossings.
     fn evaluate(&self, t: Epoch, state: &DVector<f64>, params: Option<&DVector<f64>>) -> f64;
 
-    /// Get threshold value for comparison
+    /// Get target value for comparison
     ///
-    /// Event occurs when `evaluate() - threshold()` crosses zero according
+    /// Event occurs when `evaluate() - target_value()` crosses zero according
     /// to the specified `direction()`.
-    fn threshold(&self) -> f64;
+    fn target_value(&self) -> f64;
 
     /// Get event name
     fn name(&self) -> &str;

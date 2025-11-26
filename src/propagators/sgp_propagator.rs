@@ -792,7 +792,7 @@ impl SOrbitStateProvider for SGPPropagator {
         Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -806,7 +806,7 @@ impl SOrbitStateProvider for SGPPropagator {
     // - states()
     // - states_eci()
     // - states_ecef()
-    // - states_as_osculating_elements()
+    // - states_koe()
 }
 
 // Implement DStateProvider for SGPPropagator
@@ -850,18 +850,18 @@ impl crate::utils::DOrbitStateProvider for SGPPropagator {
         <Self as SOrbitStateProvider>::state_eme2000(self, epoch)
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        <Self as SOrbitStateProvider>::state_as_osculating_elements(self, epoch, angle_format)
+        <Self as SOrbitStateProvider>::state_koe(self, epoch, angle_format)
     }
 
     // Default batch implementations from trait are used for:
     // - states_eci()
     // - states_ecef()
-    // - states_as_osculating_elements()
+    // - states_koe()
 }
 
 impl Identifiable for SGPPropagator {
@@ -1451,12 +1451,12 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_state_as_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_state_koe() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_as_osculating_elements(epoch, RADIANS).unwrap();
+        let elements = prop.state_koe(epoch, RADIANS).unwrap();
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -1516,16 +1516,14 @@ mod tests {
     }
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_states_as_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_states_koe() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop
-            .states_as_osculating_elements(&epochs, RADIANS)
-            .unwrap();
+        let elements = prop.states_koe(&epochs, RADIANS).unwrap();
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {

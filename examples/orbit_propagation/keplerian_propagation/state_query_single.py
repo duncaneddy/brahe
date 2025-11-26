@@ -23,7 +23,7 @@ state_native = prop.state(
 )  # Native format of propagator internal state (Keplerian)
 state_eci = prop.state_eci(query_epoch)  # ECI Cartesian
 state_ecef = prop.state_ecef(query_epoch)  # ECEF Cartesian
-state_kep = prop.state_as_osculating_elements(query_epoch, bh.AngleFormat.DEGREES)
+state_kep = prop.state_koe(query_epoch, bh.AngleFormat.DEGREES)
 
 print(f"Native state (Keplerian): a={state_native[0] / 1e3:.1f} km")
 # Native state (Keplerian): a=6878.1 km

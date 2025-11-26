@@ -148,10 +148,10 @@ def _extract_orbital_elements(obj, epoch, obj_format):
     """
 
     # Check if it's a propagator
-    if hasattr(obj, "state_as_osculating_elements"):
+    if hasattr(obj, "state_koe"):
         # It's a propagator
         if epoch is not None:
-            oe = obj.state_as_osculating_elements(epoch, bh.AngleFormat.RADIANS)
+            oe = obj.state_koe(epoch, bh.AngleFormat.RADIANS)
         else:
             # Convert current state to osculating elements
             state = obj.current_state()

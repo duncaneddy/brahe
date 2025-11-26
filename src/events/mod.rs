@@ -6,7 +6,7 @@
  *
  * - Zero-crossing detection with bisection refinement
  * - Pre-defined event detectors (time, altitude)
- * - Threshold event detectors (continuous value comparisons)
+ * - Value event detectors (continuous value comparisons)
  * - Binary event detectors (boolean condition transitions)
  * - Event callbacks with side effects
  * - Terminal events that stop propagation
@@ -43,13 +43,13 @@
  * );
  * ```
  *
- * ## Threshold Event
+ * ## Value Event
  * ```
- * use brahe::events::{SThresholdEvent, EventDirection};
+ * use brahe::events::{SValueEvent, EventDirection};
  * use nalgebra::SVector;
  *
  * // Detect when mass (state[6]) drops below 100 kg
- * let event = SThresholdEvent::<7, 4>::new(
+ * let event = SValueEvent::<7, 4>::new(
  *     "Low Fuel",
  *     |_t, state: &SVector<f64, 7>, _params| state[6],
  *     100.0,
@@ -82,9 +82,7 @@ pub mod query;
 pub mod traits;
 
 // Re-export main types
-pub use common::{
-    DBinaryEvent, DThresholdEvent, DTimeEvent, SBinaryEvent, SThresholdEvent, STimeEvent,
-};
+pub use common::{DBinaryEvent, DTimeEvent, DValueEvent, SBinaryEvent, STimeEvent, SValueEvent};
 pub use detection::{dscan_for_event, sscan_for_event};
 pub use premade::{DAltitudeEvent, SAltitudeEvent};
 pub use query::EventQuery;

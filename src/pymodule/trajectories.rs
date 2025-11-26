@@ -1867,18 +1867,18 @@ impl PyOrbitalTrajectory {
     ///     traj.add(epc, state_cart)
     ///
     ///     # Get osculating elements in degrees
-    ///     elements = traj.state_as_osculating_elements(epc, bh.AngleFormat.DEGREES)
+    ///     elements = traj.state_koe(epc, bh.AngleFormat.DEGREES)
     ///     print(f"Semi-major axis: {elements[0]/1000:.2f} km")
     ///     print(f"Inclination: {elements[2]:.2f} degrees")
     ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_as_osculating_elements<'a>(
+    pub fn state_koe<'a>(
         &self,
         py: Python<'a>,
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_as_osculating_elements(&self.trajectory, epoch.obj, angle_format.value)?;
+        let state = DOrbitStateProvider::state_koe(&self.trajectory, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 

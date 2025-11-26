@@ -2404,7 +2404,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         })
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,

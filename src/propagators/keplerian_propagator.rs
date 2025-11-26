@@ -143,8 +143,8 @@ impl KeplerianPropagator {
             angle_format_unwrapped,
         );
 
-        // Create initial trajectory
-        let mut trajectory = DOrbitTrajectory::new(frame, representation, angle_format);
+        // Create initial trajectory (Keplerian propagator always uses 6D states)
+        let mut trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format);
         trajectory.add(epoch, svec6_to_dvec(state));
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
@@ -291,11 +291,8 @@ impl KeplerianPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(frame, representation, angle_format).with_identity(
-            name.as_deref(),
-            uuid,
-            id,
-        );
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+            .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
@@ -475,8 +472,9 @@ impl SStatePropagator for KeplerianPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(self.frame, self.representation, self.angle_format)
-            .with_identity(name.as_deref(), uuid, id);
+        self.trajectory =
+            DOrbitTrajectory::new(6, self.frame, self.representation, self.angle_format)
+                .with_identity(name.as_deref(), uuid, id);
 
         // Convert initial state to new format and add to trajectory
         let converted_state = self.convert_from_internal_osculating(
@@ -543,11 +541,8 @@ impl SOrbitPropagator for KeplerianPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = DOrbitTrajectory::new(frame, representation, angle_format).with_identity(
-            name.as_deref(),
-            uuid,
-            id,
-        );
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+            .with_identity(name.as_deref(), uuid, id);
         self.trajectory.add(epoch, svec6_to_dvec(state));
     }
 }

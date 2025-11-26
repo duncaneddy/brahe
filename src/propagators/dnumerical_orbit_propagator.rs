@@ -410,8 +410,12 @@ impl DNumericalOrbitPropagator {
         );
 
         // Create trajectory storage (internally always ECI Cartesian)
-        let mut trajectory =
-            DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let mut trajectory = DOrbitTrajectory::new(
+            state_dim,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+        );
 
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
@@ -1174,10 +1178,11 @@ impl DNumericalOrbitPropagator {
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
-    /// # use brahe::eop::setup_global_test_eop;
+    /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
-    /// # setup_global_test_eop();
+    /// # let eop = StaticEOPProvider::from_zero();
+    /// # set_global_eop_provider(eop);
     /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
@@ -1214,10 +1219,11 @@ impl DNumericalOrbitPropagator {
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
-    /// # use brahe::eop::setup_global_test_eop;
+    /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
-    /// # setup_global_test_eop();
+    /// # let eop = StaticEOPProvider::from_zero();
+    /// # set_global_eop_provider(eop);
     /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
@@ -1246,10 +1252,11 @@ impl DNumericalOrbitPropagator {
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
-    /// # use brahe::eop::setup_global_test_eop;
+    /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
-    /// # setup_global_test_eop();
+    /// # let eop = StaticEOPProvider::from_zero();
+    /// # set_global_eop_provider(eop);
     /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
@@ -1286,10 +1293,11 @@ impl DNumericalOrbitPropagator {
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
-    /// # use brahe::eop::setup_global_test_eop;
+    /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
-    /// # setup_global_test_eop();
+    /// # let eop = StaticEOPProvider::from_zero();
+    /// # set_global_eop_provider(eop);
     /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
@@ -1693,8 +1701,12 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         }
 
         // Clear trajectory
-        self.trajectory =
-            DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        self.trajectory = DOrbitTrajectory::new(
+            self.state_dim,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+        );
 
         // Clear event state
         self.event_log.clear();
@@ -5653,6 +5665,93 @@ mod tests {
 
         // Mass should have decreased by approximately 1 kg (10s * 0.1 kg/s)
         assert!((final_mass - (initial_mass - 1.0)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_trajectory_stores_additional_states() {
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // 6D orbital state + 2 additional states
+        let extended_state = DVector::from_vec(vec![
+            R_EARTH + 500e3,
+            0.0,
+            0.0,
+            0.0,
+            7500.0,
+            0.0,
+            1000.0, // mass [kg]
+            100.0,  // fuel [kg]
+        ]);
+
+        // Additional dynamics for both states
+        let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
+            let mut dx = DVector::zeros(state.len());
+            dx[6] = -0.1; // dm/dt = -0.1 kg/s
+            dx[7] = -0.05; // dfuel/dt = -0.05 kg/s
+            dx
+        });
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            extended_state.clone(),
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            Some(additional_dynamics),
+            None,
+            None,
+        );
+
+        assert!(prop.is_ok());
+        let mut prop = prop.unwrap();
+
+        // Enable trajectory storage for all steps
+        prop.set_trajectory_mode(TrajectoryMode::AllSteps);
+
+        // Verify initial state dimension
+        assert_eq!(DStatePropagator::state_dim(&prop), 8);
+        assert_eq!(prop.trajectory().dimension(), 8);
+        assert_eq!(prop.trajectory().additional_dimension(), 2);
+
+        // Propagate for 10 seconds
+        prop.step_by(10.0);
+
+        // Verify trajectory has stored states
+        let traj = prop.trajectory();
+        assert!(traj.len() >= 1); // At least final state
+
+        // Test retrieval through DOrbitStateProvider trait
+        // (should return only first 6 elements)
+        let final_epoch = prop.current_epoch();
+        let orbital_state = prop.state_eci(final_epoch).unwrap();
+        assert_eq!(orbital_state.len(), 6);
+
+        // Test retrieval of full state from trajectory (including additional states)
+        // Get final state from trajectory
+        let final_idx = traj.len() - 1;
+        let (_final_epoch, final_full_state) = traj.get(final_idx).unwrap();
+        assert_eq!(final_full_state.len(), 8);
+
+        // Verify additional states evolved correctly
+        let final_mass = final_full_state[6];
+        let final_fuel = final_full_state[7];
+        assert_abs_diff_eq!(final_mass, 999.0, epsilon = 0.2); // ~1 kg lost
+        assert_abs_diff_eq!(final_fuel, 99.5, epsilon = 0.2); // ~0.5 kg lost
+
+        // Test interpolation also returns full state (if trajectory has multiple points)
+        if traj.len() >= 2 {
+            let start = traj.start_epoch().unwrap();
+            let end = traj.end_epoch().unwrap();
+            let mid_epoch = start + (end - start) / 2.0;
+            let mid_state = traj.interpolate(&mid_epoch).unwrap();
+            assert_eq!(mid_state.len(), 8);
+            // Additional states should be interpolated
+            assert!(mid_state[6] < 1000.0); // mass decreased
+            assert!(mid_state[7] < 100.0); // fuel decreased
+        }
     }
 
     #[test]

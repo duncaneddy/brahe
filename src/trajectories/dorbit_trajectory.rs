@@ -1,20 +1,26 @@
 /*!
- * Dynamic orbital trajectory implementation for 6-dimensional orbital state vectors.
+ * Dynamic orbital trajectory implementation for orbital state vectors with extended states.
  *
  * This module provides a runtime-sized, specialized trajectory container for orbital
  * mechanics applications, using dynamic `DVector<f64>` and `DMatrix<f64>` types
- * for flexibility. For a static (compile-time sized) alternative with better performance,
- * see `SOrbitTrajectory`.
+ * for flexibility. Supports state vectors of dimension 6 + N where the first 6 elements
+ * are the orbital state (position + velocity) and additional elements are passed through
+ * conversions unchanged. For a static (compile-time sized) alternative with better
+ * performance, see `SOrbitTrajectory`.
  *
  * # Key Features
- * - Reference frame conversions (ECI ↔ ECEF)
- * - State representation conversions (Cartesian ↔ Keplerian)
- * - Angle format conversions (Radians ↔ Degrees)
+ * - **Dynamic dimensions**: Support 6D orbital states or 6+N extended states
+ * - **Selective conversions**: Frame/representation conversions apply to first 6 elements only
+ * - **Reference frame conversions** (ECI ↔ ECEF)
+ * - **State representation conversions** (Cartesian ↔ Keplerian)
+ * - **Angle format conversions** (Radians ↔ Degrees)
  * - Position and velocity extraction from Cartesian states
  * - Combined conversions for efficiency
  * - Runtime-sized vectors for integration with dynamic propagators
  *
  * # Examples
+ *
+ * ## Standard 6D orbital trajectory
  * ```rust
  * use brahe::trajectories::DOrbitTrajectory;
  * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
@@ -22,8 +28,9 @@
  * use brahe::time::{Epoch, TimeSystem};
  * use nalgebra::DVector;
  *
- * // Create orbital trajectory in ECI Cartesian coordinates
+ * // Create 6D orbital trajectory in ECI Cartesian coordinates
  * let mut traj = DOrbitTrajectory::new(
+ *     6,  // dimension
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
@@ -34,8 +41,41 @@
  * let state = DVector::from_vec(vec![6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0]);
  * traj.add(epoch, state);
  *
- * // Convert to Keplerian in degrees
+ * // Convert to Keplerian in degrees (only first 6 elements converted)
  * let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
+ * ```
+ *
+ * ## Extended state trajectory (6D + additional states)
+ * ```rust
+ * use brahe::trajectories::DOrbitTrajectory;
+ * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
+ * use brahe::time::{Epoch, TimeSystem};
+ * use nalgebra::DVector;
+ *
+ * // Initialize EOP for frame conversions
+ * brahe::eop::set_global_eop_provider(
+ *     brahe::eop::StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+ * );
+ *
+ * // Create 9D trajectory (6D orbit + 3 additional states)
+ * let mut traj = DOrbitTrajectory::new(
+ *     9,  // dimension
+ *     OrbitFrame::ECI,
+ *     OrbitRepresentation::Cartesian,
+ *     None,
+ * );
+ *
+ * // Add extended state
+ * let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+ * let state = DVector::from_vec(vec![
+ *     6.678e6, 0.0, 0.0,  // position
+ *     0.0, 7.726e3, 0.0,  // velocity
+ *     1.0, 2.0, 3.0,      // additional states (passed through conversions)
+ * ]);
+ * traj.add(epoch, state);
+ *
+ * // Convert to ECEF - first 6 elements converted, last 3 unchanged
+ * let ecef_traj = traj.to_ecef();
  * ```
  */
 
@@ -120,24 +160,32 @@ pub struct DOrbitTrajectory {
     pub states: Vec<DVector<f64>>,
 
     /// Optional covariance matrices corresponding to states.
-    /// Each covariance is a 6x6 symmetric matrix representing state uncertainty.
-    /// Units: [m², m²/s, m²/s², etc.] for Cartesian states.
+    /// Each covariance is a 6×6 symmetric matrix representing **orbital** state uncertainty only.
+    /// Additional state elements (6+) are not included in covariance tracking.
+    /// Units: [m², m·m/s, (m/s)²] for Cartesian states.
     /// If present, must have same length as states vector.
     pub covariances: Option<Vec<DMatrix<f64>>>,
 
     /// Optional state transition matrices (STM) corresponding to each state.
-    /// If present, must have the same length as `states` and each matrix
-    /// must be 6x6.
+    /// Each STM is 6×6 relating orbital state changes: Φ(t,t₀) = ∂x_orbital(t)/∂x_orbital(t₀).
+    /// Additional state elements (6+) are not included in STM computation.
+    /// If present, must have the same length as `states` and each matrix must be 6×6.
     pub stms: Option<Vec<DMatrix<f64>>>,
 
     /// Optional sensitivity matrices corresponding to each state.
+    /// Each matrix is 6×param_dim: ∂x_orbital/∂p where x_orbital is the orbital state only.
+    /// Additional state elements (6+) are not included in sensitivity computation.
     /// If present, must have the same length as `states`.
-    /// Each matrix has shape (6 x param_dim).
     pub sensitivities: Option<Vec<DMatrix<f64>>>,
 
     /// Dimension of sensitivity matrices as (rows, cols) = (6, param_dim).
     /// Set when sensitivity storage is enabled.
     sensitivity_dimension: Option<(usize, usize)>,
+
+    /// State vector dimension (must be >= 6).
+    /// - Elements 0-5: orbital state (position + velocity)
+    /// - Elements 6+: additional states (passed through conversions unchanged)
+    dimension: usize,
 
     /// Interpolation method for state retrieval at arbitrary epochs.
     /// Default is linear interpolation for optimal performance/accuracy balance.
@@ -198,16 +246,23 @@ impl fmt::Display for DOrbitTrajectory {
 }
 
 impl DOrbitTrajectory {
-    /// Creates a new orbital trajectory with specified frame, representation, and angle format.
+    /// Creates a new orbital trajectory with specified dimension, frame, representation, and angle format.
     ///
     /// # Arguments
+    /// * `dimension` - State vector dimension (must be >= 6). First 6 elements are orbital state,
+    ///   elements 6+ are additional states passed through conversions unchanged.
     /// * `frame` - Reference frame (ECI or ECEF)
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     ///
     /// # Returns
-    /// * `Ok(DOrbitTrajectory)` - New empty orbital trajectory
-    /// * `Err(BraheError)` - If parameters are invalid
+    /// New empty orbital trajectory
+    ///
+    /// # Panics
+    /// * If `dimension < 6`
+    /// * If Keplerian representation without angle_format
+    /// * If Cartesian representation with angle_format
+    /// * If ECEF frame with Keplerian representation
     ///
     /// # Examples
     /// ```rust
@@ -215,17 +270,35 @@ impl DOrbitTrajectory {
     /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
     /// use brahe::AngleFormat;
     ///
+    /// // Standard 6D orbital trajectory
     /// let traj = DOrbitTrajectory::new(
+    ///     6,
+    ///     OrbitFrame::ECI,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// );
+    ///
+    /// // Extended 9D trajectory (6D orbit + 3 additional states)
+    /// let traj_extended = DOrbitTrajectory::new(
+    ///     9,
     ///     OrbitFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
     ///     None,
     /// );
     /// ```
     pub fn new(
+        dimension: usize,
         frame: OrbitFrame,
         representation: OrbitRepresentation,
         angle_format: Option<AngleFormat>,
     ) -> Self {
+        // Validate dimension
+        if dimension < 6 {
+            panic!(
+                "State dimension must be at least 6 (position + velocity), got {}",
+                dimension
+            );
+        }
         // Validate angle_format for representation (check this first)
         if representation == OrbitRepresentation::Keplerian && angle_format.is_none() {
             panic!("Angle format must be specified for Keplerian elements");
@@ -247,6 +320,7 @@ impl DOrbitTrajectory {
             stms: None,
             sensitivities: None,
             sensitivity_dimension: None,
+            dimension,
             interpolation_method: InterpolationMethod::Linear,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -277,7 +351,7 @@ impl DOrbitTrajectory {
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
     /// use brahe::traits::{OrbitFrame, OrbitRepresentation, InterpolationMethod};
-    /// let traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_interpolation_method(InterpolationMethod::Linear);
     /// ```
     pub fn with_interpolation_method(mut self, interpolation_method: InterpolationMethod) -> Self {
@@ -303,7 +377,7 @@ impl DOrbitTrajectory {
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
     /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
-    /// let traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_eviction_policy_max_size(100);
     /// ```
     pub fn with_eviction_policy_max_size(mut self, max_size: usize) -> Self {
@@ -334,7 +408,7 @@ impl DOrbitTrajectory {
     /// ```rust
     /// use brahe::trajectories::DOrbitTrajectory;
     /// use brahe::traits::{OrbitFrame, OrbitRepresentation};
-    /// let traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+    /// let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
     ///     .with_eviction_policy_max_age(3600.0);
     /// ```
     pub fn with_eviction_policy_max_age(mut self, max_age: f64) -> Self {
@@ -347,10 +421,73 @@ impl DOrbitTrajectory {
         self
     }
 
-    /// Returns the dimension of state vectors in this trajectory.
-    /// Always returns 6 for orbital state vectors (position + velocity).
+    /// Returns the total dimension of state vectors in this trajectory.
+    ///
+    /// # Returns
+    /// Total state dimension (6 + N where N is the number of additional states)
     pub fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    /// Returns the dimension of the orbital part of state vectors (always 6).
+    ///
+    /// The orbital state consists of position (3) and velocity (3) components.
+    ///
+    /// # Returns
+    /// Always returns 6
+    pub fn orbital_dimension(&self) -> usize {
         6
+    }
+
+    /// Returns the number of additional state elements beyond the orbital state.
+    ///
+    /// # Returns
+    /// Number of additional states (dimension - 6)
+    pub fn additional_dimension(&self) -> usize {
+        self.dimension.saturating_sub(6)
+    }
+
+    /// Apply a 6D conversion function to the orbital part of a state,
+    /// preserving any additional states unchanged.
+    ///
+    /// This is the core helper for all frame and representation conversions.
+    /// The conversion function is applied only to the first 6 elements (orbital state),
+    /// while elements 6+ (additional states) are copied unchanged.
+    ///
+    /// # Arguments
+    /// * `state` - Full state vector (6 + N dimensions)
+    /// * `converter` - Function that converts 6D state vectors
+    ///
+    /// # Returns
+    /// Converted state with same dimension as input
+    fn convert_orbital_preserving_additional<F>(
+        &self,
+        state: &DVector<f64>,
+        converter: F,
+    ) -> DVector<f64>
+    where
+        F: Fn(Vector6<f64>) -> Vector6<f64>,
+    {
+        // Extract orbital part (first 6 elements)
+        let orbital = dvec_to_svec6(state.rows(0, 6).into_owned());
+
+        // Apply conversion to orbital part
+        let converted_orbital = converter(orbital);
+
+        // Reassemble full state
+        let mut result = DVector::zeros(state.len());
+        result
+            .rows_mut(0, 6)
+            .copy_from(&svec6_to_dvec(converted_orbital));
+
+        // Copy additional states unchanged
+        if state.len() > 6 {
+            result
+                .rows_mut(6, state.len() - 6)
+                .copy_from(&state.rows(6, state.len() - 6));
+        }
+
+        result
     }
 
     /// Add a state with its corresponding covariance matrix to the trajectory.
@@ -374,6 +511,7 @@ impl DOrbitTrajectory {
     /// use nalgebra::{DMatrix, DVector};
     ///
     /// let mut traj = DOrbitTrajectory::new(
+    ///     6,
     ///     OrbitFrame::ECI,
     ///     OrbitRepresentation::Cartesian,
     ///     None,
@@ -741,10 +879,11 @@ impl DOrbitTrajectory {
         sensitivity: Option<DMatrix<f64>>,
     ) {
         // Validate state dimension
-        if state.len() != 6 {
+        if state.len() != self.dimension {
             panic!(
-                "State vector dimension {} does not match expected 6",
-                state.len()
+                "State vector dimension {} does not match trajectory dimension {}",
+                state.len(),
+                self.dimension
             );
         }
 
@@ -905,9 +1044,10 @@ impl DOrbitTrajectory {
 }
 
 impl Default for DOrbitTrajectory {
-    /// Creates a default orbital trajectory in ECI Cartesian with no angle format.
+    /// Creates a default orbital trajectory in ECI Cartesian with 6D states.
     fn default() -> Self {
         Self::new(
+            6, // dimension: standard 6D orbital states
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None, // angle_format is None for Cartesian
@@ -989,6 +1129,27 @@ impl Trajectory for DOrbitTrajectory {
             ));
         }
 
+        // Infer dimension from first state
+        let dimension = states[0].len();
+        if dimension < 6 {
+            return Err(BraheError::Error(format!(
+                "State dimension must be at least 6 (position + velocity), got {}",
+                dimension
+            )));
+        }
+
+        // Validate all states have the same dimension
+        for (i, state) in states.iter().enumerate() {
+            if state.len() != dimension {
+                return Err(BraheError::Error(format!(
+                    "State {} has dimension {} but expected {} (inferred from first state)",
+                    i,
+                    state.len(),
+                    dimension
+                )));
+            }
+        }
+
         // Ensure epochs are sorted
         let mut indices: Vec<usize> = (0..epochs.len()).collect();
         indices.sort_by(|&i, &j| epochs[i].partial_cmp(&epochs[j]).unwrap());
@@ -1003,6 +1164,7 @@ impl Trajectory for DOrbitTrajectory {
             stms: None,
             sensitivities: None,
             sensitivity_dimension: None,
+            dimension,
             interpolation_method: InterpolationMethod::Linear, // Default to Linear
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -1019,6 +1181,15 @@ impl Trajectory for DOrbitTrajectory {
     }
 
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
+        // Validate state dimension
+        if state.len() != self.dimension {
+            panic!(
+                "State dimension {} does not match trajectory dimension {}",
+                state.len(),
+                self.dimension
+            );
+        }
+
         // Find the correct position to insert based on epoch
         // Insert after any existing states at the same epoch to support
         // impulsive maneuvers where we want both pre- and post-maneuver states
@@ -1323,6 +1494,31 @@ impl DOrbitTrajectory {
         covariances: Option<Vec<DMatrix<f64>>>,
     ) -> Self {
         // Validate inputs
+        if states.is_empty() {
+            panic!("Cannot create trajectory from empty states");
+        }
+
+        // Infer dimension from first state
+        let dimension = states[0].len();
+        if dimension < 6 {
+            panic!(
+                "State dimension must be at least 6 (position + velocity), got {}",
+                dimension
+            );
+        }
+
+        // Validate all states have the same dimension
+        for (i, state) in states.iter().enumerate() {
+            if state.len() != dimension {
+                panic!(
+                    "State {} has dimension {} but expected {} (inferred from first state)",
+                    i,
+                    state.len(),
+                    dimension
+                );
+            }
+        }
+
         if frame == OrbitFrame::ECEF && representation == OrbitRepresentation::Keplerian {
             panic!("Keplerian elements should be in ECI frame");
         }
@@ -1358,6 +1554,7 @@ impl DOrbitTrajectory {
             stms: None,
             sensitivities: None,
             sensitivity_dimension: None,
+            dimension,
             interpolation_method: InterpolationMethod::Linear,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
@@ -1379,20 +1576,24 @@ impl DOrbitTrajectory {
     /// For Keplerian inputs, converts to Cartesian first.
     /// For ECEF/ITRF frames, uses epoch-dependent transformation.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Returns
-    /// New trajectory in ECI frame with Cartesian states.
+    /// New trajectory in ECI frame with Cartesian states, preserving dimension.
     pub fn to_eci(&self) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
-                // Just need to convert to Cartesian below
+                let angle_fmt = self
+                    .angle_format
+                    .expect("Keplerian representation must have angle_format");
+                // Convert Keplerian to Cartesian (first 6 elements only)
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
-                        dvec_to_svec6(s),
-                        self.angle_format
-                            .expect("Keplerian representation must have angle_format"),
-                    );
-                    states_converted.push(svec6_to_dvec(state_cartesian));
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        state_osculating_to_cartesian(orbital, angle_fmt)
+                    });
+                    states_converted.push(converted);
                 }
                 states_converted
             }
@@ -1402,8 +1603,11 @@ impl DOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
                         for (_e, s) in self.into_iter() {
-                            let state_gcrf = state_eme2000_to_gcrf(dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_gcrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_eme2000_to_gcrf(orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1411,8 +1615,11 @@ impl DOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
                         for (e, s) in self.into_iter() {
-                            let state_gcrf = state_itrf_to_gcrf(e, dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_gcrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_itrf_to_gcrf(e, orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1431,6 +1638,7 @@ impl DOrbitTrajectory {
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -1452,20 +1660,24 @@ impl DOrbitTrajectory {
     /// For Keplerian inputs, converts to Cartesian first.
     /// For ECEF/ITRF frames, uses epoch-dependent transformation.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Returns
-    /// New trajectory in GCRF frame with Cartesian states.
+    /// New trajectory in GCRF frame with Cartesian states, preserving dimension.
     pub fn to_gcrf(&self) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
-                // Just need to convert to Cartesian below
+                let angle_fmt = self
+                    .angle_format
+                    .expect("Keplerian representation must have angle_format");
+                // Convert Keplerian to Cartesian (first 6 elements only)
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
-                        dvec_to_svec6(s),
-                        self.angle_format
-                            .expect("Keplerian representation must have angle_format"),
-                    );
-                    states_converted.push(svec6_to_dvec(state_cartesian));
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        state_osculating_to_cartesian(orbital, angle_fmt)
+                    });
+                    states_converted.push(converted);
                 }
                 states_converted
             }
@@ -1475,8 +1687,11 @@ impl DOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
                         for (_e, s) in self.into_iter() {
-                            let state_gcrf = state_eme2000_to_gcrf(dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_gcrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_eme2000_to_gcrf(orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1484,8 +1699,11 @@ impl DOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
                         for (e, s) in self.into_iter() {
-                            let state_gcrf = state_itrf_to_gcrf(e, dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_gcrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_itrf_to_gcrf(e, orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1504,6 +1722,7 @@ impl DOrbitTrajectory {
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -1525,20 +1744,25 @@ impl DOrbitTrajectory {
     /// For Keplerian inputs, converts to Cartesian first.
     /// For ECI/GCRF/EME2000 frames, uses epoch-dependent transformation.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Returns
-    /// New trajectory in ECEF frame with Cartesian states.
+    /// New trajectory in ECEF frame with Cartesian states, preserving dimension.
     pub fn to_ecef(&self) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
-                // Just need to convert to Cartesian below
+                let angle_fmt = self
+                    .angle_format
+                    .expect("Keplerian representation must have angle_format");
+                // Convert Keplerian to Cartesian ECI, then to ECEF
                 for (e, s) in self.into_iter() {
-                    let state_eci = state_osculating_to_cartesian(
-                        dvec_to_svec6(s),
-                        self.angle_format
-                            .expect("Keplerian representation must have angle_format"),
-                    );
-                    states_converted.push(svec6_to_dvec(state_eci_to_ecef(e, state_eci)));
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        let state_eci = state_osculating_to_cartesian(orbital, angle_fmt);
+                        state_eci_to_ecef(e, state_eci)
+                    });
+                    states_converted.push(converted);
                 }
                 states_converted
             }
@@ -1546,11 +1770,14 @@ impl DOrbitTrajectory {
                 match self.frame {
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
+                        // EME2000 -> GCRF -> ITRF
                         for (e, s) in self.into_iter() {
-                            let state_itrf =
-                                state_gcrf_to_itrf(e, state_eme2000_to_gcrf(dvec_to_svec6(s)));
-                            states_converted.push(svec6_to_dvec(state_itrf));
+                            let converted =
+                                self.convert_orbital_preserving_additional(&s, |orbital| {
+                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
+                                    state_gcrf_to_itrf(e, state_gcrf)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1560,10 +1787,13 @@ impl DOrbitTrajectory {
                     }
                     OrbitFrame::ECI | OrbitFrame::GCRF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // GCRF/ECI to ITRF
                         for (e, s) in self.into_iter() {
-                            let state_itrf = state_gcrf_to_itrf(e, dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_itrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_gcrf_to_itrf(e, orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1578,6 +1808,7 @@ impl DOrbitTrajectory {
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -1599,21 +1830,25 @@ impl DOrbitTrajectory {
     /// For Keplerian inputs, converts to Cartesian first.
     /// For ECI/GCRF/EME2000 frames, uses epoch-dependent transformation.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Returns
-    /// New trajectory in ITRF frame with Cartesian states.
+    /// New trajectory in ITRF frame with Cartesian states, preserving dimension.
     pub fn to_itrf(&self) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
+                let angle_fmt = self
+                    .angle_format
+                    .expect("Keplerian representation must have angle_format");
                 // Keplerian to Cartesian (in GCRF/ECI), then GCRF to ITRF
                 for (e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
-                        dvec_to_svec6(s),
-                        self.angle_format
-                            .expect("Keplerian representation must have angle_format"),
-                    );
-                    let state_itrf = state_gcrf_to_itrf(e, state_cartesian);
-                    states_converted.push(svec6_to_dvec(state_itrf));
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        let state_cartesian = state_osculating_to_cartesian(orbital, angle_fmt);
+                        state_gcrf_to_itrf(e, state_cartesian)
+                    });
+                    states_converted.push(converted);
                 }
                 states_converted
             }
@@ -1621,11 +1856,14 @@ impl DOrbitTrajectory {
                 match self.frame {
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
+                        // EME2000 -> GCRF -> ITRF
                         for (e, s) in self.into_iter() {
-                            let state_itrf =
-                                state_gcrf_to_itrf(e, state_eme2000_to_gcrf(dvec_to_svec6(s)));
-                            states_converted.push(svec6_to_dvec(state_itrf));
+                            let converted =
+                                self.convert_orbital_preserving_additional(&s, |orbital| {
+                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
+                                    state_gcrf_to_itrf(e, state_gcrf)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1635,10 +1873,13 @@ impl DOrbitTrajectory {
                     }
                     OrbitFrame::ECI | OrbitFrame::GCRF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // GCRF/ECI to ITRF
                         for (e, s) in self.into_iter() {
-                            let state_itrf = state_gcrf_to_itrf(e, dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_itrf));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_gcrf_to_itrf(e, orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1653,6 +1894,7 @@ impl DOrbitTrajectory {
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -1674,20 +1916,25 @@ impl DOrbitTrajectory {
     /// For Keplerian inputs, converts to Cartesian first.
     /// For ECEF/ITRF frames, uses epoch-dependent transformation to GCRF first.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Returns
-    /// New trajectory in EME2000 frame with Cartesian states.
+    /// New trajectory in EME2000 frame with Cartesian states, preserving dimension.
     pub fn to_eme2000(&self) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
-                // Just need to convert to Cartesian below
+                let angle_fmt = self
+                    .angle_format
+                    .expect("Keplerian representation must have angle_format");
+                // Keplerian to Cartesian GCRF, then to EME2000
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_gcrf_to_eme2000(state_osculating_to_cartesian(
-                        dvec_to_svec6(s),
-                        self.angle_format
-                            .expect("Keplerian representation must have angle_format"),
-                    ));
-                    states_converted.push(svec6_to_dvec(state_cartesian));
+                    let converted = self.convert_orbital_preserving_additional(&s, |orbital| {
+                        let state_cartesian = state_osculating_to_cartesian(orbital, angle_fmt);
+                        state_gcrf_to_eme2000(state_cartesian)
+                    });
+                    states_converted.push(converted);
                 }
                 states_converted
             }
@@ -1699,20 +1946,26 @@ impl DOrbitTrajectory {
                     }
                     OrbitFrame::ITRF | OrbitFrame::ECEF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // ITRF/ECEF -> GCRF -> EME2000
                         for (e, s) in self.into_iter() {
-                            let state_gcrf =
-                                state_gcrf_to_eme2000(state_itrf_to_gcrf(e, dvec_to_svec6(s)));
-                            states_converted.push(svec6_to_dvec(state_gcrf));
+                            let converted =
+                                self.convert_orbital_preserving_additional(&s, |orbital| {
+                                    let state_gcrf = state_itrf_to_gcrf(e, orbital);
+                                    state_gcrf_to_eme2000(state_gcrf)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
                     OrbitFrame::ECI | OrbitFrame::GCRF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ECI/GCRF Cartesian to EME2000 Cartesian (no epoch needed)
+                        // ECI/GCRF to EME2000
                         for (_e, s) in self.into_iter() {
-                            let state_eme2000 = state_gcrf_to_eme2000(dvec_to_svec6(s));
-                            states_converted.push(svec6_to_dvec(state_eme2000));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_gcrf_to_eme2000(orbital)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1727,6 +1980,7 @@ impl DOrbitTrajectory {
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -1748,11 +2002,14 @@ impl DOrbitTrajectory {
     /// in the current frame. For Cartesian inputs, uses two-body conversion.
     /// For Keplerian inputs with different angle format, converts angles.
     ///
+    /// For extended states (dimension > 6), only the first 6 elements (orbital state)
+    /// are converted. Additional elements (6+) are preserved unchanged.
+    ///
     /// # Arguments
     /// * `angle_format` - Desired angle format (Radians or Degrees) for output elements
     ///
     /// # Returns
-    /// New trajectory with Keplerian representation in specified angle format.
+    /// New trajectory with Keplerian representation in specified angle format, preserving dimension.
     pub fn to_keplerian(&self, angle_format: AngleFormat) -> Self {
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
@@ -1763,26 +2020,26 @@ impl DOrbitTrajectory {
                     }
                     Some(current_format) => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // Convert angles
+                        let conversion_factor = if current_format == AngleFormat::Degrees
+                            && angle_format == AngleFormat::Radians
+                        {
+                            DEG2RAD
+                        } else if current_format == AngleFormat::Radians
+                            && angle_format == AngleFormat::Degrees
+                        {
+                            RAD2DEG
+                        } else {
+                            1.0
+                        };
+
+                        // Convert angles (elements 2-5 only, preserve additional states)
                         for (_e, s) in self.into_iter() {
-                            let mut state_converted = s;
-                            if current_format == AngleFormat::Degrees
-                                && angle_format == AngleFormat::Radians
-                            {
-                                // Degrees to Radians
-                                state_converted[2] *= DEG2RAD;
-                                state_converted[3] *= DEG2RAD;
-                                state_converted[4] *= DEG2RAD;
-                                state_converted[5] *= DEG2RAD;
-                            } else if current_format == AngleFormat::Radians
-                                && angle_format == AngleFormat::Degrees
-                            {
-                                // Radians to Degrees
-                                state_converted[2] *= RAD2DEG;
-                                state_converted[3] *= RAD2DEG;
-                                state_converted[4] *= RAD2DEG;
-                                state_converted[5] *= RAD2DEG;
-                            }
+                            let mut state_converted = s.clone();
+                            state_converted[2] *= conversion_factor;
+                            state_converted[3] *= conversion_factor;
+                            state_converted[4] *= conversion_factor;
+                            state_converted[5] *= conversion_factor;
+                            // Additional states (6+) already preserved in clone
                             states_converted.push(state_converted);
                         }
                         states_converted
@@ -1798,35 +2055,39 @@ impl DOrbitTrajectory {
                 match self.frame {
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // EME2000 -> GCRF -> Keplerian
                         for (_e, s) in self.into_iter() {
-                            let state = state_cartesian_to_osculating(
-                                state_eme2000_to_gcrf(dvec_to_svec6(s)),
-                                angle_format,
-                            );
-                            states_converted.push(svec6_to_dvec(state));
+                            let converted =
+                                self.convert_orbital_preserving_additional(&s, |orbital| {
+                                    let state_gcrf = state_eme2000_to_gcrf(orbital);
+                                    state_cartesian_to_osculating(state_gcrf, angle_format)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
                     OrbitFrame::ITRF | OrbitFrame::ECEF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // ITRF/ECEF -> ECI -> Keplerian
                         for (e, s) in self.into_iter() {
-                            let state = state_cartesian_to_osculating(
-                                state_ecef_to_eci(e, dvec_to_svec6(s)),
-                                angle_format,
-                            );
-                            states_converted.push(svec6_to_dvec(state));
+                            let converted =
+                                self.convert_orbital_preserving_additional(&s, |orbital| {
+                                    let state_eci = state_ecef_to_eci(e, orbital);
+                                    state_cartesian_to_osculating(state_eci, angle_format)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
                     OrbitFrame::ECI | OrbitFrame::GCRF => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
-                        // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
+                        // ECI/GCRF Cartesian -> Keplerian
                         for (_e, s) in self.into_iter() {
-                            let state =
-                                state_cartesian_to_osculating(dvec_to_svec6(s), angle_format);
-                            states_converted.push(svec6_to_dvec(state));
+                            let converted = self
+                                .convert_orbital_preserving_additional(&s, |orbital| {
+                                    state_cartesian_to_osculating(orbital, angle_format)
+                                });
+                            states_converted.push(converted);
                         }
                         states_converted
                     }
@@ -1841,6 +2102,7 @@ impl DOrbitTrajectory {
             stms: None,        // STMs are dropped during representation conversions
             sensitivities: None, // Sensitivities are dropped during representation conversions
             sensitivity_dimension: None,
+            dimension: self.dimension, // Preserve dimension
             interpolation_method: self.interpolation_method,
             covariance_interpolation_method: self.covariance_interpolation_method,
             eviction_policy: self.eviction_policy,
@@ -2440,14 +2702,18 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
-    use nalgebra::DVector;
+    use nalgebra::{DMatrix, DVector};
 
     #[test]
     fn test_dorbittrajectory_new() {
-        let traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         assert_eq!(traj.frame, OrbitFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(traj.dimension(), 6);
+        assert_eq!(traj.orbital_dimension(), 6);
+        assert_eq!(traj.additional_dimension(), 0);
         assert!(traj.is_empty());
     }
 
@@ -2456,12 +2722,14 @@ mod tests {
         let traj = DOrbitTrajectory::default();
         assert_eq!(traj.frame, OrbitFrame::ECI);
         assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
+        assert_eq!(traj.dimension(), 6);
         assert!(traj.is_empty());
     }
 
     #[test]
     fn test_dorbittrajectory_add_state() {
-        let mut traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
 
@@ -2477,10 +2745,249 @@ mod tests {
 
     #[test]
     fn test_dorbittrajectory_display() {
-        let traj = DOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         let display = format!("{}", traj);
         assert!(display.contains("DOrbitTrajectory"));
         assert!(display.contains("ECI"));
         assert!(display.contains("Cartesian"));
+    }
+
+    // ========== Extended State Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_extended_state_7d() {
+        let mut traj =
+            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.dimension(), 7);
+        assert_eq!(traj.orbital_dimension(), 6);
+        assert_eq!(traj.additional_dimension(), 1);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 42.0]);
+
+        traj.add(epoch, state.clone());
+
+        let (_, retrieved) = traj.get(0).unwrap();
+        assert_eq!(retrieved.len(), 7);
+        for i in 0..7 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-10);
+        }
+        // Verify additional state preserved
+        assert_abs_diff_eq!(retrieved[6], 42.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_extended_state_9d() {
+        let mut traj =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.dimension(), 9);
+        assert_eq!(traj.additional_dimension(), 3);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![
+            7000e3, 0.0, 0.0, // position
+            0.0, 7.5e3, 0.0, // velocity
+            1.0, 2.0, 3.0, // additional states
+        ]);
+
+        traj.add(epoch, state.clone());
+
+        let (_, retrieved) = traj.get(0).unwrap();
+        assert_eq!(retrieved.len(), 9);
+        // Verify additional states preserved
+        assert_abs_diff_eq!(retrieved[6], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved[7], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved[8], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "State dimension must be at least 6")]
+    fn test_dorbittrajectory_invalid_dimension() {
+        DOrbitTrajectory::new(5, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "State dimension 6 does not match trajectory dimension 7")]
+    fn test_dorbittrajectory_dimension_mismatch() {
+        let mut traj =
+            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]); // 6D state for 7D trajectory
+        traj.add(epoch, state);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_infers_dimension() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 10.0, 20.0]),
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 11.0, 21.0]),
+        ];
+
+        let traj = DOrbitTrajectory::from_data(epochs, states).unwrap();
+
+        assert_eq!(traj.dimension(), 8);
+        assert_eq!(traj.additional_dimension(), 2);
+        assert_eq!(traj.len(), 2);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_inconsistent_dimensions() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 10.0]), // 7D
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),       // 6D
+        ];
+
+        let result = DOrbitTrajectory::from_data(epochs, states);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("has dimension 6 but expected 7")
+        );
+    }
+
+    // ========== Conversion Preservation Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_frame_conversion_preserves_additional() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![
+            7000e3, 0.0, 0.0, // position
+            0.0, 7.5e3, 0.0, // velocity
+            10.0, 20.0, 30.0, // additional states
+        ]);
+
+        traj.add(epoch, state.clone());
+
+        // Convert ECI -> ECEF
+        let traj_ecef = traj.to_ecef();
+        assert_eq!(traj_ecef.dimension(), 9);
+        assert_eq!(traj_ecef.frame, OrbitFrame::ECEF);
+
+        let (_, state_ecef) = traj_ecef.get(0).unwrap();
+        // Orbital part should be different (transformed)
+        assert!(state_ecef[0] != state[0] || state_ecef[1] != state[1]);
+        // Additional part should be unchanged
+        assert_abs_diff_eq!(state_ecef[6], 10.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_ecef[7], 20.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_ecef[8], 30.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_gcrf_preserves_additional() {
+        let mut traj =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 100.0, 200.0, 300.0]);
+
+        traj.add(epoch, state.clone());
+
+        let traj_gcrf = traj.to_gcrf();
+        assert_eq!(traj_gcrf.dimension(), 9);
+
+        let (_, state_gcrf) = traj_gcrf.get(0).unwrap();
+        // Additional states preserved
+        assert_abs_diff_eq!(state_gcrf[6], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_gcrf[7], 200.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_gcrf[8], 300.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_itrf_preserves_additional() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(8, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 50.0, 60.0]);
+
+        traj.add(epoch, state.clone());
+
+        let traj_itrf = traj.to_itrf();
+        assert_eq!(traj_itrf.dimension(), 8);
+
+        let (_, state_itrf) = traj_itrf.get(0).unwrap();
+        assert_abs_diff_eq!(state_itrf[6], 50.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_itrf[7], 60.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eme2000_preserves_additional() {
+        let mut traj =
+            DOrbitTrajectory::new(7, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 999.0]);
+
+        traj.add(epoch, state.clone());
+
+        let traj_eme2000 = traj.to_eme2000();
+        assert_eq!(traj_eme2000.dimension(), 7);
+
+        let (_, state_eme2000) = traj_eme2000.get(0).unwrap();
+        assert_abs_diff_eq!(state_eme2000[6], 999.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_representation_conversion_preserves_additional() {
+        use crate::constants::{GM_EARTH, R_EARTH};
+
+        let mut traj =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create a simple circular orbit state
+        let a = R_EARTH + 500e3;
+        let v = (GM_EARTH / a).sqrt();
+        let state = DVector::from_vec(vec![
+            a, 0.0, 0.0, // position
+            0.0, v, 0.0, // velocity
+            11.0, 22.0, 33.0, // additional
+        ]);
+
+        traj.add(epoch, state.clone());
+
+        // Convert Cartesian -> Keplerian
+        let traj_kep = traj.to_keplerian(AngleFormat::Degrees);
+        assert_eq!(traj_kep.dimension(), 9);
+        assert_eq!(traj_kep.representation, OrbitRepresentation::Keplerian);
+
+        let (_, state_kep) = traj_kep.get(0).unwrap();
+        // Additional states should be preserved
+        assert_abs_diff_eq!(state_kep[6], 11.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_kep[7], 22.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(state_kep[8], 33.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_stays_6x6() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1.0, 2.0, 3.0]);
+        let cov = DMatrix::identity(6, 6);
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov.clone()]),
+        );
+
+        let retrieved_cov = traj.covariance_at(epoch).unwrap();
+        assert_eq!(retrieved_cov.nrows(), 6);
+        assert_eq!(retrieved_cov.ncols(), 6);
     }
 }

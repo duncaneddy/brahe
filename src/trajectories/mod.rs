@@ -30,6 +30,7 @@
  *
  * // Dynamic orbital trajectory - 6D with orbital-specific features
  * let mut dorbit_traj = DOrbitTrajectory::new(
+ *     6,  // dimension
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,

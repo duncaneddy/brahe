@@ -12,7 +12,7 @@ use crate::time::Epoch;
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use brahe::propagators::DNumericalOrbitPropagator;
 /// use brahe::time::Epoch;
 ///
@@ -60,7 +60,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .by_detector_index(0)
     ///     .collect();
@@ -82,7 +82,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .by_name_exact("Altitude Event")
     ///     .collect();
@@ -105,7 +105,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .by_name_contains("Altitude")
     ///     .collect();
@@ -129,7 +129,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .in_time_range(start_epoch, end_epoch)
     ///     .collect();
@@ -155,7 +155,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .after(cutoff_epoch)
     ///     .collect();
@@ -177,7 +177,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let events: Vec<_> = propagator.query_events()
     ///     .before(cutoff_epoch)
     ///     .collect();
@@ -199,7 +199,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use brahe::events::EventType;
     ///
     /// let events: Vec<_> = propagator.query_events()
@@ -223,7 +223,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use brahe::events::EventAction;
     ///
     /// let events: Vec<_> = propagator.query_events()

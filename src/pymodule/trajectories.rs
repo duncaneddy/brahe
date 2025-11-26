@@ -306,14 +306,25 @@ impl PyOrbitalTrajectory {
     ///     traj.add(epc, state_cart)
     ///     traj.add(epc + 60.0, state_cart)  # Add another state 60 seconds later
     ///     print(f"Trajectory has {traj.len()} states")
+    ///
+    ///     # Extended 9D trajectory (6D orbit + 3 additional states)
+    ///     traj_extended = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     ```
     #[new]
-    #[pyo3(signature = (frame, representation, angle_format=None), text_signature = "(frame, representation, angle_format=None)")]
+    #[pyo3(signature = (dimension, frame, representation, angle_format=None), text_signature = "(dimension, frame, representation, angle_format=None)")]
     pub fn new(
+        dimension: usize,
         frame: PyRef<PyOrbitFrame>,
         representation: PyRef<PyOrbitRepresentation>,
         angle_format: Option<PyRef<PyAngleFormat>>,
     ) -> PyResult<Self> {
+        // Validate dimension
+        if dimension < 6 {
+            return Err(exceptions::PyValueError::new_err(
+                format!("State dimension must be at least 6 (position + velocity), got {}", dimension)
+            ));
+        }
+
         // Validate: Cartesian must have None, Keplerian must have Some
         match (representation.representation, &angle_format) {
             (trajectories::traits::OrbitRepresentation::Cartesian, Some(_)) => {
@@ -332,6 +343,7 @@ impl PyOrbitalTrajectory {
         let angle_fmt = angle_format.as_ref().map(|af| af.value);
 
         let trajectory = trajectories::DOrbitTrajectory::new(
+            dimension,
             frame.frame,
             representation.representation,
             angle_fmt,
@@ -621,42 +633,89 @@ impl PyOrbitalTrajectory {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"Dimension: {traj.dimension()}")
+    ///     print(f"Orbital dimension: {traj.orbital_dimension()}")
+    ///     print(f"Additional dimension: {traj.additional_dimension()}")
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn dimension(&self) -> usize {
-        6
+        self.trajectory.dimension()
+    }
+
+    /// Get the orbital state dimension (always 6).
+    ///
+    /// The orbital state consists of position (3) and velocity (3) components.
+    ///
+    /// Returns:
+    ///     int: Always returns 6
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     print(f"Orbital dimension: {traj.orbital_dimension()}")  # 6
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn orbital_dimension(&self) -> usize {
+        self.trajectory.orbital_dimension()
+    }
+
+    /// Get the number of additional state elements beyond the orbital state.
+    ///
+    /// Returns:
+    ///     int: Number of additional states (dimension - 6)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     print(f"Additional dimension: {traj.additional_dimension()}")  # 3
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn additional_dimension(&self) -> usize {
+        self.trajectory.additional_dimension()
     }
 
     /// Add a state to the trajectory.
     ///
     /// Args:
     ///     epoch (Epoch): Time of the state
-    ///     state (numpy.ndarray): 6-element state vector
+    ///     state (numpy.ndarray): State vector with dimension matching trajectory's dimension
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     # Standard 6D trajectory
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
     ///     traj.add(epc, state)
+    ///
+    ///     # Extended 9D trajectory
+    ///     traj_ext = bh.OrbitTrajectory(9, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     state_ext = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0, 1.0, 2.0, 3.0])
+    ///     traj_ext.add(epc, state_ext)
     ///     ```
     #[pyo3(text_signature = "(epoch, state)")]
     pub fn add(&mut self, epoch: PyRef<PyEpoch>, state: PyReadonlyArray1<f64>) -> PyResult<()> {
         let state_array = state.as_array();
-        if state_array.len() != 6 {
+        let expected_dim = self.trajectory.dimension();
+
+        if state_array.len() != expected_dim {
             return Err(exceptions::PyValueError::new_err(
-                "State vector must have exactly 6 elements"
+                format!("State vector dimension {} does not match trajectory dimension {}",
+                        state_array.len(), expected_dim)
             ));
         }
 
-        let state_vec = na::Vector6::from_row_slice(state_array.as_slice().unwrap());
+        let state_vec = na::DVector::from_row_slice(state_array.as_slice().unwrap());
 
-        self.trajectory.add(epoch.obj, na::DVector::from_iterator(6, state_vec.iter().copied()));
+        self.trajectory.add(epoch.obj, state_vec);
         Ok(())
     }
 

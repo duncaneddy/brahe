@@ -259,6 +259,19 @@ pub trait SEventDetector<const S: usize, const P: usize>: Send + Sync + std::any
         1e-6
     }
 
+    /// Get step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the search bracket is narrowed and
+    /// the new step size is set to this factor times the bracket width.
+    /// Smaller values (e.g., 0.1) result in more conservative steps but
+    /// potentially more iterations. Larger values (e.g., 0.5) are more
+    /// aggressive but may overshoot.
+    ///
+    /// Default: 0.2 (1/5th of bracket width)
+    fn step_reduction_factor(&self) -> f64 {
+        0.2
+    }
+
     /// Get optional callback to execute when event is detected
     fn callback(&self) -> Option<&SEventCallback<S, P>> {
         None
@@ -310,6 +323,15 @@ pub trait DEventDetector: Send + Sync + std::any::Any {
     /// Get value tolerance
     fn value_tolerance(&self) -> f64 {
         1e-6
+    }
+
+    /// Get step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the search bracket is narrowed and
+    /// the new step size is set to this factor times the bracket width.
+    /// Default: 0.2 (1/5th of bracket width)
+    fn step_reduction_factor(&self) -> f64 {
+        0.2
     }
 
     /// Get optional callback

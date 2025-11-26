@@ -47,6 +47,10 @@ macro_rules! impl_sevent_detector_delegate {
                 self.$inner.value_tolerance()
             }
 
+            fn step_reduction_factor(&self) -> f64 {
+                self.$inner.step_reduction_factor()
+            }
+
             fn callback(&self) -> Option<&SEventCallback<$s, $p>> {
                 self.$inner.callback()
             }
@@ -89,6 +93,10 @@ macro_rules! impl_devent_detector_delegate {
 
             fn value_tolerance(&self) -> f64 {
                 self.$inner.value_tolerance()
+            }
+
+            fn step_reduction_factor(&self) -> f64 {
+                self.$inner.step_reduction_factor()
             }
 
             fn callback(&self) -> Option<&DEventCallback> {
@@ -173,6 +181,15 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
         self
     }
 
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
+        self
+    }
+
     /// Set event callback
     pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
         self.inner = self.inner.with_callback(callback);
@@ -236,6 +253,15 @@ impl DAltitudeEvent {
     /// Set custom tolerances for event detection
     pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
         self.inner = self.inner.with_tolerances(time_tol, value_tol);
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
         self
     }
 

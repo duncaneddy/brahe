@@ -35,6 +35,7 @@ pub struct STimeEvent<const S: usize, const P: usize> {
     callback: Option<SEventCallback<S, P>>,
     action: EventAction,
     time_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl<const S: usize, const P: usize> STimeEvent<S, P> {
@@ -48,6 +49,7 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
             callback: None,
             action: EventAction::Continue,
             time_tol: 1e-6,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -78,6 +80,15 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
     /// * `time_tol` - Time tolerance in seconds (default: 1e-6)
     pub fn with_time_tolerance(mut self, time_tol: f64) -> Self {
         self.time_tol = time_tol;
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
         self
     }
 }
@@ -111,6 +122,10 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
     fn time_tolerance(&self) -> f64 {
         self.time_tol
     }
+
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
+    }
 }
 
 /// Dynamic-sized time event
@@ -124,6 +139,7 @@ pub struct DTimeEvent {
     callback: Option<DEventCallback>,
     action: EventAction,
     time_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl DTimeEvent {
@@ -137,6 +153,7 @@ impl DTimeEvent {
             callback: None,
             action: EventAction::Continue,
             time_tol: 1e-6,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -169,6 +186,15 @@ impl DTimeEvent {
         self.time_tol = time_tol;
         self
     }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
+        self
+    }
 }
 
 impl DEventDetector for DTimeEvent {
@@ -194,6 +220,10 @@ impl DEventDetector for DTimeEvent {
 
     fn time_tolerance(&self) -> f64 {
         self.time_tol
+    }
+
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
     }
 }
 
@@ -231,6 +261,7 @@ pub struct SThresholdEvent<const S: usize, const P: usize> {
     action: EventAction,
     time_tol: f64,
     value_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
@@ -261,6 +292,7 @@ impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
             action: EventAction::Continue,
             time_tol: 1e-6,
             value_tol: 1e-9,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -274,6 +306,15 @@ impl<const S: usize, const P: usize> SThresholdEvent<S, P> {
     pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
         self.time_tol = time_tol;
         self.value_tol = value_tol;
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
         self
     }
 
@@ -316,6 +357,10 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for SThresholdEvent<S,
         self.value_tol
     }
 
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
+    }
+
     fn callback(&self) -> Option<&SEventCallback<S, P>> {
         self.callback.as_ref()
     }
@@ -340,6 +385,7 @@ pub struct DThresholdEvent {
     action: EventAction,
     time_tol: f64,
     value_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl DThresholdEvent {
@@ -364,6 +410,7 @@ impl DThresholdEvent {
             action: EventAction::Continue,
             time_tol: 1e-6,
             value_tol: 1e-9,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -377,6 +424,15 @@ impl DThresholdEvent {
     pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
         self.time_tol = time_tol;
         self.value_tol = value_tol;
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
         self
     }
 
@@ -416,6 +472,10 @@ impl DEventDetector for DThresholdEvent {
 
     fn value_tolerance(&self) -> f64 {
         self.value_tol
+    }
+
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
     }
 
     fn callback(&self) -> Option<&DEventCallback> {
@@ -461,6 +521,7 @@ pub struct SBinaryEvent<const S: usize, const P: usize> {
     action: EventAction,
     time_tol: f64,
     value_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
@@ -484,6 +545,7 @@ impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
             action: EventAction::Continue,
             time_tol: 1e-6,
             value_tol: 1e-9,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -497,6 +559,15 @@ impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
     pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
         self.time_tol = time_tol;
         self.value_tol = value_tol;
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
         self
     }
 
@@ -548,6 +619,10 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for SBinaryEvent<S, P>
         self.value_tol
     }
 
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
+    }
+
     fn callback(&self) -> Option<&SEventCallback<S, P>> {
         self.callback.as_ref()
     }
@@ -571,6 +646,7 @@ pub struct DBinaryEvent {
     action: EventAction,
     time_tol: f64,
     value_tol: f64,
+    step_reduction_factor: f64,
 }
 
 impl DBinaryEvent {
@@ -589,6 +665,7 @@ impl DBinaryEvent {
             action: EventAction::Continue,
             time_tol: 1e-6,
             value_tol: 1e-9,
+            step_reduction_factor: 0.2,
         }
     }
 
@@ -602,6 +679,15 @@ impl DBinaryEvent {
     pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
         self.time_tol = time_tol;
         self.value_tol = value_tol;
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search
+    ///
+    /// When a zero-crossing is detected, the new step size is set to this
+    /// factor times the bracket width. Default: 0.2
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.step_reduction_factor = factor;
         self
     }
 
@@ -649,6 +735,10 @@ impl DEventDetector for DBinaryEvent {
 
     fn value_tolerance(&self) -> f64 {
         self.value_tol
+    }
+
+    fn step_reduction_factor(&self) -> f64 {
+        self.step_reduction_factor
     }
 
     fn callback(&self) -> Option<&DEventCallback> {

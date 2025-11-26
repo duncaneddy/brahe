@@ -24,20 +24,21 @@ pub enum StepDirection {
 
 /// Find event time using bisection search (static-sized)
 ///
-/// Uses recursive bisection to refine the event time to within the specified
-/// tolerance. The algorithm steps in the given direction until the event
-/// function changes sign, then recursively bisects the interval.
+/// Uses bracketing bisection to refine the event time to within the specified
+/// tolerance. The algorithm maintains explicit bracket bounds around the event
+/// and narrows them on each crossing detection until the bracket width is less
+/// than or equal to the time tolerance.
 ///
 /// # Arguments
 /// * `detector` - Event detector to evaluate
 /// * `state_fn` - Function to get state at a given time (from integrator)
-/// * `time` - Starting time
+/// * `start_time` - Starting time for this search iteration
 /// * `direction` - Step direction (forward/backward)
 /// * `step` - Step size (seconds)
-/// * `current_value` - Event function value at starting time
+/// * `start_crossing` - Event function value at starting time (relative to threshold)
 /// * `params` - Optional parameter vector
-/// * `search_start_time` - Start of search window (events before this are not detected)
-/// * `search_end_time` - End of search window (events after this are not detected)
+/// * `bracket_low` - Lower bound of search bracket (earlier time)
+/// * `bracket_high` - Upper bound of search bracket (later time)
 ///
 /// # Returns
 /// Event time and state, or None if no event found within search window
@@ -45,173 +46,288 @@ pub enum StepDirection {
 pub(crate) fn bisection_search<const S: usize, const P: usize, F>(
     detector: &dyn SEventDetector<S, P>,
     state_fn: &F,
-    time: Epoch,
+    start_time: Epoch,
     direction: StepDirection,
     step: f64,
-    mut current_crossing: f64,
+    start_crossing: f64,
     params: Option<&SVector<f64, P>>,
-    search_start_time: Epoch,
-    search_end_time: Epoch,
+    bracket_low: Epoch,
+    bracket_high: Epoch,
 ) -> Option<(Epoch, SVector<f64, S>)>
 where
     F: Fn(Epoch) -> SVector<f64, S>,
 {
-    let mut current_time = time;
-    let mut steps_taken = 0;
-    const MAX_STEPS: usize = 10000; // Safety limit
-
     let time_tol = detector.time_tolerance();
     let value_tol = detector.value_tolerance();
-    let dir = detector.direction();
+    let step_factor = detector.step_reduction_factor();
     let threshold = detector.threshold();
 
-    // Check if we're already at the event
-    if current_crossing.abs() < value_tol {
-        let state = state_fn(time);
-        return Some((time, state));
+    // TERMINATION: Bracket is tight enough
+    let bracket_width = (bracket_high - bracket_low).abs();
+    if bracket_width <= time_tol {
+        // Return the midpoint of the bracket
+        let mid_time = bracket_low + bracket_width / 2.0;
+        let mid_state = state_fn(mid_time);
+        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - threshold;
+
+        // Validate: prefer midpoint if within tolerance
+        if mid_crossing.abs() <= value_tol {
+            return Some((mid_time, mid_state));
+        }
+
+        // Try endpoints
+        let low_state = state_fn(bracket_low);
+        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - threshold;
+        if low_crossing.abs() <= value_tol {
+            return Some((bracket_low, low_state));
+        }
+
+        let high_state = state_fn(bracket_high);
+        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - threshold;
+        if high_crossing.abs() <= value_tol {
+            return Some((bracket_high, high_state));
+        }
+
+        // Fallback: return midpoint (guaranteed crossing exists between bounds)
+        return Some((mid_time, mid_state));
     }
 
+    // Already at event?
+    if start_crossing.abs() < value_tol {
+        return Some((start_time, state_fn(start_time)));
+    }
+
+    let mut current_time = start_time;
+    let mut current_crossing = start_crossing;
+    let mut steps_taken = 0;
+    const MAX_STEPS: usize = 10000;
+
     loop {
-        // Take a step
-        let next_time = match direction {
+        // Calculate next time based on step direction
+        let mut next_time = match direction {
             StepDirection::Forward => current_time + step,
             StepDirection::Backward => current_time - step,
         };
 
-        // Check search window bounds
-        if next_time < search_start_time || next_time > search_end_time || steps_taken >= MAX_STEPS
-        {
+        // Clamp to bracket bounds
+        if next_time < bracket_low {
+            next_time = bracket_low;
+        } else if next_time > bracket_high {
+            next_time = bracket_high;
+        }
+
+        // No progress possible - validate and return
+        if next_time == current_time {
+            let state = state_fn(current_time);
+            let crossing = detector.evaluate(current_time, &state, params) - threshold;
+            if crossing.abs() <= value_tol {
+                return Some((current_time, state));
+            }
             return None;
         }
 
-        current_time = next_time;
         steps_taken += 1;
-
-        // Evaluate event function at new time
-        let state = state_fn(current_time);
-        let next_value = detector.evaluate(current_time, &state, params);
-        let next_crossing = next_value - threshold;
-
-        // Check for zero crossing based on direction
-        let crossed = match dir {
-            EventDirection::Increasing => current_crossing < 0.0 && next_crossing >= 0.0,
-            EventDirection::Decreasing => current_crossing > 0.0 && next_crossing <= 0.0,
-            EventDirection::Any => {
-                (current_crossing < 0.0 && next_crossing >= 0.0)
-                    || (current_crossing > 0.0 && next_crossing <= 0.0)
-            }
-        };
-
-        if crossed || next_crossing.abs() < value_tol {
-            // Found event or close enough to zero
-            if step < time_tol {
-                return Some((current_time, state));
-            } else {
-                // Recurse with smaller step
-                let new_direction = match direction {
-                    StepDirection::Forward => StepDirection::Backward,
-                    StepDirection::Backward => StepDirection::Forward,
-                };
-                return bisection_search(
-                    detector,
-                    state_fn,
-                    current_time,
-                    new_direction,
-                    step / 2.0,
-                    next_crossing,
-                    params,
-                    search_start_time,
-                    search_end_time,
-                );
-            }
+        if steps_taken >= MAX_STEPS {
+            return None;
         }
 
-        // Update current_crossing for next iteration
+        // Evaluate at next time
+        let next_state = state_fn(next_time);
+        let next_crossing = detector.evaluate(next_time, &next_state, params) - threshold;
+
+        // During bisection refinement, we're looking for ANY sign change
+        // because we know there's a crossing in the bracket. The original
+        // detection direction was already verified by sscan_for_event.
+        let crossed = (current_crossing < 0.0 && next_crossing >= 0.0)
+            || (current_crossing > 0.0 && next_crossing <= 0.0);
+
+        if crossed || next_crossing.abs() < value_tol {
+            // Found crossing! Update bracket based on step direction
+            // The crossing is between current_time and next_time
+            let (new_low, new_high) = match direction {
+                StepDirection::Forward => {
+                    // Stepped forward: event between current_time and next_time
+                    (current_time, next_time)
+                }
+                StepDirection::Backward => {
+                    // Stepped backward: event between next_time and current_time
+                    (next_time, current_time)
+                }
+            };
+
+            // Calculate new step size as fraction of new bracket width
+            let new_bracket_width = (new_high - new_low).abs();
+            let new_step = step_factor * new_bracket_width;
+
+            // Reverse direction and continue search from the crossing point
+            let new_direction = match direction {
+                StepDirection::Forward => StepDirection::Backward,
+                StepDirection::Backward => StepDirection::Forward,
+            };
+
+            // Recurse with narrowed bracket
+            return bisection_search(
+                detector,
+                state_fn,
+                next_time,
+                new_direction,
+                new_step,
+                next_crossing,
+                params,
+                new_low,
+                new_high,
+            );
+        }
+
+        // No crossing yet, continue stepping
+        current_time = next_time;
         current_crossing = next_crossing;
     }
 }
 
 /// Find event time using bisection search (dynamic-sized)
+///
+/// Uses bracketing bisection to refine the event time to within the specified
+/// tolerance. See `bisection_search` for algorithm details.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn bisection_search_d<F>(
     detector: &dyn DEventDetector,
     state_fn: &F,
-    time: Epoch,
+    start_time: Epoch,
     direction: StepDirection,
     step: f64,
-    mut current_crossing: f64,
+    start_crossing: f64,
     params: Option<&DVector<f64>>,
-    search_start_time: Epoch,
-    search_end_time: Epoch,
+    bracket_low: Epoch,
+    bracket_high: Epoch,
 ) -> Option<(Epoch, DVector<f64>)>
 where
     F: Fn(Epoch) -> DVector<f64>,
 {
-    let mut current_time = time;
+    let time_tol = detector.time_tolerance();
+    let value_tol = detector.value_tolerance();
+    let step_factor = detector.step_reduction_factor();
+    let threshold = detector.threshold();
+
+    // TERMINATION: Bracket is tight enough
+    let bracket_width = (bracket_high - bracket_low).abs();
+    if bracket_width <= time_tol {
+        // Return the midpoint of the bracket
+        let mid_time = bracket_low + bracket_width / 2.0;
+        let mid_state = state_fn(mid_time);
+        let mid_crossing = detector.evaluate(mid_time, &mid_state, params) - threshold;
+
+        // Validate: prefer midpoint if within tolerance
+        if mid_crossing.abs() <= value_tol {
+            return Some((mid_time, mid_state));
+        }
+
+        // Try endpoints
+        let low_state = state_fn(bracket_low);
+        let low_crossing = detector.evaluate(bracket_low, &low_state, params) - threshold;
+        if low_crossing.abs() <= value_tol {
+            return Some((bracket_low, low_state));
+        }
+
+        let high_state = state_fn(bracket_high);
+        let high_crossing = detector.evaluate(bracket_high, &high_state, params) - threshold;
+        if high_crossing.abs() <= value_tol {
+            return Some((bracket_high, high_state));
+        }
+
+        // Fallback: return midpoint (guaranteed crossing exists between bounds)
+        return Some((mid_time, mid_state));
+    }
+
+    // Already at event?
+    if start_crossing.abs() < value_tol {
+        return Some((start_time, state_fn(start_time)));
+    }
+
+    let mut current_time = start_time;
+    let mut current_crossing = start_crossing;
     let mut steps_taken = 0;
     const MAX_STEPS: usize = 10000;
 
-    let time_tol = detector.time_tolerance();
-    let value_tol = detector.value_tolerance();
-    let dir = detector.direction();
-    let threshold = detector.threshold();
-
-    // Check if we're already at the event
-    if current_crossing.abs() < value_tol {
-        let state = state_fn(time);
-        return Some((time, state));
-    }
-
     loop {
-        let next_time = match direction {
+        // Calculate next time based on step direction
+        let mut next_time = match direction {
             StepDirection::Forward => current_time + step,
             StepDirection::Backward => current_time - step,
         };
 
-        if next_time < search_start_time || next_time > search_end_time || steps_taken >= MAX_STEPS
-        {
+        // Clamp to bracket bounds
+        if next_time < bracket_low {
+            next_time = bracket_low;
+        } else if next_time > bracket_high {
+            next_time = bracket_high;
+        }
+
+        // No progress possible - validate and return
+        if next_time == current_time {
+            let state = state_fn(current_time);
+            let crossing = detector.evaluate(current_time, &state, params) - threshold;
+            if crossing.abs() <= value_tol {
+                return Some((current_time, state));
+            }
             return None;
         }
 
-        current_time = next_time;
         steps_taken += 1;
-
-        let state = state_fn(current_time);
-        let next_value = detector.evaluate(current_time, &state, params);
-        let next_crossing = next_value - threshold;
-
-        let crossed = match dir {
-            EventDirection::Increasing => current_crossing < 0.0 && next_crossing >= 0.0,
-            EventDirection::Decreasing => current_crossing > 0.0 && next_crossing <= 0.0,
-            EventDirection::Any => {
-                (current_crossing < 0.0 && next_crossing >= 0.0)
-                    || (current_crossing > 0.0 && next_crossing <= 0.0)
-            }
-        };
-
-        if crossed || next_crossing.abs() < value_tol {
-            if step < time_tol {
-                return Some((current_time, state));
-            } else {
-                let new_direction = match direction {
-                    StepDirection::Forward => StepDirection::Backward,
-                    StepDirection::Backward => StepDirection::Forward,
-                };
-                return bisection_search_d(
-                    detector,
-                    state_fn,
-                    current_time,
-                    new_direction,
-                    step / 2.0,
-                    next_crossing,
-                    params,
-                    search_start_time,
-                    search_end_time,
-                );
-            }
+        if steps_taken >= MAX_STEPS {
+            return None;
         }
 
-        // Update current_crossing for next iteration
+        // Evaluate at next time
+        let next_state = state_fn(next_time);
+        let next_crossing = detector.evaluate(next_time, &next_state, params) - threshold;
+
+        // During bisection refinement, we're looking for ANY sign change
+        // because we know there's a crossing in the bracket. The original
+        // detection direction was already verified by dscan_for_event.
+        let crossed = (current_crossing < 0.0 && next_crossing >= 0.0)
+            || (current_crossing > 0.0 && next_crossing <= 0.0);
+
+        if crossed || next_crossing.abs() < value_tol {
+            // Found crossing! Update bracket based on step direction
+            // The crossing is between current_time and next_time
+            let (new_low, new_high) = match direction {
+                StepDirection::Forward => {
+                    // Stepped forward: event between current_time and next_time
+                    (current_time, next_time)
+                }
+                StepDirection::Backward => {
+                    // Stepped backward: event between next_time and current_time
+                    (next_time, current_time)
+                }
+            };
+
+            // Calculate new step size as fraction of new bracket width
+            let new_bracket_width = (new_high - new_low).abs();
+            let new_step = step_factor * new_bracket_width;
+
+            // Reverse direction and continue search from the crossing point
+            let new_direction = match direction {
+                StepDirection::Forward => StepDirection::Backward,
+                StepDirection::Backward => StepDirection::Forward,
+            };
+
+            // Recurse with narrowed bracket
+            return bisection_search_d(
+                detector,
+                state_fn,
+                next_time,
+                new_direction,
+                new_step,
+                next_crossing,
+                params,
+                new_low,
+                new_high,
+            );
+        }
+
+        // No crossing yet, continue stepping
+        current_time = next_time;
         current_crossing = next_crossing;
     }
 }
@@ -476,5 +592,291 @@ mod tests {
         assert!(time_error < detector.time_tolerance());
         assert_eq!(event.name, "Scan Test");
         assert_eq!(event.detector_index, 0);
+    }
+
+    /// Configurable time event with custom step reduction factor
+    struct ConfigurableTimeEvent {
+        target_time: Epoch,
+        name: String,
+        step_factor: f64,
+        time_tol: f64,
+    }
+
+    impl SEventDetector<6, 0> for ConfigurableTimeEvent {
+        fn evaluate(
+            &self,
+            t: Epoch,
+            _state: &SVector<f64, 6>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> f64 {
+            t - self.target_time
+        }
+
+        fn threshold(&self) -> f64 {
+            0.0
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn step_reduction_factor(&self) -> f64 {
+            self.step_factor
+        }
+
+        fn time_tolerance(&self) -> f64 {
+            self.time_tol
+        }
+    }
+
+    #[test]
+    fn test_step_reduction_factor_is_used() {
+        // Test that a custom step reduction factor is used in the bisection
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let target_epoch = start_epoch + 100.0;
+
+        // Very aggressive step factor (0.5) should still converge
+        let detector = ConfigurableTimeEvent {
+            target_time: target_epoch,
+            name: "Aggressive Step".to_string(),
+            step_factor: 0.5,
+            time_tol: 1e-3,
+        };
+
+        let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
+        let initial_crossing = initial_value - detector.threshold();
+
+        let result = bisection_search(
+            &detector,
+            &state_fn,
+            start_epoch,
+            StepDirection::Forward,
+            10.0,
+            initial_crossing,
+            None,
+            start_epoch,
+            start_epoch + 200.0,
+        );
+
+        assert!(result.is_some());
+        let (event_time, _) = result.unwrap();
+        let time_error = (event_time - target_epoch).abs();
+        assert!(time_error < detector.time_tolerance());
+    }
+
+    #[test]
+    fn test_bracket_termination() {
+        // Test that search terminates when bracket is tight enough
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let target_epoch = start_epoch + 50.0;
+
+        let detector = ConfigurableTimeEvent {
+            target_time: target_epoch,
+            name: "Tight Bracket".to_string(),
+            step_factor: 0.2,
+            time_tol: 1e-6, // Very tight tolerance
+        };
+
+        let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
+        let initial_crossing = initial_value - detector.threshold();
+
+        let result = bisection_search(
+            &detector,
+            &state_fn,
+            start_epoch,
+            StepDirection::Forward,
+            5.0,
+            initial_crossing,
+            None,
+            start_epoch,
+            start_epoch + 100.0,
+        );
+
+        assert!(result.is_some());
+        let (event_time, _) = result.unwrap();
+        let time_error = (event_time - target_epoch).abs();
+
+        // Should be within the tight tolerance
+        assert!(time_error < detector.time_tolerance());
+    }
+
+    #[test]
+    fn test_event_near_bracket_boundary() {
+        // Test finding an event very close to the end of the search window
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let target_epoch = start_epoch + 99.5; // Near the end of the 100s window
+
+        let detector = SimpleTimeEvent {
+            target_time: target_epoch,
+            name: "Near Boundary".to_string(),
+        };
+
+        let state_fn = |_t: Epoch| Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        let initial_value = detector.evaluate(start_epoch, &state_fn(start_epoch), None);
+        let initial_crossing = initial_value - detector.threshold();
+
+        let result = bisection_search(
+            &detector,
+            &state_fn,
+            start_epoch,
+            StepDirection::Forward,
+            10.0,
+            initial_crossing,
+            None,
+            start_epoch,
+            start_epoch + 100.0,
+        );
+
+        assert!(result.is_some());
+        let (event_time, _) = result.unwrap();
+        let time_error = (event_time - target_epoch).abs();
+        assert!(time_error < detector.time_tolerance());
+    }
+
+    // =========================================================================
+    // Dynamic-sized threshold event tests
+    // =========================================================================
+
+    use crate::events::DThresholdEvent;
+
+    #[test]
+    fn test_dscan_threshold_event_position_crossing() {
+        // Simulate SHO: position crosses from positive to negative
+        // x_prev = [1.0, 0.0] (position=1, velocity=0)
+        // x_new = [-0.4, -0.9] (position=-0.4, velocity=-0.9)
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end_epoch = start_epoch + 2.0; // 2 seconds
+
+        let x_prev = DVector::from_vec(vec![1.0, 0.0]);
+        let x_new = DVector::from_vec(vec![-0.4, -0.9]);
+
+        // Clone for closure
+        let x_prev_clone = x_prev.clone();
+        let x_new_clone = x_new.clone();
+
+        // Linear interpolation for state function
+        let state_fn = move |t: Epoch| -> DVector<f64> {
+            let alpha = (t - start_epoch) / (end_epoch - start_epoch);
+            &x_prev_clone + (&x_new_clone - &x_prev_clone) * alpha
+        };
+
+        // Threshold event: detect when position (state[0]) crosses 0
+        let value_fn =
+            |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
+        let detector = DThresholdEvent::new(
+            "PositionCrossing",
+            value_fn,
+            0.0,                        // threshold
+            EventDirection::Decreasing, // detect positive -> negative crossing
+        );
+
+        let result = dscan_for_event(
+            &detector,
+            0,
+            &state_fn,
+            start_epoch,
+            end_epoch,
+            &x_prev,
+            &x_new,
+            None,
+        );
+
+        assert!(
+            result.is_some(),
+            "Should detect position crossing from 1.0 to -0.4"
+        );
+
+        let event = result.unwrap();
+        // Position should be close to 0 at event time
+        assert!(
+            event.value.abs() < 0.01,
+            "Event value should be close to threshold 0, got {}",
+            event.value
+        );
+    }
+
+    #[test]
+    fn test_dscan_threshold_event_no_crossing() {
+        // Position stays positive - no crossing should be detected
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end_epoch = start_epoch + 2.0;
+
+        let x_prev = DVector::from_vec(vec![1.0, 0.0]);
+        let x_new = DVector::from_vec(vec![0.5, -0.5]); // Still positive
+
+        let state_fn = |t: Epoch| -> DVector<f64> {
+            let alpha = (t - start_epoch) / (end_epoch - start_epoch);
+            &x_prev + (&x_new - &x_prev) * alpha
+        };
+
+        let value_fn =
+            |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
+        let detector = DThresholdEvent::new(
+            "PositionCrossing",
+            value_fn,
+            0.0,
+            EventDirection::Decreasing,
+        );
+
+        let result = dscan_for_event(
+            &detector,
+            0,
+            &state_fn,
+            start_epoch,
+            end_epoch,
+            &x_prev,
+            &x_new,
+            None,
+        );
+
+        assert!(
+            result.is_none(),
+            "Should not detect crossing when position stays positive"
+        );
+    }
+
+    #[test]
+    fn test_dscan_threshold_event_increasing_direction() {
+        // Position crosses from negative to positive (increasing)
+        let start_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end_epoch = start_epoch + 2.0;
+
+        let x_prev = DVector::from_vec(vec![-0.4, 0.9]);
+        let x_new = DVector::from_vec(vec![1.0, 0.0]); // Position goes positive
+
+        let state_fn = |t: Epoch| -> DVector<f64> {
+            let alpha = (t - start_epoch) / (end_epoch - start_epoch);
+            &x_prev + (&x_new - &x_prev) * alpha
+        };
+
+        let value_fn =
+            |_epoch: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| state[0];
+        let detector = DThresholdEvent::new(
+            "PositionCrossing",
+            value_fn,
+            0.0,
+            EventDirection::Increasing, // detect negative -> positive
+        );
+
+        let result = dscan_for_event(
+            &detector,
+            0,
+            &state_fn,
+            start_epoch,
+            end_epoch,
+            &x_prev,
+            &x_new,
+            None,
+        );
+
+        assert!(
+            result.is_some(),
+            "Should detect increasing crossing from -0.4 to 1.0"
+        );
     }
 }

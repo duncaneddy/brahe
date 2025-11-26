@@ -8,7 +8,7 @@
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use nalgebra::SMatrix;
+use nalgebra::{DMatrix, SMatrix};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -599,6 +599,126 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     fn to_keplerian(&self, angle_format: AngleFormat) -> Self
     where
         Self: Sized;
+}
+
+/// Trait for trajectories that support State Transition Matrix (STM) storage and retrieval.
+///
+/// The STM relates how state perturbations propagate: Φ(t,t₀) = ∂x(t)/∂x(t₀).
+/// Implementations must provide storage accessors and dimension info; the `stm_at()`
+/// method has a default implementation using linear interpolation.
+pub trait STMStorage: Trajectory {
+    /// Enable STM storage, initializing with identity matrices for existing states
+    fn enable_stm_storage(&mut self);
+
+    /// Get STM at a specific index (returns None if storage disabled or out of bounds)
+    fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
+
+    /// Set STM at a specific index (auto-enables storage if needed)
+    fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>);
+
+    /// Get STM dimensions as (rows, cols)
+    fn stm_dimensions(&self) -> (usize, usize);
+
+    /// Get STM at epoch with linear interpolation (default implementation provided)
+    fn stm_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let stms = self.stm_storage()?;
+
+        if self.len() == 0 {
+            return None;
+        }
+
+        // Handle exact match
+        for i in 0..self.len() {
+            if self.epoch_at_idx(i).ok()? == epoch {
+                return Some(stms.get(i)?.clone());
+            }
+        }
+
+        // Find surrounding indices for interpolation
+        let idx_before = self.index_before_epoch(&epoch).ok()?;
+        let idx_after = self.index_after_epoch(&epoch).ok()?;
+
+        if idx_before == idx_after {
+            return Some(stms.get(idx_before)?.clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epoch_at_idx(idx_before).ok()? - self.start_epoch()?;
+        let t1 = self.epoch_at_idx(idx_after).ok()? - self.start_epoch()?;
+        let t = epoch - self.start_epoch()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Φ(t) = (1-α)*Φ₀ + α*Φ₁
+        let stm = &stms[idx_before] * (1.0 - alpha) + &stms[idx_after] * alpha;
+        Some(stm)
+    }
+
+    // Internal accessor methods (must be implemented)
+    #[doc(hidden)]
+    fn stm_storage(&self) -> Option<&Vec<DMatrix<f64>>>;
+
+    #[doc(hidden)]
+    fn stm_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>>;
+}
+
+/// Trait for trajectories that support sensitivity matrix storage and retrieval.
+///
+/// Sensitivity matrices capture how states depend on parameters: S = ∂x/∂p.
+/// Implementations must provide storage accessors and dimension info; the `sensitivity_at()`
+/// method has a default implementation using linear interpolation.
+pub trait SensitivityStorage: Trajectory {
+    /// Enable sensitivity storage with specified parameter dimension
+    fn enable_sensitivity_storage(&mut self, param_dim: usize);
+
+    /// Get sensitivity matrix at a specific index (returns None if storage disabled)
+    fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
+
+    /// Set sensitivity matrix at a specific index (auto-enables storage if needed)
+    fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>);
+
+    /// Get sensitivity dimensions as (state_dim, param_dim), or None if not enabled
+    fn sensitivity_dimensions(&self) -> Option<(usize, usize)>;
+
+    /// Get sensitivity at epoch with linear interpolation (default implementation provided)
+    fn sensitivity_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let sens = self.sensitivity_storage()?;
+
+        if self.len() == 0 {
+            return None;
+        }
+
+        // Handle exact match
+        for i in 0..self.len() {
+            if self.epoch_at_idx(i).ok()? == epoch {
+                return Some(sens.get(i)?.clone());
+            }
+        }
+
+        // Find surrounding indices for interpolation
+        let idx_before = self.index_before_epoch(&epoch).ok()?;
+        let idx_after = self.index_after_epoch(&epoch).ok()?;
+
+        if idx_before == idx_after {
+            return Some(sens.get(idx_before)?.clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epoch_at_idx(idx_before).ok()? - self.start_epoch()?;
+        let t1 = self.epoch_at_idx(idx_after).ok()? - self.start_epoch()?;
+        let t = epoch - self.start_epoch()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // S(t) = (1-α)*S₀ + α*S₁
+        let sensitivity = &sens[idx_before] * (1.0 - alpha) + &sens[idx_after] * alpha;
+        Some(sensitivity)
+    }
+
+    // Internal accessor methods (must be implemented)
+    #[doc(hidden)]
+    fn sensitivity_storage(&self) -> Option<&Vec<DMatrix<f64>>>;
+
+    #[doc(hidden)]
+    fn sensitivity_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>>;
 }
 
 #[cfg(test)]

@@ -136,7 +136,8 @@ fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
 
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
-    InterpolationMethod, OrbitFrame, OrbitRepresentation, Trajectory, TrajectoryEvictionPolicy,
+    InterpolationMethod, OrbitFrame, OrbitRepresentation, STMStorage, SensitivityStorage,
+    Trajectory, TrajectoryEvictionPolicy,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -586,221 +587,6 @@ impl DOrbitTrajectory {
     }
 
     /// Enable STM storage
-    ///
-    /// Initializes the STM vector with identity matrices for all existing states.
-    /// After calling this, STMs can be added using `add_full()` or `set_stm_at()`.
-    pub fn enable_stm_storage(&mut self) {
-        if self.stms.is_none() {
-            // Initialize with identity matrices for all existing states
-            let identity = DMatrix::identity(6, 6);
-            self.stms = Some(vec![identity; self.states.len()]);
-        }
-    }
-
-    /// Enable sensitivity matrix storage with specified parameter dimension
-    ///
-    /// Initializes the sensitivity vector with zero matrices for all existing states.
-    /// After calling this, sensitivity matrices can be added using `add_full()` or
-    /// `set_sensitivity_at()`.
-    ///
-    /// # Arguments
-    /// * `param_dim` - Number of parameters (number of columns in sensitivity matrices)
-    ///
-    /// # Panics
-    /// Panics if param_dim is zero
-    pub fn enable_sensitivity_storage(&mut self, param_dim: usize) {
-        if param_dim == 0 {
-            panic!("Parameter dimension must be > 0");
-        }
-        if self.sensitivities.is_none() {
-            let zero_sens = DMatrix::zeros(6, param_dim);
-            self.sensitivities = Some(vec![zero_sens; self.states.len()]);
-            self.sensitivity_dimension = Some((6, param_dim));
-        }
-    }
-
-    /// Set STM at a specific index
-    ///
-    /// Enables STM storage if not already enabled.
-    ///
-    /// # Arguments
-    /// * `index` - Index in the trajectory
-    /// * `stm` - State transition matrix (must be 6x6)
-    ///
-    /// # Panics
-    /// Panics if index is out of bounds or STM dimensions are incorrect
-    pub fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>) {
-        if index >= self.states.len() {
-            panic!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            );
-        }
-        if stm.nrows() != 6 || stm.ncols() != 6 {
-            panic!(
-                "STM dimensions {}x{} do not match expected 6x6",
-                stm.nrows(),
-                stm.ncols()
-            );
-        }
-
-        // Enable STM storage if not already enabled
-        if self.stms.is_none() {
-            self.enable_stm_storage();
-        }
-
-        if let Some(ref mut stms) = self.stms {
-            stms[index] = stm;
-        }
-    }
-
-    /// Set sensitivity matrix at a specific index
-    ///
-    /// Enables sensitivity storage if not already enabled.
-    ///
-    /// # Arguments
-    /// * `index` - Index in the trajectory
-    /// * `sensitivity` - Sensitivity matrix (rows must be 6)
-    ///
-    /// # Panics
-    /// Panics if index is out of bounds or sensitivity dimensions are incorrect
-    pub fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>) {
-        if index >= self.states.len() {
-            panic!(
-                "Index {} out of bounds for trajectory with {} states",
-                index,
-                self.states.len()
-            );
-        }
-        if sensitivity.nrows() != 6 {
-            panic!(
-                "Sensitivity row count {} does not match state dimension 6",
-                sensitivity.nrows()
-            );
-        }
-
-        // Check consistency with existing sensitivity dimension
-        if let Some((_, existing_cols)) = self.sensitivity_dimension
-            && sensitivity.ncols() != existing_cols
-        {
-            panic!(
-                "Sensitivity column count {} does not match existing {}",
-                sensitivity.ncols(),
-                existing_cols
-            );
-        }
-
-        // Enable sensitivity storage if not already enabled
-        if self.sensitivities.is_none() {
-            self.enable_sensitivity_storage(sensitivity.ncols());
-        }
-
-        if let Some(ref mut sens) = self.sensitivities {
-            sens[index] = sensitivity;
-        }
-    }
-
-    /// Get STM at a specific index
-    ///
-    /// Returns None if STM storage is not enabled.
-    pub fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
-        self.stms.as_ref()?.get(index)
-    }
-
-    /// Get sensitivity matrix at a specific index
-    ///
-    /// Returns None if sensitivity storage is not enabled.
-    pub fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
-        self.sensitivities.as_ref()?.get(index)
-    }
-
-    /// Get STM at a specific epoch (with linear interpolation)
-    ///
-    /// Returns None if STM storage is not enabled or epoch is out of range.
-    ///
-    /// # Arguments
-    /// * `epoch` - Time epoch to query
-    ///
-    /// # Returns
-    /// STM at the requested epoch (interpolated if necessary)
-    pub fn stm_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
-        let stms = self.stms.as_ref()?;
-
-        if self.epochs.is_empty() {
-            return None;
-        }
-
-        // Handle exact match
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
-            return Some(stms[idx].clone());
-        }
-
-        // Find surrounding indices for interpolation
-        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
-
-        // Handle exact matches
-        if self.epochs[idx_before] == epoch {
-            return Some(stms[idx_before].clone());
-        }
-        if self.epochs[idx_after] == epoch {
-            return Some(stms[idx_after].clone());
-        }
-
-        // Linear interpolation parameter
-        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
-        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
-        let t = epoch - self.epoch_initial()?;
-        let alpha = (t - t0) / (t1 - t0);
-
-        // Linear interpolation: Φ(t) = (1-α)*Φ₀ + α*Φ₁
-        let stm = &stms[idx_before] * (1.0 - alpha) + &stms[idx_after] * alpha;
-        Some(stm)
-    }
-
-    /// Get sensitivity matrix at a specific epoch (with linear interpolation)
-    ///
-    /// Returns None if sensitivity storage is not enabled or epoch is out of range.
-    ///
-    /// # Arguments
-    /// * `epoch` - Time epoch to query
-    ///
-    /// # Returns
-    /// Sensitivity matrix at the requested epoch (interpolated if necessary)
-    pub fn sensitivity_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
-        let sens = self.sensitivities.as_ref()?;
-
-        if self.epochs.is_empty() {
-            return None;
-        }
-
-        // Handle exact match
-        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
-            return Some(sens[idx].clone());
-        }
-
-        // Find surrounding indices for interpolation
-        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
-
-        // Handle exact matches
-        if self.epochs[idx_before] == epoch {
-            return Some(sens[idx_before].clone());
-        }
-        if self.epochs[idx_after] == epoch {
-            return Some(sens[idx_after].clone());
-        }
-
-        // Linear interpolation parameter
-        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
-        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
-        let t = epoch - self.epoch_initial()?;
-        let alpha = (t - t0) / (t1 - t0);
-
-        // Linear interpolation: S(t) = (1-α)*S₀ + α*S₁
-        let sensitivity = &sens[idx_before] * (1.0 - alpha) + &sens[idx_after] * alpha;
-        Some(sensitivity)
-    }
-
     /// Get covariance matrix at a specific epoch (with interpolation)
     ///
     /// Returns None if covariance storage is not enabled or epoch is out of range.
@@ -902,7 +688,7 @@ impl DOrbitTrajectory {
                 panic!("STM dimension mismatch");
             }
             if self.stms.is_none() {
-                self.enable_stm_storage();
+                STMStorage::enable_stm_storage(self);
             }
         }
 
@@ -916,7 +702,7 @@ impl DOrbitTrajectory {
                 panic!("Sensitivity column dimension mismatch");
             }
             if self.sensitivities.is_none() {
-                self.enable_sensitivity_storage(sens.ncols());
+                SensitivityStorage::enable_sensitivity_storage(self, sens.ncols());
             }
         }
 
@@ -1444,6 +1230,127 @@ impl InterpolationConfig for DOrbitTrajectory {
 
 // InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
 impl InterpolatableTrajectory for DOrbitTrajectory {}
+
+impl STMStorage for DOrbitTrajectory {
+    fn enable_stm_storage(&mut self) {
+        if self.stms.is_none() {
+            // Initialize with identity matrices for all existing states
+            let identity = DMatrix::identity(6, 6);
+            self.stms = Some(vec![identity; self.states.len()]);
+        }
+    }
+
+    fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.stms.as_ref()?.get(index)
+    }
+
+    fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+        if stm.nrows() != 6 || stm.ncols() != 6 {
+            panic!(
+                "STM dimensions {}x{} do not match expected 6x6",
+                stm.nrows(),
+                stm.ncols()
+            );
+        }
+
+        // Enable STM storage if not already enabled
+        if self.stms.is_none() {
+            self.enable_stm_storage();
+        }
+
+        if let Some(ref mut stms) = self.stms {
+            stms[index] = stm;
+        }
+    }
+
+    fn stm_dimensions(&self) -> (usize, usize) {
+        (6, 6)
+    }
+
+    fn stm_storage(&self) -> Option<&Vec<DMatrix<f64>>> {
+        self.stms.as_ref()
+    }
+
+    fn stm_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>> {
+        self.stms.as_mut()
+    }
+
+    // stm_at() uses default trait implementation
+}
+
+impl SensitivityStorage for DOrbitTrajectory {
+    fn enable_sensitivity_storage(&mut self, param_dim: usize) {
+        if param_dim == 0 {
+            panic!("Parameter dimension must be > 0");
+        }
+        if self.sensitivities.is_none() {
+            let zero_sens = DMatrix::zeros(6, param_dim);
+            self.sensitivities = Some(vec![zero_sens; self.states.len()]);
+            self.sensitivity_dimension = Some((6, param_dim));
+        }
+    }
+
+    fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>> {
+        self.sensitivities.as_ref()?.get(index)
+    }
+
+    fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+        if sensitivity.nrows() != 6 {
+            panic!(
+                "Sensitivity row count {} does not match state dimension 6",
+                sensitivity.nrows()
+            );
+        }
+
+        // Check consistency with existing sensitivity dimension
+        if let Some((_, existing_cols)) = self.sensitivity_dimension
+            && sensitivity.ncols() != existing_cols
+        {
+            panic!(
+                "Sensitivity column count {} does not match existing {}",
+                sensitivity.ncols(),
+                existing_cols
+            );
+        }
+
+        // Enable sensitivity storage if not already enabled
+        if self.sensitivities.is_none() {
+            self.enable_sensitivity_storage(sensitivity.ncols());
+        }
+
+        if let Some(ref mut sens) = self.sensitivities {
+            sens[index] = sensitivity;
+        }
+    }
+
+    fn sensitivity_dimensions(&self) -> Option<(usize, usize)> {
+        self.sensitivity_dimension
+    }
+
+    fn sensitivity_storage(&self) -> Option<&Vec<DMatrix<f64>>> {
+        self.sensitivities.as_ref()
+    }
+
+    fn sensitivity_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>> {
+        self.sensitivities.as_mut()
+    }
+
+    // sensitivity_at() uses default trait implementation
+}
 
 // Implementation of CovarianceInterpolationConfig trait
 impl CovarianceInterpolationConfig for DOrbitTrajectory {

@@ -26,7 +26,8 @@
  * use brahe::time::{Epoch, TimeSystem};
  *
  * let target = Epoch::from_jd(2451545.5, TimeSystem::UTC);
- * let event = STimeEvent::<6, 0>::new(target, "Maneuver");
+ * let event = STimeEvent::<6, 0>::new(target, "Maneuver")
+ *     .with_time_tolerance(1e-6);  // Optional: customize tolerance (default: 1e-6 s)
  * ```
  *
  * ## Altitude Event
@@ -77,6 +78,7 @@
 pub mod common;
 pub mod detection;
 pub mod premade;
+pub mod query;
 pub mod traits;
 
 // Re-export main types
@@ -85,6 +87,7 @@ pub use common::{
 };
 pub use detection::{dscan_for_event, sscan_for_event};
 pub use premade::{DAltitudeEvent, SAltitudeEvent};
+pub use query::EventQuery;
 pub use traits::{
     DDetectedEvent, DEventCallback, DEventDetector, EdgeType, EventAction, EventDirection,
     EventType, SDetectedEvent, SEventCallback, SEventDetector,

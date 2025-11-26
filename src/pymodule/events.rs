@@ -636,6 +636,41 @@ impl PyTimeEvent {
             event: slf.event.take(),
         }
     }
+
+    /// Set custom time tolerance for event detection.
+    ///
+    /// Controls the precision of the bisection search algorithm. Smaller values
+    /// result in more precise event time detection at the cost of more iterations.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///
+    /// Returns:
+    ///     TimeEvent: Self for method chaining
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///
+    ///     # Use tighter tolerance for precise timing
+    ///     event = bh.TimeEvent(epoch, "Precise Maneuver").with_time_tolerance(1e-9)
+    ///
+    ///     # Chain multiple builder methods
+    ///     event = (bh.TimeEvent(epoch, "Complex")
+    ///              .with_time_tolerance(1e-3)
+    ///              .with_instance(1)
+    ///              .is_terminal())
+    ///     ```
+    fn with_time_tolerance(mut slf: PyRefMut<'_, Self>, time_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_time_tolerance(time_tol));
+        }
+        Self {
+            event: slf.event.take(),
+        }
+    }
 }
 
 /// Threshold event detector with custom value function.

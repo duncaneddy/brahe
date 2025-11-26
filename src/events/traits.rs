@@ -84,6 +84,9 @@ pub struct SDetectedEvent<const S: usize> {
 
     /// Event type
     pub event_type: EventType,
+
+    /// Detector index (position in event_detectors Vec, 0-based)
+    pub detector_index: usize,
 }
 
 impl<const S: usize> SDetectedEvent<S> {
@@ -134,6 +137,9 @@ pub struct DDetectedEvent {
 
     /// Event type
     pub event_type: EventType,
+
+    /// Detector index (position in event_detectors Vec, 0-based)
+    pub detector_index: usize,
 }
 
 impl DDetectedEvent {

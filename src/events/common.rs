@@ -23,6 +23,10 @@ use nalgebra::{DVector, SVector};
 ///
 /// let target = Epoch::from_jd(2451545.5, TimeSystem::UTC);
 /// let event = STimeEvent::<6, 0>::new(target, "Maneuver Start");
+///
+/// // Customize time tolerance for precise detection (default: 1e-6 s)
+/// let event = STimeEvent::<6, 0>::new(target, "Precise Event")
+///     .with_time_tolerance(1e-9);
 /// ```
 pub struct STimeEvent<const S: usize, const P: usize> {
     target_time: Epoch,
@@ -30,6 +34,7 @@ pub struct STimeEvent<const S: usize, const P: usize> {
     formatted_name: String,
     callback: Option<SEventCallback<S, P>>,
     action: EventAction,
+    time_tol: f64,
 }
 
 impl<const S: usize, const P: usize> STimeEvent<S, P> {
@@ -42,6 +47,7 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
             base_name: name,
             callback: None,
             action: EventAction::Continue,
+            time_tol: 1e-6,
         }
     }
 
@@ -60,6 +66,18 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
     /// Mark as terminal event (stops propagation)
     pub fn is_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
+        self
+    }
+
+    /// Set custom time tolerance for event detection
+    ///
+    /// Controls the precision of the bisection search algorithm. Smaller values
+    /// result in more precise event time detection at the cost of more iterations.
+    ///
+    /// # Arguments
+    /// * `time_tol` - Time tolerance in seconds (default: 1e-6)
+    pub fn with_time_tolerance(mut self, time_tol: f64) -> Self {
+        self.time_tol = time_tol;
         self
     }
 }
@@ -89,6 +107,10 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
     fn action(&self) -> EventAction {
         self.action
     }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
 }
 
 /// Dynamic-sized time event
@@ -101,6 +123,7 @@ pub struct DTimeEvent {
     formatted_name: String,
     callback: Option<DEventCallback>,
     action: EventAction,
+    time_tol: f64,
 }
 
 impl DTimeEvent {
@@ -113,6 +136,7 @@ impl DTimeEvent {
             base_name: name,
             callback: None,
             action: EventAction::Continue,
+            time_tol: 1e-6,
         }
     }
 
@@ -131,6 +155,18 @@ impl DTimeEvent {
     /// Mark as terminal event (stops propagation)
     pub fn is_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
+        self
+    }
+
+    /// Set custom time tolerance for event detection
+    ///
+    /// Controls the precision of the bisection search algorithm. Smaller values
+    /// result in more precise event time detection at the cost of more iterations.
+    ///
+    /// # Arguments
+    /// * `time_tol` - Time tolerance in seconds (default: 1e-6)
+    pub fn with_time_tolerance(mut self, time_tol: f64) -> Self {
+        self.time_tol = time_tol;
         self
     }
 }
@@ -154,6 +190,10 @@ impl DEventDetector for DTimeEvent {
 
     fn action(&self) -> EventAction {
         self.action
+    }
+
+    fn time_tolerance(&self) -> f64 {
+        self.time_tol
     }
 }
 
@@ -701,5 +741,49 @@ mod tests {
 
         // Check direction mapping
         assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_time_event_tolerance_configuration() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Test default tolerance
+        let event = STimeEvent::<6, 0>::new(target, "Default");
+        assert_eq!(event.time_tolerance(), 1e-6);
+
+        // Test custom tolerance
+        let event = STimeEvent::<6, 0>::new(target, "Custom").with_time_tolerance(1e-3);
+        assert_eq!(event.time_tolerance(), 1e-3);
+
+        // Test chaining with other builder methods
+        let event = STimeEvent::<6, 0>::new(target, "Chained")
+            .with_time_tolerance(5e-4)
+            .with_instance(2)
+            .is_terminal();
+        assert_eq!(event.time_tolerance(), 5e-4);
+        assert_eq!(event.name(), "Chained 2");
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_dtime_event_tolerance_configuration() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Test default tolerance
+        let event = DTimeEvent::new(target, "Default");
+        assert_eq!(event.time_tolerance(), 1e-6);
+
+        // Test custom tolerance
+        let event = DTimeEvent::new(target, "Custom").with_time_tolerance(1e-3);
+        assert_eq!(event.time_tolerance(), 1e-3);
+
+        // Test chaining with other builder methods
+        let event = DTimeEvent::new(target, "Chained")
+            .with_time_tolerance(5e-4)
+            .with_instance(2)
+            .is_terminal();
+        assert_eq!(event.time_tolerance(), 5e-4);
+        assert_eq!(event.name(), "Chained 2");
+        assert_eq!(event.action(), EventAction::Stop);
     }
 }

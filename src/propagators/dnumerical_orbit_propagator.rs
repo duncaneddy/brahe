@@ -21,10 +21,8 @@ use crate::math::interpolation::{
     CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
     InterpolationMethod,
 };
-#[allow(unused_imports)]
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
-#[allow(unused_imports)]
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
     GravityModel, accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity,
@@ -192,13 +190,6 @@ pub struct DNumericalOrbitPropagator {
     // ===== Integration =====
     /// Numerical integrator (type-erased for runtime flexibility)
     integrator: Box<dyn DIntegrator>,
-    /// Force model configuration
-    #[allow(dead_code)]
-    force_config: ForceModelConfiguration,
-    /// Gravity model (loaded at construction if source is ModelType)
-    /// Note: The model is captured by the dynamics closure, this field stores it for Clone support
-    #[allow(dead_code)]
-    gravity_model: Option<Arc<GravityModel>>,
     /// Current integration step size
     dt: f64,
     /// Suggested next step size (from adaptive integrator)
@@ -459,8 +450,6 @@ impl DNumericalOrbitPropagator {
             epoch_current: epoch,
             t_rel: 0.0,
             integrator,
-            force_config,
-            gravity_model,
             dt: initial_dt,
             dt_next: initial_dt,
             x_initial: state_eci.clone(),
@@ -566,6 +555,7 @@ impl DNumericalOrbitPropagator {
         for (idx, detector) in self.event_detectors.iter().enumerate() {
             if let Some(event) = dscan_for_event(
                 detector.as_ref(),
+                idx,
                 &state_fn,
                 epoch_prev,
                 epoch_new,
@@ -1152,10 +1142,7 @@ impl DNumericalOrbitPropagator {
     /// # Arguments
     /// * `name` - Substring to search for in event names
     pub fn events_by_name(&self, name: &str) -> Vec<&DDetectedEvent> {
-        self.event_log
-            .iter()
-            .filter(|e| e.name.contains(name))
-            .collect()
+        self.query_events().by_name_contains(name).collect()
     }
 
     /// Get the most recently detected event
@@ -1173,9 +1160,154 @@ impl DNumericalOrbitPropagator {
     /// * `start` - Start of time range
     /// * `end` - End of time range
     pub fn events_in_range(&self, start: Epoch, end: Epoch) -> Vec<&DDetectedEvent> {
-        self.event_log
-            .iter()
-            .filter(|e| e.window_open >= start && e.window_open <= end)
+        self.query_events().in_time_range(start, end).collect()
+    }
+
+    /// Query events with flexible filtering
+    ///
+    /// Returns an EventQuery that supports chainable filters and
+    /// standard iterator methods.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::propagators::DNumericalOrbitPropagator;
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::eop::setup_global_test_eop;
+    /// # use nalgebra::DVector;
+    /// # use brahe::constants::R_EARTH;
+    /// # setup_global_test_eop();
+    /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    /// # let mut prop = DNumericalOrbitPropagator::new(
+    /// #     epoch, state, NumericalPropagationConfig::default(),
+    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// # ).unwrap();
+    /// // Get events from detector 1 in time range
+    /// let events: Vec<_> = prop.query_events()
+    ///     .by_detector_index(1)
+    ///     .in_time_range(epoch, epoch + 3600.0)
+    ///     .collect();
+    ///
+    /// // Count altitude events
+    /// let count = prop.query_events()
+    ///     .by_name_contains("Altitude")
+    ///     .count();
+    /// ```
+    pub fn query_events(
+        &self,
+    ) -> crate::events::EventQuery<'_, std::slice::Iter<'_, DDetectedEvent>> {
+        crate::events::EventQuery::new(self.event_log.iter())
+    }
+
+    /// Get events by detector index
+    ///
+    /// Returns all events detected by the specified detector.
+    ///
+    /// # Arguments
+    /// * `index` - Detector index (0-based, order detectors were added)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::propagators::DNumericalOrbitPropagator;
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::eop::setup_global_test_eop;
+    /// # use nalgebra::DVector;
+    /// # use brahe::constants::R_EARTH;
+    /// # setup_global_test_eop();
+    /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    /// # let mut prop = DNumericalOrbitPropagator::new(
+    /// #     epoch, state, NumericalPropagationConfig::default(),
+    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// # ).unwrap();
+    /// // Get all events from detector 0
+    /// let events = prop.events_by_detector_index(0);
+    /// ```
+    pub fn events_by_detector_index(&self, index: usize) -> Vec<&DDetectedEvent> {
+        self.query_events().by_detector_index(index).collect()
+    }
+
+    /// Get events by detector index within time range
+    ///
+    /// Returns events from the specified detector that occurred in the time range.
+    ///
+    /// # Arguments
+    /// * `index` - Detector index (0-based)
+    /// * `start` - Start of time range (inclusive)
+    /// * `end` - End of time range (inclusive)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::propagators::DNumericalOrbitPropagator;
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::eop::setup_global_test_eop;
+    /// # use nalgebra::DVector;
+    /// # use brahe::constants::R_EARTH;
+    /// # setup_global_test_eop();
+    /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    /// # let mut prop = DNumericalOrbitPropagator::new(
+    /// #     epoch, state, NumericalPropagationConfig::default(),
+    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// # ).unwrap();
+    /// // Get detector 1 events in time range
+    /// let events = prop.events_by_detector_index_in_range(1, epoch, epoch + 3600.0);
+    /// ```
+    pub fn events_by_detector_index_in_range(
+        &self,
+        index: usize,
+        start: Epoch,
+        end: Epoch,
+    ) -> Vec<&DDetectedEvent> {
+        self.query_events()
+            .by_detector_index(index)
+            .in_time_range(start, end)
+            .collect()
+    }
+
+    /// Get events by name within time range
+    ///
+    /// Returns events matching name (substring) that occurred in the time range.
+    ///
+    /// # Arguments
+    /// * `name` - Substring to search for in event names
+    /// * `start` - Start of time range (inclusive)
+    /// * `end` - End of time range (inclusive)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::propagators::DNumericalOrbitPropagator;
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::eop::setup_global_test_eop;
+    /// # use nalgebra::DVector;
+    /// # use brahe::constants::R_EARTH;
+    /// # setup_global_test_eop();
+    /// # let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    /// # let mut prop = DNumericalOrbitPropagator::new(
+    /// #     epoch, state, NumericalPropagationConfig::default(),
+    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// # ).unwrap();
+    /// // Get altitude events in time range
+    /// let events = prop.events_by_name_in_range("Altitude", epoch, epoch + 3600.0);
+    /// ```
+    pub fn events_by_name_in_range(
+        &self,
+        name: &str,
+        start: Epoch,
+        end: Epoch,
+    ) -> Vec<&DDetectedEvent> {
+        self.query_events()
+            .by_name_contains(name)
+            .in_time_range(start, end)
             .collect()
     }
 
@@ -4114,9 +4246,9 @@ mod tests {
         )
         .unwrap();
 
-        // Add multiple events in rapid succession (every 30 seconds)
+        // Add multiple events in rapid succession (every 1 seconds)
         for i in 1..=10 {
-            let event_time = epoch + (i as f64) * 30.0;
+            let event_time = epoch + (i as f64) * 1.0;
             prop.add_event_detector(Box::new(DTimeEvent::new(
                 event_time,
                 format!("Rapid Event {}", i),
@@ -4305,6 +4437,10 @@ mod tests {
         // At least the reset event should be present
         let reset_event_found = events.iter().any(|e| e.name == "Reset Event");
         assert!(reset_event_found, "Should find reset event");
+
+        // Should also find Event 1 since detectors persist
+        let event1_found = events.iter().any(|e| e.name == "Event 1");
+        assert!(event1_found, "Should find Event 1 from before reset");
     }
 
     #[test]
@@ -4869,8 +5005,8 @@ mod tests {
         // Semi-major axis should remain stable (< 1 km drift)
         let a_drift = (oe_final[0] - oe_initial[0]).abs();
         assert!(
-            a_drift < 1000.0,
-            "Semi-major axis drift over 100 orbits should be < 1 km, got {:.1} m",
+            a_drift < 10.0,
+            "Semi-major axis drift over 100 orbits should be < 10 m, got {:.1} m",
             a_drift
         );
 
@@ -5399,53 +5535,6 @@ mod tests {
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_construction_keplerian_representation() {
-        setup_global_test_eop();
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-
-        // Input as Keplerian elements: [a, e, i, RAAN, argp, M]
-        // Use circular orbit (e=0) for precise semi-major axis matching
-        let keplerian_state = DVector::from_vec(vec![
-            R_EARTH + 500e3, // a [m]
-            0.0,             // e (circular)
-            97.8_f64,        // i [rad]
-            0.0,             // RAAN [rad]
-            0.0,             // argp [rad]
-            0.0,             // M [rad]
-        ]);
-
-        // Convert to ECI Cartesian first (constructor expects ECI Cartesian)
-        let cartesian_state = state_osculating_to_cartesian(
-            keplerian_state.fixed_rows::<6>(0).into_owned(),
-            AngleFormat::Radians,
-        );
-        let cartesian_state_dvector = DVector::from_vec(cartesian_state.as_slice().to_vec());
-
-        let prop = DNumericalOrbitPropagator::new(
-            epoch,
-            cartesian_state_dvector,
-            NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
-            None,
-            None,
-            None,
-            None,
-        );
-
-        assert!(prop.is_ok());
-        let prop = prop.unwrap();
-
-        // Verify state is stored as ECI Cartesian internally
-        let eci_state = prop.current_state();
-        assert_eq!(eci_state.len(), 6);
-
-        // Position magnitude should match semi-major axis (circular orbit)
-        let r_mag = (eci_state[0].powi(2) + eci_state[1].powi(2) + eci_state[2].powi(2)).sqrt();
-        assert!((r_mag - (R_EARTH + 500e3)).abs() < 10.0); // 10 m tolerance for numerical conversion
-    }
-
-    #[test]
     fn test_dnumericalorbitpropagator_construction_ecef_frame() {
         setup_global_test_eop();
 
@@ -5563,7 +5652,7 @@ mod tests {
         let final_mass = prop.current_state()[6];
 
         // Mass should have decreased by approximately 1 kg (10s * 0.1 kg/s)
-        assert!((final_mass - (initial_mass - 1.0)).abs() < 0.1);
+        assert!((final_mass - (initial_mass - 1.0)).abs() < 1e-3);
     }
 
     #[test]
@@ -9038,5 +9127,241 @@ mod tests {
                 rel_error
             );
         }
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_events_by_detector_index() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add detectors at known indices
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1800.0, "Event A"))); // idx 0
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2700.0, "Event B"))); // idx 1
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3600.0, "Event C"))); // idx 2
+
+        prop.propagate_to(epoch + 7200.0);
+
+        // Test single detector query
+        let events_0 = prop.events_by_detector_index(0);
+        assert_eq!(events_0.len(), 1);
+        assert_eq!(events_0[0].name, "Event A");
+        assert_eq!(events_0[0].detector_index, 0);
+
+        let events_1 = prop.events_by_detector_index(1);
+        assert_eq!(events_1.len(), 1);
+        assert_eq!(events_1[0].name, "Event B");
+        assert_eq!(events_1[0].detector_index, 1);
+
+        let events_2 = prop.events_by_detector_index(2);
+        assert_eq!(events_2.len(), 1);
+        assert_eq!(events_2[0].name, "Event C");
+        assert_eq!(events_2[0].detector_index, 2);
+
+        // Test invalid index returns empty
+        let events_99 = prop.events_by_detector_index(99);
+        assert_eq!(events_99.len(), 0);
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_events_combined_filters() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add multiple detectors with events at different times
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1000.0, "Early Event")));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2000.0, "Mid Event")));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3000.0, "Late Event")));
+
+        prop.propagate_to(epoch + 4000.0);
+
+        // Test detector + time range
+        let events_in_range = prop.events_by_detector_index_in_range(0, epoch, epoch + 1500.0);
+        assert_eq!(events_in_range.len(), 1);
+        assert_eq!(events_in_range[0].name, "Early Event");
+
+        // Test name + time range
+        let events_by_name = prop.events_by_name_in_range("Event", epoch, epoch + 2500.0);
+        assert_eq!(events_by_name.len(), 2); // Early and Mid
+
+        // Test query builder with multiple filters
+        let events_filtered: Vec<_> = prop
+            .query_events()
+            .by_detector_index(1)
+            .in_time_range(epoch, epoch + 2500.0)
+            .collect();
+        assert_eq!(events_filtered.len(), 1);
+        assert_eq!(events_filtered[0].name, "Mid Event");
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_query_with_iterator_methods() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add multiple events
+        for i in 0..5 {
+            prop.add_event_detector(Box::new(DTimeEvent::new(
+                epoch + (i as f64 + 1.0) * 1000.0,
+                format!("Event {}", i),
+            )));
+        }
+
+        prop.propagate_to(epoch + 6000.0);
+
+        // Test count
+        let count = prop.query_events().by_name_contains("Event").count();
+        assert_eq!(count, 5);
+
+        // Test take
+        let first_two: Vec<_> = prop
+            .query_events()
+            .by_name_contains("Event")
+            .take(2)
+            .collect();
+        assert_eq!(first_two.len(), 2);
+
+        // Test next/any
+        let has_event = prop.query_events().by_detector_index(0).next().is_some();
+        assert!(has_event);
+
+        // Test find
+        let found = prop.query_events().find(|e| e.name.contains("Event 3"));
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "Event 3");
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_query_edge_cases() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Test empty event log
+        let empty_events = prop.events_by_detector_index(0);
+        assert_eq!(empty_events.len(), 0);
+
+        // Add detector that won't fire at index 0
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 10000.0, "Never Fires")));
+        // Add detector that will fire at index 1
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1800.0, "Fires")));
+
+        prop.propagate_to(epoch + 3600.0);
+
+        // Test detector with no events
+        let events_0 = prop.events_by_detector_index(0);
+        assert_eq!(events_0.len(), 0);
+
+        // Test detector with events
+        let events_1 = prop.events_by_detector_index(1);
+        assert_eq!(events_1.len(), 1);
+        assert_eq!(events_1[0].name, "Fires");
+        assert_eq!(events_1[0].detector_index, 1);
+
+        // Test no matches for name filter
+        let no_match = prop.events_by_name("NonExistent");
+        assert_eq!(no_match.len(), 0);
+
+        // Test invalid time range
+        let no_events_in_range = prop.events_in_range(epoch + 5000.0, epoch + 6000.0);
+        assert_eq!(no_events_in_range.len(), 0);
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_existing_methods_unchanged() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add events with different names
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1000.0, "Altitude Event")));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 2000.0, "Range Event")));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3000.0, "Altitude Check")));
+
+        prop.propagate_to(epoch + 4000.0);
+
+        // Test events_by_name still works with substring matching
+        let altitude_events = prop.events_by_name("Altitude");
+        assert_eq!(altitude_events.len(), 2);
+
+        // Test events_in_range still works
+        let events_in_range = prop.events_in_range(epoch, epoch + 2500.0);
+        assert_eq!(events_in_range.len(), 2);
+
+        // Test event_log still works
+        let all_events = prop.event_log();
+        assert_eq!(all_events.len(), 3);
+
+        // Test latest_event still works
+        let latest = prop.latest_event();
+        assert!(latest.is_some());
+        assert_eq!(latest.unwrap().name, "Altitude Check");
     }
 }

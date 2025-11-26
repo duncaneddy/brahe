@@ -232,8 +232,10 @@ where
 ///
 /// # Returns
 /// Detected event if found
+#[allow(clippy::too_many_arguments)]
 pub fn sscan_for_event<const S: usize, const P: usize, F>(
     detector: &dyn SEventDetector<S, P>,
+    detector_index: usize,
     state_fn: &F,
     prev_time: Epoch,
     current_time: Epoch,
@@ -298,13 +300,16 @@ where
             name: detector.name().to_string(),
             action,
             event_type,
+            detector_index,
         }
     })
 }
 
 /// Scan for events (dynamic-sized)
+#[allow(clippy::too_many_arguments)]
 pub fn dscan_for_event<F>(
     detector: &dyn DEventDetector,
+    detector_index: usize,
     state_fn: &F,
     prev_time: Epoch,
     current_time: Epoch,
@@ -365,6 +370,7 @@ where
             name: detector.name().to_string(),
             action,
             event_type,
+            detector_index,
         }
     })
 }
@@ -454,6 +460,7 @@ mod tests {
 
         let result = sscan_for_event(
             &detector,
+            0,
             &state_fn,
             prev_time,
             current_time,
@@ -468,5 +475,6 @@ mod tests {
         let time_error = (event.window_open - target_epoch).abs();
         assert!(time_error < detector.time_tolerance());
         assert_eq!(event.name, "Scan Test");
+        assert_eq!(event.detector_index, 0);
     }
 }

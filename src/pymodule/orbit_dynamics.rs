@@ -2,6 +2,42 @@
 // Ephemerides Python Bindings
 // ============================================================================
 
+/// Ephemeris source for celestial body positions.
+///
+/// Specifies which ephemeris model to use for computing positions of celestial bodies.
+///
+/// Values:
+///     LowPrecision: Low-precision analytical ephemerides (~km level errors). Only Sun and Moon available. Fast evaluation.
+///     DE440s: High-precision JPL DE440s ephemerides (1550-2650 CE, ~m level accuracy). All planets available. File size ~17 MB.
+///     DE440: Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE, ~mm level accuracy). All planets available. File size ~114 MB.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///
+///     # Use high-precision DE440s for Sun position
+///     r_sun = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyclass(name = "EphemerisSource", module = "brahe._brahe", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PyEphemerisSource {
+    LowPrecision = 0,
+    DE440s = 1,
+    DE440 = 2,
+}
+
+impl From<PyEphemerisSource> for propagators::force_model_config::EphemerisSource {
+    fn from(source: PyEphemerisSource) -> Self {
+        match source {
+            PyEphemerisSource::LowPrecision => propagators::force_model_config::EphemerisSource::LowPrecision,
+            PyEphemerisSource::DE440s => propagators::force_model_config::EphemerisSource::DE440s,
+            PyEphemerisSource::DE440 => propagators::force_model_config::EphemerisSource::DE440,
+        }
+    }
+}
+
 /// Calculate the position of the Sun in the GCRF inertial frame using low-precision analytical methods.
 ///
 /// Args:
@@ -46,9 +82,9 @@ fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, 
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of the Sun in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of the Sun in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for solar position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for solar position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -58,12 +94,13 @@ fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, 
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Sun's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of the Sun in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -73,18 +110,19 @@ fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, 
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_sun = bh.sun_position_de440s(epc)
+///     r_sun = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "sun_position_de440s")]
-fn py_sun_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::sun_position_de440s(epc.obj);
+#[pyo3(name = "sun_position_de")]
+fn py_sun_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::sun_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of the Moon in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of the Moon in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for lunar position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for lunar position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -94,12 +132,13 @@ fn py_sun_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Moon's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of the Moon in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -109,18 +148,19 @@ fn py_sun_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_moon = bh.moon_position_de440s(epc)
+///     r_moon = bh.moon_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "moon_position_de440s")]
-fn py_moon_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::moon_position_de440s(epc.obj);
+#[pyo3(name = "moon_position_de")]
+fn py_moon_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::moon_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Mercury in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Mercury in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Mercury position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mercury position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -130,12 +170,13 @@ fn py_moon_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Boun
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mercury's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Mercury in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -145,18 +186,19 @@ fn py_moon_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Boun
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_mercury = bh.mercury_position_de440s(epc)
+///     r_mercury = bh.mercury_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "mercury_position_de440s")]
-fn py_mercury_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::mercury_position_de440s(epc.obj);
+#[pyo3(name = "mercury_position_de")]
+fn py_mercury_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::mercury_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Venus in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Venus in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Venus position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Venus position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -166,12 +208,13 @@ fn py_mercury_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Venus's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Venus in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -181,18 +224,19 @@ fn py_mercury_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_venus = bh.venus_position_de440s(epc)
+///     r_venus = bh.venus_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "venus_position_de440s")]
-fn py_venus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::venus_position_de440s(epc.obj);
+#[pyo3(name = "venus_position_de")]
+fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::venus_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Mars in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Mars in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Mars position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mars position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -202,12 +246,13 @@ fn py_venus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bou
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Mars in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -217,18 +262,19 @@ fn py_venus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bou
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_mars = bh.mars_position_de440s(epc)
+///     r_mars = bh.mars_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "mars_position_de440s")]
-fn py_mars_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::mars_position_de440s(epc.obj);
+#[pyo3(name = "mars_position_de")]
+fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::mars_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Jupiter in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Jupiter in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Jupiter position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Jupiter position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -238,12 +284,13 @@ fn py_mars_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Boun
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Jupiter in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -253,18 +300,19 @@ fn py_mars_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Boun
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_jupiter = bh.jupiter_position_de440s(epc)
+///     r_jupiter = bh.jupiter_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "jupiter_position_de440s")]
-fn py_jupiter_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::jupiter_position_de440s(epc.obj);
+#[pyo3(name = "jupiter_position_de")]
+fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::jupiter_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Saturn in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Saturn in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Saturn position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Saturn position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -274,12 +322,13 @@ fn py_jupiter_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Saturn in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -289,18 +338,19 @@ fn py_jupiter_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_saturn = bh.saturn_position_de440s(epc)
+///     r_saturn = bh.saturn_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "saturn_position_de440s")]
-fn py_saturn_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::saturn_position_de440s(epc.obj);
+#[pyo3(name = "saturn_position_de")]
+fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::saturn_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Uranus in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Uranus in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Uranus position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Uranus position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -310,12 +360,13 @@ fn py_saturn_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bo
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Uranus in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -325,18 +376,19 @@ fn py_saturn_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bo
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_uranus = bh.uranus_position_de440s(epc)
+///     r_uranus = bh.uranus_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "uranus_position_de440s")]
-fn py_uranus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::uranus_position_de440s(epc.obj);
+#[pyo3(name = "uranus_position_de")]
+fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::uranus_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Neptune in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of Neptune in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Neptune position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Neptune position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -346,12 +398,13 @@ fn py_uranus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bo
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of Neptune in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -361,18 +414,19 @@ fn py_uranus_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bo
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_neptune = bh.neptune_position_de440s(epc)
+///     r_neptune = bh.neptune_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "neptune_position_de440s")]
-fn py_neptune_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::neptune_position_de440s(epc.obj);
+#[pyo3(name = "neptune_position_de")]
+fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::neptune_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using NAIF DE440s ephemeris.
+/// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE440s ephemeris kernel for Solar System Barycenter
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Solar System Barycenter
 /// position computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -382,12 +436,13 @@ fn py_neptune_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of the Solar System Barycenter in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -397,28 +452,30 @@ fn py_neptune_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<B
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_ssb = bh.solar_system_barycenter_position_de440s(epc)
+///     r_ssb = bh.solar_system_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "solar_system_barycenter_position_de440s")]
-fn py_solar_system_barycenter_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::solar_system_barycenter_position_de440s(epc.obj);
+#[pyo3(name = "solar_system_barycenter_position_de")]
+fn py_solar_system_barycenter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::solar_system_barycenter_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Convenience alias for `solar_system_barycenter_position_de440s`.
+/// Convenience alias for `solar_system_barycenter_position_de`.
 ///
 /// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using
-/// NAIF DE440s ephemeris.
+/// NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter position
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Position of the Solar System Barycenter in the GCRF frame. Units: (m)
 ///
 /// Raises:
-///     Exception: If the DE440s kernel cannot be loaded or ephemeris query fails
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
 ///     ```python
@@ -428,12 +485,13 @@ fn py_solar_system_barycenter_position_de440s<'py>(py: Python<'py>, epc: &PyEpoc
 ///     bh.initialize_ephemeris()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_ssb = bh.ssb_position_de440s(epc)
+///     r_ssb = bh.ssb_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "ssb_position_de440s")]
-fn py_ssb_position_de440s<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::ssb_position_de440s(epc.obj);
+#[pyo3(name = "ssb_position_de")]
+fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = orbit_dynamics::ssb_position_de(epc.obj, source.into())
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
@@ -568,13 +626,14 @@ fn py_accel_third_body_moon<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to the Sun on an object using DE440s high-precision ephemerides.
+/// Calculate the acceleration due to the Sun on an object using DE high-precision ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Sun's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to the Sun. Units: (m/s²)
@@ -587,22 +646,23 @@ fn py_accel_third_body_moon<'py>(
 ///     bh.initialize_ephemeris()
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
-///     a = bh.accel_third_body_sun_de440s(epc, r_object)
+///     a = bh.accel_third_body_sun_de(epc, r_object, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "accel_third_body_sun_de440s")]
-fn py_accel_third_body_sun_de440s<'py>(
+#[pyo3(name = "accel_third_body_sun_de")]
+fn py_accel_third_body_sun_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_sun_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_sun_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_sun_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_sun_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -611,13 +671,14 @@ fn py_accel_third_body_sun_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to the Moon on an object using DE440s high-precision ephemerides.
+/// Calculate the acceleration due to the Moon on an object using DE high-precision ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Moon's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to the Moon. Units: (m/s²)
@@ -630,22 +691,23 @@ fn py_accel_third_body_sun_de440s<'py>(
 ///     bh.initialize_ephemeris()
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
-///     a = bh.accel_third_body_moon_de440s(epc, r_object)
+///     a = bh.accel_third_body_moon_de(epc, r_object, bh.EphemerisSource.DE440s)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "accel_third_body_moon_de440s")]
-fn py_accel_third_body_moon_de440s<'py>(
+#[pyo3(name = "accel_third_body_moon_de")]
+fn py_accel_third_body_moon_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_moon_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_moon_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_moon_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_moon_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -654,30 +716,32 @@ fn py_accel_third_body_moon_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Mercury on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Mercury on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mercury's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Mercury. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_mercury_de440s")]
-fn py_accel_third_body_mercury_de440s<'py>(
+#[pyo3(name = "accel_third_body_mercury_de")]
+fn py_accel_third_body_mercury_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_mercury_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_mercury_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_mercury_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_mercury_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -686,30 +750,32 @@ fn py_accel_third_body_mercury_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Venus on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Venus on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Venus's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Venus. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_venus_de440s")]
-fn py_accel_third_body_venus_de440s<'py>(
+#[pyo3(name = "accel_third_body_venus_de")]
+fn py_accel_third_body_venus_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_venus_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_venus_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_venus_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_venus_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -718,30 +784,32 @@ fn py_accel_third_body_venus_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Mars on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Mars on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Mars. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_mars_de440s")]
-fn py_accel_third_body_mars_de440s<'py>(
+#[pyo3(name = "accel_third_body_mars_de")]
+fn py_accel_third_body_mars_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_mars_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_mars_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_mars_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_mars_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -750,30 +818,32 @@ fn py_accel_third_body_mars_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Jupiter on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Jupiter on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Jupiter. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_jupiter_de440s")]
-fn py_accel_third_body_jupiter_de440s<'py>(
+#[pyo3(name = "accel_third_body_jupiter_de")]
+fn py_accel_third_body_jupiter_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_jupiter_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_jupiter_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_jupiter_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_jupiter_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -782,30 +852,32 @@ fn py_accel_third_body_jupiter_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Saturn on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Saturn on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Saturn. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_saturn_de440s")]
-fn py_accel_third_body_saturn_de440s<'py>(
+#[pyo3(name = "accel_third_body_saturn_de")]
+fn py_accel_third_body_saturn_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_saturn_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_saturn_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_saturn_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_saturn_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -814,30 +886,32 @@ fn py_accel_third_body_saturn_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Uranus on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Uranus on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Uranus. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_uranus_de440s")]
-fn py_accel_third_body_uranus_de440s<'py>(
+#[pyo3(name = "accel_third_body_uranus_de")]
+fn py_accel_third_body_uranus_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_uranus_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_uranus_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_uranus_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_uranus_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"
@@ -846,30 +920,32 @@ fn py_accel_third_body_uranus_de440s<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
-/// Calculate the acceleration due to Neptune on an object using DE440s ephemerides.
+/// Calculate the acceleration due to Neptune on an object using DE ephemerides.
 ///
 /// Accepts either a 3D position vector or a 6D state vector for r_object.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's position
 ///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object in the GCRF frame. Units: (m)
+///     source (EphemerisSource): Which ephemeris kernel to use (DE440s or DE440)
 ///
 /// Returns:
 ///     np.ndarray: Acceleration due to Neptune. Units: (m/s²)
 #[pyfunction]
-#[pyo3(name = "accel_third_body_neptune_de440s")]
-fn py_accel_third_body_neptune_de440s<'py>(
+#[pyo3(name = "accel_third_body_neptune_de")]
+fn py_accel_third_body_neptune_de<'py>(
     py: Python<'py>,
     epc: &PyEpoch,
     r_object: PyReadonlyArray1<f64>,
+    source: PyEphemerisSource,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_object.len();
     let a = if len == 3 {
         let r_obj = numpy_to_vector3!(r_object);
-        orbit_dynamics::accel_third_body_neptune_de440s(epc.obj, r_obj)
+        orbit_dynamics::accel_third_body_neptune_de(epc.obj, r_obj, source.into())
     } else if len == 6 {
         let x_obj = numpy_to_vector6!(r_object);
-        orbit_dynamics::accel_third_body_neptune_de440s(epc.obj, x_obj)
+        orbit_dynamics::accel_third_body_neptune_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_object must be length 3 (position) or 6 (state)"

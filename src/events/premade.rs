@@ -264,11 +264,10 @@ mod tests {
 
     #[test]
     fn test_altitude_event() {
-        use crate::eop::{StaticEOPProvider, set_global_eop_provider};
+        use crate::utils::testing::setup_global_test_eop;
 
         // Initialize EOP for frame transformations
-        let eop = StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-        set_global_eop_provider(eop);
+        setup_global_test_eop();
 
         let threshold = 500e3; // 500 km geodetic altitude
         let event = SAltitudeEvent::<6, 0>::new(threshold, "Altitude Test", EventDirection::Any);

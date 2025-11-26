@@ -535,6 +535,7 @@ include!("integrators.rs");
 include!("utils.rs");
 include!("orbit_dynamics.rs");
 include!("earth_models.rs");
+include!("events.rs");
 
 // Define Module
 
@@ -886,22 +887,23 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
 
     //* Orbit Dynamics - Ephemerides *//
+    module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_position_de440s,
+        py_solar_system_barycenter_position_de,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//
@@ -909,24 +911,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Third-Body Accelerations
     module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_mercury_de440s,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_jupiter_de440s,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_neptune_de440s,
-        module
-    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_de, module)?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
@@ -990,6 +983,17 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Access Computation
     module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
+
+    //* Event Detection *//
+    module.add_class::<PyEventDirection>()?;
+    module.add_class::<PyEdgeType>()?;
+    module.add_class::<PyEventAction>()?;
+    module.add_class::<PyEventType>()?;
+    module.add_class::<PyDetectedEvent>()?;
+    module.add_class::<PyTimeEvent>()?;
+    module.add_class::<PyThresholdEvent>()?;
+    module.add_class::<PyBinaryEvent>()?;
+    module.add_class::<PyAltitudeEvent>()?;
 
     //* Utils *//
     // Cache Management

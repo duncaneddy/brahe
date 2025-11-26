@@ -356,7 +356,7 @@ impl NumericalPropagationConfig {
     /// ```
     pub fn high_precision() -> Self {
         Self {
-            method: IntegratorMethod::DP54,
+            method: IntegratorMethod::RKN1210,
             integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
             variational: VariationalConfig::default(),
         }
@@ -407,7 +407,7 @@ mod tests {
     fn test_numerical_propagation_config_high_precision() {
         let config = NumericalPropagationConfig::high_precision();
 
-        assert_eq!(config.method, IntegratorMethod::DP54);
+        assert_eq!(config.method, IntegratorMethod::RKN1210);
         // Tolerances are set tighter
         assert!(config.integrator.abs_tol <= 1e-9);
         assert!(config.integrator.rel_tol <= 1e-7);

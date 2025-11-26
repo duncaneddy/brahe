@@ -1,7 +1,7 @@
 """
 Tests for orbit dynamics third-body acceleration functions.
 
-This module tests both analytical and DE440s-based third-body acceleration calculations.
+This module tests both analytical and DE-based third-body acceleration calculations.
 """
 
 import pytest
@@ -11,7 +11,7 @@ import brahe as bh
 
 @pytest.fixture(scope="module", autouse=True)
 def initialize_ephemeris():
-    """Initialize DE440s ephemeris for all tests."""
+    """Initialize DE ephemeris for all tests."""
     bh.initialize_ephemeris()
 
 
@@ -387,70 +387,70 @@ class TestAnalyticalThirdBody:
         assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
 
 
-class TestDE440sThirdBody:
-    """Tests for DE440s-based third-body acceleration functions."""
+class TestDEThirdBody:
+    """Tests for DE-based third-body acceleration functions."""
 
-    def test_accel_third_body_sun_de440s(self):
+    def test_accel_third_body_sun_de(self):
         """Test Sun DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_sun_de440s(epc, r_object)
+        a = bh.accel_third_body_sun_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-5  # Should be on order of 1e-6 to 1e-7 m/s²
 
-    def test_accel_third_body_moon_de440s(self):
+    def test_accel_third_body_moon_de(self):
         """Test Moon DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_moon_de440s(epc, r_object)
+        a = bh.accel_third_body_moon_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-5  # Should be on order of 1e-6 to 1e-7 m/s²
 
-    def test_accel_third_body_mercury_de440s(self):
+    def test_accel_third_body_mercury_de(self):
         """Test Mercury DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_mercury_de440s(epc, r_object)
+        a = bh.accel_third_body_mercury_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-10  # Mercury effect is very small
 
-    def test_accel_third_body_venus_de440s(self):
+    def test_accel_third_body_venus_de(self):
         """Test Venus DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_venus_de440s(epc, r_object)
+        a = bh.accel_third_body_venus_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-9  # Venus effect is small
 
-    def test_accel_third_body_mars_de440s(self):
+    def test_accel_third_body_mars_de(self):
         """Test Mars DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_mars_de440s(epc, r_object)
+        a = bh.accel_third_body_mars_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-10  # Mars effect is very small
 
-    def test_accel_third_body_jupiter_de440s(self):
+    def test_accel_third_body_jupiter_de(self):
         """Test Jupiter DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_jupiter_de440s(epc, r_object)
+        a = bh.accel_third_body_jupiter_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
@@ -458,40 +458,40 @@ class TestDE440sThirdBody:
             np.linalg.norm(a) < 1e-9
         )  # Jupiter effect is relatively larger but still small
 
-    def test_accel_third_body_saturn_de440s(self):
+    def test_accel_third_body_saturn_de(self):
         """Test Saturn DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_saturn_de440s(epc, r_object)
+        a = bh.accel_third_body_saturn_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-10  # Saturn effect is small
 
-    def test_accel_third_body_uranus_de440s(self):
+    def test_accel_third_body_uranus_de(self):
         """Test Uranus DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_uranus_de440s(epc, r_object)
+        a = bh.accel_third_body_uranus_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-11  # Uranus effect is very small
 
-    def test_accel_third_body_neptune_de440s(self):
+    def test_accel_third_body_neptune_de(self):
         """Test Neptune DE440s third-body acceleration."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_object = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
 
-        a = bh.accel_third_body_neptune_de440s(epc, r_object)
+        a = bh.accel_third_body_neptune_de(epc, r_object, bh.EphemerisSource.DE440s)
 
         assert a.shape == (3,)
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) < 1e-11  # Neptune effect is very small
 
-    def test_accel_third_body_de440s_with_state_vector(self):
+    def test_accel_third_body_de_with_state_vector(self):
         """Test that DE440s third-body functions work with 6D state vectors."""
         epc = bh.Epoch.from_mjd(60310.0, bh.TimeSystem.TT)
         r_pos = np.array([4884992.30378986, 4553508.53744864, 1330313.60479734])
@@ -507,16 +507,24 @@ class TestDE440sThirdBody:
         )
 
         # Test Sun
-        a_sun_pos = bh.accel_third_body_sun_de440s(epc, r_pos)
-        a_sun_state = bh.accel_third_body_sun_de440s(epc, x_state)
+        a_sun_pos = bh.accel_third_body_sun_de(epc, r_pos, bh.EphemerisSource.DE440s)
+        a_sun_state = bh.accel_third_body_sun_de(
+            epc, x_state, bh.EphemerisSource.DE440s
+        )
         assert np.allclose(a_sun_pos, a_sun_state, atol=1e-15)
 
         # Test Moon
-        a_moon_pos = bh.accel_third_body_moon_de440s(epc, r_pos)
-        a_moon_state = bh.accel_third_body_moon_de440s(epc, x_state)
+        a_moon_pos = bh.accel_third_body_moon_de(epc, r_pos, bh.EphemerisSource.DE440s)
+        a_moon_state = bh.accel_third_body_moon_de(
+            epc, x_state, bh.EphemerisSource.DE440s
+        )
         assert np.allclose(a_moon_pos, a_moon_state, atol=1e-15)
 
         # Test Jupiter (representative planet)
-        a_jup_pos = bh.accel_third_body_jupiter_de440s(epc, r_pos)
-        a_jup_state = bh.accel_third_body_jupiter_de440s(epc, x_state)
+        a_jup_pos = bh.accel_third_body_jupiter_de(
+            epc, r_pos, bh.EphemerisSource.DE440s
+        )
+        a_jup_state = bh.accel_third_body_jupiter_de(
+            epc, x_state, bh.EphemerisSource.DE440s
+        )
         assert np.allclose(a_jup_pos, a_jup_state, atol=1e-15)

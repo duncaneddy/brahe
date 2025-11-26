@@ -52,10 +52,12 @@ impl ParameterSource {
     ///
     /// # Returns
     /// The parameter value, or default if parameter vector is missing
-    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>, default: f64) -> f64 {
+    pub fn get_value(&self, params: Option<&nalgebra::DVector<f64>>) -> f64 {
         match self {
             ParameterSource::Value(v) => *v,
-            ParameterSource::ParameterIndex(idx) => params.map(|p| p[*idx]).unwrap_or(default),
+            ParameterSource::ParameterIndex(idx) => params.map(|p| p[*idx]).unwrap_or_else(|| {
+                panic!("Parameter vector missing or index {} out of bounds", idx)
+            }),
         }
     }
 
@@ -117,15 +119,10 @@ pub struct ForceModelConfiguration {
     /// Enable general relativistic corrections
     pub relativity: bool,
 
-    /// Spacecraft mass [kg] - used by drag and SRP calculations
+    /// Spacecraft mass [kg] - required when drag or SRP is enabled
     ///
-    /// Mass resolution priority:
-    /// 1. If params vector exists → Use params[0]
-    /// 2. Else if mass is Some(Value(v)) → Use v as fallback
-    /// 3. Else if mass is Some(ParameterIndex) or None → Error (when drag/SRP enabled)
-    ///
-    /// This allows runtime mass updates via parameter vector while providing
-    /// a convenient fallback for fixed-mass configurations.
+    /// Use `ParameterSource::Value(mass_kg)` for fixed mass or
+    /// `ParameterSource::ParameterIndex(idx)` to read from parameter vector.
     pub mass: Option<ParameterSource>,
 }
 
@@ -152,7 +149,7 @@ impl Default for ForceModelConfiguration {
                 bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
             }),
             relativity: false,
-            mass: None, // Uses params[0] when available
+            mass: Some(ParameterSource::ParameterIndex(0)),
         }
     }
 }
@@ -171,8 +168,8 @@ impl ForceModelConfiguration {
     /// let config = ForceModelConfiguration::default();
     /// assert!(config.requires_params()); // Default uses parameter indices
     ///
-    /// let gravity_only = ForceModelConfiguration::gravity_only();
-    /// assert!(!gravity_only.requires_params()); // No drag/SRP
+    /// let earth_gravity = ForceModelConfiguration::earth_gravity();
+    /// assert!(!earth_gravity.requires_params()); // No drag/SRP
     /// ```
     pub fn requires_params(&self) -> bool {
         // Check mass configuration
@@ -272,7 +269,7 @@ impl ForceModelConfiguration {
                 None => {
                     return Err(crate::utils::errors::BraheError::Error(format!(
                         "Force model configuration references parameter index {} but no parameter \
-                         vector was provided. Use ForceModelConfiguration::gravity_only() for \
+                         vector was provided. Use ForceModelConfiguration::earth_gravity() for \
                          propagation without parameters, or provide a parameter vector with at \
                          least {} elements.",
                         max_idx,
@@ -334,14 +331,50 @@ impl ForceModelConfiguration {
                 ],
             }),
             relativity: true,
+            mass: Some(ParameterSource::ParameterIndex(0)),
+        }
+    }
+
+    /// Create a gravity-only configuration (for comparison with Keplerian propagation)
+    pub fn earth_gravity() -> Self {
+        Self {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                degree: 20,
+                order: 20,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+        }
+    }
+
+    /// Create a two-body (point mass) gravity configuration
+    ///
+    /// Uses only central body gravity with no perturbations.
+    /// Produces results equivalent to Keplerian propagation.
+    /// Useful for validation and comparison tests.
+    pub fn two_body_gravity() -> Self {
+        Self {
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
             mass: None,
         }
     }
 
     /// Create a gravity-only configuration (for comparison with Keplerian propagation)
-    pub fn gravity_only() -> Self {
+    pub fn conservative_forces() -> Self {
         Self {
-            gravity: GravityConfiguration::PointMass,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                degree: 80,
+                order: 80,
+            },
             drag: None,
             srp: None,
             third_body: Some(ThirdBodyConfiguration {
@@ -379,7 +412,7 @@ impl ForceModelConfiguration {
                 bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
             }),
             relativity: false,
-            mass: None,
+            mass: Some(ParameterSource::ParameterIndex(0)),
         }
     }
 
@@ -405,65 +438,7 @@ impl ForceModelConfiguration {
                 bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
             }),
             relativity: false,
-            mass: None,
-        }
-    }
-
-    /// Get the mass value from configuration and/or parameters
-    ///
-    /// Resolution priority:
-    /// 1. If params vector exists and mass is ParameterIndex → Use params[index]
-    /// 2. If params vector exists and mass is None → Use params[0] (backwards compatible)
-    /// 3. If params vector exists and mass is Value → Use params[0] (params takes priority)
-    /// 4. If no params and mass is Value → Use the value
-    /// 5. If no params and mass is ParameterIndex or None → Error
-    ///
-    /// # Arguments
-    /// * `params` - Optional parameter vector
-    ///
-    /// # Returns
-    /// The mass value in kg, or an error if mass cannot be determined
-    pub fn get_mass(
-        &self,
-        params: Option<&nalgebra::DVector<f64>>,
-    ) -> Result<f64, crate::utils::errors::BraheError> {
-        // Helper to check if params are actually usable (Some and non-empty)
-        let usable_params = params.filter(|p| !p.is_empty());
-
-        match (usable_params, &self.mass) {
-            // Params exist and are usable: use param vector
-            (Some(p), Some(ParameterSource::ParameterIndex(idx))) => {
-                if *idx >= p.len() {
-                    return Err(crate::utils::errors::BraheError::Error(format!(
-                        "Mass parameter index {} exceeds parameter vector length {}",
-                        idx,
-                        p.len()
-                    )));
-                }
-                Ok(p[*idx])
-            }
-            (Some(p), Some(ParameterSource::Value(_))) => {
-                // Params take priority over config value - use params[0]
-                Ok(p[0])
-            }
-            (Some(p), None) => {
-                // Backwards compatible: use params[0]
-                Ok(p[0])
-            }
-            // No usable params: use config value if it's a fixed value
-            (None, Some(ParameterSource::Value(v))) => Ok(*v),
-            // No usable params and mass requires params: error
-            (None, Some(ParameterSource::ParameterIndex(idx))) => {
-                Err(crate::utils::errors::BraheError::Error(format!(
-                    "Mass is configured as ParameterIndex({}) but no parameter vector was provided",
-                    idx
-                )))
-            }
-            (None, None) => Err(crate::utils::errors::BraheError::Error(
-                "No mass specified: either provide a parameter vector or set \
-                 ForceModelConfiguration.mass to ParameterSource::Value(mass_kg)"
-                    .to_string(),
-            )),
+            mass: Some(ParameterSource::ParameterIndex(0)),
         }
     }
 }
@@ -691,7 +666,7 @@ pub struct ThirdBodyConfiguration {
 }
 
 /// Source for celestial body ephemerides
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EphemerisSource {
     /// Low-precision analytical ephemerides
     ///
@@ -700,12 +675,21 @@ pub enum EphemerisSource {
     /// Only Sun and Moon are available.
     LowPrecision,
 
-    /// High-precision JPL DE440s ephemerides
+    /// High-precision JPL DE440s ephemerides (1550-2650 CE)
     ///
     /// Uses JPL Development Ephemeris 440 (small bodies version).
     /// High accuracy (~m level) but requires ephemeris file and slower evaluation.
-    /// All planets available.
+    /// Valid over time range 1550-2650 CE.
+    /// All planets available. File size ~17 MB.
     DE440s,
+
+    /// Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE)
+    ///
+    /// Uses JPL Development Ephemeris 440 (full version).
+    /// Highest accuracy (~mm level) but requires larger ephemeris file and slower evaluation.
+    /// Valid over extended time range 13200 BCE-17191 CE.
+    /// All planets available. File size ~114 MB.
+    DE440,
 }
 
 /// Third-body perturber
@@ -852,20 +836,25 @@ mod tests {
         // Check relativity enabled
         assert!(config.relativity);
 
-        // Check mass is None (uses params[0] by default)
-        assert!(config.mass.is_none());
+        // Check mass is configured to use params[0]
+        assert!(matches!(
+            config.mass,
+            Some(ParameterSource::ParameterIndex(0))
+        ));
     }
 
     #[test]
     fn test_gravity_only_configuration() {
-        let config = ForceModelConfiguration::gravity_only();
+        let config = ForceModelConfiguration::earth_gravity();
 
-        assert!(matches!(config.gravity, GravityConfiguration::PointMass));
+        assert!(matches!(
+            config.gravity,
+            GravityConfiguration::SphericalHarmonic { .. }
+        ));
         assert!(config.drag.is_none());
         assert!(config.srp.is_none());
-        // gravity_only includes Sun/Moon third-body and relativity for comparison purposes
-        assert!(config.third_body.is_some());
-        assert!(config.relativity);
+        assert!(config.third_body.is_none());
+        assert!(!config.relativity);
         assert!(config.mass.is_none());
     }
 
@@ -882,8 +871,11 @@ mod tests {
         // LEO has Sun/Moon third-body
         assert!(config.third_body.is_some());
 
-        // Check mass is None (uses params[0] by default)
-        assert!(config.mass.is_none());
+        // Check mass is configured to use params[0]
+        assert!(matches!(
+            config.mass,
+            Some(ParameterSource::ParameterIndex(0))
+        ));
     }
 
     #[test]
@@ -941,98 +933,6 @@ mod tests {
         assert!(deserialized.drag.is_some());
     }
 
-    // =========================================================================
-    // Tests for get_mass()
-    // =========================================================================
-
-    #[test]
-    fn test_get_mass_with_params_and_none_config() {
-        // When mass config is None, params[0] should be used
-        let config = ForceModelConfiguration {
-            mass: None,
-            ..ForceModelConfiguration::gravity_only()
-        };
-        let params = nalgebra::DVector::from_vec(vec![500.0, 10.0, 2.2, 10.0, 1.3]);
-
-        let mass = config.get_mass(Some(&params)).unwrap();
-        assert_eq!(mass, 500.0);
-    }
-
-    #[test]
-    fn test_get_mass_with_params_and_value_config() {
-        // When params exist, params[0] takes priority over config value
-        let config = ForceModelConfiguration {
-            mass: Some(ParameterSource::Value(999.0)),
-            ..ForceModelConfiguration::gravity_only()
-        };
-        let params = nalgebra::DVector::from_vec(vec![500.0, 10.0, 2.2, 10.0, 1.3]);
-
-        let mass = config.get_mass(Some(&params)).unwrap();
-        assert_eq!(mass, 500.0); // params[0] takes priority
-    }
-
-    #[test]
-    fn test_get_mass_with_params_and_param_index_config() {
-        // When mass is ParameterIndex, use that index from params
-        let config = ForceModelConfiguration {
-            mass: Some(ParameterSource::ParameterIndex(3)),
-            ..ForceModelConfiguration::gravity_only()
-        };
-        let params = nalgebra::DVector::from_vec(vec![500.0, 10.0, 2.2, 750.0, 1.3]);
-
-        let mass = config.get_mass(Some(&params)).unwrap();
-        assert_eq!(mass, 750.0); // params[3]
-    }
-
-    #[test]
-    fn test_get_mass_without_params_and_value_config() {
-        // When no params and mass is Value, use the value
-        let config = ForceModelConfiguration {
-            mass: Some(ParameterSource::Value(1500.0)),
-            ..ForceModelConfiguration::gravity_only()
-        };
-
-        let mass = config.get_mass(None).unwrap();
-        assert_eq!(mass, 1500.0);
-    }
-
-    #[test]
-    fn test_get_mass_without_params_and_none_config_errors() {
-        // When no params and mass is None, should error
-        let config = ForceModelConfiguration {
-            mass: None,
-            ..ForceModelConfiguration::gravity_only()
-        };
-
-        let result = config.get_mass(None);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_get_mass_without_params_and_param_index_config_errors() {
-        // When no params and mass is ParameterIndex, should error
-        let config = ForceModelConfiguration {
-            mass: Some(ParameterSource::ParameterIndex(0)),
-            ..ForceModelConfiguration::gravity_only()
-        };
-
-        let result = config.get_mass(None);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_get_mass_param_index_out_of_bounds_errors() {
-        // When param index exceeds params length, should error
-        let config = ForceModelConfiguration {
-            mass: Some(ParameterSource::ParameterIndex(10)),
-            ..ForceModelConfiguration::gravity_only()
-        };
-        let params = nalgebra::DVector::from_vec(vec![500.0, 10.0, 2.2]);
-
-        let result = config.get_mass(Some(&params));
-        assert!(result.is_err());
-    }
-
     #[test]
     fn test_requires_params_with_mass_param_index() {
         // When mass uses ParameterIndex, requires_params should return true
@@ -1040,7 +940,7 @@ mod tests {
             mass: Some(ParameterSource::ParameterIndex(5)),
             drag: None,
             srp: None,
-            ..ForceModelConfiguration::gravity_only()
+            ..ForceModelConfiguration::earth_gravity()
         };
 
         assert!(config.requires_params());
@@ -1053,7 +953,7 @@ mod tests {
             mass: Some(ParameterSource::Value(1000.0)),
             drag: None,
             srp: None,
-            ..ForceModelConfiguration::gravity_only()
+            ..ForceModelConfiguration::earth_gravity()
         };
 
         assert!(!config.requires_params());

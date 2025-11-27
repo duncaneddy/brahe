@@ -248,10 +248,10 @@ impl PyEventType {
 
     /// Period event (maintains condition over interval).
     #[classattr]
-    #[pyo3(name = "PERIOD")]
+    #[pyo3(name = "WINDOW")]
     fn period() -> Self {
         PyEventType {
-            event_type: events::EventType::Period,
+            event_type: events::EventType::Window,
         }
     }
 
@@ -302,7 +302,7 @@ impl PyEventType {
 ///     # for event in events_detected:
 ///     #     print(f"Event '{event.name}' at {event.window_open}")
 ///     #     print(f"State: {event.entry_state}")
-///     #     if event.event_type == bh.EventType.PERIOD:
+///     #     if event.event_type == bh.EventType.WINDOW:
 ///     #         print(f"Duration: {event.window_close - event.window_open} seconds")
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -1335,7 +1335,7 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
-    ///     events = prop.query_events().by_event_type(bh.EventType.PERIOD).collect()
+    ///     events = prop.query_events().by_event_type(bh.EventType.WINDOW).collect()
     ///     ```
     #[pyo3(text_signature = "(event_type)")]
     fn by_event_type(&self, event_type: &PyEventType) -> Self {

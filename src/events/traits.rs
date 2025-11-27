@@ -46,7 +46,7 @@ pub enum EventType {
     /// Instantaneous event (zero-crossing at a point in time)
     Instantaneous,
     /// Period event (maintains condition over an interval)
-    Period,
+    Window,
 }
 
 /// Action to take when event is detected

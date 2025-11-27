@@ -137,13 +137,20 @@ pub trait DIntegrator: Send + Sync {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     /// - `dt`: Integration timestep (can be negative for backward integration).
     ///   For fixed-step integrators, can be None to use config's step size.
     ///   For adaptive-step integrators, this is the requested timestep.
     ///
     /// # Returns
     /// Integration result with state and optional adaptive step information
-    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DIntegratorStepResult;
+    fn step(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult;
 
     /// Advance both state and state transition matrix by one timestep.
     ///
@@ -152,6 +159,7 @@ pub trait DIntegrator: Send + Sync {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     /// - `phi`: State transition matrix at time t
     /// - `dt`: Integration timestep (None for fixed-step to use config)
     ///
@@ -161,6 +169,7 @@ pub trait DIntegrator: Send + Sync {
         &self,
         t: f64,
         state: DVector<f64>,
+        params: Option<&DVector<f64>>,
         phi: DMatrix<f64>,
         dt: Option<f64>,
     ) -> DIntegratorStepResult;
@@ -267,13 +276,20 @@ pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     /// - `dt`: Integration timestep (can be negative for backward integration).
     ///   For fixed-step integrators, can be None to use config's step size.
     ///   For adaptive-step integrators, this is the requested timestep.
     ///
     /// # Returns
     /// Integration result with state and optional adaptive step information
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SIntegratorStepResult<S, P>;
+    fn step(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P>;
 
     /// Advance both state and state transition matrix by one timestep.
     ///
@@ -282,6 +298,7 @@ pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     /// - `phi`: State transition matrix at time t
     /// - `dt`: Integration timestep (None for fixed-step to use config)
     ///
@@ -291,6 +308,7 @@ pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
         &self,
         t: f64,
         state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
         phi: SMatrix<f64, S, S>,
         dt: Option<f64>,
     ) -> SIntegratorStepResult<S, P>;

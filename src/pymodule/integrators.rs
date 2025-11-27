@@ -598,7 +598,7 @@ impl PyRK4DIntegrator {
         let state_vec = pyany_to_f64_array1(state, Some(self.dimension))?;
         let state_dvec = na::DVector::from_vec(state_vec);
 
-        let result = self.inner.step(t, state_dvec, dt);
+        let result = self.inner.step(t, state_dvec, None, dt);
 
         Ok(result.state.as_slice().to_pyarray(py))
     }
@@ -644,7 +644,7 @@ impl PyRK4DIntegrator {
             }
         }
 
-        let result = self.inner.step_with_varmat(t, state_dvec, phi_dmat, dt);
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, dt);
 
         // Convert results to NumPy
         let state_np = result.state.as_slice().to_pyarray(py);
@@ -1162,7 +1162,7 @@ impl PyRKF45DIntegrator {
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
         // Perform step
-        let result = self.inner.step(t, state_dvec, Some(dt));
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -1207,7 +1207,7 @@ impl PyRKF45DIntegrator {
         }
 
         // Perform step
-        let result = self.inner.step_with_varmat(t, state_dvec, phi_dmat, Some(dt));
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
         // Convert results to NumPy
         let state_np = result.state.as_slice().to_pyarray(py);
@@ -1734,7 +1734,7 @@ impl PyDP54DIntegrator {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, Some(dt));
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -1777,7 +1777,7 @@ impl PyDP54DIntegrator {
             }
         }
 
-        let result = self.inner.step_with_varmat(t, state_dvec, phi_dmat, Some(dt));
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
         let state_np = result.state.as_slice().to_pyarray(py);
 
@@ -2299,7 +2299,7 @@ impl PyRKN1210DIntegrator {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, Some(dt));
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -2342,7 +2342,7 @@ impl PyRKN1210DIntegrator {
             }
         }
 
-        let result = self.inner.step_with_varmat(t, state_dvec, phi_dmat, Some(dt));
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
         let state_np = result.state.as_slice().to_pyarray(py);
 

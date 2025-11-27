@@ -178,7 +178,7 @@ fn main() {
     let dt = 1.0;
 
     while t < t_final {
-        aug_state = integrator.step(t, aug_state, None).state;
+        aug_state = integrator.step(t, aug_state, None, None).state;
         t += dt;
     }
 

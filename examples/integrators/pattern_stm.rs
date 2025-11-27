@@ -45,7 +45,7 @@ fn main() {
     let phi = DMatrix::identity(1, 1); // 1x1 identity matrix
     let dt = 60.0;
 
-    let result = integrator.step_with_varmat(t, state, phi, Some(dt));
+    let result = integrator.step_with_varmat(t, state, None, phi, Some(dt));
     let new_state = result.state;
     let new_phi = result.phi.unwrap();
     let dt_used = result.dt_used;

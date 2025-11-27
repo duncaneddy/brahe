@@ -419,6 +419,26 @@ impl DNumericalOrbitPropagator {
             trajectory.enable_sensitivity_storage(params.len());
         }
 
+        // Store initial state in trajectory with identity STM and zero sensitivity if needed
+        let initial_stm = if propagation_config.variational.store_stm_history {
+            Some(DMatrix::identity(state_dim, state_dim))
+        } else {
+            None
+        };
+        let initial_sensitivity =
+            if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
+                Some(DMatrix::zeros(state_dim, params.len()))
+            } else {
+                None
+            };
+        trajectory.add_full(
+            epoch,
+            state_eci.clone(),
+            initial_covariance.clone(),
+            initial_stm,
+            initial_sensitivity,
+        );
+
         // Determine propagation mode based on what's enabled
         let propagation_mode = match (enable_stm, enable_sensitivity) {
             (false, false) => PropagationMode::StateOnly,
@@ -630,6 +650,9 @@ impl DNumericalOrbitPropagator {
                     if let Some(p_new) = new_params {
                         self.params = p_new;
                     }
+
+                    // Mark this event as processed so it won't trigger again on restart
+                    detector.mark_processed();
 
                     // Check terminal
                     if action == EventAction::Stop {
@@ -1305,12 +1328,22 @@ impl DNumericalOrbitPropagator {
             let dt_requested = self.dt_next;
 
             // Dispatch to appropriate integrator method based on propagation mode
+            // Create params reference if params is not empty
+            let params_ref = if self.params.is_empty() {
+                None
+            } else {
+                Some(&self.params)
+            };
+
             match self.propagation_mode {
                 PropagationMode::StateOnly => {
                     // Basic state propagation only
-                    let result =
-                        self.integrator
-                            .step(self.t_rel, self.x_curr.clone(), Some(dt_requested));
+                    let result = self.integrator.step(
+                        self.t_rel,
+                        self.x_curr.clone(),
+                        params_ref,
+                        Some(dt_requested),
+                    );
 
                     self.x_curr = result.state;
                     self.dt = result.dt_used;
@@ -1323,6 +1356,7 @@ impl DNumericalOrbitPropagator {
                     let result = self.integrator.step_with_varmat(
                         self.t_rel,
                         self.x_curr.clone(),
+                        params_ref,
                         phi,
                         Some(dt_requested),
                     );
@@ -1660,6 +1694,11 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // Clear event state
         self.event_log.clear();
         self.terminated = false;
+
+        // Reset processed state on all event detectors so they can trigger again
+        for detector in &self.event_detectors {
+            detector.reset_processed();
+        }
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -4613,6 +4652,79 @@ mod tests {
     }
 
     #[test]
+    fn test_dnumericalorbitpropagator_event_detection_time_events_no_infinite_loop() {
+        // Test that multiple TimeEvents with callbacks don't cause infinite loops
+        // This was a bug where TimeEvents very close together with CONTINUE callbacks
+        // would re-trigger indefinitely.
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfiguration::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Track callback execution counts
+        let callback1_count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let callback2_count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+        let cb1_count = callback1_count.clone();
+        let cb2_count = callback2_count.clone();
+
+        use crate::events::EventAction;
+
+        // Two TimeEvents very close together (0.1 seconds apart)
+        // Both callbacks return CONTINUE, which was causing infinite loops
+        let event1 = DTimeEvent::new(epoch + 1800.0, "Event 1").with_callback(Box::new(
+            move |_t, _state, _params| {
+                cb1_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                (None, None, EventAction::Continue)
+            },
+        ));
+
+        let event2 = DTimeEvent::new(epoch + 1800.1, "Event 2").with_callback(Box::new(
+            move |_t, _state, _params| {
+                cb2_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                (None, None, EventAction::Continue)
+            },
+        ));
+
+        prop.add_event_detector(Box::new(event1));
+        prop.add_event_detector(Box::new(event2));
+
+        // Propagate to 1 hour - this should complete in reasonable time
+        prop.propagate_to(epoch + 3600.0);
+
+        // Each callback should fire exactly once
+        let cb1_executions = callback1_count.load(std::sync::atomic::Ordering::SeqCst);
+        let cb2_executions = callback2_count.load(std::sync::atomic::Ordering::SeqCst);
+
+        assert_eq!(
+            cb1_executions, 1,
+            "Callback 1 should execute exactly once, got {}",
+            cb1_executions
+        );
+        assert_eq!(
+            cb2_executions, 1,
+            "Callback 2 should execute exactly once, got {}",
+            cb2_executions
+        );
+
+        // Both events should be in the log
+        let events = prop.event_log();
+        assert_eq!(events.len(), 2, "Both events should be logged");
+    }
+
+    #[test]
     fn test_dnumericalorbitpropagator_continuous_control_via_control_input() {
         setup_global_test_eop();
 
@@ -6101,16 +6213,16 @@ mod tests {
         )
         .unwrap();
 
-        // Initially trajectory should be empty
+        // Initially trajectory should have the initial state
         let traj = prop.trajectory();
-        assert_eq!(traj.len(), 0);
+        assert_eq!(traj.len(), 1);
 
-        // After propagation, trajectory should have states
+        // After propagation, trajectory should have more states
         prop.step_by(100.0);
         prop.step_by(100.0);
 
         let traj_after = prop.trajectory();
-        assert!(traj_after.len() > 0);
+        assert!(traj_after.len() > 1);
     }
 
     #[test]

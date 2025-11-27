@@ -229,7 +229,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector in the propagator's current output format.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SStateProvider;
         let state = SStateProvider::state(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -256,7 +255,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_eci(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -270,7 +268,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_ecef(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -284,7 +281,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_gcrf(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -298,7 +294,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_eme2000(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -312,7 +307,6 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_itrf(&self.propagator, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -326,8 +320,6 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::SStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SStateProvider::states(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -342,8 +334,6 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::SOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SOrbitStateProvider::states_eci(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -358,8 +348,6 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::SOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SOrbitStateProvider::states_gcrf(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -374,8 +362,6 @@ impl PySGPPropagator {
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::SOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -559,7 +545,6 @@ impl PySGPPropagator {
     ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
-        use nalgebra::{DVector, DMatrix};
         let traj = &self.propagator.trajectory;
 
         // Convert states from SVector to DVector
@@ -981,7 +966,6 @@ impl PySGPPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::SOrbitStateProvider;
         let state = SOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -1018,8 +1002,6 @@ impl PySGPPropagator {
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::SOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1640,7 +1622,6 @@ impl PyKeplerianPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        use crate::utils::DOrbitStateProvider;
         let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -1654,7 +1635,6 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of state vectors in the propagator's native format.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DStateProvider;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DStateProvider::states(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1669,8 +1649,6 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ECI state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_eci(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1685,8 +1663,6 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ECEF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_ecef(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1701,8 +1677,6 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of GCRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_gcrf(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1717,8 +1691,6 @@ impl PyKeplerianPropagator {
     ///     list[numpy.ndarray]: List of ITRF state vectors.
     #[pyo3(text_signature = "(epochs)")]
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1739,8 +1711,6 @@ impl PyKeplerianPropagator {
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
-        use crate::utils::DOrbitStateProvider;
-        use nalgebra::Vector6;
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
@@ -1766,7 +1736,6 @@ impl PyKeplerianPropagator {
     ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
-        use nalgebra::{DVector, DMatrix};
         let traj = &self.propagator.trajectory;
 
         // Convert states from SVector to DVector
@@ -2100,5 +2069,2988 @@ fn py_par_propagate_to(
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "propagators must be a list of KeplerianPropagator or SGPPropagator"
         ))
+    }
+}
+
+// =============================================================================
+// Configuration Classes for Numerical Propagation
+// =============================================================================
+
+/// Integration method for numerical orbit propagation.
+///
+/// Specifies which numerical integrator to use. Different methods trade off
+/// accuracy, efficiency, and applicability.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Use default (DP54)
+///     method = bh.IntegrationMethod.DP54
+///
+///     # Create config with specific method
+///     config = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "IntegrationMethod")]
+#[derive(Clone)]
+pub struct PyIntegrationMethod {
+    pub method: propagators::IntegratorMethod,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyIntegrationMethod {
+    /// Classical 4th-order Runge-Kutta (fixed-step)
+    #[classattr]
+    fn RK4() -> Self {
+        PyIntegrationMethod { method: propagators::IntegratorMethod::RK4 }
+    }
+
+    /// Runge-Kutta-Fehlberg 4(5) adaptive
+    #[classattr]
+    fn RKF45() -> Self {
+        PyIntegrationMethod { method: propagators::IntegratorMethod::RKF45 }
+    }
+
+    /// Dormand-Prince 5(4) adaptive (default, MATLAB's ode45)
+    #[classattr]
+    fn DP54() -> Self {
+        PyIntegrationMethod { method: propagators::IntegratorMethod::DP54 }
+    }
+
+    /// Runge-Kutta-Nystrom 12(10) adaptive (high-precision)
+    #[classattr]
+    fn RKN1210() -> Self {
+        PyIntegrationMethod { method: propagators::IntegratorMethod::RKN1210 }
+    }
+
+    /// Returns true if this integrator uses adaptive step size control.
+    pub fn is_adaptive(&self) -> bool {
+        self.method.is_adaptive()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("IntegrationMethod.{:?}", self.method)
+    }
+}
+
+/// Configuration for STM and sensitivity matrix propagation.
+///
+/// Controls whether the propagator computes and stores variational matrices
+/// (State Transition Matrix and Sensitivity Matrix) during propagation.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     config = bh.NumericalPropagationConfig.default()
+///     config.variational.enable_stm = True
+///     config.variational.store_stm_history = True
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "VariationalConfig")]
+#[derive(Clone)]
+pub struct PyVariationalConfig {
+    pub config: propagators::VariationalConfig,
+}
+
+#[pymethods]
+impl PyVariationalConfig {
+    /// Enable State Transition Matrix (STM) propagation.
+    #[getter]
+    fn get_enable_stm(&self) -> bool {
+        self.config.enable_stm
+    }
+
+    #[setter]
+    fn set_enable_stm(&mut self, value: bool) {
+        self.config.enable_stm = value;
+    }
+
+    /// Enable sensitivity matrix propagation.
+    #[getter]
+    fn get_enable_sensitivity(&self) -> bool {
+        self.config.enable_sensitivity
+    }
+
+    #[setter]
+    fn set_enable_sensitivity(&mut self, value: bool) {
+        self.config.enable_sensitivity = value;
+    }
+
+    /// Store STM at output times in trajectory.
+    #[getter]
+    fn get_store_stm_history(&self) -> bool {
+        self.config.store_stm_history
+    }
+
+    #[setter]
+    fn set_store_stm_history(&mut self, value: bool) {
+        self.config.store_stm_history = value;
+    }
+
+    /// Store sensitivity matrix at output times in trajectory.
+    #[getter]
+    fn get_store_sensitivity_history(&self) -> bool {
+        self.config.store_sensitivity_history
+    }
+
+    #[setter]
+    fn set_store_sensitivity_history(&mut self, value: bool) {
+        self.config.store_sensitivity_history = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VariationalConfig(enable_stm={}, enable_sensitivity={}, store_stm_history={}, store_sensitivity_history={})",
+            self.config.enable_stm, self.config.enable_sensitivity,
+            self.config.store_stm_history, self.config.store_sensitivity_history
+        )
+    }
+}
+
+/// Atmospheric density model selection.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     model = bh.AtmosphericModel.HARRIS_PRIESTER
+///     model = bh.AtmosphericModel.NRLMSISE00
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AtmosphericModel")]
+#[derive(Clone)]
+pub struct PyAtmosphericModel {
+    pub model: propagators::AtmosphericModel,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyAtmosphericModel {
+    /// Harris-Priester atmospheric model (fast, no space weather required)
+    #[classattr]
+    fn HARRIS_PRIESTER() -> Self {
+        PyAtmosphericModel { model: propagators::AtmosphericModel::HarrisPriester }
+    }
+
+    /// NRLMSISE-00 empirical model (high-fidelity, requires space weather)
+    #[classattr]
+    fn NRLMSISE00() -> Self {
+        PyAtmosphericModel { model: propagators::AtmosphericModel::NRLMSISE00 }
+    }
+
+    /// Create exponential atmosphere model with custom parameters.
+    ///
+    /// Args:
+    ///     scale_height (float): Scale height in meters.
+    ///     rho0 (float): Reference density in kg/m³.
+    ///     h0 (float): Reference altitude in meters.
+    #[classmethod]
+    fn exponential(_cls: &Bound<'_, PyType>, scale_height: f64, rho0: f64, h0: f64) -> Self {
+        PyAtmosphericModel {
+            model: propagators::AtmosphericModel::Exponential { scale_height, rho0, h0 }
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AtmosphericModel({:?})", self.model)
+    }
+}
+
+/// Eclipse model for solar radiation pressure calculations.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     eclipse = bh.EclipseModel.CONICAL
+///     eclipse = bh.EclipseModel.CYLINDRICAL
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EclipseModel")]
+#[derive(Clone)]
+pub struct PyEclipseModel {
+    pub model: propagators::EclipseModel,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyEclipseModel {
+    /// Conical eclipse model (accurate, accounts for penumbra)
+    #[classattr]
+    fn CONICAL() -> Self {
+        PyEclipseModel { model: propagators::EclipseModel::Conical }
+    }
+
+    /// Cylindrical eclipse model (simpler, faster)
+    #[classattr]
+    fn CYLINDRICAL() -> Self {
+        PyEclipseModel { model: propagators::EclipseModel::Cylindrical }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("EclipseModel.{:?}", self.model)
+    }
+}
+
+// =============================================================================
+// Parameter Source
+// =============================================================================
+
+/// Source for a parameter value (fixed or from parameter vector).
+///
+/// Allows specifying whether a parameter comes from a fixed value or from
+/// an index in the parameter vector.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Fixed drag coefficient
+///     cd = bh.ParameterSource.value(2.2)
+///
+///     # Variable mass from parameter vector index 0
+///     mass = bh.ParameterSource.parameter_index(0)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ParameterSource")]
+#[derive(Clone)]
+pub struct PyParameterSource {
+    pub source: propagators::ParameterSource,
+}
+
+#[pymethods]
+impl PyParameterSource {
+    /// Create a fixed value parameter source.
+    ///
+    /// Args:
+    ///     value (float): The fixed parameter value.
+    ///
+    /// Returns:
+    ///     ParameterSource: A parameter source with a fixed value.
+    #[classmethod]
+    fn value(_cls: &Bound<'_, PyType>, value: f64) -> Self {
+        PyParameterSource {
+            source: propagators::ParameterSource::Value(value),
+        }
+    }
+
+    /// Create a parameter index source.
+    ///
+    /// Args:
+    ///     index (int): Index into the parameter vector.
+    ///
+    /// Returns:
+    ///     ParameterSource: A parameter source referencing a parameter vector index.
+    #[classmethod]
+    fn parameter_index(_cls: &Bound<'_, PyType>, index: usize) -> Self {
+        PyParameterSource {
+            source: propagators::ParameterSource::ParameterIndex(index),
+        }
+    }
+
+    /// Check if this source is a fixed value.
+    fn is_value(&self) -> bool {
+        matches!(self.source, propagators::ParameterSource::Value(_))
+    }
+
+    /// Check if this source references a parameter index.
+    fn is_parameter_index(&self) -> bool {
+        matches!(self.source, propagators::ParameterSource::ParameterIndex(_))
+    }
+
+    /// Get the fixed value (if this is a Value source).
+    ///
+    /// Returns:
+    ///     float or None: The fixed value, or None if this is a ParameterIndex.
+    fn get_value(&self) -> Option<f64> {
+        match self.source {
+            propagators::ParameterSource::Value(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Get the parameter index (if this is a ParameterIndex source).
+    ///
+    /// Returns:
+    ///     int or None: The parameter index, or None if this is a Value.
+    fn get_index(&self) -> Option<usize> {
+        match self.source {
+            propagators::ParameterSource::ParameterIndex(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.source {
+            propagators::ParameterSource::Value(v) => format!("ParameterSource.value({})", v),
+            propagators::ParameterSource::ParameterIndex(i) => format!("ParameterSource.parameter_index({})", i),
+        }
+    }
+}
+
+// =============================================================================
+// Gravity Configuration
+// =============================================================================
+
+/// Gravity model configuration.
+///
+/// Specifies the gravity model: point mass or spherical harmonic expansion.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Simple two-body point mass gravity
+///     gravity = bh.GravityConfiguration.point_mass()
+///
+///     # Spherical harmonic with 20x20 degree/order
+///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "GravityConfiguration")]
+#[derive(Clone)]
+pub struct PyGravityConfiguration {
+    pub config: propagators::GravityConfiguration,
+}
+
+#[pymethods]
+impl PyGravityConfiguration {
+    /// Create a point mass gravity configuration.
+    ///
+    /// Returns:
+    ///     GravityConfiguration: Point mass (two-body) gravity.
+    #[classmethod]
+    fn point_mass(_cls: &Bound<'_, PyType>) -> Self {
+        PyGravityConfiguration {
+            config: propagators::GravityConfiguration::PointMass,
+        }
+    }
+
+    /// Create a spherical harmonic gravity configuration.
+    ///
+    /// Args:
+    ///     degree (int): Maximum degree of expansion.
+    ///     order (int): Maximum order of expansion.
+    ///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
+    ///
+    /// Returns:
+    ///     GravityConfiguration: Spherical harmonic gravity.
+    #[classmethod]
+    #[pyo3(signature = (degree, order, use_global=false))]
+    fn spherical_harmonic(_cls: &Bound<'_, PyType>, degree: usize, order: usize, use_global: bool) -> Self {
+        let source = if use_global {
+            propagators::GravityModelSource::Global
+        } else {
+            propagators::GravityModelSource::ModelType(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360)
+        };
+        PyGravityConfiguration {
+            config: propagators::GravityConfiguration::SphericalHarmonic { source, degree, order },
+        }
+    }
+
+    /// Check if this is point mass gravity.
+    fn is_point_mass(&self) -> bool {
+        matches!(self.config, propagators::GravityConfiguration::PointMass)
+    }
+
+    /// Check if this is spherical harmonic gravity.
+    fn is_spherical_harmonic(&self) -> bool {
+        matches!(self.config, propagators::GravityConfiguration::SphericalHarmonic { .. })
+    }
+
+    /// Get the degree (for spherical harmonic).
+    ///
+    /// Returns:
+    ///     int or None: Degree if spherical harmonic, None otherwise.
+    fn get_degree(&self) -> Option<usize> {
+        match &self.config {
+            propagators::GravityConfiguration::SphericalHarmonic { degree, .. } => Some(*degree),
+            _ => None,
+        }
+    }
+
+    /// Get the order (for spherical harmonic).
+    ///
+    /// Returns:
+    ///     int or None: Order if spherical harmonic, None otherwise.
+    fn get_order(&self) -> Option<usize> {
+        match &self.config {
+            propagators::GravityConfiguration::SphericalHarmonic { order, .. } => Some(*order),
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.config {
+            propagators::GravityConfiguration::PointMass => "GravityConfiguration.point_mass()".to_string(),
+            propagators::GravityConfiguration::SphericalHarmonic { degree, order, .. } => {
+                format!("GravityConfiguration.spherical_harmonic(degree={}, order={})", degree, order)
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Drag Configuration
+// =============================================================================
+
+/// Atmospheric drag configuration.
+///
+/// Defines the atmospheric model and drag parameters.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create drag config with Harris-Priester model
+///     drag = bh.DragConfiguration(
+///         model=bh.AtmosphericModel.HARRIS_PRIESTER,
+///         area=bh.ParameterSource.parameter_index(1),  # drag area from params[1]
+///         cd=bh.ParameterSource.value(2.2)              # fixed Cd
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "DragConfiguration")]
+#[derive(Clone)]
+pub struct PyDragConfiguration {
+    pub config: propagators::DragConfiguration,
+}
+
+#[pymethods]
+impl PyDragConfiguration {
+    /// Create a new drag configuration.
+    ///
+    /// Args:
+    ///     model (AtmosphericModel): Atmospheric density model.
+    ///     area (ParameterSource): Drag cross-sectional area source [m²].
+    ///     cd (ParameterSource): Drag coefficient source (dimensionless).
+    #[new]
+    fn new(model: &PyAtmosphericModel, area: &PyParameterSource, cd: &PyParameterSource) -> Self {
+        PyDragConfiguration {
+            config: propagators::DragConfiguration {
+                model: model.model.clone(),
+                area: area.source.clone(),
+                cd: cd.source.clone(),
+            },
+        }
+    }
+
+    /// Get the atmospheric model.
+    #[getter]
+    fn model(&self) -> PyAtmosphericModel {
+        PyAtmosphericModel { model: self.config.model.clone() }
+    }
+
+    /// Set the atmospheric model.
+    #[setter]
+    fn set_model(&mut self, model: &PyAtmosphericModel) {
+        self.config.model = model.model.clone();
+    }
+
+    /// Get the drag area parameter source.
+    #[getter]
+    fn area(&self) -> PyParameterSource {
+        PyParameterSource { source: self.config.area.clone() }
+    }
+
+    /// Set the drag area parameter source.
+    #[setter]
+    fn set_area(&mut self, area: &PyParameterSource) {
+        self.config.area = area.source.clone();
+    }
+
+    /// Get the drag coefficient parameter source.
+    #[getter]
+    fn cd(&self) -> PyParameterSource {
+        PyParameterSource { source: self.config.cd.clone() }
+    }
+
+    /// Set the drag coefficient parameter source.
+    #[setter]
+    fn set_cd(&mut self, cd: &PyParameterSource) {
+        self.config.cd = cd.source.clone();
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DragConfiguration(model={:?}, area={:?}, cd={:?})",
+                self.config.model, self.config.area, self.config.cd)
+    }
+}
+
+// =============================================================================
+// SRP Configuration
+// =============================================================================
+
+/// Solar radiation pressure configuration.
+///
+/// Defines the SRP parameters and eclipse model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create SRP config
+///     srp = bh.SolarRadiationPressureConfiguration(
+///         area=bh.ParameterSource.parameter_index(3),   # SRP area from params[3]
+///         cr=bh.ParameterSource.parameter_index(4),     # Cr from params[4]
+///         eclipse_model=bh.EclipseModel.CONICAL
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SolarRadiationPressureConfiguration")]
+#[derive(Clone)]
+pub struct PySolarRadiationPressureConfiguration {
+    pub config: propagators::SolarRadiationPressureConfiguration,
+}
+
+#[pymethods]
+impl PySolarRadiationPressureConfiguration {
+    /// Create a new SRP configuration.
+    ///
+    /// Args:
+    ///     area (ParameterSource): SRP cross-sectional area source [m²].
+    ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
+    ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
+    #[new]
+    fn new(area: &PyParameterSource, cr: &PyParameterSource, eclipse_model: &PyEclipseModel) -> Self {
+        PySolarRadiationPressureConfiguration {
+            config: propagators::SolarRadiationPressureConfiguration {
+                area: area.source.clone(),
+                cr: cr.source.clone(),
+                eclipse_model: eclipse_model.model.clone(),
+            },
+        }
+    }
+
+    /// Get the SRP area parameter source.
+    #[getter]
+    fn area(&self) -> PyParameterSource {
+        PyParameterSource { source: self.config.area.clone() }
+    }
+
+    /// Set the SRP area parameter source.
+    #[setter]
+    fn set_area(&mut self, area: &PyParameterSource) {
+        self.config.area = area.source.clone();
+    }
+
+    /// Get the coefficient of reflectivity parameter source.
+    #[getter]
+    fn cr(&self) -> PyParameterSource {
+        PyParameterSource { source: self.config.cr.clone() }
+    }
+
+    /// Set the coefficient of reflectivity parameter source.
+    #[setter]
+    fn set_cr(&mut self, cr: &PyParameterSource) {
+        self.config.cr = cr.source.clone();
+    }
+
+    /// Get the eclipse model.
+    #[getter]
+    fn eclipse_model(&self) -> PyEclipseModel {
+        PyEclipseModel { model: self.config.eclipse_model.clone() }
+    }
+
+    /// Set the eclipse model.
+    #[setter]
+    fn set_eclipse_model(&mut self, eclipse_model: &PyEclipseModel) {
+        self.config.eclipse_model = eclipse_model.model.clone();
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SolarRadiationPressureConfiguration(area={:?}, cr={:?}, eclipse_model={:?})",
+                self.config.area, self.config.cr, self.config.eclipse_model)
+    }
+}
+
+// =============================================================================
+// Third Body Configuration
+// =============================================================================
+
+/// Third-body perturber.
+///
+/// Celestial bodies that can act as gravitational perturbers.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     sun = bh.ThirdBody.SUN
+///     moon = bh.ThirdBody.MOON
+///     ```
+#[pyclass(module = "brahe._brahe", eq, eq_int)]
+#[pyo3(name = "ThirdBody")]
+#[derive(Clone, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum PyThirdBody {
+    SUN,
+    MOON,
+    MERCURY,
+    VENUS,
+    MARS,
+    JUPITER,
+    SATURN,
+    URANUS,
+    NEPTUNE,
+}
+
+impl From<PyThirdBody> for propagators::ThirdBody {
+    fn from(body: PyThirdBody) -> Self {
+        match body {
+            PyThirdBody::SUN => propagators::ThirdBody::Sun,
+            PyThirdBody::MOON => propagators::ThirdBody::Moon,
+            PyThirdBody::MERCURY => propagators::ThirdBody::Mercury,
+            PyThirdBody::VENUS => propagators::ThirdBody::Venus,
+            PyThirdBody::MARS => propagators::ThirdBody::Mars,
+            PyThirdBody::JUPITER => propagators::ThirdBody::Jupiter,
+            PyThirdBody::SATURN => propagators::ThirdBody::Saturn,
+            PyThirdBody::URANUS => propagators::ThirdBody::Uranus,
+            PyThirdBody::NEPTUNE => propagators::ThirdBody::Neptune,
+        }
+    }
+}
+
+impl From<propagators::ThirdBody> for PyThirdBody {
+    fn from(body: propagators::ThirdBody) -> Self {
+        match body {
+            propagators::ThirdBody::Sun => PyThirdBody::SUN,
+            propagators::ThirdBody::Moon => PyThirdBody::MOON,
+            propagators::ThirdBody::Mercury => PyThirdBody::MERCURY,
+            propagators::ThirdBody::Venus => PyThirdBody::VENUS,
+            propagators::ThirdBody::Mars => PyThirdBody::MARS,
+            propagators::ThirdBody::Jupiter => PyThirdBody::JUPITER,
+            propagators::ThirdBody::Saturn => PyThirdBody::SATURN,
+            propagators::ThirdBody::Uranus => PyThirdBody::URANUS,
+            propagators::ThirdBody::Neptune => PyThirdBody::NEPTUNE,
+        }
+    }
+}
+
+/// Third-body perturbations configuration.
+///
+/// Defines which celestial bodies to include and ephemeris source.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create third-body config with Sun and Moon
+///     third_body = bh.ThirdBodyConfiguration(
+///         ephemeris_source=bh.EphemerisSource.DE440s,
+///         bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON]
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ThirdBodyConfiguration")]
+#[derive(Clone)]
+pub struct PyThirdBodyConfiguration {
+    pub config: propagators::ThirdBodyConfiguration,
+}
+
+#[pymethods]
+impl PyThirdBodyConfiguration {
+    /// Create a new third-body configuration.
+    ///
+    /// Args:
+    ///     ephemeris_source (EphemerisSource): Source for celestial body ephemerides.
+    ///     bodies (list[ThirdBody]): List of bodies to include as perturbers.
+    #[new]
+    fn new(ephemeris_source: PyEphemerisSource, bodies: Vec<PyThirdBody>) -> Self {
+        PyThirdBodyConfiguration {
+            config: propagators::ThirdBodyConfiguration {
+                ephemeris_source: ephemeris_source.into(),
+                bodies: bodies.into_iter().map(|b| b.into()).collect(),
+            },
+        }
+    }
+
+    /// Get the ephemeris source.
+    #[getter]
+    fn ephemeris_source(&self) -> PyEphemerisSource {
+        match self.config.ephemeris_source {
+            propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
+            propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
+            propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
+        }
+    }
+
+    /// Set the ephemeris source.
+    #[setter]
+    fn set_ephemeris_source(&mut self, source: PyEphemerisSource) {
+        self.config.ephemeris_source = source.into();
+    }
+
+    /// Get the list of third bodies.
+    #[getter]
+    fn bodies(&self) -> Vec<PyThirdBody> {
+        self.config.bodies.iter().map(|b| b.clone().into()).collect()
+    }
+
+    /// Set the list of third bodies.
+    #[setter]
+    fn set_bodies(&mut self, bodies: Vec<PyThirdBody>) {
+        self.config.bodies = bodies.into_iter().map(|b| b.into()).collect();
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ThirdBodyConfiguration(ephemeris_source={:?}, bodies={:?})",
+                self.config.ephemeris_source, self.config.bodies)
+    }
+}
+
+/// Configuration for numerical propagation.
+///
+/// Controls the integrator settings, tolerances, and variational equation options.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Default configuration (DP54 with standard tolerances)
+///     config = bh.NumericalPropagationConfig.default()
+///
+///     # High precision configuration
+///     config = bh.NumericalPropagationConfig.high_precision()
+///
+///     # Custom method
+///     config = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalPropagationConfig")]
+#[derive(Clone)]
+pub struct PyNumericalPropagationConfig {
+    pub config: propagators::NumericalPropagationConfig,
+}
+
+#[pymethods]
+impl PyNumericalPropagationConfig {
+    /// Create a default configuration (DP54 with standard tolerances).
+    #[classmethod]
+    fn default(_cls: &Bound<'_, PyType>) -> Self {
+        PyNumericalPropagationConfig {
+            config: propagators::NumericalPropagationConfig::default(),
+        }
+    }
+
+    /// Create a configuration with a specific integration method.
+    ///
+    /// Args:
+    ///     method (IntegrationMethod): The integration method to use.
+    #[classmethod]
+    fn with_method(_cls: &Bound<'_, PyType>, method: &PyIntegrationMethod) -> Self {
+        PyNumericalPropagationConfig {
+            config: propagators::NumericalPropagationConfig::with_method(method.method),
+        }
+    }
+
+    /// Create a high-precision configuration (RKN1210 with tight tolerances).
+    #[classmethod]
+    fn high_precision(_cls: &Bound<'_, PyType>) -> Self {
+        PyNumericalPropagationConfig {
+            config: propagators::NumericalPropagationConfig::high_precision(),
+        }
+    }
+
+    /// Set absolute tolerance for adaptive integrators.
+    ///
+    /// Args:
+    ///     abs_tol (float): Absolute tolerance.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated tolerance.
+    fn with_abs_tol(mut slf: PyRefMut<'_, Self>, abs_tol: f64) -> PyRefMut<'_, Self> {
+        slf.config.integrator.abs_tol = abs_tol;
+        slf
+    }
+
+    /// Set relative tolerance for adaptive integrators.
+    ///
+    /// Args:
+    ///     rel_tol (float): Relative tolerance.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated tolerance.
+    fn with_rel_tol(mut slf: PyRefMut<'_, Self>, rel_tol: f64) -> PyRefMut<'_, Self> {
+        slf.config.integrator.rel_tol = rel_tol;
+        slf
+    }
+
+    /// Set initial step size.
+    ///
+    /// Args:
+    ///     step (float): Initial step size in seconds.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated step size.
+    fn with_initial_step(mut slf: PyRefMut<'_, Self>, step: f64) -> PyRefMut<'_, Self> {
+        slf.config.integrator.initial_step = Some(step);
+        slf
+    }
+
+    /// Set maximum step size.
+    ///
+    /// Args:
+    ///     step (float): Maximum step size in seconds.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated step size.
+    fn with_max_step(mut slf: PyRefMut<'_, Self>, step: f64) -> PyRefMut<'_, Self> {
+        slf.config.integrator.max_step = Some(step);
+        slf
+    }
+
+    /// Enable STM (State Transition Matrix) propagation.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with STM enabled.
+    fn with_stm(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.config.variational.enable_stm = true;
+        slf
+    }
+
+    /// Enable sensitivity matrix propagation (requires params).
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with sensitivity enabled.
+    fn with_sensitivity(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.config.variational.enable_sensitivity = true;
+        slf
+    }
+
+    /// Enable STM history storage in trajectory.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with STM history enabled.
+    fn with_stm_history(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.config.variational.store_stm_history = true;
+        slf
+    }
+
+    /// Enable sensitivity history storage in trajectory.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with sensitivity history enabled.
+    fn with_sensitivity_history(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.config.variational.store_sensitivity_history = true;
+        slf
+    }
+
+    /// Get the integration method.
+    #[getter]
+    fn method(&self) -> PyIntegrationMethod {
+        PyIntegrationMethod { method: self.config.method }
+    }
+
+    /// Get absolute tolerance.
+    #[getter]
+    fn abs_tol(&self) -> f64 {
+        self.config.integrator.abs_tol
+    }
+
+    /// Get relative tolerance.
+    #[getter]
+    fn rel_tol(&self) -> f64 {
+        self.config.integrator.rel_tol
+    }
+
+    /// Get variational configuration (STM/sensitivity settings).
+    #[getter]
+    fn variational(&self) -> PyVariationalConfig {
+        PyVariationalConfig { config: self.config.variational.clone() }
+    }
+
+    /// Set variational configuration (STM/sensitivity settings).
+    #[setter]
+    fn set_variational(&mut self, value: PyVariationalConfig) {
+        self.config.variational = value.config;
+    }
+
+    fn __repr__(&self) -> String {
+        format!("NumericalPropagationConfig(method={:?}, abs_tol={}, rel_tol={})",
+                self.config.method, self.config.integrator.abs_tol, self.config.integrator.rel_tol)
+    }
+}
+
+/// Force model configuration for numerical orbit propagation.
+///
+/// Defines all perturbation forces to be included: gravity, drag, SRP, third-body, relativity.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Default configuration (20x20 gravity, drag, SRP, Sun/Moon)
+///     config = bh.ForceModelConfig.default()
+///
+///     # Earth gravity only (no perturbations)
+///     config = bh.ForceModelConfig.earth_gravity()
+///
+///     # LEO-optimized configuration
+///     config = bh.ForceModelConfig.leo_default()
+///
+///     # Two-body only (point mass)
+///     config = bh.ForceModelConfig.two_body()
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ForceModelConfig")]
+#[derive(Clone)]
+pub struct PyForceModelConfig {
+    pub config: propagators::ForceModelConfiguration,
+}
+
+#[pymethods]
+impl PyForceModelConfig {
+    /// Create a default force model configuration.
+    ///
+    /// Includes:
+    /// - 20x20 EGM2008 gravity
+    /// - Harris-Priester atmospheric drag
+    /// - Solar radiation pressure with conical eclipse
+    /// - Sun and Moon third-body perturbations
+    ///
+    /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
+    #[classmethod]
+    fn default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::default(),
+        }
+    }
+
+    /// Create a high-fidelity force model configuration.
+    ///
+    /// Includes:
+    /// - 120x120 EGM2008 gravity
+    /// - NRLMSISE-00 atmospheric model
+    /// - SRP with conical eclipse
+    /// - Sun, Moon, and all planets (DE440s ephemerides)
+    /// - Relativistic corrections
+    ///
+    /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
+    #[classmethod]
+    fn high_fidelity(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::high_fidelity(),
+        }
+    }
+
+    /// Create an Earth gravity-only configuration (no drag, SRP, or third-body).
+    ///
+    /// Uses 20x20 EGM2008 gravity. No parameter vector required.
+    #[classmethod]
+    fn earth_gravity(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::earth_gravity(),
+        }
+    }
+
+    /// Create a two-body (point mass) gravity configuration.
+    ///
+    /// Uses only central body gravity with no perturbations.
+    /// Produces results equivalent to Keplerian propagation.
+    /// No parameter vector required.
+    #[classmethod]
+    fn two_body(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::two_body_gravity(),
+        }
+    }
+
+    /// Create a conservative forces configuration (gravity + third-body + relativity, no drag/SRP).
+    #[classmethod]
+    fn conservative_forces(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::conservative_forces(),
+        }
+    }
+
+    /// Create a configuration suitable for LEO satellites.
+    ///
+    /// Includes drag and higher-order gravity, plus SRP and third-body.
+    /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
+    #[classmethod]
+    fn leo_default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::leo_default(),
+        }
+    }
+
+    /// Create a configuration suitable for GEO satellites.
+    ///
+    /// Includes SRP and third-body perturbations, omits drag.
+    /// Requires parameter vector: [mass, _, _, srp_area, Cr]
+    #[classmethod]
+    fn geo_default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration::geo_default(),
+        }
+    }
+
+    /// Check if this configuration requires a parameter vector.
+    pub fn requires_params(&self) -> bool {
+        self.config.requires_params()
+    }
+
+    // =========================================================================
+    // Field Accessors
+    // =========================================================================
+
+    /// Get the gravity configuration.
+    #[getter]
+    fn gravity(&self) -> PyGravityConfiguration {
+        PyGravityConfiguration { config: self.config.gravity.clone() }
+    }
+
+    /// Set the gravity configuration.
+    #[setter]
+    fn set_gravity(&mut self, gravity: &PyGravityConfiguration) {
+        self.config.gravity = gravity.config.clone();
+    }
+
+    /// Get the drag configuration (None if disabled).
+    #[getter]
+    fn drag(&self) -> Option<PyDragConfiguration> {
+        self.config.drag.as_ref().map(|d| PyDragConfiguration { config: d.clone() })
+    }
+
+    /// Set the drag configuration (None to disable).
+    #[setter]
+    fn set_drag(&mut self, drag: Option<&PyDragConfiguration>) {
+        self.config.drag = drag.map(|d| d.config.clone());
+    }
+
+    /// Get the solar radiation pressure configuration (None if disabled).
+    #[getter]
+    fn srp(&self) -> Option<PySolarRadiationPressureConfiguration> {
+        self.config.srp.as_ref().map(|s| PySolarRadiationPressureConfiguration { config: s.clone() })
+    }
+
+    /// Set the solar radiation pressure configuration (None to disable).
+    #[setter]
+    fn set_srp(&mut self, srp: Option<&PySolarRadiationPressureConfiguration>) {
+        self.config.srp = srp.map(|s| s.config.clone());
+    }
+
+    /// Get the third-body configuration (None if disabled).
+    #[getter]
+    fn third_body(&self) -> Option<PyThirdBodyConfiguration> {
+        self.config.third_body.as_ref().map(|t| PyThirdBodyConfiguration { config: t.clone() })
+    }
+
+    /// Set the third-body configuration (None to disable).
+    #[setter]
+    fn set_third_body(&mut self, third_body: Option<&PyThirdBodyConfiguration>) {
+        self.config.third_body = third_body.map(|t| t.config.clone());
+    }
+
+    /// Get whether relativistic corrections are enabled.
+    #[getter]
+    fn relativity(&self) -> bool {
+        self.config.relativity
+    }
+
+    /// Set whether relativistic corrections are enabled.
+    #[setter]
+    fn set_relativity(&mut self, enabled: bool) {
+        self.config.relativity = enabled;
+    }
+
+    /// Get the mass parameter source (None if not required).
+    #[getter]
+    fn mass(&self) -> Option<PyParameterSource> {
+        self.config.mass.as_ref().map(|m| PyParameterSource { source: m.clone() })
+    }
+
+    /// Set the mass parameter source (None to not track mass).
+    #[setter]
+    fn set_mass(&mut self, mass: Option<&PyParameterSource>) {
+        self.config.mass = mass.map(|m| m.source.clone());
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ForceModelConfig(requires_params={})", self.config.requires_params())
+    }
+}
+
+// =============================================================================
+// NumericalOrbitPropagator
+// =============================================================================
+
+/// High-fidelity numerical orbit propagator with configurable force models.
+///
+/// This propagator uses numerical integration with built-in orbital force models:
+/// - Gravity (point mass or spherical harmonic)
+/// - Atmospheric drag (Harris-Priester, NRLMSISE-00, or exponential)
+/// - Solar radiation pressure with eclipse modeling
+/// - Third-body perturbations (Sun, Moon, planets)
+/// - Relativistic corrections
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     # Create initial state (ECI Cartesian)
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///
+///     # Parameters: [mass, drag_area, Cd, srp_area, Cr]
+///     params = np.array([1000.0, 10.0, 2.2, 10.0, 1.3])
+///
+///     # Create propagator with default configs
+///     prop = bh.NumericalOrbitPropagator(
+///         epoch, state,
+///         bh.NumericalPropagationConfig.default(),
+///         bh.ForceModelConfig.default(),
+///         params
+///     )
+///
+///     # Propagate
+///     prop.propagate_to(epoch + 3600.0)  # 1 hour
+///     print(f"Final state: {prop.current_state()}")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalOrbitPropagator")]
+pub struct PyNumericalOrbitPropagator {
+    pub propagator: propagators::DNumericalOrbitPropagator,
+}
+
+#[pymethods]
+impl PyNumericalOrbitPropagator {
+    /// Create a new numerical orbit propagator.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s).
+    ///                           Can be 6D or 6+N dimensional for extended state.
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
+    ///                                    Required if force_config references parameter indices.
+    ///     initial_covariance (numpy.ndarray or None): Optional 6x6 initial covariance matrix (enables STM).
+    ///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
+    ///                                            Signature: f(t, state, params) -> derivative.
+    ///                                            Should return derivatives for extended state elements only.
+    ///     control_input (callable or None): Optional control input function for continuous control accelerations.
+    ///                                      Signature: f(t, state, params) -> acceleration.
+    ///                                      Should return 3D acceleration vector to add to orbital dynamics.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: New propagator instance.
+    ///
+    /// Raises:
+    ///     RuntimeError: If configuration is invalid or params are missing when required.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Extended state with additional dynamics
+    ///     def additional_dyn(t, state, params):
+    ///         # state[6:] contains extended state
+    ///         return np.array([state[6] * 0.1])  # Simple decay
+    ///
+    ///     # Control input (thrust acceleration)
+    ///     def control(t, state, params):
+    ///         return np.array([0.0, 0.0, 1e-6])  # Small z-acceleration
+    ///
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, extended_state, prop_config, force_config,
+    ///         params=params,
+    ///         additional_dynamics=additional_dyn,
+    ///         control_input=control
+    ///     )
+    ///     ```
+    #[new]
+    #[pyo3(signature = (epoch, state, propagation_config, force_config, params=None, initial_covariance=None, additional_dynamics=None, control_input=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        py: Python<'_>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        propagation_config: &PyNumericalPropagationConfig,
+        force_config: &PyForceModelConfig,
+        params: Option<PyReadonlyArray1<f64>>,
+        initial_covariance: Option<PyReadonlyArray2<f64>>,
+        additional_dynamics: Option<Py<PyAny>>,
+        control_input: Option<Py<PyAny>>,
+    ) -> PyResult<Self> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+
+        let params_vec = params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+
+        let cov_matrix = if let Some(cov) = initial_covariance {
+            let cov_shape = cov.shape();
+            if cov_shape[0] != 6 || cov_shape[1] != 6 {
+                return Err(exceptions::PyValueError::new_err(
+                    "Initial covariance must be a 6x6 matrix"
+                ));
+            }
+            let cov_data: Vec<f64> = cov.as_slice()?.to_vec();
+            Some(nalgebra::DMatrix::from_row_slice(6, 6, &cov_data))
+        } else {
+            None
+        };
+
+        // Wrap additional_dynamics Python callable if provided
+        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+            additional_dynamics.map(|dyn_py| {
+                let dyn_py = dyn_py.clone_ref(py);
+                Box::new(
+                    move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                            let result = match p_np {
+                                Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
+                                None => dyn_py.call1(py, (t, x_np, py.None())),
+                            };
+
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                                    nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling additional_dynamics function: {}", e);
+                                    nalgebra::DVector::zeros(x.len())
+                                }
+                            }
+                        })
+                    },
+                ) as crate::integrators::traits::DStateDynamics
+            });
+
+        // Wrap control_input Python callable if provided
+        let control_input_fn: crate::integrators::traits::DControlInput =
+            control_input.map(|ctrl_py| {
+                let ctrl_py = ctrl_py.clone_ref(py);
+                Box::new(
+                    move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                            let result = match p_np {
+                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
+                                None => ctrl_py.call1(py, (t, x_np, py.None())),
+                            };
+
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                                    nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling control_input function: {}", e);
+                                    nalgebra::DVector::zeros(3) // Control should return 3D acceleration
+                                }
+                            }
+                        })
+                    },
+                ) as Box<dyn Fn(f64, &nalgebra::DVector<f64>, Option<&nalgebra::DVector<f64>>) -> nalgebra::DVector<f64> + Send + Sync>
+            });
+
+        let prop = propagators::DNumericalOrbitPropagator::new(
+            epoch.obj,
+            state_vec,
+            propagation_config.config.clone(),
+            force_config.config.clone(),
+            params_vec,
+            additional_dynamics_fn,
+            control_input_fn,
+            cov_matrix,
+        ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(PyNumericalOrbitPropagator { propagator: prop })
+    }
+
+    /// Create a propagator from ECI Cartesian state with simplified configuration.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial ECI Cartesian state [x, y, z, vx, vy, vz].
+    ///     params (numpy.ndarray or None): Parameter vector.
+    ///     force_config (ForceModelConfig or None): Force model config (default if None).
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: New propagator instance.
+    #[classmethod]
+    #[pyo3(signature = (epoch, state, params=None, force_config=None))]
+    pub fn from_eci(
+        _cls: &Bound<'_, PyType>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        params: Option<PyReadonlyArray1<f64>>,
+        force_config: Option<&PyForceModelConfig>,
+    ) -> PyResult<Self> {
+        let state_slice = state.as_slice()?;
+        if state_slice.len() < 6 {
+            return Err(exceptions::PyValueError::new_err(
+                "State vector must have at least 6 elements"
+            ));
+        }
+
+        let state_vec = nalgebra::DVector::from_column_slice(state_slice);
+        let params_vec = params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+
+        let fc = force_config
+            .map(|c| c.config.clone())
+            .unwrap_or_default();
+
+        let prop = propagators::DNumericalOrbitPropagator::new(
+            epoch.obj,
+            state_vec,
+            propagators::NumericalPropagationConfig::default(),
+            fc,
+            params_vec,
+            None,
+            None,
+            None,
+        ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(PyNumericalOrbitPropagator { propagator: prop })
+    }
+
+    // =========================================================================
+    // DStatePropagator trait methods
+    // =========================================================================
+
+    /// Get current epoch.
+    #[getter]
+    pub fn current_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.current_epoch() }
+    }
+
+    /// Get initial epoch.
+    #[getter]
+    pub fn initial_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: self.propagator.initial_epoch() }
+    }
+
+    /// Get current state vector.
+    #[pyo3(text_signature = "()")]
+    pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = self.propagator.current_state();
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get initial state vector.
+    #[pyo3(text_signature = "()")]
+    pub fn initial_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = DStatePropagator::initial_state(&self.propagator);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get state dimension.
+    #[getter]
+    pub fn state_dim(&self) -> usize {
+        DStatePropagator::state_dim(&self.propagator)
+    }
+
+    /// Get current step size.
+    #[getter]
+    pub fn step_size(&self) -> f64 {
+        DStatePropagator::step_size(&self.propagator)
+    }
+
+    /// Set step size.
+    #[setter]
+    pub fn set_step_size(&mut self, step_size: f64) {
+        DStatePropagator::set_step_size(&mut self.propagator, step_size);
+    }
+
+    /// Step forward by the default step size.
+    #[pyo3(text_signature = "()")]
+    pub fn step(&mut self) {
+        DStatePropagator::step(&mut self.propagator);
+    }
+
+    /// Step forward by a specified time duration.
+    ///
+    /// Args:
+    ///     step_size (float): Time step in seconds.
+    #[pyo3(text_signature = "(step_size)")]
+    pub fn step_by(&mut self, step_size: f64) {
+        DStatePropagator::step_by(&mut self.propagator, step_size);
+    }
+
+    /// Step past a specified target epoch.
+    ///
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to step past.
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn step_past(&mut self, target_epoch: &PyEpoch) {
+        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj);
+    }
+
+    /// Propagate forward by specified number of steps.
+    ///
+    /// Args:
+    ///     num_steps (int): Number of steps to take.
+    #[pyo3(text_signature = "(num_steps)")]
+    pub fn propagate_steps(&mut self, num_steps: usize) {
+        DStatePropagator::propagate_steps(&mut self.propagator, num_steps);
+    }
+
+    /// Propagate to a specific target epoch.
+    ///
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to propagate to.
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) {
+        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj);
+    }
+
+    /// Reset propagator to initial conditions.
+    #[pyo3(text_signature = "()")]
+    pub fn reset(&mut self) {
+        DStatePropagator::reset(&mut self.propagator);
+    }
+
+    // =========================================================================
+    // State provider methods
+    // =========================================================================
+
+    /// Compute state at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at the requested epoch.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DStateProvider::state(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in ECI coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECI frame.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eci<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_eci(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in ECEF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ECEF frame.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_ecef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_ecef(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in GCRF coordinates.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_gcrf(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in ITRF coordinates.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_itrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_itrf(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state at a specific epoch in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_eme2000<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_eme2000(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state as Keplerian elements at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch.
+    ///     angle_format (AngleFormat): Format for angular elements.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Keplerian elements [a, e, i, Ω, ω, M].
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    pub fn state_koe<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    // =========================================================================
+    // Trajectory and variational methods
+    // =========================================================================
+
+    /// Get accumulated trajectory.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: The accumulated trajectory.
+    #[getter]
+    pub fn trajectory(&self) -> PyOrbitalTrajectory {
+        PyOrbitalTrajectory { trajectory: self.propagator.trajectory().clone() }
+    }
+
+    /// Get current STM (State Transition Matrix) if enabled.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: The current STM (n x n matrix), or None if STM not enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn stm<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.stm().map(|stm| {
+            let n = stm.nrows();
+            let flat: Vec<f64> = (0..n).flat_map(|i| (0..n).map(move |j| stm[(i, j)])).collect();
+            flat.into_pyarray(py).reshape([n, n]).unwrap()
+        })
+    }
+
+    /// Get current sensitivity matrix if enabled.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: The current sensitivity (n x p matrix), or None if not enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn sensitivity<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.sensitivity().map(|sens| {
+            let n = sens.nrows();
+            let p = sens.ncols();
+            let flat: Vec<f64> = (0..n).flat_map(|i| (0..p).map(move |j| sens[(i, j)])).collect();
+            flat.into_pyarray(py).reshape([n, p]).unwrap()
+        })
+    }
+
+    /// Get covariance at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Covariance matrix at the requested epoch.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        let cov = DCovarianceProvider::covariance(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let n = cov.nrows();
+        let mut flat = Vec::with_capacity(n * n);
+        for i in 0..n {
+            for j in 0..n {
+                flat.push(cov[(i, j)]);
+            }
+        }
+        Ok(flat.into_pyarray(py).reshape([n, n]).unwrap())
+    }
+
+    // =========================================================================
+    // Eviction policy
+    // =========================================================================
+
+    /// Set trajectory eviction policy based on maximum size.
+    ///
+    /// Args:
+    ///     max_size (int): Maximum number of states to keep in trajectory.
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        DStatePropagator::set_eviction_policy_max_size(&mut self.propagator, max_size)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Set trajectory eviction policy based on maximum age.
+    ///
+    /// Args:
+    ///     max_age (float): Maximum age in seconds to keep states in trajectory.
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        DStatePropagator::set_eviction_policy_max_age(&mut self.propagator, max_age)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    // =========================================================================
+    // Identity methods
+    // =========================================================================
+
+    /// Set the name and return self.
+    pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
+        slf.propagator.name = Some(name);
+        slf
+    }
+
+    /// Set the UUID and return self.
+    pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
+        let uuid = uuid::Uuid::parse_str(&uuid_str)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+        slf.propagator.uuid = Some(uuid);
+        Ok(slf)
+    }
+
+    /// Generate a new UUID, set it, and return self.
+    pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.propagator.uuid = Some(uuid::Uuid::new_v4());
+        slf
+    }
+
+    /// Set the numeric ID and return self.
+    pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
+        slf.propagator.id = Some(id);
+        slf
+    }
+
+    /// Get the current name.
+    pub fn get_name(&self) -> Option<String> {
+        self.propagator.name.clone()
+    }
+
+    /// Get the current UUID.
+    pub fn get_uuid(&self) -> Option<String> {
+        self.propagator.uuid.map(|u| u.to_string())
+    }
+
+    /// Get the current numeric ID.
+    pub fn get_id(&self) -> Option<u64> {
+        self.propagator.id
+    }
+
+    fn __repr__(&self) -> String {
+        format!("NumericalOrbitPropagator(epoch={:?}, state_dim={})",
+                DStatePropagator::current_epoch(&self.propagator),
+                DStatePropagator::state_dim(&self.propagator))
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+
+    // =========================================================================
+    // Event detection methods
+    // =========================================================================
+
+    /// Add an event detector to this propagator.
+    ///
+    /// Args:
+    ///     event: Event detector (TimeEvent, ValueEvent, BinaryEvent, or AltitudeEvent)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.NumericalOrbitPropagator.from_eci(epoch, state)
+    ///     event = bh.TimeEvent(epoch + 1800.0, "30 min mark")
+    ///     prop.add_event_detector(event)
+    ///     ```
+    #[pyo3(text_signature = "(event)")]
+    pub fn add_event_detector(&mut self, event: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Try each event type
+        if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
+            if let Some(inner) = time_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "TimeEvent has already been consumed"
+            ));
+        }
+
+        if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
+            if let Some(inner) = value_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "ValueEvent has already been consumed"
+            ));
+        }
+
+        if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
+            if let Some(inner) = binary_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "BinaryEvent has already been consumed"
+            ));
+        }
+
+        if let Ok(mut altitude_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
+            if let Some(inner) = altitude_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "AltitudeEvent has already been consumed"
+            ));
+        }
+
+        Err(exceptions::PyTypeError::new_err(
+            "Expected event detector type (TimeEvent, ValueEvent, BinaryEvent, or AltitudeEvent)"
+        ))
+    }
+
+    /// Get the event log (list of detected events).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: List of events detected during propagation.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop.propagate_to(epoch + 3600.0)
+    ///     events = prop.event_log()
+    ///     for event in events:
+    ///         print(f"Event '{event.name}' at {event.window_open}")
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn event_log(&self) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .event_log()
+            .iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Create an event query builder for filtering detected events.
+    ///
+    /// Returns an EventQuery that allows chainable filtering of detected events.
+    /// Call `.collect()` on the query to get the final list of events.
+    ///
+    /// Returns:
+    ///     EventQuery: Query builder for filtering events
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Get events from detector 0 within a time range
+    ///     events = prop.query_events() \
+    ///         .by_detector_index(0) \
+    ///         .in_time_range(start, end) \
+    ///         .collect()
+    ///
+    ///     # Count events by name pattern
+    ///     count = prop.query_events() \
+    ///         .by_name_contains("Altitude") \
+    ///         .count()
+    ///
+    ///     # Combined filters
+    ///     events = prop.query_events() \
+    ///         .by_detector_index(1) \
+    ///         .in_time_range(start, end) \
+    ///         .collect()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn query_events(&self) -> PyEventQuery {
+        PyEventQuery::new(self.propagator.event_log().to_vec())
+    }
+
+    /// Get events by name.
+    ///
+    /// Args:
+    ///     name (str): Event name to filter by.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events matching the given name.
+    #[pyo3(text_signature = "(name)")]
+    pub fn events_by_name(&self, name: &str) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_name(name)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get latest detected event, if any.
+    ///
+    /// Returns:
+    ///     DetectedEvent or None: The most recently detected event.
+    #[pyo3(text_signature = "()")]
+    pub fn latest_event(&self) -> Option<PyDetectedEvent> {
+        self.propagator
+            .latest_event()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+    }
+
+    /// Get events in time range.
+    ///
+    /// Args:
+    ///     start (Epoch): Start of time range.
+    ///     end (Epoch): End of time range.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events within the given time range.
+    #[pyo3(text_signature = "(start, end)")]
+    pub fn events_in_range(&self, start: &PyEpoch, end: &PyEpoch) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_in_range(start.obj, end.obj)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get events by detector index.
+    ///
+    /// Args:
+    ///     index (int): Detector index (0-based, in order of add_event_detector calls).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events from the specified detector.
+    #[pyo3(text_signature = "(index)")]
+    pub fn events_by_detector_index(&self, index: usize) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_detector_index(index)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get events by detector index within a time range.
+    ///
+    /// Args:
+    ///     index (int): Detector index (0-based, in order of add_event_detector calls).
+    ///     start (Epoch): Start of time range (inclusive).
+    ///     end (Epoch): End of time range (inclusive).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events from the specified detector within the time range.
+    #[pyo3(text_signature = "(index, start, end)")]
+    pub fn events_by_detector_index_in_range(
+        &self,
+        index: usize,
+        start: &PyEpoch,
+        end: &PyEpoch,
+    ) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_detector_index_in_range(index, start.obj, end.obj)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get events by name pattern within a time range.
+    ///
+    /// Args:
+    ///     name_pattern (str): Substring to search for in event names.
+    ///     start (Epoch): Start of time range (inclusive).
+    ///     end (Epoch): End of time range (inclusive).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events matching the name pattern within the time range.
+    #[pyo3(text_signature = "(name_pattern, start, end)")]
+    pub fn events_by_name_in_range(
+        &self,
+        name_pattern: &str,
+        start: &PyEpoch,
+        end: &PyEpoch,
+    ) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_name_in_range(name_pattern, start.obj, end.obj)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Check if propagator is terminated due to a terminal event.
+    ///
+    /// Returns:
+    ///     bool: True if propagation was stopped by a terminal event.
+    #[pyo3(text_signature = "()")]
+    pub fn terminated(&self) -> bool {
+        self.propagator.terminated()
+    }
+
+    /// Reset the termination flag to allow continued propagation.
+    ///
+    /// After calling this, propagation can continue even if it was previously
+    /// stopped by a terminal event.
+    #[pyo3(text_signature = "()")]
+    pub fn reset_termination(&mut self) {
+        self.propagator.reset_termination();
+    }
+
+    /// Clear all detected events from the event log.
+    #[pyo3(text_signature = "()")]
+    pub fn clear_events(&mut self) {
+        self.propagator.clear_events();
+    }
+
+    // =========================================================================
+    // Additional bindings for test parity
+    // =========================================================================
+
+    /// Get current parameter vector.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Current parameter vector, or None if no params.
+    #[pyo3(text_signature = "()")]
+    pub fn current_params<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        // DNumericalOrbitPropagator has current_params() as an inherent method
+        let params = self.propagator.current_params();
+        params.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Set trajectory storage mode.
+    ///
+    /// Args:
+    ///     mode (TrajectoryMode): The new trajectory mode.
+    #[pyo3(text_signature = "(mode)")]
+    pub fn set_trajectory_mode(&mut self, mode: &PyTrajectoryMode) {
+        // DNumericalOrbitPropagator has set_trajectory_mode() as an inherent method
+        self.propagator.set_trajectory_mode(mode.mode);
+    }
+
+    /// Get current trajectory storage mode.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: Current trajectory mode.
+    #[getter]
+    pub fn trajectory_mode(&self) -> PyTrajectoryMode {
+        // DNumericalOrbitPropagator has trajectory_mode() as an inherent method
+        PyTrajectoryMode { mode: self.propagator.trajectory_mode() }
+    }
+
+    /// Get STM (State Transition Matrix) at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for STM query.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: The STM at the requested epoch, or None if STM not enabled.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn stm_at<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.stm_at(epoch.obj).map(|stm| {
+            let n = stm.nrows();
+            let mut flat = Vec::with_capacity(n * n);
+            for i in 0..n {
+                for j in 0..n {
+                    flat.push(stm[(i, j)]);
+                }
+            }
+            flat.into_pyarray(py).reshape([n, n]).unwrap()
+        })
+    }
+
+    /// Get sensitivity matrix at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for sensitivity query.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: The sensitivity matrix at the requested epoch, or None if not enabled.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn sensitivity_at<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.sensitivity_at(epoch.obj).map(|sens| {
+            let n = sens.nrows();
+            let p = sens.ncols();
+            let mut flat = Vec::with_capacity(n * p);
+            for i in 0..n {
+                for j in 0..p {
+                    flat.push(sens[(i, j)]);
+                }
+            }
+            flat.into_pyarray(py).reshape([n, p]).unwrap()
+        })
+    }
+
+    /// Get covariance at a specific epoch in GCRF frame.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Covariance matrix in GCRF frame.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        let cov = DOrbitCovarianceProvider::covariance_gcrf(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let n = cov.nrows();
+        let mut flat = Vec::with_capacity(n * n);
+        for i in 0..n {
+            for j in 0..n {
+                flat.push(cov[(i, j)]);
+            }
+        }
+        Ok(flat.into_pyarray(py).reshape([n, n]).unwrap())
+    }
+
+    /// Get covariance at a specific epoch in RTN (Radial-Tangential-Normal) frame.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Covariance matrix in RTN frame.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance_rtn<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        let cov = DOrbitCovarianceProvider::covariance_rtn(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let n = cov.nrows();
+        let mut flat = Vec::with_capacity(n * n);
+        for i in 0..n {
+            for j in 0..n {
+                flat.push(cov[(i, j)]);
+            }
+        }
+        Ok(flat.into_pyarray(py).reshape([n, n]).unwrap())
+    }
+
+    /// Set interpolation method for state trajectory queries.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): Interpolation method to use.
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_interpolation_method(&mut self, method: &PyInterpolationMethod) {
+        InterpolationConfig::set_interpolation_method(&mut self.propagator, method.method);
+    }
+
+    /// Get current interpolation method for state trajectory queries.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Current interpolation method.
+    #[pyo3(text_signature = "()")]
+    pub fn get_interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: InterpolationConfig::get_interpolation_method(&self.propagator) }
+    }
+
+    /// Set interpolation method for covariance queries.
+    ///
+    /// Args:
+    ///     method (CovarianceInterpolationMethod): Interpolation method for covariance.
+    #[pyo3(text_signature = "(method)")]
+    pub fn set_covariance_interpolation_method(&mut self, method: &PyCovarianceInterpolationMethod) {
+        CovarianceInterpolationConfig::set_covariance_interpolation_method(&mut self.propagator, method.method);
+    }
+
+    /// Get current interpolation method for covariance queries.
+    ///
+    /// Returns:
+    ///     CovarianceInterpolationMethod: Current covariance interpolation method.
+    #[pyo3(text_signature = "()")]
+    pub fn get_covariance_interpolation_method(&self) -> PyCovarianceInterpolationMethod {
+        PyCovarianceInterpolationMethod { method: CovarianceInterpolationConfig::get_covariance_interpolation_method(&self.propagator) }
+    }
+
+    /// Set propagator name (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): New name for the propagator.
+    #[pyo3(text_signature = "(name)")]
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.propagator.name = name;
+    }
+
+    /// Set propagator numeric ID (mutating).
+    ///
+    /// Args:
+    ///     id (int or None): New numeric ID for the propagator.
+    #[pyo3(text_signature = "(id)")]
+    pub fn set_id(&mut self, id: Option<u64>) {
+        self.propagator.id = id;
+    }
+
+    /// Set propagator UUID (mutating).
+    ///
+    /// Args:
+    ///     uuid_str (str or None): New UUID string for the propagator.
+    ///
+    /// Raises:
+    ///     ValueError: If the UUID string is invalid.
+    #[pyo3(text_signature = "(uuid_str)")]
+    pub fn set_uuid(&mut self, uuid_str: Option<String>) -> PyResult<()> {
+        if let Some(s) = uuid_str {
+            let uuid = uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+            self.propagator.uuid = Some(uuid);
+        } else {
+            self.propagator.uuid = None;
+        }
+        Ok(())
+    }
+
+    /// Set all identity fields and return self (builder pattern).
+    ///
+    /// Args:
+    ///     name (str or None): New name.
+    ///     uuid_str (str or None): New UUID string.
+    ///     id (int or None): New numeric ID.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Self for method chaining.
+    ///
+    /// Raises:
+    ///     ValueError: If the UUID string is invalid.
+    pub fn with_identity(
+        mut slf: PyRefMut<'_, Self>,
+        name: Option<String>,
+        uuid_str: Option<String>,
+        id: Option<u64>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.propagator.name = name;
+        slf.propagator.id = id;
+        if let Some(s) = uuid_str {
+            let uuid = uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+            slf.propagator.uuid = Some(uuid);
+        } else {
+            slf.propagator.uuid = None;
+        }
+        Ok(slf)
+    }
+
+    /// Set all identity fields at once (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): New name.
+    ///     uuid_str (str or None): New UUID string.
+    ///     id (int or None): New numeric ID.
+    ///
+    /// Raises:
+    ///     ValueError: If the UUID string is invalid.
+    #[pyo3(text_signature = "(name, uuid_str, id)")]
+    pub fn set_identity(
+        &mut self,
+        name: Option<String>,
+        uuid_str: Option<String>,
+        id: Option<u64>,
+    ) -> PyResult<()> {
+        self.propagator.name = name;
+        self.propagator.id = id;
+        if let Some(s) = uuid_str {
+            let uuid = uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+            self.propagator.uuid = Some(uuid);
+        } else {
+            self.propagator.uuid = None;
+        }
+        Ok(())
+    }
+}
+
+// =============================================================================
+// TrajectoryMode
+// =============================================================================
+
+/// Trajectory storage mode for numerical propagators.
+///
+/// Controls when and whether state data is stored in the trajectory during propagation.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Create propagator
+///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
+///
+///     # Use disabled mode to save memory
+///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
+///
+///     # Or store all integration steps for analysis
+///     prop.set_trajectory_mode(bh.TrajectoryMode.ALL_STEPS)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "TrajectoryMode")]
+#[derive(Clone)]
+pub struct PyTrajectoryMode {
+    pub(crate) mode: propagators::TrajectoryMode,
+}
+
+#[pymethods]
+impl PyTrajectoryMode {
+    /// Store state at every integration step.
+    ///
+    /// Useful for debugging or high-resolution trajectory analysis.
+    /// May use significantly more memory for long propagations.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: AllSteps trajectory mode constant
+    #[classattr]
+    #[pyo3(name = "ALL_STEPS")]
+    fn all_steps() -> Self {
+        PyTrajectoryMode {
+            mode: propagators::TrajectoryMode::AllSteps,
+        }
+    }
+
+    /// Store state at requested output epochs only (default).
+    ///
+    /// Most memory-efficient. Only stores at times explicitly requested
+    /// via `propagate_to_epochs()` or similar methods.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: OutputStepsOnly trajectory mode constant
+    #[classattr]
+    #[pyo3(name = "OUTPUT_STEPS_ONLY")]
+    fn output_steps_only() -> Self {
+        PyTrajectoryMode {
+            mode: propagators::TrajectoryMode::OutputStepsOnly,
+        }
+    }
+
+    /// Disable trajectory storage entirely.
+    ///
+    /// Only the current state is maintained. Useful when only the
+    /// final state matters and memory is constrained.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: Disabled trajectory mode constant
+    #[classattr]
+    #[pyo3(name = "DISABLED")]
+    fn disabled() -> Self {
+        PyTrajectoryMode {
+            mode: propagators::TrajectoryMode::Disabled,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.mode)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TrajectoryMode.{:?}", self.mode)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: pyo3::pyclass::CompareOp) -> PyResult<bool> {
+        match op {
+            pyo3::pyclass::CompareOp::Eq => Ok(self.mode == other.mode),
+            pyo3::pyclass::CompareOp::Ne => Ok(self.mode != other.mode),
+            _ => Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
+// =============================================================================
+// NumericalPropagator (generic N-D with Python callable dynamics)
+// =============================================================================
+
+/// Generic numerical propagator for arbitrary N-dimensional dynamical systems.
+///
+/// This propagator accepts a user-defined Python dynamics function and can be
+/// applied to any system of ODEs: attitude dynamics, chemical kinetics, population
+/// models, control systems, etc.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define dynamics: simple harmonic oscillator
+///     # dx/dt = v, dv/dt = -ω²x
+///     omega = 1.0
+///     def sho_dynamics(t, state, params):
+///         return np.array([state[1], -omega**2 * state[0]])
+///
+///     # Create initial state
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state = np.array([1.0, 0.0])  # [position, velocity]
+///
+///     # Create propagator
+///     prop = bh.NumericalPropagator(
+///         epoch, state, sho_dynamics,
+///         bh.NumericalPropagationConfig.default()
+///     )
+///
+///     # Propagate one period
+///     prop.propagate_to(epoch + 2.0 * np.pi)
+///     print(f"Final state: {prop.current_state()}")  # Should be ~[1, 0]
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "NumericalPropagator")]
+pub struct PyNumericalPropagator {
+    pub propagator: propagators::DNumericalPropagator,
+}
+
+#[pymethods]
+impl PyNumericalPropagator {
+    /// Create a new generic numerical propagator.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector (N-dimensional).
+    ///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
+    ///                         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+    ///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
+    ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+    ///
+    /// Returns:
+    ///     NumericalPropagator: New propagator instance.
+    #[new]
+    #[pyo3(signature = (epoch, state, dynamics, propagation_config, params=None, initial_covariance=None))]
+    pub fn new(
+        py: Python<'_>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        dynamics: Py<PyAny>,
+        propagation_config: &PyNumericalPropagationConfig,
+        params: Option<PyReadonlyArray1<f64>>,
+        initial_covariance: Option<PyReadonlyArray2<f64>>,
+    ) -> PyResult<Self> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        let params_vec = params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+
+        let cov_matrix = if let Some(cov) = initial_covariance {
+            let cov_shape = cov.shape();
+            if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+                return Err(exceptions::PyValueError::new_err(
+                    format!("Initial covariance must be a {}x{} matrix", state_dim, state_dim)
+                ));
+            }
+            let cov_data: Vec<f64> = cov.as_slice()?.to_vec();
+            Some(nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data))
+        } else {
+            None
+        };
+
+        // Create a wrapper that calls the Python dynamics function
+        let dynamics_py = dynamics.clone_ref(py);
+        let dynamics_fn: crate::integrators::traits::DStateDynamics = Box::new(
+            move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+                Python::attach(|py| {
+                    // Convert state to numpy array
+                    let x_np = x.as_slice().to_pyarray(py);
+
+                    // Convert params to numpy array or None
+                    let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> = p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                    // Call Python function
+                    let result = match p_np {
+                        Some(params_arr) => dynamics_py.call1(py, (t, x_np, params_arr)),
+                        None => dynamics_py.call1(py, (t, x_np, py.None())),
+                    };
+
+                    match result {
+                        Ok(res) => {
+                            // Extract result as numpy array
+                            let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                            nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                        }
+                        Err(e) => {
+                            eprintln!("Error calling dynamics function: {}", e);
+                            nalgebra::DVector::zeros(x.len())
+                        }
+                    }
+                })
+            }
+        );
+
+        let prop = propagators::DNumericalPropagator::new(
+            epoch.obj,
+            state_vec,
+            dynamics_fn,
+            propagation_config.config.clone(),
+            params_vec,
+            None, // control_input
+            cov_matrix,
+        ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(PyNumericalPropagator { propagator: prop })
+    }
+
+    // =========================================================================
+    // DStatePropagator trait methods
+    // =========================================================================
+
+    /// Get current epoch.
+    #[getter]
+    pub fn current_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: DStatePropagator::current_epoch(&self.propagator) }
+    }
+
+    /// Get initial epoch.
+    #[getter]
+    pub fn initial_epoch(&self) -> PyEpoch {
+        PyEpoch { obj: DStatePropagator::initial_epoch(&self.propagator) }
+    }
+
+    /// Get current state vector.
+    #[pyo3(text_signature = "()")]
+    pub fn current_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = DStatePropagator::current_state(&self.propagator);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get initial state vector.
+    #[pyo3(text_signature = "()")]
+    pub fn initial_state<'a>(&self, py: Python<'a>) -> Bound<'a, PyArray<f64, Ix1>> {
+        let state = DStatePropagator::initial_state(&self.propagator);
+        state.as_slice().to_pyarray(py).to_owned()
+    }
+
+    /// Get state dimension.
+    #[getter]
+    pub fn state_dim(&self) -> usize {
+        DStatePropagator::state_dim(&self.propagator)
+    }
+
+    /// Get current step size.
+    #[getter]
+    pub fn step_size(&self) -> f64 {
+        DStatePropagator::step_size(&self.propagator)
+    }
+
+    /// Set step size.
+    #[setter]
+    pub fn set_step_size(&mut self, step_size: f64) {
+        DStatePropagator::set_step_size(&mut self.propagator, step_size);
+    }
+
+    /// Step forward by the default step size.
+    #[pyo3(text_signature = "()")]
+    pub fn step(&mut self) {
+        DStatePropagator::step(&mut self.propagator);
+    }
+
+    /// Step forward by a specified time duration.
+    #[pyo3(text_signature = "(step_size)")]
+    pub fn step_by(&mut self, step_size: f64) {
+        DStatePropagator::step_by(&mut self.propagator, step_size);
+    }
+
+    /// Step past a specified target epoch.
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn step_past(&mut self, target_epoch: &PyEpoch) {
+        DStatePropagator::step_past(&mut self.propagator, target_epoch.obj);
+    }
+
+    /// Propagate forward by specified number of steps.
+    #[pyo3(text_signature = "(num_steps)")]
+    pub fn propagate_steps(&mut self, num_steps: usize) {
+        DStatePropagator::propagate_steps(&mut self.propagator, num_steps);
+    }
+
+    /// Propagate to a specific target epoch.
+    #[pyo3(text_signature = "(target_epoch)")]
+    pub fn propagate_to(&mut self, target_epoch: &PyEpoch) {
+        DStatePropagator::propagate_to(&mut self.propagator, target_epoch.obj);
+    }
+
+    /// Reset propagator to initial conditions.
+    #[pyo3(text_signature = "()")]
+    pub fn reset(&mut self) {
+        DStatePropagator::reset(&mut self.propagator);
+    }
+
+    // =========================================================================
+    // State provider methods
+    // =========================================================================
+
+    /// Compute state at a specific epoch.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DStateProvider::state(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    // =========================================================================
+    // Trajectory and variational methods
+    // =========================================================================
+
+    /// Get accumulated trajectory.
+    #[getter]
+    pub fn trajectory(&self) -> PyTrajectory {
+        PyTrajectory { trajectory: self.propagator.trajectory().clone() }
+    }
+
+    /// Get current STM if enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn stm<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.stm().map(|stm| {
+            let n = stm.nrows();
+            let flat: Vec<f64> = (0..n).flat_map(|i| (0..n).map(move |j| stm[(i, j)])).collect();
+            flat.into_pyarray(py).reshape([n, n]).unwrap()
+        })
+    }
+
+    /// Get current sensitivity matrix if enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn sensitivity<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix2>>> {
+        self.propagator.sensitivity().map(|sens| {
+            let n = sens.nrows();
+            let p = sens.ncols();
+            let flat: Vec<f64> = (0..n).flat_map(|i| (0..p).map(move |j| sens[(i, j)])).collect();
+            flat.into_pyarray(py).reshape([n, p]).unwrap()
+        })
+    }
+
+    /// Get covariance at a specific epoch.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn covariance<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix2>>> {
+        let cov = DCovarianceProvider::covariance(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let n = cov.nrows();
+        let mut flat = Vec::with_capacity(n * n);
+        for i in 0..n {
+            for j in 0..n {
+                flat.push(cov[(i, j)]);
+            }
+        }
+        Ok(flat.into_pyarray(py).reshape([n, n]).unwrap())
+    }
+
+    // =========================================================================
+    // Eviction policy
+    // =========================================================================
+
+    /// Set trajectory eviction policy based on maximum size.
+    #[pyo3(text_signature = "(max_size)")]
+    pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        DStatePropagator::set_eviction_policy_max_size(&mut self.propagator, max_size)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Set trajectory eviction policy based on maximum age.
+    #[pyo3(text_signature = "(max_age)")]
+    pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        DStatePropagator::set_eviction_policy_max_age(&mut self.propagator, max_age)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Set the trajectory storage mode.
+    ///
+    /// Args:
+    ///     mode (TrajectoryMode): The trajectory storage mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
+    ///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
+    ///     ```
+    #[pyo3(text_signature = "(mode)")]
+    pub fn set_trajectory_mode(&mut self, mode: &PyTrajectoryMode) {
+        self.propagator.set_trajectory_mode(mode.mode);
+    }
+
+    /// Get the current trajectory storage mode.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: The current trajectory storage mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
+    ///     mode = prop.trajectory_mode()
+    ///     print(f"Mode: {mode}")
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn trajectory_mode(&self) -> PyTrajectoryMode {
+        PyTrajectoryMode {
+            mode: self.propagator.trajectory_mode(),
+        }
+    }
+
+    // =========================================================================
+    // Identity methods
+    // =========================================================================
+
+    /// Set the name and return self.
+    pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
+        slf.propagator.name = Some(name);
+        slf
+    }
+
+    /// Set the UUID and return self.
+    pub fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
+        let uuid = uuid::Uuid::parse_str(&uuid_str)
+            .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?;
+        slf.propagator.uuid = Some(uuid);
+        Ok(slf)
+    }
+
+    /// Generate a new UUID, set it, and return self.
+    pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf.propagator.uuid = Some(uuid::Uuid::new_v4());
+        slf
+    }
+
+    /// Set the numeric ID and return self.
+    pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
+        slf.propagator.id = Some(id);
+        slf
+    }
+
+    /// Get the current name.
+    pub fn get_name(&self) -> Option<String> {
+        self.propagator.name.clone()
+    }
+
+    /// Get the current UUID.
+    pub fn get_uuid(&self) -> Option<String> {
+        self.propagator.uuid.map(|u| u.to_string())
+    }
+
+    /// Get the current numeric ID.
+    pub fn get_id(&self) -> Option<u64> {
+        self.propagator.id
+    }
+
+    fn __repr__(&self) -> String {
+        format!("NumericalPropagator(epoch={:?}, state_dim={})",
+                DStatePropagator::current_epoch(&self.propagator),
+                DStatePropagator::state_dim(&self.propagator))
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+
+    // =========================================================================
+    // Event detection methods
+    // =========================================================================
+
+    /// Add an event detector to this propagator.
+    ///
+    /// Args:
+    ///     event: Event detector (TimeEvent, ValueEvent, or BinaryEvent)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
+    ///     event = bh.TimeEvent(epoch + 5.0, "5 second mark")
+    ///     prop.add_event_detector(event)
+    ///     ```
+    #[pyo3(text_signature = "(event)")]
+    pub fn add_event_detector(&mut self, event: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Try each event type
+        if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
+            if let Some(inner) = time_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "TimeEvent has already been consumed"
+            ));
+        }
+
+        if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
+            if let Some(inner) = value_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "ValueEvent has already been consumed"
+            ));
+        }
+
+        if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
+            if let Some(inner) = binary_event.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err(
+                "BinaryEvent has already been consumed"
+            ));
+        }
+
+        // Note: AltitudeEvent is orbit-specific and not available for generic NumericalPropagator
+
+        Err(exceptions::PyTypeError::new_err(
+            "Expected event detector type (TimeEvent, ValueEvent, or BinaryEvent)"
+        ))
+    }
+
+    /// Get the event log (list of detected events).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: List of events detected during propagation.
+    #[pyo3(text_signature = "()")]
+    pub fn event_log(&self) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .event_log()
+            .iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Create an event query builder for filtering detected events.
+    ///
+    /// Returns an EventQuery that allows chainable filtering of detected events.
+    /// Call `.collect()` on the query to get the final list of events.
+    ///
+    /// Returns:
+    ///     EventQuery: Query builder for filtering events
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Get events from detector 0 within a time range
+    ///     events = prop.query_events() \
+    ///         .by_detector_index(0) \
+    ///         .in_time_range(start, end) \
+    ///         .collect()
+    ///
+    ///     # Count events by name pattern
+    ///     count = prop.query_events() \
+    ///         .by_name_contains("Altitude") \
+    ///         .count()
+    ///
+    ///     # Combined filters
+    ///     events = prop.query_events() \
+    ///         .by_detector_index(1) \
+    ///         .in_time_range(start, end) \
+    ///         .collect()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn query_events(&self) -> PyEventQuery {
+        PyEventQuery::new(self.propagator.event_log().to_vec())
+    }
+
+    /// Get events by name.
+    ///
+    /// Args:
+    ///     name (str): Event name to filter by.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events matching the given name.
+    #[pyo3(text_signature = "(name)")]
+    pub fn events_by_name(&self, name: &str) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_name(name)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get latest detected event, if any.
+    ///
+    /// Returns:
+    ///     DetectedEvent or None: The most recently detected event.
+    #[pyo3(text_signature = "()")]
+    pub fn latest_event(&self) -> Option<PyDetectedEvent> {
+        self.propagator
+            .latest_event()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+    }
+
+    /// Get events in time range.
+    ///
+    /// Args:
+    ///     start (Epoch): Start of time range.
+    ///     end (Epoch): End of time range.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events within the given time range.
+    #[pyo3(text_signature = "(start, end)")]
+    pub fn events_in_range(&self, start: &PyEpoch, end: &PyEpoch) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_in_range(start.obj, end.obj)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Get events by detector index.
+    ///
+    /// Args:
+    ///     index (int): Detector index (0-based, in order of add_event_detector calls).
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events from the specified detector.
+    #[pyo3(text_signature = "(index)")]
+    pub fn events_by_detector_index(&self, index: usize) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_detector_index(index)
+            .into_iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Check if propagator is terminated due to a terminal event.
+    ///
+    /// Returns:
+    ///     bool: True if propagation was stopped by a terminal event.
+    #[pyo3(text_signature = "()")]
+    pub fn terminated(&self) -> bool {
+        self.propagator.terminated()
+    }
+
+    /// Reset the termination flag to allow continued propagation.
+    #[pyo3(text_signature = "()")]
+    pub fn reset_termination(&mut self) {
+        self.propagator.reset_termination();
+    }
+
+    /// Clear all detected events from the event log.
+    #[pyo3(text_signature = "()")]
+    pub fn clear_events(&mut self) {
+        self.propagator.clear_events();
+    }
+
+    // =========================================================================
+    // Additional Identity methods (matching SGPPropagator/KeplerianPropagator)
+    // =========================================================================
+
+    /// Set the name in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Name to assign, or None to clear.
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.propagator.name = name;
+    }
+
+    /// Set the numeric ID in-place (mutating).
+    ///
+    /// Args:
+    ///     id (int or None): Numeric ID to assign, or None to clear.
+    pub fn set_id(&mut self, id: Option<u64>) {
+        self.propagator.id = id;
+    }
+
+    /// Set the UUID in-place (mutating).
+    ///
+    /// Args:
+    ///     uuid_str (str or None): UUID string to assign, or None to clear.
+    pub fn set_uuid(&mut self, uuid_str: Option<String>) -> PyResult<()> {
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        self.propagator.uuid = uuid;
+        Ok(())
+    }
+
+    /// Generate a new UUID and set it in-place (mutating).
+    pub fn generate_uuid(&mut self) {
+        self.propagator.uuid = Some(uuid::Uuid::new_v4());
+    }
+
+    /// Set all identity fields at once and return self (consuming constructor pattern).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Self with identity set.
+    pub fn with_identity(mut slf: PyRefMut<'_, Self>, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<PyRefMut<'_, Self>> {
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        slf.propagator.name = name;
+        slf.propagator.uuid = uuid;
+        slf.propagator.id = id;
+        Ok(slf)
+    }
+
+    /// Set all identity fields in-place (mutating).
+    ///
+    /// Args:
+    ///     name (str or None): Optional name to assign.
+    ///     uuid_str (str or None): Optional UUID string to assign.
+    ///     id (int or None): Optional numeric ID to assign.
+    pub fn set_identity(&mut self, name: Option<String>, uuid_str: Option<String>, id: Option<u64>) -> PyResult<()> {
+        let uuid = match uuid_str {
+            Some(s) => Some(uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))?),
+            None => None,
+        };
+        self.propagator.name = name;
+        self.propagator.uuid = uuid;
+        self.propagator.id = id;
+        Ok(())
+    }
+
+    // =========================================================================
+    // Interpolation configuration methods
+    // =========================================================================
+
+    /// Set the interpolation method using builder pattern.
+    /// Note: Returns None as Python doesn't support returning mutable self with borrowed args.
+    /// Use method chaining via separate calls or use set_interpolation_method instead.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): The interpolation method to use.
+    pub fn with_interpolation_method(&mut self, method: &PyInterpolationMethod) {
+        self.propagator.set_interpolation_method(method.method);
+    }
+
+    /// Set the interpolation method in-place.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): The interpolation method to use.
+    pub fn set_interpolation_method(&mut self, method: &PyInterpolationMethod) {
+        self.propagator.set_interpolation_method(method.method);
+    }
+
+    /// Get the current interpolation method.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: The current interpolation method.
+    pub fn get_interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.propagator.get_interpolation_method() }
+    }
+
+    /// Set the covariance interpolation method using builder pattern.
+    /// Note: Returns None as Python doesn't support returning mutable self with borrowed args.
+    /// Use method chaining via separate calls or use set_covariance_interpolation_method instead.
+    ///
+    /// Args:
+    ///     method (CovarianceInterpolationMethod): The covariance interpolation method to use.
+    pub fn with_covariance_interpolation_method(&mut self, method: &PyCovarianceInterpolationMethod) {
+        self.propagator.set_covariance_interpolation_method(method.method);
+    }
+
+    /// Set the covariance interpolation method in-place.
+    ///
+    /// Args:
+    ///     method (CovarianceInterpolationMethod): The covariance interpolation method to use.
+    pub fn set_covariance_interpolation_method(&mut self, method: &PyCovarianceInterpolationMethod) {
+        self.propagator.set_covariance_interpolation_method(method.method);
+    }
+
+    /// Get the current covariance interpolation method.
+    ///
+    /// Returns:
+    ///     CovarianceInterpolationMethod: The current covariance interpolation method.
+    pub fn get_covariance_interpolation_method(&self) -> PyCovarianceInterpolationMethod {
+        PyCovarianceInterpolationMethod { method: self.propagator.get_covariance_interpolation_method() }
     }
 }

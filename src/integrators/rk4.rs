@@ -43,7 +43,7 @@ use crate::integrators::traits::{
 ///
 /// // Integrate the system forward in time to t = 1.0 (analytic solution is x = 1.0)
 /// for _i in 0..100{
-///    state = rk4.step(t, state, Some(dt)).state;
+///    state = rk4.step(t, state, None, Some(dt)).state;
 ///    t += dt;
 /// }
 ///
@@ -51,7 +51,7 @@ use crate::integrators::traits::{
 ///
 /// // Now integrate the system forward in time to t = 10.0 (analytic solution is x = 100.0)
 /// for _i in 100..1000{
-///     state = rk4.step(t, state, Some(dt)).state;
+///     state = rk4.step(t, state, None, Some(dt)).state;
 ///     t += dt;
 /// }
 ///
@@ -199,20 +199,27 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RK4SIntegrator<S, P> 
         &self.config
     }
 
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SIntegratorStepResult<S, P> {
+    fn step(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, None, None, None, dt)
+        self.step_internal(t, state, None, None, params, dt)
     }
 
     fn step_with_varmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
         phi: SMatrix<f64, S, S>,
         dt: Option<f64>,
     ) -> SIntegratorStepResult<S, P> {
         let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, Some(phi), None, None, dt)
+        self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
     fn step_with_sensmat(
@@ -300,7 +307,7 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RK4SIntegr
 ///
 /// // Integrate forward in time
 /// for _ in 0..10 {
-///     state = rk4.step(t, state, Some(dt)).state;
+///     state = rk4.step(t, state, None, Some(dt)).state;
 ///     t += dt;
 /// }
 /// ```
@@ -400,20 +407,27 @@ impl DIntegrator for RK4DIntegrator {
         &self.config
     }
 
-    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DIntegratorStepResult {
+    fn step(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
         let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, None, None, None, dt)
+        self.step_internal(t, state, None, None, params, dt)
     }
 
     fn step_with_varmat(
         &self,
         t: f64,
         state: DVector<f64>,
+        params: Option<&DVector<f64>>,
         phi: DMatrix<f64>,
         dt: Option<f64>,
     ) -> DIntegratorStepResult {
         let dt = get_step_size(dt, &self.config);
-        self.step_internal(t, state, Some(phi), None, None, dt)
+        self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
     fn step_with_sensmat(
@@ -569,12 +583,8 @@ impl RK4DIntegrator {
             let state_i = &state + dt * &ksum;
             let t_i = t + self.bt.c[i] * dt;
 
-            // Compute dynamics (pass params if computing sensitivity)
-            let mut k_i = if compute_sens {
-                (self.f)(t_i, &state_i, params)
-            } else {
-                (self.f)(t_i, &state_i, None)
-            };
+            // Compute dynamics - always pass params for parameter-dependent dynamics
+            let mut k_i = (self.f)(t_i, &state_i, params);
 
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
@@ -694,7 +704,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, Some(dt)).state;
+            state = rk4.step(i as f64, state, None, Some(dt)).state;
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -717,7 +727,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, Some(dt)).state;
+            state = rk4.step(t, state, None, Some(dt)).state;
             t += dt;
         }
 
@@ -742,7 +752,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, Some(dt)).state;
+            state = rk4.step(epc - epc0, state, None, Some(dt)).state;
             epc += dt;
         }
 
@@ -770,7 +780,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let result = rk4.step_with_varmat(0.0, state0, phi0, Some(0.0));
+        let result = rk4.step_with_varmat(0.0, state0, None, phi0, Some(0.0));
         let phi1 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -783,7 +793,7 @@ mod tests {
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let result = rk4.step_with_varmat(0.0, state0, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0, None, phi0, Some(1.0));
         let phi2 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -809,11 +819,11 @@ mod tests {
             RK4SIntegrator::new(Box::new(point_earth), Some(Box::new(jacobian2)), None, None);
 
         // Get the state with a perturbation
-        let result = rk4.step_with_varmat(0.0, state0 + pert, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0 + pert, None, phi0, Some(1.0));
         let state_pert = result.state;
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0, Some(1.0)).state + phi2.unwrap() * pert;
+        let state_stm = rk4.step(0.0, state0, None, Some(1.0)).state + phi2.unwrap() * pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -863,7 +873,7 @@ mod tests {
         let dt = 1.0;
 
         for i in 0..10 {
-            state = rk4.step(i as f64, state, Some(dt)).state;
+            state = rk4.step(i as f64, state, None, Some(dt)).state;
         }
 
         assert_abs_diff_eq!(state[0], 1000.0, epsilon = 1.0e-12);
@@ -883,7 +893,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            state = rk4.step(t, state, Some(dt)).state;
+            state = rk4.step(t, state, None, Some(dt)).state;
             t += dt;
         }
 
@@ -908,7 +918,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(1.0);
-            state = rk4.step(epc - epc0, state, Some(dt)).state;
+            state = rk4.step(epc - epc0, state, None, Some(dt)).state;
             epc += dt;
         }
 
@@ -948,7 +958,7 @@ mod tests {
         let phi0 = DMatrix::<f64>::identity(6, 6);
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let result = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(0.0));
+        let result = rk4.step_with_varmat(0.0, state0.clone(), None, phi0.clone(), Some(0.0));
         let phi1 = result.phi.unwrap();
         for i in 0..6 {
             for j in 0..6 {
@@ -961,7 +971,7 @@ mod tests {
         }
 
         // Propagate one step and independently confirm the variational matrix update
-        let result = rk4.step_with_varmat(0.0, state0.clone(), phi0.clone(), Some(1.0));
+        let result = rk4.step_with_varmat(0.0, state0.clone(), None, phi0.clone(), Some(1.0));
         let phi2 = result.phi.unwrap();
         for i in 0..6 {
             for j in 0..6 {
@@ -995,11 +1005,11 @@ mod tests {
         );
 
         // Get the state with a perturbation
-        let result = rk4.step_with_varmat(0.0, &state0 + &pert, phi0, Some(1.0));
+        let result = rk4.step_with_varmat(0.0, &state0 + &pert, None, phi0, Some(1.0));
         let state_pert = result.state;
 
         // Get the state with a perturbation by using the integrated variational matrix
-        let state_stm = rk4.step(0.0, state0.clone(), Some(1.0)).state + &phi2 * &pert;
+        let state_stm = rk4.step(0.0, state0.clone(), None, Some(1.0)).state + &phi2 * &pert;
 
         // Compare the two states - they should be the same
         assert_abs_diff_eq!(state_pert[0], state_stm[0], epsilon = 1.0e-9);
@@ -1028,8 +1038,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let dt = 0.1;
 
-        let result_s = rk4_s.step(0.0, state_s, Some(dt));
-        let result_d = rk4_d.step(0.0, state_d, Some(dt));
+        let result_s = rk4_s.step(0.0, state_s, None, Some(dt));
+        let result_d = rk4_d.step(0.0, state_d, None, Some(dt));
 
         // Results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
@@ -1051,14 +1061,14 @@ mod tests {
         let dt_forward = 1.0;
         let mut state_fwd = state0;
         for _ in 0..100 {
-            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward)).state;
+            state_fwd = rk4.step(0.0, state_fwd, None, Some(dt_forward)).state;
         }
 
         // Now propagate backward from the final state
         let dt_back = -1.0; // Negative timestep for backward integration
         let mut state_back = state_fwd;
         for _ in 0..100 {
-            state_back = rk4.step(0.0, state_back, Some(dt_back)).state;
+            state_back = rk4.step(0.0, state_back, None, Some(dt_back)).state;
         }
 
         // Should return close to initial state
@@ -1081,14 +1091,14 @@ mod tests {
         let dt_forward = 1.0;
         let mut state_fwd = state0.clone();
         for _ in 0..100 {
-            state_fwd = rk4.step(0.0, state_fwd, Some(dt_forward)).state;
+            state_fwd = rk4.step(0.0, state_fwd, None, Some(dt_forward)).state;
         }
 
         // Now propagate backward from the final state
         let dt_back = -1.0; // Negative timestep for backward integration
         let mut state_back = state_fwd;
         for _ in 0..100 {
-            state_back = rk4.step(0.0, state_back, Some(dt_back)).state;
+            state_back = rk4.step(0.0, state_back, None, Some(dt_back)).state;
         }
 
         // Should return close to initial state
@@ -1117,13 +1127,13 @@ mod tests {
         // Without control: state stays at 0
         let rk4_no_ctrl: RK4SIntegrator<1, 0> = RK4SIntegrator::new(Box::new(f), None, None, None);
         let state0 = SVector::<f64, 1>::new(0.0);
-        let state_no_ctrl = rk4_no_ctrl.step(0.0, state0, Some(1.0));
+        let state_no_ctrl = rk4_no_ctrl.step(0.0, state0, None, Some(1.0));
         assert_abs_diff_eq!(state_no_ctrl.state[0], 0.0, epsilon = 1.0e-12);
 
         // With control: x' = 1, so x = t after integration
         let rk4_ctrl: RK4SIntegrator<1, 0> =
             RK4SIntegrator::new(Box::new(f), None, None, Some(Box::new(control)));
-        let state_ctrl = rk4_ctrl.step(0.0, state0, Some(1.0));
+        let state_ctrl = rk4_ctrl.step(0.0, state0, None, Some(1.0));
         assert_abs_diff_eq!(state_ctrl.state[0], 1.0, epsilon = 1.0e-12);
     }
 
@@ -1142,13 +1152,13 @@ mod tests {
         // Without control: state stays constant
         let rk4_no_ctrl = RK4DIntegrator::new(2, Box::new(f), None, None, None);
         let state0 = DVector::from_vec(vec![0.0, 0.0]);
-        let state_no_ctrl = rk4_no_ctrl.step(0.0, state0.clone(), Some(1.0));
+        let state_no_ctrl = rk4_no_ctrl.step(0.0, state0.clone(), None, Some(1.0));
         assert_abs_diff_eq!(state_no_ctrl.state[0], 0.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(state_no_ctrl.state[1], 0.0, epsilon = 1.0e-12);
 
         // With control: x' = [1, 2], so x = [t, 2t] after integration
         let rk4_ctrl = RK4DIntegrator::new(2, Box::new(f), None, None, Some(Box::new(control)));
-        let state_ctrl = rk4_ctrl.step(0.0, state0, Some(1.0));
+        let state_ctrl = rk4_ctrl.step(0.0, state0, None, Some(1.0));
         assert_abs_diff_eq!(state_ctrl.state[0], 1.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(state_ctrl.state[1], 2.0, epsilon = 1.0e-12);
     }
@@ -1176,7 +1186,7 @@ mod tests {
 
         // Integrate for many steps - should approach equilibrium at x = 1
         for _ in 0..100 {
-            state = rk4.step(0.0, state, Some(dt)).state;
+            state = rk4.step(0.0, state, None, Some(dt)).state;
         }
 
         // State should approach equilibrium value of 1.0
@@ -1203,7 +1213,7 @@ mod tests {
 
         // Integrate and check decay
         for _ in 0..50 {
-            state = rk4.step(0.0, state, Some(dt)).state;
+            state = rk4.step(0.0, state, None, Some(dt)).state;
         }
 
         // State should decay toward 0
@@ -1455,7 +1465,7 @@ mod tests {
         let state0_pert = SVector::<f64, 1>::new(x0 + delta);
         let mut state_pert = state0_pert;
         for _ in 0..100 {
-            state_pert = rk4.step(0.0, state_pert, Some(dt)).state;
+            state_pert = rk4.step(0.0, state_pert, None, Some(dt)).state;
         }
 
         // STM should predict the perturbed state
@@ -1549,7 +1559,7 @@ mod tests {
         let state0_pert = DVector::from_vec(vec![x0 + delta]);
         let mut state_pert = state0_pert;
         for _ in 0..100 {
-            state_pert = rk4.step(0.0, state_pert, Some(dt)).state;
+            state_pert = rk4.step(0.0, state_pert, None, Some(dt)).state;
         }
 
         let state_pert_predicted = state[0] + phi[(0, 0)] * delta;
@@ -1738,5 +1748,276 @@ mod tests {
 
         let integrator2 = RK4DIntegrator::new(12, Box::new(dynamics), None, None, None);
         assert_eq!(integrator2.dimension(), 12);
+    }
+
+    // =========================================================================
+    // Parameter-Dependent Dynamics Tests
+    // =========================================================================
+    // These tests verify that the params argument to step() actually affects
+    // propagation output, ensuring parameters flow through to dynamics correctly.
+
+    #[test]
+    fn test_rk4s_params_affect_step_output() {
+        // Test exponential decay where the decay rate comes from params:
+        // dx/dt = -k * x, where k = params[0]
+        //
+        // Analytical solution: x(t) = x0 * exp(-k * t)
+        // Different k values should give different results.
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let rk4: RK4SIntegrator<1, 1> = RK4SIntegrator::new(Box::new(f), None, None, None);
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = rk4.step(t, x0, Some(&params_slow), Some(dt));
+
+        // Step with k=5.0 (faster decay)
+        let params_fast = SVector::<f64, 1>::new(5.0);
+        let result_fast = rk4.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+
+        // Verify results approximately match analytical solutions
+        // x(dt) = x0 * exp(-k * dt)
+        // Note: Single step with dt=0.1 has RK4 truncation error ~O(dt^5), so we relax tolerance
+        let x_slow_analytical = 1.0_f64 * (-dt).exp();
+        let x_fast_analytical = 1.0_f64 * (-5.0 * dt).exp();
+
+        // RK4 truncation error is O(dt^5), with dt=0.1 and k=5 this gives ~1e-3 error
+        assert_abs_diff_eq!(result_slow.state[0], x_slow_analytical, epsilon = 1e-3);
+        assert_abs_diff_eq!(result_fast.state[0], x_fast_analytical, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_rk4d_params_affect_step_output() {
+        // Same test for dynamic-sized integrator
+        // dx/dt = -k * x, where k = params[0]
+
+        let f = |_t: f64, x: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_element(1, -k * x[0])
+        };
+
+        let rk4 = RK4DIntegrator::new(1, Box::new(f), None, None, None);
+
+        let x0 = DVector::from_element(1, 1.0);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow = rk4.step(t, x0.clone(), Some(&params_slow), Some(dt));
+
+        // Step with k=5.0 (faster decay)
+        let params_fast = DVector::from_element(1, 5.0);
+        let result_fast = rk4.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+
+        // Verify results approximately match analytical solutions
+        let x_slow_analytical = 1.0_f64 * (-dt).exp();
+        let x_fast_analytical = 1.0_f64 * (-5.0 * dt).exp();
+
+        // RK4 truncation error is O(dt^5), with dt=0.1 and k=5 this gives ~1e-3 error
+        assert_abs_diff_eq!(result_slow.state[0], x_slow_analytical, epsilon = 1e-3);
+        assert_abs_diff_eq!(result_fast.state[0], x_fast_analytical, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_rk4s_params_multi_step_propagation() {
+        // Verify params affect output over multiple steps
+        // dx/dt = -k * x, where k = params[0]
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let rk4: RK4SIntegrator<1, 1> = RK4SIntegrator::new(Box::new(f), None, None, None);
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let dt = 0.01;
+        let n_steps = 100; // Propagate for t=1.0
+
+        // Propagate with k=0.5
+        let params_slow = SVector::<f64, 1>::new(0.5);
+        let mut state_slow = x0;
+        let mut t = 0.0;
+        for _ in 0..n_steps {
+            let result = rk4.step(t, state_slow, Some(&params_slow), Some(dt));
+            state_slow = result.state;
+            t += dt;
+        }
+
+        // Propagate with k=2.0
+        let params_fast = SVector::<f64, 1>::new(2.0);
+        let mut state_fast = x0;
+        let mut t = 0.0;
+        for _ in 0..n_steps {
+            let result = rk4.step(t, state_fast, Some(&params_fast), Some(dt));
+            state_fast = result.state;
+            t += dt;
+        }
+
+        // Verify analytical solutions at t=1.0
+        let t_final: f64 = 1.0;
+        let x_slow_analytical = 1.0_f64 * (-0.5 * t_final).exp(); // ~0.6065
+        let x_fast_analytical = 1.0_f64 * (-2.0 * t_final).exp(); // ~0.1353
+
+        assert_abs_diff_eq!(state_slow[0], x_slow_analytical, epsilon = 1e-6);
+        assert_abs_diff_eq!(state_fast[0], x_fast_analytical, epsilon = 1e-6);
+
+        // Verify they are significantly different
+        assert!(
+            (state_slow[0] - state_fast[0]).abs() > 0.4,
+            "Multi-step propagation with different params should differ: slow={}, fast={}",
+            state_slow[0],
+            state_fast[0]
+        );
+    }
+
+    #[test]
+    fn test_rk4s_params_with_varmat() {
+        // Verify params affect step_with_varmat output
+        // dx/dt = -k * x, where k = params[0]
+
+        use crate::math::jacobian::SJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl SJacobianProvider<1, 1> for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SMatrix::<f64, 1, 1>::new(-k)
+            }
+        }
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let rk4: RK4SIntegrator<1, 1> = RK4SIntegrator::new(
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let phi0 = SMatrix::<f64, 1, 1>::identity();
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = rk4.step_with_varmat(t, x0, Some(&params_slow), phi0, Some(dt));
+
+        // Step with k=5.0
+        let params_fast = SVector::<f64, 1>::new(5.0);
+        let result_fast = rk4.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        // Verify STMs differ (STM = exp(-k*dt) for this system)
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
+            "Different params should produce different STMs: slow={}, fast={}",
+            phi_slow[(0, 0)],
+            phi_fast[(0, 0)]
+        );
+    }
+
+    #[test]
+    fn test_rk4d_params_with_varmat() {
+        // Same test for dynamic-sized integrator with variational matrix
+
+        use crate::math::jacobian::DJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl DJacobianProvider for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                DMatrix::from_element(1, 1, -k)
+            }
+        }
+
+        let f = |_t: f64, x: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_element(1, -k * x[0])
+        };
+
+        let rk4 = RK4DIntegrator::new(
+            1,
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = DVector::from_element(1, 1.0);
+        let phi0 = DMatrix::identity(1, 1);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow =
+            rk4.step_with_varmat(t, x0.clone(), Some(&params_slow), phi0.clone(), Some(dt));
+
+        // Step with k=5.0
+        let params_fast = DVector::from_element(1, 5.0);
+        let result_fast = rk4.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states and STMs differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
+            "Different params should produce different STMs"
+        );
     }
 }

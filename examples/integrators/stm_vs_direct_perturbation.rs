@@ -106,6 +106,7 @@ fn main() {
         let result_nominal = integrator_nominal.step_with_varmat(
             t,
             state_nominal.clone(),
+            None,
             phi.clone(),
             Some(dt),
         );
@@ -117,6 +118,7 @@ fn main() {
         let result_pert = integrator_pert.step(
             t,
             state_pert.clone(),
+            None,
             Some(dt),
         );
 

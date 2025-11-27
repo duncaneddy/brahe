@@ -60,7 +60,7 @@ fn main() {
     let mut steps = 0;
     while t < period {
         // Propagate state and STM together
-        let result = integrator.step_with_varmat(t, state, phi, Some(dt.min(period - t)));
+        let result = integrator.step_with_varmat(t, state, None, phi, Some(dt.min(period - t)));
 
         let new_state = result.state;
         let new_phi = result.phi.unwrap();

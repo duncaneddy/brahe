@@ -10,6 +10,7 @@ use super::traits::{
 };
 use crate::time::Epoch;
 use nalgebra::{DVector, SVector};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Time-based event detector (static-sized)
 ///
@@ -36,6 +37,8 @@ pub struct STimeEvent<const S: usize, const P: usize> {
     action: EventAction,
     time_tol: f64,
     step_reduction_factor: f64,
+    /// Flag to track if this time event has already fired (prevents re-triggering)
+    fired: AtomicBool,
 }
 
 impl<const S: usize, const P: usize> STimeEvent<S, P> {
@@ -50,7 +53,13 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
             action: EventAction::Continue,
             time_tol: 1e-6,
             step_reduction_factor: 0.2,
+            fired: AtomicBool::new(false),
         }
+    }
+
+    /// Reset the fired flag (allows the event to trigger again)
+    pub fn reset(&self) {
+        self.fired.store(false, Ordering::SeqCst);
     }
 
     /// Set instance number for display name
@@ -100,7 +109,13 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
         _state: &SVector<f64, S>,
         _params: Option<&SVector<f64, P>>,
     ) -> f64 {
-        t - self.target_time // Returns signed time difference in seconds
+        // If already processed, return MAX to prevent re-detection
+        if self.fired.load(Ordering::SeqCst) {
+            return f64::MAX;
+        }
+
+        // Return time difference (no auto-marking - propagator calls mark_processed())
+        t - self.target_time
     }
 
     fn target_value(&self) -> f64 {
@@ -126,6 +141,18 @@ impl<const S: usize, const P: usize> SEventDetector<S, P> for STimeEvent<S, P> {
     fn step_reduction_factor(&self) -> f64 {
         self.step_reduction_factor
     }
+
+    fn mark_processed(&self) {
+        self.fired.store(true, Ordering::SeqCst);
+    }
+
+    fn is_processed(&self) -> bool {
+        self.fired.load(Ordering::SeqCst)
+    }
+
+    fn reset_processed(&self) {
+        self.fired.store(false, Ordering::SeqCst);
+    }
 }
 
 /// Dynamic-sized time event
@@ -140,6 +167,8 @@ pub struct DTimeEvent {
     action: EventAction,
     time_tol: f64,
     step_reduction_factor: f64,
+    /// Flag to track if this time event has already fired (prevents re-triggering)
+    fired: AtomicBool,
 }
 
 impl DTimeEvent {
@@ -154,7 +183,13 @@ impl DTimeEvent {
             action: EventAction::Continue,
             time_tol: 1e-6,
             step_reduction_factor: 0.2,
+            fired: AtomicBool::new(false),
         }
+    }
+
+    /// Reset the fired flag (allows the event to trigger again)
+    pub fn reset(&self) {
+        self.fired.store(false, Ordering::SeqCst);
     }
 
     /// Set instance number for display name
@@ -199,7 +234,13 @@ impl DTimeEvent {
 
 impl DEventDetector for DTimeEvent {
     fn evaluate(&self, t: Epoch, _state: &DVector<f64>, _params: Option<&DVector<f64>>) -> f64 {
-        t - self.target_time // Returns signed time difference in seconds
+        // If already processed, return MAX to prevent re-detection
+        if self.fired.load(Ordering::SeqCst) {
+            return f64::MAX;
+        }
+
+        // Return time difference (no auto-marking - propagator calls mark_processed())
+        t - self.target_time
     }
 
     fn target_value(&self) -> f64 {
@@ -224,6 +265,18 @@ impl DEventDetector for DTimeEvent {
 
     fn step_reduction_factor(&self) -> f64 {
         self.step_reduction_factor
+    }
+
+    fn mark_processed(&self) {
+        self.fired.store(true, Ordering::SeqCst);
+    }
+
+    fn is_processed(&self) -> bool {
+        self.fired.load(Ordering::SeqCst)
+    }
+
+    fn reset_processed(&self) {
+        self.fired.store(false, Ordering::SeqCst);
     }
 }
 

@@ -12,7 +12,7 @@ bh.initialize_eop()
 
 # Start with ECI Cartesian trajectory
 traj_eci_cart = bh.OrbitTrajectory(
-    bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
+    6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
 )
 
 # Add states

@@ -41,7 +41,7 @@ fn main() {
 
         // Integrate to end
         while t < t_end - 1e-10 {
-            state = integrator.step(t, state, None).state;
+            state = integrator.step(t, state, None, None).state;
             t += dt;
             steps += 1;
         }

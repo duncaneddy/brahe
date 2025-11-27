@@ -285,6 +285,34 @@ pub trait SEventDetector<const S: usize, const P: usize>: Send + Sync + std::any
     fn action(&self) -> EventAction {
         EventAction::Continue
     }
+
+    /// Mark this event as processed (callback has been executed)
+    ///
+    /// Called by the propagator after successfully executing the event's callback.
+    /// After being marked processed, the event will not trigger again during
+    /// the current propagation run.
+    ///
+    /// Default implementation is a no-op for backward compatibility with
+    /// event detectors that should trigger repeatedly (e.g., altitude crossings).
+    fn mark_processed(&self) {
+        // Default no-op - allows repeating events
+    }
+
+    /// Check if this event has been processed
+    ///
+    /// Returns true if the event's callback has been executed and the event
+    /// should not trigger again during the current propagation run.
+    fn is_processed(&self) -> bool {
+        false // Default: allows re-triggering
+    }
+
+    /// Reset the processed state
+    ///
+    /// Called when the event should be able to trigger again, such as after
+    /// a propagator reset.
+    fn reset_processed(&self) {
+        // Default no-op
+    }
 }
 
 /// Trait for event detection with dynamic sizing
@@ -346,5 +374,33 @@ pub trait DEventDetector: Send + Sync + std::any::Any {
     /// override this by returning a different `EventAction`.
     fn action(&self) -> EventAction {
         EventAction::Continue
+    }
+
+    /// Mark this event as processed (callback has been executed)
+    ///
+    /// Called by the propagator after successfully executing the event's callback.
+    /// After being marked processed, the event will not trigger again during
+    /// the current propagation run.
+    ///
+    /// Default implementation is a no-op for backward compatibility with
+    /// event detectors that should trigger repeatedly (e.g., altitude crossings).
+    fn mark_processed(&self) {
+        // Default no-op - allows repeating events
+    }
+
+    /// Check if this event has been processed
+    ///
+    /// Returns true if the event's callback has been executed and the event
+    /// should not trigger again during the current propagation run.
+    fn is_processed(&self) -> bool {
+        false // Default: allows re-triggering
+    }
+
+    /// Reset the processed state
+    ///
+    /// Called when the event should be able to trigger again, such as after
+    /// a propagator reset.
+    fn reset_processed(&self) {
+        // Default no-op
     }
 }

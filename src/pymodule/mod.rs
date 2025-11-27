@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use nalgebra as na;
-use nalgebra::{DVector, SVector, Vector3};
+use nalgebra::{DMatrix, DVector, SVector, Vector3, Vector6};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
@@ -22,6 +22,7 @@ use pyo3::types::{
 };
 use pyo3::{IntoPyObjectExt, exceptions, wrap_pyfunction};
 
+use crate::math::interpolation::CovarianceInterpolationConfig;
 use crate::traits::*;
 use crate::utils::{
     BraheError, format_time_string, get_brahe_cache_dir, get_brahe_cache_dir_with_subdir,
@@ -525,6 +526,7 @@ include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
+include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
 include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
@@ -533,7 +535,6 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("integrators.rs");
 include!("utils.rs");
-include!("orbit_dynamics.rs");
 include!("earth_models.rs");
 include!("events.rs");
 
@@ -823,6 +824,21 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
+    module.add_class::<PyIntegrationMethod>()?;
+    module.add_class::<PyAtmosphericModel>()?;
+    module.add_class::<PyEclipseModel>()?;
+    module.add_class::<PyNumericalPropagationConfig>()?;
+    module.add_class::<PyVariationalConfig>()?;
+    module.add_class::<PyParameterSource>()?;
+    module.add_class::<PyGravityConfiguration>()?;
+    module.add_class::<PyDragConfiguration>()?;
+    module.add_class::<PySolarRadiationPressureConfiguration>()?;
+    module.add_class::<PyThirdBody>()?;
+    module.add_class::<PyThirdBodyConfiguration>()?;
+    module.add_class::<PyForceModelConfig>()?;
+    module.add_class::<PyNumericalOrbitPropagator>()?;
+    module.add_class::<PyNumericalPropagator>()?;
+    module.add_class::<PyTrajectoryMode>()?;
     module.add_function(wrap_pyfunction!(py_par_propagate_to, module)?)?;
 
     // TLE Support
@@ -990,6 +1006,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEventAction>()?;
     module.add_class::<PyEventType>()?;
     module.add_class::<PyDetectedEvent>()?;
+    module.add_class::<PyEventQuery>()?;
+    module.add_class::<PyEventQueryIterator>()?;
     module.add_class::<PyTimeEvent>()?;
     module.add_class::<PyValueEvent>()?;
     module.add_class::<PyBinaryEvent>()?;

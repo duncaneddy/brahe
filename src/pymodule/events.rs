@@ -1127,6 +1127,393 @@ impl PyBinaryEvent {
     }
 }
 
+// ================================
+// Event Query Builder
+// ================================
+
+/// Event query builder for filtering detected events.
+///
+/// Provides chainable filter methods for querying events with an idiomatic Python interface.
+/// Filters are applied lazily and can be combined in any order.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # After propagation with events
+///     # Get events from detector 0 within a time range
+///     events = prop.query_events() \
+///         .by_detector_index(0) \
+///         .in_time_range(start, end) \
+///         .collect()
+///
+///     # Count events by name pattern
+///     count = prop.query_events() \
+///         .by_name_contains("Altitude") \
+///         .count()
+///
+///     # Get first terminal event
+///     event = prop.query_events() \
+///         .by_action(bh.EventAction.STOP) \
+///         .first()
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EventQuery")]
+pub struct PyEventQuery {
+    /// Internal storage of events being filtered
+    events: Vec<events::DDetectedEvent>,
+}
+
+#[pymethods]
+impl PyEventQuery {
+    /// Filter by detector index.
+    ///
+    /// Returns events detected by the specified detector.
+    ///
+    /// Args:
+    ///     index (int): Detector index (0-based, corresponding to add order)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_detector_index(0).collect()
+    ///     ```
+    #[pyo3(text_signature = "(index)")]
+    fn by_detector_index(&self, index: usize) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.detector_index == index)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter by exact detector name.
+    ///
+    /// Returns events where the detector name exactly matches the given string.
+    ///
+    /// Args:
+    ///     name (str): Exact name to match
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_name_exact("Altitude Event").collect()
+    ///     ```
+    #[pyo3(text_signature = "(name)")]
+    fn by_name_exact(&self, name: &str) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.name == name)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter by detector name substring.
+    ///
+    /// Returns events where the detector name contains the given substring.
+    ///
+    /// Args:
+    ///     substring (str): Substring to search for in event names
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_name_contains("Altitude").collect()
+    ///     ```
+    #[pyo3(text_signature = "(substring)")]
+    fn by_name_contains(&self, substring: &str) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.name.contains(substring))
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter by time range (inclusive).
+    ///
+    /// Returns events that occurred within the specified time range.
+    ///
+    /// Args:
+    ///     start (Epoch): Start of time range (inclusive)
+    ///     end (Epoch): End of time range (inclusive)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().in_time_range(start_epoch, end_epoch).collect()
+    ///     ```
+    #[pyo3(text_signature = "(start, end)")]
+    fn in_time_range(&self, start: &PyEpoch, end: &PyEpoch) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.window_open >= start.obj && e.window_open <= end.obj)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter events after epoch (inclusive).
+    ///
+    /// Returns events that occurred at or after the specified epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch threshold (inclusive)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().after(cutoff_epoch).collect()
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn after(&self, epoch: &PyEpoch) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.window_open >= epoch.obj)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter events before epoch (inclusive).
+    ///
+    /// Returns events that occurred at or before the specified epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch threshold (inclusive)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().before(cutoff_epoch).collect()
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn before(&self, epoch: &PyEpoch) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.window_open <= epoch.obj)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter by event type.
+    ///
+    /// Returns events of the specified type.
+    ///
+    /// Args:
+    ///     event_type (EventType): Event type to filter by (INSTANTANEOUS or PERIOD)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_event_type(bh.EventType.PERIOD).collect()
+    ///     ```
+    #[pyo3(text_signature = "(event_type)")]
+    fn by_event_type(&self, event_type: &PyEventType) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.event_type == event_type.event_type)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Filter by event action.
+    ///
+    /// Returns events with the specified action.
+    ///
+    /// Args:
+    ///     action (EventAction): Event action to filter by (STOP or CONTINUE)
+    ///
+    /// Returns:
+    ///     EventQuery: New query with filter applied (for chaining)
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_action(bh.EventAction.STOP).collect()
+    ///     ```
+    #[pyo3(text_signature = "(action)")]
+    fn by_action(&self, action: &PyEventAction) -> Self {
+        PyEventQuery {
+            events: self
+                .events
+                .iter()
+                .filter(|e| e.action == action.action)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Collect filtered events into a list.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: List of events matching all applied filters
+    ///
+    /// Example:
+    ///     ```python
+    ///     events = prop.query_events().by_detector_index(0).collect()
+    ///     for event in events:
+    ///         print(f"Event: {event.name}")
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    fn collect(&self) -> Vec<PyDetectedEvent> {
+        self.events
+            .iter()
+            .map(|e| PyDetectedEvent { event: e.clone() })
+            .collect()
+    }
+
+    /// Count filtered events.
+    ///
+    /// Returns:
+    ///     int: Number of events matching all applied filters
+    ///
+    /// Example:
+    ///     ```python
+    ///     count = prop.query_events().by_name_contains("Altitude").count()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    fn count(&self) -> usize {
+        self.events.len()
+    }
+
+    /// Get the first matching event, if any.
+    ///
+    /// Returns:
+    ///     DetectedEvent or None: First event matching all filters, or None if empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     event = prop.query_events().by_action(bh.EventAction.STOP).first()
+    ///     if event:
+    ///         print(f"First terminal event: {event.name}")
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    fn first(&self) -> Option<PyDetectedEvent> {
+        self.events.first().map(|e| PyDetectedEvent { event: e.clone() })
+    }
+
+    /// Get the last matching event, if any.
+    ///
+    /// Returns:
+    ///     DetectedEvent or None: Last event matching all filters, or None if empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     event = prop.query_events().by_detector_index(0).last()
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    fn last(&self) -> Option<PyDetectedEvent> {
+        self.events.last().map(|e| PyDetectedEvent { event: e.clone() })
+    }
+
+    /// Check if any events match the filters.
+    ///
+    /// Returns:
+    ///     bool: True if at least one event matches all applied filters
+    ///
+    /// Example:
+    ///     ```python
+    ///     if prop.query_events().by_action(bh.EventAction.STOP).any():
+    ///         print("Found terminal events")
+    ///     ```
+    #[pyo3(name = "any")]
+    #[pyo3(text_signature = "()")]
+    fn any_matches(&self) -> bool {
+        !self.events.is_empty()
+    }
+
+    /// Check if the query is empty.
+    ///
+    /// Returns:
+    ///     bool: True if no events match all applied filters
+    #[pyo3(text_signature = "()")]
+    fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyEventQueryIterator {
+        PyEventQueryIterator {
+            events: slf.events.clone(),
+            index: 0,
+        }
+    }
+
+    fn __len__(&self) -> usize {
+        self.events.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("EventQuery({} events)", self.events.len())
+    }
+}
+
+impl PyEventQuery {
+    /// Create a new EventQuery from a list of events (internal use)
+    pub(crate) fn new(events: Vec<events::DDetectedEvent>) -> Self {
+        PyEventQuery { events }
+    }
+}
+
+/// Iterator for EventQuery
+#[pyclass(module = "brahe._brahe")]
+pub struct PyEventQueryIterator {
+    events: Vec<events::DDetectedEvent>,
+    index: usize,
+}
+
+#[pymethods]
+impl PyEventQueryIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyDetectedEvent> {
+        if slf.index < slf.events.len() {
+            let event = slf.events[slf.index].clone();
+            slf.index += 1;
+            Some(PyDetectedEvent { event })
+        } else {
+            None
+        }
+    }
+}
+
+// ================================
+// Event Detectors
+// ================================
+
 /// Altitude-based event detector (convenience wrapper).
 ///
 /// Detects when geodetic altitude crosses a threshold. This is a convenience wrapper

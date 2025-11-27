@@ -40,7 +40,7 @@ fn main() {
     println!("{}", "-".repeat(65));
 
     while t < t_end {
-        let result = integrator.step(t, state, Some(dt.min(t_end - t)));
+        let result = integrator.step(t, state, None, Some(dt.min(t_end - t)));
 
         // Track step size statistics
         let dt_used = result.dt_used;

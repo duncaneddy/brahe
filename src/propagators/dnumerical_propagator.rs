@@ -363,6 +363,26 @@ impl DNumericalPropagator {
             trajectory.enable_sensitivity_storage(params.len());
         }
 
+        // Store initial state in trajectory with identity STM and zero sensitivity if needed
+        let initial_stm = if propagation_config.variational.store_stm_history {
+            Some(DMatrix::identity(state_dim, state_dim))
+        } else {
+            None
+        };
+        let initial_sensitivity =
+            if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
+                Some(DMatrix::zeros(state_dim, params.len()))
+            } else {
+                None
+            };
+        trajectory.add_full(
+            epoch,
+            state_eci.clone(),
+            initial_covariance.clone(),
+            initial_stm,
+            initial_sensitivity,
+        );
+
         // Determine propagation mode based on what's enabled
         let propagation_mode = match (enable_stm, enable_sensitivity) {
             (false, false) => PropagationMode::StateOnly,
@@ -581,6 +601,9 @@ impl DNumericalPropagator {
                     if let Some(p_new) = new_params {
                         self.params = p_new;
                     }
+
+                    // Mark this event as processed so it won't trigger again on restart
+                    detector.mark_processed();
 
                     // Check terminal
                     if action == EventAction::Stop {
@@ -1040,12 +1063,22 @@ impl DNumericalPropagator {
             let dt_requested = self.dt_next;
 
             // Dispatch to appropriate integrator method based on propagation mode
+            // Create params reference if params is not empty
+            let params_ref = if self.params.is_empty() {
+                None
+            } else {
+                Some(&self.params)
+            };
+
             match self.propagation_mode {
                 PropagationMode::StateOnly => {
                     // Basic state propagation only
-                    let result =
-                        self.integrator
-                            .step(self.t_rel, self.x_curr.clone(), Some(dt_requested));
+                    let result = self.integrator.step(
+                        self.t_rel,
+                        self.x_curr.clone(),
+                        params_ref,
+                        Some(dt_requested),
+                    );
 
                     self.x_curr = result.state;
                     self.dt = result.dt_used;
@@ -1058,6 +1091,7 @@ impl DNumericalPropagator {
                     let result = self.integrator.step_with_varmat(
                         self.t_rel,
                         self.x_curr.clone(),
+                        params_ref,
                         phi,
                         Some(dt_requested),
                     );
@@ -1390,6 +1424,11 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
         // Clear event state
         self.event_log.clear();
         self.terminated = false;
+
+        // Reset processed state on all event detectors so they can trigger again
+        for detector in &self.event_detectors {
+            detector.reset_processed();
+        }
     }
 
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
@@ -2852,6 +2891,61 @@ mod tests {
         prop.propagate_to(initial_epoch + 15.0);
     }
 
+    #[test]
+    fn test_dnumericalpropagator_events_combined_filters() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // Add multiple detectors at different times
+        let event1 = DTimeEvent::new(initial_epoch + 2.0, "Early".to_string());
+        let event2 = DTimeEvent::new(initial_epoch + 4.0, "Middle".to_string());
+        let event3 = DTimeEvent::new(initial_epoch + 6.0, "Late".to_string());
+        let event4 = DTimeEvent::new(initial_epoch + 8.0, "VeryLate".to_string());
+
+        prop.add_event_detector(Box::new(event1));
+        prop.add_event_detector(Box::new(event2));
+        prop.add_event_detector(Box::new(event3));
+        prop.add_event_detector(Box::new(event4));
+
+        // Propagate
+        prop.propagate_to(initial_epoch + 10.0);
+
+        // Test combining filters:
+        // 1. Get events by detector index
+        let events_0 = prop.events_by_detector_index(0);
+        let events_1 = prop.events_by_detector_index(1);
+
+        assert_eq!(events_0.len(), 1);
+        assert_eq!(events_1.len(), 1);
+
+        // 2. Get events in time range
+        let early_events = prop.events_in_range(initial_epoch, initial_epoch + 3.0);
+        let middle_events = prop.events_in_range(initial_epoch + 3.0, initial_epoch + 5.0);
+        let late_events = prop.events_in_range(initial_epoch + 5.0, initial_epoch + 10.0);
+
+        assert_eq!(early_events.len(), 1);
+        assert!(early_events[0].name.contains("Early"));
+
+        assert_eq!(middle_events.len(), 1);
+        assert!(middle_events[0].name.contains("Middle"));
+
+        assert_eq!(late_events.len(), 2);
+        assert!(late_events.iter().any(|e| e.name.contains("Late")));
+        assert!(late_events.iter().any(|e| e.name.contains("VeryLate")));
+
+        // 3. Get events by name
+        let early_by_name = prop.events_by_name("Early");
+        assert_eq!(early_by_name.len(), 1);
+
+        // 4. Combined: filter by name AND verify it's in the correct time range
+        let middle_by_name = prop.events_by_name("Middle");
+        assert_eq!(middle_by_name.len(), 1);
+        let middle_event = &middle_by_name[0];
+        // Verify the event time is approximately initial_epoch + 4.0
+        let time_diff: f64 = middle_event.window_open - (initial_epoch + 4.0);
+        assert!(time_diff.abs() < 0.1);
+    }
+
     // =============================================================================
     // Trajectory Storage Tests
     // =============================================================================
@@ -2871,12 +2965,14 @@ mod tests {
     #[test]
     fn test_trajectory_disabled_mode() {
         let mut prop = create_test_sho_propagator();
+        // Reset clears the trajectory (including initial state added at construction)
+        prop.reset();
         prop.set_trajectory_mode(TrajectoryMode::Disabled);
 
         // Propagate
         prop.propagate_to(prop.initial_epoch() + 5.0);
 
-        // Trajectory should be empty
+        // Trajectory should be empty since disabled mode prevents storage
         assert_eq!(prop.trajectory().len(), 0);
     }
 

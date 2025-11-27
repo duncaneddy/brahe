@@ -35,7 +35,7 @@ fn main() {
     let initial_state = DVector::from_vec(vec![1.0]);
     let dt = 60.0; // Initial guess
 
-    let result = integrator.step(t, initial_state.clone(), Some(dt));
+    let result = integrator.step(t, initial_state.clone(), None, Some(dt));
 
     println!("Initial state: {:.6}", initial_state[0]);
     println!("State after step: {:.6}", result.state[0]);

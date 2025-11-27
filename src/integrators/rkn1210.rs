@@ -88,7 +88,7 @@ use crate::integrators::traits::{
 /// let t = 0.0;
 /// let state = SVector::<f64, 6>::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
 /// let dt = 10.0;
-/// let result = rkn.step(t, state, Some(dt));
+/// let result = rkn.step(t, state, None, Some(dt));
 ///
 /// println!("New state: {:?}", result.state);
 /// println!("Suggested next dt: {}", result.dt_next);
@@ -317,20 +317,27 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for RKN1210SIntegrator<S,
         &self.config
     }
 
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SIntegratorStepResult<S, P> {
+    fn step(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
         let dt = dt.expect("Adaptive integrators require dt");
-        self.step_internal(t, state, None, None, None, dt)
+        self.step_internal(t, state, None, None, params, dt)
     }
 
     fn step_with_varmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
         phi: SMatrix<f64, S, S>,
         dt: Option<f64>,
     ) -> SIntegratorStepResult<S, P> {
         let dt = dt.expect("Adaptive integrators require dt");
-        self.step_internal(t, state, Some(phi), None, None, dt)
+        self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
     fn step_with_sensmat(
@@ -427,7 +434,7 @@ impl<const S: usize, const P: usize> SIntegratorConstructor<S, P> for RKN1210SIn
 /// let rkn = RKN1210DIntegrator::with_config(6, Box::new(f), None, None, None, config);
 ///
 /// let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
-/// let result = rkn.step(0.0, state, Some(10.0));
+/// let result = rkn.step(0.0, state, None, Some(10.0));
 /// ```
 pub struct RKN1210DIntegrator {
     dimension: usize,
@@ -507,20 +514,27 @@ impl DIntegrator for RKN1210DIntegrator {
         &self.config
     }
 
-    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DIntegratorStepResult {
+    fn step(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
         let dt = dt.expect("Adaptive integrators require dt");
-        self.step_internal(t, state, None, None, None, dt)
+        self.step_internal(t, state, None, None, params, dt)
     }
 
     fn step_with_varmat(
         &self,
         t: f64,
         state: DVector<f64>,
+        params: Option<&DVector<f64>>,
         phi: DMatrix<f64>,
         dt: Option<f64>,
     ) -> DIntegratorStepResult {
         let dt = dt.expect("Adaptive integrators require dt");
-        self.step_internal(t, state, Some(phi), None, None, dt)
+        self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
     fn step_with_sensmat(
@@ -650,11 +664,8 @@ impl RKN1210DIntegrator {
 
                 // Evaluate dynamics and extract acceleration
                 let t_i = t + self.bt.c[i] * h;
-                let mut state_dot = if has_sens {
-                    (self.f)(t_i, &stage_state, params)
-                } else {
-                    (self.f)(t_i, &stage_state, None)
-                };
+                // Always pass params for parameter-dependent dynamics
+                let mut state_dot = (self.f)(t_i, &stage_state, params);
 
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
@@ -875,7 +886,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0); // [x, v] = [0, 0]
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt));
 
         println!("After one step:");
         println!("  state: [{}, {}]", result.state[0], result.state[1]);
@@ -917,7 +928,7 @@ mod tests {
         while t < t_final {
             // Clip dt to not overshoot target time
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual));
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -958,7 +969,7 @@ mod tests {
 
         while epc < epcf {
             let dt_actual = f64::min(dt, epcf - epc);
-            let result = rkn.step(epc - epc0, state, Some(dt_actual));
+            let result = rkn.step(epc - epc0, state, None, Some(dt_actual));
             state = result.state;
             dt = result.dt_next;
             epc += result.dt_used;
@@ -983,12 +994,12 @@ mod tests {
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 2>::new(0.0, 0.0);
-        let mut dt = 0.1;
+        let mut dt: f64 = 0.1;
         let t_final = 1.0;
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual));
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1012,7 +1023,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(0.0, 0.0);
         let dt = 0.01;
 
-        let result = rkn.step(0.0, state, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt));
 
         // With loose tolerances on smooth problem, should suggest larger step
         assert!(result.dt_next > dt);
@@ -1041,7 +1052,7 @@ mod tests {
         let state = SVector::<f64, 2>::new(1.0, 0.0);
         let dt = 1.0;
 
-        let result = rkn.step(0.0, state, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt));
 
         // Verify adaptive mechanism produces valid output
         assert!(result.dt_used > 0.0);
@@ -1089,12 +1100,12 @@ mod tests {
 
         let mut t = 0.0;
         let mut state = SVector::<f64, 2>::new(0.0, 0.0);
-        let mut dt = 0.1;
+        let mut dt: f64 = 0.1;
         let t_final = 1.0;
 
         while t < t_final {
             let dt_actual = f64::min(dt, t_final - t);
-            let result = rkn.step(t, state, Some(dt_actual));
+            let result = rkn.step(t, state, None, Some(dt_actual));
             state = result.state;
             dt = result.dt_next;
             t += result.dt_used;
@@ -1127,7 +1138,7 @@ mod tests {
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
-        let result = rkn.step_with_varmat(0.0, state0, phi0, Some(0.0));
+        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(0.0));
         let phi1 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -1140,7 +1151,7 @@ mod tests {
         }
 
         // Propagate one step and verify STM updated
-        let result = rkn.step_with_varmat(0.0, state0, phi0, Some(1.0));
+        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(1.0));
         let phi2 = result.phi;
         for i in 0..6 {
             for j in 0..6 {
@@ -1181,7 +1192,7 @@ mod tests {
 
         // Propagate with STM for a significant time step
         let dt = 10.0; // 10 seconds
-        let result = rkn.step_with_varmat(0.0, state0, phi0, Some(dt));
+        let result = rkn.step_with_varmat(0.0, state0, None, phi0, Some(dt));
         let state_final = result.state;
         let phi_final = result.phi.unwrap();
 
@@ -1196,7 +1207,7 @@ mod tests {
 
             // Propagate perturbed state directly
             let state_pert0 = state0 + perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, Some(dt));
+            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt));
             let state_pert_direct = result_pert.state;
 
             // Predict perturbed state using STM
@@ -1273,13 +1284,13 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let result = rkn.step_with_varmat(t, state, phi, Some(dt));
+            let result = rkn.step_with_varmat(t, state, None, phi, Some(dt));
             let state_new = result.state;
             let phi_new = result.phi;
             let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = rkn.step(t, state_pert, Some(dt));
+            let result_pert = rkn.step(t, state_pert, None, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi_new.unwrap() * perturbation;
@@ -1367,7 +1378,7 @@ mod tests {
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
-        let result = rkn.step(0.0, state0, Some(dt));
+        let result = rkn.step(0.0, state0, None, Some(dt));
         assert!(result.state.len() == 6);
         assert!(result.dt_used > 0.0);
         assert!(result.error_estimate.unwrap() >= 0.0);
@@ -1386,7 +1397,7 @@ mod tests {
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 1.0;
-        let result = rkn.step(0.0, state, Some(dt));
+        let result = rkn.step(0.0, state, None, Some(dt));
         let expected_pos = 0.5 * 2.0 * dt * dt;
         let expected_vel = 2.0 * dt;
         assert_abs_diff_eq!(result.state[0], expected_pos, epsilon = 1e-10);
@@ -1413,7 +1424,7 @@ mod tests {
         let mut state = state0.clone();
         let mut t = 0.0;
         for _ in 0..100 {
-            let result = rkn.step(t, state.clone(), Some(dt));
+            let result = rkn.step(t, state.clone(), None, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -1437,7 +1448,7 @@ mod tests {
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 60.0;
-        let result = rkn.step(0.0, state0, Some(dt));
+        let result = rkn.step(0.0, state0, None, Some(dt));
         assert!(result.error_estimate.unwrap() < 1.0);
     }
 
@@ -1452,7 +1463,7 @@ mod tests {
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result = rkn.step(0.0, state, Some(0.1));
+        let result = rkn.step(0.0, state, None, Some(0.1));
         assert!(result.dt_next > 0.1);
     }
 
@@ -1467,8 +1478,8 @@ mod tests {
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let rkn = RKN1210DIntegrator::with_config(2, Box::new(f), None, None, None, config);
         let state = DVector::from_vec(vec![0.0, 1.0]);
-        let result1 = rkn.step(0.0, state.clone(), Some(0.1));
-        let result2 = rkn.step(result1.dt_used, result1.state, Some(0.1));
+        let result1 = rkn.step(0.0, state.clone(), None, Some(0.1));
+        let result2 = rkn.step(result1.dt_used, result1.state, None, Some(0.1));
         assert!(result2.dt_used > 0.0);
     }
 
@@ -1509,7 +1520,7 @@ mod tests {
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
-        let result = rkn.step(0.0, state0, Some(10.0));
+        let result = rkn.step(0.0, state0, None, Some(10.0));
         assert!(result.error_estimate.unwrap() < 1.0);
     }
 
@@ -1536,7 +1547,7 @@ mod tests {
         let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
-        let result = rkn.step_with_varmat(0.0, state0, DMatrix::identity(6, 6), Some(dt));
+        let result = rkn.step_with_varmat(0.0, state0, None, DMatrix::identity(6, 6), Some(dt));
         let state_new = result.state;
         let phi_new = result.phi.unwrap();
         let dt_used = result.dt_used;
@@ -1574,7 +1585,7 @@ mod tests {
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let phi0 = DMatrix::identity(6, 6);
         let dt = 10.0;
-        let result = rkn.step_with_varmat(0.0, state0.clone(), phi0, Some(dt));
+        let result = rkn.step_with_varmat(0.0, state0.clone(), None, phi0, Some(dt));
         let state_final = result.state;
         let phi_final = result.phi.unwrap();
         let pert_size = 1.0;
@@ -1582,7 +1593,7 @@ mod tests {
             let mut perturbation = DVector::zeros(6);
             perturbation[i] = pert_size;
             let state_pert0 = &state0 + &perturbation;
-            let result_pert = rkn.step(0.0, state_pert0, Some(dt));
+            let result_pert = rkn.step(0.0, state_pert0, None, Some(dt));
             let state_pert_direct = result_pert.state;
             let state_pert_predicted = &state_final + &phi_final * &perturbation;
             let error = (&state_pert_direct - &state_pert_predicted).norm();
@@ -1631,11 +1642,12 @@ mod tests {
         let mut state_pert = &state0 + &perturbation;
         let mut t = 0.0;
         for step in 0..num_steps {
-            let result = rkn_nominal.step_with_varmat(t, state.clone(), phi.clone(), Some(dt));
+            let result =
+                rkn_nominal.step_with_varmat(t, state.clone(), None, phi.clone(), Some(dt));
             let state_new = result.state;
             let phi_new = result.phi.unwrap();
             let dt_used = result.dt_used;
-            let result_pert = rkn_pert.step(t, state_pert.clone(), Some(dt));
+            let result_pert = rkn_pert.step(t, state_pert.clone(), None, Some(dt));
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
             let error = (&result_pert.state - &state_pert_predicted).norm();
             let max_error = 0.001 * (step + 1) as f64;
@@ -1669,8 +1681,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![0.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = rkn_s.step(0.0, state_s, Some(dt));
-        let result_d = rkn_d.step(0.0, state_d, Some(dt));
+        let result_s = rkn_s.step(0.0, state_s, None, Some(dt));
+        let result_d = rkn_d.step(0.0, state_d, None, Some(dt));
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
@@ -2211,7 +2223,7 @@ mod tests {
             RKN1210SIntegrator::with_config(Box::new(stiff_dynamics), None, None, None, config);
 
         let state = SVector::<f64, 2>::new(1.0, 0.0);
-        let _ = integrator.step(0.0, state, Some(1.0));
+        let _ = integrator.step(0.0, state, None, Some(1.0));
     }
 
     #[test]
@@ -2242,6 +2254,282 @@ mod tests {
             RKN1210DIntegrator::with_config(2, Box::new(stiff_dynamics), None, None, None, config);
 
         let state = DVector::from_vec(vec![1.0, 0.0]);
-        let _ = integrator.step(0.0, state, Some(1.0));
+        let _ = integrator.step(0.0, state, None, Some(1.0));
+    }
+
+    // =========================================================================
+    // Parameter-Dependent Dynamics Tests
+    // =========================================================================
+    // These tests verify that the params argument to step() actually affects
+    // propagation output, ensuring parameters flow through to dynamics correctly.
+    //
+    // NOTE: RKN1210 is a Nyström method designed for second-order ODEs (x'' = f(t, x)).
+    // It requires even-dimensional state vectors: [position, velocity] pairs.
+    // We use a simple harmonic oscillator: x'' = -k*x where k is from params.
+
+    #[test]
+    fn test_rkn1210s_params_affect_step_output() {
+        // Test harmonic oscillator where spring constant comes from params:
+        // x'' = -k * x, where k = params[0]
+        // State = [x, v] where v = x'
+        //
+        // This is the natural form for RKN methods (second-order ODEs).
+
+        let f = |_t: f64,
+                 state: &SVector<f64, 2>,
+                 params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 2> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            // dx/dt = v, dv/dt = -k*x
+            SVector::<f64, 2>::new(state[1], -k * state[0])
+        };
+
+        let rkn1210: RKN1210SIntegrator<2, 1> =
+            RKN1210SIntegrator::new(Box::new(f), None, None, None);
+
+        // Initial conditions: x=1, v=0 (released from displacement)
+        let x0 = SVector::<f64, 2>::new(1.0, 0.0);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0 (period = 2*pi)
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = rkn1210.step(t, x0, Some(&params_slow), Some(dt));
+
+        // Step with k=4.0 (period = pi, oscillates twice as fast)
+        let params_fast = SVector::<f64, 1>::new(4.0);
+        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        // With k=1, x(0.1) ≈ cos(0.1) ≈ 0.995
+        // With k=4, x(0.1) ≈ cos(0.2) ≈ 0.980 (omega = 2)
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.01,
+            "Different params should produce different positions: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+    }
+
+    #[test]
+    fn test_rkn1210d_params_affect_step_output() {
+        // Same test for dynamic-sized integrator
+
+        let f = |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_vec(vec![state[1], -k * state[0]])
+        };
+
+        let rkn1210 = RKN1210DIntegrator::new(2, Box::new(f), None, None, None);
+
+        let x0 = DVector::from_vec(vec![1.0, 0.0]);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow = rkn1210.step(t, x0.clone(), Some(&params_slow), Some(dt));
+
+        // Step with k=4.0
+        let params_fast = DVector::from_element(1, 4.0);
+        let result_fast = rkn1210.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.01,
+            "Different params should produce different positions: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+    }
+
+    #[test]
+    fn test_rkn1210s_params_multi_step_propagation() {
+        // Verify params affect output over multiple adaptive steps
+        // Harmonic oscillator: x'' = -k*x
+
+        let f = |_t: f64,
+                 state: &SVector<f64, 2>,
+                 params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 2> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            SVector::<f64, 2>::new(state[1], -k * state[0])
+        };
+
+        let rkn1210: RKN1210SIntegrator<2, 1> =
+            RKN1210SIntegrator::new(Box::new(f), None, None, None);
+
+        let x0 = SVector::<f64, 2>::new(1.0, 0.0);
+        let t_final = 1.0;
+
+        // Propagate with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let mut state_slow = x0;
+        let mut t_slow = 0.0;
+        let mut dt: f64 = 0.1; // Initial step size
+        while t_slow < t_final - 1e-10 {
+            // Limit step to not overshoot target
+            let dt_use = dt.min(t_final - t_slow);
+            let result = rkn1210.step(t_slow, state_slow, Some(&params_slow), Some(dt_use));
+            state_slow = result.state;
+            t_slow += result.dt_used;
+            dt = result.dt_next;
+        }
+
+        // Propagate with k=4.0
+        let params_fast = SVector::<f64, 1>::new(4.0);
+        let mut state_fast = x0;
+        let mut t_fast = 0.0;
+        let mut dt: f64 = 0.1;
+        while t_fast < t_final - 1e-10 {
+            let dt_use = dt.min(t_final - t_fast);
+            let result = rkn1210.step(t_fast, state_fast, Some(&params_fast), Some(dt_use));
+            state_fast = result.state;
+            t_fast += result.dt_used;
+            dt = result.dt_next;
+        }
+
+        // Verify analytical solutions at actual final times
+        // x(t) = cos(omega*t) where omega = sqrt(k)
+        let x_slow_analytical = t_slow.cos(); // omega=1, cos(t_slow)
+        let x_fast_analytical = (2.0 * t_fast).cos(); // omega=2, cos(2*t_fast)
+
+        // Verify approximately correct (RKN1210 is high order)
+        assert_abs_diff_eq!(state_slow[0], x_slow_analytical, epsilon = 1e-4);
+        assert_abs_diff_eq!(state_fast[0], x_fast_analytical, epsilon = 1e-4);
+
+        // Verify they are significantly different
+        assert!(
+            (state_slow[0] - state_fast[0]).abs() > 0.5,
+            "Multi-step propagation with different params should differ: slow={}, fast={}",
+            state_slow[0],
+            state_fast[0]
+        );
+    }
+
+    #[test]
+    fn test_rkn1210s_params_with_varmat() {
+        // Verify params affect step_with_varmat output
+
+        use crate::math::jacobian::SJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl SJacobianProvider<2, 1> for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 2>,
+                params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 2, 2> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                // Jacobian of [v, -k*x] w.r.t. [x, v]
+                // ∂f/∂x = [0, -k], ∂f/∂v = [1, 0]
+                SMatrix::<f64, 2, 2>::new(0.0, 1.0, -k, 0.0)
+            }
+        }
+
+        let f = |_t: f64,
+                 state: &SVector<f64, 2>,
+                 params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 2> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            SVector::<f64, 2>::new(state[1], -k * state[0])
+        };
+
+        let rkn1210: RKN1210SIntegrator<2, 1> = RKN1210SIntegrator::new(
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = SVector::<f64, 2>::new(1.0, 0.0);
+        let phi0 = SMatrix::<f64, 2, 2>::identity();
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = rkn1210.step_with_varmat(t, x0, Some(&params_slow), phi0, Some(dt));
+
+        // Step with k=4.0
+        let params_fast = SVector::<f64, 1>::new(4.0);
+        let result_fast = rkn1210.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.01,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        // Verify STMs differ
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(1, 0)] - phi_fast[(1, 0)]).abs() > 0.01,
+            "Different params should produce different STMs: slow={}, fast={}",
+            phi_slow[(1, 0)],
+            phi_fast[(1, 0)]
+        );
+    }
+
+    #[test]
+    fn test_rkn1210d_params_with_varmat() {
+        // Same test for dynamic-sized integrator with variational matrix
+
+        use crate::math::jacobian::DJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl DJacobianProvider for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                DMatrix::from_row_slice(2, 2, &[0.0, 1.0, -k, 0.0])
+            }
+        }
+
+        let f = |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_vec(vec![state[1], -k * state[0]])
+        };
+
+        let rkn1210 = RKN1210DIntegrator::new(
+            2,
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = DVector::from_vec(vec![1.0, 0.0]);
+        let phi0 = DMatrix::identity(2, 2);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow =
+            rkn1210.step_with_varmat(t, x0.clone(), Some(&params_slow), phi0.clone(), Some(dt));
+
+        // Step with k=4.0
+        let params_fast = DVector::from_element(1, 4.0);
+        let result_fast = rkn1210.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states and STMs differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.01,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(1, 0)] - phi_fast[(1, 0)]).abs() > 0.01,
+            "Different params should produce different STMs"
+        );
     }
 }

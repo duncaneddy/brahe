@@ -53,7 +53,7 @@ fn main() {
     let mut total_error = 0.0;
 
     while t < period {
-        let result = integrator.step(t, state, Some(dt.min(period - t)));
+        let result = integrator.step(t, state, None, Some(dt.min(period - t)));
 
         let dt_used = result.dt_used;
         t += dt_used;

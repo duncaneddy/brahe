@@ -12,7 +12,7 @@ bh.initialize_eop()
 
 # Create trajectory in ECEF frame
 traj_ecef = bh.OrbitTrajectory(
-    bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
+    6, bh.OrbitFrame.ECEF, bh.OrbitRepresentation.CARTESIAN, None
 )
 
 # Add dummy states in ECEF

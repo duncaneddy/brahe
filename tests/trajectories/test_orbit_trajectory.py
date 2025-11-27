@@ -17,8 +17,8 @@ from brahe import (
     InterpolationMethod,
     R_EARTH,
     DEG2RAD,
-    state_osculating_to_cartesian,
-    state_cartesian_to_osculating,
+    state_koe_to_eci,
+    state_eci_to_koe,
     state_eci_to_ecef,
     state_ecef_to_eci,
     state_gcrf_to_itrf,
@@ -1240,7 +1240,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
     """Rust: test_orbittrajectory_orbitaltrajectory_to_eci"""
     tol = 1e-6
 
-    state_base = state_osculating_to_cartesian(
+    state_base = state_koe_to_eci(
         np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
         AngleFormat.DEGREES,
     )
@@ -1272,7 +1272,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
-    kep_state_rad = state_cartesian_to_osculating(state_base, AngleFormat.RADIANS)
+    kep_state_rad = state_eci_to_koe(state_base, AngleFormat.RADIANS)
     kep_traj.add(epoch, kep_state_rad)
 
     eci_from_kep_rad = kep_traj.to_eci()
@@ -1291,7 +1291,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eci():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
-    kep_state_deg = state_cartesian_to_osculating(state_base, AngleFormat.DEGREES)
+    kep_state_deg = state_eci_to_koe(state_base, AngleFormat.DEGREES)
     kep_traj_deg.add(epoch, kep_state_deg)
     eci_from_kep_deg = kep_traj_deg.to_eci()
     assert eci_from_kep_deg.frame == OrbitFrame.ECI
@@ -1328,7 +1328,7 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_base = state_eci_to_ecef(
         epoch,
-        state_osculating_to_cartesian(
+        state_koe_to_eci(
             np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
             AngleFormat.DEGREES,
         ),
@@ -1377,7 +1377,7 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
-    kep_state_rad = state_cartesian_to_osculating(eci_state, AngleFormat.RADIANS)
+    kep_state_rad = state_eci_to_koe(eci_state, AngleFormat.RADIANS)
     kep_traj.add(epoch, kep_state_rad)
     ecef_from_kep_rad = kep_traj.to_ecef()
     assert ecef_from_kep_rad.frame == OrbitFrame.ECEF
@@ -1395,7 +1395,7 @@ def test_orbittrajectory_orbitaltrajectory_to_ecef():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
-    kep_state_deg = state_cartesian_to_osculating(eci_state, AngleFormat.DEGREES)
+    kep_state_deg = state_eci_to_koe(eci_state, AngleFormat.DEGREES)
     kep_traj_deg.add(epoch, kep_state_deg)
     ecef_from_kep_deg = kep_traj_deg.to_ecef()
     assert ecef_from_kep_deg.frame == OrbitFrame.ECEF
@@ -1414,7 +1414,7 @@ def test_orbittrajectory_orbitaltrajectory_to_itrf():
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_base = state_gcrf_to_itrf(
         epoch,
-        state_osculating_to_cartesian(
+        state_koe_to_eci(
             np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
             AngleFormat.DEGREES,
         ),
@@ -1481,7 +1481,7 @@ def test_orbittrajectory_orbitaltrajectory_to_itrf():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
-    kep_state_rad = state_cartesian_to_osculating(gcrf_state, AngleFormat.RADIANS)
+    kep_state_rad = state_eci_to_koe(gcrf_state, AngleFormat.RADIANS)
     kep_traj.add(epoch, kep_state_rad)
     itrf_from_kep_rad = kep_traj.to_itrf()
     assert itrf_from_kep_rad.frame == OrbitFrame.ITRF
@@ -1499,7 +1499,7 @@ def test_orbittrajectory_orbitaltrajectory_to_itrf():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
-    kep_state_deg = state_cartesian_to_osculating(gcrf_state, AngleFormat.DEGREES)
+    kep_state_deg = state_eci_to_koe(gcrf_state, AngleFormat.DEGREES)
     kep_traj_deg.add(epoch, kep_state_deg)
     itrf_from_kep_deg = kep_traj_deg.to_itrf()
     assert itrf_from_kep_deg.frame == OrbitFrame.ITRF
@@ -1516,7 +1516,7 @@ def test_orbittrajectory_orbitaltrajectory_to_gcrf():
     tol = 1e-6
 
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
-    state_base = state_osculating_to_cartesian(
+    state_base = state_koe_to_eci(
         np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
         AngleFormat.DEGREES,
     )
@@ -1582,7 +1582,7 @@ def test_orbittrajectory_orbitaltrajectory_to_gcrf():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
-    kep_state_rad = state_cartesian_to_osculating(state_base, AngleFormat.RADIANS)
+    kep_state_rad = state_eci_to_koe(state_base, AngleFormat.RADIANS)
     kep_traj.add(epoch, kep_state_rad)
     gcrf_from_kep_rad = kep_traj.to_gcrf()
     assert gcrf_from_kep_rad.frame == OrbitFrame.GCRF
@@ -1600,7 +1600,7 @@ def test_orbittrajectory_orbitaltrajectory_to_gcrf():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
-    kep_state_deg = state_cartesian_to_osculating(state_base, AngleFormat.DEGREES)
+    kep_state_deg = state_eci_to_koe(state_base, AngleFormat.DEGREES)
     kep_traj_deg.add(epoch, kep_state_deg)
     gcrf_from_kep_deg = kep_traj_deg.to_gcrf()
     assert gcrf_from_kep_deg.frame == OrbitFrame.GCRF
@@ -1618,7 +1618,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eme2000():
 
     epoch = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
     state_base = state_gcrf_to_eme2000(
-        state_osculating_to_cartesian(
+        state_koe_to_eci(
             np.array([R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0]),
             AngleFormat.DEGREES,
         )
@@ -1685,7 +1685,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eme2000():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.RADIANS,
     )
-    kep_state_rad = state_cartesian_to_osculating(gcrf_state, AngleFormat.RADIANS)
+    kep_state_rad = state_eci_to_koe(gcrf_state, AngleFormat.RADIANS)
     kep_traj.add(epoch, kep_state_rad)
     eme2000_from_kep_rad = kep_traj.to_eme2000()
     assert eme2000_from_kep_rad.frame == OrbitFrame.EME2000
@@ -1703,7 +1703,7 @@ def test_orbittrajectory_orbitaltrajectory_to_eme2000():
         OrbitRepresentation.KEPLERIAN,
         AngleFormat.DEGREES,
     )
-    kep_state_deg = state_cartesian_to_osculating(gcrf_state, AngleFormat.DEGREES)
+    kep_state_deg = state_eci_to_koe(gcrf_state, AngleFormat.DEGREES)
     kep_traj_deg.add(epoch, kep_state_deg)
     eme2000_from_kep_deg = kep_traj_deg.to_eme2000()
     assert eme2000_from_kep_deg.frame == OrbitFrame.EME2000
@@ -1769,7 +1769,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_deg():
         OrbitRepresentation.CARTESIAN,
         None,
     )
-    cart_state = state_osculating_to_cartesian(state_kep_deg, AngleFormat.DEGREES)
+    cart_state = state_koe_to_eci(state_kep_deg, AngleFormat.DEGREES)
     cart_traj.add(epoch, cart_state)
     kep_from_cart = cart_traj.to_keplerian(AngleFormat.DEGREES)
     assert kep_from_cart.frame == OrbitFrame.ECI
@@ -1855,7 +1855,7 @@ def test_orbittrajectory_orbitaltrajectory_to_keplerian_rad():
         OrbitRepresentation.CARTESIAN,
         None,
     )
-    cart_state = state_osculating_to_cartesian(state_kep_deg, AngleFormat.DEGREES)
+    cart_state = state_koe_to_eci(state_kep_deg, AngleFormat.DEGREES)
     cart_traj.add(epoch, cart_state)
     kep_from_cart = cart_traj.to_keplerian(AngleFormat.RADIANS)
     assert kep_from_cart.frame == OrbitFrame.ECI
@@ -1942,7 +1942,7 @@ def test_orbittrajectory_stateprovider_state_eci_from_keplerian():
     result = traj.state_eci(epoch)
 
     # Convert Keplerian to Cartesian manually for comparison
-    expected = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    expected = state_koe_to_eci(state_kep, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result[i] == pytest.approx(expected[i], abs=1e-3)
@@ -2013,7 +2013,7 @@ def test_orbittrajectory_stateprovider_state_ecef_from_keplerian():
     result = traj.state_ecef(epoch)
 
     # Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
-    state_eci_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    state_eci_cart = state_koe_to_eci(state_kep, AngleFormat.DEGREES)
     expected = state_eci_to_ecef(epoch, state_eci_cart)
 
     for i in range(6):
@@ -2048,7 +2048,7 @@ def test_orbittrajectory_stateprovider_state_gcrf_from_keplerian():
     result = traj.state_gcrf(epoch)
 
     # Convert Keplerian to Cartesian manually for comparison
-    expected = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    expected = state_koe_to_eci(state_kep, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result[i] == pytest.approx(expected[i], abs=1e-3)
@@ -2119,7 +2119,7 @@ def test_orbittrajectory_stateprovider_state_itrf_from_keplerian():
     result = traj.state_itrf(epoch)
 
     # Convert Keplerian -> GCRF Cartesian -> ITRF manually for comparison
-    state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    state_gcrf_cart = state_koe_to_eci(state_kep, AngleFormat.DEGREES)
     expected = state_gcrf_to_itrf(epoch, state_gcrf_cart)
 
     for i in range(6):
@@ -2192,7 +2192,7 @@ def test_orbittrajectory_stateprovider_state_eme2000_from_keplerian():
     result = traj.state_eme2000(epoch)
 
     # Convert Keplerian -> GCRF Cartesian -> EME2000 manually for comparison
-    state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat.DEGREES)
+    state_gcrf_cart = state_koe_to_eci(state_kep, AngleFormat.DEGREES)
     expected = state_gcrf_to_eme2000(state_gcrf_cart)
 
     for i in range(6):
@@ -2248,14 +2248,14 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
     result_deg = traj.state_koe(epoch, AngleFormat.DEGREES)
 
     # Convert Cartesian to Keplerian manually for comparison
-    expected_deg = state_cartesian_to_osculating(state_cart, AngleFormat.DEGREES)
+    expected_deg = state_eci_to_koe(state_cart, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result_deg[i] == pytest.approx(expected_deg[i], abs=1e-3)
 
     # Query osculating elements in radians
     result_rad = traj.state_koe(epoch, AngleFormat.RADIANS)
-    expected_rad = state_cartesian_to_osculating(state_cart, AngleFormat.RADIANS)
+    expected_rad = state_eci_to_koe(state_cart, AngleFormat.RADIANS)
 
     for i in range(6):
         assert result_rad[i] == pytest.approx(expected_rad[i], abs=1e-6)
@@ -2304,7 +2304,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_ecef():
 
     # Convert ECEF -> ECI -> Keplerian manually for comparison
     state_eci = state_ecef_to_eci(epoch, state_ecef)
-    expected = state_cartesian_to_osculating(state_eci, AngleFormat.DEGREES)
+    expected = state_eci_to_koe(state_eci, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result[i] == pytest.approx(expected[i], abs=1e-3)
@@ -3320,7 +3320,7 @@ def test_covariance_rtn_elliptical_orbit(eop):
     nu = 0.0  # True anomaly
 
     oe = np.array([a, e, i, raan, argp, nu])
-    state = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.RADIANS)
+    state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.RADIANS)
 
     cov = np.eye(6) * 100.0
 

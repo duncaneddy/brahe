@@ -35,8 +35,8 @@ Cartesian state vectors represent position and velocity in three-dimensional spa
 
 Brahe provides functions to convert between Keplerian elements and Cartesian states:
 
-- `state_osculating_to_cartesian()` - Convert orbital elements to Cartesian state
-- `state_cartesian_to_osculating()` - Convert Cartesian state to orbital elements
+- `state_koe_to_eci()` - Convert orbital elements to Cartesian state
+- `state_eci_to_koe()` - Convert Cartesian state to orbital elements
 
 These functions are found in the [coordinates module](../coordinates/cartesian_transformations.md) but are essential for working with orbits.
 

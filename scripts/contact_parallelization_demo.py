@@ -47,7 +47,7 @@ def create_test_scenario():
             ]
         )
 
-        state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+        state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(
             epoch,

@@ -17,7 +17,7 @@ fn main() {
         30.0_f64,             // Argument of periapsis (deg)
         45.0_f64              // Mean anomaly (deg)
     );
-    let state_eci = bh::state_osculating_to_cartesian(state_oe, bh::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(state_oe, bh::AngleFormat::Degrees);
     let state_ecef = bh::state_eci_to_ecef(epc, state_eci);
 
     println!("ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):");

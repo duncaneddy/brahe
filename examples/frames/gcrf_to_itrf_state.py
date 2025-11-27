@@ -44,7 +44,7 @@ print(f"Epoch: {epc}")
 # Epoch: 2024-01-01 12:00:00.000 UTC
 
 # Convert to GCRF Cartesian state
-state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_gcrf = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 print("GCRF state vector:")
 print(f"  Position: [{state_gcrf[0]:.3f}, {state_gcrf[1]:.3f}, {state_gcrf[2]:.3f}] m")

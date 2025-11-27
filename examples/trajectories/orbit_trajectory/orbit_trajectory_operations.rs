@@ -6,7 +6,7 @@ use bh::time::Epoch;
 use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation};
 use bh::traits::{Trajectory, InterpolatableTrajectory};
-use bh::{state_osculating_to_cartesian, R_EARTH, AngleFormat};
+use bh::{state_koe_to_eci, R_EARTH, AngleFormat};
 use nalgebra as na;
 
 fn main() {
@@ -27,7 +27,7 @@ fn main() {
         let oe = na::SVector::<f64, 6>::new(
             R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, (i as f64) * 0.1
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Radians);
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
         traj.add(epoch, state);
     }
 

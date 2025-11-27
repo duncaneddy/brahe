@@ -500,7 +500,7 @@ fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 /// This function downloads (or uses a cached copy of) the NAIF DE440s ephemeris
 /// kernel and sets it as the global Almanac provider. This initialization is
 /// optional - if not called, the Almanac will be lazily initialized on the first
-/// call to `sun_position_de440s()` or `moon_position_de440s()`.
+/// call to `sun_position_de()` or `moon_position_de()`.
 ///
 /// Calling this function explicitly is recommended when you want to:
 /// - Control when the kernel download/loading occurs (avoid latency on first use)
@@ -522,8 +522,8 @@ fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 ///
 ///     # Now use DE440s ephemeris functions
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_sun = bh.sun_position_de440s(epc)
-///     r_moon = bh.moon_position_de440s(epc)
+///     r_sun = bh.sun_position_de(epc)
+///     r_moon = bh.moon_position_de(epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "initialize_ephemeris")]

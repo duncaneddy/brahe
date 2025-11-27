@@ -12,27 +12,27 @@ Celestial body position calculations for Sun, Moon, and planets.
 
 ::: brahe.initialize_ephemeris
 
-::: brahe.sun_position_de440s
+::: brahe.sun_position_de
 
-::: brahe.moon_position_de440s
+::: brahe.moon_position_de
 
-::: brahe.jupiter_position_de440s
+::: brahe.jupiter_position_de
 
-::: brahe.saturn_position_de440s
+::: brahe.saturn_position_de
 
-::: brahe.mars_position_de440s
+::: brahe.mars_position_de
 
-::: brahe.uranus_position_de440s
+::: brahe.uranus_position_de
 
-::: brahe.neptune_position_de440s
+::: brahe.neptune_position_de
 
-::: brahe.venus_position_de440s
+::: brahe.venus_position_de
 
-::: brahe.mercury_position_de440s
+::: brahe.mercury_position_de
 
-::: brahe.solar_system_barycenter_position_de440s
+::: brahe.solar_system_barycenter_position_de
 
-::: brahe.ssb_position_de440s
+::: brahe.ssb_position_de
 
 ## See Also
 

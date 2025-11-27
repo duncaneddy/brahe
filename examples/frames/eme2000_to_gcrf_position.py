@@ -37,7 +37,7 @@ print(f"  M    = {oe[5]:.4f}°\n")
 #   M    = 45.0000°
 
 # Convert to EME2000 Cartesian state and extract position
-state_eme2000 = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eme2000 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 pos_eme2000 = state_eme2000[0:3]
 
 print("Position in EME2000:")

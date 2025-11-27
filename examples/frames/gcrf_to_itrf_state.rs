@@ -38,7 +38,7 @@ fn main() {
     // Epoch: 2024-01-01 12:00:00.000 UTC
 
     // Convert to GCRF Cartesian state
-    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_gcrf = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     println!("GCRF state vector:");
     println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf[0], state_gcrf[1], state_gcrf[2]);

@@ -59,7 +59,7 @@ class TestRKN1210Integrator:
         )
 
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.RADIANS)
 
         state = state0.copy()
         epc0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.TAI)
@@ -251,7 +251,7 @@ class TestRKN1210Integrator:
 
         # Setup initial state
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.RADIANS)
 
         # Propagate forward for 100 seconds
         dt_forward = 10.0

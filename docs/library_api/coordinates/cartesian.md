@@ -4,6 +4,6 @@ Functions for working with Cartesian state vectors and conversions.
 
 ## State Conversions
 
-::: brahe.coordinates.state_osculating_to_cartesian
+::: brahe.coordinates.state_koe_to_eci
 
-::: brahe.coordinates.state_cartesian_to_osculating
+::: brahe.coordinates.state_eci_to_koe

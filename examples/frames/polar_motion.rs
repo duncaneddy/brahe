@@ -35,7 +35,7 @@ fn main() {
     );
 
     // Convert through the full chain: GCRF → CIRS → TIRS
-    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_gcrf = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let pos_gcrf = na::Vector3::new(state_gcrf[0], state_gcrf[1], state_gcrf[2]);
     let r_bpn = bh::bias_precession_nutation(epc);
     let r_er = bh::earth_rotation(epc);

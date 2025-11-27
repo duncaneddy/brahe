@@ -603,7 +603,7 @@ mod tests {
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
-    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
     fn point_earth(
         _: f64,
@@ -692,7 +692,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0 = state_koe_to_eci(oe0, RADIANS);
         let mut state = state0;
 
         // Get start and end times of propagation (1 orbit)
@@ -865,7 +865,7 @@ mod tests {
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Propagate single step
         let dt = 10.0; // 10 seconds
@@ -944,7 +944,7 @@ mod tests {
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Small perturbation in position
         let perturbation = SVector::<f64, 6>::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1091,7 +1091,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0_static = state_koe_to_eci(oe0, RADIANS);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate for one orbital period
@@ -1242,7 +1242,7 @@ mod tests {
 
         // Setup circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate with STM
@@ -1319,7 +1319,7 @@ mod tests {
 
         // Setup initial state and perturbation
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let perturbation = DVector::from_vec(vec![10.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
@@ -1415,7 +1415,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Propagate forward for 100 seconds
         let dt_forward = 10.0;
@@ -1462,7 +1462,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate forward for 100 seconds

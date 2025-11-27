@@ -45,7 +45,7 @@ use uuid::Uuid;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
-use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
+use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use crate::frames::{
     rotation_eme2000_to_gcrf, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
     state_gcrf_to_eme2000, state_gcrf_to_itrf, state_itrf_to_gcrf,
@@ -1266,7 +1266,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                 let mut states_converted = Vec::with_capacity(self.states.len());
                 // Just need to convert to Cartesian below
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
+                    let state_cartesian = state_koe_to_eci(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
@@ -1338,7 +1338,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                 let mut states_converted = Vec::with_capacity(self.states.len());
                 // Just need to convert to Cartesian below
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
+                    let state_cartesian = state_koe_to_eci(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
@@ -1410,7 +1410,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                 let mut states_converted = Vec::with_capacity(self.states.len());
                 // Just need to convert to Cartesian below
                 for (e, s) in self.into_iter() {
-                    let state_eci = state_osculating_to_cartesian(
+                    let state_eci = state_koe_to_eci(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
@@ -1478,7 +1478,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                 let mut states_converted = Vec::with_capacity(self.states.len());
                 // Keplerian to Cartesian (in GCRF/ECI), then GCRF to ITRF
                 for (e, s) in self.into_iter() {
-                    let state_cartesian = state_osculating_to_cartesian(
+                    let state_cartesian = state_koe_to_eci(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
@@ -1547,7 +1547,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                 let mut states_converted = Vec::with_capacity(self.states.len());
                 // Just need to convert to Cartesian below
                 for (_e, s) in self.into_iter() {
-                    let state_cartesian = state_gcrf_to_eme2000(state_osculating_to_cartesian(
+                    let state_cartesian = state_gcrf_to_eme2000(state_koe_to_eci(
                         s,
                         self.angle_format
                             .expect("Keplerian representation must have angle_format"),
@@ -1656,10 +1656,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
                         for (_e, s) in self.into_iter() {
-                            let state = state_cartesian_to_osculating(
-                                state_eme2000_to_gcrf(s),
-                                angle_format,
-                            );
+                            let state = state_eci_to_koe(state_eme2000_to_gcrf(s), angle_format);
                             states_converted.push(state);
                         }
                         states_converted
@@ -1668,10 +1665,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
                         for (e, s) in self.into_iter() {
-                            let state = state_cartesian_to_osculating(
-                                state_ecef_to_eci(e, s),
-                                angle_format,
-                            );
+                            let state = state_eci_to_koe(state_ecef_to_eci(e, s), angle_format);
                             states_converted.push(state);
                         }
                         states_converted
@@ -1680,7 +1674,7 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
                         for (_e, s) in self.into_iter() {
-                            let state = state_cartesian_to_osculating(s, angle_format);
+                            let state = state_eci_to_koe(s, angle_format);
                             states_converted.push(state);
                         }
                         states_converted
@@ -1727,18 +1721,18 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         Ok(match (self.frame, self.representation) {
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
                 state,
                 self.angle_format
                     .expect("Keplerian representation must have angle_format"),
             ),
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
                 state,
                 self.angle_format
                     .expect("Keplerian representation must have angle_format"),
             ),
             (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                state_eme2000_to_gcrf(state_osculating_to_cartesian(
+                state_eme2000_to_gcrf(state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1767,18 +1761,18 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         Ok(match (self.frame, self.representation) {
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
-            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+            (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
                 state,
                 self.angle_format
                     .expect("Keplerian representation must have angle_format"),
             ),
-            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+            (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
                 state,
                 self.angle_format
                     .expect("Keplerian representation must have angle_format"),
             ),
             (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                state_eme2000_to_gcrf(state_osculating_to_cartesian(
+                state_eme2000_to_gcrf(state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1814,7 +1808,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf)
             }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_osculating_to_cartesian(
+                let state_eci_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1822,7 +1816,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_eci_to_ecef(epoch, state_eci_cart)
             }
             (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                let state_eme2000_cart = state_osculating_to_cartesian(
+                let state_eme2000_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1831,7 +1825,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf)
             }
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_osculating_to_cartesian(
+                let state_gcrf_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1865,7 +1859,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf)
             }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_osculating_to_cartesian(
+                let state_eci_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1873,7 +1867,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_eci_to_ecef(epoch, state_eci_cart)
             }
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_osculating_to_cartesian(
+                let state_gcrf_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1881,7 +1875,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_itrf(epoch, state_gcrf_cart)
             }
             (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
-                let state_eme2000_cart = state_osculating_to_cartesian(
+                let state_eme2000_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1911,7 +1905,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => {
-                let state_gcrf_cart = state_osculating_to_cartesian(
+                let state_gcrf_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
@@ -1919,14 +1913,14 @@ impl SOrbitStateProvider for SOrbitTrajectory {
                 state_gcrf_to_eme2000(state_gcrf_cart)
             }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
-                let state_eci_cart = state_osculating_to_cartesian(
+                let state_eci_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
                 );
                 state_gcrf_to_eme2000(state_eci_cart)
             }
-            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => state_osculating_to_cartesian(
+            (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => state_koe_to_eci(
                 state,
                 self.angle_format
                     .expect("Keplerian representation must have angle_format"),
@@ -2003,31 +1997,31 @@ impl SOrbitStateProvider for SOrbitTrajectory {
             }
             (OrbitFrame::EME2000, OrbitRepresentation::Keplerian) => {
                 // Convert back to Cartesian, to GCRF, then to osculating elements
-                let state_eme2000_cart = state_osculating_to_cartesian(
+                let state_eme2000_cart = state_koe_to_eci(
                     state,
                     self.angle_format
                         .expect("Keplerian representation must have angle_format"),
                 );
                 let state_gcrf = state_eme2000_to_gcrf(state_eme2000_cart);
-                state_cartesian_to_osculating(state_gcrf, angle_format)
+                state_eci_to_koe(state_gcrf, angle_format)
             }
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => {
-                state_cartesian_to_osculating(state, angle_format)
+                state_eci_to_koe(state, angle_format)
             }
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => {
-                state_cartesian_to_osculating(state, angle_format)
+                state_eci_to_koe(state, angle_format)
             }
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => {
                 let state_gcrf = state_eme2000_to_gcrf(state);
-                state_cartesian_to_osculating(state_gcrf, angle_format)
+                state_eci_to_koe(state_gcrf, angle_format)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => {
                 let state_eci = state_ecef_to_eci(epoch, state);
-                state_cartesian_to_osculating(state_eci, angle_format)
+                state_eci_to_koe(state_eci, angle_format)
             }
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => {
                 let state_gcrf = state_itrf_to_gcrf(epoch, state);
-                state_cartesian_to_osculating(state_gcrf, angle_format)
+                state_eci_to_koe(state_gcrf, angle_format)
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Keplerian) => {
                 return Err(BraheError::Error(
@@ -3449,14 +3443,14 @@ mod tests {
         setup_global_test_eop();
         let tol = 1e-6;
 
-        let state_base = state_osculating_to_cartesian(
+        let state_base = state_koe_to_eci(
             Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
             DEGREES,
         );
 
         println!("Base ECI State: {:?}", state_base);
-        let x1 = state_cartesian_to_osculating(state_base, DEGREES);
-        let x2 = state_cartesian_to_osculating(state_base, RADIANS);
+        let x1 = state_eci_to_koe(state_base, DEGREES);
+        let x2 = state_eci_to_koe(state_base, RADIANS);
         println!("Recoverted Degrees Keplerian: {:?}", x1);
         println!("Recoverted Radians Keplerian: {:?}", x2);
 
@@ -3483,7 +3477,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         );
-        let kep_state_rad = state_cartesian_to_osculating(state_base, RADIANS);
+        let kep_state_rad = state_eci_to_koe(state_base, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
 
         let eci_from_kep_rad = kep_traj.to_eci();
@@ -3506,7 +3500,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
-        let kep_state_deg = state_cartesian_to_osculating(state_base, DEGREES);
+        let kep_state_deg = state_eci_to_koe(state_base, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
         let eci_from_kep_deg = kep_traj_deg.to_eci();
         assert_eq!(eci_from_kep_deg.frame, OrbitFrame::ECI);
@@ -3547,7 +3541,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state_base = state_eci_to_ecef(
             epoch,
-            state_osculating_to_cartesian(
+            state_koe_to_eci(
                 Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
                 DEGREES,
             ),
@@ -3591,7 +3585,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         );
-        let kep_state_rad = state_cartesian_to_osculating(eci_state, RADIANS);
+        let kep_state_rad = state_eci_to_koe(eci_state, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
         let ecef_from_kep_rad = kep_traj.to_ecef();
         assert_eq!(ecef_from_kep_rad.frame, OrbitFrame::ECEF);
@@ -3613,7 +3607,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
-        let kep_state_deg = state_cartesian_to_osculating(eci_state, DEGREES);
+        let kep_state_deg = state_eci_to_koe(eci_state, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
         let ecef_from_kep_deg = kep_traj_deg.to_ecef();
         assert_eq!(ecef_from_kep_deg.frame, OrbitFrame::ECEF);
@@ -3638,7 +3632,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let state_base = state_eci_to_ecef(
             epoch,
-            state_osculating_to_cartesian(
+            state_koe_to_eci(
                 Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
                 DEGREES,
             ),
@@ -3701,7 +3695,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         );
-        let kep_state_rad = state_cartesian_to_osculating(eci_state, RADIANS);
+        let kep_state_rad = state_eci_to_koe(eci_state, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
         let itrf_from_kep_rad = kep_traj.to_itrf();
         assert_eq!(itrf_from_kep_rad.frame, OrbitFrame::ITRF);
@@ -3723,7 +3717,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
-        let kep_state_deg = state_cartesian_to_osculating(eci_state, DEGREES);
+        let kep_state_deg = state_eci_to_koe(eci_state, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
         let itrf_from_kep_deg = kep_traj_deg.to_itrf();
         assert_eq!(itrf_from_kep_deg.frame, OrbitFrame::ITRF);
@@ -3791,7 +3785,7 @@ mod tests {
         // Convert ECI to Keplerian Degrees
         let mut cart_traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        let cart_state = state_osculating_to_cartesian(state_kep_deg, DEGREES);
+        let cart_state = state_koe_to_eci(state_kep_deg, DEGREES);
         cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Degrees);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
@@ -3872,7 +3866,7 @@ mod tests {
         // Convert ECI to Keplerian Radians
         let mut cart_traj =
             SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        let cart_state = state_osculating_to_cartesian(state_kep_deg, DEGREES);
+        let cart_state = state_koe_to_eci(state_kep_deg, DEGREES);
         cart_traj.add(epoch, cart_state);
         let kep_from_cart = cart_traj.to_keplerian(AngleFormat::Radians);
         assert_eq!(kep_from_cart.frame, OrbitFrame::ECI);
@@ -3908,7 +3902,7 @@ mod tests {
         let tol = 1e-6;
 
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state_base = state_osculating_to_cartesian(
+        let state_base = state_koe_to_eci(
             Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
             DEGREES,
         );
@@ -3987,7 +3981,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         );
-        let kep_state_rad = state_cartesian_to_osculating(state_base, RADIANS);
+        let kep_state_rad = state_eci_to_koe(state_base, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
         let gcrf_from_kep_rad = kep_traj.to_gcrf();
         assert_eq!(gcrf_from_kep_rad.frame, OrbitFrame::GCRF);
@@ -4009,7 +4003,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
-        let kep_state_deg = state_cartesian_to_osculating(state_base, DEGREES);
+        let kep_state_deg = state_eci_to_koe(state_base, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
         let gcrf_from_kep_deg = kep_traj_deg.to_gcrf();
         assert_eq!(gcrf_from_kep_deg.frame, OrbitFrame::GCRF);
@@ -4032,7 +4026,7 @@ mod tests {
         let tol = 1e-6;
 
         let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state_base = state_gcrf_to_eme2000(state_osculating_to_cartesian(
+        let state_base = state_gcrf_to_eme2000(state_koe_to_eci(
             Vector6::new(R_EARTH + 500e3, 0.01, 97.0, 15.0, 30.0, 45.0),
             DEGREES,
         ));
@@ -4114,7 +4108,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Radians),
         );
-        let kep_state_rad = state_cartesian_to_osculating(gcrf_state, RADIANS);
+        let kep_state_rad = state_eci_to_koe(gcrf_state, RADIANS);
         kep_traj.add(epoch, kep_state_rad);
         let eme2000_from_kep_rad = kep_traj.to_eme2000();
         assert_eq!(eme2000_from_kep_rad.frame, OrbitFrame::EME2000);
@@ -4136,7 +4130,7 @@ mod tests {
             OrbitRepresentation::Keplerian,
             Some(AngleFormat::Degrees),
         );
-        let kep_state_deg = state_cartesian_to_osculating(gcrf_state, DEGREES);
+        let kep_state_deg = state_eci_to_koe(gcrf_state, DEGREES);
         kep_traj_deg.add(epoch, kep_state_deg);
         let eme2000_from_kep_deg = kep_traj_deg.to_eme2000();
         assert_eq!(eme2000_from_kep_deg.frame, OrbitFrame::EME2000);
@@ -4216,7 +4210,7 @@ mod tests {
         let result = traj.state_eci(epoch).unwrap();
 
         // Convert Keplerian to Cartesian manually for comparison
-        let expected = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let expected = state_koe_to_eci(state_kep, AngleFormat::Degrees);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
@@ -4309,7 +4303,7 @@ mod tests {
         let result = traj.state_gcrf(epoch).unwrap();
 
         // Convert Keplerian to Cartesian manually for comparison
-        let expected = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let expected = state_koe_to_eci(state_kep, AngleFormat::Degrees);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
@@ -4400,7 +4394,7 @@ mod tests {
         let result = traj.state_ecef(epoch).unwrap();
 
         // Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
-        let state_eci_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let state_eci_cart = state_koe_to_eci(state_kep, AngleFormat::Degrees);
         let expected = state_eci_to_ecef(epoch, state_eci_cart);
 
         for i in 0..6 {
@@ -4470,7 +4464,7 @@ mod tests {
         let result = traj.state_itrf(epoch).unwrap();
 
         // Convert Keplerian -> ECI Cartesian -> ECEF manually for comparison
-        let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let state_gcrf_cart = state_koe_to_eci(state_kep, AngleFormat::Degrees);
         let expected = state_gcrf_to_itrf(epoch, state_gcrf_cart);
 
         for i in 0..6 {
@@ -4513,7 +4507,7 @@ mod tests {
         let result = traj.state_eme2000(epoch).unwrap();
 
         // Convert Keplerian -> GCRF Cartesian -> EME2000 manually for comparison
-        let state_gcrf_cart = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+        let state_gcrf_cart = state_koe_to_eci(state_kep, AngleFormat::Degrees);
         let expected = state_gcrf_to_eme2000(state_gcrf_cart);
 
         for i in 0..6 {
@@ -4579,7 +4573,7 @@ mod tests {
         let result_deg = traj.state_koe(epoch, AngleFormat::Degrees).unwrap();
 
         // Convert Cartesian to Keplerian manually for comparison
-        let expected_deg = state_cartesian_to_osculating(state_cart, AngleFormat::Degrees);
+        let expected_deg = state_eci_to_koe(state_cart, AngleFormat::Degrees);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result_deg[i], expected_deg[i], epsilon = 1e-3);
@@ -4587,7 +4581,7 @@ mod tests {
 
         // Query osculating elements in radians
         let result_rad = traj.state_koe(epoch, AngleFormat::Radians).unwrap();
-        let expected_rad = state_cartesian_to_osculating(state_cart, AngleFormat::Radians);
+        let expected_rad = state_eci_to_koe(state_cart, AngleFormat::Radians);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result_rad[i], expected_rad[i], epsilon = 1e-6);
@@ -4651,7 +4645,7 @@ mod tests {
 
         // Convert ECEF -> ECI -> Keplerian manually for comparison
         let state_eci = state_ecef_to_eci(epoch, state_ecef);
-        let expected = state_cartesian_to_osculating(state_eci, AngleFormat::Degrees);
+        let expected = state_eci_to_koe(state_eci, AngleFormat::Degrees);
 
         for i in 0..6 {
             assert_abs_diff_eq!(result[i], expected[i], epsilon = 1e-3);
@@ -5287,10 +5281,10 @@ mod tests {
         let argp = 30.0_f64.to_radians();
         let nu = 0.0; // True anomaly
 
-        use crate::coordinates::state_osculating_to_cartesian;
+        use crate::coordinates::state_koe_to_eci;
 
         let oe = Vector6::new(a, e, i, raan, argp, nu);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Radians);
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
 
         let cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
 

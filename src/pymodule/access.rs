@@ -4044,7 +4044,7 @@ impl PyAccessSearchConfig {
 ///     # Create satellite propagators
 ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
 ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///     prop1 = bh.KeplerianPropagator(epoch, state)
 ///
 ///     # Define access constraints

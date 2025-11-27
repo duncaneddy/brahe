@@ -111,7 +111,7 @@ class TestRK4Integrator:
 
         # Initial orbital elements: LEO, e=0.01, i=90°
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.DEGREES)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.DEGREES)
 
         # Propagate for one orbital period
         epc0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.TAI)
@@ -161,7 +161,7 @@ class TestRK4Integrator:
 
         # Initial orbital elements
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.DEGREES)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.DEGREES)
         phi0 = np.eye(6)
 
         # Test 1: Zero step should return identity matrix
@@ -206,7 +206,7 @@ class TestRK4Integrator:
 
         # Setup initial state
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.DEGREES)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.DEGREES)
 
         # Propagate forward for 100 seconds with timestep 1 second
         dt_forward = 1.0

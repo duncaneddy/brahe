@@ -1273,7 +1273,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
     ///     propagator = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
     ///     propagator.set_step_size(120.0)  # Can use explicit method
     ///     # or propagator.step_size = 120.0  # Can use property
@@ -1302,7 +1302,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step()  # Advance by default step_size (60 seconds)
     ///     print(f"Advanced to: {prop.current_epoch}")
@@ -1324,7 +1324,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step_by(120.0)  # Advance by 120 seconds
     ///     print(f"Advanced to: {prop.current_epoch}")
@@ -1346,7 +1346,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 300.0  # Target 5 minutes ahead
     ///     prop.step_past(target)
@@ -1369,7 +1369,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
     ///     print(f"Advanced to: {prop.current_epoch}")
@@ -1391,7 +1391,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 3600.0  # Propagate to 1 hour ahead
     ///     prop.propagate_to(target)
@@ -1411,7 +1411,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)
     ///     prop.reset()  # Return to initial epoch and state
@@ -1438,12 +1438,12 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///
     ///     # Change initial conditions to a different orbit
     ///     new_oe = np.array([bh.R_EARTH + 800e3, 0.02, 1.2, 0.5, 0.3, 0.0])
-    ///     new_state = bh.state_osculating_to_cartesian(new_oe, bh.AngleFormat.RADIANS)
+    ///     new_state = bh.state_koe_to_eci(new_oe, bh.AngleFormat.RADIANS)
     ///     new_epc = bh.Epoch.from_datetime(2024, 1, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     prop.set_initial_conditions(new_epc, new_state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
     ///     print(f"New initial epoch: {prop.initial_epoch}")
@@ -1489,7 +1489,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.set_eviction_policy_max_size(100)  # Keep only 100 most recent states
     ///     prop.propagate_steps(200)
@@ -1515,7 +1515,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.set_eviction_policy_max_age(3600.0)  # Keep only states within 1 hour
     ///     prop.propagate_to(epc + 7200.0)  # Propagate 2 hours
@@ -1728,7 +1728,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)
     ///     traj = prop.trajectory
@@ -1903,7 +1903,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_id(12345)
     ///     print(f"ID: {prop.get_id()}")
     ///     ```
@@ -1923,7 +1923,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_name("MySat")
     ///     print(f"Name: {prop.get_name()}")
     ///     ```
@@ -1943,7 +1943,7 @@ impl PyKeplerianPropagator {
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator.from_eci(epc, state, 60.0).with_new_uuid()
     ///     print(f"UUID: {prop.get_uuid()}")
     ///     ```
@@ -1993,7 +1993,7 @@ impl PyKeplerianPropagator {
 ///     propagators = []
 ///     for i in range(10):
 ///         oe = np.array([bh.R_EARTH + 500e3 + i*10e3, 0.001, 98.0, i*10.0, 0.0, 0.0])
-///         state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///         state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
 ///         propagators.append(prop)
 ///
@@ -3277,7 +3277,7 @@ impl PyForceModelConfig {
 ///     # Create initial state (ECI Cartesian)
 ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///
 ///     # Parameters: [mass, drag_area, Cd, srp_area, Cr]
 ///     params = np.array([1000.0, 10.0, 2.2, 10.0, 1.3])

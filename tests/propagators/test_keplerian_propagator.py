@@ -15,8 +15,8 @@ from brahe import (
     AngleFormat,
     orbital_period,
     mean_motion,
-    state_osculating_to_cartesian,
-    state_cartesian_to_osculating,
+    state_koe_to_eci,
+    state_eci_to_koe,
     state_eci_to_ecef,
     state_ecef_to_eci,
     state_itrf_to_gcrf,
@@ -47,7 +47,7 @@ def create_cartesian_state():
     argp = 45.0  # Argument of perigee
     ma = 60.0  # Mean anomaly
 
-    return state_osculating_to_cartesian(
+    return state_koe_to_eci(
         np.array([a, e, i, raan, argp, ma]), angle_format=AngleFormat.DEGREES
     )
 
@@ -624,9 +624,7 @@ def test_keplerianpropagator_analyticpropagator_state_eci():
     # Should be Cartesian state in ECI
     assert np.linalg.norm(state) > 0.0
     # Convert back to orbital elements and verify semi-major axis is preserved
-    computed_elements = state_cartesian_to_osculating(
-        state, angle_format=AngleFormat.DEGREES
-    )
+    computed_elements = state_eci_to_koe(state, angle_format=AngleFormat.DEGREES)
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -649,9 +647,7 @@ def test_keplerianpropagator_analyticpropagator_state_ecef():
 
     # Convert back into osculating elements via ECI
     eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state)
-    computed_elements = state_cartesian_to_osculating(
-        eci_state, angle_format=AngleFormat.DEGREES
-    )
+    computed_elements = state_eci_to_koe(eci_state, angle_format=AngleFormat.DEGREES)
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -673,9 +669,7 @@ def test_keplerianpropagator_analyticpropagator_state_gcrf():
     state = propagator.state_gcrf(epoch + orbital_period(elements[0]))
 
     # Convert back into osculating elements (GCRF is inertial, direct conversion)
-    computed_elements = state_cartesian_to_osculating(
-        state, angle_format=AngleFormat.DEGREES
-    )
+    computed_elements = state_eci_to_koe(state, angle_format=AngleFormat.DEGREES)
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -698,9 +692,7 @@ def test_keplerianpropagator_analyticpropagator_state_itrf():
 
     # Convert back into osculating elements via GCRF
     gcrf_state = state_itrf_to_gcrf(epoch + orbital_period(elements[0]), state)
-    computed_elements = state_cartesian_to_osculating(
-        gcrf_state, angle_format=AngleFormat.DEGREES
-    )
+    computed_elements = state_eci_to_koe(gcrf_state, angle_format=AngleFormat.DEGREES)
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -723,9 +715,7 @@ def test_keplerianpropagator_analyticpropagator_state_eme2000():
 
     # Convert back into osculating elements via GCRF
     gcrf_state = state_eme2000_to_gcrf(state)
-    computed_elements = state_cartesian_to_osculating(
-        gcrf_state, angle_format=AngleFormat.DEGREES
-    )
+    computed_elements = state_eci_to_koe(gcrf_state, angle_format=AngleFormat.DEGREES)
 
     # Confirm equality within small tolerance
     for i in range(6):
@@ -811,9 +801,7 @@ def test_keplerianpropagator_analyticpropagator_states_eci():
     assert len(states) == 3
     # Verify states convert back to original elements within small tolerance
     for state in states:
-        computed_elements = state_cartesian_to_osculating(
-            state, angle_format=AngleFormat.DEGREES
-        )
+        computed_elements = state_eci_to_koe(state, angle_format=AngleFormat.DEGREES)
         for i in range(6):
             assert abs(computed_elements[i] - elements[i]) < 1e-6
 
@@ -841,7 +829,7 @@ def test_keplerianpropagator_analyticpropagator_states_ecef():
     # Verify states convert back to original elements within small tolerance
     for i, state in enumerate(states):
         eci_state = state_ecef_to_eci(epochs[i], state)
-        computed_elements = state_cartesian_to_osculating(
+        computed_elements = state_eci_to_koe(
             eci_state, angle_format=AngleFormat.DEGREES
         )
         for j in range(6):

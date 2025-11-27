@@ -31,8 +31,8 @@ fn main() {
     //   M    = 45.0000°
 
     // Convert to EME2000 Cartesian state
-    // Note: state_osculating_to_cartesian produces EME2000 states by default
-    let state_eme2000 = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    // Note: state_koe_to_eci produces EME2000 states by default
+    let state_eme2000 = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     println!("EME2000 state vector:");
     println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_eme2000[0], state_eme2000[1], state_eme2000[2]);

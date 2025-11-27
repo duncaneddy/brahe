@@ -26,7 +26,7 @@ for i in range(num_sats):
     # Vary semi-major axis slightly for each satellite
     a = bh.R_EARTH + 500e3 + i * 10e3
     oe = np.array([a, 0.001, 98.0, i * 36.0, 0.0, i * 36.0])
-    state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+    state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
     prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
     propagators.append(prop)
 

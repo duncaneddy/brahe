@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 
 use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG, RADIANS};
-use crate::coordinates::{state_cartesian_to_osculating, state_osculating_to_cartesian};
+use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use crate::frames::{
     state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
     state_gcrf_to_itrf, state_itrf_to_gcrf,
@@ -339,7 +339,7 @@ impl KeplerianPropagator {
                 };
 
                 // Convert Cartesian to osculating elements
-                state_cartesian_to_osculating(eci_state, AngleFormat::Radians)
+                state_eci_to_koe(eci_state, AngleFormat::Radians)
             }
             OrbitRepresentation::Keplerian => {
                 // Convert angles to radians if needed
@@ -366,8 +366,7 @@ impl KeplerianPropagator {
         match self.representation {
             OrbitRepresentation::Cartesian => {
                 // Convert osculating elements to Cartesian in ECI
-                let eci_cartesian =
-                    state_osculating_to_cartesian(internal_elements, AngleFormat::Radians);
+                let eci_cartesian = state_koe_to_eci(internal_elements, AngleFormat::Radians);
 
                 // Convert to original frame if needed
                 match self.frame {
@@ -648,7 +647,7 @@ impl DOrbitStateProvider for KeplerianPropagator {
     fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let internal_state = self.propagate_internal(epoch);
         // Always convert to Cartesian for DOrbitStateProvider methods
-        let state_eci = state_osculating_to_cartesian(internal_state, AngleFormat::Radians);
+        let state_eci = state_koe_to_eci(internal_state, AngleFormat::Radians);
 
         match self.frame {
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(state_eci),
@@ -678,7 +677,7 @@ impl DOrbitStateProvider for KeplerianPropagator {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
         let state_eci = self.state_eci(epoch)?;
-        let mut elements = state_cartesian_to_osculating(state_eci, AngleFormat::Radians);
+        let mut elements = state_eci_to_koe(state_eci, AngleFormat::Radians);
 
         if angle_format == AngleFormat::Degrees {
             elements[2] *= RAD2DEG; // i
@@ -698,7 +697,7 @@ impl DOrbitStateProvider for KeplerianPropagator {
 mod tests {
     use super::*;
     use crate::DEGREES;
-    use crate::coordinates::state_cartesian_to_osculating;
+    use crate::coordinates::state_eci_to_koe;
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -723,7 +722,7 @@ mod tests {
         let argp = 45.0; // Argument of perigee
         let ma = 60.0; // Mean anomaly
 
-        state_osculating_to_cartesian(Vector6::new(a, e, i, raan, argp, ma), DEGREES)
+        state_koe_to_eci(Vector6::new(a, e, i, raan, argp, ma), DEGREES)
     }
 
     // KeplerianPropagator Method Tests
@@ -1198,7 +1197,7 @@ mod tests {
         // Should be Cartesian state in ECI
         assert!(state.norm() > 0.0);
         // Convert back to orbital elements and verify semi-major axis is preserved
-        let computed_elements = state_cartesian_to_osculating(state, DEGREES);
+        let computed_elements = state_eci_to_koe(state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1221,7 +1220,7 @@ mod tests {
 
         // Convert back into osculating elements via ECI
         let eci_state = state_ecef_to_eci(epoch + orbital_period(elements[0]), state);
-        let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
+        let computed_elements = state_eci_to_koe(eci_state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1244,7 +1243,7 @@ mod tests {
 
         // Convert back into osculating elements via ECI
         let eci_state = state_itrf_to_gcrf(epoch + orbital_period(elements[0]), state);
-        let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
+        let computed_elements = state_eci_to_koe(eci_state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1266,7 +1265,7 @@ mod tests {
             .unwrap();
 
         // Convert back into osculating elements (GCRF is inertial, direct conversion)
-        let computed_elements = state_cartesian_to_osculating(state, DEGREES);
+        let computed_elements = state_eci_to_koe(state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1289,7 +1288,7 @@ mod tests {
 
         // Convert back into osculating elements via GCRF
         let gcrf_state = state_eme2000_to_gcrf(state);
-        let computed_elements = state_cartesian_to_osculating(gcrf_state, DEGREES);
+        let computed_elements = state_eci_to_koe(gcrf_state, DEGREES);
 
         // Confirm equality within small tolerance
         for i in 0..6 {
@@ -1369,7 +1368,7 @@ mod tests {
         assert_eq!(states.len(), 3);
         // Verify states convert back to original elements within small tolerance
         for state in &states {
-            let computed_elements = state_cartesian_to_osculating(*state, DEGREES);
+            let computed_elements = state_eci_to_koe(*state, DEGREES);
             for i in 0..6 {
                 assert_abs_diff_eq!(computed_elements[i], elements[i], epsilon = 1e-6);
             }
@@ -1396,7 +1395,7 @@ mod tests {
         // Verify states convert back to original elements within small tolerance
         for (i, state) in states.iter().enumerate() {
             let eci_state = state_ecef_to_eci(epochs[i], *state);
-            let computed_elements = state_cartesian_to_osculating(eci_state, DEGREES);
+            let computed_elements = state_eci_to_koe(eci_state, DEGREES);
             for j in 0..6 {
                 assert_abs_diff_eq!(computed_elements[j], elements[j], epsilon = 1e-6);
             }

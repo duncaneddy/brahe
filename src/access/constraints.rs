@@ -1191,7 +1191,7 @@ mod tests {
     use super::*;
     use crate::constants::{AngleFormat, R_EARTH};
     use crate::coordinates::coordinate_types::EllipsoidalConversionType;
-    use crate::coordinates::{position_geodetic_to_ecef, state_osculating_to_cartesian};
+    use crate::coordinates::{position_geodetic_to_ecef, state_koe_to_eci};
     use crate::frames::state_eci_to_ecef;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -1207,7 +1207,7 @@ mod tests {
 
     /// Helper function for creating ECEF states from orbital elements
     fn test_sat_ecef_from_oe(oe: Vector6<f64>) -> Vector6<f64> {
-        let state_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
         state_eci_to_ecef(test_epoch(), state_eci)
     }
 

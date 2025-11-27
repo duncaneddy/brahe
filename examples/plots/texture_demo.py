@@ -19,7 +19,7 @@ bh.initialize_eop()
 # Create a simple LEO orbit
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Create propagator and generate trajectory
 prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)

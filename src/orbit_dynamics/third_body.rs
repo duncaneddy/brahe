@@ -544,7 +544,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_almanac;
 
     #[test]
-    fn test_accel_third_body_sun_de440s() {
+    fn test_accel_third_body_sun_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -558,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_moon_de440s() {
+    fn test_accel_third_body_moon_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_mercury_de440s() {
+    fn test_accel_third_body_mercury_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -586,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_venus_de440s() {
+    fn test_accel_third_body_venus_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -600,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_mars_de440s() {
+    fn test_accel_third_body_mars_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -614,7 +614,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_jupiter_de440s() {
+    fn test_accel_third_body_jupiter_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -628,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_saturn_de440s() {
+    fn test_accel_third_body_saturn_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -642,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_uranus_de440s() {
+    fn test_accel_third_body_uranus_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
@@ -656,7 +656,7 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_neptune_de440s() {
+    fn test_accel_third_body_neptune_de() {
         setup_global_test_almanac();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);

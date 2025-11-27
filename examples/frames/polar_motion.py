@@ -39,7 +39,7 @@ oe = np.array(
 )
 
 # Convert through the full chain: GCRF → CIRS → TIRS
-state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_gcrf = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 pos_gcrf = state_gcrf[0:3]
 R_bpn = bh.bias_precession_nutation(epc)
 R_er = bh.earth_rotation(epc)

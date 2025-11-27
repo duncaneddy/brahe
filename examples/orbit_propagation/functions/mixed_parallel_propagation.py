@@ -24,7 +24,7 @@ propagators = []
 
 # Create Keplerian propagator
 oe = np.array([bh.R_EARTH + 500e3, 0.001, 98.0, 36.0, 10.0, 36.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
 propagators.append(prop)
 

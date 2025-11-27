@@ -20,7 +20,7 @@ use crate::constants::{C_LIGHT, GM_EARTH};
 /// # Examples
 ///
 /// ```
-/// use brahe::coordinates::state_osculating_to_cartesian;
+/// use brahe::coordinates::state_koe_to_eci;
 /// use brahe::orbit_dynamics::accel_relativity;
 /// use nalgebra::Vector6;
 /// use brahe::R_EARTH;
@@ -62,7 +62,7 @@ mod tests {
 
         let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0);
 
-        let x_object = state_osculating_to_cartesian(oe, DEGREES);
+        let x_object = state_koe_to_eci(oe, DEGREES);
 
         let a = accel_relativity(x_object);
 

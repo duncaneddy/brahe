@@ -29,8 +29,8 @@ fn main() {
     );
 
     // Convert to Cartesian ECI states
-    let x_chief = bh::state_osculating_to_cartesian(oe_chief, bh::AngleFormat::Degrees);
-    let x_deputy = bh::state_osculating_to_cartesian(oe_deputy, bh::AngleFormat::Degrees);
+    let x_chief = bh::state_koe_to_eci(oe_chief, bh::AngleFormat::Degrees);
+    let x_deputy = bh::state_koe_to_eci(oe_deputy, bh::AngleFormat::Degrees);
 
     // Transform to relative RTN state
     let x_rel_rtn = bh::state_eci_to_rtn(x_chief, x_deputy);

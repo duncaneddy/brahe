@@ -69,7 +69,7 @@ class TestRKF45Integrator:
 
         # Initial orbital elements: LEO, e=0.01, i=90°
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.RADIANS)
 
         # Propagate for one orbital period
         state = state0.copy()
@@ -295,7 +295,7 @@ class TestRKF45Integrator:
 
         # Setup initial state
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.RADIANS)
 
         # Propagate forward for 100 seconds
         dt_forward = 10.0

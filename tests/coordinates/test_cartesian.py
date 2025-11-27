@@ -5,9 +5,9 @@ from pytest import approx
 from brahe import AngleFormat
 
 
-def test_state_osculating_to_cartesian(eop):
+def test_state_koe_to_eci(eop):
     osc = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
-    cart = brahe.state_osculating_to_cartesian(osc, AngleFormat.RADIANS)
+    cart = brahe.state_koe_to_eci(osc, AngleFormat.RADIANS)
 
     assert isinstance(cart, np.ndarray)
     assert cart[0] == brahe.R_EARTH + 500e3
@@ -18,7 +18,7 @@ def test_state_osculating_to_cartesian(eop):
     assert cart[5] == 0.0
 
     osc = np.array([brahe.R_EARTH + 500e3, 0.0, 90.0, 0.0, 0.0, 0.0])
-    cart = brahe.state_osculating_to_cartesian(osc, AngleFormat.DEGREES)
+    cart = brahe.state_koe_to_eci(osc, AngleFormat.DEGREES)
 
     assert isinstance(cart, np.ndarray)
     assert cart[0] == brahe.R_EARTH + 500e3
@@ -29,7 +29,7 @@ def test_state_osculating_to_cartesian(eop):
     assert cart[5] == brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0)
 
 
-def test_state_cartesian_to_osculating(eop):
+def test_state_eci_to_koe(eop):
     cart = np.array(
         [
             brahe.R_EARTH + 500e3,
@@ -40,7 +40,7 @@ def test_state_cartesian_to_osculating(eop):
             0.0,
         ]
     )
-    osc = brahe.state_cartesian_to_osculating(cart, brahe.AngleFormat.DEGREES)
+    osc = brahe.state_eci_to_koe(cart, brahe.AngleFormat.DEGREES)
 
     assert osc[0] == approx(brahe.R_EARTH + 500e3, abs=1e-9)
     assert osc[1] == 0.0
@@ -59,7 +59,7 @@ def test_state_cartesian_to_osculating(eop):
             brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0),
         ]
     )
-    osc = brahe.state_cartesian_to_osculating(cart, AngleFormat.DEGREES)
+    osc = brahe.state_eci_to_koe(cart, AngleFormat.DEGREES)
 
     assert osc[0] == approx(brahe.R_EARTH + 500e3, abs=1.0e-9)
     assert osc[1] == 0.0
@@ -69,10 +69,10 @@ def test_state_cartesian_to_osculating(eop):
     assert osc[5] == 0.0
 
 
-def test_state_cartesian_to_osculating_and_roundtrip(eop):
+def test_state_eci_to_koe_and_roundtrip(eop):
     osc_original = np.array([brahe.R_EARTH + 700e3, 0.01, 45.0, 120.0, 60.0, 10.0])
-    cart = brahe.state_osculating_to_cartesian(osc_original, AngleFormat.DEGREES)
-    osc_converted = brahe.state_cartesian_to_osculating(cart, AngleFormat.DEGREES)
+    cart = brahe.state_koe_to_eci(osc_original, AngleFormat.DEGREES)
+    osc_converted = brahe.state_eci_to_koe(cart, AngleFormat.DEGREES)
 
     assert osc_converted[0] == approx(osc_original[0], abs=1e-6)
     assert osc_converted[1] == approx(osc_original[1], abs=1e-9)
@@ -82,7 +82,7 @@ def test_state_cartesian_to_osculating_and_roundtrip(eop):
     assert osc_converted[5] == approx(osc_original[5], abs=1e-6)
 
 
-def test_state_cartesian_to_osculating_and_roundtri_rad(eop):
+def test_state_eci_to_koe_and_roundtri_rad(eop):
     osc_original = np.array(
         [
             brahe.R_EARTH + 700e3,
@@ -93,8 +93,8 @@ def test_state_cartesian_to_osculating_and_roundtri_rad(eop):
             np.radians(10.0),
         ]
     )
-    cart = brahe.state_osculating_to_cartesian(osc_original, AngleFormat.RADIANS)
-    osc_converted = brahe.state_cartesian_to_osculating(cart, AngleFormat.RADIANS)
+    cart = brahe.state_koe_to_eci(osc_original, AngleFormat.RADIANS)
+    osc_converted = brahe.state_eci_to_koe(cart, AngleFormat.RADIANS)
 
     assert osc_converted[0] == approx(osc_original[0], abs=1e-6)
     assert osc_converted[1] == approx(osc_original[1], abs=1e-9)

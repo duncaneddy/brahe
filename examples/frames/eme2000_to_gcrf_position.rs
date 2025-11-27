@@ -31,7 +31,7 @@ fn main() {
     //   M    = 45.0000°
 
     // Convert to EME2000 Cartesian state and extract position
-    let state_eme2000 = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_eme2000 = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let pos_eme2000 = na::Vector3::new(state_eme2000[0], state_eme2000[1], state_eme2000[2]);
 
     println!("Position in EME2000:");

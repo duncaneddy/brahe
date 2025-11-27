@@ -45,7 +45,7 @@ fn main() {
     );
 
     // Convert to EME2000, transform to GCRF, and extract position
-    let state_eme2000 = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_eme2000 = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let state_gcrf = bh::state_eme2000_to_gcrf(state_eme2000);
     let pos_gcrf = na::Vector3::new(state_gcrf[0], state_gcrf[1], state_gcrf[2]);
 

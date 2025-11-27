@@ -21,7 +21,7 @@ for i in range(3):
     epoch = epoch0 + i * 300.0  # 5-minute intervals
     # Use orbital elements to create realistic Cartesian states
     oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, i * 10.0])
-    state_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+    state_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
     traj_cart.add(epoch, state_cart)
 
 print(f"Original representation: {traj_cart.representation}")

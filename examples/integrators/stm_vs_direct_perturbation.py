@@ -43,7 +43,7 @@ integrator_pert = bh.RKN1210Integrator(6, dynamics, config=config)
 
 # Initial state: circular orbit at 500 km altitude
 oe0 = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
-state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.DEGREES)
+state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.DEGREES)
 
 # Apply 10-meter perturbation in X direction
 perturbation = np.array([10.0, 0.0, 0.0, 0.0, 0.0, 0.0])

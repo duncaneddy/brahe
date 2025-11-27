@@ -7,7 +7,7 @@ import brahe as bh
 
 
 @pytest.mark.ci
-def test_download_de440s(naif_cache_setup):
+def test_download_de(naif_cache_setup):
     """Test downloading de440s kernel (smaller file for testing)."""
     kernel_path = bh.datasets.naif.download_de_kernel("de440s")
 

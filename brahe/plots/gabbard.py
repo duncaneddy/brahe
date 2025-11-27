@@ -77,7 +77,7 @@ def plot_gabbard_diagram(
             # Simplified: adjust semi-major axis based on delta-v
             oe[0] += dv * 1000  # rough approximation
             oe[1] = max(0.001, min(0.3, oe[1] + np.random.normal(0, 0.05)))
-            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+            state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
             prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
             debris.append(prop)
 
@@ -155,7 +155,7 @@ def _extract_orbital_elements(obj, epoch, obj_format):
         else:
             # Convert current state to osculating elements
             state = obj.current_state()
-            oe = bh.state_cartesian_to_osculating(state, bh.AngleFormat.RADIANS)
+            oe = bh.state_eci_to_koe(state, bh.AngleFormat.RADIANS)
 
         return oe[0], oe[1]
 
@@ -174,14 +174,14 @@ def _extract_orbital_elements(obj, epoch, obj_format):
             return obj[0], obj[1]
         elif obj_format.upper() == "ECI":
             # Cartesian ECI state
-            oe = bh.state_cartesian_to_osculating(obj, bh.AngleFormat.RADIANS)
+            oe = bh.state_eci_to_koe(obj, bh.AngleFormat.RADIANS)
             return oe[0], oe[1]
         elif obj_format.upper() == "ECEF":
             # Need to convert ECEF to ECI first
             if epoch is None:
                 raise ValueError("epoch must be provided to convert ECEF states to ECI")
             state_eci = bh.state_ecef_to_eci(epoch, obj)
-            oe = bh.state_cartesian_to_osculating(state_eci, bh.AngleFormat.RADIANS)
+            oe = bh.state_eci_to_koe(state_eci, bh.AngleFormat.RADIANS)
             return oe[0], oe[1]
         else:
             raise ValueError(

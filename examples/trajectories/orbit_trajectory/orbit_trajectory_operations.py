@@ -18,7 +18,7 @@ epoch0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 for i in range(10):
     epoch = epoch0 + i * 60.0
     oe = np.array([bh.R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, i * 0.1])
-    state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     traj.add(epoch, state)
 
 # Query properties

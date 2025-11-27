@@ -13,8 +13,8 @@ from brahe import (
     ForceModelConfig,
     IntegrationMethod,
     AngleFormat,
-    state_osculating_to_cartesian,
-    state_cartesian_to_osculating,
+    state_koe_to_eci,
+    state_eci_to_koe,
     R_EARTH,
     orbital_period,
     GravityConfiguration,
@@ -39,13 +39,13 @@ def create_leo_state():
             np.radians(45.0),
         ]
     )
-    return state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    return state_koe_to_eci(oe, AngleFormat.RADIANS)
 
 
 def create_circular_state():
     """Create circular equatorial orbit state"""
     oe = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
-    return state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    return state_koe_to_eci(oe, AngleFormat.RADIANS)
 
 
 def create_test_params():
@@ -576,7 +576,7 @@ def test_numericalorbitpropagator_accuracy_vs_keplerian():
     """Test that two-body numerical propagation matches Keplerian propagation"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -591,7 +591,7 @@ def test_numericalorbitpropagator_accuracy_vs_keplerian():
     prop.propagate_to(epoch + period)
 
     final_state = prop.current_state()
-    final_oe = state_cartesian_to_osculating(final_state, AngleFormat.RADIANS)
+    final_oe = state_eci_to_koe(final_state, AngleFormat.RADIANS)
 
     # For two-body, orbital elements should be nearly preserved
     # (except mean anomaly which should wrap around)
@@ -604,7 +604,7 @@ def test_numericalorbitpropagator_energy_conservation():
     """Test that two-body propagation conserves orbital energy"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -783,7 +783,7 @@ def test_numericalorbitpropagator_event_detection_altitude_event():
     ta = 0.0
 
     oe = np.array([a, e, i, raan, argp, ta])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -821,7 +821,7 @@ def test_numericalorbitpropagator_event_detection_no_altitude_events():
     ta = 0.0
 
     oe = np.array([a, e, i, raan, argp, ta])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -1233,9 +1233,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_representation_conversion_
     query_epoch = epoch + 900.0
     cartesian = prop.state_eci(query_epoch)
     keplerian = prop.state_koe(query_epoch, AngleFormat.DEGREES)
-    cartesian_from_keplerian = state_osculating_to_cartesian(
-        keplerian, AngleFormat.DEGREES
-    )
+    cartesian_from_keplerian = state_koe_to_eci(keplerian, AngleFormat.DEGREES)
 
     # Verify round-trip accuracy
     for i in range(6):
@@ -1546,7 +1544,7 @@ def test_numericalorbitpropagator_accuracy_orbital_period():
     """Test orbital period accuracy (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -1573,7 +1571,7 @@ def test_numericalorbitpropagator_angular_momentum_conservation():
 
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -1613,7 +1611,7 @@ def test_numericalorbitpropagator_edge_case_high_eccentricity():
     """Test high eccentricity orbit (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 10000e3, 0.7, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -1634,7 +1632,7 @@ def test_numericalorbitpropagator_edge_case_equatorial_orbit():
     """Test equatorial orbit (zero inclination) (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, 0.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -1654,7 +1652,7 @@ def test_numericalorbitpropagator_edge_case_polar_orbit():
     """Test polar orbit (90 deg inclination) (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(90.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2007,7 +2005,7 @@ def test_numericalorbitpropagator_force_gravity_point_mass():
     """Test point mass gravity (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2049,7 +2047,7 @@ def test_numericalorbitpropagator_force_combined_geo():
     epoch = create_test_epoch()
     # GEO orbit
     oe = np.array([R_EARTH + 35786e3, 0.0001, np.radians(0.1), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     # GEO default may require parameters for SRP, provide them
     params = create_test_params()
@@ -2202,7 +2200,7 @@ def test_numericalorbitpropagator_force_gravity_j2_perturbation():
     """Test J2 perturbation effects (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     # Two-body only
     prop_two_body = NumericalOrbitPropagator(
@@ -2250,7 +2248,7 @@ def test_numericalorbitpropagator_force_drag_effects():
     )
 
     # Get initial semi-major axis
-    initial_oe = state_cartesian_to_osculating(state, AngleFormat.RADIANS)
+    initial_oe = state_eci_to_koe(state, AngleFormat.RADIANS)
     initial_sma = initial_oe[0]
 
     # Propagate for several orbits
@@ -2258,7 +2256,7 @@ def test_numericalorbitpropagator_force_drag_effects():
     prop.propagate_to(epoch + 5 * period)
 
     # Get final semi-major axis
-    final_oe = state_cartesian_to_osculating(prop.current_state(), AngleFormat.RADIANS)
+    final_oe = state_eci_to_koe(prop.current_state(), AngleFormat.RADIANS)
     final_sma = final_oe[0]
 
     # Drag should cause semi-major axis decrease over time
@@ -2271,7 +2269,7 @@ def test_numericalorbitpropagator_force_srp_effects():
     epoch = create_test_epoch()
     # Higher altitude where SRP is more significant
     oe = np.array([R_EARTH + 20000e3, 0.01, np.radians(0.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
     params = create_test_params()
 
     prop = NumericalOrbitPropagator(
@@ -2292,7 +2290,7 @@ def test_numericalorbitpropagator_force_third_body_sun():
     epoch = create_test_epoch()
     # High altitude orbit where third-body is more significant
     oe = np.array([R_EARTH + 35786e3, 0.0001, np.radians(0.1), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
     params = create_test_params()
 
     prop = NumericalOrbitPropagator(
@@ -2314,7 +2312,7 @@ def test_numericalorbitpropagator_force_third_body_moon():
     epoch = create_test_epoch()
     # High altitude orbit
     oe = np.array([R_EARTH + 35786e3, 0.0001, np.radians(0.1), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
     params = create_test_params()
 
     prop = NumericalOrbitPropagator(
@@ -2564,7 +2562,7 @@ def test_numericalorbitpropagator_accuracy_leo_regime():
     epoch = create_test_epoch()
     # LEO at 400 km
     oe = np.array([R_EARTH + 400e3, 0.001, np.radians(51.6), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2590,7 +2588,7 @@ def test_numericalorbitpropagator_accuracy_geo_regime():
     epoch = create_test_epoch()
     # GEO at ~35786 km
     oe = np.array([R_EARTH + 35786e3, 0.0001, np.radians(0.1), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2614,7 +2612,7 @@ def test_numericalorbitpropagator_accuracy_heo_regime():
     oe = np.array(
         [R_EARTH + 26600e3, 0.74, np.radians(63.4), 0.0, np.radians(270.0), 0.0]
     )
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2636,7 +2634,7 @@ def test_numericalorbitpropagator_accuracy_near_circular_stability():
     epoch = create_test_epoch()
     # Near-circular orbit
     oe = np.array([R_EARTH + 500e3, 1e-6, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2651,7 +2649,7 @@ def test_numericalorbitpropagator_accuracy_near_circular_stability():
     prop.propagate_to(epoch + 10 * period)
 
     # Eccentricity should remain near-circular
-    final_oe = state_cartesian_to_osculating(prop.current_state(), AngleFormat.RADIANS)
+    final_oe = state_eci_to_koe(prop.current_state(), AngleFormat.RADIANS)
     assert final_oe[1] < 0.01, f"Eccentricity grew unexpectedly: {final_oe[1]}"
 
 
@@ -2661,7 +2659,7 @@ def test_numericalorbitpropagator_energy_drift_long_term():
 
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2761,7 +2759,7 @@ def test_numericalorbitpropagator_event_multiple_callbacks_same_step():
     a = R_EARTH + 500e3  # 500 km semi-major axis
     e = 0.02  # Eccentricity (creates range from ~362 km to ~637 km)
     oe = np.array([a, e, 0.0, 0.0, 0.0, 0.0])  # Start at perigee
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     # Use fixed-step RK4 (smaller steps needed for accurate event detection)
     config = (
@@ -2838,7 +2836,7 @@ def test_numericalorbitpropagator_edge_case_gto():
     epoch = create_test_epoch()
     # GTO: perigee ~200 km, apogee ~35786 km
     oe = np.array([R_EARTH + 17993e3, 0.73, np.radians(28.5), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2858,7 +2856,7 @@ def test_numericalorbitpropagator_edge_case_retrograde_orbit():
     """Test retrograde orbit (inclination > 90 deg) (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(135.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -2879,7 +2877,7 @@ def test_numericalorbitpropagator_edge_case_sun_synchronous():
     epoch = create_test_epoch()
     # SSO at ~700 km, i ~98 deg
     oe = np.array([R_EARTH + 700e3, 0.001, np.radians(98.2), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -3045,7 +3043,7 @@ def test_numericalorbitpropagator_value_event_altitude():
     epoch = create_test_epoch()
     # Elliptical orbit that crosses target altitude
     oe = np.array([R_EARTH + 600e3, 0.05, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -3079,7 +3077,7 @@ def test_numericalorbitpropagator_value_event_velocity():
     epoch = create_test_epoch()
     # Elliptical orbit
     oe = np.array([R_EARTH + 600e3, 0.1, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -3256,7 +3254,7 @@ def test_numericalorbitpropagator_multi_orbit_propagation():
     """Test propagation over multiple orbits (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -3404,7 +3402,7 @@ def test_numericalorbitpropagator_stm_identity_initial_condition():
     """Test STM is identity at initial epoch (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     config = NumericalPropagationConfig.default().with_stm()
 
@@ -3431,7 +3429,7 @@ def test_numericalorbitpropagator_stm_determinant_preservation():
     """Test STM determinant is preserved during propagation (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     config = NumericalPropagationConfig.default().with_stm()
 
@@ -3501,7 +3499,7 @@ def test_numericalorbitpropagator_stm_vs_direct_perturbation():
     """Test STM prediction matches actual perturbed state (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     config = NumericalPropagationConfig.default().with_stm()
 
@@ -3577,7 +3575,7 @@ def test_numericalorbitpropagator_stm_eigenvalue_analysis():
     """Test STM eigenvalue analysis (mirrors Rust test)"""
     epoch = create_test_epoch()
     oe = np.array([R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     config = NumericalPropagationConfig.default().with_stm()
 
@@ -4074,7 +4072,7 @@ def test_numericalorbitpropagator_value_event_matches_altitude_event():
     epoch = create_test_epoch()
     # Use elliptical orbit that crosses target altitude
     oe = np.array([R_EARTH + 500e3, 0.05, np.radians(45.0), 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     prop1 = NumericalOrbitPropagator(
         epoch,
@@ -4740,7 +4738,7 @@ def test_numericalorbitpropagator_accuracy_energy_conservation():
     epoch = create_test_epoch()
     # Match Rust test: use degrees for inclination, smaller eccentricity
     oe = np.array([R_EARTH + 500e3, 0.001, 45.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.DEGREES)
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -4776,7 +4774,7 @@ def test_numericalorbitpropagator_accuracy_orbital_stability():
     epoch = create_test_epoch()
     # Match Rust test: use degrees
     oe0 = np.array([R_EARTH + 500e3, 0.01, 55.0, 30.0, 45.0, 0.0])
-    state = state_osculating_to_cartesian(oe0, AngleFormat.DEGREES)
+    state = state_koe_to_eci(oe0, AngleFormat.DEGREES)
 
     prop = NumericalOrbitPropagator(
         epoch,
@@ -4792,7 +4790,7 @@ def test_numericalorbitpropagator_accuracy_orbital_stability():
 
     # Get final elements (radians)
     final_state = prop.current_state()
-    oe1 = state_cartesian_to_osculating(final_state, AngleFormat.RADIANS)
+    oe1 = state_eci_to_koe(final_state, AngleFormat.RADIANS)
 
     # Semi-major axis should remain stable (< 10 m drift) - matches Rust tolerance
     a_drift = abs(oe1[0] - oe0[0])
@@ -4880,7 +4878,7 @@ def test_numericalorbitpropagator_continuous_control():
     epoch = create_test_epoch()
     # Create circular LEO orbit at 500 km altitude - match Rust test
     oe = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.RADIANS)
+    state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     # Define continuous tangential thrust control
     # Thrust: 0.5 N, Mass: 1000 kg, Acceleration: 0.0005 m/s²
@@ -4933,8 +4931,8 @@ def test_numericalorbitpropagator_continuous_control():
     )
 
     # Controlled orbit should have higher energy (larger SMA) due to prograde thrust
-    oe_ref = state_cartesian_to_osculating(state_ref, AngleFormat.RADIANS)
-    oe_ctrl = state_cartesian_to_osculating(state_ctrl, AngleFormat.RADIANS)
+    oe_ref = state_eci_to_koe(state_ref, AngleFormat.RADIANS)
+    oe_ctrl = state_eci_to_koe(state_ctrl, AngleFormat.RADIANS)
     assert oe_ctrl[0] > oe_ref[0], (
         f"Prograde thrust should increase semi-major axis: {oe_ctrl[0]:.1f} > {oe_ref[0]:.1f}"
     )

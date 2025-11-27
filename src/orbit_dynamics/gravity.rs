@@ -737,7 +737,7 @@ impl std::fmt::Debug for GravityModel {
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
+/// use brahe::{R_EARTH, state_koe_to_eci, TimeSystem, AngleFormat};
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
@@ -751,7 +751,7 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+/// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
@@ -765,7 +765,7 @@ impl std::fmt::Debug for GravityModel {
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
+/// use brahe::{R_EARTH, state_koe_to_eci, TimeSystem, AngleFormat};
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
@@ -779,7 +779,7 @@ impl std::fmt::Debug for GravityModel {
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+/// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 ///
 /// // Pass state vector directly - no need to extract position
 /// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20);

@@ -21,7 +21,7 @@ fn main() {
 
     // Convert to Cartesian state
     let oe = na::SVector::<f64, 6>::new(a, e, i, raan, argp, nu);
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::constants::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(oe, bh::constants::AngleFormat::Degrees);
 
     println!("ECI State (position in km, velocity in km/s):");
     println!("  r = [{:.3}, {:.3}, {:.3}] km", state_eci[0]/1e3, state_eci[1]/1e3, state_eci[2]/1e3);

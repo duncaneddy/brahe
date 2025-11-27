@@ -74,7 +74,7 @@ fn main() {
 
     // Initial state: circular orbit at 500 km altitude
     let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-    let state0_static = state_osculating_to_cartesian(oe0, AngleFormat::Degrees);
+    let state0_static = state_koe_to_eci(oe0, AngleFormat::Degrees);
     let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
     // Apply 10-meter perturbation in X direction

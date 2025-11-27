@@ -299,7 +299,7 @@ impl PyOrbitalTrajectory {
     ///
     ///     # Define Keplerian elements for a 500 km circular orbit
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])  # a, e, i, raan, argp, M
-    ///     state_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///
     ///     # Add states to trajectory
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)

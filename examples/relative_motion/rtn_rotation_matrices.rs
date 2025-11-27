@@ -19,7 +19,7 @@ fn main() {
     );
 
     // Convert to Cartesian ECI state
-    let x_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let x_eci = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // Compute rotation matrices
     let r_rtn_to_eci = bh::rotation_rtn_to_eci(x_eci);

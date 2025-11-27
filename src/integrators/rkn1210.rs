@@ -812,7 +812,7 @@ mod tests {
     use crate::integrators::traits::{SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, DifferenceMethod, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
-    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
     #[test]
     fn test_rkn1210s_coefficients() {
@@ -958,7 +958,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
         let mut state = state0;
 
         // Get start and end times of propagation (1 orbit)
@@ -1134,7 +1134,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
@@ -1187,7 +1187,7 @@ mod tests {
 
         // Start with a realistic orbital state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Propagate with STM for a significant time step
@@ -1267,7 +1267,7 @@ mod tests {
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Small perturbation in position
         let perturbation = SVector::<f64, 6>::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1375,7 +1375,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
         let result = rkn.step(0.0, state0, None, Some(dt));
@@ -1417,7 +1417,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let period = orbital_period(oe0[0]);
         let dt = period / 100.0;
@@ -1445,7 +1445,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 60.0;
         let result = rkn.step(0.0, state0, None, Some(dt));
@@ -1518,7 +1518,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let result = rkn.step(0.0, state0, None, Some(10.0));
         assert!(result.error_estimate.unwrap() < 1.0);
@@ -1544,7 +1544,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let dt = 10.0;
         let result = rkn.step_with_varmat(0.0, state0, None, DMatrix::identity(6, 6), Some(dt));
@@ -1581,7 +1581,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 45.0, 10.0, 20.0, 30.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let phi0 = DMatrix::identity(6, 6);
         let dt = 10.0;
@@ -1631,7 +1631,7 @@ mod tests {
             config,
         );
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let perturbation = DVector::from_vec(vec![10.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
         let total_time = 100.0;

@@ -31,7 +31,7 @@
 
 use crate::attitude::RotationMatrix;
 use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
-use crate::coordinates::state_cartesian_to_osculating;
+use crate::coordinates::state_eci_to_koe;
 use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
@@ -121,7 +121,7 @@ fn convert_state_from_spg4_frame(
             }
 
             if let Some(format) = angle_format {
-                state_cartesian_to_osculating(state_ecef_to_eci(epoch, ecef_state), format)
+                state_eci_to_koe(state_ecef_to_eci(epoch, ecef_state), format)
             } else {
                 panic!("Angle format must be specified for Keplerian elements");
             }
@@ -799,7 +799,7 @@ impl SOrbitStateProvider for SGPPropagator {
     ) -> Result<Vector6<f64>, BraheError> {
         let state_eci = self.state_eci(epoch)?;
 
-        Ok(state_cartesian_to_osculating(state_eci, angle_format))
+        Ok(state_eci_to_koe(state_eci, angle_format))
     }
 
     // Default implementations from trait are used for:

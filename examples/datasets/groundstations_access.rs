@@ -26,7 +26,7 @@ fn main() {
         0.0,
         0.0,
     );
-    let state = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Radians);
+    let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Radians);
     let propagator =
         bh::KeplerianPropagator::from_eci(epoch, state, 60.0).with_name("EO-Sat");
 

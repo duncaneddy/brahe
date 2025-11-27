@@ -333,8 +333,8 @@ pub(crate) fn setup_global_test_gravity_model() {
 /// global Almanac. This avoids network downloads during CI tests while providing
 /// the same DE440s ephemeris data for testing high-precision sun/moon positions.
 ///
-/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de440s()`,
-/// `moon_position_de440s()`). If the test asset doesn't exist, this function does
+/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de()`,
+/// `moon_position_de()`). If the test asset doesn't exist, this function does
 /// nothing (allows running tests without the large kernel file).
 ///
 /// # Panics

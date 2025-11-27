@@ -664,7 +664,7 @@ mod tests {
     use crate::integrators::traits::{DIntegrator, SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
-    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
     fn point_earth(
         _: f64,
@@ -741,7 +741,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0 = state_koe_to_eci(oe0, RADIANS);
         let mut state = state0;
 
         // Get start and end times of propagation (1 orbit)
@@ -776,7 +776,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0 = state_koe_to_eci(oe0, RADIANS);
         let phi0 = SMatrix::<f64, 6, 6>::identity();
 
         // Take no step and confirm the variational matrix is the identity matrix
@@ -906,7 +906,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0_static = state_koe_to_eci(oe0, RADIANS);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let mut state = state0.clone();
 
@@ -953,7 +953,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0_static = state_koe_to_eci(oe0, RADIANS);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let phi0 = DMatrix::<f64>::identity(6, 6);
 
@@ -1055,7 +1055,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Propagate forward for 100 seconds with timestep 1 second
         let dt_forward = 1.0;
@@ -1084,7 +1084,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate forward for 100 seconds with timestep 1 second

@@ -166,7 +166,7 @@ def plot_groundtrack(
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-        state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+        state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
         traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)

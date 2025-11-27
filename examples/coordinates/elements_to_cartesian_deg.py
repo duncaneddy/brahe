@@ -24,7 +24,7 @@ oe_deg = np.array(
 )
 
 # Convert orbital elements to Cartesian state using degrees
-state = bh.state_osculating_to_cartesian(oe_deg, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe_deg, bh.AngleFormat.DEGREES)
 print("Cartesian state [x, y, z, vx, vy, vz] (m, m/s):")
 print(f"Position: [{state[0]:.3f}, {state[1]:.3f}, {state[2]:.3f}]")
 print(f"Velocity: [{state[3]:.6f}, {state[4]:.6f}, {state[5]:.6f}]")

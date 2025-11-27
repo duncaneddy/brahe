@@ -23,7 +23,7 @@ nu = 90.0  # True anomaly (deg)
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, raan, argp, nu])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 r_sat = state[0:3]  # Position vector (m)
 
 print("Satellite position (ECI, m):")

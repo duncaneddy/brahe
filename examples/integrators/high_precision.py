@@ -21,7 +21,7 @@ i = 63.4  # Inclination
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, 0.0, 0.0, 0.0])
-state0 = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Orbital period
 period = bh.orbital_period(a)
@@ -80,8 +80,8 @@ print(f"Average step: {period / steps:.1f} s")
 print(f"Cumulative error estimate: {total_error:.2e}")
 
 # Verify orbit closure (should return close to initial state)
-final_oe = bh.state_cartesian_to_osculating(state, bh.AngleFormat.DEGREES)
-initial_oe = bh.state_cartesian_to_osculating(state0, bh.AngleFormat.DEGREES)
+final_oe = bh.state_eci_to_koe(state, bh.AngleFormat.DEGREES)
+initial_oe = bh.state_eci_to_koe(state0, bh.AngleFormat.DEGREES)
 
 print("\nOrbit element errors after one period:")
 print(f"  Semi-major axis: {abs(final_oe[0] - initial_oe[0]):.3e} m")

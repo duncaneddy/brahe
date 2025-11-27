@@ -30,7 +30,7 @@ fn main() {
             0.0,
             (i as f64) * 36.0,
         );
-        let state = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+        let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
         let prop = bh::KeplerianPropagator::from_eci(epoch, state, 60.0);
         propagators.push(prop);
     }

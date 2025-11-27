@@ -32,7 +32,7 @@ oe_iss = np.array(
         0.0,  # Mean anomaly
     ]
 )
-state_iss = bh.state_osculating_to_cartesian(oe_iss, bh.AngleFormat.DEGREES)
+state_iss = bh.state_koe_to_eci(oe_iss, bh.AngleFormat.DEGREES)
 prop_iss = bh.KeplerianPropagator.from_eci(epoch, state_iss, 60.0)
 
 # Polar orbit (Sun-synchronous-like, ~550 km altitude)
@@ -46,7 +46,7 @@ oe_polar = np.array(
         0.0,  # Mean anomaly
     ]
 )
-state_polar = bh.state_osculating_to_cartesian(oe_polar, bh.AngleFormat.DEGREES)
+state_polar = bh.state_koe_to_eci(oe_polar, bh.AngleFormat.DEGREES)
 prop_polar = bh.KeplerianPropagator.from_eci(epoch, state_polar, 60.0)
 
 # Define time range - one orbital period of the lower orbit

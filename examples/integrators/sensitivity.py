@@ -75,7 +75,7 @@ def analytical_sensitivity(t, state, params):
 
 # Initial state (400 km LEO circular orbit)
 oe = np.array([bh.R_EARTH + 250e3, 0.001, 51.6, 0.0, 0.0, 0.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Consider parameters
 params = np.array([0.044])  # cd_area_m = Cd*A/m = 2.2*10/500

@@ -1060,7 +1060,7 @@ def location_accesses(
         # Create satellite propagators
         epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-        state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+        state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
         prop1 = bh.KeplerianPropagator(epoch, state)
 
         # Define access constraints
@@ -1317,7 +1317,7 @@ def par_propagate_to(propagators, target_epoch):
         propagators = []
         for i in range(10):
             oe = np.array([bh.R_EARTH + 500e3 + i*10e3, 0.001, 98.0, i*10.0, 0.0, 0.0])
-            state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+            state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
             prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
             propagators.append(prop)
 
@@ -2589,7 +2589,7 @@ def set_num_threads(n):
         time to reconfigure the thread pool.
     """
 
-def state_cartesian_to_osculating(x_cart, angle_format):
+def state_eci_to_koe(x_cart, angle_format):
     """
     Convert Cartesian state to osculating orbital elements.
 
@@ -2615,7 +2615,7 @@ def state_cartesian_to_osculating(x_cart, angle_format):
 
         # Cartesian state vector
         x_cart = np.array([7000000.0, 0.0, 0.0, 0.0, 7546.0, 0.0])  # [x, y, z, vx, vy, vz]
-        oe = bh.state_cartesian_to_osculating(x_cart, bh.AngleFormat.RADIANS)
+        oe = bh.state_eci_to_koe(x_cart, bh.AngleFormat.RADIANS)
         print(f"Orbital elements: a={oe[0]:.0f}m, e={oe[1]:.6f}, i={oe[2]:.6f} rad")
         ```
     """
@@ -2713,8 +2713,8 @@ def state_eci_to_rtn(x_chief, x_deputy):
         oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
 
         # Convert to Cartesian states
-        x_chief = bh.state_osculating_to_cartesian(oe_chief, bh.AngleFormat.DEGREES)
-        x_deputy = bh.state_osculating_to_cartesian(oe_deputy, bh.AngleFormat.DEGREES)
+        x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+        x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
 
         # Transform to relative RTN state
         x_rel_rtn = bh.state_eci_to_rtn(x_chief, x_deputy)
@@ -2885,7 +2885,7 @@ def state_oe_to_roe(oe_chief, oe_deputy, angle_format):
         ```
     """
 
-def state_osculating_to_cartesian(x_oe, angle_format):
+def state_koe_to_eci(x_oe, angle_format):
     """
     Convert osculating orbital elements to Cartesian state.
 
@@ -2911,7 +2911,7 @@ def state_osculating_to_cartesian(x_oe, angle_format):
 
         # Orbital elements for a circular orbit
         oe = np.array([7000000.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # a, e, i, RAAN, omega, M
-        x_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+        x_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
         print(f"Cartesian state: {x_cart}")
         ```
     """
@@ -2970,7 +2970,7 @@ def state_rtn_to_eci(x_chief, x_rel_rtn):
 
         # Define chief state and relative RTN state
         oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
-        x_chief = bh.state_osculating_to_cartesian(oe_chief, bh.AngleFormat.DEGREES)
+        x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
 
         # Relative state: 1km radial, 0.5km along-track, -0.3km cross-track
         x_rel_rtn = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])

@@ -763,8 +763,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEllipsoidalConversionType>()?;
 
     // Cartesian
-    module.add_function(wrap_pyfunction!(py_state_osculating_to_cartesian, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_cartesian_to_osculating, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;

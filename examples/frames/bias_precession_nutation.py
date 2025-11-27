@@ -39,7 +39,7 @@ oe = np.array(
 )
 
 # Convert to GCRF (ECI) position
-state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_gcrf = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 pos_gcrf = state_gcrf[0:3]
 
 print("Satellite position in GCRF:")

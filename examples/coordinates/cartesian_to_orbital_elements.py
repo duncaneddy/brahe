@@ -16,7 +16,7 @@ state = np.array(
 )
 
 # Convert orbital elements to Cartesian state using degrees
-oe_deg = bh.state_cartesian_to_osculating(state, bh.AngleFormat.DEGREES)
+oe_deg = bh.state_eci_to_koe(state, bh.AngleFormat.DEGREES)
 print("Osculating state [a, e, i, Ω, ω, M] (deg):")
 print(f"Semi-major axis (m): {oe_deg[0]:.3f}")
 print(f"Eccentricity: {oe_deg[1]:.6f}")
@@ -33,7 +33,7 @@ print(f"Mean anomaly (deg): {oe_deg[5]:.6f}")
 # Mean anomaly (deg): 45.000000
 
 # You can also convert using radians
-oe_rad = bh.state_cartesian_to_osculating(state, bh.AngleFormat.RADIANS)
+oe_rad = bh.state_eci_to_koe(state, bh.AngleFormat.RADIANS)
 print("\nOsculating state [a, e, i, Ω, ω, M] (rad):")
 print(f"Semi-major axis (m): {oe_rad[0]:.3f}")
 print(f"Eccentricity: {oe_rad[1]:.6f}")

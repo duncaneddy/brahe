@@ -22,7 +22,7 @@ print(
 )
 
 # Convert Keplerian state to ECI coordinates
-state_eci = bh.state_osculating_to_cartesian(state_kep, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(state_kep, bh.AngleFormat.DEGREES)
 print(
     f"ECI State: {state_eci[0] / 1e3:.3f} km, {state_eci[1] / 1e3:.3f} km, {state_eci[2] / 1e3:.3f} km, {state_eci[3]:.3f} m/s, {state_eci[4]:.3f} m/s, {state_eci[5]:.3f} m/s"
 )
@@ -44,7 +44,7 @@ print(
 )
 
 # Convert back from ECI to Keplerian elements
-state_kep_2 = bh.state_cartesian_to_osculating(state_eci_2, bh.AngleFormat.DEGREES)
+state_kep_2 = bh.state_eci_to_koe(state_eci_2, bh.AngleFormat.DEGREES)
 print(
     f"Converted back Keplerian State: {state_kep_2[0]:.3f} m, {state_kep_2[1]:.6f}, {state_kep_2[2]:.3f} deg, {state_kep_2[3]:.3f} deg, {state_kep_2[4]:.3f} deg, {state_kep_2[5]:.3f} deg"
 )

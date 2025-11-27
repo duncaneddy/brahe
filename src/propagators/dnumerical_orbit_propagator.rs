@@ -45,7 +45,7 @@ use crate::utils::identifiable::Identifiable;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
 };
-use crate::{AngleFormat, state_cartesian_to_osculating};
+use crate::{AngleFormat, state_eci_to_koe};
 
 use super::TrajectoryMode;
 use super::traits::DStatePropagator;
@@ -1838,7 +1838,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
         let eci_state = self.state_eci(epoch)?;
-        Ok(state_cartesian_to_osculating(eci_state, angle_format))
+        Ok(state_eci_to_koe(eci_state, angle_format))
     }
 }
 
@@ -2043,7 +2043,7 @@ mod tests {
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
-    use crate::{orbital_period, state_osculating_to_cartesian};
+    use crate::{orbital_period, state_koe_to_eci};
 
     fn setup_global_test_eop() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -2782,8 +2782,7 @@ mod tests {
 
         // Convert to Keplerian and back
         let keplerian = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
-        let cartesian_from_keplerian =
-            state_osculating_to_cartesian(keplerian, AngleFormat::Degrees);
+        let cartesian_from_keplerian = state_koe_to_eci(keplerian, AngleFormat::Degrees);
 
         // Verify round-trip accuracy
         for i in 0..6 {
@@ -3792,7 +3791,7 @@ mod tests {
         let ta = 0.0;
 
         let oe = DVector::from_vec(vec![a, e, i, raan, argp, ta]);
-        let state = state_osculating_to_cartesian(
+        let state = state_koe_to_eci(
             Vector6::from_column_slice(oe.as_slice()),
             AngleFormat::Radians,
         );
@@ -3842,7 +3841,7 @@ mod tests {
         let ta = 0.0;
 
         let oe = DVector::from_vec(vec![a, e, i, raan, argp, ta]);
-        let state = state_osculating_to_cartesian(
+        let state = state_koe_to_eci(
             Vector6::from_column_slice(oe.as_slice()),
             AngleFormat::Radians,
         );
@@ -3891,7 +3890,7 @@ mod tests {
         let argp = 0.0;
         let mean_anomaly = 0.0;
         let oe = DVector::from_vec(vec![a, e, i, raan, argp, mean_anomaly]);
-        let state = state_osculating_to_cartesian(
+        let state = state_koe_to_eci(
             Vector6::from_column_slice(oe.as_slice()),
             AngleFormat::Degrees,
         );
@@ -4557,7 +4556,7 @@ mod tests {
         let ta = 0.0; // Start at perigee
 
         let oe = DVector::from_vec(vec![a, e, i, raan, argp, ta]);
-        let state = state_osculating_to_cartesian(
+        let state = state_koe_to_eci(
             Vector6::from_column_slice(oe.as_slice()),
             AngleFormat::Radians,
         );
@@ -4740,7 +4739,7 @@ mod tests {
         let ta = 0.0;
 
         let oe = DVector::from_vec(vec![a, e, i, raan, argp, ta]);
-        let state = state_osculating_to_cartesian(
+        let state = state_koe_to_eci(
             Vector6::from_column_slice(oe.as_slice()),
             AngleFormat::Radians,
         );
@@ -4800,11 +4799,11 @@ mod tests {
         let state_ref = prop_ref.current_state();
         let state_test = prop_test.current_state();
 
-        let oe_ref = state_cartesian_to_osculating(
+        let oe_ref = state_eci_to_koe(
             Vector6::from_column_slice(state_ref.as_slice()),
             AngleFormat::Radians,
         );
-        let oe_test = state_cartesian_to_osculating(
+        let oe_test = state_eci_to_koe(
             Vector6::from_column_slice(state_test.as_slice()),
             AngleFormat::Radians,
         );
@@ -4848,7 +4847,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.001, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         // Create numerical propagator with point mass gravity
         let mut num_prop = DNumericalOrbitPropagator::new(
@@ -4906,7 +4905,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let a = R_EARTH + 500e3;
         let oe = nalgebra::Vector6::new(a, 0.01, 45.0_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5007,7 +5006,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.001, 45.0_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5052,7 +5051,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 55.0_f64, 30.0_f64, 45.0_f64, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5103,7 +5102,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.001, 45.0_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5150,7 +5149,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe_initial =
             nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 55.0_f64, 30.0_f64, 45.0_f64, 0.0);
-        let state = state_osculating_to_cartesian(oe_initial, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe_initial, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5170,10 +5169,8 @@ mod tests {
 
         // Get final orbital elements
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Radians,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Radians);
 
         // Semi-major axis should remain stable (< 1 km drift)
         let a_drift = (oe_final[0] - oe_initial[0]).abs();
@@ -5209,7 +5206,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5257,7 +5254,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5304,7 +5301,7 @@ mod tests {
             0.0, 270.0_f64, // Argument of perigee
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5330,10 +5327,8 @@ mod tests {
 
         // Verify eccentricity is preserved
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Radians,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Radians);
 
         let e_error = (oe_final[1] - oe[1]).abs();
         assert!(
@@ -5357,7 +5352,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5377,10 +5372,8 @@ mod tests {
 
         // Verify orbit remains nearly circular
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Radians,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Radians);
 
         assert!(
             oe_final[1] < 0.001,
@@ -5415,7 +5408,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5441,10 +5434,8 @@ mod tests {
 
         // Eccentricity should be preserved
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Radians,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Radians);
         assert!(
             (oe_final[1] - oe[1]).abs() < 0.01,
             "High eccentricity should be preserved, e_error = {:.6}",
@@ -5466,7 +5457,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5505,7 +5496,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -5525,10 +5516,8 @@ mod tests {
 
         // Verify polar inclination is preserved (two-body gravity preserves inclination exactly)
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Degrees,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Degrees);
 
         assert!(
             (oe_final[2] - oe[2]).abs() < 0.01,
@@ -6680,7 +6669,7 @@ mod tests {
             0.0,             // ω
             0.0,             // M
         );
-        let state_initial = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state_initial = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         // Use J2-only gravity model (2x0 spherical harmonic)
         let force_config = ForceModelConfiguration {
@@ -6712,10 +6701,8 @@ mod tests {
         prop.step_by(86400.0);
 
         let state_final = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            state_final.fixed_rows::<6>(0).into(),
-            AngleFormat::Degrees,
-        );
+        let oe_final =
+            state_eci_to_koe(state_final.fixed_rows::<6>(0).into(), AngleFormat::Degrees);
 
         // Verify J2 effects are present
         // For sun-sync orbit at 97.8°, J2 causes RAAN regression
@@ -7123,7 +7110,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe_initial, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe_initial, AngleFormat::Degrees);
 
         let force_config = ForceModelConfiguration {
             mass: Some(ParameterSource::ParameterIndex(0)),
@@ -7155,10 +7142,8 @@ mod tests {
         prop.step_by(10.0 * orbital_period);
 
         let final_state = prop.current_state();
-        let oe_final = state_cartesian_to_osculating(
-            final_state.fixed_rows::<6>(0).into(),
-            AngleFormat::Degrees,
-        );
+        let oe_final =
+            state_eci_to_koe(final_state.fixed_rows::<6>(0).into(), AngleFormat::Degrees);
 
         // Semi-major axis should decrease significantly due to drag
         let delta_a = oe_final[0] - oe_initial[0];
@@ -7443,7 +7428,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_force_third_body_planets_de440s() {
+    fn test_dnumericalorbitpropagator_force_third_body_planets_de() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
         setup_global_test_eop();
@@ -8164,7 +8149,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8205,7 +8190,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8245,7 +8230,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8329,7 +8314,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8391,7 +8376,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8453,7 +8438,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         // Test with Forward difference
@@ -8550,7 +8535,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8596,7 +8581,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8668,7 +8653,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8715,7 +8700,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let mut config = NumericalPropagationConfig::default();
@@ -8783,7 +8768,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         // Nominal parameters: [mass, Cd, Cr, area, reflectivity]
@@ -8878,7 +8863,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![500.0, 2.2, 1.5, 10.0, 0.3]);
@@ -8936,7 +8921,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 400e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![500.0, 2.2, 1.5, 10.0, 0.3]);
@@ -9001,7 +8986,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![1000.0, 2.2, 1.5, 20.0, 0.3]);
@@ -9057,7 +9042,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![500.0, 2.2, 1.5]);
@@ -9100,7 +9085,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![500.0, 2.2]);
@@ -9154,7 +9139,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let oe = nalgebra::Vector6::new(R_EARTH + 500e3, 0.01, 97.8_f64, 0.0, 0.0, 0.0);
-        let state = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let state_dvec = DVector::from_vec(state.as_slice().to_vec());
 
         let params = DVector::from_vec(vec![500.0]);

@@ -23,7 +23,7 @@ state_oe = np.array(
     ]
 )
 state_ecef = bh.state_eci_to_ecef(
-    epc, bh.state_osculating_to_cartesian(state_oe, bh.AngleFormat.DEGREES)
+    epc, bh.state_koe_to_eci(state_oe, bh.AngleFormat.DEGREES)
 )
 print("ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):")
 print(f"Position: [{state_ecef[0]:.3f}, {state_ecef[1]:.3f}, {state_ecef[2]:.3f}]")

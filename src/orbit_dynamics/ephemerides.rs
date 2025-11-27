@@ -90,7 +90,7 @@ pub fn set_global_almanac(almanac: anise_prelude::Almanac) {
 /// This function downloads (or uses a cached copy of) the NAIF DE440s ephemeris
 /// kernel and sets it as the global Almanac provider. This initialization is
 /// optional - if not called, the Almanac will be lazily initialized on the first
-/// call to `sun_position_de440s()` or `moon_position_de440s()`.
+/// call to `sun_position_de()` or `moon_position_de()`.
 ///
 /// Calling this function explicitly is recommended when you want to:
 /// - Control when the kernel download/loading occurs (avoid latency on first use)
@@ -1184,16 +1184,16 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_sun_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_sun_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         let r_sun_analytical = sun_position(epc);
-        let r_sun_de440s = sun_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let r_sun_de = sun_position_de(epc, EphemerisSource::DE440s).unwrap();
 
         // Compute the dot product and confirm the angle is less than 1 degree
         let dot_product =
-            r_sun_analytical.dot(&r_sun_de440s) / (r_sun_analytical.norm() * r_sun_de440s.norm());
+            r_sun_analytical.dot(&r_sun_de) / (r_sun_analytical.norm() * r_sun_de.norm());
         let angle = dot_product.acos() * (180.0 / std::f64::consts::PI);
 
         assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-1);
@@ -1209,16 +1209,16 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_moon_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_moon_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         let r_moon_analytical = moon_position(epc);
-        let r_moon_de440s = moon_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let r_moon_de = moon_position_de(epc, EphemerisSource::DE440s).unwrap();
 
         // Compute the dot product and confirm the angle is less than 1 degree
-        let dot_product = r_moon_analytical.dot(&r_moon_de440s)
-            / (r_moon_analytical.norm() * r_moon_de440s.norm());
+        let dot_product =
+            r_moon_analytical.dot(&r_moon_de) / (r_moon_analytical.norm() * r_moon_de.norm());
         let angle = dot_product.acos() * (180.0 / std::f64::consts::PI);
 
         assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-1);
@@ -1234,12 +1234,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_jupiter_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_jupiter_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_jupiter_de440s = jupiter_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_jupiter_de = jupiter_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1252,12 +1252,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_mars_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_mars_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_mars_de440s = mars_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_mars_de = mars_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1270,12 +1270,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_mercury_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_mercury_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_mercury_de440s = mercury_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_mercury_de = mercury_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1288,12 +1288,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_neptune_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_neptune_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_neptune_de440s = neptune_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_neptune_de = neptune_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1306,12 +1306,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_saturn_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_saturn_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_saturn_de440s = saturn_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_saturn_de = saturn_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1324,12 +1324,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_uranus_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_uranus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_uranus_de440s = uranus_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_uranus_de = uranus_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1342,12 +1342,12 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_venus_position_de440s(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
+    fn test_venus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_venus_de440s = venus_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_venus_de = venus_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[rstest]
@@ -1360,7 +1360,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
-    fn test_solar_system_barycenter_position_de440s(
+    fn test_solar_system_barycenter_position_de(
         #[case] year: u32,
         #[case] month: u8,
         #[case] day: u8,
@@ -1369,8 +1369,7 @@ mod tests {
 
         let epc = Epoch::from_date(year, month, day, TimeSystem::UTC);
         // Just call and ensure no panic occurs
-        let _r_ssb_de440s =
-            solar_system_barycenter_position_de(epc, EphemerisSource::DE440s).unwrap();
+        let _r_ssb_de = solar_system_barycenter_position_de(epc, EphemerisSource::DE440s).unwrap();
     }
 
     #[test]

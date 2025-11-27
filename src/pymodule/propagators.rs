@@ -2157,6 +2157,49 @@ pub struct PyVariationalConfig {
 
 #[pymethods]
 impl PyVariationalConfig {
+    /// Create a new variational configuration.
+    ///
+    /// Args:
+    ///     enable_stm (bool): Enable State Transition Matrix propagation. Defaults to False.
+    ///     enable_sensitivity (bool): Enable sensitivity matrix propagation. Defaults to False.
+    ///     store_stm_history (bool): Store STM at output times. Defaults to False.
+    ///     store_sensitivity_history (bool): Store sensitivity at output times. Defaults to False.
+    ///
+    /// Returns:
+    ///     VariationalConfig: A new configuration with the specified settings
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Default (all disabled)
+    ///     config = bh.VariationalConfig()
+    ///
+    ///     # Enable STM propagation
+    ///     config = bh.VariationalConfig(enable_stm=True)
+    ///
+    ///     # Enable STM with history storage
+    ///     config = bh.VariationalConfig(enable_stm=True, store_stm_history=True)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (enable_stm=false, enable_sensitivity=false, store_stm_history=false, store_sensitivity_history=false))]
+    fn new(
+        enable_stm: bool,
+        enable_sensitivity: bool,
+        store_stm_history: bool,
+        store_sensitivity_history: bool,
+    ) -> Self {
+        PyVariationalConfig {
+            config: propagators::VariationalConfig {
+                enable_stm,
+                enable_sensitivity,
+                store_stm_history,
+                store_sensitivity_history,
+                ..Default::default()
+            },
+        }
+    }
+
     /// Enable State Transition Matrix (STM) propagation.
     #[getter]
     fn get_enable_stm(&self) -> bool {
@@ -2852,6 +2895,42 @@ impl PyNumericalPropagationConfig {
     fn high_precision(_cls: &Bound<'_, PyType>) -> Self {
         PyNumericalPropagationConfig {
             config: propagators::NumericalPropagationConfig::high_precision(),
+        }
+    }
+
+    /// Creates a new numerical propagation configuration with all components specified.
+    ///
+    /// Args:
+    ///     method (IntegrationMethod): Integration method to use
+    ///     integrator (IntegratorConfig): Integrator configuration (tolerances, step sizes)
+    ///     variational (VariationalConfig): Variational configuration (STM/sensitivity settings)
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: A new configuration with the specified settings
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.NumericalPropagationConfig.new(
+    ///         bh.IntegrationMethod.DP54,
+    ///         bh.IntegratorConfig.adaptive(1e-10, 1e-8),
+    ///         bh.VariationalConfig(),
+    ///     )
+    ///     ```
+    #[staticmethod]
+    #[pyo3(name = "new")]
+    fn py_new(
+        method: &PyIntegrationMethod,
+        integrator: &PyIntegratorConfig,
+        variational: &PyVariationalConfig,
+    ) -> Self {
+        PyNumericalPropagationConfig {
+            config: propagators::NumericalPropagationConfig::new(
+                method.method,
+                integrator.inner.clone(),
+                variational.config.clone(),
+            ),
         }
     }
 

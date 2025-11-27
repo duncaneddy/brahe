@@ -340,6 +340,44 @@ impl NumericalPropagationConfig {
         }
     }
 
+    /// Creates a new numerical propagation configuration with all components specified.
+    ///
+    /// # Arguments
+    ///
+    /// * `method` - Integration method to use (RK4, RKF45, DP54, or RKN1210)
+    /// * `integrator` - Integrator configuration (tolerances, step sizes)
+    /// * `variational` - Variational configuration (STM and sensitivity settings)
+    ///
+    /// # Returns
+    ///
+    /// A new `NumericalPropagationConfig` with the specified settings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::propagators::{
+    ///     NumericalPropagationConfig, IntegratorMethod, VariationalConfig
+    /// };
+    /// use brahe::integrators::IntegratorConfig;
+    ///
+    /// let config = NumericalPropagationConfig::new(
+    ///     IntegratorMethod::DP54,
+    ///     IntegratorConfig::adaptive(1e-10, 1e-8),
+    ///     VariationalConfig::default(),
+    /// );
+    /// ```
+    pub fn new(
+        method: IntegratorMethod,
+        integrator: IntegratorConfig,
+        variational: VariationalConfig,
+    ) -> Self {
+        Self {
+            method,
+            integrator,
+            variational,
+        }
+    }
+
     /// Create high-precision configuration with tight tolerances
     ///
     /// Uses:
@@ -468,6 +506,24 @@ mod tests {
         let config = NumericalPropagationConfig::default();
 
         assert!(!config.variational.enable_stm);
+        assert!(!config.variational.enable_sensitivity);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_new() {
+        let config = NumericalPropagationConfig::new(
+            IntegratorMethod::RKN1210,
+            IntegratorConfig::adaptive(1e-12, 1e-10),
+            VariationalConfig {
+                enable_stm: true,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(config.method, IntegratorMethod::RKN1210);
+        assert_eq!(config.integrator.abs_tol, 1e-12);
+        assert_eq!(config.integrator.rel_tol, 1e-10);
+        assert!(config.variational.enable_stm);
         assert!(!config.variational.enable_sensitivity);
     }
 }

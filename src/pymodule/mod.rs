@@ -527,13 +527,13 @@ include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
 include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
+include!("integrators.rs"); // Must come before propagators.rs (uses PyIntegratorConfig)
 include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
 include!("relative_motion.rs");
 include!("math.rs");
-include!("integrators.rs");
 include!("utils.rs");
 include!("earth_models.rs");
 include!("events.rs");

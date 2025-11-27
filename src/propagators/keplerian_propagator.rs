@@ -654,8 +654,9 @@ impl DOrbitStateProvider for KeplerianPropagator {
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(state_eci),
             OrbitFrame::ECEF => Ok(state_ecef_to_eci(epoch, state_eci)),
             OrbitFrame::ITRF => {
-                let state_gcrf = state_itrf_to_gcrf(epoch, state_eci);
-                Ok(state_gcrf)
+                // This should not be possible due to validation, but handle just in case
+                // Since GCRF is requested but frame is ITRF we just return GCRF
+                Ok(state_eci)
             }
             OrbitFrame::EME2000 => Ok(state_eme2000_to_gcrf(state_eci)),
         }

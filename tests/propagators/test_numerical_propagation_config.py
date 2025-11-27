@@ -6,7 +6,9 @@ These tests mirror the Rust tests from src/propagators/numerical_propagation_con
 
 from brahe import (
     IntegrationMethod,
+    IntegratorConfig,
     NumericalPropagationConfig,
+    VariationalConfig,
 )
 
 
@@ -61,3 +63,33 @@ def test_numericalpropagationconfig_tolerances():
     config = NumericalPropagationConfig.default()
     assert config.abs_tol > 0
     assert config.rel_tol > 0
+
+
+def test_numericalpropagationconfig_new():
+    """Test NumericalPropagationConfig.new() constructor with all components"""
+    config = NumericalPropagationConfig.new(
+        IntegrationMethod.RKN1210,
+        IntegratorConfig.adaptive(1e-12, 1e-10),
+        VariationalConfig(),
+    )
+
+    # Check method via repr since __eq__ may not be implemented
+    assert "RKN1210" in repr(config.method)
+    assert config.abs_tol == 1e-12
+    assert config.rel_tol == 1e-10
+
+
+def test_numericalpropagationconfig_new_with_variational():
+    """Test NumericalPropagationConfig.new() with non-default variational config"""
+    variational = VariationalConfig(enable_stm=True, store_stm_history=True)
+    config = NumericalPropagationConfig.new(
+        IntegrationMethod.DP54,
+        IntegratorConfig.adaptive(1e-8, 1e-6),
+        variational,
+    )
+
+    assert config.abs_tol == 1e-8
+    assert config.rel_tol == 1e-6
+    assert config.variational.enable_stm is True
+    assert config.variational.store_stm_history is True
+    assert config.variational.enable_sensitivity is False

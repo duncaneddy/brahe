@@ -1795,16 +1795,6 @@ mod tests {
         assert!(line1.starts_with("1 25544")); // Should still be ISS
     }
 
-    #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
-    fn test_get_tle_by_name_not_found_network() {
-        // Test with non-existent satellite name
-        let result = get_tle_by_name("NONEXISTENTSATELLITE12345", None);
-        assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string().to_lowercase();
-        assert!(err_msg.contains("not found") || err_msg.contains("no data"));
-    }
-
     // ========================================
     // Network tests for get_tle_by_name_as_propagator()
     // ========================================

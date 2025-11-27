@@ -398,11 +398,48 @@ def generate_class_stub(name: str, cls: type) -> str:
     # First add __init__ if it exists
     if hasattr(cls, "__init__"):
         try:
-            init_params = parse_init_params_from_docstring(doc)
-            # If no parameters were found in docstring, use empty signature
-            # This happens for classes without explicit #[new] in PyO3
-            if init_params == "self, /, *args: Any, **kwargs: Any":
-                init_params = "self"
+            # Try to get actual signature from inspect first (captures defaults from pyo3)
+            try:
+                sig = inspect.signature(cls)
+                params = []
+                for param_name, param in sig.parameters.items():
+                    if param_name == "self":
+                        continue
+                    # Get type from docstring if available
+                    param_type = "Any"
+                    docstring_params = parse_params_from_docstring(doc)
+                    for dp_name, dp_type, _, _ in docstring_params:
+                        if dp_name == param_name:
+                            param_type = dp_type
+                            break
+
+                    if param.default is not inspect.Parameter.empty:
+                        # Format default value
+                        default = param.default
+                        if default is None:
+                            default_str = "None"
+                        elif isinstance(default, bool):
+                            default_str = str(default)
+                        elif isinstance(default, str):
+                            default_str = repr(default)
+                        else:
+                            default_str = str(default)
+                        params.append(f"{param_name}: {param_type} = {default_str}")
+                    else:
+                        params.append(f"{param_name}: {param_type}")
+
+                if params:
+                    init_params = "self, " + ", ".join(params)
+                else:
+                    init_params = "self"
+            except (ValueError, TypeError):
+                # Fall back to docstring parsing if signature not available
+                init_params = parse_init_params_from_docstring(doc)
+                # If no parameters were found in docstring, use empty signature
+                # This happens for classes without explicit #[new] in PyO3
+                if init_params == "self, /, *args: Any, **kwargs: Any":
+                    init_params = "self"
+
             lines.append(f"    def __init__({init_params}) -> None:")
             lines.append('        """Initialize instance."""')
             lines.append("        ...")

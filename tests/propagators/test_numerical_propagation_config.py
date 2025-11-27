@@ -66,8 +66,8 @@ def test_numericalpropagationconfig_tolerances():
 
 
 def test_numericalpropagationconfig_new():
-    """Test NumericalPropagationConfig.new() constructor with all components"""
-    config = NumericalPropagationConfig.new(
+    """Test NumericalPropagationConfig() constructor with all components"""
+    config = NumericalPropagationConfig(
         IntegrationMethod.RKN1210,
         IntegratorConfig.adaptive(1e-12, 1e-10),
         VariationalConfig(),
@@ -80,9 +80,9 @@ def test_numericalpropagationconfig_new():
 
 
 def test_numericalpropagationconfig_new_with_variational():
-    """Test NumericalPropagationConfig.new() with non-default variational config"""
+    """Test NumericalPropagationConfig() with non-default variational config"""
     variational = VariationalConfig(enable_stm=True, store_stm_history=True)
-    config = NumericalPropagationConfig.new(
+    config = NumericalPropagationConfig(
         IntegrationMethod.DP54,
         IntegratorConfig.adaptive(1e-8, 1e-6),
         variational,

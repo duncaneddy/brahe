@@ -1012,6 +1012,27 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyValueEvent>()?;
     module.add_class::<PyBinaryEvent>()?;
     module.add_class::<PyAltitudeEvent>()?;
+    // Orbital element events
+    module.add_class::<PySemiMajorAxisEvent>()?;
+    module.add_class::<PyEccentricityEvent>()?;
+    module.add_class::<PyInclinationEvent>()?;
+    module.add_class::<PyArgumentOfPerigeeEvent>()?;
+    module.add_class::<PyMeanAnomalyEvent>()?;
+    module.add_class::<PyEccentricAnomalyEvent>()?;
+    module.add_class::<PyTrueAnomalyEvent>()?;
+    module.add_class::<PyArgumentOfLatitudeEvent>()?;
+    // Node crossing events
+    module.add_class::<PyAscendingNodeEvent>()?;
+    module.add_class::<PyDescendingNodeEvent>()?;
+    // State-derived events
+    module.add_class::<PySpeedEvent>()?;
+    module.add_class::<PyLongitudeEvent>()?;
+    module.add_class::<PyLatitudeEvent>()?;
+    // Eclipse/shadow events
+    module.add_class::<PyUmbraEvent>()?;
+    module.add_class::<PyPenumbraEvent>()?;
+    module.add_class::<PyEclipseEvent>()?;
+    module.add_class::<PySunlitEvent>()?;
 
     //* Utils *//
     // Cache Management

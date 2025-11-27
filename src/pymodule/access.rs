@@ -2992,18 +2992,38 @@ impl PyAdditionalPropertiesDict {
 /// Determines how many times and when to sample satellite states during
 /// an access window for property calculations.
 ///
+/// Args:
+///     relative_times (list[float], optional): Relative times from 0.0 (start) to 1.0 (end).
+///         If provided, uses relative points sampling.
+///     interval (float, optional): Time between samples (seconds). If provided with offset,
+///         uses fixed interval sampling.
+///     offset (float, optional): Time offset from window start (seconds). Used with interval.
+///     count (int, optional): Number of evenly-spaced sample points. If provided,
+///         uses fixed count sampling.
+///
+/// Note:
+///     If no parameters are provided, defaults to midpoint sampling.
+///     Parameters are checked in priority order: relative_times, interval+offset, count.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Sample at start, middle, and end
+///     # Midpoint (default)
+///     config = bh.SamplingConfig()
+///
+///     # Relative points
+///     config = bh.SamplingConfig(relative_times=[0.0, 0.5, 1.0])
+///
+///     # Fixed interval
+///     config = bh.SamplingConfig(interval=0.1, offset=0.0)
+///
+///     # Fixed count
+///     config = bh.SamplingConfig(count=10)
+///
+///     # Or use convenience static methods
+///     config = bh.SamplingConfig.midpoint()
 ///     config = bh.SamplingConfig.relative_points([0.0, 0.5, 1.0])
-///
-///     # Sample every 0.1 seconds
-///     config = bh.SamplingConfig.fixed_interval(0.1, 0.0)
-///
-///     # Sample at 10 evenly-spaced points
-///     config = bh.SamplingConfig.fixed_count(10)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SamplingConfig")]
@@ -3014,6 +3034,47 @@ pub struct PySamplingConfig {
 
 #[pymethods]
 impl PySamplingConfig {
+    /// Create a sampling configuration.
+    ///
+    /// Args:
+    ///     relative_times (list[float], optional): Relative times from 0.0 to 1.0.
+    ///     interval (float, optional): Time between samples (seconds).
+    ///     offset (float, optional): Time offset from window start (seconds).
+    ///     count (int, optional): Number of evenly-spaced sample points.
+    ///
+    /// Returns:
+    ///     SamplingConfig: Sampling configuration.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Midpoint (default)
+    ///     config = bh.SamplingConfig()
+    ///
+    ///     # Relative points
+    ///     config = bh.SamplingConfig(relative_times=[0.0, 0.5, 1.0])
+    ///     ```
+    #[new]
+    #[pyo3(signature = (relative_times=None, interval=None, offset=None, count=None))]
+    fn new(
+        relative_times: Option<Vec<f64>>,
+        interval: Option<f64>,
+        offset: Option<f64>,
+        count: Option<usize>,
+    ) -> Self {
+        let config = if let Some(times) = relative_times {
+            SamplingConfig::RelativePoints(times)
+        } else if let (Some(int), Some(off)) = (interval, offset) {
+            SamplingConfig::FixedInterval { interval: int, offset: off }
+        } else if let Some(c) = count {
+            SamplingConfig::FixedCount(c)
+        } else {
+            SamplingConfig::Midpoint
+        };
+        PySamplingConfig { config }
+    }
+
     /// Create a midpoint sampling configuration (single sample at window center).
     ///
     /// Returns:

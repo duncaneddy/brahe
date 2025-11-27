@@ -84,7 +84,49 @@ pub mod traits;
 // Re-export main types
 pub use common::{DBinaryEvent, DTimeEvent, DValueEvent, SBinaryEvent, STimeEvent, SValueEvent};
 pub use detection::{dscan_for_event, sscan_for_event};
-pub use premade::{DAltitudeEvent, SAltitudeEvent};
+pub use premade::{
+    // Altitude events
+    DAltitudeEvent,
+    // Orbital element events
+    DArgumentOfLatitudeEvent,
+    DArgumentOfPerigeeEvent,
+    // Node crossing events
+    DAscendingNodeEvent,
+    DDescendingNodeEvent,
+    DEccentricAnomalyEvent,
+    DEccentricityEvent,
+    // Eclipse/shadow events
+    DEclipseEvent,
+    DInclinationEvent,
+    // State-derived events
+    DLatitudeEvent,
+    DLongitudeEvent,
+    DMeanAnomalyEvent,
+    DPenumbraEvent,
+    DSemiMajorAxisEvent,
+    DSpeedEvent,
+    DSunlitEvent,
+    DTrueAnomalyEvent,
+    DUmbraEvent,
+    SAltitudeEvent,
+    SArgumentOfLatitudeEvent,
+    SArgumentOfPerigeeEvent,
+    SAscendingNodeEvent,
+    SDescendingNodeEvent,
+    SEccentricAnomalyEvent,
+    SEccentricityEvent,
+    SEclipseEvent,
+    SInclinationEvent,
+    SLatitudeEvent,
+    SLongitudeEvent,
+    SMeanAnomalyEvent,
+    SPenumbraEvent,
+    SSemiMajorAxisEvent,
+    SSpeedEvent,
+    SSunlitEvent,
+    STrueAnomalyEvent,
+    SUmbraEvent,
+};
 pub use query::EventQuery;
 pub use traits::{
     DDetectedEvent, DEventCallback, DEventDetector, EdgeType, EventAction, EventDirection,

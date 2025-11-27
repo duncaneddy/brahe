@@ -8,7 +8,7 @@ Celestial body position calculations for Sun, Moon, and planets.
 
 ::: brahe.moon_position
 
-## DE440s Ephemerides
+## DE440 Ephemerides
 
 ::: brahe.initialize_ephemeris
 

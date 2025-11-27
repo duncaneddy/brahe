@@ -203,7 +203,7 @@ where
     /// use brahe::events::EventType;
     ///
     /// let events: Vec<_> = propagator.query_events()
-    ///     .by_event_type(EventType::Period)
+    ///     .by_event_type(EventType::Window)
     ///     .collect();
     /// ```
     pub fn by_event_type(

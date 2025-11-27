@@ -461,24 +461,13 @@ impl PyDetectedEvent {
 ///     target_epoch (Epoch): Target time for event detection
 ///     name (str): Event name for identification
 ///
-/// Returns:
-///     TimeEvent: New time event detector
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Create event at specific time
 ///     target = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///     event = bh.TimeEvent(target, "Maneuver Start")
-///
-///     # Make it terminal (stops propagation)
 ///     event = event.is_terminal()
-///
-///     # Chain builder methods
-///     event = (bh.TimeEvent(target, "Checkpoint")
-///              .with_instance(1)
-///              .is_terminal())
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TimeEvent")]
@@ -497,6 +486,7 @@ impl PyTimeEvent {
     /// Returns:
     ///     TimeEvent: New time event detector
     #[new]
+    #[pyo3(signature = (target_epoch, name))]
     fn new(target_epoch: PyRef<PyEpoch>, name: String) -> PyResult<Self> {
         let event = events::DTimeEvent::new(target_epoch.obj, name);
         Ok(PyTimeEvent { event: Some(event) })
@@ -685,15 +675,11 @@ impl PyTimeEvent {
 ///     target_value (float): Target value for crossing detection
 ///     direction (EventDirection): Detection direction (INCREASING, DECREASING, or ANY)
 ///
-/// Returns:
-///     ValueEvent: New value event detector
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     # Custom value function: radial distance
 ///     def radial_distance(epoch, state):
 ///         return np.linalg.norm(state[:3])
 ///
@@ -703,9 +689,6 @@ impl PyTimeEvent {
 ///         bh.R_EARTH + 500e3,
 ///         bh.EventDirection.DECREASING
 ///     )
-///
-///     # Can chain builder methods
-///     event = event.with_tolerances(1e-3, 1e-6).is_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ValueEvent")]
@@ -729,6 +712,7 @@ impl PyValueEvent {
     /// Returns:
     ///     ValueEvent: New value event detector
     #[new]
+    #[pyo3(signature = (name, value_fn, target_value, direction))]
     #[allow(deprecated)]
     fn new(
         py: Python<'_>,
@@ -918,27 +902,19 @@ impl PyValueEvent {
 ///     condition_fn (callable): Function (epoch, state) -> bool that returns the condition
 ///     edge (EdgeType): Which edge to detect (RISING_EDGE, FALLING_EDGE, or ANY_EDGE)
 ///
-/// Returns:
-///     BinaryEvent: New binary event detector
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Detect eclipse entry (sunlit → shadow)
 ///     def is_sunlit(epoch, state):
-///         # Simplified: check if position is on sunward side
 ///         pos = state[:3]
-///         return pos[0] > 0  # Simple hemisphere check
+///         return pos[0] > 0
 ///
 ///     event = bh.BinaryEvent(
 ///         "Eclipse Entry",
 ///         is_sunlit,
-///         bh.EdgeType.FALLING_EDGE  # true → false
+///         bh.EdgeType.FALLING_EDGE
 ///     )
-///
-///     # Chain builder methods
-///     event = event.with_tolerances(1e-3, 1e-6).is_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "BinaryEvent")]
@@ -961,6 +937,7 @@ impl PyBinaryEvent {
     /// Returns:
     ///     BinaryEvent: New binary event detector
     #[new]
+    #[pyo3(signature = (name, condition_fn, edge))]
     #[allow(deprecated)]
     fn new(
         py: Python<'_>,
@@ -1520,32 +1497,26 @@ impl PyEventQueryIterator {
 /// that automatically handles ECI → ECEF → geodetic transformations to compute altitude
 /// above the WGS84 ellipsoid.
 ///
-/// Note: Requires EOP (Earth Orientation Parameters) to be initialized for accurate
-/// transformations. Use `bh.initialize_eop()` or set a custom provider.
-///
 /// Args:
 ///     threshold_altitude (float): Geodetic altitude threshold in meters above WGS84
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction (INCREASING, DECREASING, or ANY)
 ///
-/// Returns:
-///     AltitudeEvent: New altitude event detector
+/// Note:
+///     Requires EOP (Earth Orientation Parameters) to be initialized for accurate
+///     transformations. Use `bh.initialize_eop()` or set a custom provider.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Requires EOP initialization
 ///     bh.initialize_eop()
 ///
-///     # Detect when altitude drops below 300 km
 ///     event = bh.AltitudeEvent(
-///         300e3,  # 300 km in meters
+///         300e3,
 ///         "Low Altitude Warning",
 ///         bh.EventDirection.DECREASING
 ///     )
-///
-///     # Mark as terminal to stop propagation
 ///     event = event.is_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -1566,6 +1537,7 @@ impl PyAltitudeEvent {
     /// Returns:
     ///     AltitudeEvent: New altitude event detector
     #[new]
+    #[pyo3(signature = (threshold_altitude, name, direction))]
     fn new(
         threshold_altitude: f64,
         name: String,
@@ -1674,6 +1646,1139 @@ impl PyAltitudeEvent {
     ///
     /// Returns:
     ///     AltitudeEvent: Self for method chaining
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+// ================================
+// Orbital Element Events
+// ================================
+
+/// Semi-major axis event detector.
+///
+/// Detects when orbital semi-major axis crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Semi-major axis threshold in meters
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect when semi-major axis drops below GEO altitude
+///     event = bh.SemiMajorAxisEvent(
+///         bh.R_EARTH + 35786e3,
+///         "GEO threshold",
+///         bh.EventDirection.DECREASING
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SemiMajorAxisEvent")]
+pub struct PySemiMajorAxisEvent {
+    event: Option<events::DSemiMajorAxisEvent>,
+}
+
+#[pymethods]
+impl PySemiMajorAxisEvent {
+    /// Create a new semi-major axis event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Semi-major axis threshold in meters
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     SemiMajorAxisEvent: New semi-major axis event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DSemiMajorAxisEvent::new(threshold, name, direction.direction);
+        Ok(PySemiMajorAxisEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Eccentricity event detector.
+///
+/// Detects when orbital eccentricity crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Eccentricity threshold (dimensionless)
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect when orbit becomes nearly circular
+///     event = bh.EccentricityEvent(
+///         0.001,
+///         "Near circular",
+///         bh.EventDirection.DECREASING
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EccentricityEvent")]
+pub struct PyEccentricityEvent {
+    event: Option<events::DEccentricityEvent>,
+}
+
+#[pymethods]
+impl PyEccentricityEvent {
+    /// Create a new eccentricity event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Eccentricity threshold (dimensionless)
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     EccentricityEvent: New eccentricity event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DEccentricityEvent::new(threshold, name, direction.direction);
+        Ok(PyEccentricityEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Inclination event detector.
+///
+/// Detects when orbital inclination crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Inclination threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Detect when inclination crosses 90 degrees (polar orbit threshold)
+///     event = bh.InclinationEvent(
+///         np.radians(90.0),
+///         "Polar threshold",
+///         bh.EventDirection.ANY
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "InclinationEvent")]
+pub struct PyInclinationEvent {
+    event: Option<events::DInclinationEvent>,
+}
+
+#[pymethods]
+impl PyInclinationEvent {
+    /// Create a new inclination event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Inclination threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     InclinationEvent: New inclination event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DInclinationEvent::new(threshold, name, direction.direction);
+        Ok(PyInclinationEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Argument of perigee event detector.
+///
+/// Detects when argument of perigee crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Argument of perigee threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ArgumentOfPerigeeEvent")]
+pub struct PyArgumentOfPerigeeEvent {
+    event: Option<events::DArgumentOfPerigeeEvent>,
+}
+
+#[pymethods]
+impl PyArgumentOfPerigeeEvent {
+    /// Create a new argument of perigee event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Argument of perigee threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     ArgumentOfPerigeeEvent: New argument of perigee event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DArgumentOfPerigeeEvent::new(threshold, name, direction.direction);
+        Ok(PyArgumentOfPerigeeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Mean anomaly event detector.
+///
+/// Detects when mean anomaly crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Mean anomaly threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "MeanAnomalyEvent")]
+pub struct PyMeanAnomalyEvent {
+    event: Option<events::DMeanAnomalyEvent>,
+}
+
+#[pymethods]
+impl PyMeanAnomalyEvent {
+    /// Create a new mean anomaly event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Mean anomaly threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     MeanAnomalyEvent: New mean anomaly event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DMeanAnomalyEvent::new(threshold, name, direction.direction);
+        Ok(PyMeanAnomalyEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Eccentric anomaly event detector.
+///
+/// Detects when eccentric anomaly crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Eccentric anomaly threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EccentricAnomalyEvent")]
+pub struct PyEccentricAnomalyEvent {
+    event: Option<events::DEccentricAnomalyEvent>,
+}
+
+#[pymethods]
+impl PyEccentricAnomalyEvent {
+    /// Create a new eccentric anomaly event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Eccentric anomaly threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     EccentricAnomalyEvent: New eccentric anomaly event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DEccentricAnomalyEvent::new(threshold, name, direction.direction);
+        Ok(PyEccentricAnomalyEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// True anomaly event detector.
+///
+/// Detects when true anomaly crosses a threshold value.
+///
+/// Args:
+///     threshold (float): True anomaly threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "TrueAnomalyEvent")]
+pub struct PyTrueAnomalyEvent {
+    event: Option<events::DTrueAnomalyEvent>,
+}
+
+#[pymethods]
+impl PyTrueAnomalyEvent {
+    /// Create a new true anomaly event detector.
+    ///
+    /// Args:
+    ///     threshold (float): True anomaly threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     TrueAnomalyEvent: New true anomaly event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DTrueAnomalyEvent::new(threshold, name, direction.direction);
+        Ok(PyTrueAnomalyEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Argument of latitude event detector.
+///
+/// Detects when argument of latitude (omega + true anomaly) crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Argument of latitude threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "ArgumentOfLatitudeEvent")]
+pub struct PyArgumentOfLatitudeEvent {
+    event: Option<events::DArgumentOfLatitudeEvent>,
+}
+
+#[pymethods]
+impl PyArgumentOfLatitudeEvent {
+    /// Create a new argument of latitude event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Argument of latitude threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     ArgumentOfLatitudeEvent: New argument of latitude event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DArgumentOfLatitudeEvent::new(threshold, name, direction.direction);
+        Ok(PyArgumentOfLatitudeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+// ================================
+// Node Crossing Events
+// ================================
+
+/// Ascending node event detector.
+///
+/// Detects when spacecraft crosses the ascending node (equator from south to north).
+///
+/// Args:
+///     name (str): Event name for identification
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect ascending node crossings
+///     event = bh.AscendingNodeEvent("Ascending Node")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AscendingNodeEvent")]
+pub struct PyAscendingNodeEvent {
+    event: Option<events::DAscendingNodeEvent>,
+}
+
+#[pymethods]
+impl PyAscendingNodeEvent {
+    /// Create a new ascending node event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///
+    /// Returns:
+    ///     AscendingNodeEvent: New ascending node event detector
+    #[new]
+    #[pyo3(signature = (name))]
+    fn new(name: String) -> PyResult<Self> {
+        let event = events::DAscendingNodeEvent::new(name);
+        Ok(PyAscendingNodeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Descending node event detector.
+///
+/// Detects when spacecraft crosses the descending node (equator from north to south).
+///
+/// Args:
+///     name (str): Event name for identification
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect descending node crossings
+///     event = bh.DescendingNodeEvent("Descending Node")
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "DescendingNodeEvent")]
+pub struct PyDescendingNodeEvent {
+    event: Option<events::DDescendingNodeEvent>,
+}
+
+#[pymethods]
+impl PyDescendingNodeEvent {
+    /// Create a new descending node event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///
+    /// Returns:
+    ///     DescendingNodeEvent: New descending node event detector
+    #[new]
+    #[pyo3(signature = (name))]
+    fn new(name: String) -> PyResult<Self> {
+        let event = events::DDescendingNodeEvent::new(name);
+        Ok(PyDescendingNodeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+// ================================
+// State-Derived Events
+// ================================
+
+/// Speed event detector.
+///
+/// Detects when velocity magnitude crosses a threshold value.
+///
+/// Args:
+///     threshold (float): Speed threshold in m/s
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect when speed exceeds 8 km/s
+///     event = bh.SpeedEvent(
+///         8000.0,
+///         "High Speed",
+///         bh.EventDirection.INCREASING
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SpeedEvent")]
+pub struct PySpeedEvent {
+    event: Option<events::DSpeedEvent>,
+}
+
+#[pymethods]
+impl PySpeedEvent {
+    /// Create a new speed event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Speed threshold in m/s
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     SpeedEvent: New speed event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DSpeedEvent::new(threshold, name, direction.direction);
+        Ok(PySpeedEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Longitude event detector.
+///
+/// Detects when geodetic longitude crosses a threshold value.
+/// Requires EOP initialization for ECI->ECEF transformation.
+///
+/// Args:
+///     threshold (float): Longitude threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect when crossing prime meridian
+///     event = bh.LongitudeEvent(
+///         0.0,
+///         "Prime Meridian",
+///         bh.EventDirection.ANY
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "LongitudeEvent")]
+pub struct PyLongitudeEvent {
+    event: Option<events::DLongitudeEvent>,
+}
+
+#[pymethods]
+impl PyLongitudeEvent {
+    /// Create a new longitude event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Longitude threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     LongitudeEvent: New longitude event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DLongitudeEvent::new(threshold, name, direction.direction);
+        Ok(PyLongitudeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Latitude event detector.
+///
+/// Detects when geodetic latitude crosses a threshold value.
+/// Requires EOP initialization for ECI->ECEF transformation.
+///
+/// Args:
+///     threshold (float): Latitude threshold in radians
+///     name (str): Event name for identification
+///     direction (EventDirection): Detection direction
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect when crossing the equator
+///     event = bh.LatitudeEvent(
+///         0.0,
+///         "Equator Crossing",
+///         bh.EventDirection.ANY
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "LatitudeEvent")]
+pub struct PyLatitudeEvent {
+    event: Option<events::DLatitudeEvent>,
+}
+
+#[pymethods]
+impl PyLatitudeEvent {
+    /// Create a new latitude event detector.
+    ///
+    /// Args:
+    ///     threshold (float): Latitude threshold in radians
+    ///     name (str): Event name for identification
+    ///     direction (EventDirection): Detection direction
+    ///
+    /// Returns:
+    ///     LatitudeEvent: New latitude event detector
+    #[new]
+    #[pyo3(signature = (threshold, name, direction))]
+    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DLatitudeEvent::new(threshold, name, direction.direction);
+        Ok(PyLatitudeEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+// ================================
+// Eclipse/Shadow Events
+// ================================
+
+/// Umbra event detector.
+///
+/// Detects when spacecraft enters/exits Earth's umbra (full shadow).
+/// Uses the conical shadow model.
+///
+/// Args:
+///     name (str): Event name for identification
+///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect umbra entry with low-precision ephemeris
+///     event = bh.UmbraEvent("Umbra Entry", bh.EdgeType.RISING_EDGE, None)
+///
+///     # Detect umbra exit with high-precision DE440s ephemeris
+///     event = bh.UmbraEvent("Umbra Exit", bh.EdgeType.FALLING_EDGE, bh.EphemerisSource.DE440s)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "UmbraEvent")]
+pub struct PyUmbraEvent {
+    event: Option<events::DUmbraEvent>,
+}
+
+#[pymethods]
+impl PyUmbraEvent {
+    /// Create a new umbra event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+    ///
+    /// Returns:
+    ///     UmbraEvent: New umbra event detector
+    #[new]
+    #[pyo3(signature = (name, edge, ephemeris_source))]
+    fn new(
+        name: String,
+        edge: PyRef<PyEdgeType>,
+        ephemeris_source: Option<PyRef<PyEphemerisSource>>,
+    ) -> PyResult<Self> {
+        let source = ephemeris_source.map(|s| (*s).into());
+        let event = events::DUmbraEvent::new(name, edge.edge, source);
+        Ok(PyUmbraEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Penumbra event detector.
+///
+/// Detects when spacecraft enters/exits Earth's penumbra (partial shadow).
+/// Uses the conical shadow model.
+///
+/// Args:
+///     name (str): Event name for identification
+///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect penumbra entry
+///     event = bh.PenumbraEvent("Penumbra Entry", bh.EdgeType.RISING_EDGE, None)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "PenumbraEvent")]
+pub struct PyPenumbraEvent {
+    event: Option<events::DPenumbraEvent>,
+}
+
+#[pymethods]
+impl PyPenumbraEvent {
+    /// Create a new penumbra event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+    ///
+    /// Returns:
+    ///     PenumbraEvent: New penumbra event detector
+    #[new]
+    #[pyo3(signature = (name, edge, ephemeris_source))]
+    fn new(
+        name: String,
+        edge: PyRef<PyEdgeType>,
+        ephemeris_source: Option<PyRef<PyEphemerisSource>>,
+    ) -> PyResult<Self> {
+        let source = ephemeris_source.map(|s| (*s).into());
+        let event = events::DPenumbraEvent::new(name, edge.edge, source);
+        Ok(PyPenumbraEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Eclipse event detector.
+///
+/// Detects when spacecraft enters/exits eclipse (either umbra or penumbra).
+/// Uses the conical shadow model.
+///
+/// Args:
+///     name (str): Event name for identification
+///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect any eclipse entry
+///     event = bh.EclipseEvent("Eclipse Entry", bh.EdgeType.RISING_EDGE, None)
+///
+///     # Detect eclipse exit with high-precision ephemeris
+///     event = bh.EclipseEvent("Eclipse Exit", bh.EdgeType.FALLING_EDGE, bh.EphemerisSource.DE440s)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "EclipseEvent")]
+pub struct PyEclipseEvent {
+    event: Option<events::DEclipseEvent>,
+}
+
+#[pymethods]
+impl PyEclipseEvent {
+    /// Create a new eclipse event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
+    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+    ///
+    /// Returns:
+    ///     EclipseEvent: New eclipse event detector
+    #[new]
+    #[pyo3(signature = (name, edge, ephemeris_source))]
+    fn new(
+        name: String,
+        edge: PyRef<PyEdgeType>,
+        ephemeris_source: Option<PyRef<PyEphemerisSource>>,
+    ) -> PyResult<Self> {
+        let source = ephemeris_source.map(|s| (*s).into());
+        let event = events::DEclipseEvent::new(name, edge.edge, source);
+        Ok(PyEclipseEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.is_terminal());
+        }
+        Self { event: slf.event.take() }
+    }
+}
+
+/// Sunlit event detector.
+///
+/// Detects when spacecraft enters/exits sunlight (fully illuminated).
+/// Uses the conical shadow model.
+///
+/// Args:
+///     name (str): Event name for identification
+///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = leaving)
+///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Detect entering sunlight
+///     event = bh.SunlitEvent("Enter Sunlight", bh.EdgeType.RISING_EDGE, None)
+///
+///     # Detect leaving sunlight with high-precision ephemeris
+///     event = bh.SunlitEvent("Leave Sunlight", bh.EdgeType.FALLING_EDGE, bh.EphemerisSource.DE440s)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SunlitEvent")]
+pub struct PySunlitEvent {
+    event: Option<events::DSunlitEvent>,
+}
+
+#[pymethods]
+impl PySunlitEvent {
+    /// Create a new sunlit event detector.
+    ///
+    /// Args:
+    ///     name (str): Event name for identification
+    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = leaving)
+    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
+    ///
+    /// Returns:
+    ///     SunlitEvent: New sunlit event detector
+    #[new]
+    #[pyo3(signature = (name, edge, ephemeris_source))]
+    fn new(
+        name: String,
+        edge: PyRef<PyEdgeType>,
+        ephemeris_source: Option<PyRef<PyEphemerisSource>>,
+    ) -> PyResult<Self> {
+        let source = ephemeris_source.map(|s| (*s).into());
+        let event = events::DSunlitEvent::new(name, edge.edge, source);
+        Ok(PySunlitEvent { event: Some(event) })
+    }
+
+    /// Set instance number for display name.
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Set custom tolerances for event detection.
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self { event: slf.event.take() }
+    }
+
+    /// Mark this event as terminal (stops propagation).
     fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.is_terminal());

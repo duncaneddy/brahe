@@ -270,6 +270,28 @@ impl PyOrbitRepresentation {
 ///
 /// Stores a sequence of orbital states at specific epochs with support for
 /// interpolation, frame conversions, and representation transformations.
+///
+/// Args:
+///     dimension (int): State dimension (minimum 6 for position + velocity)
+///     frame (OrbitFrame): Reference frame for the trajectory
+///     representation (OrbitRepresentation): State representation format
+///     angle_format (AngleFormat or None): Angle format for Keplerian states,
+///         must be None for Cartesian representation
+///
+/// Attributes:
+///     dimension (int): State vector dimension
+///     frame (OrbitFrame): Reference frame
+///     representation (OrbitRepresentation): State representation format
+///     angle_format (AngleFormat or None): Angle format for Keplerian representation
+///     interpolation_method (InterpolationMethod): Current interpolation method
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create trajectory in ECI Cartesian frame
+///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitTrajectory")]
 pub struct PyOrbitalTrajectory {
@@ -2249,6 +2271,21 @@ impl PyOrbitalTrajectoryIterator {
 /// Stores a sequence of N-dimensional states at specific epochs with support
 /// for interpolation and automatic state eviction policies. Dimension is
 /// determined at runtime.
+///
+/// Args:
+///     dimension (int): Trajectory dimension (default 6, must be greater than 0)
+///
+/// Attributes:
+///     dimension (int): State vector dimension
+///     interpolation_method (InterpolationMethod): Current interpolation method
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     traj = bh.Trajectory(6)  # 6D trajectory
+///     traj = bh.Trajectory(3)  # 3D trajectory
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "Trajectory")]
 pub struct PyTrajectory {

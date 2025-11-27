@@ -42,7 +42,29 @@ from brahe._brahe import (
     TimeEvent,
     ValueEvent,
     BinaryEvent,
+    # Premade event detectors
     AltitudeEvent,
+    # Orbital element events
+    SemiMajorAxisEvent,
+    EccentricityEvent,
+    InclinationEvent,
+    ArgumentOfPerigeeEvent,
+    MeanAnomalyEvent,
+    EccentricAnomalyEvent,
+    TrueAnomalyEvent,
+    ArgumentOfLatitudeEvent,
+    # Node crossing events
+    AscendingNodeEvent,
+    DescendingNodeEvent,
+    # State-derived events
+    SpeedEvent,
+    LongitudeEvent,
+    LatitudeEvent,
+    # Eclipse/shadow events
+    UmbraEvent,
+    PenumbraEvent,
+    EclipseEvent,
+    SunlitEvent,
 )
 
 __all__ = [
@@ -55,5 +77,27 @@ __all__ = [
     "TimeEvent",
     "ValueEvent",
     "BinaryEvent",
+    # Premade event detectors
     "AltitudeEvent",
+    # Orbital element events
+    "SemiMajorAxisEvent",
+    "EccentricityEvent",
+    "InclinationEvent",
+    "ArgumentOfPerigeeEvent",
+    "MeanAnomalyEvent",
+    "EccentricAnomalyEvent",
+    "TrueAnomalyEvent",
+    "ArgumentOfLatitudeEvent",
+    # Node crossing events
+    "AscendingNodeEvent",
+    "DescendingNodeEvent",
+    # State-derived events
+    "SpeedEvent",
+    "LongitudeEvent",
+    "LatitudeEvent",
+    # Eclipse/shadow events
+    "UmbraEvent",
+    "PenumbraEvent",
+    "EclipseEvent",
+    "SunlitEvent",
 ]

@@ -804,13 +804,31 @@ impl DEventDetector for DBinaryEvent {
 }
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
     use super::*;
     use crate::time::TimeSystem;
-    use nalgebra::Vector6;
+    use nalgebra::{DVector, Vector6};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    // =========================================================================
+    // STimeEvent Tests
+    // =========================================================================
 
     #[test]
-    fn test_time_event() {
+    fn test_STimeEvent_new() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test Event");
+
+        assert_eq!(event.name(), "Test Event");
+        assert_eq!(event.target_value(), 0.0);
+        assert_eq!(event.action(), EventAction::Continue);
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_STimeEvent_evaluate() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let event = STimeEvent::<6, 0>::new(target, "Test");
 
@@ -833,8 +851,265 @@ mod tests {
     }
 
     #[test]
-    fn test_value_event() {
-        // Detect when x-coordinate crosses 7000 km
+    fn test_STimeEvent_reset() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+
+        // Initially not processed
+        assert!(!event.is_processed());
+
+        // Mark as processed
+        event.mark_processed();
+        assert!(event.is_processed());
+
+        // Reset
+        event.reset();
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_STimeEvent_with_instance() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Maneuver").with_instance(3);
+
+        assert_eq!(event.name(), "Maneuver 3");
+    }
+
+    #[test]
+    fn test_STimeEvent_with_callback() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: SEventCallback<6, 0> = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = STimeEvent::<6, 0>::new(target, "Test").with_callback(callback);
+
+        // Callback should exist
+        assert!(event.callback().is_some());
+
+        // Execute callback
+        let state = Vector6::zeros();
+        if let Some(cb) = event.callback() {
+            cb(target, &state, None);
+        }
+        assert!(called.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_STimeEvent_is_terminal() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = STimeEvent::<6, 0>::new(target, "Test").is_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_STimeEvent_with_step_reduction_factor() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // Default
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        // Custom
+        let event = STimeEvent::<6, 0>::new(target, "Test").with_step_reduction_factor(0.1);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+    }
+
+    #[test]
+    fn test_STimeEvent_mark_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+
+        assert!(!event.is_processed());
+        event.mark_processed();
+        assert!(event.is_processed());
+    }
+
+    #[test]
+    fn test_STimeEvent_reset_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+
+        event.mark_processed();
+        assert!(event.is_processed());
+
+        event.reset_processed();
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_STimeEvent_evaluate_after_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = STimeEvent::<6, 0>::new(target, "Test");
+        let state = Vector6::zeros();
+
+        // Before marking processed, evaluate returns time difference
+        let val = event.evaluate(target, &state, None);
+        assert_eq!(val, 0.0);
+
+        // After marking processed, evaluate returns MAX
+        event.mark_processed();
+        let val = event.evaluate(target, &state, None);
+        assert_eq!(val, f64::MAX);
+    }
+
+    // =========================================================================
+    // DTimeEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_DTimeEvent_new() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test Event");
+
+        assert_eq!(event.name(), "Test Event");
+        assert_eq!(event.target_value(), 0.0);
+        assert_eq!(event.action(), EventAction::Continue);
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_DTimeEvent_evaluate() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test");
+
+        let state = DVector::from_vec(vec![0.0; 6]);
+
+        // Before target
+        let before_val = event.evaluate(target - 10.0, &state, None);
+        assert_eq!(before_val, -10.0);
+
+        // At target
+        let at_val = event.evaluate(target, &state, None);
+        assert_eq!(at_val, 0.0);
+
+        // After target
+        let after_val = event.evaluate(target + 10.0, &state, None);
+        assert_eq!(after_val, 10.0);
+    }
+
+    #[test]
+    fn test_DTimeEvent_reset() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test");
+
+        event.mark_processed();
+        assert!(event.is_processed());
+
+        event.reset();
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_DTimeEvent_with_instance() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Maneuver").with_instance(5);
+
+        assert_eq!(event.name(), "Maneuver 5");
+    }
+
+    #[test]
+    fn test_DTimeEvent_with_callback() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: DEventCallback = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = DTimeEvent::new(target, "Test").with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DTimeEvent_is_terminal() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let event = DTimeEvent::new(target, "Test");
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = DTimeEvent::new(target, "Test").is_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DTimeEvent_with_step_reduction_factor() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let event = DTimeEvent::new(target, "Test");
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = DTimeEvent::new(target, "Test").with_step_reduction_factor(0.3);
+        assert_eq!(event.step_reduction_factor(), 0.3);
+    }
+
+    #[test]
+    fn test_DTimeEvent_mark_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test");
+
+        assert!(!event.is_processed());
+        event.mark_processed();
+        assert!(event.is_processed());
+    }
+
+    #[test]
+    fn test_DTimeEvent_reset_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test");
+
+        event.mark_processed();
+        event.reset_processed();
+        assert!(!event.is_processed());
+    }
+
+    #[test]
+    fn test_DTimeEvent_evaluate_after_processed() {
+        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event = DTimeEvent::new(target, "Test");
+        let state = DVector::from_vec(vec![0.0; 6]);
+
+        // Before marking processed
+        let val = event.evaluate(target, &state, None);
+        assert_eq!(val, 0.0);
+
+        // After marking processed
+        event.mark_processed();
+        let val = event.evaluate(target, &state, None);
+        assert_eq!(val, f64::MAX);
+    }
+
+    // =========================================================================
+    // SValueEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_SValueEvent_new() {
+        let event = SValueEvent::<6, 0>::new(
+            "X-Crossing",
+            |_t, state: &Vector6<f64>, _params| state[0],
+            7000e3,
+            EventDirection::Any,
+        );
+
+        assert_eq!(event.name(), "X-Crossing");
+        assert_eq!(event.target_value(), 7000e3);
+        assert_eq!(event.direction(), EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SValueEvent_evaluate() {
         let event = SValueEvent::<6, 0>::new(
             "X-Crossing",
             |_t, state: &Vector6<f64>, _params| state[0],
@@ -844,89 +1119,521 @@ mod tests {
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
-        // Below target value - evaluate returns raw value (6000e3)
+        // Below target value
         let state_below = Vector6::new(6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_below = event.evaluate(epoch, &state_below, None);
         assert_eq!(val_below, 6000e3);
-        assert!((val_below - event.target_value()) < 0.0); // 6000e3 - 7000e3 < 0
+        assert!((val_below - event.target_value()) < 0.0);
 
-        // At target value - evaluate returns raw value (7000e3)
+        // At target value
         let state_at = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_at = event.evaluate(epoch, &state_at, None);
         assert_eq!(val_at, 7000e3);
-        assert_eq!(val_at - event.target_value(), 0.0); // 7000e3 - 7000e3 = 0
 
-        // Above target value - evaluate returns raw value (8000e3)
+        // Above target value
         let state_above = Vector6::new(8000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_above = event.evaluate(epoch, &state_above, None);
         assert_eq!(val_above, 8000e3);
-        assert!((val_above - event.target_value()) > 0.0); // 8000e3 - 7000e3 > 0
+        assert!((val_above - event.target_value()) > 0.0);
     }
 
     #[test]
-    fn test_binary_event() {
-        // Detect when x-coordinate becomes positive (mock eclipse)
+    fn test_SValueEvent_with_instance() {
+        let event = SValueEvent::<6, 0>::new(
+            "Altitude",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            500e3,
+            EventDirection::Any,
+        )
+        .with_instance(2);
+
+        assert_eq!(event.name(), "Altitude 2");
+    }
+
+    #[test]
+    fn test_SValueEvent_with_tolerances() {
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        );
+
+        // Default tolerances
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+
+        // Custom tolerances
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .with_tolerances(1e-3, 1e-6);
+
+        assert_eq!(event.time_tolerance(), 1e-3);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SValueEvent_with_step_reduction_factor() {
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        );
+
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = event.with_step_reduction_factor(0.1);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+    }
+
+    #[test]
+    fn test_SValueEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: SEventCallback<6, 0> = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .with_callback(callback);
+
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SValueEvent_is_terminal() {
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        );
+
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = event.is_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SValueEvent_direction_increasing() {
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Increasing,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SValueEvent_direction_decreasing() {
+        let event = SValueEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Decreasing,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    // =========================================================================
+    // DValueEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_DValueEvent_new() {
+        let event = DValueEvent::new(
+            "X-Crossing",
+            |_t, state: &DVector<f64>, _params| state[0],
+            7000e3,
+            EventDirection::Any,
+        );
+
+        assert_eq!(event.name(), "X-Crossing");
+        assert_eq!(event.target_value(), 7000e3);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DValueEvent_evaluate() {
+        let event = DValueEvent::new(
+            "X-Crossing",
+            |_t, state: &DVector<f64>, _params| state[0],
+            7000e3,
+            EventDirection::Any,
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        let val = event.evaluate(epoch, &state, None);
+        assert_eq!(val, 6000e3);
+    }
+
+    #[test]
+    fn test_DValueEvent_with_instance() {
+        let event = DValueEvent::new(
+            "Altitude",
+            |_t, _state: &DVector<f64>, _params| 0.0,
+            500e3,
+            EventDirection::Any,
+        )
+        .with_instance(3);
+
+        assert_eq!(event.name(), "Altitude 3");
+    }
+
+    #[test]
+    fn test_DValueEvent_with_tolerances() {
+        let event = DValueEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .with_tolerances(1e-4, 1e-7);
+
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DValueEvent_with_step_reduction_factor() {
+        let event = DValueEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .with_step_reduction_factor(0.15);
+
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_DValueEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Continue));
+
+        let event = DValueEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .with_callback(callback);
+
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DValueEvent_is_terminal() {
+        let event = DValueEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| 0.0,
+            0.0,
+            EventDirection::Any,
+        )
+        .is_terminal();
+
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // =========================================================================
+    // SBinaryEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_SBinaryEvent_new() {
         let event = SBinaryEvent::<6, 0>::new(
             "X-Positive",
             |_t, state: &Vector6<f64>, _params| state[0] > 0.0,
             EdgeType::RisingEdge,
         );
 
-        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
-
-        // State with negative x (condition false)
-        let state_neg = Vector6::new(-1000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        assert_eq!(event.evaluate(epoch, &state_neg, None), -1.0);
-
-        // State with positive x (condition true)
-        let state_pos = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-        assert_eq!(event.evaluate(epoch, &state_pos, None), 1.0);
-
-        // Check direction mapping
+        assert_eq!(event.name(), "X-Positive");
+        assert_eq!(event.target_value(), 0.0);
         assert_eq!(event.direction(), EventDirection::Increasing);
     }
 
     #[test]
-    fn test_time_event_tolerance_configuration() {
-        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+    fn test_SBinaryEvent_evaluate_true_returns_positive() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, state: &Vector6<f64>, _params| state[0] > 0.0,
+            EdgeType::AnyEdge,
+        );
 
-        // Test default tolerance
-        let event = STimeEvent::<6, 0>::new(target, "Default");
-        assert_eq!(event.time_tolerance(), 1e-6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(1000.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-        // Test custom tolerance
-        let event = STimeEvent::<6, 0>::new(target, "Custom").with_time_tolerance(1e-3);
-        assert_eq!(event.time_tolerance(), 1e-3);
-
-        // Test chaining with other builder methods
-        let event = STimeEvent::<6, 0>::new(target, "Chained")
-            .with_time_tolerance(5e-4)
-            .with_instance(2)
-            .is_terminal();
-        assert_eq!(event.time_tolerance(), 5e-4);
-        assert_eq!(event.name(), "Chained 2");
-        assert_eq!(event.action(), EventAction::Stop);
+        assert_eq!(event.evaluate(epoch, &state, None), 1.0);
     }
 
     #[test]
-    fn test_dtime_event_tolerance_configuration() {
-        let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+    fn test_SBinaryEvent_evaluate_false_returns_negative() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, state: &Vector6<f64>, _params| state[0] > 0.0,
+            EdgeType::AnyEdge,
+        );
 
-        // Test default tolerance
-        let event = DTimeEvent::new(target, "Default");
-        assert_eq!(event.time_tolerance(), 1e-6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(-1000.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-        // Test custom tolerance
-        let event = DTimeEvent::new(target, "Custom").with_time_tolerance(1e-3);
-        assert_eq!(event.time_tolerance(), 1e-3);
+        assert_eq!(event.evaluate(epoch, &state, None), -1.0);
+    }
 
-        // Test chaining with other builder methods
-        let event = DTimeEvent::new(target, "Chained")
-            .with_time_tolerance(5e-4)
-            .with_instance(2)
-            .is_terminal();
-        assert_eq!(event.time_tolerance(), 5e-4);
-        assert_eq!(event.name(), "Chained 2");
+    #[test]
+    fn test_SBinaryEvent_edge_rising() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::RisingEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SBinaryEvent_edge_falling() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::FallingEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SBinaryEvent_edge_any() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SBinaryEvent_with_instance() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Eclipse",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_instance(1);
+
+        assert_eq!(event.name(), "Eclipse 1");
+    }
+
+    #[test]
+    fn test_SBinaryEvent_with_tolerances() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_tolerances(1e-5, 1e-8);
+
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+    }
+
+    #[test]
+    fn test_SBinaryEvent_with_step_reduction_factor() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_step_reduction_factor(0.25);
+
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_SBinaryEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_callback(callback);
+
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SBinaryEvent_is_terminal() {
+        let event = SBinaryEvent::<6, 0>::new(
+            "Test",
+            |_t, _state: &Vector6<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .is_terminal();
+
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // =========================================================================
+    // DBinaryEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_DBinaryEvent_new() {
+        let event = DBinaryEvent::new(
+            "X-Positive",
+            |_t, state: &DVector<f64>, _params| state[0] > 0.0,
+            EdgeType::FallingEdge,
+        );
+
+        assert_eq!(event.name(), "X-Positive");
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_evaluate_true_returns_positive() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, state: &DVector<f64>, _params| state[0] > 0.0,
+            EdgeType::AnyEdge,
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1000.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+        assert_eq!(event.evaluate(epoch, &state, None), 1.0);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_evaluate_false_returns_negative() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, state: &DVector<f64>, _params| state[0] > 0.0,
+            EdgeType::AnyEdge,
+        );
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![-1000.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+        assert_eq!(event.evaluate(epoch, &state, None), -1.0);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_edge_rising() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::RisingEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_edge_falling() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::FallingEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_edge_any() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        );
+
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_with_instance() {
+        let event = DBinaryEvent::new(
+            "Eclipse",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_instance(2);
+
+        assert_eq!(event.name(), "Eclipse 2");
+    }
+
+    #[test]
+    fn test_DBinaryEvent_with_tolerances() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_tolerances(1e-4, 1e-7);
+
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_with_step_reduction_factor() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_step_reduction_factor(0.3);
+
+        assert_eq!(event.step_reduction_factor(), 0.3);
+    }
+
+    #[test]
+    fn test_DBinaryEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Continue));
+
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .with_callback(callback);
+
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DBinaryEvent_is_terminal() {
+        let event = DBinaryEvent::new(
+            "Test",
+            |_t, _state: &DVector<f64>, _params| true,
+            EdgeType::AnyEdge,
+        )
+        .is_terminal();
+
         assert_eq!(event.action(), EventAction::Stop);
     }
 }

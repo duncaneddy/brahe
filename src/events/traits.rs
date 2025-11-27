@@ -404,3 +404,518 @@ pub trait DEventDetector: Send + Sync + std::any::Any {
         // Default no-op
     }
 }
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod tests {
+    use super::*;
+    use crate::time::TimeSystem;
+    use nalgebra::{DVector, Vector6};
+
+    // =========================================================================
+    // Enum Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventDirection_variants() {
+        // Test that all variants exist and are distinct
+        let increasing = EventDirection::Increasing;
+        let decreasing = EventDirection::Decreasing;
+        let any = EventDirection::Any;
+
+        assert_eq!(increasing, EventDirection::Increasing);
+        assert_eq!(decreasing, EventDirection::Decreasing);
+        assert_eq!(any, EventDirection::Any);
+
+        assert_ne!(increasing, decreasing);
+        assert_ne!(increasing, any);
+        assert_ne!(decreasing, any);
+    }
+
+    #[test]
+    fn test_EventDirection_debug() {
+        assert_eq!(format!("{:?}", EventDirection::Increasing), "Increasing");
+        assert_eq!(format!("{:?}", EventDirection::Decreasing), "Decreasing");
+        assert_eq!(format!("{:?}", EventDirection::Any), "Any");
+    }
+
+    #[test]
+    fn test_EventDirection_clone() {
+        let dir = EventDirection::Increasing;
+        let cloned = Clone::clone(&dir); // Explicit trait call to test Clone impl
+        assert_eq!(dir, cloned);
+    }
+
+    #[test]
+    fn test_EventDirection_copy() {
+        let dir = EventDirection::Decreasing;
+        let copied: EventDirection = dir; // Copy semantics
+        assert_eq!(dir, copied);
+    }
+
+    #[test]
+    fn test_EdgeType_variants() {
+        let rising = EdgeType::RisingEdge;
+        let falling = EdgeType::FallingEdge;
+        let any = EdgeType::AnyEdge;
+
+        assert_eq!(rising, EdgeType::RisingEdge);
+        assert_eq!(falling, EdgeType::FallingEdge);
+        assert_eq!(any, EdgeType::AnyEdge);
+
+        assert_ne!(rising, falling);
+        assert_ne!(rising, any);
+        assert_ne!(falling, any);
+    }
+
+    #[test]
+    fn test_EdgeType_debug() {
+        assert_eq!(format!("{:?}", EdgeType::RisingEdge), "RisingEdge");
+        assert_eq!(format!("{:?}", EdgeType::FallingEdge), "FallingEdge");
+        assert_eq!(format!("{:?}", EdgeType::AnyEdge), "AnyEdge");
+    }
+
+    #[test]
+    fn test_EdgeType_clone() {
+        let edge = EdgeType::FallingEdge;
+        let cloned = Clone::clone(&edge); // Explicit trait call to test Clone impl
+        assert_eq!(edge, cloned);
+    }
+
+    #[test]
+    fn test_EdgeType_copy() {
+        let edge = EdgeType::AnyEdge;
+        let copied: EdgeType = edge;
+        assert_eq!(edge, copied);
+    }
+
+    #[test]
+    fn test_EventType_variants() {
+        let instant = EventType::Instantaneous;
+        let window = EventType::Window;
+
+        assert_eq!(instant, EventType::Instantaneous);
+        assert_eq!(window, EventType::Window);
+        assert_ne!(instant, window);
+    }
+
+    #[test]
+    fn test_EventType_debug() {
+        assert_eq!(format!("{:?}", EventType::Instantaneous), "Instantaneous");
+        assert_eq!(format!("{:?}", EventType::Window), "Window");
+    }
+
+    #[test]
+    fn test_EventType_clone() {
+        let event_type = EventType::Window;
+        let cloned = Clone::clone(&event_type); // Explicit trait call to test Clone impl
+        assert_eq!(event_type, cloned);
+    }
+
+    #[test]
+    fn test_EventType_copy() {
+        let event_type = EventType::Instantaneous;
+        let copied: EventType = event_type;
+        assert_eq!(event_type, copied);
+    }
+
+    #[test]
+    fn test_EventAction_variants() {
+        let stop = EventAction::Stop;
+        let cont = EventAction::Continue;
+
+        assert_eq!(stop, EventAction::Stop);
+        assert_eq!(cont, EventAction::Continue);
+        assert_ne!(stop, cont);
+    }
+
+    #[test]
+    fn test_EventAction_debug() {
+        assert_eq!(format!("{:?}", EventAction::Stop), "Stop");
+        assert_eq!(format!("{:?}", EventAction::Continue), "Continue");
+    }
+
+    #[test]
+    fn test_EventAction_clone() {
+        let action = EventAction::Stop;
+        let cloned = Clone::clone(&action); // Explicit trait call to test Clone impl
+        assert_eq!(action, cloned);
+    }
+
+    #[test]
+    fn test_EventAction_copy() {
+        let action = EventAction::Continue;
+        let copied: EventAction = action;
+        assert_eq!(action, copied);
+    }
+
+    // =========================================================================
+    // SDetectedEvent Tests
+    // =========================================================================
+
+    fn create_test_sdetected_event() -> SDetectedEvent<6> {
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        SDetectedEvent {
+            window_open: epoch,
+            window_close: epoch + 100.0,
+            entry_state: state,
+            exit_state: state,
+            value: 500e3,
+            name: "Test Event".to_string(),
+            action: EventAction::Continue,
+            event_type: EventType::Instantaneous,
+            detector_index: 0,
+        }
+    }
+
+    #[test]
+    fn test_SDetectedEvent_t_start() {
+        let event = create_test_sdetected_event();
+        assert_eq!(event.t_start(), event.window_open);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_t_end() {
+        let event = create_test_sdetected_event();
+        assert_eq!(event.t_end(), event.window_close);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_start_time() {
+        let event = create_test_sdetected_event();
+        assert_eq!(event.start_time(), event.window_open);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_end_time() {
+        let event = create_test_sdetected_event();
+        assert_eq!(event.end_time(), event.window_close);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_fields() {
+        let event = create_test_sdetected_event();
+
+        assert_eq!(event.name, "Test Event");
+        assert_eq!(event.action, EventAction::Continue);
+        assert_eq!(event.event_type, EventType::Instantaneous);
+        assert_eq!(event.detector_index, 0);
+        assert_eq!(event.value, 500e3);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_clone() {
+        let event = create_test_sdetected_event();
+        let cloned = event.clone();
+
+        assert_eq!(event.window_open, cloned.window_open);
+        assert_eq!(event.window_close, cloned.window_close);
+        assert_eq!(event.name, cloned.name);
+    }
+
+    #[test]
+    fn test_SDetectedEvent_debug() {
+        let event = create_test_sdetected_event();
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("SDetectedEvent"));
+        assert!(debug_str.contains("Test Event"));
+    }
+
+    // =========================================================================
+    // DDetectedEvent Tests
+    // =========================================================================
+
+    fn create_test_ddetected_event() -> DDetectedEvent {
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        DDetectedEvent {
+            window_open: epoch,
+            window_close: epoch + 100.0,
+            entry_state: state.clone(),
+            exit_state: state,
+            value: 500e3,
+            name: "Test DEvent".to_string(),
+            action: EventAction::Stop,
+            event_type: EventType::Window,
+            detector_index: 1,
+        }
+    }
+
+    #[test]
+    fn test_DDetectedEvent_t_start() {
+        let event = create_test_ddetected_event();
+        assert_eq!(event.t_start(), event.window_open);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_t_end() {
+        let event = create_test_ddetected_event();
+        assert_eq!(event.t_end(), event.window_close);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_start_time() {
+        let event = create_test_ddetected_event();
+        assert_eq!(event.start_time(), event.window_open);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_end_time() {
+        let event = create_test_ddetected_event();
+        assert_eq!(event.end_time(), event.window_close);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_fields() {
+        let event = create_test_ddetected_event();
+
+        assert_eq!(event.name, "Test DEvent");
+        assert_eq!(event.action, EventAction::Stop);
+        assert_eq!(event.event_type, EventType::Window);
+        assert_eq!(event.detector_index, 1);
+        assert_eq!(event.value, 500e3);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_clone() {
+        let event = create_test_ddetected_event();
+        let cloned = event.clone();
+
+        assert_eq!(event.window_open, cloned.window_open);
+        assert_eq!(event.window_close, cloned.window_close);
+        assert_eq!(event.name, cloned.name);
+    }
+
+    #[test]
+    fn test_DDetectedEvent_debug() {
+        let event = create_test_ddetected_event();
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("DDetectedEvent"));
+        assert!(debug_str.contains("Test DEvent"));
+    }
+
+    // =========================================================================
+    // SEventDetector Default Trait Implementation Tests
+    // =========================================================================
+
+    /// Minimal implementation for testing default trait methods
+    struct MinimalSEventDetector {
+        name: String,
+    }
+
+    impl SEventDetector<6, 0> for MinimalSEventDetector {
+        fn evaluate(
+            &self,
+            _t: Epoch,
+            _state: &SVector<f64, 6>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> f64 {
+            0.0
+        }
+
+        fn target_value(&self) -> f64 {
+            0.0
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    #[test]
+    fn test_SEventDetector_default_event_type() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.event_type(), EventType::Instantaneous);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_direction() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_time_tolerance() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.time_tolerance(), 1e-3);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_value_tolerance() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_step_reduction_factor() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.step_reduction_factor(), 0.2);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_callback() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert!(detector.callback().is_none());
+    }
+
+    #[test]
+    fn test_SEventDetector_default_action() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SEventDetector_default_mark_processed() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        // Should not panic - is a no-op
+        detector.mark_processed();
+    }
+
+    #[test]
+    fn test_SEventDetector_default_is_processed() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        // Default returns false (allows re-triggering)
+        assert!(!detector.is_processed());
+    }
+
+    #[test]
+    fn test_SEventDetector_default_reset_processed() {
+        let detector = MinimalSEventDetector {
+            name: "Test".to_string(),
+        };
+        // Should not panic - is a no-op
+        detector.reset_processed();
+    }
+
+    // =========================================================================
+    // DEventDetector Default Trait Implementation Tests
+    // =========================================================================
+
+    /// Minimal implementation for testing default trait methods
+    struct MinimalDEventDetector {
+        name: String,
+    }
+
+    impl DEventDetector for MinimalDEventDetector {
+        fn evaluate(
+            &self,
+            _t: Epoch,
+            _state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> f64 {
+            0.0
+        }
+
+        fn target_value(&self) -> f64 {
+            0.0
+        }
+
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    #[test]
+    fn test_DEventDetector_default_event_type() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.event_type(), EventType::Instantaneous);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_direction() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_time_tolerance() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.time_tolerance(), 1e-3);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_value_tolerance() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_step_reduction_factor() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.step_reduction_factor(), 0.2);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_callback() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert!(detector.callback().is_none());
+    }
+
+    #[test]
+    fn test_DEventDetector_default_action() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        assert_eq!(detector.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DEventDetector_default_mark_processed() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        // Should not panic - is a no-op
+        detector.mark_processed();
+    }
+
+    #[test]
+    fn test_DEventDetector_default_is_processed() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        // Default returns false (allows re-triggering)
+        assert!(!detector.is_processed());
+    }
+
+    #[test]
+    fn test_DEventDetector_default_reset_processed() {
+        let detector = MinimalDEventDetector {
+            name: "Test".to_string(),
+        };
+        // Should not panic - is a no-op
+        detector.reset_processed();
+    }
+}

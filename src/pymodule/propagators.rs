@@ -1,9 +1,20 @@
-/// Python wrapper for SGPPropagator (replaces TLE)
 /// SGP4/SDP4 satellite propagator using TLE data.
 ///
 /// The SGP (Simplified General Perturbations) propagator implements the SGP4/SDP4 models
 /// for propagating satellites using Two-Line Element (TLE) orbital data. This is the standard
 /// model used for tracking objects in Earth orbit.
+///
+/// Note:
+///     This class is created via class methods, not direct instantiation.
+///     Use `SGPPropagator.from_tle()` or `SGPPropagator.from_elements()`.
+///
+/// Attributes:
+///     current_epoch (Epoch): Current propagation time
+///     initial_epoch (Epoch): TLE epoch
+///     step_size (float): Current step size in seconds
+///     norad_id (int): NORAD catalog ID
+///     satellite_name (str or None): Satellite name if available
+///     trajectory (OrbitTrajectory): Accumulated trajectory states
 ///
 /// Example:
 ///     ```python
@@ -1021,12 +1032,25 @@ impl PySGPPropagator {
     }
 }
 
-/// Python wrapper for KeplerianPropagator (new architecture)
 /// Keplerian orbit propagator using two-body dynamics.
 ///
 /// The Keplerian propagator implements ideal two-body orbital mechanics without
 /// perturbations. It's fast and accurate for short time spans but doesn't account
 /// for real-world effects like drag, J2, solar radiation pressure, etc.
+///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): 6-element state vector.
+///     frame (OrbitFrame): Reference frame (ECI or ECEF).
+///     representation (OrbitRepresentation): State representation (Cartesian or Keplerian).
+///     angle_format (AngleFormat): Angle format for Keplerian elements.
+///     step_size (float): Step size in seconds for propagation.
+///
+/// Attributes:
+///     current_epoch (Epoch): Current propagation time
+///     initial_epoch (Epoch): Initial epoch from propagator creation
+///     step_size (float): Current step size in seconds
+///     trajectory (OrbitTrajectory): Accumulated trajectory states
 ///
 /// Example:
 ///     ```python
@@ -2140,13 +2164,23 @@ impl PyIntegrationMethod {
 /// Controls whether the propagator computes and stores variational matrices
 /// (State Transition Matrix and Sensitivity Matrix) during propagation.
 ///
+/// Args:
+///     enable_stm (bool): Enable State Transition Matrix propagation. Defaults to False.
+///     enable_sensitivity (bool): Enable sensitivity matrix propagation. Defaults to False.
+///     store_stm_history (bool): Store STM at output times. Defaults to False.
+///     store_sensitivity_history (bool): Store sensitivity at output times. Defaults to False.
+///
+/// Attributes:
+///     enable_stm (bool): Enable State Transition Matrix propagation
+///     enable_sensitivity (bool): Enable sensitivity matrix propagation
+///     store_stm_history (bool): Store STM at output times
+///     store_sensitivity_history (bool): Store sensitivity at output times
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     config = bh.NumericalPropagationConfig.default()
-///     config.variational.enable_stm = True
-///     config.variational.store_stm_history = True
+///     config = bh.VariationalConfig(enable_stm=True, store_stm_history=True)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "VariationalConfig")]
@@ -2442,14 +2476,26 @@ impl PyParameterSource {
 ///
 /// Specifies the gravity model: point mass or spherical harmonic expansion.
 ///
+/// Args:
+///     degree (int, optional): Maximum degree of spherical harmonic expansion.
+///         If None, uses point mass gravity.
+///     order (int, optional): Maximum order of spherical harmonic expansion.
+///         If None, uses point mass gravity.
+///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
+///         Default is False.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Simple two-body point mass gravity
-///     gravity = bh.GravityConfiguration.point_mass()
+///     # Simple two-body point mass gravity (default)
+///     gravity = bh.GravityConfiguration()
 ///
 ///     # Spherical harmonic with 20x20 degree/order
+///     gravity = bh.GravityConfiguration(degree=20, order=20)
+///
+///     # Alternative: use class methods
+///     gravity = bh.GravityConfiguration.point_mass()
 ///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2461,6 +2507,48 @@ pub struct PyGravityConfiguration {
 
 #[pymethods]
 impl PyGravityConfiguration {
+    /// Create a gravity configuration.
+    ///
+    /// Args:
+    ///     degree (int, optional): Maximum degree of spherical harmonic expansion.
+    ///         If None, uses point mass gravity.
+    ///     order (int, optional): Maximum order of spherical harmonic expansion.
+    ///         If None, uses point mass gravity.
+    ///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
+    ///
+    /// Returns:
+    ///     GravityConfiguration: Gravity configuration (point mass or spherical harmonic).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Point mass (default)
+    ///     gravity = bh.GravityConfiguration()
+    ///
+    ///     # Spherical harmonic
+    ///     gravity = bh.GravityConfiguration(degree=20, order=20)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (degree=None, order=None, use_global=false))]
+    fn new(degree: Option<usize>, order: Option<usize>, use_global: bool) -> Self {
+        match (degree, order) {
+            (Some(d), Some(o)) => {
+                let source = if use_global {
+                    propagators::GravityModelSource::Global
+                } else {
+                    propagators::GravityModelSource::ModelType(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360)
+                };
+                PyGravityConfiguration {
+                    config: propagators::GravityConfiguration::SphericalHarmonic { source, degree: d, order: o },
+                }
+            }
+            _ => PyGravityConfiguration {
+                config: propagators::GravityConfiguration::PointMass,
+            },
+        }
+    }
+
     /// Create a point mass gravity configuration.
     ///
     /// Returns:
@@ -2544,15 +2632,24 @@ impl PyGravityConfiguration {
 ///
 /// Defines the atmospheric model and drag parameters.
 ///
+/// Args:
+///     model (AtmosphericModel): Atmospheric density model.
+///     area (ParameterSource): Drag cross-sectional area source [m²].
+///     cd (ParameterSource): Drag coefficient source (dimensionless).
+///
+/// Attributes:
+///     model (AtmosphericModel): Atmospheric density model
+///     area (ParameterSource): Drag area source
+///     cd (ParameterSource): Drag coefficient source
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Create drag config with Harris-Priester model
 ///     drag = bh.DragConfiguration(
 ///         model=bh.AtmosphericModel.HARRIS_PRIESTER,
-///         area=bh.ParameterSource.parameter_index(1),  # drag area from params[1]
-///         cd=bh.ParameterSource.value(2.2)              # fixed Cd
+///         area=bh.ParameterSource.parameter_index(1),
+///         cd=bh.ParameterSource.value(2.2)
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2571,6 +2668,7 @@ impl PyDragConfiguration {
     ///     area (ParameterSource): Drag cross-sectional area source [m²].
     ///     cd (ParameterSource): Drag coefficient source (dimensionless).
     #[new]
+    #[pyo3(signature = (model, area, cd))]
     fn new(model: &PyAtmosphericModel, area: &PyParameterSource, cd: &PyParameterSource) -> Self {
         PyDragConfiguration {
             config: propagators::DragConfiguration {
@@ -2631,14 +2729,23 @@ impl PyDragConfiguration {
 ///
 /// Defines the SRP parameters and eclipse model.
 ///
+/// Args:
+///     area (ParameterSource): SRP cross-sectional area source [m²].
+///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
+///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
+///
+/// Attributes:
+///     area (ParameterSource): SRP area source
+///     cr (ParameterSource): Reflectivity coefficient source
+///     eclipse_model (EclipseModel): Eclipse model
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Create SRP config
 ///     srp = bh.SolarRadiationPressureConfiguration(
-///         area=bh.ParameterSource.parameter_index(3),   # SRP area from params[3]
-///         cr=bh.ParameterSource.parameter_index(4),     # Cr from params[4]
+///         area=bh.ParameterSource.parameter_index(3),
+///         cr=bh.ParameterSource.parameter_index(4),
 ///         eclipse_model=bh.EclipseModel.CONICAL
 ///     )
 ///     ```
@@ -2658,6 +2765,7 @@ impl PySolarRadiationPressureConfiguration {
     ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
     ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
     #[new]
+    #[pyo3(signature = (area, cr, eclipse_model))]
     fn new(area: &PyParameterSource, cr: &PyParameterSource, eclipse_model: &PyEclipseModel) -> Self {
         PySolarRadiationPressureConfiguration {
             config: propagators::SolarRadiationPressureConfiguration {
@@ -2777,11 +2885,18 @@ impl From<propagators::ThirdBody> for PyThirdBody {
 ///
 /// Defines which celestial bodies to include and ephemeris source.
 ///
+/// Args:
+///     ephemeris_source (EphemerisSource): Source for celestial body ephemerides.
+///     bodies (list[ThirdBody]): List of bodies to include as perturbers.
+///
+/// Attributes:
+///     ephemeris_source (EphemerisSource): Ephemeris source
+///     bodies (list[ThirdBody]): List of perturbing bodies
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Create third-body config with Sun and Moon
 ///     third_body = bh.ThirdBodyConfiguration(
 ///         ephemeris_source=bh.EphemerisSource.DE440s,
 ///         bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON]
@@ -2802,6 +2917,7 @@ impl PyThirdBodyConfiguration {
     ///     ephemeris_source (EphemerisSource): Source for celestial body ephemerides.
     ///     bodies (list[ThirdBody]): List of bodies to include as perturbers.
     #[new]
+    #[pyo3(signature = (ephemeris_source, bodies))]
     fn new(ephemeris_source: PyEphemerisSource, bodies: Vec<PyThirdBody>) -> Self {
         PyThirdBodyConfiguration {
             config: propagators::ThirdBodyConfiguration {
@@ -2849,6 +2965,20 @@ impl PyThirdBodyConfiguration {
 ///
 /// Controls the integrator settings, tolerances, and variational equation options.
 ///
+/// Note:
+///     This class is created via class methods or static methods:
+///     - `NumericalPropagationConfig.default()` - DP54 with standard tolerances
+///     - `NumericalPropagationConfig.high_precision()` - RKN1210 with tight tolerances
+///     - `NumericalPropagationConfig.with_method(method)` - Custom method with default settings
+///     - `NumericalPropagationConfig.new(method, integrator, variational)` - Full customization
+///
+/// Attributes:
+///     method (IntegrationMethod): Integration method
+///     integrator (IntegratorConfig): Integrator configuration (tolerances, step sizes)
+///     variational (VariationalConfig): Variational configuration (STM/sensitivity settings)
+///     trajectory_mode (TrajectoryMode): Trajectory storage mode
+///     sampling (SamplingConfig): Output sampling configuration
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2858,9 +2988,6 @@ impl PyThirdBodyConfiguration {
 ///
 ///     # High precision configuration
 ///     config = bh.NumericalPropagationConfig.high_precision()
-///
-///     # Custom method
-///     config = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "NumericalPropagationConfig")]
@@ -2912,15 +3039,15 @@ impl PyNumericalPropagationConfig {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     config = bh.NumericalPropagationConfig.new(
+    ///     config = bh.NumericalPropagationConfig(
     ///         bh.IntegrationMethod.DP54,
     ///         bh.IntegratorConfig.adaptive(1e-10, 1e-8),
     ///         bh.VariationalConfig(),
     ///     )
     ///     ```
-    #[staticmethod]
-    #[pyo3(name = "new")]
-    fn py_new(
+    #[new]
+    #[pyo3(signature = (method, integrator, variational))]
+    fn new(
         method: &PyIntegrationMethod,
         integrator: &PyIntegratorConfig,
         variational: &PyVariationalConfig,
@@ -3058,20 +3185,38 @@ impl PyNumericalPropagationConfig {
 ///
 /// Defines all perturbation forces to be included: gravity, drag, SRP, third-body, relativity.
 ///
+/// Args:
+///     gravity (GravityConfiguration, optional): Gravity model configuration.
+///         Default is point mass gravity.
+///     drag (DragConfiguration, optional): Atmospheric drag configuration.
+///         Default is None (disabled).
+///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
+///         Default is None (disabled).
+///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
+///         Default is None (disabled).
+///     relativity (bool): Enable relativistic corrections. Default is False.
+///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
+///
+/// Attributes:
+///     gravity (GravityConfiguration): Gravity model configuration
+///     drag (DragConfiguration or None): Atmospheric drag configuration
+///     srp (SolarRadiationPressureConfiguration or None): Solar radiation pressure configuration
+///     third_body (ThirdBodyConfiguration or None): Third-body perturbations configuration
+///     relativity (bool): Enable relativistic corrections
+///     mass (ParameterSource or None): Spacecraft mass source
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Default configuration (20x20 gravity, drag, SRP, Sun/Moon)
+///     # Create with explicit parameters
+///     config = bh.ForceModelConfig(
+///         gravity=bh.GravityConfiguration(degree=20, order=20),
+///         relativity=True,
+///     )
+///
+///     # Or use convenience class methods
 ///     config = bh.ForceModelConfig.default()
-///
-///     # Earth gravity only (no perturbations)
-///     config = bh.ForceModelConfig.earth_gravity()
-///
-///     # LEO-optimized configuration
-///     config = bh.ForceModelConfig.leo_default()
-///
-///     # Two-body only (point mass)
 ///     config = bh.ForceModelConfig.two_body()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -3083,6 +3228,51 @@ pub struct PyForceModelConfig {
 
 #[pymethods]
 impl PyForceModelConfig {
+    /// Create a force model configuration.
+    ///
+    /// Args:
+    ///     gravity (GravityConfiguration, optional): Gravity model configuration.
+    ///         Default is point mass gravity.
+    ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
+    ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
+    ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
+    ///     relativity (bool): Enable relativistic corrections. Default is False.
+    ///     mass (ParameterSource, optional): Spacecraft mass source.
+    ///
+    /// Returns:
+    ///     ForceModelConfig: A force model configuration.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.ForceModelConfig(
+    ///         gravity=bh.GravityConfiguration(degree=20, order=20),
+    ///         relativity=True,
+    ///     )
+    ///     ```
+    #[new]
+    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None))]
+    fn new(
+        gravity: Option<&PyGravityConfiguration>,
+        drag: Option<&PyDragConfiguration>,
+        srp: Option<&PySolarRadiationPressureConfiguration>,
+        third_body: Option<&PyThirdBodyConfiguration>,
+        relativity: bool,
+        mass: Option<&PyParameterSource>,
+    ) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfiguration {
+                gravity: gravity.map(|g| g.config.clone()).unwrap_or(propagators::GravityConfiguration::PointMass),
+                drag: drag.map(|d| d.config.clone()),
+                srp: srp.map(|s| s.config.clone()),
+                third_body: third_body.map(|t| t.config.clone()),
+                relativity,
+                mass: mass.map(|m| m.source.clone()),
+            },
+        }
+    }
+
     /// Create a default force model configuration.
     ///
     /// Includes:
@@ -3266,6 +3456,27 @@ impl PyForceModelConfig {
 /// - Solar radiation pressure with eclipse modeling
 /// - Third-body perturbations (Sun, Moon, planets)
 /// - Relativistic corrections
+///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s).
+///         Can be 6D or 6+N dimensional for extended state.
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
+///         Required if force_config references parameter indices.
+///     initial_covariance (numpy.ndarray or None): Optional 6x6 initial covariance matrix (enables STM).
+///     additional_dynamics (callable or None): Optional function for extended state dynamics.
+///         Signature: f(t, state, params) -> derivative.
+///     control_input (callable or None): Optional control input function for thrust accelerations.
+///         Signature: f(t, state, params) -> 3D acceleration vector.
+///
+/// Attributes:
+///     current_epoch (Epoch): Current propagation time
+///     initial_epoch (Epoch): Initial epoch from propagator creation
+///     state_dim (int): Dimension of state vector (6 for basic, 6+N for extended)
+///     step_size (float): Current integration step size in seconds
+///     trajectory (OrbitTrajectory): Accumulated trajectory states
 ///
 /// Example:
 ///     ```python
@@ -3840,7 +4051,7 @@ impl PyNumericalOrbitPropagator {
     /// Add an event detector to this propagator.
     ///
     /// Args:
-    ///     event: Event detector (TimeEvent, ValueEvent, BinaryEvent, or AltitudeEvent)
+    ///     event (TimeEvent or ValueEvent or BinaryEvent or AltitudeEvent): Event detector
     ///
     /// Example:
     ///     ```python
@@ -4442,6 +4653,21 @@ impl PyTrajectoryMode {
 /// applied to any system of ODEs: attitude dynamics, chemical kinetics, population
 /// models, control systems, etc.
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector (N-dimensional).
+///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
+///         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
+///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+///
+/// Attributes:
+///     current_epoch (Epoch): Current propagation time
+///     initial_epoch (Epoch): Initial epoch from propagator creation
+///     state_dim (int): Dimension of state vector
+///     step_size (float): Current integration step size in seconds
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -4821,7 +5047,7 @@ impl PyNumericalPropagator {
     /// Add an event detector to this propagator.
     ///
     /// Args:
-    ///     event: Event detector (TimeEvent, ValueEvent, or BinaryEvent)
+    ///     event (TimeEvent or ValueEvent or BinaryEvent): Event detector
     ///
     /// Example:
     ///     ```python

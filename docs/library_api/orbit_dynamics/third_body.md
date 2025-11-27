@@ -5,7 +5,7 @@ Third-body gravitational perturbation accelerations from the Sun, Moon, and plan
 !!! note
     For conceptual explanations and examples, see [Third-Body Perturbations](../../learn/orbital_dynamics/third_body.md) in the Learn section.
 
-## Sun Perturbations
+## Analytical Models
 
 ::: brahe.accel_third_body_sun
 
@@ -17,7 +17,7 @@ Third-body gravitational perturbation accelerations from the Sun, Moon, and plan
 
 ::: brahe.accel_third_body_moon_de
 
-## Planetary Perturbations (DE440s)
+::: brahe.accel_third_body_sun_de
 
 ::: brahe.accel_third_body_mercury_de
 
